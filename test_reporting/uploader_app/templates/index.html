@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SONiC Test Report Uploader</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .container-wrapper {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 2rem 0;
+        }
+        .upload-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
+            overflow: hidden;
+            max-width: 800px;
+            width: 100%;
+        }
+        .upload-header {
+            background: linear-gradient(135deg, #0d6efd 0%, #0056b3 100%);
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .upload-body {
+            padding: 2rem;
+        }
+        .upload-area {
+            border: 2px dashed #dee2e6;
+            border-radius: 15px;
+            padding: 3rem 2rem;
+            text-align: center;
+            transition: all 0.3s ease;
+            background: #fdfdfd;
+            cursor: pointer;
+        }
+        .upload-area:hover, .upload-area.dragover {
+            border-color: #0d6efd;
+            background-color: #f0f7ff;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(13, 110, 253, 0.1);
+        }
+        .upload-area.dragover {
+            border-style: solid;
+        }
+        .file-input {
+            display: none;
+        }
+        .upload-icon {
+            font-size: 3rem;
+            color: #495057;
+            margin-bottom: 1rem;
+        }
+        .file-info {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+        }
+        .file-types {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 10px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+        .file-type-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 0.5rem;
+        }
+        .file-type-icon {
+            width: 30px;
+            text-align: center;
+            margin-right: 10px;
+        }
+        .selected-files {
+            margin-top: 1.5rem;
+        }
+        .database-selection {
+            padding: 1.5rem;
+            background: linear-gradient(135deg, rgba(13, 110, 253, 0.05), rgba(13, 202, 240, 0.05));
+            border: 1px solid rgba(13, 110, 253, 0.15);
+            border-radius: 12px;
+        }
+        .database-selection h6 {
+            color: #0d6efd;
+            font-weight: 600;
+            margin-bottom: 1rem;
+        }
+        .database-selection .form-select {
+            border: 2px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+        }
+        .database-selection .form-select:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+        .file-item {
+            background: #f8f9fa;
+            border: 1px solid #e9ecef;
+            border-radius: 8px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 0.5rem;
+            display: flex;
+            justify-content: between;
+            align-items: center;
+            transition: all 0.2s ease;
+        }
+        .file-item:hover {
+            background: #e9ecef;
+            border-color: #dee2e6;
+        }
+        .file-item .file-name {
+            flex-grow: 1;
+        }
+        .file-size {
+            color: #6c757d;
+            font-size: 0.9rem;
+            margin-left: 1rem;
+        }
+        .remove-file {
+            background: none;
+            border: none;
+            color: #dc3545;
+            cursor: pointer;
+            padding: 0.25rem;
+            margin-left: 0.5rem;
+        }
+        .remove-file:hover {
+            color: #c82333;
+        }
+        .upload-button {
+            background: linear-gradient(135deg, #28a745 0%, #20c997 100%);
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 2rem;
+            font-weight: 600;
+            color: white;
+            margin-top: 1rem;
+            box-shadow: 0 3px 10px rgba(40, 167, 69, 0.2);
+            transition: all 0.3s ease;
+        }
+        .upload-button:hover:not(:disabled) {
+            background: linear-gradient(135deg, #218838 0%, #1e7e34 100%);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(40, 167, 69, 0.3);
+        }
+        .upload-button:disabled {
+            background: #6c757d;
+            cursor: not-allowed;
+        }
+        .clear-button {
+            background: #6c757d;
+            border: none;
+            border-radius: 10px;
+            padding: 0.75rem 1.5rem;
+            color: white;
+            margin-top: 1rem;
+            margin-left: 0.5rem;
+            transition: all 0.3s ease;
+        }
+        .clear-button:hover {
+            background: #5a6268;
+            transform: translateY(-1px);
+        }
+        .upload-results {
+            text-align: left;
+        }
+        .upload-results h6 {
+            border-bottom: 1px solid rgba(0,0,0,0.1);
+            padding-bottom: 0.5rem;
+        }
+        .upload-results ul {
+            max-height: 200px;
+            overflow-y: auto;
+        }
+        .upload-results .bg-light {
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        .upload-results .bg-dark {
+            border-radius: 5px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+        .upload-results pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            margin: 0;
+        }
+        .command-output {
+            background-color: #f8f9fa;
+            border: 1px solid #dee2e6;
+            border-radius: 0.375rem;
+            font-family: 'Courier New', monospace;
+            font-size: 0.875rem;
+            line-height: 1.4;
+        }
+        .command-error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .clear-results-btn {
+            font-size: 0.875rem;
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+        }
+        .clear-results-btn:hover {
+            background-color: #6c757d;
+            border-color: #6c757d;
+            color: white;
+        }
+    </style>
+</head>
+<body>
+    <div class="container-wrapper">
+        <div class="upload-card">
+            <!-- Header -->
+            <div class="upload-header">
+                <div class="d-flex justify-content-between align-items-start mb-3">
+                    <div>
+                        <h1 class="h3 mb-2">
+                            <i class="fas fa-upload me-2"></i>
+                            SONiC Test Report Uploader
+                        </h1>
+                        <p class="mb-0">Upload JUnit XML test results for analysis</p>
+                    </div>
+                    <div class="text-end">
+                        <div class="text-white-50 small mb-1">
+                            <i class="fas fa-user me-1"></i>
+                            {{ username }}
+                        </div>
+                        <div class="d-flex gap-2">
+                            {% if is_admin %}
+                            <a href="/admin" class="btn btn-outline-info btn-sm">
+                                <i class="fas fa-users-cog me-1"></i>
+                                Admin Panel
+                            </a>
+                            {% endif %}
+                            <a href="/logout" class="btn btn-outline-light btn-sm">
+                                <i class="fas fa-sign-out-alt me-1"></i>
+                                Logout
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Upload Body -->
+            <div class="upload-body">
+                <!-- File Upload Area -->
+                <div class="upload-area" id="uploadArea" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">
+                        <i class="fas fa-cloud-upload-alt"></i>
+                    </div>
+                    <h5 class="mb-3">Drop files here or click to browse</h5>
+                    <p class="text-muted mb-0">
+                        Select your test result files to upload
+                    </p>
+                    <input type="file"
+                           id="fileInput"
+                           class="file-input"
+                           multiple
+                           accept=".xml,.zip">
+                </div>
+
+                <!-- File Type Information -->
+                <div class="file-types">
+                    <h6 class="mb-3">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Supported File Types
+                    </h6>
+                    <div class="file-type-item">
+                        <span class="file-type-icon">
+                            <i class="fas fa-file-code text-success"></i>
+                        </span>
+                        <div>
+                            <strong>.xml files</strong> - Individual JUnit XML test result files
+                        </div>
+                    </div>
+                    <div class="file-type-item">
+                        <span class="file-type-icon">
+                            <i class="fas fa-file-archive text-warning"></i>
+                        </span>
+                        <div>
+                            <strong>.zip files</strong> - Compressed archives containing multiple XML files
+                        </div>
+                    </div>
+                    <div class="mt-2">
+                        <small class="text-muted">
+                            <i class="fas fa-weight-hanging me-1"></i>
+                            Maximum file size: 200MB per file
+                        </small>
+                    </div>
+                </div>
+
+                <!-- Selected Files Display -->
+                <div id="selectedFiles" class="selected-files" style="display: none;">
+                    <h6 class="mb-3">
+                        <i class="fas fa-list me-2"></i>
+                        Selected Files
+                    </h6>
+                    <div id="filesList"></div>
+                </div>
+
+                <!-- Admin Database Selection -->
+                {% if is_admin %}
+                <div class="database-selection mt-4 mb-4">
+                    <h6 class="mb-3">
+                        <i class="fas fa-database me-2"></i>
+                        Target Database Selection
+                    </h6>
+                    <div class="row justify-content-center">
+                        <div class="col-md-8">
+                            <select id="databaseSelect" class="form-select" name="database_selection">
+                                <option value="">-- Use default mapping --</option>
+                                {% for database in database_options %}
+                                <option value="{{ database }}">{{ database }}</option>
+                                {% endfor %}
+                            </select>
+                            <div class="form-text text-muted mt-2">
+                                <i class="fas fa-info-circle me-1"></i>
+                                Select a specific database or leave empty to use domain-based mapping
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- Upload Buttons -->
+                <div class="text-center">
+                    <button id="uploadButton" class="upload-button" disabled>
+                        <i class="fas fa-upload me-2"></i>
+                        Upload Files
+                    </button>
+                    <button id="clearButton" class="clear-button" onclick="clearFiles()" style="display: none;">
+                        <i class="fas fa-times me-2"></i>
+                        Clear All
+                    </button>
+                </div>
+
+                <!-- Upload Status -->
+                <div id="uploadStatus" class="mt-3" style="display: none;"></div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const MAX_FILE_SIZE = 200 * 1024 * 1024; // 200MB
+        let selectedFiles = [];
+
+        // DOM elements
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const selectedFilesDiv = document.getElementById('selectedFiles');
+        const filesList = document.getElementById('filesList');
+        const uploadButton = document.getElementById('uploadButton');
+        const clearButton = document.getElementById('clearButton');
+        const databaseSelect = document.getElementById('databaseSelect');
+
+        // File input change handler
+        fileInput.addEventListener('change', handleFileSelect);
+
+        // Drag and drop handlers
+        uploadArea.addEventListener('dragover', handleDragOver);
+        uploadArea.addEventListener('drop', handleDrop);
+        uploadArea.addEventListener('dragleave', handleDragLeave);
+
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            addFiles(files);
+        }
+
+        function handleDragOver(event) {
+            event.preventDefault();
+            uploadArea.classList.add('dragover');
+        }
+
+        function handleDragLeave(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+        }
+
+        function handleDrop(event) {
+            event.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const files = Array.from(event.dataTransfer.files);
+            addFiles(files);
+        }
+
+        function addFiles(files) {
+            const validFiles = files.filter(file => {
+                const fileName = file.name.toLowerCase();
+
+                // Check file type
+                if (!fileName.endsWith('.xml') && !fileName.endsWith('.zip')) {
+                    showAlert(`File "${file.name}" is not supported. Only XML and ZIP files are allowed.`, 'warning');
+                    return false;
+                }
+
+                // Check file size
+                if (file.size > MAX_FILE_SIZE) {
+                    showAlert(`File "${file.name}" exceeds the 200MB size limit.`, 'warning');
+                    return false;
+                }
+
+                // Check for duplicates
+                if (selectedFiles.some(f => f.name === file.name && f.size === file.size)) {
+                    showAlert(`File "${file.name}" is already selected.`, 'info');
+                    return false;
+                }
+
+                return true;
+            });
+
+            selectedFiles = [...selectedFiles, ...validFiles];
+            updateFileDisplay();
+        }
+
+        function updateFileDisplay() {
+            if (selectedFiles.length === 0) {
+                selectedFilesDiv.style.display = 'none';
+                uploadButton.disabled = true;
+                clearButton.style.display = 'none';
+                fileInput.value = ''; // Clear input
+                return;
+            }
+
+            selectedFilesDiv.style.display = 'block';
+            uploadButton.disabled = false;
+            clearButton.style.display = 'inline-block';
+
+            const fileListHTML = selectedFiles.map((file, index) => {
+                const fileName = file.name.toLowerCase();
+                const isZip = fileName.endsWith('.zip');
+                const icon = isZip ? 'fas fa-file-archive text-warning' : 'fas fa-file-code text-success';
+                const fileType = isZip ? 'ZIP' : 'XML';
+
+                return `
+                    <div class="file-item">
+                        <div class="file-name">
+                            <i class="${icon} me-2"></i>
+                            <strong>${file.name}</strong>
+                            <span class="badge bg-secondary ms-2">${fileType}</span>
+                        </div>
+                        <div class="file-size">${formatFileSize(file.size)}</div>
+                        <button class="remove-file" onclick="removeFile(${index})" title="Remove file">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    </div>
+                `;
+            }).join('');
+
+            filesList.innerHTML = fileListHTML;
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updateFileDisplay();
+        }
+
+        function clearFiles() {
+            selectedFiles = [];
+            updateFileDisplay();
+            // Don't clear upload results when clearing files - let user see the results
+        }
+
+        function formatFileSize(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function showProgressAlert(message, type = 'info') {
+            const alertTypes = {
+                'success': 'alert-success',
+                'warning': 'alert-warning',
+                'danger': 'alert-danger',
+                'info': 'alert-info'
+            };
+
+            const icons = {
+                'success': 'fas fa-check-circle',
+                'warning': 'fas fa-exclamation-triangle',
+                'danger': 'fas fa-times-circle',
+                'info': 'fas fa-spinner fa-spin'
+            };
+
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.innerHTML = `
+                <div class="alert ${alertTypes[type]} fade show" role="alert">
+                    <i class="${icons[type]} me-2"></i>
+                    <div>${message}</div>
+                </div>
+            `;
+            uploadStatus.style.display = 'block';
+
+            // Scroll to the status area
+            uploadStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showAlert(message, type = 'info') {
+            const alertTypes = {
+                'success': 'alert-success',
+                'warning': 'alert-warning',
+                'danger': 'alert-danger',
+                'info': 'alert-info'
+            };
+
+            const icons = {
+                'success': 'fas fa-check-circle',
+                'warning': 'fas fa-exclamation-triangle',
+                'danger': 'fas fa-times-circle',
+                'info': 'fas fa-info-circle'
+            };
+
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.innerHTML = `
+                <div class="alert ${alertTypes[type]} alert-dismissible fade show" role="alert">
+                    <i class="${icons[type]} me-2"></i>
+                    <div>${message}</div>
+                    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+                </div>
+            `;
+            uploadStatus.style.display = 'block';
+
+            // Scroll to the status area
+            uploadStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function showUploadResults(result, type) {
+            console.log('showUploadResults called with:', result, type);
+
+            // Handle different response formats
+            if (result.error) {
+                // This is an error response
+                const uploadStatus = document.getElementById('uploadStatus');
+                uploadStatus.innerHTML = `
+                    <div class="alert alert-danger fade show" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Upload Error:</strong> ${result.error}
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm clear-results-btn" onclick="clearUploadResults()">
+                                <i class="fas fa-times me-1"></i>Clear Results
+                            </button>
+                        </div>
+                    </div>
+                `;
+                uploadStatus.style.display = 'block';
+                uploadStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                return;
+            }
+
+            // Ensure result object has the expected properties
+            const totalFiles = result.total_files || 0;
+            const successfulCount = result.successful_count || 0;
+            const uploadedFiles = result.uploaded_files || [];
+            const failedFiles = result.failed_files || [];
+
+            let resultHtml = '<div class="upload-results">';
+
+            // Summary
+            if (successfulCount === totalFiles && totalFiles > 0) {
+                resultHtml += `<h6 class="mb-3"><i class="fas fa-check-circle text-success me-2"></i>All ${successfulCount} file(s) uploaded successfully!</h6>`;
+            } else if (successfulCount > 0) {
+                resultHtml += `<h6 class="mb-3"><i class="fas fa-exclamation-triangle text-warning me-2"></i>Partial Success: ${successfulCount} of ${totalFiles} files uploaded</h6>`;
+            } else {
+                resultHtml += `<h6 class="mb-3"><i class="fas fa-times-circle text-danger me-2"></i>Upload failed${totalFiles > 0 ? ` for all ${totalFiles} files` : ''}</h6>`;
+            }
+
+            // Successful files
+            if (uploadedFiles.length > 0) {
+                resultHtml += '<div class="mb-3">';
+                resultHtml += '<strong class="text-success"><i class="fas fa-check me-1"></i>Successfully Uploaded:</strong>';
+                resultHtml += '<ul class="list-unstyled ms-3 mt-2">';
+                uploadedFiles.forEach(file => {
+                    const fileName = file.original_filename || file.filename || 'Unknown file';
+                    const fileSize = file.file_size || file.size || 0;
+                    resultHtml += `<li><i class="fas fa-file text-success me-2"></i>${fileName} (${formatFileSize(fileSize)})</li>`;
+                });
+                resultHtml += '</ul></div>';
+            }
+
+            // Failed files
+            if (failedFiles.length > 0) {
+                resultHtml += '<div class="mb-3">';
+                resultHtml += '<strong class="text-danger"><i class="fas fa-times me-1"></i>Failed Uploads:</strong>';
+                resultHtml += '<ul class="list-unstyled ms-3 mt-2">';
+                failedFiles.forEach(file => {
+                    const fileName = file.original_filename || file.filename || 'Unknown file';
+                    const errorMsg = file.error || 'Unknown error';
+                    resultHtml += `<li class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>${fileName}: ${errorMsg}</li>`;
+                });
+                resultHtml += '</ul></div>';
+            }
+
+            // Processing details
+            const processingDetails = generateProcessingDetails(result);
+            if (processingDetails) {
+                resultHtml += processingDetails;
+            }
+
+            resultHtml += '</div>';
+
+            const uploadStatus = document.getElementById('uploadStatus');
+            if (!uploadStatus) {
+                console.error('uploadStatus element not found');
+                return;
+            }
+
+            const alertClass = type === 'success' ? 'alert-success' : (type === 'warning' ? 'alert-warning' : 'alert-danger');
+
+            uploadStatus.innerHTML = `
+                <div class="alert ${alertClass} fade show" role="alert">
+                    ${resultHtml}
+                    <div class="text-center mt-3">
+                        <button type="button" class="btn btn-outline-secondary btn-sm clear-results-btn" onclick="clearUploadResults()">
+                            <i class="fas fa-times me-1"></i>Clear Results
+                        </button>
+                    </div>
+                </div>
+            `;
+            uploadStatus.style.display = 'block';
+
+            // Scroll to the status area
+            uploadStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        }
+
+        function clearUploadResults() {
+            const uploadStatus = document.getElementById('uploadStatus');
+            uploadStatus.style.display = 'none';
+            uploadStatus.innerHTML = '';
+        }
+
+        // Upload button click handler
+        uploadButton.addEventListener('click', function() {
+            if (selectedFiles.length === 0) {
+                showAlert('Please select files to upload.', 'warning');
+                return;
+            }
+
+            uploadFiles();
+        });
+
+        async function uploadFiles() {
+            const totalFiles = selectedFiles.length;
+
+            // Disable upload button and show progress
+            uploadButton.disabled = true;
+            uploadButton.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading...';
+
+            showProgressAlert(`Starting upload of ${totalFiles} file(s)...`, 'info');
+
+            try {
+                const result = await uploadMultipleFiles(selectedFiles);
+
+                // Debug: Log the result to console
+                console.log('Upload result:', result);
+
+                // Reset upload button
+                uploadButton.disabled = false;
+                uploadButton.innerHTML = '<i class="fas fa-upload me-2"></i>Upload Files';
+
+                // Show results based on response
+                if (result.successful_count === totalFiles) {
+                    // All files uploaded successfully
+                    showUploadResults(result, 'success');
+                    // Clear files after successful upload
+                    clearFiles();
+                } else if (result.successful_count > 0) {
+                    // Some files uploaded successfully, some failed
+                    showUploadResults(result, 'warning');
+                    // Clear files after partial upload (both successful and failed files processed)
+                    clearFiles();
+                } else {
+                    // All files failed
+                    showUploadResults(result, 'danger');
+                    // Don't clear files on complete failure - user might want to retry
+                }
+
+            } catch (error) {
+                console.error('Upload error:', error);
+
+                // Reset upload button
+                uploadButton.disabled = false;
+                uploadButton.innerHTML = '<i class="fas fa-upload me-2"></i>Upload Files';
+
+                // Show error message
+                const uploadStatus = document.getElementById('uploadStatus');
+                uploadStatus.innerHTML = `
+                    <div class="alert alert-danger fade show" role="alert">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Upload Error:</strong> ${error.message || 'An unexpected error occurred during upload.'}
+                        <div class="text-center mt-3">
+                            <button type="button" class="btn btn-outline-secondary btn-sm clear-results-btn" onclick="clearUploadResults()">
+                                <i class="fas fa-times me-1"></i>Clear Results
+                            </button>
+                        </div>
+                    </div>
+                `;
+                uploadStatus.style.display = 'block';
+                uploadStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+        }
+
+        function uploadMultipleFiles(files) {
+            return new Promise((resolve, reject) => {
+                const formData = new FormData();
+
+                // Append all files to the same form data
+                files.forEach(file => {
+                    formData.append('file', file);
+                });
+
+                // Add database selection for admin users (if dropdown exists)
+                if (databaseSelect && databaseSelect.value) {
+                    formData.append('database_selection', databaseSelect.value);
+                    console.log('Database selection:', databaseSelect.value);
+                } else if (databaseSelect) {
+                    console.log('Using default database mapping');
+                }
+
+                // Show upload progress
+                const uploadStatus = document.getElementById('uploadStatus');
+                uploadStatus.innerHTML = `
+                    <div class="alert alert-info fade show" role="alert">
+                        <i class="fas fa-upload fa-spin me-2"></i>
+                        <div>Ingesting ${files.length} to kusto...</div>
+                        <div class="progress mt-2" style="height: 6px;">
+                            <div class="progress-bar progress-bar-striped progress-bar-animated"
+                                 role="progressbar" style="width: 100%"></div>
+                        </div>
+                    </div>
+                `;
+
+                fetch('/upload', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    // Update progress indicator
+                    uploadStatus.innerHTML = `
+                        <div class="alert alert-warning fade show" role="alert">
+                            <i class="fas fa-cogs fa-spin me-2"></i>
+                            <div>Files uploaded successfully! Processing and ingesting to kusto...</div>
+                            <div class="progress mt-2" style="height: 6px;">
+                                <div class="progress-bar bg-warning progress-bar-striped progress-bar-animated"
+                                     role="progressbar" style="width: 100%"></div>
+                            </div>
+                        </div>
+                    `;
+
+                    console.log('Response status:', response.status);
+                    console.log('Response ok:', response.ok);
+
+                    if (!response.ok && response.status !== 207) { // 207 is Multi-Status for partial success
+                        return response.json().then(data => {
+                            console.log('Error response data:', data);
+                            throw new Error(data.error || `HTTP ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    console.log('Success response data:', data);
+                    resolve(data);
+                })
+                .catch(error => {
+                    reject(error);
+                });
+            });
+        }
+
+        function generateProcessingDetails(result) {
+            // Handle both single file result and multiple file result structures
+            let processingResults = null;
+            let clusterUrl = null;
+            let databaseName = null;
+
+            if (result.processing_results) {
+                // Multiple file upload structure
+                processingResults = result.processing_results;
+                clusterUrl = result.cluster_url;
+                databaseName = result.database_name;
+            } else if (result.successful_files && result.successful_files.length > 0) {
+                // Check if any successful file has processing results
+                const fileWithProcessing = result.successful_files.find(f => f.processing_results);
+                if (fileWithProcessing) {
+                    processingResults = fileWithProcessing.processing_results;
+                    clusterUrl = fileWithProcessing.cluster_url;
+                    databaseName = fileWithProcessing.database_name;
+                }
+            }
+
+            if (!processingResults) {
+                return '';
+            }
+
+            let details = '<div class="mt-4"><h6 class="text-primary"><i class="fas fa-cogs me-2"></i>Processing Details</h6>';
+
+            // Cluster and database info
+            if (clusterUrl && databaseName) {
+                details += `<div class="mb-3"><small class="text-muted"><i class="fas fa-database me-1"></i><strong>Target:</strong> ${databaseName} @ ${clusterUrl}</small></div>`;
+            }
+
+            // ZIP extraction results
+            if (processingResults.zip_extraction && processingResults.zip_extraction.length > 0) {
+                details += '<div class="mb-3"><strong class="text-info"><i class="fas fa-file-archive me-2"></i>ZIP Extraction Results:</strong>';
+                details += '<div class="ms-3 mt-2">';
+                processingResults.zip_extraction.forEach(extraction => {
+                    if (extraction.success) {
+                        details += `<div class="text-success mb-1"><i class="fas fa-check me-1"></i><strong>${extraction.zip_file}:</strong> extracted ${extraction.extracted_count} files</div>`;
+                        if (extraction.extracted_files && extraction.extracted_files.length > 0) {
+                            details += '<div class="ms-3 mb-2"><small class="text-muted">Extracted files: ' + extraction.extracted_files.slice(0, 5).join(', ');
+                            if (extraction.extracted_files.length > 5) {
+                                details += ` ... and ${extraction.extracted_files.length - 5} more`;
+                            }
+                            details += '</small></div>';
+                        }
+                    } else {
+                        details += `<div class="text-danger mb-1"><i class="fas fa-times me-1"></i><strong>${extraction.zip_file}:</strong> ${extraction.error}</div>`;
+                    }
+                });
+                details += '</div></div>';
+            }
+
+            // Report upload results
+            if (processingResults.report_upload) {
+                const upload = processingResults.report_upload;
+                details += '<div class="mb-3"><strong class="text-warning"><i class="fas fa-cloud-upload-alt me-2"></i>Database Upload Results:</strong>';
+                details += '<div class="ms-3 mt-2">';
+
+                // Show status first
+                if (upload.success) {
+                    details += `<div class="text-success mb-2"><i class="fas fa-check me-1"></i><strong>Status:</strong> Upload completed successfully (exit code: ${upload.return_code})</div>`;
+                } else {
+                    details += `<div class="text-danger mb-2"><i class="fas fa-times me-1"></i><strong>Status:</strong> Upload failed (exit code: ${upload.return_code})</div>`;
+                }
+
+                // Show environment and command
+                details += `<div class="mb-2"><strong><i class="fas fa-terminal me-1"></i>Command Executed:</strong></div>`;
+                details += '<div class="bg-dark text-white p-3 rounded mb-2" style="font-family: \'Courier New\', monospace; font-size: 0.85em;">';
+                if (upload.environment) {
+                    details += `<div class="text-info"># Environment:</div>`;
+                    details += `<div class="mb-1">${upload.environment}</div>`;
+                }
+                if (upload.command) {
+                    details += `<div class="text-info"># Command:</div>`;
+                    details += `<div>${upload.command}</div>`;
+                }
+                details += '</div>';
+
+                // Show stdout if available and not empty
+                if (upload.stdout && upload.stdout.trim()) {
+                    details += `<div class="mb-2"><strong><i class="fas fa-terminal me-1"></i>Command Output:</strong></div>`;
+                    details += `<div class="bg-light border p-3 rounded" style="max-height: 300px; overflow-y: auto;">`;
+                    details += `<pre style="font-size: 0.8em; margin: 0; white-space: pre-wrap; word-wrap: break-word;">${upload.stdout}</pre>`;
+                    details += `</div>`;
+                }
+
+                // Show stderr if available and not empty
+                if (upload.stderr && upload.stderr.trim()) {
+                    details += `<div class="mb-2"><strong><i class="fas fa-exclamation-triangle me-1"></i>Error Output:</strong></div>`;
+                    details += `<div class="bg-danger text-white p-3 rounded" style="max-height: 200px; overflow-y: auto;">`;
+                    details += `<pre style="font-size: 0.8em; margin: 0; white-space: pre-wrap; word-wrap: break-word;">${upload.stderr}</pre>`;
+                    details += `</div>`;
+                }
+
+                details += '</div></div>';
+            }
+
+            details += '</div>';
+            return details;
+        }
+    </script>
+</body>
+</html>

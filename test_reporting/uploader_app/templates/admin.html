@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Panel - SONiC Test Results Uploader</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f8f9fa;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .admin-header {
+            background: linear-gradient(135deg, #dc3545 0%, #6f42c1 100%);
+            color: white;
+            padding: 2rem 0;
+            margin-bottom: 2rem;
+        }
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.08);
+        }
+        .card-header {
+            background: #fff;
+            border-bottom: 2px solid #f8f9fa;
+            border-radius: 15px 15px 0 0 !important;
+            padding: 1.5rem;
+        }
+        .btn-admin {
+            border-radius: 8px;
+            font-weight: 600;
+            padding: 8px 16px;
+        }
+        .btn-danger {
+            background: #dc3545;
+            border: none;
+        }
+        .btn-success {
+            background: #28a745;
+            border: none;
+        }
+        .btn-warning {
+            background: #ffc107;
+            border: none;
+            color: #212529;
+        }
+        .admin-badge {
+            background: #ffc107;
+            color: #212529;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .totp-badge {
+            background: #28a745;
+            color: white;
+            padding: 0.25rem 0.75rem;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        .totp-badge.disabled {
+            background: #6c757d;
+        }
+        .table th {
+            border-top: none;
+            font-weight: 600;
+            color: #495057;
+        }
+        .password-modal .modal-content {
+            border-radius: 15px;
+        }
+        .password-display {
+            background: #f8f9fa;
+            border: 2px dashed #6c757d;
+            border-radius: 8px;
+            padding: 1rem;
+            font-family: 'Courier New', monospace;
+            font-size: 1.1rem;
+            text-align: center;
+            word-break: break-all;
+        }
+        .countdown {
+            font-weight: bold;
+            color: #dc3545;
+        }
+    </style>
+</head>
+<body>
+    <div class="admin-header">
+        <div class="container">
+            <div class="row align-items-center">
+                <div class="col">
+                    <h2 class="mb-0">
+                        <i class="fas fa-users-cog me-3"></i>
+                        Administrator Panel
+                    </h2>
+                    <p class="mb-0 mt-2 opacity-75">Manage users and system settings</p>
+                </div>
+                <div class="col-auto">
+                    <a href="/" class="btn btn-light">
+                        <i class="fas fa-home me-2"></i>Back to Home
+                    </a>
+                    <a href="/logout" class="btn btn-outline-light ms-2">
+                        <i class="fas fa-sign-out-alt me-2"></i>Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <!-- Create User Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-user-plus me-2"></i>
+                            Create New User
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-end">
+                            <div class="col-md-8">
+                                <label for="newUsername" class="form-label">Username</label>
+                                <input type="text" class="form-control" id="newUsername" placeholder="Enter username">
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-success btn-admin w-100" onclick="createUser()">
+                                    <i class="fas fa-plus me-2"></i>Create User
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- System Management Section -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-cogs me-2"></i>
+                            System Management
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="row align-items-center">
+                            <div class="col-md-8">
+                                <h6 class="mb-1">Reset Key Management</h6>
+                                <p class="text-muted mb-0">Generate a new reset key for secure system operations</p>
+                            </div>
+                            <div class="col-md-4">
+                                <button type="button" class="btn btn-warning btn-admin w-100" onclick="generateResetKey()">
+                                    <i class="fas fa-key me-2"></i>Reset RESET_KEY
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Users List -->
+        <div class="row">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">
+                            <i class="fas fa-users me-2"></i>
+                            Current Users ({{ users|length }})
+                        </h5>
+                    </div>
+                    <div class="card-body p-0">
+                        {% if users %}
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th>Username</th>
+                                        <th>Role</th>
+                                        <th>TOTP</th>
+                                        <th>Created</th>
+                                        <th>Last Login</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for user in users %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ user.username }}</strong>
+                                        </td>
+                                        <td>
+                                            {% if user.is_admin %}
+                                            <span class="admin-badge">
+                                                <i class="fas fa-shield-alt me-1"></i>
+                                                Administrator
+                                            </span>
+                                            {% else %}
+                                            <span class="badge bg-secondary">User</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.totp_enabled %}
+                                            <span class="totp-badge">
+                                                <i class="fas fa-check me-1"></i>
+                                                Enabled
+                                            </span>
+                                            {% else %}
+                                            <span class="totp-badge disabled">
+                                                <i class="fas fa-times me-1"></i>
+                                                Disabled
+                                            </span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.created_at %}
+                                            {{ user.created_at }}
+                                            {% else %}
+                                            -
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if user.last_login %}
+                                            {{ user.last_login }}
+                                            {% else %}
+                                            Never
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <div class="btn-group" role="group">
+                                                <button type="button" class="btn btn-warning btn-sm btn-admin"
+                                                        onclick="resetUser('{{ user.username }}')"
+                                                        title="Reset User">
+                                                    <i class="fas fa-redo"></i>
+                                                </button>
+                                                <button type="button" class="btn btn-danger btn-sm btn-admin"
+                                                        onclick="deleteUser('{{ user.username }}')"
+                                                        title="Delete User">
+                                                    <i class="fas fa-trash"></i>
+                                                </button>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                        {% else %}
+                        <div class="text-center py-5">
+                            <i class="fas fa-users fa-3x text-muted mb-3"></i>
+                            <h5 class="text-muted">No users found</h5>
+                            <p class="text-muted">Create the first user to get started.</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Password Display Modal -->
+    <div class="modal fade" id="passwordModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content password-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key me-2"></i>
+                        Generated Password
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> This password will only be shown once. Please copy it immediately.
+                        Auto-closing in <span class="countdown" id="countdown">300</span> seconds.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Username:</strong></label>
+                        <div id="passwordUsername" class="form-control"></div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Initial Password:</strong></label>
+                        <div id="passwordDisplay" class="password-display"></div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100" onclick="copyPassword()">
+                        <i class="fas fa-copy me-2"></i>Copy Password to Clipboard
+                    </button>
+
+                    <div id="copyStatus" class="mt-2 text-center" style="display: none;">
+                        <small class="text-success">
+                            <i class="fas fa-check me-1"></i>Password copied to clipboard!
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Reset Key Display Modal -->
+    <div class="modal fade" id="resetKeyModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content password-modal">
+                <div class="modal-header">
+                    <h5 class="modal-title">
+                        <i class="fas fa-key me-2"></i>
+                        Generated Reset Key
+                    </h5>
+                </div>
+                <div class="modal-body">
+                    <div class="alert alert-warning">
+                        <i class="fas fa-exclamation-triangle me-2"></i>
+                        <strong>Important:</strong> This reset key will only be shown once. Please copy it immediately.
+                        Auto-closing in <span class="countdown" id="resetKeyCountdown">300</span> seconds.
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label"><strong>Reset Key:</strong></label>
+                        <div id="resetKeyDisplay" class="password-display"></div>
+                    </div>
+
+                    <button type="button" class="btn btn-primary w-100" onclick="copyResetKey()">
+                        <i class="fas fa-copy me-2"></i>Copy Reset Key to Clipboard
+                    </button>
+
+                    <div id="resetKeyCopyStatus" class="mt-2 text-center" style="display: none;">
+                        <small class="text-success">
+                            <i class="fas fa-check me-1"></i>Reset key copied to clipboard!
+                        </small>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let countdownTimer;
+        let currentPassword = '';
+
+        function createUser() {
+            const username = document.getElementById('newUsername').value.trim();
+            if (!username) {
+                alert('Please enter a username');
+                return;
+            }
+
+            fetch('/admin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'create',
+                    new_username: username
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showPasswordModal(data.username, data.password);
+                    document.getElementById('newUsername').value = '';
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error creating user: ' + error);
+            });
+        }
+
+        function deleteUser(username) {
+            if (!confirm(`Are you sure you want to delete user "${username}"? This action cannot be undone.`)) {
+                return;
+            }
+
+            fetch('/admin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'delete',
+                    username: username
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    location.reload();
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error deleting user: ' + error);
+            });
+        }
+
+        function resetUser(username) {
+            if (!confirm(`Are you sure you want to reset user "${username}"? This will disable TOTP and generate a new password.`)) {
+                return;
+            }
+
+            fetch('/admin', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                    action: 'reset',
+                    username: username
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showPasswordModal(data.username, data.password);
+                } else {
+                    alert('Error: ' + data.error);
+                }
+            })
+            .catch(error => {
+                alert('Error resetting user: ' + error);
+            });
+        }
+
+        function showPasswordModal(username, password) {
+            currentPassword = password;
+            document.getElementById('passwordUsername').textContent = username;
+            document.getElementById('passwordDisplay').textContent = password;
+
+            const modal = new bootstrap.Modal(document.getElementById('passwordModal'));
+            modal.show();
+
+            startCountdown();
+        }
+
+        function startCountdown() {
+            let timeLeft = 300; // 5 minutes
+            const countdownElement = document.getElementById('countdown');
+
+            countdownTimer = setInterval(() => {
+                timeLeft--;
+                countdownElement.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(countdownTimer);
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('passwordModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                }
+            }, 1000);
+        }
+
+        function copyPassword() {
+            const statusElement = document.getElementById('copyStatus');
+
+            navigator.clipboard.writeText(currentPassword).then(() => {
+                // Show success status
+                statusElement.style.display = 'block';
+                statusElement.innerHTML = '<small class="text-success"><i class="fas fa-check me-1"></i>Password copied to clipboard!</small>';
+
+                // Hide status after 3 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
+            }).catch(err => {
+                console.error('Failed to copy password:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = currentPassword;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                // Show success status for fallback method too
+                statusElement.style.display = 'block';
+                statusElement.innerHTML = '<small class="text-success"><i class="fas fa-check me-1"></i>Password copied to clipboard!</small>';
+
+                // Hide status after 3 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
+            });
+        }
+
+        // Clean up timer when modal is closed
+        document.getElementById('passwordModal').addEventListener('hidden.bs.modal', function () {
+            if (countdownTimer) {
+                clearInterval(countdownTimer);
+            }
+            // Reload the page to refresh the users list
+            location.reload();
+        });
+
+        // Reset key variables
+        let currentResetKey = '';
+        let resetKeyCountdownTimer;
+
+        function generateResetKey() {
+            if (confirm('Are you sure you want to generate a new reset key? This will overwrite any existing reset key.')) {
+                fetch('/reset-key', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        showResetKeyModal(data.reset_key);
+                    } else {
+                        alert('Error generating reset key: ' + data.message);
+                    }
+                })
+                .catch(error => {
+                    alert('Error generating reset key: ' + error);
+                });
+            }
+        }
+
+        function showResetKeyModal(resetKey) {
+            currentResetKey = resetKey;
+            document.getElementById('resetKeyDisplay').textContent = resetKey;
+
+            const modal = new bootstrap.Modal(document.getElementById('resetKeyModal'));
+            modal.show();
+
+            startResetKeyCountdown();
+        }
+
+        function startResetKeyCountdown() {
+            let timeLeft = 300; // 5 minutes
+            const countdownElement = document.getElementById('resetKeyCountdown');
+
+            resetKeyCountdownTimer = setInterval(() => {
+                timeLeft--;
+                countdownElement.textContent = timeLeft;
+
+                if (timeLeft <= 0) {
+                    clearInterval(resetKeyCountdownTimer);
+                    const modal = bootstrap.Modal.getInstance(document.getElementById('resetKeyModal'));
+                    if (modal) {
+                        modal.hide();
+                    }
+                }
+            }, 1000);
+        }
+
+        function copyResetKey() {
+            const statusElement = document.getElementById('resetKeyCopyStatus');
+
+            navigator.clipboard.writeText(currentResetKey).then(() => {
+                // Show success status
+                statusElement.style.display = 'block';
+                statusElement.innerHTML = '<small class="text-success"><i class="fas fa-check me-1"></i>Reset key copied to clipboard!</small>';
+
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
+            }).catch(err => {
+                console.error('Failed to copy reset key:', err);
+                // Fallback for older browsers
+                const textArea = document.createElement('textarea');
+                textArea.value = currentResetKey;
+                document.body.appendChild(textArea);
+                textArea.select();
+                document.execCommand('copy');
+                document.body.removeChild(textArea);
+
+                // Show success status for fallback method too
+                statusElement.style.display = 'block';
+                statusElement.innerHTML = '<small class="text-success"><i class="fas fa-check me-1"></i>Reset key copied to clipboard!</small>';
+
+                // Hide status after 5 seconds
+                setTimeout(() => {
+                    statusElement.style.display = 'none';
+                }, 5000);
+            });
+        }
+
+        // Clean up timer when reset key modal is closed
+        document.getElementById('resetKeyModal').addEventListener('hidden.bs.modal', function () {
+            if (resetKeyCountdownTimer) {
+                clearInterval(resetKeyCountdownTimer);
+            }
+        });
+    </script>
+</body>
+</html>

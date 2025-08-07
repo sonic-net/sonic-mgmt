@@ -1,0 +1,8 @@
+Flask
+gunicorn
+pyotp
+qrcode
+Pillow
+azure-data-tables
+azure-keyvault-secrets
+azure-identity

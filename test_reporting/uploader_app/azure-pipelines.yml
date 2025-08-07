@@ -1,0 +1,69 @@
+# Azure Pipeline for deploying SONiC Test Results Uploader App to Azure Web App
+
+trigger: none
+  # branches:
+  #   include:
+  #   - internal
+  # paths:
+  #   include:
+  #   - test_reporting/uploader_app/*
+  #   - test_reporting/junit_xml_parser.py
+  #   - test_reporting/report_data_storage.py
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  # Build Variables
+  buildConfiguration: 'Release'
+  pythonVersion: '3.12'
+
+  # Azure Variables
+  serviceConnection: 'sonic2sub'
+  resourceGroupName: 'sonic-test-report-uploader'
+  webAppName: 'report-uploader-app'
+
+  # Application Variables
+  appPath: 'test_reporting/uploader_app'
+
+stages:
+- stage: Deploy
+  displayName: 'Build and Deploy Application'
+  jobs:
+  - job: DeployJob
+    displayName: 'Build and Deploy to Azure Web App'
+    steps:
+    - task: ArchiveFiles@2
+      displayName: 'Archive Application Files'
+      inputs:
+        rootFolderOrFile: 'test_reporting'
+        includeRootFolder: false
+        archiveType: 'zip'
+        archiveFile: '$(Build.ArtifactStagingDirectory)/$(webAppName)-$(Build.BuildId).zip'
+        replaceExistingArchive: true
+
+    - task: AzureWebApp@1
+      displayName: 'Deploy to Azure Web App'
+      inputs:
+        azureSubscription: '$(serviceConnection)'
+        appType: 'webAppLinux'
+        appName: '$(webAppName)'
+        resourceGroupName: '$(resourceGroupName)'
+        package: '$(Build.ArtifactStagingDirectory)/$(webAppName)-$(Build.BuildId).zip'
+        runtimeStack: 'PYTHON|3.12'
+        startUpCommand: 'cd $APP_PATH && pip install -r uploader_app/requirements.txt && gunicorn --bind=0.0.0.0 --timeout 600 --workers 1 --chdir uploader_app app:app'
+        appSettings: '-FLASK_ENV production -AZURE_STORAGE_ACCOUNT_URL https://reportuploaderstorage.table.core.windows.net -AZURE_KEY_VAULT_URL https://report-uploader-kv.vault.azure.net -AZURE_TABLE_NAME users'
+
+    - task: Bash@3
+      displayName: 'Display Deployment Summary'
+      inputs:
+        targetType: 'inline'
+        script: |
+          echo "🚀 Deployment Summary"
+          echo "====================="
+          echo "Application: $(webAppName)"
+          echo "Resource Group: $(resourceGroupName)"
+          echo "Build ID: $(Build.BuildId)"
+          echo "Application URL: https://$(webAppName)-dabqhfd4dccshjar.westus3-01.azurewebsites.net"
+          echo "Health Check URL: https://$(webAppName)-dabqhfd4dccshjar.westus3-01.azurewebsites.net/health"
+          echo "Deploy Time: $(date -u '+%Y-%m-%d %H:%M:%S UTC')"

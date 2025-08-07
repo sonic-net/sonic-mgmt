@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - SONiC Test Results Uploader</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .login-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+                .login-card {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            padding: 2rem;
+            transition: all 0.3s ease;
+            max-width: 550px;
+            width: 100%;
+        }
+        .login-header {
+            background: #0d6efd;
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .login-body {
+            padding: 2rem;
+        }
+        .form-control:focus {
+            border-color: #0d6efd;
+            box-shadow: 0 0 0 0.2rem rgba(13, 110, 253, 0.25);
+        }
+        .btn-login {
+            background: #0d6efd;
+            border: none;
+            padding: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border-radius: 8px;
+        }
+        .btn-login:hover {
+            background: #0b5ed7;
+            transform: translateY(-1px);
+        }
+        .error-message {
+            color: #dc3545;
+            text-align: center;
+            margin-bottom: 1rem;
+        }
+    </style>
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <h3 class="mb-3">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Login
+                </h3>
+                <p class="mb-0">SONiC Test Results Uploader</p>
+            </div>
+
+            <div class="login-body">
+                {% if error %}
+                <div class="error-message">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    {{ error }}
+                </div>
+                {% endif %}
+
+                <form method="POST">
+                    <div class="mb-3">
+                        <label for="username" class="form-label">
+                            <i class="fas fa-user me-2"></i>
+                            Username
+                        </label>
+                        <input type="text" class="form-control" id="username" name="username"
+                               placeholder="Enter your username" required autocomplete="username"
+                               value="{{ request.form.username or '' }}">
+                    </div>
+
+                    <button type="submit" class="btn btn-primary btn-login w-100">
+                        <i class="fas fa-arrow-right me-2"></i>
+                        Continue
+                    </button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Focus on username field when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('username').focus();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TOTP Setup - SONiC Test Results Uploader</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: linear-gradient(135deg, #f8f9fa 0%, #e9ecef 100%);
+            min-height: 100vh;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        .setup-container {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .setup-card {
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 15px 35px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            max-width: 500px;
+            width: 100%;
+        }
+        .setup-header {
+            background: #28a745;
+            color: white;
+            padding: 2rem;
+            text-align: center;
+        }
+        .setup-body {
+            padding: 2rem;
+        }
+        .qr-container {
+            text-align: center;
+            margin: 2rem 0;
+            padding: 1rem;
+            background: #f8f9fa;
+            border-radius: 10px;
+        }
+        .qr-code {
+            max-width: 200px;
+            height: auto;
+            border: 2px solid #dee2e6;
+            border-radius: 8px;
+        }
+        .secret-code {
+            font-family: 'Courier New', monospace;
+            background: #e9ecef;
+            padding: 10px;
+            border-radius: 5px;
+            word-break: break-all;
+            font-size: 0.9rem;
+            margin: 1rem 0;
+        }
+        .form-control:focus {
+            border-color: #28a745;
+            box-shadow: 0 0 0 0.2rem rgba(40, 167, 69, 0.25);
+        }
+        .btn-verify {
+            background: #28a745;
+            border: none;
+            padding: 12px;
+            font-weight: 600;
+            letter-spacing: 0.5px;
+            border-radius: 8px;
+        }
+        .btn-verify:hover {
+            background: #218838;
+            transform: translateY(-1px);
+        }
+        .code-input {
+            text-align: center;
+            font-size: 1.5rem;
+            letter-spacing: 0.5rem;
+            font-weight: bold;
+            font-family: 'Courier New', monospace;
+        }
+        .step-indicator {
+            text-align: center;
+            margin-bottom: 1.5rem;
+        }
+        .step-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            background: #28a745;
+            color: white;
+            font-weight: bold;
+            margin-right: 10px;
+        }
+        .instruction-list {
+            counter-reset: step-counter;
+            padding-left: 0;
+        }
+        .instruction-list li {
+            counter-increment: step-counter;
+            list-style: none;
+            position: relative;
+            padding: 0.5rem 0 0.5rem 2.5rem;
+            margin-bottom: 1rem;
+        }
+        .instruction-list li::before {
+            content: counter(step-counter);
+            position: absolute;
+            left: 0;
+            top: 0.5rem;
+            background: #007bff;
+            color: white;
+            width: 1.5rem;
+            height: 1.5rem;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: bold;
+        }
+        .copy-button {
+            cursor: pointer;
+            color: #007bff;
+            font-size: 0.9rem;
+        }
+        .copy-button:hover {
+            color: #0056b3;
+        }
+        .user-info {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 1rem;
+            margin-bottom: 1.5rem;
+            text-align: center;
+        }
+    </style>
+</head>
+<body>
+    <div class="setup-container">
+        <div class="setup-card">
+            <div class="setup-header">
+                <h3 class="mb-3">
+                    <i class="fas fa-shield-alt me-2"></i>
+                    Two-Factor Authentication Setup
+                </h3>
+                <p class="mb-0">SONiC Test Results Uploader</p>
+            </div>
+
+            <div class="setup-body">
+                <div class="step-indicator">
+                    <span class="step-number">3</span>
+                    <span>Setup Authenticator</span>
+                </div>
+
+                <div class="user-info">
+                    <i class="fas fa-user text-primary me-2"></i>
+                    <strong>{{ username }}</strong>
+                </div>
+
+                <div class="alert alert-info">
+                    <i class="fas fa-info-circle me-2"></i>
+                    <strong>Setup Instructions:</strong>
+                </div>
+
+                <ol class="instruction-list">
+                    <li>Install Microsoft Authenticator app on your mobile device</li>
+                    <li>Open the app and select "Add account" → "Work or school account"</li>
+                    <li>Scan the QR code below with your authenticator app</li>
+                    <li>Enter the 6-digit code from your authenticator to verify setup</li>
+                </ol>
+
+                <div class="qr-container">
+                    <h5 class="mb-3">
+                        <i class="fas fa-qrcode me-2"></i>
+                        Scan QR Code
+                    </h5>
+                    <img src="{{ qr_code_url }}" alt="TOTP QR Code" class="qr-code">
+
+                    <div class="mt-3">
+                        <small class="text-muted">Can't scan? Enter this code manually:</small>
+                        <div class="secret-code">
+                            {{ secret }}
+                            <i class="fas fa-copy copy-button ms-2" onclick="copySecret()" title="Copy to clipboard"></i>
+                        </div>
+                    </div>
+                </div>
+
+                <form id="setupForm">
+                    <div class="mb-3">
+                        <label for="code" class="form-label">
+                            <i class="fas fa-mobile-alt me-2"></i>
+                            Enter 6-digit verification code
+                        </label>
+                        <input type="text" class="form-control code-input" id="code" name="code"
+                               placeholder="000000" maxlength="6" pattern="[0-9]{6}"
+                               autocomplete="one-time-code" required>
+                        <div class="form-text">
+                            <i class="fas fa-clock me-1"></i>
+                            Code refreshes every 30 seconds
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-success btn-verify w-100">
+                        <i class="fas fa-check me-2"></i>
+                        Verify & Complete Setup
+                    </button>
+                </form>
+
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('login') }}" class="btn btn-link">
+                        <i class="fas fa-arrow-left me-1"></i>
+                        Back to Login
+                    </a>
+                </div>
+
+                <!-- Loading indicator -->
+                <div id="loading" class="text-center mt-3" style="display: none;">
+                    <i class="fas fa-spinner fa-spin fa-2x text-success"></i>
+                    <p class="mt-2">Verifying code...</p>
+                </div>
+
+                <!-- Error message -->
+                <div id="errorMessage" class="alert alert-danger mt-3" style="display: none;">
+                    <i class="fas fa-exclamation-triangle me-1"></i>
+                    <span id="errorText"></span>
+                </div>
+
+                <!-- Success message -->
+                <div id="successMessage" class="alert alert-success mt-3" style="display: none;">
+                    <i class="fas fa-check-circle me-1"></i>
+                    <span>Setup completed successfully! Redirecting...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        function copySecret() {
+            const secret = '{{ secret }}';
+            navigator.clipboard.writeText(secret).then(function() {
+                const copyIcon = document.querySelector('.copy-button');
+                copyIcon.className = 'fas fa-check copy-button ms-2';
+                copyIcon.style.color = '#28a745';
+                setTimeout(() => {
+                    copyIcon.className = 'fas fa-copy copy-button ms-2';
+                    copyIcon.style.color = '#007bff';
+                }, 2000);
+            });
+        }
+
+        function showError(message) {
+            document.getElementById('errorText').textContent = message;
+            document.getElementById('errorMessage').style.display = 'block';
+            document.getElementById('successMessage').style.display = 'none';
+        }
+
+        function showSuccess() {
+            document.getElementById('successMessage').style.display = 'block';
+            document.getElementById('errorMessage').style.display = 'none';
+        }
+
+        function showLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+            document.querySelector('.btn-verify').disabled = show;
+            document.getElementById('code').disabled = show;
+        }
+
+        document.getElementById('setupForm').addEventListener('submit', async function(e) {
+            e.preventDefault();
+
+            const code = document.getElementById('code').value.trim();
+
+            if (!code || code.length !== 6) {
+                showError('Please enter a 6-digit code');
+                return;
+            }
+
+            showLoading(true);
+
+            try {
+                const response = await fetch('/complete-setup?username={{ username }}', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ code: code })
+                });
+
+                const data = await response.json();
+                showLoading(false);
+
+                if (response.ok && data.success) {
+                    showSuccess();
+                    setTimeout(() => {
+                        window.location.href = data.redirect || '/';
+                    }, 1500);
+                } else {
+                    showError(data.error || 'Verification failed');
+                    document.getElementById('code').value = '';
+                    document.getElementById('code').focus();
+                }
+            } catch (error) {
+                showLoading(false);
+                showError('Network error. Please try again.');
+                document.getElementById('code').focus();
+            }
+        });
+
+        // Auto-format code input
+        document.getElementById('code').addEventListener('input', function(e) {
+            let value = e.target.value.replace(/\D/g, '');
+            if (value.length > 6) {
+                value = value.substring(0, 6);
+            }
+            e.target.value = value;
+        });
+
+        // Focus on code input when page loads
+        document.addEventListener('DOMContentLoaded', function() {
+            document.getElementById('code').focus();
+        });
+    </script>
+</body>
+</html>

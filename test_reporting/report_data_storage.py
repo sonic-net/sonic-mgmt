@@ -165,7 +165,7 @@ class KustoConnector(ReportDBConnector):
             db_name: The Kusto database to connect to.
             auth_method: Authentication method for Kusto connection.
                 Supported methods: appKey, managedId, interactive, azureCli,
-                deviceCode, userToken, appToken, defaultCredential
+                deviceCode, userToken, appToken, defaultCred
         """
         self.db_name = db_name
         self.auth_method = auth_method

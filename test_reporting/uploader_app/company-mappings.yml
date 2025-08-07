@@ -1,0 +1,34 @@
+# Company domain to cluster/database mappings
+# Format: domain -> [cluster_url, database_name]
+
+microsoft.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "SampleTestData"
+
+broadcom.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "BroadcomTestData"
+
+arista.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "AristaTestData"
+
+nvidia.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "NvidiaTestData"
+
+intel.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "IntelTestData"
+
+nokia.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "NokiaTestData"
+
+cisco.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "CiscoTestData"
+
+coherent.com:
+  - "https://ingest-vendortestcluster.westus2.kusto.windows.net"
+  - "CoherentTestData"
