@@ -2,58 +2,54 @@
 
 - [Overview](#overview)
   - [Scope](#scope)
-  - [Testbed](#testbed)
 - [Setup configuration](#setup-configuration)
 - [Test Cases](#test-cases)
+  - [Common Validator for Every Case](#Common-Validator-for-Every-Case)
+  - [Test with A Sequcen of Operations](#Test-with-A-Sequcen-of-Operations)
+  - [Test with parameters Combination](#Test-with-parameters-Combination)
   - [Test Address Add](#Test-Address-Add)
   - [Test Address Remove](#Test-Address-Remove)
   - [Test Parameter Update](#Test-Parameter-Update)
-  - [Test With Random Operations](#Test-With-Random-Operations)
   - [Test BBR Features State Change](#Test-BBR-Features-State-Change)
-  - [Test BGP Route Announcement](#Test-BGP-Route-Announcement)
   - [Test BGP Container Restart](#Test-BGP-Container-Restart)
   - [Test Config Reload](#Test-Config-Reload)
 
 ## Overview
 
-This test plan is for feature bgp aggregate address with BBR awareness
+This test plan is for feature bgp aggregate address with BBR awareness, HLD link: https://github.com/sonic-net/SONiC/blob/master/doc/BGP/BGP-route-aggregation-with-bbr-awareness.md.
 
 ## Scope
 
 This test plan include test cases aggregate address remove/add/update with various parameters.
 Besides, This test plan will cover multiple scenarios including state change of BBR feature, BGP container restart and config reload.
 
-## Testbed
-
-Supported topologies: T1*
-
 ## Setup configuration
 
-This test requires DUT has port, vlan and portchannel, the default configuration of DUT is ok.
+The default configuration of DUT is fine.
 
 ## Test cases
+### Common Validator for Every Case
+When run test cases, we need to validate the config db, the state db and bgp running config to make sure this feature works as expected.
+
+### Test with A Sequcen of Operations
+To put some test stress on this feature, we will generate a seuqence of operations, including add, remove, update, change bbr state, and apply those operations one by one and validate config after each operation.
+
+### Test with parameters Combination
+Test the feature with all parameters combination to validate the feature as much as possible.
+
 ### Test Address Add
-Add address with random parameters and random value, and check bgpd running config and state db.
+Add address with random parameters and random value by GCU and validate.
 
 ### Test Address Remove
-Remove address and check bgpd running config and state db.
+Remove address by GCU and validate.
 
 ### Test Parameter Update
-Update a random parameter of address, and check bgpd running config and state db.
-
-### Test With Random Operations
-Generate a sequence of operations including add and remove, execute those operation one by one and check bgpd running config and state db.
+Update a random parameter of address by GCU and validate.
 
 ### Test BBR Features State Change
-1. enabled to disabled
-2. disabled to enabled
-3. exist to not exist
-
-### Test BGP Route Announcement
-Inspect route table on peer to validate if parameters take effect.
-1. summary-only: only aggregated should in route table of peers.
-2. as-set: as set of aggregate address should exist in route table of peers.
-3. prefix-list: route maps applied on aggregate address in prefix list should work.
+During device up, the BBR state may change, and this feature should take action accordingly, we need test case to cover scenarios like:
+1. BBR state turn to disabled.
+2. BBR state turn to enabled.
 
 ### Test BGP Container Restart
 Validate when bgp container restarted, the aggregate address in bgpd configuration won't loss.
