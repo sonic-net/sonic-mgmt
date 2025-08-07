@@ -137,7 +137,6 @@ def validate_dhcpcom_relay_counters(dhcp_relay, duthost, expected_uplink_counter
         duthost, downlink_vlan_iface, uplink_portchannels_or_interfaces
     )
     uplink_interface_counter = query_and_sum_dhcpcom_relay_counters(duthost, downlink_vlan_iface, uplink_interfaces)
-
     compare_dhcpcom_relay_counters_with_warning(
         vlan_interface_counter, client_interface_counter,
         compare_warning_msg.format(downlink_vlan_iface, client_iface, duthost.hostname),
