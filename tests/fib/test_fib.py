@@ -169,7 +169,9 @@ def filter_ports(all_port_indices, tbinfo):
 
     return host_ptf_ports_all
 
-def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph_facts, upstream_lc, tbinfo):
+
+def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph_facts,
+                                     upstream_lc, tbinfo):
     """
     Get PTF port indices for a port and all its port channel members (if applicable).
 
@@ -198,7 +200,8 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
         for pc_name, pc_info in mg_facts['minigraph_portchannels'].items():
             if port_name in pc_info.get('members', []):
                 portchannel_members = pc_info['members']
-                logging.info(f"Port {port_name} is a member of port channel {pc_name}, adding all members: {portchannel_members}")
+                logging.info("Port {} is a member of port channel {}, adding all members: {}".format(
+                    port_name, pc_name, portchannel_members))
                 break
 
     # Find PTF port indices for all port channel members
@@ -207,7 +210,7 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
         for ptf_port, (asic_id, dut_port) in all_port_indices.items():
             if dut_port == member_port:
                 ptf_ports_to_filter.append(ptf_port)
-                logging.info(f"Found PTF port {ptf_port} for port channel member {member_port}")
+                logging.info("Found PTF port {} for port channel member {}".format(ptf_port, member_port))
                 break
 
     return ptf_ports_to_filter
@@ -788,7 +791,6 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts,                
                qlen=PTF_QLEN,
                socket_recv_size=16384,
                is_python3=True)
-
 
 
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 1514)])
