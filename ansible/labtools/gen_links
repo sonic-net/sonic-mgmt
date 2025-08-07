@@ -148,6 +148,10 @@ fanout_ports_info = {
             "1000": ["etp{}".format(i + 1) for i in range(48)],
             "10000": ["etp{}".format(i + 1) for i in range(48, 52)],
             },
+        "Nokia-7215-A1": {
+            "1000": ["etp{}".format(i + 1) for i in range(48)],
+            "10000": ["etp{}".format(i + 1) for i in range(48, 52)],
+            },
         "Arista-720DT-G48S4": {
             "1000": ["etp{}".format(i + 1) for i in range(48)],
             "10000": ["etp{}".format(i + 1) for i in range(48, 52)],
@@ -427,7 +431,7 @@ def combine_trunk_vlan(trunk_vlans):
         combined_intervals.append("{}".format(curr_vlan))
     else:
         combined_intervals.append("{}-{}".format(start_vlan, curr_vlan))
-    return "\"{}\"".format(",".join(combined_intervals[1:]))
+    return "{}".format(",".join(combined_intervals[1:]))
 
 
 def link_split(link):
