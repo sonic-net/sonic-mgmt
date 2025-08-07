@@ -870,6 +870,20 @@ def run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value, ha_test_ca
         npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
         dpu_ip = dpu_if_ips['dpu1']['if_ip']
         dpu_midplane_ip = dpu_if_ips['dpu1']['if_midplane_ip']
+    elif ha_test_case == "linkloss5":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu1']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu1']['if_midplane_ip']
+    elif ha_test_case == "linkloss6":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu1']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu1']['if_midplane_ip']
+    elif ha_test_case == "linkloss7":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu1']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu1']['if_midplane_ip']
+    else:
+        return None
 
     collector = ContinuousMetricsCollector(collection_interval=1)
     clientStat_req = api.metrics_request()
