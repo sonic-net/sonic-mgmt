@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+
+import argparse
+import ipaddress
+import csv
+import pathlib
+
+
+if __name__ == "__main__":
+    description = "labtool to show available resoursces, IP, VLAN ID, etc"
+    epilog = """
+    This tool is for displaying available lab resources.
+    Examples:
+        ./show_rsc -i lab
+    """
+    parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
+    parser.add_argument("--inv", "-i", required=True, help="inventory")
+    args = parser.parse_args()
+    inv = args.inv
+
+    inv_networks = set()
+    with open("../files/sonic_{}_devices.csv".format(inv)) as f:
+        csv_file = csv.DictReader(f)
+        for entry in filter(lambda line : line["Type"] != "Pdu", csv_file):
+            inv_networks.add(ipaddress.ip_interface(entry["ManagementIp"]).network)
+    all_ips = set()
+    for network in inv_networks:
+        all_ips = all_ips | set(network)
+    inv_in_network = set()
+    for file in pathlib.Path("../files/").glob("sonic_*_devices.csv"):
+        curr_inv = str(file)[len("../files/sonic_"):][:-len("_devices.csv")]
+        with open(file) as f:
+            csv_reader = csv.DictReader(f)
+            for entry in csv_reader:
+                ip = ipaddress.ip_interface(entry["ManagementIp"]).ip
+                if ip in all_ips:
+                    inv_in_network.add(curr_inv)
+                    all_ips.remove(ip)
+    print("Inventory sharing the same network: {}".format(", ".join(inv_in_network)))
+    print("There are {} available IPs in {}".format(len(all_ips), inv))
+    print("All available IPs in {}: {}".format(inv, ", ".join(map(lambda ip : str(ip), sorted(all_ips)))))
+
+    all_vlanids = set(range(1, 4095))
+    with open("../files/sonic_{}_links.csv".format(inv)) as f:
+        csv_reader = csv.DictReader(f)
+        for entry in filter(lambda line : line["VlanMode"] == "Access", csv_reader):
+            all_vlanids.remove(int(entry["VlanID"]))
+    print("There are {} available VlanIDs in {}".format(len(all_vlanids), inv))
+    print("All available VlanIDs in {}: {}".format(inv, ", ".join(map(lambda id : str(id), sorted(all_vlanids)))))
