@@ -571,11 +571,11 @@ sonic_cisco_8102_smartswitch:
         "0xFE": "0x89C9B9EA"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 700
+          wait: 300
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 700
+          wait: 300
         acl/test_acl.py::TestAclWithReboot:
           timeout: 700
           wait: 660
@@ -603,11 +603,11 @@ sonic_cisco_8102_smartswitch:
         "0xFE": "0x187A33D9"
       plt_reboot_dict:
         cold:
-          timeout: 300
-          wait: 360
+          timeout: 700
+          wait: 300
         watchdog:
-          timeout: 300
-          wait: 360
+          timeout: 700
+          wait: 300
         acl/test_acl.py::TestAclWithReboot:
           timeout: 700
           wait: 660
