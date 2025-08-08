@@ -714,6 +714,13 @@ def pytest_addoption(parser):
         default=None,
         help="Max flap neighbor number, default is None"
     )
+    parser.addoption(
+        "--peers-per-dut",
+        action="store",
+        type=int,
+        default=10,
+        help="Number of additional BGP peers to configure per DUT for BGP peer scale test (default: 10)"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)

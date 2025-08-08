@@ -1,8 +1,12 @@
 """
 Test BGP peer scaling by adding multiple BGP peers using loopback interfaces on SONiC DUTs.
 """
+import json
 import logging
 import pytest
+from tests.common.devices.eos import EosHost
+from tests.common.devices.multi_asic import MultiAsicSonicHost
+from tests.common.devices.sonic import SonicHost
 from tests.bgp.bgp_helpers import configure_bgp_peer
 from tests.common.helpers.ip_helpers import (
     configure_loopback,
@@ -16,20 +20,16 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0-sonic"),
+    pytest.mark.topology("t0", "t1"),
 ]
 
 # Constants for BGP peer scaling
 BASE_LOOPBACK_ID = 1  # Starting Loopback ID
-PEERS_PER_DUT = 32  # Number of additional peers to configure per DUT
-MAX_PEERS_PER_DUT = 256  # Maximum number of peers per DUT (used for loopback ID calculation)
+PEERS_PER_DUT = 8  # Default number of additional peers to configure per DUT
+MAX_PEERS_PER_DUT = 99  # Maximum peers per neighbor (limited by 100 ID allocation per neighbor)
 
-# Multipliers for loopback ID calculation
-# These ensure that each peer gets a unique loopback ID
-# DUT_ID_MULTIPLIER must be large enough to avoid overlap between different DUTs
-# NEIGHBOR_ID_MULTIPLIER must be >= MAX_PEERS_PER_DUT to avoid overlap between different neighbors
-DUT_ID_MULTIPLIER = 10000  # Multiplier for DUT index in loopback ID calculation
-NEIGHBOR_ID_MULTIPLIER = MAX_PEERS_PER_DUT  # Multiplier for neighbor index in loopback ID calculation
+# SONiC supports loopback IDs 0-999, so we need to stay within this range
+SONIC_MAX_LOOPBACK_ID = 999
 
 
 # Define regex patterns to ignore harmless loopback interface errors
@@ -97,19 +97,42 @@ def get_neighbor_ip_pairs(duthost, nbrhost, tbinfo, addr_family="ipv4"):
 def calculate_loopback_id(dut_index, neighbor_index, peer_index):
     """Get a unique loopback ID based on DUT, neighbor, and peer indices.
 
+    This function ensures loopback IDs stay within SONiC's 0-999 range while maintaining uniqueness.
+
     Args:
         dut_index (int): Index of the DUT
         neighbor_index (int): Index of the neighbor
         peer_index (int): Index of the peer
 
     Returns:
-        int: A unique loopback ID
+        int: A unique loopback ID within SONiC's supported range (100-999)
+
+    Raises:
+        ValueError: If the calculated ID would exceed available range and cause collisions
     """
-    # Calculate a unique loopback ID that ensures no overlap
-    # Use a formula that can handle up to MAX_PEERS_PER_DUT peers per neighbor
-    # Each DUT gets a range of DUT_ID_MULTIPLIER IDs
-    # Each neighbor within a DUT gets a range of NEIGHBOR_ID_MULTIPLIER IDs
-    return BASE_LOOPBACK_ID + (dut_index * DUT_ID_MULTIPLIER) + (neighbor_index * NEIGHBOR_ID_MULTIPLIER) + peer_index
+    # Calculate a sequential ID that guarantees uniqueness
+    # Formula: BASE_ID + (dut_index * 800) + (neighbor_index * 100) + peer_index
+    # This supports: 1 DUT, 8 neighbors, up to 99 peers per neighbor cleanly
+    # ID ranges: neighbor 0 (100-199), neighbor 1 (200-299), etc.
+    sequential_id = (dut_index * 800) + (neighbor_index * 100) + peer_index
+    loopback_id = BASE_LOOPBACK_ID + sequential_id
+
+    # Check if we exceed SONiC's limit
+    if loopback_id > SONIC_MAX_LOOPBACK_ID:
+        available_ids = SONIC_MAX_LOOPBACK_ID - BASE_LOOPBACK_ID + 1  # 900 available IDs
+        max_neighbors_single_dut = available_ids // 100  # 9 neighbors max for single DUT
+        max_peers_last_neighbor = available_ids - (neighbor_index * 100)  # Remaining for this neighbor
+        error_msg = (
+            f"Loopback ID {loopback_id} exceeds SONiC limit of {SONIC_MAX_LOOPBACK_ID}. "
+            f"Current config: DUT {dut_index}, neighbor {neighbor_index}, peer {peer_index}. "
+            f"With current allocation (100 IDs per neighbor): "
+            f"Max {max_neighbors_single_dut} neighbors for single DUT, "
+            f"or max {max_peers_last_neighbor} peers for neighbor {neighbor_index}. "
+            f"Consider reducing peers_per_dut or using fewer neighbors."
+        )
+        raise ValueError(error_msg)
+
+    return loopback_id
 
 
 def get_loopback_ip_pair(loopback_id):
@@ -174,10 +197,103 @@ def get_loopback_ipv6_pair(loopback_id):
     return local_ip, neighbor_ip
 
 
-def get_asn_values(duthost):
+def get_asn_values(host):
     """Get the local and remote ASN values from existing BGP neighbors or config.
     Returns tuple of (local_asn, remote_asn)
     """
+    if isinstance(host, EosHost):
+        return get_asn_values_eos(host)
+    elif isinstance(host, (SonicHost, MultiAsicSonicHost)):
+        return get_asn_values_sonic(host)
+    else:
+        logger.error(f"Unsupported host type: {type(host)}")
+        return None, None
+
+
+def get_asn_values_eos(eoshost):
+    """Get ASN values from EosHost using eos_command"""
+    try:
+        # Get BGP summary for IPv4 and IPv6
+        out_v4 = eoshost.eos_command(commands=['show ip bgp summary | json'])
+        out_v6 = eoshost.eos_command(commands=['show ipv6 bgp summary | json'])
+
+        logger.debug(f"EOS IPv4 BGP summary: {out_v4}")
+        logger.debug(f"EOS IPv6 BGP summary: {out_v6}")
+
+        # Check if BGP is active
+        if ('BGP inactive' in out_v4['stdout'][0].get('warnings', []) and
+                'BGP inactive' in out_v6['stdout'][0].get('warnings', [])):
+            logger.warning("BGP is inactive on EOS host")
+            return None, None
+
+        local_asn = None
+        remote_asn = None
+
+        # Try to get ASN from IPv4 BGP summary
+        try:
+            v4_data = out_v4['stdout'][0]
+            if 'vrfs' in v4_data and 'default' in v4_data['vrfs']:
+                vrf_data = v4_data['vrfs']['default']
+                if 'asn' in vrf_data:
+                    local_asn = vrf_data['asn']
+                    logger.info(f"Found local ASN {local_asn} from EOS IPv4 BGP")
+
+                # Look for remote ASN from peers
+                if 'peers' in vrf_data:
+                    for peer_ip, peer_data in vrf_data['peers'].items():
+                        peer_asn = peer_data.get('asn')
+                        if peer_asn is not None and peer_asn != local_asn:
+                            remote_asn = peer_asn
+                            logger.info(f"Found remote ASN {remote_asn} from EOS IPv4 peer {peer_ip}")
+                            break
+        except (KeyError, TypeError) as e:
+            logger.debug(f"Could not extract ASN from IPv4 BGP summary: {str(e)}")
+
+        # If we didn't get ASN from IPv4, try IPv6
+        if local_asn is None:
+            try:
+                v6_data = out_v6['stdout'][0]
+                if 'vrfs' in v6_data and 'default' in v6_data['vrfs']:
+                    vrf_data = v6_data['vrfs']['default']
+                    if 'asn' in vrf_data:
+                        local_asn = vrf_data['asn']
+                        logger.info(f"Found local ASN {local_asn} from EOS IPv6 BGP")
+            except (KeyError, TypeError) as e:
+                logger.debug(f"Could not extract ASN from IPv6 BGP summary: {str(e)}")
+
+        # If we didn't get remote ASN from IPv4, try IPv6
+        if remote_asn is None and local_asn is not None:
+            try:
+                v6_data = out_v6['stdout'][0]
+                if 'vrfs' in v6_data and 'default' in v6_data['vrfs']:
+                    vrf_data = v6_data['vrfs']['default']
+                    if 'peers' in vrf_data:
+                        for peer_ip, peer_data in vrf_data['peers'].items():
+                            peer_asn = peer_data.get('asn')
+                            if peer_asn is not None and peer_asn != local_asn:
+                                remote_asn = peer_asn
+                                logger.info(f"Found remote ASN {remote_asn} from EOS IPv6 peer {peer_ip}")
+                                break
+            except (KeyError, TypeError) as e:
+                logger.debug(f"Could not extract remote ASN from IPv6 BGP summary: {str(e)}")
+
+        if local_asn is None:
+            logger.error("Could not determine local ASN from EOS BGP summary")
+            return None, None
+
+        if remote_asn is None:
+            logger.error("Could not determine remote ASN from EOS BGP peers")
+            return None, None
+
+        return local_asn, remote_asn
+
+    except Exception as e:
+        logger.error(f"Failed to get ASN values from EOS host: {str(e)}")
+        return None, None
+
+
+def get_asn_values_sonic(duthost):
+    """Get ASN values from SonicHost using vtysh commands"""
     try:
         # Use vtysh to get BGP summary in JSON format for both IPv4 and IPv6
         result = duthost.shell("vtysh -c 'show bgp summary json'", module_ignore_errors=True)
@@ -185,7 +301,6 @@ def get_asn_values(duthost):
         if result['rc'] == 0:
             try:
                 # Parse the JSON output
-                import json
                 bgp_summary = json.loads(result['stdout'])
                 logger.debug(f"BGP summary JSON: {bgp_summary}")
 
@@ -258,7 +373,7 @@ def get_asn_values(duthost):
         return None, None
 
 
-def run_bgp_peer_scale(duthosts, _, nbrhosts, tbinfo, addr_family="ipv4"):
+def run_bgp_peer_scale(duthosts, _, nbrhosts, tbinfo, addr_family="ipv4", peers_per_dut=PEERS_PER_DUT):
     """
     Common helper function to run BGP peer scale tests for IPv4 or IPv6.
 
@@ -268,10 +383,15 @@ def run_bgp_peer_scale(duthosts, _, nbrhosts, tbinfo, addr_family="ipv4"):
         nbrhosts: Neighbor host objects
         tbinfo: Testbed information dictionary containing topology details
         addr_family: Address family ("ipv4" or "ipv6")
+        peers_per_dut: Number of additional BGP peers to configure per DUT (default: PEERS_PER_DUT)
     """
-    # Check if PEERS_PER_DUT is set to a valid value
-    if PEERS_PER_DUT > MAX_PEERS_PER_DUT:
-        error_msg = f"PEERS_PER_DUT ({PEERS_PER_DUT}) exceeds MAX_PEERS_PER_DUT ({MAX_PEERS_PER_DUT})"
+    # Check if peers_per_dut will fit within our loopback ID allocation scheme
+    # With current multipliers: max MAX_PEERS_PER_DUT peers per neighbor
+    if peers_per_dut > MAX_PEERS_PER_DUT:
+        error_msg = (
+            f"peers_per_dut ({peers_per_dut}) exceeds maximum of {MAX_PEERS_PER_DUT} "
+            f"peers per neighbor (limited by loopback ID allocation)"
+        )
         logger.error(error_msg)
         pytest.fail(error_msg)
 
@@ -309,7 +429,7 @@ def run_bgp_peer_scale(duthosts, _, nbrhosts, tbinfo, addr_family="ipv4"):
                 logger.info(f"Neighbor {nbrhost.hostname} has local ASN {nbr_local_asn}, remote ASN {nbr_remote_asn}")
 
                 # Configure additional peers for this neighbor
-                for peer_index in range(PEERS_PER_DUT):
+                for peer_index in range(peers_per_dut):
                     # Calculate a unique loopback ID
                     loopback_id = calculate_loopback_id(dut_index, neighbor_index, peer_index)
 
@@ -441,7 +561,7 @@ def run_bgp_peer_scale(duthosts, _, nbrhosts, tbinfo, addr_family="ipv4"):
                 logger.error(f"Failed to unconfigure loopback {loopback_id} on {nbrhost.hostname}")
 
 
-def test_bgp_peer_scale_v4(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts, tbinfo, loganalyzer):
+def test_bgp_peer_scale_v4(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts, tbinfo, loganalyzer, request):
     # Configure loganalyzer to ignore loopback interface errors
     for duthost in duthosts:
         if duthost.hostname in loganalyzer:
@@ -452,10 +572,13 @@ def test_bgp_peer_scale_v4(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts,
     2. All BGP peers are configured
     3. All BGP sessions are established
     """
-    run_bgp_peer_scale(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts, tbinfo, addr_family="ipv4")
+    # Get the number of peers per DUT from command-line argument
+    peers_per_dut = request.config.getoption("--peers-per-dut")
+    run_bgp_peer_scale(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts,
+                       tbinfo, addr_family="ipv4", peers_per_dut=peers_per_dut)
 
 
-def test_bgp_peer_scale_v6(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts, tbinfo, loganalyzer):
+def test_bgp_peer_scale_v6(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts, tbinfo, loganalyzer, request):
     # Configure loganalyzer to ignore loopback interface errors
     for duthost in duthosts:
         if duthost.hostname in loganalyzer:
@@ -466,7 +589,10 @@ def test_bgp_peer_scale_v6(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts,
     2. All BGP peers are configured
     3. All BGP sessions are established
     """
-    run_bgp_peer_scale(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts, tbinfo, addr_family="ipv6")
+    # Get the number of peers per DUT from command-line argument
+    peers_per_dut = request.config.getoption("--peers-per-dut")
+    run_bgp_peer_scale(duthosts, enum_rand_one_per_hwsku_hostname, nbrhosts,
+                       tbinfo, addr_family="ipv6", peers_per_dut=peers_per_dut)
 
 
 def verify_bgp_peer_scale(duthosts, configs, addr_family="ipv4"):
