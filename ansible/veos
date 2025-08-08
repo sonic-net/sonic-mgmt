@@ -229,6 +229,7 @@ all:
         server_bjw2_8:
         server_bjw2_9:
         server_bjw2_10:
+        server_bjw2_11:
         server_bjw3_1:
         server_bjw3_2:
         server_bjw3_3:
