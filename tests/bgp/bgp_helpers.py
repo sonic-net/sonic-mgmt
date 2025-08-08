@@ -938,7 +938,7 @@ def initial_tsa_check_before_and_after_test(duthosts):
 
 
 def configure_bgp_peer(
-    duthost,
+    host,
     neighbor_ip,
     local_asn,
     remote_asn,
@@ -950,7 +950,7 @@ def configure_bgp_peer(
     """Configure a BGP peer with proper timers.
 
     Args:
-        duthost: DUT host object
+        host: DUT host object (SONiC or EOS)
         neighbor_ip: IP address of the BGP neighbor
         local_asn: Local AS number
         remote_asn: Remote AS number
@@ -960,38 +960,135 @@ def configure_bgp_peer(
         update_source_intf: (Optional) Interface name to use as update-source (e.g. 'Loopback0')
         max_hop_count: (Optional) Maximum number of hops allowed for BGP peers (default: 10)
     """
-    try:
-        # Validate AFI-SAFI combination
-        valid_combinations = {
-            "ipv4": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
-            "ipv6": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
-            "l2vpn": ["evpn"]
-        }
+    # Validate AFI-SAFI combination
+    valid_combinations = {
+        "ipv4": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
+        "ipv6": ["unicast", "multicast", "vpn", "flowspec", "labeled-unicast"],
+        "l2vpn": ["evpn"]
+    }
 
-        if afi not in valid_combinations or safi not in valid_combinations[afi]:
-            logging.error(f"Invalid AFI-SAFI combination: {afi}-{safi}")
-            return False
-
-        command = "vtysh -c 'configure terminal' " \
-                  f"-c 'router bgp {local_asn}' " \
-                  f"-c 'neighbor {neighbor_ip} remote-as {remote_asn}' " \
-                  f"-c 'neighbor {neighbor_ip} ebgp-multihop {max_hop_count}' " \
-                  f"-c 'neighbor {neighbor_ip} timers 3 10' " \
-                  f"-c 'neighbor {neighbor_ip} timers connect 10' "
-
-        if update_source_intf:
-            command += f"-c 'neighbor {neighbor_ip} update-source {update_source_intf}' "
-
-        command += f"-c 'address-family {afi} {safi}' " \
-                   f"-c 'neighbor {neighbor_ip} activate' " \
-                   "-c 'exit-address-family'"
-
-        result = duthost.shell(command)
-        if result['rc'] != 0:
-            logging.error("Failed to configure BGP peer. Error: %s", result['stderr'])
-            return False
-        return True
-
-    except Exception as e:
-        logging.error("Failed to configure BGP peer: %s", str(e))
+    if afi not in valid_combinations or safi not in valid_combinations[afi]:
+        logging.error(f"Invalid AFI-SAFI combination: {afi}-{safi}")
         return False
+
+    if isinstance(host, EosHost):
+        # For cEOS, use Arista EOS configuration commands
+        try:
+            # Configure BGP neighbor commands under the router bgp context
+            neighbor_commands = [
+                f"neighbor {neighbor_ip} remote-as {remote_asn}",
+                f"neighbor {neighbor_ip} maximum-routes 0",
+                f"neighbor {neighbor_ip} timers 3 10",
+                f"neighbor {neighbor_ip} ebgp-multihop {max_hop_count}"
+            ]
+
+            if update_source_intf:
+                neighbor_commands.append(f"neighbor {neighbor_ip} update-source {update_source_intf}")
+
+            # Configure neighbor under router bgp context
+            result = host.eos_config(
+                lines=neighbor_commands,
+                parents=[f"router bgp {local_asn}"]
+            )
+            if result.get('failed', False):  # type: ignore
+                logging.error(f"Failed to configure EOS BGP neighbor: {result}")
+                return False
+
+            # Configure address family activation
+            if afi == "ipv6":
+                af_commands = [f"neighbor {neighbor_ip} activate"]
+                result = host.eos_config(
+                    lines=af_commands,
+                    parents=[f"router bgp {local_asn}", "address-family ipv6"]
+                )
+            elif afi == "ipv4":
+                # IPv4 neighbors are usually activated by default in EOS, but let's be explicit
+                af_commands = [f"neighbor {neighbor_ip} activate"]
+                result = host.eos_config(
+                    lines=af_commands,
+                    parents=[f"router bgp {local_asn}", "address-family ipv4"]
+                )
+
+            if result.get('failed', False):  # type: ignore
+                logging.error(f"Failed to configure EOS BGP address family: {result}")
+                return False
+
+            logging.info(f"Successfully configured BGP peer {neighbor_ip} on EOS host")
+            return True
+
+        except Exception as e:
+            logging.error(f"Error configuring EOS BGP peer: {str(e)}")
+            return False
+    else:
+        try:
+            command = "vtysh -c 'configure terminal' " \
+                      f"-c 'router bgp {local_asn}' " \
+                      f"-c 'neighbor {neighbor_ip} remote-as {remote_asn}' " \
+                      f"-c 'neighbor {neighbor_ip} ebgp-multihop {max_hop_count}' " \
+                      f"-c 'neighbor {neighbor_ip} timers 3 10' " \
+                      f"-c 'neighbor {neighbor_ip} timers connect 10' "
+
+            if update_source_intf:
+                command += f"-c 'neighbor {neighbor_ip} update-source {update_source_intf}' "
+
+            command += f"-c 'address-family {afi} {safi}' " \
+                       f"-c 'neighbor {neighbor_ip} activate' " \
+                       "-c 'exit-address-family'"
+
+            result = host.shell(command)
+            if result['rc'] != 0:
+                logging.error("Failed to configure BGP peer. Error: %s", result['stderr'])
+                return False
+            return True
+
+        except Exception as e:
+            logging.error("Failed to configure BGP peer: %s", str(e))
+            return False
+
+
+def unconfigure_bgp_peer(host, neighbor_ip, local_asn, afi="ipv4", safi="unicast"):
+    """Unconfigure a BGP peer.
+
+    Args:
+        host: DUT host object (SONiC or EOS)
+        neighbor_ip: IP address of the BGP neighbor
+        local_asn: Local AS number
+        afi: Address Family Identifier ("ipv4", "ipv6", or "l2vpn")
+        safi: Subsequent Address Family Identifier ("unicast", "multicast", "vpn", "evpn",
+              "flowspec", "labeled-unicast")
+    """
+    if isinstance(host, EosHost):
+        # For cEOS, use Arista EOS configuration commands
+        try:
+            # Remove BGP neighbor under router bgp context
+            neighbor_commands = [f"no neighbor {neighbor_ip}"]
+
+            result = host.eos_config(
+                lines=neighbor_commands,
+                parents=[f"router bgp {local_asn}"]
+            )
+            if result.get('failed', False):  # type: ignore
+                logging.error(f"Failed to unconfigure EOS BGP neighbor: {result}")
+                return False
+
+            logging.info(f"Successfully unconfigured BGP peer {neighbor_ip} on EOS host")
+            return True
+
+        except Exception as e:
+            logging.error(f"Error unconfiguring EOS BGP peer: {str(e)}")
+            return False
+    else:
+        try:
+            command = "vtysh -c 'configure terminal' " \
+                      f"-c 'router bgp {local_asn}' " \
+                      f"-c 'no neighbor {neighbor_ip}'"
+
+            result = host.shell(command)
+            if result['rc'] != 0:
+                logging.error("Failed to unconfigure BGP peer. Error: %s", result['stderr'])
+                return False
+            return True
+
+        except Exception as e:
+            logging.error("Failed to unconfigure BGP peer: %s", str(e))
+            return False
