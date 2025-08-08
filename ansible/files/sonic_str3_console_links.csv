@@ -84,3 +84,4 @@ console-176,4,str3-t0-8102-smartswitch-01,ssh,cisco_config
 console-176,6,str3-t0-8102-smartswitch-02,ssh,cisco_config
 console-175,24,str3-8101-fanout-27,ssh,cisco_config,
 console-175,27,str3-8101-fanout-28,ssh,cisco_config,
+console-184,19,str3-d03u28-8101-01,ssh,cisco_config,
