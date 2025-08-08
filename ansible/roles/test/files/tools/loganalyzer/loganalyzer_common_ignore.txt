@@ -372,3 +372,10 @@ r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host:
 
 # Ignore lldp error log, don't have real impact
 r, ".* ERR container: docker cmd: stop for lldp failed with 500 Server Error.*"
+
+#Ignore Packet Trimming attribute feature error temporarily (no impact)
+r, ".* ERR swss#orchagent: :- queryTrimSizeAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_SIZE\\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimDscpAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_VALUE\\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimModeEnumCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\\) enum value capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimModeAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\\) capabilities.*
