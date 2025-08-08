@@ -362,7 +362,7 @@ def trigger_join_and_check(duthost, vmhost):
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
     for _ in range(12):
-        time.sleep(5)
+        time.sleep(10)
         nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
         if duthost.hostname in nodes["stdout"] and "NotReady" not in nodes["stdout"]:
             logger.info("Duthost is successfully joined to k8s cluster")
