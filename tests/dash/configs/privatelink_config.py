@@ -1,4 +1,4 @@
-from dash_api.eni_pb2 import State
+from dash_api.eni_pb2 import State, EniMode
 from dash_api.route_type_pb2 import ActionType, EncapType, RoutingType
 from dash_api.types_pb2 import IpVersion
 
@@ -40,7 +40,8 @@ ROUTE_GROUP1 = "RouteGroup1"
 ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
 ROUTE_GROUP2_GUID = "58cf62e0-22cc-4693-baa6-012358fcdec9"
-OUTBOUND_DIR_LOOKUP = "dst_mac"
+OUTBOUND_DIR_LOOKUP = "src_mac"
+OUTBOUND_DIR_LOOKUP_FLOATING_NIC = "dst_mac"
 METER_POLICY_V4 = "MeterPolicyV4"
 METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
 METER_RULE_V4_PREFIX2 = "92.6.0.0/16"
@@ -50,6 +51,16 @@ APPLIANCE_CONFIG = {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID
+    }
+}
+
+APPLIANCE_CONFIG_FLOATING_NIC = {
+    f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
+        "sip": APPLIANCE_VIP,
+        "vm_vni": VM_VNI,
+        "local_region_id": LOCAL_REGION_ID,
+        "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP_FLOATING_NIC,
+        "trusted_vni": ENCAP_VNI
     }
 }
 
@@ -70,6 +81,21 @@ ENI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "v4_meter_policy_id": METER_POLICY_V4,
+    }
+}
+
+ENI_CONFIG_FNIC = {
+    f"DASH_ENI_TABLE:{ENI_ID}": {
+        "vnet": VNET1,
+        "underlay_ip": VM1_PA,
+        "mac_address": ENI_MAC,
+        "eni_id": ENI_ID,
+        "admin_state": State.STATE_ENABLED,
+        "pl_underlay_sip": APPLIANCE_VIP,
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
+        "v4_meter_policy_id": METER_POLICY_V4,
+        "eni_mode": EniMode.MODE_FNIC,
+        "trusted_vnis": ENCAP_VNI
     }
 }
 
