@@ -6,6 +6,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.cisco.common.utils import skip_if_sim
+from tests.cisco.common.utils import get_asic_type
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -36,11 +37,19 @@ class CEM:
         self.duthost = duthost
 
     def get_cem_report(self):
-        cmd = "show platform npu cem-db -n asic{}".format(self.asic.asic_index)
+        if self.duthost.sonichost.is_multi_asic :
+            cmd="show platform npu cem-db -n asic{}".format(self.asic.asic_index)
+        else:
+            cmd = "show platform npu cem-db"
         self.cem_report = self.duthost.shell(cmd)["stdout_lines"] 
 
     def get_cem_resource_usage_stats(self):
-        keys = ['BFD', 'RPF', 'IPV4 DIP / SIP (/32)', 'IPV6 DIP / SIP (/128)', 'SRAM Single Entries', 'SRAM Double Entries']
+
+        asic_type = get_asic_type(self,self.duthost)
+        if asic_type=='Gr2':
+            keys = ['IPv4 DIP / SIP Unicast (/32); IPv4 OG PCL; IPv4 SGT', 'IPv6 DIP / SIP Unicast (/128); IPv6 OG PCL; IPv6 SGT', 'SRAM Single Entries', 'SRAM Double Entries']
+        else:
+            keys = ['BFD', 'MOFRR GID to RPF', 'IPv4 DIP / SIP Unicast (/32); IPv4 OG PCL; IPv4 SGT', 'IPv6 DIP / SIP Unicast (/128); IPv6 OG PCL; IPv6 SGT', 'SRAM Single Entries', 'SRAM Double Entries']
 
         self.get_cem_report()
         result = {}
@@ -48,11 +57,11 @@ class CEM:
         for line in self.cem_report:
             if line:
                 line = line.split('|')
-                if len(line) < 18:
-                    continue 
+                if len(line) < 4:
+                    continue
                 line = list(map(str.strip, line))
                 if line[1] in keys:
-                    counters = line[18]
+                    counters = line[-2]
                     result[line[1]] = counters
                     keys.remove(line[1])
                     if not keys:

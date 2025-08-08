@@ -3,6 +3,7 @@ import time
 import ipaddr
 import logging
 import os
+import re
 
 from collections import namedtuple
 
@@ -409,3 +410,15 @@ def combinations(iterable, r):
         for j in range(i + 1, r):
             indices[j] = indices[j - 1] + 1
         yield tuple(pool[i] for i in indices)
+
+def get_asic_type(self,duthost):
+    if duthost.sonichost.is_multi_asic :
+        cmd="show platform npu global -n asic{}".format(self.asic.asic_index)
+    else:
+        cmd = "show platform npu global"
+    output = duthost.command(cmd)['stdout'].strip()
+    match = re.search('Asic Type : (\w+)', output)
+    if match:
+        return match.group(1)
+    else:
+        pytest.fail("Failed to get asic type")
