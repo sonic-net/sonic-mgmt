@@ -34,7 +34,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
-from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa: F401
+from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx                       # noqa: F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -849,7 +849,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):                # noqa: F811
+            ingressLosslessProfile, iptables_drop_ipv6_tx, change_lag_lacp_timer):                # noqa: F811
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
