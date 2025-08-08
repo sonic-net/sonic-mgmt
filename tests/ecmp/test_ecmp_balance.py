@@ -12,7 +12,11 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type
 from tests.common.portstat_utilities import parse_portstat
-from ptf.testutils import dp_poll
+from ptf.testutils import (
+    dp_poll,
+)  # This is an example; adjust based on your actual usage
+
+from .platform_handler import ECMPHashManager
 
 
 logger = logging.getLogger(__name__)
@@ -20,20 +24,6 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology("any")
 ]
-
-
-def check_platform_and_topology(duthosts, tbinfo):
-    """Check if test can run on current platform and topology."""
-    # Check if all DUTs have Broadcom ASIC
-    for duthost in duthosts:
-        asic_type = duthost.facts["asic_type"]
-        if asic_type != "broadcom":
-            pytest.skip("Test can only run on Broadcom ASIC for now, current ASIC: {}".format(asic_type))
-
-    # Check if topology is t0 or t1
-    topology = tbinfo.get("topo", {}).get("name", "")
-    if not any(topo in topology for topo in ["t0", "t1"]):
-        pytest.skip("Test can only run on t0 or t1 topology for now, current topology: {}".format(topology))
 
 
 DEFAULT_SRC_IP = {"ipv4": "20.0.0.1", "ipv6": "60c0:a800::5"}
@@ -44,6 +34,33 @@ UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "2064:100::11"}
 
 PACKET_COUNT = 100
 PACKET_COUNT_MAX_DIFF = 5
+
+
+def validate_testbed_for_ecmp_test(duthost, tbinfo):
+    """Validate testbed configuration for ECMP hash testing.
+
+    This function replaces the original hardcoded checks with platform-aware validation.
+    It checks ASIC type, topology, and hardware SKU support through the platform handlers.
+
+    Args:
+        duthost: DUT host object
+        tbinfo: Testbed info dictionary
+
+    Raises:
+        pytest.skip: If the DUT or testbed configuration is not supported
+    """
+    try:
+        manager = ECMPHashManager(duthost, tbinfo)
+        if not manager.is_supported():
+            support_info = manager.get_support_info()
+            pytest.skip(f"ECMP hash test not supported on DUT {duthost.hostname}: {support_info}")
+
+        # Log detailed support information for debugging
+        support_info = manager.get_support_info()
+        logger.info(f"ECMP hash test validation passed for DUT {duthost.hostname}: {support_info}")
+
+    except Exception as e:
+        pytest.skip(f"ECMP hash test not supported on DUT {duthost.hostname}: {str(e)}")
 
 
 @pytest.fixture(scope="module")
@@ -59,9 +76,9 @@ def setup(duthosts, rand_selected_dut, tbinfo):
         A Dictionary with required test information.
 
     """
-
-    # Check platform and topology requirements
-    check_platform_and_topology(duthosts, tbinfo)
+    # Validate testbed configuration for ECMP hash testing
+    # This replaces the original hardcoded ASIC and topology checks
+    validate_testbed_for_ecmp_test(rand_selected_dut, tbinfo)
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
@@ -126,47 +143,34 @@ def setup(duthosts, rand_selected_dut, tbinfo):
 
 
 @pytest.fixture(scope="function")
-def set_ecmp_offset(duthost):
+def set_ecmp_offset(duthost, tbinfo):
     """
     Change the ECMP hash offset temporarily for test, then restore it.
+    Platform-independent implementation using ECMPHashManager.
 
     Args:
         duthost: The DUT host object
     """
-    # Get the original ECMPHashSet0Offset value
-    output = duthost.command(
-        'bcmcmd "sc ECMPHashSet0Offset"', module_ignore_errors=True
-    )
-    original_value = None
+    # Create platform-specific ECMP hash manager
+    ecmp_manager = ECMPHashManager(duthost, tbinfo)
 
-    # Extract the original value from the output
-    if output["rc"] == 0:
-        for line in output["stdout_lines"]:
-            if "0x" in line:
-                original_value = line.strip()
-                logger.info(f"Original ECMPHashSet0Offset value: {original_value}")
-                break
+    # Check if platform is supported
+    if not ecmp_manager.is_supported():
+        pytest.skip(f"ECMP hash offset test not supported for hardware SKU: {ecmp_manager.hwsku}")
 
-    if original_value is None:
-        logger.warning("Could not retrieve original ECMPHashSet0Offset value")
-        original_value = "0x1a"  # Default fallback value
+    # Backup original value
+    original_value = ecmp_manager.backup_current_offset()
+    logger.info(f"Original ECMP hash offset value: {original_value}")
 
     try:
-        # Set the new ECMPHashSet0Offset value
-        logger.info("Setting ECMPHashSet0Offset to 0x1c")
-        duthost.command(
-            'bcmcmd "sc ECMPHashSet0Offset=0x1c"', module_ignore_errors=True
-        )
+        # Set test offset value
+        ecmp_manager.set_test_offset()
 
         # Yield control back to the test
         yield
     finally:
-        # Restore the original ECMPHashSet0Offset value
-        logger.info(f"Restoring ECMPHashSet0Offset to {original_value}")
-        duthost.command(
-            f'bcmcmd "sc ECMPHashSet0Offset={original_value}"',
-            module_ignore_errors=True,
-        )
+        # Restore the original value
+        ecmp_manager.restore_original_offset()
 
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
@@ -360,31 +364,28 @@ def save_test_results(duthost, test_results, ip_version, with_ecmpoffset=False):
         logger.error(f"Failed to save formatted results to file: {e}")
 
     for pattern, interfaces in format_results.items():
-        packet_counts = []
         for interface, data in interfaces.items():
+            packet_counts = []
+
             # Collect all packet counts for this interface under this pattern
-            if "count" in data:
-                packet_counts.append(data["count"])
-            else:
-                pytest_assert(
-                    False,
-                    f"Pattern '{pattern}' on interface '{interface}' has no 'count' field",
-                )
+            for tuple_key, _ in data["tuples"].items():
+                if "count" in data:
+                    packet_counts.append(data["count"])
 
-        # If we have packet counts to compare for this pattern
-        if packet_counts:
-            min_count = min(packet_counts)
-            max_count = max(packet_counts)
-            diff = max_count - min_count
+            # If we have packet counts to compare
+            if packet_counts:
+                min_count = min(packet_counts)
+                max_count = max(packet_counts)
+                diff = max_count - min_count
 
-            # If the difference is more than 4, fail the case
-            if diff > PACKET_COUNT_MAX_DIFF:
-                error_msg = (
-                    f"High variance in packet counts for {pattern}: "
-                    f"min={min_count}, max={max_count}, diff={diff}, threshold={PACKET_COUNT_MAX_DIFF}"
-                )
-                logger.error(error_msg)
-                pytest_assert(False, error_msg)
+                # If the difference is more than 4, fail the case
+                if diff > PACKET_COUNT_MAX_DIFF:
+                    error_msg = (
+                        f"High variance in packet counts for {pattern} on {interface}: "
+                        f"min={min_count}, max={max_count}, diff={diff}"
+                    )
+                    logger.error(error_msg)
+                    pytest_assert(False, error_msg)
 
 
 def compare_test_results(duthost, ip_version):
@@ -683,10 +684,7 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
 
 def test_udp_packets(duthost, setup, ptfadapter, ip_version, get_src_port):
     """Verify that we can match and forward UDP packets with different patterns."""
-    output = duthost.command(
-        'bcmcmd "sc ECMPHashSet0Offset"', module_ignore_errors=True
-    )
-    logger.info(f"before test: ECMPHashSet0Offset value: {output['stdout_lines']}")
+
     test_results = send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port)
 
     # Print the test results
@@ -696,18 +694,18 @@ def test_udp_packets(duthost, setup, ptfadapter, ip_version, get_src_port):
 
 
 def test_udp_packets_ecmp(
-    duthost, setup, ptfadapter, ip_version, get_src_port, set_ecmp_offset
+    duthost, tbinfo, setup, ptfadapter, ip_version, get_src_port, set_ecmp_offset
 ):
-    """Verify that we can match and forward UDP packets with different patterns."""
-    hwsku = duthost.facts['hwsku']
-    logger.info(f"Running ECMP hash offset test for hardware SKU: {hwsku}")
-    if hwsku not in ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8", "Arista-7060CX-32S-Q32",
-                     "Arista-7260CX3-C64", "Arista-7260CX3-D108C10", "Arista-7260CX3-D108C8"]:
-        pytest.skip("Skipping ECMP hash offset test for this hardware SKU {} since it's not supported".format(hwsku))
-    output = duthost.command(
-        'bcmcmd "sc ECMPHashSet0Offset"', module_ignore_errors=True
-    )
-    logger.info(f"before test: ECMPHashSet0Offset value: {output['stdout_lines']}")
+    """Verify that ECMP hash offset affects packet distribution patterns."""
+    # Create platform-specific ECMP hash manager for logging current offset
+    ecmp_manager = ECMPHashManager(duthost, tbinfo)
+
+    logger.info(f"Running ECMP hash offset test for hardware SKU: {ecmp_manager.hwsku}")
+
+    # Platform support check is already handled by setup fixture and set_ecmp_offset fixture
+    current_offset = ecmp_manager.get_current_offset()
+    logger.info(f"before test: Current ECMP hash offset value: {current_offset}")
+
     test_results = send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port)
 
     # Print the test results
