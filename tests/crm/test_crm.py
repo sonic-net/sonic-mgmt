@@ -655,30 +655,40 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
 def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface):
+                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
+        dut_interface = crm_interface[0] if duthost.facts["asic_type"] == "mellanox" else "Ethernet1"
+        mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+        if dut_interface in mg_facts["minigraph_portchannels"]:
+            pc_member_name = mg_facts["minigraph_portchannels"][dut_interface]['members'][0]
+        else:
+            pc_member_name = None
+        ptf_portmap = mg_facts['minigraph_ptf_indices']
+        ptf_index = ptf_portmap[pc_member_name] if pc_member_name else ptf_portmap[dut_interface]
+        ptf_interface = f'eth{ptf_index}'
         if ip_ver == "4":
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
-            ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
+            ptfhost.add_ip_to_dev(ptf_interface, nexthop+'/24')
+            ptfhost.set_dev_up_or_down(ptf_interface, 'is_up')
+            ip_add_cmd = "config interface ip add {} 2.2.2.1/24".format(dut_interface)
+            ip_remove_cmd = "config interface ip remove {} 2.2.2.1/24".format(dut_interface)
             nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
             nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
         else:
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/96')
-            ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
+            ptfhost.add_ip_to_dev(ptf_interface, nexthop+'/96')
+            ptfhost.set_dev_up_or_down(ptf_interface, 'is_up')
+            ip_add_cmd = "config interface ip add {} 2001::2/64".format(dut_interface)
+            ip_remove_cmd = "config interface ip remove {} 2001::2/64".format(dut_interface)
             nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
             nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
-        asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+        if duthost.facts["asic_type"] != "mellanox":
+            asichost.sonichost.del_member_from_vlan(1000, dut_interface)
         asichost.shell(ip_add_cmd)
-        asichost.shell("config interface startup Ethernet1")
+        asichost.shell("config interface startup {}".format(dut_interface))
     else:
         nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -712,9 +722,10 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
         asichost.shell(ip_remove_cmd)
-        asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
+        if duthost.facts["asic_type"] != "mellanox":
+            asichost.sonichost.add_member_to_vlan(1000, dut_interface, is_tagged=False)
         ptfhost.remove_ip_addresses()
     crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost,
                                    crm_stats_nexthop_used, crm_stats_nexthop_available,
