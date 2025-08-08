@@ -12,8 +12,10 @@ from datetime import datetime
 class DropReasonAnalyzer:
     """Analyzes and tracks drop reason counters from SONiC 'show dropcounter count' command"""
     
-    def __init__(self, db_path="crawler.db"):
+    def __init__(self, db_path="crawler.db", output_handler=None, splunk_output=None):
         self.db_path = db_path
+        self.output_handler = output_handler  # Legacy - kept for compatibility
+        self.splunk_output = splunk_output    # Direct Splunk access for Pure Analyzer approach
         self.setup_database()
         
         # Standard drop reason columns from SONiC dropcounter output
@@ -158,6 +160,25 @@ class DropReasonAnalyzer:
                                         drop_count,
                                         run_id
                                     ))
+                                    
+                                    # Send ALL drop reason data to Splunk (including zeros) - Pure Analyzer approach
+                                    if self.splunk_output:
+                                        drop_data = {
+                                            'interface_name': interface_name,
+                                            'drop_reason': reason_column.upper(),
+                                            'current_value': drop_count,
+                                            'metadata': {
+                                                'run_id': run_id,
+                                                'timestamp': datetime.now().isoformat()
+                                            }
+                                        }
+                                        try:
+                                            success = self.splunk_output.store_drop_data(dut_name, "drop_reason", drop_data)
+                                            if success:
+                                                print("✓ Drop reason data sent to Splunk: {}/{}".format(dut_name, reason_column.upper()))
+                                        except Exception as e:
+                                            print("ERROR: Failed to send drop reason data to Splunk: {}".format(e))
+                                    
                                     reasons_processed += 1
                                     
                 except json.JSONDecodeError:
@@ -282,6 +303,38 @@ class DropReasonAnalyzer:
             all_increases = entry['all_increases']
             
             print("DROP REASON ALERT: {}/{}".format(dut_name, interface))
+            
+            # Send each significant drop reason increase to Splunk - Pure Analyzer approach
+            for reason, prev_count, curr_count, increase in top_increased_reasons:
+                if self.splunk_output:
+                    drop_data = {
+                        'interface_name': interface,
+                        'drop_reason': reason,
+                        'current_value': curr_count,
+                        'previous_value': prev_count,
+                        'increment': increase,
+                        'metadata': {
+                            'max_increase': max_increase,
+                            'total_interface_increase': entry['total_increase'],
+                            'timestamp': datetime.now().isoformat()
+                        }
+                    }
+                    try:
+                        success = self.splunk_output.store_drop_data(dut_name, "drop_reason", drop_data)
+                        if success:
+                            print("✓ Drop reason increase sent to Splunk: {}/{} +{}".format(dut_name, reason, increase))
+                    except Exception as e:
+                        print("ERROR: Failed to send drop reason increase to Splunk: {}".format(e))
+                    
+                    # Send alert for significant increases
+                    if increase >= 100:  # Alert threshold
+                        alert_message = "Drop reason {} increased by {:,} drops on {}/{}".format(
+                            reason, increase, dut_name, interface)
+                        try:
+                            self.splunk_output.store_alert(dut_name, "drop_reason", "WARNING", 
+                                                           alert_message, drop_data)
+                        except Exception as e:
+                            print("ERROR: Failed to send drop reason alert to Splunk: {}".format(e))
             
             # Handle single vs multiple top reasons
             if len(top_increased_reasons) == 1:

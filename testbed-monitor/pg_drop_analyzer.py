@@ -11,8 +11,10 @@ from datetime import datetime
 
 
 class PriorityGroupDropAnalyzer:
-    def __init__(self, db_path="crawler.db"):
+    def __init__(self, db_path="crawler.db", output_handler=None, splunk_output=None):
         self.db_path = db_path
+        self.output_handler = output_handler  # Legacy - kept for compatibility  
+        self.splunk_output = splunk_output    # Direct Splunk access for Pure Analyzer approach
         self.setup_database()
         
         # Priority group columns
@@ -142,6 +144,26 @@ class PriorityGroupDropAnalyzer:
                                         drop_count,
                                         run_id
                                     ))
+                                    
+                                    # Send ALL PG data to Splunk (including zeros) - Pure Analyzer approach
+                                    if self.splunk_output:
+                                        pg_data_splunk = {
+                                            'pg_name': "{}/{}".format(port, pg_column.upper()),
+                                            'current_value': drop_count,
+                                            'port': port,
+                                            'priority_group': pg_column.upper(),
+                                            'metadata': {
+                                                'run_id': run_id,
+                                                'timestamp': datetime.now().isoformat()
+                                            }
+                                        }
+                                        try:
+                                            success = self.splunk_output.store_drop_data(dut_name, "pg", pg_data_splunk)
+                                            if success:
+                                                print("✓ PG data sent to Splunk: {}/{}".format(dut_name, pg_data_splunk['pg_name']))
+                                        except Exception as e:
+                                            print("ERROR: Failed to send PG data to Splunk: {}".format(e))
+                                    
                                     pg_entries_processed += 1
                             
                 except json.JSONDecodeError:
@@ -219,6 +241,37 @@ class PriorityGroupDropAnalyzer:
             print("PG DROP ALERT: {}/{}/{}: +{:,} drops".format(
                 dut_name, port, pg, increase))
             print("   Drops: {:,} -> {:,}".format(prev_drops, curr_drops))
+            
+            # Send PG drop data to Splunk - Pure Analyzer approach
+            if self.splunk_output:
+                pg_data = {
+                    'pg_name': "{}/{}".format(port, pg),
+                    'current_value': curr_drops,
+                    'previous_value': prev_drops,
+                    'increment': increase,
+                    'metadata': {
+                        'port': port,
+                        'priority_group': pg,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                }
+                try:
+                    success = self.splunk_output.store_drop_data(dut_name, "pg", pg_data)
+                    if success:
+                        print("✓ PG increase sent to Splunk: {}/{} +{}".format(dut_name, pg_data['pg_name'], increase))
+                except Exception as e:
+                    print("ERROR: Failed to send PG increase to Splunk: {}".format(e))
+                
+                # Send alert for significant increases
+                if increase >= 100:  # Alert threshold for PG drops
+                    alert_message = "Priority Group {}/{} increased by {:,} drops on {}".format(
+                        port, pg, increase, dut_name)
+                    try:
+                        self.splunk_output.store_alert(dut_name, "pg", "WARNING", 
+                                                       alert_message, pg_data)
+                    except Exception as e:
+                        print("ERROR: Failed to send PG alert to Splunk: {}".format(e))
+            
             print("-" * 40)
 
 if __name__ == "__main__":

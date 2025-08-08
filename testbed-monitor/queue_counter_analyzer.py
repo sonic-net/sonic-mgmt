@@ -9,8 +9,10 @@ import json
 from datetime import datetime
 
 class QueueCounterAnalyzer:
-    def __init__(self, db_path="crawler.db"):
+    def __init__(self, db_path="crawler.db", output_handler=None, splunk_output=None):
         self.db_path = db_path
+        self.output_handler = output_handler  # Legacy - kept for compatibility
+        self.splunk_output = splunk_output    # Direct Splunk access for Pure Analyzer approach
         self.setup_database()
     
     def setup_database(self):
@@ -125,6 +127,26 @@ class QueueCounterAnalyzer:
                                 drop_pkts,
                                 run_id
                             ))
+                            
+                            # Send all queue data to Splunk 
+                            if self.splunk_output:
+                                queue_data_splunk = {
+                                    'queue_name': "{}/{}".format(port, txq),
+                                    'current_value': drop_pkts,
+                                    'port': port,
+                                    'txq': txq,
+                                    'metadata': {
+                                        'run_id': run_id,
+                                        'timestamp': datetime.now().isoformat()
+                                    }
+                                }
+                                try:
+                                    success = self.splunk_output.store_drop_data(dut_name, "queue", queue_data_splunk)
+                                    if success:
+                                        print("✓ Queue data sent to Splunk: {}/{}".format(dut_name, queue_data_splunk['queue_name']))
+                                except Exception as e:
+                                    print("ERROR: Failed to send queue data to Splunk: {}".format(e))
+                            
                             queues_processed += 1
                             
                 except json.JSONDecodeError:
@@ -202,6 +224,37 @@ class QueueCounterAnalyzer:
             print("QUEUE ALERT: {}/{}/{}: +{:,} drops".format(
                 dut_name, port, txq, increase))
             print("   Drop/pkts: {:,} -> {:,}".format(prev_drops, curr_drops))
+            
+            # Send queue drop data to Splunk - Pure Analyzer approach
+            if self.splunk_output:
+                queue_data = {
+                    'queue_name': "{}/{}".format(port, txq),
+                    'current_value': curr_drops,
+                    'previous_value': prev_drops,
+                    'increment': increase,
+                    'metadata': {
+                        'port': port,
+                        'txq': txq,
+                        'timestamp': datetime.now().isoformat()
+                    }
+                }
+                try:
+                    success = self.splunk_output.store_drop_data(dut_name, "queue", queue_data)
+                    if success:
+                        print("Queue increase sent to Splunk: {}/{} +{}".format(dut_name, queue_data['queue_name'], increase))
+                except Exception as e:
+                    print("ERROR: Failed to send queue increase to Splunk: {}".format(e))
+                
+                # Send alert for significant increases
+                if increase >= 50:  # Alert threshold for queue drops
+                    alert_message = "Queue {}/{} increased by {:,} drops on {}".format(
+                        port, txq, increase, dut_name)
+                    try:
+                        self.splunk_output.store_alert(dut_name, "queue", "WARNING", 
+                                                       alert_message, queue_data)
+                    except Exception as e:
+                        print("ERROR: Failed to send queue alert to Splunk: {}".format(e))
+            
             print("-" * 40)
 
 if __name__ == "__main__":

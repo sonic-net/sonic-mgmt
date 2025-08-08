@@ -1,0 +1,137 @@
+<dashboard version="1.1">
+  <label>NPU Drop Monitoring Dashboard</label>
+  <description>Real-time monitoring of NPU drop counters across network devices. Note: NPU counters clear on each run, so all values represent actual drops since last collection cycle.</description>
+  
+  <!-- Summary Row -->
+  <row>
+    <panel>
+      <title>NPU Drop Summary - Last 24 Hours</title>
+      <single>
+        <search>
+          <query>
+            index=main 
+            earliest=-24h@h latest=now
+            | search analyzer_type="npu" OR npu OR NPU
+            | stats count as event_count
+          </query>
+          <refresh>30s</refresh>
+          <refreshType>interval</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="unit">events</option>
+      </single>
+    </panel>
+    
+    <panel>
+      <title>Active NPU Drop Sources - Last Hour</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="npu"
+            earliest=-1h@h latest=now
+            | eval drop_count=coalesce(drop_count, 'details.current_value')
+            | eval asic_id=coalesce(asic_id, 'details.asic_id')
+            | eval counter_type=coalesce(counter_type, 'details.counter_type')
+            | eval counter_name=coalesce(counter_name, 'details.counter_name')
+            | eval drop_count=if(drop_count=1, 0, drop_count)
+            | where drop_count > 0
+            | stats dc(eval(device_name."|".asic_id."|".counter_type."|".counter_name)) as active_sources
+          </query>
+          <refresh>30s</refresh>
+          <refreshType>interval</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="numberPrecision">0</option>
+        <option name="unit">sources</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["65A637","F7BC38","F58F39","D93F3C"]</option>
+        <option name="rangeValues">[0,5,15,30]</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Device and Counter Analysis -->
+  <row>
+    <panel>
+      <title>Top NPU Drop Counters - Last 24 Hours</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="npu"
+            earliest=-24h@h latest=now
+            | eval drop_count=coalesce(drop_count, 'details.current_value')
+            | eval asic_id=coalesce(asic_id, 'details.asic_id')
+            | eval counter_type=coalesce(counter_type, 'details.counter_type')
+            | eval counter_name=coalesce(counter_name, 'details.counter_name')
+            | eval drop_count=if(drop_count=1, 0, drop_count)
+            | where drop_count > 0
+            | stats sum(drop_count) as total_drops, count as events, latest(_time) as last_seen by device_name, asic_id, counter_type, counter_name
+            | sort -total_drops
+            | head 20
+            | eval last_seen=strftime(last_seen, "%Y-%m-%d %H:%M:%S")
+          </query>
+          <refresh>30s</refresh>
+          <refreshType>interval</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+      </table>
+    </panel>
+    
+    <panel>
+      <title>Recent NPU Drop Events</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="npu"
+            earliest=-2h@h latest=now
+            | eval drop_count=coalesce(drop_count, 'details.current_value')
+            | eval asic_id=coalesce(asic_id, 'details.asic_id')
+            | eval counter_type=coalesce(counter_type, 'details.counter_type')
+            | eval counter_name=coalesce(counter_name, 'details.counter_name')
+            | eval drop_count=if(drop_count=1, 0, drop_count)
+            | where drop_count > 0
+            | sort -_time
+            | head 50
+            | eval event_time=strftime(_time, "%H:%M:%S")
+            | table event_time, device_name, asic_id, counter_type, counter_name, drop_count
+          </query>
+          <refresh>15s</refresh>
+          <refreshType>interval</refreshType>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="rowNumbers">true</option>
+        <option name="wrap">false</option>
+      </table>
+    </panel>
+  </row>
+
+  <!-- NPU Drop Rate Trend -->
+  <row>
+    <panel>
+      <title>NPU Drop Rate Trend - Last 2 Hours</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="npu"
+            earliest=-2h@h latest=now
+            | eval drop_count=coalesce(drop_count, 'details.current_value')
+            | where drop_count > 0
+            | bin _time span=2m
+            | stats sum(drop_count) as drops by _time
+            | timechart span=2m sum(drops) as "Drop Rate"
+          </query>
+          <refresh>30s</refresh>
+          <refreshType>interval</refreshType>
+        </search>
+        <option name="charting.chart">area</option>
+        <option name="charting.axisTitleY.text">Drops per 2min</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.chart.stackMode">default</option>
+      </chart>
+    </panel>
+  </row>
+</dashboard>

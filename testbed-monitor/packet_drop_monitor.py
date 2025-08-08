@@ -10,12 +10,21 @@ from datetime import datetime
 
 # Import the analyzers
 try:
+    from interface_drop_analyzer import InterfaceDropAnalyzer
     from drop_reason_analyzer import DropReasonAnalyzer
     from queue_counter_analyzer import QueueCounterAnalyzer
     from pg_drop_analyzer import PriorityGroupDropAnalyzer
     from npu_drop_analyzer import NPUDropAnalyzer
+    from core_file_analyzer import CoreFileAnalyzer
+    from pfcwd_analyzer import PFCWDAnalyzer
 except ImportError as e:
     print("Warning: Could not import analyzers: {}".format(e))
+
+# Import output modules
+try:
+    from splunk_output import SplunkOutput, load_splunk_config_from_yaml
+except ImportError as e:
+    print("Warning: Could not import output modules: {}".format(e))
 
 
 
@@ -24,15 +33,15 @@ class PacketDropMonitor:
     Main orchestrator for 24/7 packet drop monitoring system.
     
     This class coordinates data collection, analysis, and alerting across
-    multiple monitoring layers (interface, queue, priority group, NPU).
+    multiple monitoring layers (interface, queue, priority group, NPU, core files).
     
     Key Responsibilities:
     - Execute crawler for data collection
-    - Parse and validate interface counter data  
-    - Detect drop increases between monitoring cycles
-    - Trigger deep-dive analysis for problem interfaces
     - Coordinate specialized analyzers for root cause analysis
+    - Trigger deep-dive analysis for problem interfaces
+    - Monitor core files for system crash detection
     - Manage database storage and historical tracking
+    - Send alerts to local DB and/or Splunk
     
     Database Path Handling:
     - None: Creates ~/packet_monitor_data/crawler-TIMESTAMP.db
@@ -40,7 +49,7 @@ class PacketDropMonitor:
     - File path: Uses exact file specified
     """
     
-    def __init__(self, db_path=None, config_file="testbed_info.yml", abort_on_error=False):
+    def __init__(self, db_path=None, config_file="testbed_info.yml", abort_on_error=False, output_mode='db'):
         """
         Initialize packet drop monitoring system.
         
@@ -50,24 +59,16 @@ class PacketDropMonitor:
                 - Directory: Create timestamped file in directory
                 - File: Use exact database file path
             config_file (str): YAML configuration file with device info
-                Example format:
-                    all:
-                      children:
-                        dut_group:
-                          hosts:
-                            device-name:
-                              ansible_host: "IP"
-                              ansible_user: "user" 
-                              ansible_password: "pass"
-                      commands:
-                        - "show int counter -d all"
-                        - "show dropcounter count"
             abort_on_error (bool): If True, stop on first crawler error
-                                  If False, continue monitoring on errors
+            output_mode (str): Output destination - 'db' or 'splunk'
         """
         import os
+        import yaml
         
-        # DATABASE PATH CONFIGURATION
+        self.output_mode = output_mode
+        print("Output mode: {}".format(output_mode))
+        
+        # DATABASE PATH CONFIGURATION - Always create database (needed for internal operations)
         # Handle flexible database path options for different deployment scenarios
         if db_path is None:
             # Default: Use ~/packet_monitor_data/
@@ -85,7 +86,7 @@ class PacketDropMonitor:
                     exit(1)
             else:
                 print("Using default database directory: {}".format(db_dir))
-            
+
             # Generate timestamped database filename
             timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
             self.db_path = os.path.join(db_dir, "crawler-{}.db".format(timestamp))
@@ -107,8 +108,9 @@ class PacketDropMonitor:
             
             # Generate timestamped database filename
             timestamp = datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-            self.db_path = os.path.join(db_dir, "crawler-{}.db".format(timestamp))
-            print("Creating new database in custom directory: {}".format(self.db_path))
+            db_file_path = os.path.join(db_dir, "crawler-{}.db".format(timestamp))
+            print("Creating new database in custom directory: {}".format(db_file_path))
+            self.db_path = db_file_path
             
         else:
             # User provided a specific database file path
@@ -139,45 +141,65 @@ class PacketDropMonitor:
         else:
             print("Crawler will continue on errors (default behavior)")
             
-        # Initialize database schema
-        self.setup_database()
+        # Load YAML configuration
+        try:
+            with open(self.config_file, 'r') as f:
+                self.config_data = yaml.safe_load(f)
+        except Exception as e:
+            print("ERROR: Failed to load config file {}: {}".format(self.config_file, e))
+            exit(1)
         
-        # MONITORING CONFIGURATION
-        self.collection_interval = 60  # 1 minute intervals for testing (production: 300-600 seconds)
+        # OUTPUT INITIALIZATION - Pure Analyzer Tables Approach
+        # No centralized db_output - each analyzer manages its own database tables
+        # This eliminates database locking conflicts entirely
         
-        # ANALYZER INITIALIZATION
-        # All analyzers share the same database for coordinated analysis
-        # Each analyzer handles a specific layer of packet drop monitoring
-        self.drop_reason_analyzer = DropReasonAnalyzer(self.db_path)
-        self.queue_counter_analyzer = QueueCounterAnalyzer(self.db_path)
-        self.pg_drop_analyzer = PriorityGroupDropAnalyzer(self.db_path)
-        self.npu_drop_analyzer = NPUDropAnalyzer(self.db_path)
+        # Set up Splunk output if requested
+        self.splunk_output = None
+        if self.output_mode == 'splunk':
+            splunk_config = load_splunk_config_from_yaml(self.config_data)
+            if splunk_config:
+                try:
+                    self.splunk_output = SplunkOutput(**splunk_config)
+                    # Test connection
+                    if self.splunk_output.test_connection():
+                        print("✓ Splunk HEC connection verified")
+                    else:
+                        print("WARNING: Splunk HEC connection test failed")
+                        if self.output_mode == 'splunk':
+                            print("ERROR: Splunk-only mode requires working connection")
+                            exit(1)
+                except Exception as e:
+                    print("ERROR: Failed to initialize Splunk output: {}".format(e))
+                    if self.output_mode == 'splunk':
+                        exit(1)
+                    else:
+                        print("WARNING: Continuing with database output only")
+                        self.splunk_output = None
+            else:
+                print("ERROR: Splunk output requested but no configuration found in {}".format(self.config_file))
+                print("Please add 'splunk:' section with hec_url and hec_token")
+                if self.output_mode == 'splunk':
+                    exit(1)
+                else:
+                    print("WARNING: Continuing with database output only")
         
-    def setup_database(self):
-        """Create table for tracking interface drops"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
+        # Monitoring Configuration of data collection time interval
+        self.collection_interval = 60  #60 seconds
         
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS interface_drops_history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                dut_name TEXT NOT NULL,
-                interface TEXT NOT NULL,
-                rx_drops INTEGER DEFAULT 0,
-                tx_drops INTEGER DEFAULT 0,
-                timestamp DATETIME NOT NULL,
-                run_id INTEGER NOT NULL,
-                UNIQUE(dut_name, interface, run_id)
-            )
-        """)
+        # Analyzer Initiation - Pure Analyzer Tables Approach
+        # Each analyzer manages its own database tables and handles Splunk output directly
+        # This eliminates centralized db_output and prevents database locking conflicts
         
-        cursor.execute("""
-            CREATE INDEX IF NOT EXISTS idx_drops_dut_interface_time 
-            ON interface_drops_history(dut_name, interface, timestamp DESC)
-        """)
+        # Pass splunk_output directly to analyzers for Splunk mode
+        analyzer_splunk_output = self.splunk_output if self.output_mode == 'splunk' else None
         
-        conn.commit()
-        conn.close()
+        self.interface_drop_analyzer = InterfaceDropAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
+        self.drop_reason_analyzer = DropReasonAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
+        self.queue_counter_analyzer = QueueCounterAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
+        self.pg_drop_analyzer = PriorityGroupDropAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
+        self.npu_drop_analyzer = NPUDropAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
+        self.core_file_analyzer = CoreFileAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
+        self.pfcwd_analyzer = PFCWDAnalyzer(self.db_path, splunk_output=analyzer_splunk_output)
     
     def run_crawler(self):
         """Execute crawler_main.py to collect fresh data"""
@@ -209,332 +231,29 @@ class PacketDropMonitor:
             print("ERROR: Data collection failed: {}".format(e))
             return False
     
-    def parse_number(self, value_str):
-        """
-        Parse numeric string with commas into integer.
-        
-        SONiC CLI often formats large numbers with commas (e.g., "1,234,567").
-        This function safely converts these strings to integers for mathematical operations.
-        
-        Args:
-            value_str: String, int, or float value to parse
-                      Examples: "1,234", "0", "567,890", 1234
-        
-        Returns:
-            int: Parsed integer value, 0 if parsing fails
-            
-        Examples:
-            parse_number("1,234,567") -> 1234567
-            parse_number("0") -> 0
-            parse_number("") -> 0
-            parse_number(None) -> 0
-        """
-        if isinstance(value_str, str):
-            clean_str = value_str.replace(',', '').strip()
-            try:
-                return int(clean_str)
-            except ValueError:
-                return 0
-        elif isinstance(value_str, (int, float)):
-            return int(value_str)
-        return 0
-    
-    def process_and_store_data(self, run_id):
-        """
-        Process crawler results and extract interface drop data for monitoring.
-        
-        This is the core data processing function that:
-        1. Extracts interface counter data from crawler database
-        2. Validates critical field names (CLI format change detection)
-        3. Parses drop counters and stores in monitoring tables
-        4. Provides detailed alerts when field validation fails
-        
-        The function focuses on 'show int counter' command results, extracting:
-        - Interface names (iface field)
-        - RX drop counters (rx_drp field) 
-        - TX drop counters (tx_drp field)
-        
-        Args:
-            run_id (int): Unique identifier for this monitoring cycle
-                         (timestamp-based for chronological ordering)
-        
-        Returns:
-            bool: True if data was successfully processed, False otherwise
-            
-        Field Validation:
-            Checks for essential fields and alerts if CLI output format changes:
-            - Missing 'iface' field -> Interface parsing will fail
-            - Missing 'rx_drp'/'tx_drp' -> Drop detection will fail
-            - Provides available field list for troubleshooting
-            
-        Database Storage:
-            Stores validated data in interface_drops_history table:
-            - dut_name: Device identifier
-            - interface: Interface name (Ethernet*)
-            - rx_drops/tx_drops: Current counter values
-            - timestamp: Processing time
-            - run_id: Monitoring cycle identifier
-        """
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
+    def analyze_interface_drops(self, run_id):
+        """Analyze interface drops using the interface drop analyzer"""
         try:
-            interfaces_processed = 0
-            timestamp = datetime.now()
-            dut_names = set()
-            total_commands_processed = 0
-            
-            # Process interface counter data if available
-            cursor.execute("""
-                SELECT dut_name, json_data
-                FROM crawler_logs
-                WHERE command LIKE '%show int counter%'
-                AND id IN (
-                    SELECT MAX(id)
-                    FROM crawler_logs
-                    WHERE command LIKE '%show int counter%'
-                    GROUP BY dut_name
-                )
-                ORDER BY dut_name
-            """)
-            
-            interface_data = cursor.fetchall()
-            
-            # Process each DUT's interface data
-            for dut_name, json_data in interface_data:
-                dut_names.add(dut_name)
-                try:
-                    interfaces = json.loads(json_data)
-                    
-                    # Field validation - check if essential fields exist in first few interfaces
-                    if interfaces and len(interfaces) > 0:
-                        # Check first few interface entries for required fields
-                        sample_interfaces = interfaces[:3] if len(interfaces) >= 3 else interfaces
-                        missing_fields = []
-                        
-                        for sample in sample_interfaces:
-                            if isinstance(sample, dict):
-                                # Check for essential field names
-                                if 'iface' not in sample:
-                                    missing_fields.append('iface')
-                                if 'rx_drp' not in sample:
-                                    missing_fields.append('rx_drp') 
-                                if 'tx_drp' not in sample:
-                                    missing_fields.append('tx_drp')
-                                break  # Only need to check one valid interface
-                        
-                        # Alert if critical fields are missing
-                        if missing_fields:
-                            missing_fields = list(set(missing_fields))  # Remove duplicates
-                            print("CRITICAL ALERT: Essential interface fields missing from DUT {}: {}".format(
-                                dut_name, ', '.join(missing_fields)))
-                            print("ALERT: Interface parsing may fail - CLI output format may have changed!")
-                            print("ALERT: Expected fields: 'iface', 'rx_drp', 'tx_drp'")
-                            print("ALERT: Available fields in data: {}".format(
-                                list(sample.keys()) if isinstance(sample, dict) else "No valid interface data"))
-                            # Continue processing with available fields to avoid complete failure
-                    
-                    for i, interface_data in enumerate(interfaces):
-                        if not isinstance(interface_data, dict):
-                            continue
-                            
-                        interface_name = interface_data.get('iface', 'interface_{}'.format(i))
-                        rx_drops = self.parse_number(interface_data.get('rx_drp', 0))
-                        tx_drops = self.parse_number(interface_data.get('tx_drp', 0))
-                        
-                        # Additional field validation per interface 
-                        if 'iface' not in interface_data:
-                            print("WARNING: Interface name field 'iface' missing for entry {} on DUT {}".format(i, dut_name))
-                        if 'rx_drp' not in interface_data and 'tx_drp' not in interface_data:
-                            print("WARNING: Both drop fields 'rx_drp' and 'tx_drp' missing for interface {} on DUT {}".format(
-                                interface_name, dut_name))
-                        
-                        # Skip non-interface entries
-                        if interface_name in ['links', 'TX_DROPS'] or not interface_name.startswith('Ethernet'):
-                            continue
-                        
-                        # Store in database
-                        cursor.execute("""
-                            INSERT OR REPLACE INTO interface_drops_history 
-                            (dut_name, interface, rx_drops, tx_drops, timestamp, run_id)
-                            VALUES (?, ?, ?, ?, ?, ?)
-                        """, (dut_name, interface_name, rx_drops, tx_drops, timestamp, run_id))
-                        
-                        interfaces_processed += 1
-                        
-                except json.JSONDecodeError:
-                    continue
-            
-            # Check for ANY command data from this run to determine success
-            cursor.execute("""
-                SELECT COUNT(*), COUNT(DISTINCT dut_name) 
-                FROM crawler_logs 
-                WHERE datetime(substr(json_data, 1, 0)) >= datetime('now', '-5 minutes')
-                   OR id > (SELECT COALESCE(MAX(id), 0) - 100 FROM crawler_logs)
-            """)
-            
-            result = cursor.fetchone()
-            recent_commands = result[0] if result else 0
-            recent_duts = result[1] if result else 0
-            
-            # Get list of DUTs that had any recent data
-            cursor.execute("""
-                SELECT DISTINCT dut_name 
-                FROM crawler_logs 
-                WHERE datetime(substr(json_data, 1, 0)) >= datetime('now', '-5 minutes')
-                   OR id > (SELECT COALESCE(MAX(id), 0) - 100 FROM crawler_logs)
-            """)
-            
-            all_active_duts = set(row[0] for row in cursor.fetchall())
-            dut_names.update(all_active_duts)
-            
-            print("DUTs processed this cycle: {}".format(
-                ", ".join(d for d in sorted(dut_names))))
-            
-            if interfaces_processed > 0:
-                print("Processed {} interfaces for run {}".format(interfaces_processed, run_id))
-                total_commands_processed = interfaces_processed
+            # Process interface counter data for this run
+            if self.interface_drop_analyzer.process_interface_data(run_id):
+                # Analyze and report interface drop increases
+                interface_increases = self.interface_drop_analyzer.analyze_drop_increases(run_id)
+                self.interface_drop_analyzer.print_interface_increases_report(interface_increases)
+                return interface_increases
             else:
-                print("No interface counter data found, but {} commands from {} DUTs processed".format(
-                    recent_commands, recent_duts))
-                total_commands_processed = recent_commands
-                
-            conn.commit()
-            
-            # Success if either interfaces were processed OR any recent commands exist
-            return total_commands_processed > 0
-            
-        except Exception as e:
-            print("ERROR: Failed to process data: {}".format(e))
-            return False
-        finally:
-            conn.close()
-    
-    def analyze_drop_increases(self, current_run_id):
-        """Check for drop increases compared to previous run"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
-        interfaces_with_increases = []  # List to return for deep-dive
-        
-        try:
-            # Get previous run ID
-            cursor.execute("""
-                SELECT MAX(run_id) 
-                FROM interface_drops_history 
-                WHERE run_id < ?
-            """, (current_run_id,))
-            
-            previous_run_result = cursor.fetchone()
-            if not previous_run_result or not previous_run_result[0]:
-                print("INFO: No previous data for comparison (first run)")
-                return interfaces_with_increases
-            
-            previous_run_id = previous_run_result[0]
-            print("Comparing run {} vs previous run {}".format(current_run_id, previous_run_id))
-            
-            # Get interface counts for validation
-            cursor.execute("SELECT COUNT(*) FROM interface_drops_history WHERE run_id = ?", (current_run_id,))
-            current_count = cursor.fetchone()[0]
-            
-            cursor.execute("SELECT COUNT(*) FROM interface_drops_history WHERE run_id = ?", (previous_run_id,))
-            previous_count = cursor.fetchone()[0]
-            
-            print("Interfaces in current run: {}, previous run: {}".format(current_count, previous_count))
-            
-            # Find drop increases
-            cursor.execute("""
-                SELECT 
-                    curr.dut_name,
-                    curr.interface,
-                    prev.rx_drops as prev_rx,
-                    curr.rx_drops as curr_rx,
-                    prev.tx_drops as prev_tx,
-                    curr.tx_drops as curr_tx
-                FROM interface_drops_history curr
-                JOIN interface_drops_history prev 
-                    ON curr.dut_name = prev.dut_name 
-                    AND curr.interface = prev.interface
-                WHERE curr.run_id = ? 
-                    AND prev.run_id = ?
-                    AND (curr.rx_drops > prev.rx_drops OR curr.tx_drops > prev.tx_drops)
-                ORDER BY (curr.rx_drops - prev.rx_drops + curr.tx_drops - prev.tx_drops) DESC
-            """, (current_run_id, previous_run_id))
-            
-            increases = cursor.fetchall()
-            
-            if increases:
-                print("\nDROP INCREASE ALERTS ({} interfaces):".format(len(increases)))
-                print("=" * 80)
-                
-                for row in increases:
-                    dut_name, interface, prev_rx, curr_rx, prev_tx, curr_tx = row
-                    
-                    rx_increase = curr_rx - prev_rx
-                    tx_increase = curr_tx - prev_tx
-                    total_increase = rx_increase + tx_increase
-                    prev_total = prev_rx + prev_tx
-                    curr_total = curr_rx + curr_tx
-                    
-                    print("ALERT: {}/{}: +{:,} drops".format(dut_name, interface, total_increase))
-                    print("   RX: {:,} -> {:,} (+{:,})".format(prev_rx, curr_rx, rx_increase))
-                    print("   TX: {:,} -> {:,} (+{:,})".format(prev_tx, curr_tx, tx_increase))
-                    print("   Total: {:,} -> {:,}".format(prev_total, curr_total))
-                    print("-" * 40)
-                    
-                    # Add to list for deep-dive
-                    interfaces_with_increases.append((dut_name, interface))
-            else:
-                print("No drop increases detected")
+                print("INFO: No interface counter data available for analysis")
+                return []
                 
         except Exception as e:
-            print("ERROR: Failed to analyze drops: {}".format(e))
-        finally:
-            conn.close()
-            
-        return interfaces_with_increases
-    
+            print("ERROR: Interface drop analysis failed: {}".format(e))
+            return []
+
     def show_top_interfaces(self, run_id, limit=5):
-        """Show top interfaces with the most drops in current run"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
+        """Show interfaces with highest drop counts for current run using the analyzer"""
         try:
-            # Get the top interfaces with most total drops (RX + TX)
-            cursor.execute("""
-                SELECT 
-                    dut_name,
-                    interface,
-                    rx_drops,
-                    tx_drops,
-                    (rx_drops + tx_drops) as total_drops
-                FROM interface_drops_history
-                WHERE run_id = ?
-                ORDER BY total_drops DESC
-                LIMIT ?
-            """, (run_id, limit))
-            
-            interfaces = cursor.fetchall()
-            
-            if not interfaces:
-                print("\nNo interfaces with drops found in this run")
-                return
-            
-            print("\nTOP {} INTERFACES WITH MOST DROPS:".format(limit))
-            print("-" * 80)
-            print("{:<15} {:<15} {:<15} {:<15} {:<15}".format(
-                "DUT", "Interface", "RX Drops", "TX Drops", "Total Drops"))
-            print("-" * 80)
-            
-            for row in interfaces:
-                dut_name, interface, rx_drops, tx_drops, total_drops = row
-                print("{:<15} {:<15} {:<15,} {:<15,} {:<15,}".format(
-                    dut_name, interface, rx_drops, tx_drops, total_drops))
-                
+            self.interface_drop_analyzer.show_top_interfaces(run_id, limit)
         except Exception as e:
-            print("ERROR: Failed to get top interfaces: {}".format(e))
-        finally:
-            conn.close()
+            print("ERROR: Top interfaces report failed: {}".format(e))
     
     def analyze_drop_reasons(self, run_id):
         """Analyze drop reasons using the separate drop reason analyzer"""
@@ -580,25 +299,75 @@ class PacketDropMonitor:
 
     def analyze_npu_drops(self, run_id):
         """Analyze NPU drops using the NPU drop analyzer"""
-        print("DEBUG: analyze_npu_drops called for run {}".format(run_id))
         try:
             # Process NPU drop data for this run
             if self.npu_drop_analyzer.process_npu_drops(run_id):
                 # Analyze and report NPU drops (counters reset after each command)
                 npu_drops = self.npu_drop_analyzer.analyze_npu_drop_increases(run_id)
-                # Note: NPU drops are already printed in analyze_npu_drop_increases - no summary needed
+                self.npu_drop_analyzer.print_npu_increases_report(npu_drops)
             else:
                 print("INFO: No NPU drop data available for analysis")
                 
         except Exception as e:
             print("ERROR: NPU drop analysis failed: {}".format(e))
 
+    def analyze_core_files(self, run_id):
+        """Analyze core files using the core file analyzer"""
+        try:
+            # Process core file data for this run
+            if self.core_file_analyzer.process_core_files(run_id):
+                # Analyze and report new core files
+                new_cores = self.core_file_analyzer.analyze_new_core_files(run_id)
+                self.core_file_analyzer.print_core_file_report(new_cores)
+                self.core_file_analyzer.get_core_file_summary(run_id)
+            else:
+                print("INFO: No core file data available for analysis")
+                
+        except Exception as e:
+            print("ERROR: Core file analysis failed: {}".format(e))
+
+    def analyze_pfcwd_stats(self, run_id):
+        """Analyze PFCWD statistics using the PFCWD analyzer"""
+        try:
+            # Always process PFCWD statistics (sends status to Splunk even if no data)
+            has_data = self.pfcwd_analyzer.process_pfcwd_stats(run_id)
+            
+            if has_data:
+                # Analyze and report PFCWD increments
+                pfcwd_increments = self.pfcwd_analyzer.analyze_pfcwd_increments(run_id)
+                if pfcwd_increments:
+                    print("\nPFCWD INCREMENT ALERTS ({} queues with changes):".format(len(pfcwd_increments)))
+                    print("-" * 60)
+                    for increment in pfcwd_increments:
+                        queue_info = "{}/{}:{}".format(increment['dut_name'], increment['interface'], increment['queue_number'])
+                        if increment['storm_increment'] > 0:
+                            print("PFCWD STORM: {} - Storm detected +{} (total: {})".format(
+                                queue_info, increment['storm_increment'], increment['current_storm_detected']))
+                        if increment['tx_drop_increment'] > 0:
+                            print("PFCWD TX DROP: {} - TX drops +{:,} (total: {:,})".format(
+                                queue_info, increment['tx_drop_increment'], increment['current_tx_drops']))
+                        if increment['rx_drop_increment'] > 0:
+                            print("PFCWD RX DROP: {} - RX drops +{:,} (total: {:,})".format(
+                                queue_info, increment['rx_drop_increment'], increment['current_rx_drops']))
+                else:
+                    print("INFO: No PFCWD increments detected")
+                
+                # Analyze storm status for all queues (regardless of increments)
+                stormed_queues = self.pfcwd_analyzer.analyze_storm_status(run_id)
+                if stormed_queues:
+                    print("WARNING: {} queue(s) currently in STORMED state - immediate attention required!".format(len(stormed_queues)))
+            else:
+                print("INFO: No PFCWD data available for analysis")
+                
+        except Exception as e:
+            print("ERROR: PFCWD analysis failed: {}".format(e))
+
     def get_interfaces_with_drop_reason_increases(self, current_run_id):
         """Get interfaces that have drop reason increases"""
-        conn = sqlite3.connect(self.db_path)
-        cursor = conn.cursor()
-        
         interfaces_with_increases = []
+        
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
+        cursor = conn.cursor()
         
         try:
             # Get previous run ID
@@ -660,6 +429,8 @@ class PacketDropMonitor:
         - QueueCounterAnalyzer: Queue-level congestion analysis  
         - PriorityGroupDropAnalyzer: Priority-based drop analysis
         - NPUDropAnalyzer: Hardware ASIC-level drop counters
+        - CoreFileAnalyzer: System crash detection via core files
+        - PFCWDAnalyzer: Priority Flow Control Watchdog statistics
         
         DEEP-DIVE TRIGGERS:
         ==================
@@ -686,47 +457,46 @@ class PacketDropMonitor:
             print("ERROR: Skipping analysis due to crawler failure")
             return False
         
-        # PHASE 2: DATA PROCESSING & VALIDATION
-        # Parse interface counters and validate field formats
-        if not self.process_and_store_data(run_id):
-            print("ERROR: No data processed")
-            return False
+        # PHASE 2: INTERFACE DROP ANALYSIS  
+        # Process interface counters and detect drop increases
+        interfaces_with_increases = self.analyze_interface_drops(run_id)
         
-        # PHASE 3: DROP INCREASE DETECTION
-        # Compare current run with previous run to identify problematic interfaces
-        interfaces_with_increases = self.analyze_drop_increases(run_id)
-        
-        # PHASE 4: TOP INTERFACE REPORTING
+        # PHASE 3: TOP INTERFACE REPORTING
         # Show current snapshot of interfaces with most drops
         self.show_top_interfaces(run_id, 5)
         
-        # PHASE 5: MULTI-LAYER ANALYSIS
+        # PHASE 4: MULTI-LAYER ANALYSIS
         # Run specialized analyzers for different drop categories
         self.analyze_drop_reasons(run_id)  # Why drops occurred
         drop_reason_interfaces = self.get_interfaces_with_drop_reason_increases(run_id)
         
-        # PHASE 6: DEEP-DIVE INVESTIGATION  
+        # PHASE 5: DEEP-DIVE INVESTIGATION  
         # Combine interface lists from multiple detection sources
         all_interfaces_with_increases = interfaces_with_increases + drop_reason_interfaces
         
         # Execute detailed analysis for problematic interfaces
+        # COMMENTED OUT: Deep dive commands (rxcgm/txcgm analysis)
         if all_interfaces_with_increases:
             self.run_deep_dive_commands(all_interfaces_with_increases)
         
-        # Step 7: Analyze queue counters (separate analysis)
+        # Step 6: Analyze queue counters (separate analysis)
         self.analyze_queue_counters(run_id)
         
-        # Step 8: Analyze priority group drops (separate analysis)
+        # Step 7: Analyze priority group drops (separate analysis)
         self.analyze_pg_drops(run_id)
         
-        # Step 9: Analyze NPU drops (separate analysis)
+        # Step 8: Analyze NPU drops (separate analysis)
         self.analyze_npu_drops(run_id)
         
-        # Step 10: Show current NPU drop counters
-        print("DEBUG: About to call print_current_npu_drops")
+        # Step 9: Analyze core files (critical system health check)
+        self.analyze_core_files(run_id)
+        
+        # Step 10: Analyze PFCWD statistics
+        self.analyze_pfcwd_stats(run_id)
+        
+        # Step 11: Show current NPU drop counters
         try:
             self.npu_drop_analyzer.print_current_npu_drops(run_id, 10)
-            print("DEBUG: print_current_npu_drops completed successfully")
         except Exception as e:
             print("ERROR: Failed to show NPU drops: {}".format(e))
             import traceback
@@ -764,6 +534,9 @@ class PacketDropMonitor:
             print("\nMonitoring stopped by user")
         except Exception as e:
             print("\nUnexpected error: {}".format(e))
+        finally:
+            print("Closing output connections...")
+            self.close_outputs()
 
     def run_deep_dive_commands(self, interfaces_with_increases):
         """
@@ -828,7 +601,7 @@ class PacketDropMonitor:
             from crawler_main import run_command_on_dut, load_duts_and_commands
             
             # Load DUT configuration
-            dut_list, _ = load_duts_and_commands(self.config_file)
+            dut_list, _, _ = load_duts_and_commands(self.config_file)
             dut_config = {dut['name']: dut for dut in dut_list}
             
         except ImportError as e:
@@ -881,7 +654,7 @@ class PacketDropMonitor:
         
     def display_deep_dive_results(self, interfaces_with_increases):
         """Parse and display deep-dive command results from database"""
-        conn = sqlite3.connect(self.db_path)
+        conn = sqlite3.connect(self.db_path, timeout=30.0)
         cursor = conn.cursor()
         
         try:
@@ -894,7 +667,7 @@ class PacketDropMonitor:
                 
                 # Get RX interface_cgm results (traffic classes 0-7)
                 cursor.execute("""
-                    SELECT command, json_data
+                    SELECT command, raw_data, json_data
                     FROM crawler_logs
                     WHERE dut_name = ?
                     AND command LIKE 'sudo show platform npu rx interface_cgm -t % -i {}'
@@ -905,28 +678,37 @@ class PacketDropMonitor:
                 rx_results = cursor.fetchall()
                 if rx_results:
                     print("  RX Interface CGM Results:")
-                    for command, json_data in rx_results:
+                    for command, raw_data, json_data in rx_results:
                         # Extract traffic class from command
                         import re
                         tc_match = re.search(r'-t (\d+)', command)
                         tc = tc_match.group(1) if tc_match else 'unknown'
                         
-                        try:
-                            parsed_data = json.loads(json_data)
-                            if parsed_data and isinstance(parsed_data, dict):
-                                print("    TC {}: Found CGM data".format(tc))
-                                # Display any non-zero counters
-                                for key, value in parsed_data.items():
-                                    if isinstance(value, (int, float)) and value > 0:
-                                        print("      {}: {:,}".format(key, value))
-                            else:
-                                print("    TC {}: No drops detected".format(tc))
-                        except json.JSONDecodeError:
-                            print("    TC {}: Parse error".format(tc))
+                        print("    TC {}: {}".format(tc, command))
+                        print("    " + "-" * 70)
+                        
+                        # Show raw output if available
+                        if raw_data:
+                            print("    RAW OUTPUT:")
+                            for line in raw_data.split('\n'):
+                                print("    {}".format(line))
+                        else:
+                            # Fallback to parsed data if no raw data
+                            try:
+                                parsed_data = json.loads(json_data)
+                                if parsed_data and isinstance(parsed_data, dict):
+                                    print("    PARSED DATA:")
+                                    for key, value in parsed_data.items():
+                                        print("      {}: {}".format(key, value))
+                                else:
+                                    print("    No data available")
+                            except json.JSONDecodeError:
+                                print("    Parse error - no data available")
+                        print("")
                 
                 # Get TX cgm_state results
                 cursor.execute("""
-                    SELECT command, json_data
+                    SELECT command, raw_data, json_data
                     FROM crawler_logs
                     WHERE dut_name = ?
                     AND command LIKE 'sudo show platform npu tx cgm_state -i {}'
@@ -937,19 +719,28 @@ class PacketDropMonitor:
                 tx_results = cursor.fetchall()
                 if tx_results:
                     print("  TX CGM State Results:")
-                    for command, json_data in tx_results:
-                        try:
-                            parsed_data = json.loads(json_data)
-                            if parsed_data and isinstance(parsed_data, dict):
-                                print("    Found TX CGM data")
-                                # Display any non-zero counters
-                                for key, value in parsed_data.items():
-                                    if isinstance(value, (int, float)) and value > 0:
-                                        print("      {}: {:,}".format(key, value))
-                            else:
-                                print("    No TX drops detected")
-                        except json.JSONDecodeError:
-                            print("    TX: Parse error")
+                    for command, raw_data, json_data in tx_results:
+                        print("    Command: {}".format(command))
+                        print("    " + "-" * 70)
+                        
+                        # Show raw output if available
+                        if raw_data:
+                            print("    RAW OUTPUT:")
+                            for line in raw_data.split('\n'):
+                                print("    {}".format(line))
+                        else:
+                            # Fallback to parsed data if no raw data
+                            try:
+                                parsed_data = json.loads(json_data)
+                                if parsed_data and isinstance(parsed_data, dict):
+                                    print("    PARSED DATA:")
+                                    for key, value in parsed_data.items():
+                                        print("      {}: {}".format(key, value))
+                                else:
+                                    print("    No data available")
+                            except json.JSONDecodeError:
+                                print("    Parse error - no data available")
+                        print("")
                 
                 if not rx_results and not tx_results:
                     print("  No deep-dive results found in database")
@@ -958,47 +749,85 @@ class PacketDropMonitor:
             print("ERROR: Failed to display deep-dive results: {}".format(e))
         finally:
             conn.close()
-        
         print("\nDeep-dive analysis complete")
         print("=" * 80)
-        
-    def validate_interface_fields_format(self, sample_data):
+    
+    def store_drop_data(self, device_name, analyzer_type, data):
         """
-        Validate that parsed interface data contains expected fields.
-        Returns tuple: (is_valid, missing_fields, available_fields)
+        Store drop counter data using Splunk only (Pure Analyzer Tables approach).
+        
+        This method is now only used for interface analyzer data.
+        Specialized analyzers handle their own database tables and Splunk output directly.
+        
+        Args:
+            device_name (str): Name of the monitored device
+            analyzer_type (str): Type of analyzer (interface, drop_reason, queue, etc.)
+            data (dict): Drop counter data to store
         """
-        if not isinstance(sample_data, dict):
-            return False, ['invalid_data_format'], []
+        # Only Splunk output - no centralized database
+        if self.splunk_output:
+            try:
+                success = self.splunk_output.store_drop_data(device_name, analyzer_type, data)
+                if not success:
+                    print("WARNING: Failed to send data to Splunk")
+                else:
+                    print("✓ Data sent to Splunk successfully")
+            except Exception as e:
+                print("ERROR: Failed to send data to Splunk: {}".format(e))
+        else:
+            print("INFO: No Splunk output configured for {} data from {}".format(analyzer_type, device_name))
+    
+    def store_alert(self, device_name, analyzer_type, alert_level, message, details=None):
+        """
+        Store alert using Splunk only (Pure Analyzer Tables approach).
         
-        expected_fields = ['iface', 'rx_drp', 'tx_drp']
-        missing_fields = []
-        available_fields = list(sample_data.keys())
-        
-        for field in expected_fields:
-            if field not in sample_data:
-                missing_fields.append(field)
-        
-        is_valid = len(missing_fields) == 0
-        return is_valid, missing_fields, available_fields
+        Args:
+            device_name (str): Name of the monitored device
+            analyzer_type (str): Type of analyzer that generated the alert
+            alert_level (str): Alert severity level (INFO, WARNING, ERROR)
+            message (str): Alert message
+            details (dict, optional): Additional alert details
+        """
+        if self.splunk_output:
+            try:
+                success = self.splunk_output.store_alert(device_name, analyzer_type, alert_level, message, details)
+                if not success:
+                    print("WARNING: Failed to send alert to Splunk")
+            except Exception as e:
+                print("ERROR: Failed to send alert to Splunk: {}".format(e))
+        else:
+            print("INFO: Alert logged locally - {} - {}: {}".format(alert_level, device_name, message))
+    
+    def close_outputs(self):
+        """Close all output connections and clean up temporary files."""
+        if self.splunk_output:
+            self.splunk_output.close()
     
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='24/7 Packet Drop Monitor')
     parser.add_argument('--db', '--database', dest='db_path', 
                         help='Database file path or directory (default: ~/packet_monitor_data/crawler-TIMESTAMP.db)')
     parser.add_argument('--config', '--testbed', dest='config_file', 
-                        default='testbed_info.yml',
-                        help='YAML configuration file with device info and commands (default: testbed_info.yml)')
+                        help='YAML configuration file with device info and commands')
     parser.add_argument('-E', action='store_true',
                         help='exit for any error when running crawler (default: False)')
+    parser.add_argument('--output', choices=['db', 'splunk'], default='db',
+                        help='Output destination: db (SQLite database) or splunk (HEC) (default: db)')
     
     args = parser.parse_args()
     
-    # Validate config file exists
+    # Validate config file is provided and exists
     import os
+    if not args.config_file:
+        print("ERROR: Config file is required. Use --config <filename>")
+        print("Please specify a YAML configuration file with device info and commands")
+        exit(1)
+    
     if not os.path.exists(args.config_file):
         print("ERROR: Config file '{}' not found".format(args.config_file))
         print("Please check the file path or use --help for usage information")
         exit(1)
     
-    monitor = PacketDropMonitor(db_path=args.db_path, config_file=args.config_file, abort_on_error=args.E)
+    monitor = PacketDropMonitor(db_path=args.db_path, config_file=args.config_file, 
+                                abort_on_error=args.E, output_mode=args.output)
     monitor.start_monitoring()

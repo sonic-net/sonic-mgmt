@@ -1,0 +1,211 @@
+<dashboard version="1.1">
+  <label>Interface Drop Monitoring Dashboard</label>
+  <description>Real-time monitoring of packet drop increments across network devices - Data retained for 14 days</description>
+  
+  <row>
+    <panel>
+      <title>Devices with Interface Counters Drop Data Stored in Dashboard </title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | stats latest(_time) as "Last Seen" by device_name
+            | sort device_name
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    
+    <panel>
+      <title>Interfaces with New Drops</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | sort 0 _time device_name interface_name
+            | streamstats current=f last(rx_drops) as prev_rx, last(tx_drops) as prev_tx by device_name, interface_name
+            | eval rx_increment = rx_drops - prev_rx, tx_increment = tx_drops - prev_tx
+            | eval total_increment = coalesce(rx_increment,0) + coalesce(tx_increment,0)
+            | where total_increment > 0
+            | stats dc(eval(device_name + ":" + interface_name)) as interfaces_with_new_drops
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    
+    <panel>
+      <title>New Drops per Device (Last 14 Days)</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | sort 0 _time device_name interface_name
+            | streamstats current=f last(rx_drops) as prev_rx, last(tx_drops) as prev_tx by device_name, interface_name
+            | eval rx_increment = rx_drops - prev_rx, tx_increment = tx_drops - prev_tx
+            | eval total_increment = coalesce(rx_increment,0) + coalesce(tx_increment,0)
+            | where total_increment > 0
+            | stats sum(total_increment) as new_drops by device_name
+            | sort -new_drops
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">false</option>
+        <option name="dataOverlayMode">none</option>
+      </table>
+    </panel>
+  </row>
+  
+  <row>
+    <panel>
+      <title>Drop Increments Over Time</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | sort 0 _time device_name interface_name
+            | streamstats current=f last(rx_drops) as prev_rx, last(tx_drops) as prev_tx by device_name, interface_name
+            | eval rx_increment = coalesce(rx_drops - prev_rx, 0), tx_increment = coalesce(tx_drops - prev_tx, 0)
+            | where rx_increment >= 0 AND tx_increment >= 0
+            | timechart span=5m sum(rx_increment) as "RX Drop Increments", sum(tx_increment) as "TX Drop Increments"
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">New Drops</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+  </row>
+  
+  <row>
+    <panel>
+      <title>Top Interfaces by New Drops</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | eval device_interface = device_name + ":" + interface_name
+            | sort 0 _time device_interface
+            | streamstats current=f last(rx_drops) as prev_rx, last(tx_drops) as prev_tx by device_interface
+            | eval rx_increment = coalesce(rx_drops - prev_rx, 0), tx_increment = coalesce(tx_drops - prev_tx, 0)
+            | eval total_increment = rx_increment + tx_increment
+            | where total_increment > 0
+            | stats sum(rx_increment) as "RX Drop Increments", sum(tx_increment) as "TX Drop Increments", sum(total_increment) as "Total New Drops" by device_interface
+            | sort - "Total New Drops"
+            | head 15
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>2m</refresh>
+        </search>
+        <option name="charting.chart">column</option>
+        <option name="charting.axisTitleX.text">Interface</option>
+        <option name="charting.axisTitleY.text">New Drops</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    
+    <panel>
+      <title>Drop Increment Details with Utilization</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | eval device_interface = device_name + ":" + interface_name
+            | sort 0 _time device_interface
+            | streamstats current=f last(rx_drops) as prev_rx, last(tx_drops) as prev_tx by device_interface
+            | eval rx_increment = coalesce(rx_drops - prev_rx, 0), tx_increment = coalesce(tx_drops - prev_tx, 0)
+            | eval total_increment = rx_increment + tx_increment
+            | where total_increment > 0
+            | stats 
+                latest(_time) as "Last Seen",
+                sum(rx_increment) as "RX Drop Increments", 
+                sum(tx_increment) as "TX Drop Increments",
+                sum(total_increment) as "Total New Drops",
+                latest(rx_util) as "RX Util %",
+                latest(tx_util) as "TX Util %"
+                by device_name, interface_name
+            | sort - "Total New Drops"
+            | head 25
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+            | eval "RX Util %" = if(isnull('RX Util %'), "N/A", round('RX Util %', 2) . "%")
+            | eval "TX Util %" = if(isnull('TX Util %'), "N/A", round('TX Util %', 2) . "%")
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+    
+    <panel>
+      <title>Top 5 Interfaces by Total Drop Counters</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="interface"
+            | eval device_interface = device_name + ":" + interface_name
+            | stats 
+                latest(_time) as "Last Updated",
+                latest(rx_drops) as "RX Total Drops", 
+                latest(tx_drops) as "TX Total Drops"
+                by device_name, interface_name
+            | eval "Total Drops" = coalesce('RX Total Drops', 0) + coalesce('TX Total Drops', 0)
+            | where 'Total Drops' > 0
+            | sort - "Total Drops"
+            | head 5
+            | eval "Last Updated" = strftime('Last Updated', "%Y-%m-%d %H:%M:%S")
+            | eval "RX Total Drops" = if(isnull('RX Total Drops'), 0, 'RX Total Drops')
+            | eval "TX Total Drops" = if(isnull('TX Total Drops'), 0, 'TX Total Drops')
+            | table device_name, interface_name, "RX Total Drops", "TX Total Drops", "Total Drops", "Last Updated"
+            | rename device_name as "Device", interface_name as "Interface"
+          </query>
+          <earliest>-24h@h</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="Total Drops">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">0,100,1000</scale>
+        </format>
+        <format type="number" field="RX Total Drops">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="TX Total Drops">
+          <option name="precision">0</option>
+        </format>
+        <format type="number" field="Total Drops">
+          <option name="precision">0</option>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+</dashboard>

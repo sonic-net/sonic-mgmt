@@ -1,0 +1,390 @@
+<dashboard version="1.1" theme="light">
+<label>PFCWD (Priority Flow Control Watchdog) Monitoring Dashboard - Bugged</label>
+<description>Reliable PFCWD monitoring with consistent increment detection</description>
+
+  <!-- Summary Row -->
+  <row>
+    <panel>
+      <title>Queues with PFCWD Increments</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(storm_detected) as prev_storm, last(tx_drops) as prev_tx, last(rx_drops) as prev_rx by device_queue
+            | eval storm_increment = if(isnull(prev_storm), 0, storm_detected - prev_storm)
+            | eval tx_drop_increment = if(isnull(prev_tx), 0, tx_drops - prev_tx)
+            | eval rx_drop_increment = if(isnull(prev_rx), 0, rx_drops - prev_rx)
+            | where storm_increment > 0 OR tx_drop_increment > 0 OR rx_drop_increment > 0
+            | stats dc(device_queue) as queues_with_increments
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    
+    <panel>
+      <title>New Storm Detections</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(storm_detected) as prev_storm by device_queue
+            | eval storm_increment = if(isnull(prev_storm), 0, storm_detected - prev_storm)
+            | where storm_increment > 0
+            | stats sum(storm_increment) as total_new_storms
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1,5]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>PFCWD Monitoring Status</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd"
+            | stats 
+                count(eval(status="no_queue_data")) as headers_only,
+                count(eval(status="no_pfcwd_data")) as no_data,
+                count(eval(status!="no_*")) as active_queues
+            | eval total = headers_only + no_data + active_queues
+            | eval status_text = if(active_queues > 0, "Active (" + tostring(active_queues) + " queues)", 
+                                 if(headers_only > 0, "Headers Only", "No Data"))
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="field">status_text</option>
+      </single>
+    </panel>
+
+    <panel>
+      <title>Total Stormed Queues</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status="stormed"
+            | stats dc(eval(device_name + ":" + interface + ":" + queue_number)) as stormed_queues
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xF58F39","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1,3]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+  </row>
+
+  <!-- Critical Alerts Row -->
+  <row>
+    <panel>
+      <title>🚨 CRITICAL: Currently Stormed Queues</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status="stormed"
+            | stats 
+                latest(_time) as "Last Seen",
+                latest(storm_detected) as "Total Storms",
+                latest(storm_restored) as "Total Restored", 
+                latest(tx_drops) as "TX Drops",
+                latest(rx_drops) as "RX Drops",
+                latest(status) as "Current Status"
+                by device_name, interface, queue_number
+            | eval "Storm Balance" = 'Total Storms' - 'Total Restored'
+            | eval "Queue ID" = device_name + ":" + interface + ":" + queue_number
+            | sort - "Storm Balance", - "Last Seen"
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+            | eval "Alert Level" = "🚨 CRITICAL STORM"
+            | table "Alert Level", "Queue ID", device_name, interface, queue_number, "Current Status", "Storm Balance", "Total Storms", "Total Restored", "TX Drops", "RX Drops", "Last Seen"
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="Alert Level">
+          <colorPalette type="list">[#D93F3C]</colorPalette>
+        </format>
+        <format type="color" field="Current Status">
+          <colorPalette type="map">{"stormed":#D93F3C}</colorPalette>
+        </format>
+        <format type="color" field="Storm Balance">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">0,1,5</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Overview Row -->
+  <row>
+    <panel>
+      <title>PFCWD Increments Over Time</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(storm_detected) as prev_storm, last(tx_drops) as prev_tx, last(rx_drops) as prev_rx by device_queue
+            | eval storm_increment = if(isnull(prev_storm), 0, storm_detected - prev_storm)
+            | eval tx_drop_increment = if(isnull(prev_tx), 0, tx_drops - prev_tx)
+            | eval rx_drop_increment = if(isnull(prev_rx), 0, rx_drops - prev_rx)
+            | where storm_increment >= 0 AND tx_drop_increment >= 0 AND rx_drop_increment >= 0
+            | timechart span=2m 
+                sum(storm_increment) as "Storm Detected", 
+                sum(tx_drop_increment) as "TX Drops", 
+                sum(rx_drop_increment) as "RX Drops"
+          </query>
+          <earliest>-1h@h</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">PFCWD Increments</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    
+    <panel>
+      <title>PFCWD Alert Breakdown</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(storm_detected) as prev_storm, last(tx_drops) as prev_tx, last(rx_drops) as prev_rx by device_queue
+            | eval storm_increment = if(isnull(prev_storm), 0, storm_detected - prev_storm)
+            | eval tx_drop_increment = if(isnull(prev_tx), 0, tx_drops - prev_tx)
+            | eval rx_drop_increment = if(isnull(prev_rx), 0, rx_drops - prev_rx)
+            | eval alert_type = case(
+                storm_increment > 0 AND tx_drop_increment > 0 AND rx_drop_increment > 0, "All Types",
+                storm_increment > 0 AND (tx_drop_increment > 0 OR rx_drop_increment > 0), "Storm + Drops",
+                storm_increment > 0, "Storm Only",
+                tx_drop_increment > 0 AND rx_drop_increment > 0, "TX + RX Drops",
+                tx_drop_increment > 0, "TX Drops Only", 
+                rx_drop_increment > 0, "RX Drops Only",
+                1=1, "No Alerts")
+            | where alert_type != "No Alerts"
+            | stats count as "Incidents" by alert_type
+            | sort - "Incidents"
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">pie</option>
+        <option name="charting.legend.placement">right</option>
+      </chart>
+    </panel>
+  </row>
+
+  <!-- Storm Detection Analysis -->
+  <row>
+    <panel>
+      <title>PFCWD Storm Detections (NEW)</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(storm_detected) as prev_storm, last(storm_restored) as prev_restored by device_queue
+            | eval storm_increment = if(isnull(prev_storm), 0, storm_detected - prev_storm)
+            | eval restored_increment = if(isnull(prev_restored), 0, storm_restored - prev_restored)
+            | where storm_increment > 0
+            | stats 
+                latest(_time) as "Last Seen",
+                sum(storm_increment) as "New Storms",
+                latest(storm_detected) as "Total Storms",
+                latest(storm_restored) as "Total Restored",
+                latest(status) as "Queue Status"
+                by device_name, interface, queue_number
+            | eval "Storm Balance" = 'Total Storms' - 'Total Restored'
+            | sort - "New Storms"
+            | head 20
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="Storm Balance">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">0,1,5</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Drop Analysis Row -->
+  <row>
+    <panel>
+      <title>PFCWD TX Drop Increments</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(tx_drops) as prev_tx, last(tx_ok) as prev_tx_ok by device_queue
+            | eval tx_drop_increment = if(isnull(prev_tx), 0, tx_drops - prev_tx)
+            | eval tx_ok_increment = if(isnull(prev_tx_ok), 0, tx_ok - prev_tx_ok)
+            | where tx_drop_increment > 0
+            | stats 
+                latest(_time) as "Last Seen",
+                sum(tx_drop_increment) as "New TX Drops",
+                latest(tx_drops) as "Total TX Drops",
+                latest(tx_ok) as "Total TX OK",
+                latest(status) as "Queue Status"
+                by device_name, interface, queue_number
+            | eval "TX Drop Rate" = if('Total TX OK' + 'Total TX Drops' > 0, 
+                round(('Total TX Drops' / ('Total TX OK' + 'Total TX Drops')) * 100, 2) . "%", "N/A")
+            | sort - "New TX Drops"
+            | head 15
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="New TX Drops">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">0,100,1000</scale>
+        </format>
+      </table>
+    </panel>
+
+    <panel>
+      <title>PFCWD RX Drop Increments</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | streamstats current=f last(rx_drops) as prev_rx, last(rx_ok) as prev_rx_ok by device_queue
+            | eval rx_drop_increment = if(isnull(prev_rx), 0, rx_drops - prev_rx)
+            | eval rx_ok_increment = if(isnull(prev_rx_ok), 0, rx_ok - prev_rx_ok)
+            | where rx_drop_increment > 0
+            | stats 
+                latest(_time) as "Last Seen",
+                sum(rx_drop_increment) as "New RX Drops",
+                latest(rx_drops) as "Total RX Drops",
+                latest(rx_ok) as "Total RX OK",
+                latest(status) as "Queue Status"
+                by device_name, interface, queue_number
+            | eval "RX Drop Rate" = if('Total RX OK' + 'Total RX Drops' > 0, 
+                round(('Total RX Drops' / ('Total RX OK' + 'Total RX Drops')) * 100, 2) . "%", "N/A")
+            | sort - "New RX Drops"
+            | head 15
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="New RX Drops">
+          <colorPalette type="list">[#65A637,#F7BC38,#F58F39,#D93F3C]</colorPalette>
+          <scale type="threshold">0,100,1000</scale>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Status and Debug Row -->
+  <row>
+    <panel>
+      <title>PFCWD Monitoring Status Events</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status="no_*"
+            | stats 
+                latest(_time) as "Last Seen",
+                count as "Count",
+                latest(message) as "Message"
+                by device_name, status
+            | eval "Status Description" = case(
+                status="no_queue_data", "PFCWD headers found, no queue data",
+                status="no_pfcwd_data", "No PFCWD commands found",
+                status="no_crawler_log", "Crawler log missing",
+                1=1, status)
+            | sort device_name, status
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+        <format type="color" field="status">
+          <colorPalette type="map">{"no_queue_data":#F7BC38,"no_pfcwd_data":#F58F39,"no_crawler_log":#D93F3C}</colorPalette>
+        </format>
+      </table>
+    </panel>
+  </row>
+
+  <!-- Raw Data Debug Panel -->
+  <row>
+    <panel>
+      <title>Raw PFCWD Data (Debug)</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pfcwd" status!="no_*"
+            | eval device_queue = device_name + ":" + interface + ":" + queue_number
+            | sort _time device_queue time_point
+            | table _time device_name interface queue_number status storm_detected tx_drops rx_drops time_point run_id
+            | eval "_time" = strftime(_time, "%Y-%m-%d %H:%M:%S")
+            | head 20
+          </query>
+          <earliest>-15m@m</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

@@ -1,0 +1,118 @@
+<dashboard version="1.1" theme="light">
+<label>Queue Drop Monitoring Dashboard</label>
+<description>Queue drop monitoring with data retained for 14 days</description>
+
+  <!-- Queue Drop Summary -->
+  <row>
+    <panel>
+      <title>Queues with New Drops (Last 14 Days)</title>
+      <single>
+        <search>
+          <query>
+            index=main analyzer_type="queue"
+            | eval device_queue = device_name + ":" + queue_name
+            | sort 0 _time device_queue
+            | streamstats current=f last(current_value) as prev_drops by device_queue
+            | eval drop_increment = coalesce(current_value - prev_drops, 0)
+            | where drop_increment > 0
+            | stats dc(device_queue) as queues_with_drops
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="colorBy">value</option>
+        <option name="colorMode">block</option>
+        <option name="rangeColors">["0x65A637","0xF7BC38","0xD93F3C"]</option>
+        <option name="rangeValues">[0,1]</option>
+        <option name="useColors">1</option>
+      </single>
+    </panel>
+    
+    <panel>
+      <title>Total New Queue Drops per Device</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="queue"
+            | eval device_queue = device_name + ":" + queue_name
+            | sort 0 _time device_queue
+            | streamstats current=f last(current_value) as prev_drops by device_queue
+            | eval drop_increment = coalesce(current_value - prev_drops, 0)
+            | where drop_increment > 0
+            | stats sum(drop_increment) as total_new_drops by device_name
+            | sort -total_new_drops
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">none</option>
+        <option name="count">20</option>
+        <option name="wrap">true</option>
+        <option name="rowNumbers">false</option>
+        <option name="dataOverlayMode">none</option>
+      </table>
+    </panel>
+  </row>
+  
+  <!-- Queue Drop Monitoring Section -->
+  <row>
+    <panel>
+      <title>Queue Drop Increments Over Time</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="queue"
+            | eval device_queue = device_name + ":" + queue_name
+            | sort 0 _time device_queue
+            | streamstats current=f last(current_value) as prev_drops by device_queue
+            | eval drop_increment = coalesce(current_value - prev_drops, 0)
+            | where drop_increment > 0
+            | timechart span=5m sum(drop_increment) as "Queue Drop Increments"
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">New Queue Drops</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    
+    <panel>
+      <title>Top Queues by New Drops</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="queue"
+            | eval device_queue = device_name + ":" + queue_name
+            | sort 0 _time device_queue
+            | streamstats current=f last(current_value) as prev_drops by device_queue
+            | eval drop_increment = coalesce(current_value - prev_drops, 0)
+            | where drop_increment > 0
+            | stats 
+                latest(_time) as "Last Seen",
+                sum(drop_increment) as "New Drops",
+                latest(current_value) as "Total Drops",
+                latest(port) as "Port",
+                latest(txq) as "Queue"
+                by device_name, queue_name
+            | sort - "New Drops"
+            | head 20
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+
+</dashboard>

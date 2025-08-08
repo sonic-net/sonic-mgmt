@@ -1,0 +1,60 @@
+<dashboard version="1.1" theme="light">
+<label>Priority Group Drop Monitoring Dashboard</label>
+<description>Priority Group drop monitoring with data retained for 14 days</description>
+  <row>
+    <panel>
+      <title>Priority Group Drop Increments Over Time</title>
+      <chart>
+        <search>
+          <query>
+            index=main analyzer_type="pg"
+            | eval device_pg = device_name + ":" + pg_name
+            | sort 0 _time device_pg
+            | streamstats current=f last(current_value) as prev_drops by device_pg
+            | eval drop_increment = coalesce(current_value - prev_drops, 0)
+            | where drop_increment > 0
+            | timechart span=5m sum(drop_increment) as "PG Drop Increments"
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>30s</refresh>
+        </search>
+        <option name="charting.chart">line</option>
+        <option name="charting.axisTitleX.text">Time</option>
+        <option name="charting.axisTitleY.text">New PG Drops</option>
+        <option name="charting.legend.placement">bottom</option>
+      </chart>
+    </panel>
+    
+    <panel>
+      <title>Top Priority Groups by New Drops</title>
+      <table>
+        <search>
+          <query>
+            index=main analyzer_type="pg"
+            | eval device_pg = device_name + ":" + pg_name
+            | sort 0 _time device_pg
+            | streamstats current=f last(current_value) as prev_drops by device_pg
+            | eval drop_increment = coalesce(current_value - prev_drops, 0)
+            | where drop_increment > 0
+            | stats 
+                latest(_time) as "Last Seen",
+                sum(drop_increment) as "New Drops",
+                latest(current_value) as "Total Drops",
+                latest(port) as "Port",
+                latest(priority_group) as "Priority Group"
+                by device_name, pg_name
+            | sort - "New Drops"
+            | head 20
+            | eval "Last Seen" = strftime('Last Seen', "%Y-%m-%d %H:%M:%S")
+          </query>
+          <earliest>-14d@d</earliest>
+          <latest>now</latest>
+          <refresh>1m</refresh>
+        </search>
+        <option name="drilldown">cell</option>
+        <option name="refresh.display">progressbar</option>
+      </table>
+    </panel>
+  </row>
+</dashboard>

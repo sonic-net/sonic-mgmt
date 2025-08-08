@@ -122,14 +122,21 @@ def dump_to_db(dut_name, command, parsed_data, db_path=None, raw_data=None):
             dut_name TEXT,
             command TEXT,
             json_data TEXT,
-            raw_data TEXT
+            raw_data TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
         )
     """)
 
+    # Add timestamp column to existing tables if it doesn't exist
+    try:
+        cursor.execute("ALTER TABLE crawler_logs ADD COLUMN timestamp DATETIME DEFAULT CURRENT_TIMESTAMP")
+    except sqlite3.OperationalError:
+        pass  # Column already exists
+
     # Insert new row with command results
     cursor.execute("""
-        INSERT INTO crawler_logs (dut_name, command, json_data, raw_data)
-        VALUES (?, ?, ?, ?)
+        INSERT INTO crawler_logs (dut_name, command, json_data, raw_data, timestamp)
+        VALUES (?, ?, ?, ?, datetime('now'))
     """, (dut_name, command, json_blob, raw_data))
 
     conn.commit()
@@ -190,6 +197,9 @@ def load_duts_and_commands(file_path):
     with open(file_path, "r") as f:
         data = yaml.safe_load(f)
 
+    # Extract global command timeout (default to 60 if not specified)
+    global_command_timeout = data["all"].get("command_timeout", 60)
+
     # Extract device information from YAML structure
     # Navigate: all -> children -> dut_group -> hosts
     duts = []
@@ -222,8 +232,9 @@ def load_duts_and_commands(file_path):
     
     logger.info("Loaded {} devices and {} commands from configuration".format(
         len(duts), len(commands)))
+    logger.info("Using command timeout: {} seconds".format(global_command_timeout))
     
-    return duts, commands
+    return duts, commands, global_command_timeout
 
 def parse_column_positions(sep_line, sep_char='-'):
     """
@@ -931,7 +942,7 @@ def parse_npu_tx_cgm_output(output_lines, interface):
     
     return result
 
-def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
+def run_command_on_dut(dut, command, db_path=None, abort_on_error=False, command_timeout=60):
     """
     Execute CLI command on SONiC device via SSH with comprehensive error handling.
     
@@ -988,13 +999,16 @@ def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
     try:
         # Establish SSH connection with timeout protection
         # Use -tt for proper terminal allocation and TERM=dumb to avoid formatting issues
-        child = pexpect.spawn("ssh -tt {}@{}".format(dut['user'], dut['host']), 
+        # Use -o PubkeyAuthentication=no to force password auth and avoid SSH key issues
+        child = pexpect.spawn("ssh -tt -o PubkeyAuthentication=no {}@{}".format(dut['user'], dut['host']), 
                             env={"TERM": "dumb"}, timeout=30)
 
         # Handle SSH connection prompts
         i = child.expect([
             "Are you sure you want to continue connecting",  # First-time connection
             "password:",                                     # Password prompt
+            "Host key verification failed",                  # Host key mismatch
+            "REMOTE HOST IDENTIFICATION HAS CHANGED",       # Host key changed warning
             pexpect.EOF,                                     # Connection failed
             pexpect.TIMEOUT                                  # Connection timeout
         ])
@@ -1007,6 +1021,59 @@ def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
         elif i == 1:
             # Standard password authentication
             child.sendline(dut["password"])
+        elif i == 2 or i == 3:
+            # Host key verification failed - automatically fix it
+            logger.warning("SSH host key verification failed for {} - fixing automatically".format(dut['host']))
+            child.close()
+            
+            # Extract the ssh-keygen command to fix the issue
+            fix_cmd = "ssh-keygen -f \"{}/.ssh/known_hosts\" -R {}".format(
+                os.path.expanduser("~"), dut['host'])
+            logger.info("Running: {}".format(fix_cmd))
+            
+            # Execute the fix command
+            import subprocess
+            try:
+                result = subprocess.run(fix_cmd, shell=True, capture_output=True, text=True)
+                if result.returncode == 0:
+                    logger.info("Successfully removed old host key for {}".format(dut['host']))
+                else:
+                    logger.warning("ssh-keygen command completed with return code {}: {}".format(
+                        result.returncode, result.stderr.strip()))
+            except Exception as e:
+                logger.error("Failed to run ssh-keygen: {}".format(e))
+                if abort_on_error:
+                    raise Exception("Failed to fix SSH host key for {}".format(dut['host']))
+                return
+            
+            # Retry SSH connection after fixing host key
+            logger.info("Retrying SSH connection to {} after host key fix".format(dut['host']))
+            child = pexpect.spawn("ssh -tt -o PubkeyAuthentication=no {}@{}".format(dut['user'], dut['host']), 
+                                env={"TERM": "dumb"}, timeout=30)
+            
+            # Handle retry connection prompts
+            retry_i = child.expect([
+                "Are you sure you want to continue connecting",  # First-time connection after fix
+                "password:",                                     # Password prompt
+                "Host key verification failed",                  # Still failing
+                pexpect.EOF,                                     # Connection failed
+                pexpect.TIMEOUT                                  # Connection timeout
+            ])
+            
+            if retry_i == 0:
+                # Accept new SSH host key
+                child.sendline("yes")
+                child.expect("password:")
+                child.sendline(dut["password"])
+            elif retry_i == 1:
+                # Standard password authentication
+                child.sendline(dut["password"])
+            else:
+                # Still failing after fix
+                logger.error("SSH connection still failing for {} after host key fix".format(dut['host']))
+                if abort_on_error:
+                    raise Exception("SSH connection failed after host key fix for {}".format(dut['host']))
+                return
         else:
             # Connection failure - log error and handle gracefully
             logger.error("Could not connect to {}".format(dut['host']))
@@ -1018,11 +1085,15 @@ def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
         prompt_regex = r"\$ ?$"  # Matches "$ " or "$" at end of line
         child.expect(prompt_regex)
 
+        # MANDATORY: Check for core files on every device login
+        # This detects system crashes/failures indicated by new .core.gz files
+        check_core_files_on_login(child, dut, db_path, prompt_regex)
+
         logger.info("Executing command on {}: {}".format(dut['name'], command))
         
         # Special handling for NPU counter commands (requires adaptive ASIC options)
         if command.strip() == "sudo show platform npu counters":
-            success = handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abort_on_error)
+            success = handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abort_on_error, command_timeout)
             if not success and abort_on_error:
                 raise Exception("NPU counters command failed on {}".format(dut['name']))
             return
@@ -1032,9 +1103,9 @@ def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
         
         # Wait for command to complete with timeout
         try:
-            child.expect(prompt_regex, timeout=60)  # Increased timeout
+            child.expect(prompt_regex, timeout=command_timeout)
         except pexpect.TIMEOUT:
-            logger.warning("Command timed out on {}: {}".format(dut['name'], command))
+            logger.warning("Command timed out on {} after {}s: {}".format(dut['name'], command_timeout, command))
             logger.warning("Attempting to recover and skip this command...")
             
             # Try to recover by sending Ctrl+C and getting back to prompt
@@ -1057,9 +1128,6 @@ def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
         lines = output.splitlines()
         if lines and lines[0].strip() == command:
             lines = lines[1:]
-
-        print("\n=== RAW OUTPUT for {} / {} ===".format(dut['name'], command))
-        print("\n".join(lines).strip())
 
         # Choose the correct parser
         try:
@@ -1101,15 +1169,10 @@ def run_command_on_dut(dut, command, db_path=None, abort_on_error=False):
             child.sendline("exit")
             return
 
-        print("\n=== PARSED OUTPUT ===")
         if isinstance(parsed, list):
             if len(parsed) == 0:
                 logger.warning("Command returned no parseable data (empty result)")
                 logger.warning("Raw output may have been: error message, empty, or unsupported format")
-            for row in parsed:
-                print(row)
-        else:
-            print(json.dumps(parsed, indent=2))
 
         dump_to_db(dut["name"], command, parsed, db_path)
 
@@ -1142,13 +1205,14 @@ def needs_drop_counter_setup(command_list):
 
 
 def setup_drop_counters_on_dut(dut, db_path=None, abort_on_error=False, force_setup=False):
-    """Set up drop counters on all ASICs of a DUT using Python instead of bash script"""
-    logger.info("Setting up drop counters on {} using Python implementation".format(dut['name']))
+    """Set up drop counters on DUT with automatic single/multi-ASIC detection"""
+    logger.info("Setting up drop counters on {} using unified implementation".format(dut['name']))
     
     child = None
     try:
         # Connect to DUT
-        child = pexpect.spawn("ssh -tt {}@{}".format(dut['user'], dut['host']), env={"TERM": "dumb"}, timeout=30)
+        child = pexpect.spawn("ssh -tt -o PubkeyAuthentication=no {}@{}".format(dut['user'], dut['host']), 
+                            env={"TERM": "dumb"}, timeout=30)
 
         # Handle SSH authentication
         i = child.expect([
@@ -1167,156 +1231,36 @@ def setup_drop_counters_on_dut(dut, db_path=None, abort_on_error=False, force_se
         else:
             logger.error("Could not connect to {} for drop counter setup".format(dut['host']))
             if abort_on_error:
-                raise Exception("Failed to connect to {} for drop counter setup".format(dut['host']))
+                raise Exception("Could not connect to {}".format(dut['host']))
             return False
 
         prompt_regex = r"\$ ?$"
         child.expect(prompt_regex)
 
-        # Switch to root
-        logger.info("Switching to root for drop counter configuration...")
-        child.sendline("sudo su")
-        
-        # Handle potential password prompt for sudo
-        i = child.expect([
-            r"#.*$",  # Root prompt
-            r"\[sudo\] password.*:",  # Sudo password prompt
-            prompt_regex,  # Regular prompt (passwordless sudo)
-            pexpect.TIMEOUT
-        ], timeout=10)
-        
-        if i == 0:
-            # Already at root prompt
-            logger.info("Successfully switched to root")
-            prompt_regex = r"#.*$"
-        elif i == 1:
-            # Need to provide password for sudo
-            child.sendline(dut["password"])
-            child.expect(r"#.*$", timeout=10)
-            logger.info("Successfully switched to root with password")
-            prompt_regex = r"#.*$"
-        elif i == 2:
-            # Still at regular prompt, try again
-            child.expect(r"#.*$", timeout=10)
-            logger.info("Successfully switched to root")
-            prompt_regex = r"#.*$"
-        else:
-            logger.error("Failed to switch to root on {}".format(dut['host']))
-            if abort_on_error:
-                raise Exception("Failed to switch to root on {}".format(dut['host']))
-            return False
-
-        # Get list of ASICs
-        logger.info("Getting list of ASICs...")
-        child.sendline("ip netns")
-        child.expect(prompt_regex, timeout=30)
+        # STEP 1: DETECT DEVICE TYPE (Single-ASIC vs Multi-ASIC)
+        logger.info("Detecting device type (single-ASIC vs multi-ASIC)...")
+        child.sendline("ip netns | grep asic")
+        child.expect(prompt_regex, timeout=10)
         
         netns_output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
-        logger.info("Full 'ip netns' output:\n{}".format(netns_output))
+        logger.info("ASIC detection output: '{}'".format(netns_output.strip()))
         
-        # Parse ASIC names directly from ip netns output
+        # Parse ASIC names from ip netns output
         asic_lines = []
         for line in netns_output.splitlines():
             line = line.strip()
-            logger.info("Processing line: '{}'".format(line))
-            # Look for lines containing 'asic' and extract just the asic name
-            if 'asic' in line and '(id:' in line:
-                # Extract asic name from format like "asic1 (id: 1)"
-                asic_name = line.split('(')[0].strip()
-                if asic_name.startswith('asic'):
-                    asic_lines.append(asic_name)
-                    logger.info("Added ASIC: {}".format(asic_name))
-            elif line.startswith('asic') and ' ' in line:
-                # Handle other possible formats
-                asic_name = line.split()[0]
-                if asic_name not in asic_lines:
-                    asic_lines.append(asic_name)
-                    logger.info("Added ASIC: {}".format(asic_name))
+            if line and line.startswith('asic') and not line.startswith('ip netns'):
+                # Extract just the ASIC name (before any spaces or extra info)
+                asic_name = line.split()[0] if ' ' in line else line
+                asic_lines.append(asic_name)
         
+        # Determine device type and setup approach
         if not asic_lines:
-            logger.warning("No ASICs found on {}. Full ip netns output was: {}".format(dut['name'], netns_output.strip()))
-            child.sendline("exit")
-            return True
-        
-        logger.info("Found ASICs on {}: {}".format(dut['name'], ', '.join(asic_lines)))
-        
-        # Configure drop counters for each ASIC
-        for asic in asic_lines:
-            logger.info("Processing drop counters for {}...".format(asic))
-            
-            # Check if this ASIC already has drop counters configured
-            if not force_setup and check_drop_counters_configured_on_asic(child, asic, prompt_regex):
-                logger.info("Drop counters already configured for {}, skipping...".format(asic))
-                continue
-            elif force_setup:
-                logger.info("Force setup enabled, reconfiguring drop counters for {}...".format(asic))
-            
-            logger.info("Configuring drop counters for {}...".format(asic))
-            
-            # Check if drop counters are already configured
-            if check_drop_counters_configured_on_asic(child, asic, prompt_regex):
-                logger.info("Drop counters already configured on {}".format(asic))
-                continue  # Skip to next ASIC
-            
-            # Get capabilities for this ASIC - break down the command
-            capabilities_cmd = "ip netns exec {} show dropcounters capabilities".format(asic)
-            logger.info("Getting capabilities: {}".format(capabilities_cmd))
-            child.sendline(capabilities_cmd)
-            child.expect(prompt_regex, timeout=30)
-            
-            # Get the raw capabilities output
-            capabilities_output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
-            logger.info("Raw capabilities output for {}:\n{}".format(asic, capabilities_output))
-            
-            # Parse capabilities - look for lines that start with whitespace (like the bash script)
-            capabilities = []
-            for line in capabilities_output.splitlines():
-                # Skip the command echo line
-                if capabilities_cmd in line:
-                    continue
-                # Look for lines that start with whitespace and contain actual capability names
-                if line.startswith('    ') or line.startswith('\t'):
-                    capability = line.strip()
-                    if capability and capability not in capabilities:
-                        capabilities.append(capability)
-            
-            if not capabilities:
-                logger.warning("No drop counter capabilities found for {}".format(asic))
-                continue
-            
-            logger.info("Found {} drop counter capabilities for {}: {}".format(
-                len(capabilities), asic, ', '.join(capabilities)))
-            
-            # Install each drop counter 
-            count = 1
-            for capability in capabilities:
-                install_cmd = "ip netns exec {} config dropcounters install {} PORT_INGRESS_DROPS [{}] -d \"{}\" -g {} -a {}".format(
-                    asic, capability, capability, capability, capability, capability)
-                
-                logger.info("Installing drop counter {}/{} for {}: {}".format(count, len(capabilities), asic, capability))
-                logger.info("Command: {}".format(install_cmd))
-                
-                child.sendline(install_cmd)
-                child.expect(prompt_regex, timeout=30)
-                
-                # Check the output for any errors
-                install_output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
-                if 'error' in install_output.lower() or 'failed' in install_output.lower():
-                    logger.warning("Possible error installing {}: {}".format(capability, install_output.strip()))
-                else:
-                    logger.info("Successfully installed drop counter: {}".format(capability))
-                
-                count += 1
-            
-            logger.info("Completed drop counter configuration for {}".format(asic))
-        
-        # Exit root and close connection
-        child.sendline("exit")  # Exit from root
-        child.expect(r"\$ ?$", timeout=10)  # Back to regular user prompt
-        child.sendline("exit")  # Exit SSH
-        
-        logger.info("Drop counter setup completed successfully on {}".format(dut['name']))
-        return True
+            logger.info("SINGLE-ASIC device detected - using direct commands")
+            return setup_single_asic_drop_counters(child, dut, prompt_regex, force_setup)
+        else:
+            logger.info("MULTI-ASIC device detected - found ASICs: {}".format(', '.join(asic_lines)))
+            return setup_multi_asic_drop_counters(child, dut, asic_lines, prompt_regex, force_setup)
         
     except Exception as e:
         logger.error("Failed to set up drop counters on {}: {}".format(dut['name'], e))
@@ -1329,6 +1273,162 @@ def setup_drop_counters_on_dut(dut, db_path=None, abort_on_error=False, force_se
                 child.close()
             except:
                 pass
+
+
+def setup_single_asic_drop_counters(child, dut, prompt_regex, force_setup):
+    """Setup drop counters for single-ASIC devices (no ip netns exec needed)"""
+    logger.info("Configuring drop counters for single-ASIC device: {}".format(dut['name']))
+    
+    try:
+        # Check if drop counters are already configured (if not forcing setup)
+        if not force_setup:
+            child.sendline("show dropcounters configuration")
+            child.expect(prompt_regex, timeout=30)
+            config_output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
+            
+            # Count configured entries
+            config_lines = [line.strip() for line in config_output.splitlines() 
+                           if line.strip() and 'PORT_INGRESS_DROPS' in line]
+            
+            if config_lines:
+                logger.info("Drop counters already configured on {} ({} entries), skipping...".format(
+                    dut['name'], len(config_lines)))
+                return True
+        
+        # Get drop counter capabilities using the working single-ASIC approach
+        logger.info("Getting drop counter capabilities...")
+        child.sendline("show dropcounters capabilities")
+        child.expect(prompt_regex, timeout=30)
+        
+        capabilities_output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
+        logger.info("Raw capabilities output:\n{}".format(capabilities_output))
+        
+        # Parse capabilities - look for lines that start with 8 spaces (your working pattern)
+        capabilities = []
+        for line in capabilities_output.splitlines():
+            if line.startswith('        ') and line.strip():  # 8 spaces + content
+                capability = line.strip()
+                capabilities.append(capability)
+                logger.info("Found capability: {}".format(capability))
+        
+        if not capabilities:
+            logger.warning("No drop counter capabilities found for {}".format(dut['name']))
+            return True
+        
+        logger.info("Found {} drop counter capabilities: {}".format(
+            len(capabilities), ', '.join(capabilities)))
+        
+        # Install each drop counter using direct commands (no ip netns exec)
+        count = 1
+        for capability in capabilities:
+            install_cmd = "sudo config dropcounters install {} PORT_INGRESS_DROPS [{}] -d \"{}\" -g {} -a {}".format(
+                capability, capability, capability, capability, capability)
+            logger.info("Installing counter {}/{}: {}".format(count, len(capabilities), install_cmd))
+            child.sendline(install_cmd)
+            child.expect(prompt_regex, timeout=30)
+            count += 1
+        
+        logger.info("Successfully configured {} drop counters for single-ASIC device {}".format(
+            len(capabilities), dut['name']))
+        return True
+        
+    except Exception as e:
+        logger.error("Failed to configure single-ASIC drop counters on {}: {}".format(dut['name'], e))
+        return False
+
+
+def setup_multi_asic_drop_counters(child, dut, asic_lines, prompt_regex, force_setup):
+    """Setup drop counters for multi-ASIC devices (requires ip netns exec)"""
+    logger.info("Configuring drop counters for multi-ASIC device: {} (ASICs: {})".format(
+        dut['name'], ', '.join(asic_lines)))
+    
+    try:
+        # Switch to root for multi-ASIC configuration
+        logger.info("Switching to root for multi-ASIC drop counter configuration...")
+        child.sendline("sudo su")
+        
+        # Handle potential password prompt for sudo
+        i = child.expect([
+            r"#.*$",  # Root prompt
+            r"\[sudo\] password.*:",  # Sudo password prompt
+            prompt_regex,  # Regular prompt (passwordless sudo)
+            pexpect.TIMEOUT
+        ], timeout=10)
+        
+        if i == 0:
+            logger.info("Successfully switched to root")
+            prompt_regex = r"#.*$"
+        elif i == 1:
+            child.sendline(dut["password"])
+            child.expect(r"#.*$", timeout=10)
+            logger.info("Successfully switched to root with password")
+            prompt_regex = r"#.*$"
+        elif i == 2:
+            child.expect(r"#.*$", timeout=10)
+            logger.info("Successfully switched to root")
+            prompt_regex = r"#.*$"
+        else:
+            logger.error("Failed to switch to root on {}".format(dut['name']))
+            return False
+        
+        # Configure drop counters for each ASIC
+        for asic in asic_lines:
+            logger.info("Processing drop counters for {}...".format(asic))
+            
+            # Check if this ASIC already has drop counters configured
+            if not force_setup and check_drop_counters_configured_on_asic(child, asic, prompt_regex):
+                logger.info("Drop counters already configured for {}, skipping...".format(asic))
+                continue
+            elif force_setup:
+                logger.info("Force setup enabled - reconfiguring drop counters for {}".format(asic))
+            
+            # Get capabilities for this ASIC using ip netns exec
+            capabilities_cmd = "ip netns exec {} show dropcounters capabilities".format(asic)
+            logger.info("Getting capabilities: {}".format(capabilities_cmd))
+            child.sendline(capabilities_cmd)
+            child.expect(prompt_regex, timeout=30)
+            
+            capabilities_output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
+            logger.info("Raw capabilities output for {}:\n{}".format(asic, capabilities_output))
+            
+            # Parse capabilities - look for lines that start with 8 spaces
+            capabilities = []
+            for line in capabilities_output.splitlines():
+                if line.startswith('        ') and line.strip():  # 8 spaces + content
+                    capability = line.strip()
+                    capabilities.append(capability)
+                    logger.info("Found capability for {}: {}".format(asic, capability))
+            
+            if not capabilities:
+                logger.warning("No drop counter capabilities found for {}".format(asic))
+                continue
+            
+            logger.info("Found {} drop counter capabilities for {}: {}".format(
+                len(capabilities), asic, ', '.join(capabilities)))
+            
+            # Install each drop counter using ip netns exec
+            count = 1
+            for capability in capabilities:
+                install_cmd = "ip netns exec {} config dropcounters install {} PORT_INGRESS_DROPS [{}] -d \"{}\" -g {} -a {}".format(
+                    asic, capability, capability, capability, capability, capability)
+                logger.info("Installing counter {}/{} for {}: {}".format(count, len(capabilities), asic, install_cmd))
+                child.sendline(install_cmd)
+                child.expect(prompt_regex, timeout=30)
+                count += 1
+            
+            logger.info("Completed drop counter configuration for {}".format(asic))
+        
+        # Exit root
+        child.sendline("exit")
+        child.expect(r"\$ ?$", timeout=10)
+        
+        logger.info("Successfully configured drop counters for multi-ASIC device {} ({} ASICs)".format(
+            dut['name'], len(asic_lines)))
+        return True
+        
+    except Exception as e:
+        logger.error("Failed to configure multi-ASIC drop counters on {}: {}".format(dut['name'], e))
+        return False
 
 
 def check_drop_counters_configured_on_asic(child, asic, prompt_regex):
@@ -1444,7 +1544,7 @@ def detect_available_asics(error_output):
     
     return asics
 
-def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abort_on_error):
+def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abort_on_error, command_timeout=60):
     """Handle NPU counters command with adaptive -n asic option"""
     dut_name = dut['name']
     
@@ -1457,7 +1557,7 @@ def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abor
         
         for asic in known_asics:
             asic_command = "sudo show platform npu counters -n {}".format(asic)
-            success = execute_single_command(child, dut, asic_command, db_path, prompt_regex, abort_on_error)
+            success = execute_single_command(child, dut, asic_command, db_path, prompt_regex, abort_on_error, command_timeout)
             if not success:
                 return False
         return True
@@ -1465,7 +1565,7 @@ def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abor
     elif requires_asic is False:
         # We know this DUT works with the base command
         logger.info("DUT {} uses base NPU counters command".format(dut_name))
-        return execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_error)
+        return execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_error, command_timeout)
     
     else:
         # First time or unknown preference - try base command first
@@ -1473,9 +1573,9 @@ def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abor
         child.sendline(command)
         
         try:
-            child.expect(prompt_regex, timeout=60)
+            child.expect(prompt_regex, timeout=command_timeout)
         except pexpect.TIMEOUT:
-            logger.warning("NPU counters command timed out on {}".format(dut_name))
+            logger.warning("NPU counters command timed out on {} after {}s".format(dut_name, command_timeout))
             return False
         
         output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
@@ -1499,7 +1599,7 @@ def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abor
                 # Run commands for each ASIC
                 for asic in available_asics:
                     asic_command = "sudo show platform npu counters -n {}".format(asic)
-                    success = execute_single_command(child, dut, asic_command, db_path, prompt_regex, abort_on_error)
+                    success = execute_single_command(child, dut, asic_command, db_path, prompt_regex, abort_on_error, command_timeout)
                     if not success:
                         return False
                 return True
@@ -1515,11 +1615,6 @@ def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abor
             try:
                 parsed = parse_npu_counters_output(lines, "0")  # Use "0" as default ASIC ID
                 
-                print("\n=== RAW OUTPUT for {} / {} ===".format(dut_name, command))
-                print("\n".join(lines).strip())
-                print("\n=== PARSED OUTPUT ===")
-                print(json.dumps(parsed, indent=2))
-                
                 dump_to_db(dut_name, command, parsed, db_path)
                 return True
                 
@@ -1530,7 +1625,7 @@ def handle_npu_counters_command(child, dut, command, db_path, prompt_regex, abor
                 dump_to_db(dut_name, command, [], db_path, raw_output)
                 return False
 
-def execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_error):
+def execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_error, command_timeout=60):
     """Execute a single command and parse/store the output"""
     dut_name = dut['name']
     logger.info("Executing: {}".format(command))
@@ -1538,9 +1633,9 @@ def execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_
     child.sendline(command)
     
     try:
-        child.expect(prompt_regex, timeout=60)
+        child.expect(prompt_regex, timeout=command_timeout)
     except pexpect.TIMEOUT:
-        logger.warning("Command timed out: {}".format(command))
+        logger.warning("Command timed out after {}s: {}".format(command_timeout, command))
         return False
     
     if isinstance(child.before, bytes):
@@ -1550,9 +1645,6 @@ def execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_
     lines = output.splitlines()
     if lines and lines[0].strip() == command:
         lines = lines[1:]
-    
-    print("\n=== RAW OUTPUT for {} / {} ===".format(dut_name, command))
-    print("\n".join(lines).strip())
     
     # Parse the command output
     try:
@@ -1570,9 +1662,6 @@ def execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_
                 dump_to_db(dut_name, command, parsed, db_path, failed_raw)
                 return True
         
-        print("\n=== PARSED OUTPUT ===")
-        print(json.dumps(parsed, indent=2))
-        
         dump_to_db(dut_name, command, parsed, db_path)
         return True
         
@@ -1580,6 +1669,85 @@ def execute_single_command(child, dut, command, db_path, prompt_regex, abort_on_
         logger.error("Failed to parse command output: {}".format(e))
         raw_output = '\n'.join(lines) if lines else None
         dump_to_db(dut_name, command, [], db_path, raw_output)
+        return False
+
+def check_core_files_on_login(child, dut, db_path, prompt_regex):
+    """
+    Mandatory core file check when logging into each DUT.
+    
+    This function automatically runs 'ls -la /var/core' when logging into any device
+    to detect core dump files that indicate system crashes or failures.
+    
+    Args:
+        child: Active pexpect SSH session
+        dut (dict): Device configuration
+        db_path (str): Database path for storing results
+        prompt_regex (str): Shell prompt pattern for command completion
+    
+    Returns:
+        bool: True if check completed successfully, False on error
+    """
+    try:
+        logger.info("Checking for core files on {}".format(dut['name']))
+        
+        # Execute core file check command
+        core_command = "ls -la /var/core"
+        child.sendline(core_command)
+        
+        # Wait for command completion
+        try:
+            child.expect(prompt_regex, timeout=10)
+        except pexpect.TIMEOUT:
+            logger.warning("Core file check timed out on {}".format(dut['name']))
+            return False
+        
+        output = child.before.decode(errors='ignore') if isinstance(child.before, bytes) else child.before
+        lines = output.splitlines()
+        if lines and lines[0].strip() == core_command:
+            lines = lines[1:]
+        
+        # Parse ls -la output to extract core files
+        core_files = []
+        for line in lines:
+            line = line.strip()
+            if not line or line.startswith('total '):
+                continue
+            
+            # Parse ls -la format: permissions user group size date time filename
+            # Example: -rw-r--r-- 1 root root 1234567 Jul 17 13:30 orchagent.1752699007.44.1.core.gz
+            parts = line.split()
+            if len(parts) >= 9 and parts[0].startswith('-'):  # Regular file
+                filename = parts[8]  # Last part is filename
+                file_size = parts[4]  # File size
+                file_date = " ".join(parts[5:8])  # Date and time
+                
+                # Only interested in .core.gz files
+                if filename.endswith('.core.gz'):
+                    core_files.append({
+                        'filename': filename,
+                        'size': file_size,
+                        'date': file_date,
+                        'permissions': parts[0],
+                        'owner': parts[2],
+                        'group': parts[3]
+                    })
+        
+        # Store results in database
+        dump_to_db(dut["name"], core_command, core_files, db_path)
+        
+        # Log core file findings
+        if core_files:
+            logger.warning("Found {} core files on {}: {}".format(
+                len(core_files), dut['name'], 
+                [f['filename'] for f in core_files]
+            ))
+        else:
+            logger.info("No core files found on {}".format(dut['name']))
+        
+        return True
+        
+    except Exception as e:
+        logger.error("Failed to check core files on {}: {}".format(dut['name'], e))
         return False
 
 def main():
@@ -1682,7 +1850,7 @@ def main():
         logger.error("Config file '{}' not found".format(args.config_file))
         exit(1)
     
-    dut_list, command_list = load_duts_and_commands(args.config_file)
+    dut_list, command_list, command_timeout = load_duts_and_commands(args.config_file)
     
     logger.info("Starting crawler with {} DUTs and {} commands".format(len(dut_list), len(command_list)))
     if abort_on_error:
@@ -1709,7 +1877,7 @@ def main():
         
         for command in command_list:
             try:
-                run_command_on_dut(dut, command, db_path, abort_on_error)
+                run_command_on_dut(dut, command, db_path, abort_on_error, command_timeout)
             except Exception as e:
                 logger.error("Failed to execute {} on {}: {}".format(command, dut['name'], e))
                 if abort_on_error:

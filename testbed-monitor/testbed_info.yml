@@ -9,6 +9,9 @@
 # - ansible_password: SSH password
 
 all:
+  # Global command timeout setting (default: 60 seconds)
+  command_timeout: 60
+  
   children:
     dut_group:
       hosts:
@@ -17,34 +20,37 @@ all:
         #  ansible_user: cisco
         #  ansible_password: cisco123
         #T2-1-LC0:                    
-        #  ansible_host: 10.1.65.29
+        #  ansible_host: 172.18.210.126
         #  ansible_user: cisco
         #  ansible_password: cisco123
-        #T2-1-LC1:                   
-        #  ansible_host: 10.1.65.30
-        #  ansible_user: cisco
-        #  ansible_password: cisco123
+        T2-1-LC1:                   
+          ansible_host: 172.18.210.127
+          ansible_user: cisco
+          ansible_password: cisco123
         #T2-1-LC2:                   
-        #  ansible_host: 10.1.65.31
+        #  ansible_host: 172.18.210.128
         #  ansible_user: cisco
         #  ansible_password: cisco123
-        #T2-1-LC3:                   
-        #  ansible_host: 10.1.65.32
+        #other_type:                   
+        #  ansible_host: 10.124.199.96
         #  ansible_user: cisco
         #  ansible_password: cisco123
-        #dut6:
-        #  ansible_host: 10.1.65.41
+        #c28-lc0:
+        #  ansible_host: c28-lc0
         #  ansible_user: cisco
         #  ansible_password: cisco123
-        sonic_dut_lc0:
-          ansible_host: 192.168.122.227
-          ansible_user: cisco
-          ansible_password: cisco123
-        sonic_dut_lc1:
-          ansible_host: 192.168.122.143
-          ansible_user: cisco
-          ansible_password: cisco123
-
+        #mathilda-4:
+        # ansible_host: 1.74.23.17
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #sonic_dut_lc0:
+        #  ansible_host: 192.168.122.227
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
+        #sonic_dut_lc1:
+        #  ansible_host: 192.168.122.143
+        #  ansible_user: cisco
+        #  ansible_password: cisco123
 
   commands:
     #- show interface counters
@@ -54,10 +60,18 @@ all:
     #- pg-drop -c show
     #- sudo show platform npu global -n asic0
     #- sudo show platform npu global -n asic1
-    #- sudo show platform npu counters -n asic0
-    #- sudo show platform npu counters -n asic1
-    #- sudo show platform npu counters -n asic2
-    - sudo show platform npu counters
+    #- sudo show platform npu counters
+     #- show pfcwd stat
+    #add to readme that npu counters with no option must be it
     #- sudo show platform npu rx interface_cgm -t 0 -i Ethernet0
     #- sudo show platform npu tx cgm_state -i Ethernet0
-  
+
+# Splunk HTTP Event Collector (HEC) Configuration
+splunk:
+  hec_url: "https://10.81.124.127:8088"                   # Splunk HEC endpoint (HTTPS)
+  hec_token: "ADD SPLUNK HEC TOKEN HERE"       # HEC authentication token
+  index: "main"                                            # Splunk index
+  source: "packet_drop_monitor"                            # Event source
+  sourcetype: "_json"                                      # Sourcetype (using built-in JSON parser)
+  verify_ssl: false                                        # SSL verification (disabled for internal server)
+  timeout: 30                                             # HTTP timeout seconds (increased for high latency)
