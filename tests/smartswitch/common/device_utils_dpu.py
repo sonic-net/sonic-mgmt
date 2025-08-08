@@ -582,7 +582,7 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
             )
 
 
-def is_midplane_status(duthost, dpu_ip, expected_status):
+def check_midplane_status(duthost, dpu_ip, expected_status):
     """
     Check midplane reachability for a given DPU IP
     Args:

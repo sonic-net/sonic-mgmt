@@ -14,7 +14,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
-    check_dpu_health_status, num_dpu_modules  # noqa: F401
+    check_dpu_health_status, check_midplane_status, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
@@ -355,7 +355,7 @@ def test_data_control_mid_plane_sync(duthosts,
         logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
         duthost.shell(f"ip link set {dpu} down")
 
-        assert wait_until(30, 2, is_midplane_status, duthost, dpu_ip, "False"), \
+        assert wait_until(30, 2, check_midplane_status, duthost, dpu_ip, "False"), \
             f"Timeout: {dpu} did not show midplane reachability as False"
 
         check_dpu_health_status(duthost, dpu, 'Offline', 'down')
@@ -363,7 +363,7 @@ def test_data_control_mid_plane_sync(duthosts,
         logging.info(f"Bringing UP {dpu} ({dpu_ip})")
         duthost.shell(f"ip link set {dpu} up")
 
-        assert wait_until(30, 2, is_midplane_status, duthost, dpu_ip, "True"), \
+        assert wait_until(30, 2, check_midplane_status, duthost, dpu_ip, "True"), \
             f"Timeout: {dpu} did not show midplane reachability as True"
 
         check_dpu_health_status(duthost, dpu, 'Online', 'up')
