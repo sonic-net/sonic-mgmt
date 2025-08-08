@@ -496,7 +496,7 @@ class TestChassisApi(PlatformApiTestBase):
             2: "off"
         }
 
-        led_controllable = True
+        led_controllable = False
         led_supported_colors = []
         if duthost.facts.get("chassis"):
             status_led = duthost.facts.get("chassis").get("status_led")
