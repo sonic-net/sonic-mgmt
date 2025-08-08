@@ -580,3 +580,20 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
                 wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
             )
+
+
+def is_midplane_status(duthost, dpu_ip, expected_status):
+    """
+    Check midplane reachability for a given DPU IP
+    Args:
+        duthost: DUT host handle
+        dpu_ip: IP address of the DPU to check
+        expected_status: "True" or "False" (string)
+    Returns:
+        True if the reachability matches expected_status, else False
+    """
+    output = duthost.show_and_parse("show chassis modules midplane-status")
+    for entry in output:
+        if entry['ip-address'] == dpu_ip:
+            return str(entry['reachability']).strip() == expected_status
+    return False

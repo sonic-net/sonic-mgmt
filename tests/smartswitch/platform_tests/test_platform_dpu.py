@@ -350,19 +350,23 @@ def test_data_control_mid_plane_sync(duthosts,
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
         duthost, platform_api_conn, num_dpu_modules)
 
-    logging.info("Bringing DOWN DPUs midplane")
-    duthost.shell("sudo ip link set bridge-midplane down")
+    for index, dpu in enumerate(dpu_on_list):
+        dpu_ip = ip_address_list[dpu]
+        logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
+        duthost.shell(f"ip link set {dpu} down")
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Offline', 'down')
+        assert wait_until(30, 2, is_midplane_status, duthost, dpu_ip, "False"), \
+            f"Timeout: {dpu} did not show midplane reachability as False"
 
-    logging.info("Bringing UP DPUs midplane")
-    duthost.shell("sudo ip link set bridge-midplane up")
+        check_dpu_health_status(duthost, dpu, 'Offline', 'down')
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Online', 'up')
+        logging.info(f"Bringing UP {dpu} ({dpu_ip})")
+        duthost.shell(f"ip link set {dpu} up")
+
+        assert wait_until(30, 2, is_midplane_status, duthost, dpu_ip, "True"), \
+            f"Timeout: {dpu} did not show midplane reachability as True"
+
+        check_dpu_health_status(duthost, dpu, 'Online', 'up')
 
 
 def test_watchdog_status_check(duthosts, dpuhosts,
