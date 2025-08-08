@@ -310,7 +310,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
     def __shutdown_lag_members(self, duthost, selected_port, tbinfo, nbrhosts):
 
         if self.ports[selected_port]['test_port_type'] != 'portchannel':
-            return
+            return None, None, None
 
         config_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
         portChannels = config_facts['PORTCHANNEL_MEMBER']
