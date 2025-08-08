@@ -118,7 +118,7 @@ class TestRebootBlockingModeCLI:
             f"sudo timeout {COMMAND_TIMEOUT}s bash -c 'sudo reboot; echo \"ExpectedFinished\"'")
         pytest_assert("ExpectedFinished" in result, "Reboot didn't exited as expected.")
 
-    def test_blocking_mode_with_running_config(
+    def test_blocking_mode(
         self,
         duthosts,
         enum_rand_one_per_hwsku_hostname
@@ -149,7 +149,7 @@ class TestRebootBlockingModeConfigFile:
         restore_reboot_config_file(duthost)
         restore_systemctl_reboot_and_reboot(duthost)
 
-    def test_timeout_for_blocking_mode_using_config_file(
+    def test_timeout_for_blocking_mode(
         self,
         duthosts,
         enum_rand_one_per_hwsku_hostname

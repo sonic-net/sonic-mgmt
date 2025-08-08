@@ -29,28 +29,13 @@ Because in non-blocking mode, the CLI output is unpredictable. So we need to moc
 1. Run command `reboot; echo "ExpectedFinished"`. The command needs to have a timeout with 10mins. This is to avoid the script blocked unexpected.
 1. Check if the command output contains `ExpectedFinished` as expected.
 
-#### Test case #2 - Verify blocking mode enabled successfully
-1. Run command `reboot -b; echo "UnexpectedFinished"`. The command needs to have a timeout with 10mins.
-1. Check if the command output not contains `UnexpectedFinished` as expected.
-
-#### Test case #3 - Verify running output when blocking mode enabled
+#### Test case #2 - Verify running output when blocking mode enabled
 1. Run command `reboot -b -v; echo "UnexpectedFinished"`. The command needs to have a timeout with 10mins.
 1. Check if the command output not contains `UnexpectedFinished` as expected.
 1. Check if there are extra dots after `Issuing OS-level reboot ...` output.
 
 ### Test for BlockingMode config file
-#### Test case #1 - Verify blocking mode and running output with config file
-1. Backup the config file `/etc/sonic/reboot.conf` if exists. Update the following configs to the config file:
-   ```
-   blocking_mode=true
-   show_timer=true
-   ```
-1. Run command `reboot; echo "UnexpectedFinished"`. The command needs to have a timeout with 10mins.
-1. Check if the command output not contains `UnexpectedFinished` as expected.
-1. Check if there are extra dots after `Issuing OS-level reboot ...` output.
-1. Restore the config file `/etc/sonic/reboot.conf`
-
-#### Test case #2 - Verify timeout config for blocking mode with config file
+#### Test case #1 - Verify timeout config for blocking mode with config file
 1. Backup the config file `/etc/sonic/reboot.conf` if exists. Update the following configs to the config file:
    ```
    blocking_mode=true
@@ -58,8 +43,7 @@ Because in non-blocking mode, the CLI output is unpredictable. So we need to moc
    show_timer=true
    ```
 1. Run command `reboot; echo "UnexpectedFinished"`. The command needs to have a timeout with 10mins.
-1. Check if the command output not contains `ExpectedFinished` as expected.
-1. Check if the command output contains `ExpectedFinished` as expected.
+1. Check if the command output not contains `UnexpectedFinished` as expected.
 1. Restore the config file `/etc/sonic/reboot.conf`
 
 ## 4 Cleanup
