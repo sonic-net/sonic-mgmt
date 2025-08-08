@@ -293,7 +293,6 @@ class BJW(InvSpecific):
             raise Exception("Unexpected group name {}".format(group))
 
     def allocate_group(self, server):
-        print(server)
         _, inv, index = server.split("_")
         ptf_name_prefix = inv + "-" + (index if int(index) < 10 else chr(ord("a") + int(index) - 10) ) + "-"
         ptf_hosts = self.inv_file["all"]["children"]["ptf"]["hosts"]
