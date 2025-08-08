@@ -62,7 +62,7 @@ def reset_auditd_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Backup the rules file
-    duthost.command("sudo cp /etc/audit/rules.d/audit.rules /etc/audit/rules.d/audit.rules_backup")
+    duthost.command("sudo cp /etc/audit/rules.d/audit.rules /tmp/audit.rules_backup")
     logger.info("Backed up audit.rules")
 
     # Set runtime rate limit to 0 so auditd logs will not be dropped
@@ -72,8 +72,8 @@ def reset_auditd_rate_limit(duthosts, enum_rand_one_per_hwsku_hostname):
     yield
 
     # Restore rules file and restart auditd
-    duthost.command("sudo cp /etc/audit/rules.d/audit.rules_backup /etc/audit/rules.d/audit.rules")
-    duthost.command("sudo systemctl restart auditd")
+    duthost.command("sudo cp /tmp/audit.rules_backup /etc/audit/rules.d/audit.rules")
+    duthost.command("sudo service auditd restart")
     logger.info("Restored audit.rules from backup and restarted auditd")
 
 

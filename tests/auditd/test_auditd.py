@@ -329,14 +329,12 @@ def test_modules_changes(localhost,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
+    kernel_version = duthost.shell("uname -r")["stdout"].strip()
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                   "sudo rmmod dummy")
-    ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                   "sudo insmod /lib/modules/$(uname -r)/kernel/drivers/net/dummy.ko")
+                   f"sudo cat /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko")
 
     # Search SYSCALL & PATH logs
-    kernel_version = duthost.shell("uname -r")["stdout"].strip()
-    cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/ /var/log/syslog* | grep type=PATH"
+    cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
     logs = duthost.shell(cmd)["stdout_lines"]
 
     assert is_log_valid("type=PATH", logs), "Auditd modules_changes rule does not contain the PATH logs"
