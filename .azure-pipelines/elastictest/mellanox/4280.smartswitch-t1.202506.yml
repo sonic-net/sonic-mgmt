@@ -27,7 +27,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms12-t1-smartswitch-4280-01"
+    default: "vms12-t1-smartswitch-4280-02"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
