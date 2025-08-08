@@ -2134,9 +2134,9 @@ class ReloadTest(BaseTest):
                         self.log("")
                         if not self.disruption_start:
                             self.disruption_start = datetime.datetime.fromtimestamp(
-                                prev_time)
+                               float(prev_time))
                         self.disruption_stop = datetime.datetime.fromtimestamp(
-                            received_time)
+                            float(received_time))
                 prev_payload = received_payload
                 prev_time = received_time
             self.log(
