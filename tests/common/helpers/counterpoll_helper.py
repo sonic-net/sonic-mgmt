@@ -1,4 +1,4 @@
-from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
+from tests.common.constants import CounterpollConstants
 
 
 class ConterpollHelper:

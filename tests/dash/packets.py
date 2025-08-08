@@ -103,13 +103,13 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
         ip_src=pl.PE_PA,
         ip_dst=pl.APPLIANCE_VIP,
         gre_key_present=True,
-        gre_key=int(pl.VNET1_VNI) << 8 if floating_nic else int(pl.ENCAP_VNI) << 8,
+        gre_key=int(pl.ENCAP_VNI) << 8,
         inner_frame=inner_packet,
     )
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
-        eth_dst=pl.VM_MAC if floating_nic else pl.ENI_MAC,
+        eth_src=pl.REMOTE_MAC,
+        eth_dst=pl.ENI_MAC,
         ip_src=pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
@@ -145,8 +145,8 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
 def outbound_pl_packets(config, outer_encap, floating_nic=False,
                         inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
     inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.VM_MAC if floating_nic else pl.ENI_MAC,
-        eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
+        eth_src=pl.ENI_MAC,
+        eth_dst=pl.REMOTE_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
     )

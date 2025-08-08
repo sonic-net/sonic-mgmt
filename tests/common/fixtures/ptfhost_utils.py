@@ -686,6 +686,13 @@ def skip_traffic_test(request):
 
 
 @pytest.fixture(scope='function')
+def iptables_drop_ipv6_tx(ptfhost):
+    ptfhost.shell("ip6tables -P OUTPUT DROP")
+    yield
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")
+
+
+@pytest.fixture(scope='function')
 def disable_ipv6(ptfhost):
     default_ipv6_status = ptfhost.shell("sysctl -n net.ipv6.conf.all.disable_ipv6")["stdout"]
     changed = False

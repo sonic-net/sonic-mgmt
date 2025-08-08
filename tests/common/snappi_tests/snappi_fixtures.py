@@ -39,7 +39,7 @@ def snappi_api_serv_ip(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
+def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
     """
     This fixture returns the TCP Port of the Snappi API server.
     Args:
@@ -47,6 +47,9 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     Returns:
         snappi API server port.
     """
+    if "tg_api_server" in tbinfo:
+        return tbinfo['tg_api_server'].split(':')[1]
+
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_api_server']['rest_port'])
@@ -181,9 +184,6 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True
 
         port_config_list.append(port_config)
 
-    if len(port_config_list) != len(snappi_ports):
-        return False
-
     return True
 
 
@@ -262,9 +262,6 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
 
             port_config_list.append(port_config)
 
-        if duthost.get_facts().get("modular_chassis") and len(port_config_list) != len(snappi_ports):
-            return False
-
     return True
 
 
@@ -306,6 +303,16 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         prefix = str(pc_intf[pc]['prefixlen'])
         pc_ip_addr = str(pc_intf[pc]['peer_addr'])
 
+        """
+        Do not create a PC LAG object in config if no interfaces
+        are present for that PortChannel group
+        """
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+                    for phy_intf in phy_intfs
+                    if snappi_port['peer_port'] == phy_intf]
+        if len(port_ids) == 0:
+            continue
+
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
         lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
         lag.protocol.lacp.actor_system_priority = 1
@@ -317,7 +324,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
-                return False
+                continue
 
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
@@ -741,6 +748,8 @@ def setup_dut_ports(
                                              snappi_ports=snappi_ports,
                                              setup=setup)
             pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
+
+    pytest_assert(len(port_config_list) == len(snappi_ports), 'Failed to configure DUT ports')
 
     return config, port_config_list, snappi_ports
 
