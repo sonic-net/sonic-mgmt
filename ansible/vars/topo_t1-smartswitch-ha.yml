@@ -41,22 +41,22 @@ topology:
         - "0.7@14"
         - "1.7@15"
       vm_offset: 7
-    ARISTA01T0:
+    ARISTA11T0:
       vlans:
         - "0.8@16"
         - "1.8@17"
       vm_offset: 8
-    ARISTA02T0:
+    ARISTA12T0:
       vlans:
         - "0.9@18"
         - "1.9@19"
       vm_offset: 9
-    ARISTA03T0:
+    ARISTA13T0:
       vlans:
         - "0.10@20"
         - "1.10@21"
       vm_offset: 10
-    ARISTA04T0:
+    ARISTA14T0:
       vlans:
         - "0.11@22"
         - "1.11@23"
@@ -344,7 +344,7 @@ configuration:
       ipv4: 10.10.246.8/24
       ipv6: fc0a::11/64
 
-  ARISTA01T0:
+  ARISTA11T0:
     properties:
     - common
     - tor
@@ -382,7 +382,7 @@ configuration:
       ipv4: 10.10.246.17/24
       ipv6: fc0a::22/64
 
-  ARISTA02T0:
+  ARISTA12T0:
     properties:
     - common
     - tor
@@ -420,7 +420,7 @@ configuration:
       ipv4: 10.10.246.18/24
       ipv6: fc0a::25/64
 
-  ARISTA03T0:
+  ARISTA13T0:
     properties:
     - common
     - tor
@@ -458,7 +458,7 @@ configuration:
       ipv4: 10.10.246.19/24
       ipv6: fc0a::26/64
 
-  ARISTA04T0:
+  ARISTA14T0:
     properties:
     - common
     - tor
