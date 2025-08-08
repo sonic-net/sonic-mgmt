@@ -199,6 +199,7 @@ def check_cross_dependency(imports_in_script):
                 project_path = os.path.dirname(file_feature_path)
                 # Import from these paths are allowed.
                 if imported_module_feature_path not in [os.path.join(project_path, "common"),
+                                                        os.path.join(project_path, "common2"),
                                                         os.path.join(project_path, "ptf_runner.py"),
                                                         os.path.join(project_path, "conftest.py"),
                                                         file_feature_path]:
