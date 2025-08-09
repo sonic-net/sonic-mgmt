@@ -85,6 +85,8 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -3714,3 +3716,9 @@ def yang_validation_check(request, duthosts):
             error_summary.append(f"{host}: {result['error']}")
 
         pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
+
+@pytest.fixture
+def mock_reporter(request, tbinfo):
+    """Provide a fresh mock reporter for each test."""
+    from tests.common.telemetry.tests.common_utils import MockReporter
+    return MockReporter(request=request, tbinfo=tbinfo)
