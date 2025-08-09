@@ -351,20 +351,23 @@ def test_data_control_mid_plane_sync(duthosts,
         duthost, platform_api_conn, num_dpu_modules)
 
     for index, dpu in enumerate(dpu_on_list):
-        dpu_ip = ip_address_list[dpu]
-        logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
-        duthost.shell(f"ip link set {dpu} down")
+        dpu_ip = ip_address_list[index]
+        interface_name = dpu.lower()
 
-        assert wait_until(30, 2, check_midplane_status, duthost, dpu_ip, "False"), \
-            f"Timeout: {dpu} did not show midplane reachability as False"
+        logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
+        duthost.shell(f"ip link set {interface_name} down")
+
+        pytest_assert(wait_until(120, 20, 0, check_midplane_status, duthost, dpu_ip, "False"),
+                f"Timeout: {dpu} did not show midplane reachability as False")
+
 
         check_dpu_health_status(duthost, dpu, 'Offline', 'down')
 
         logging.info(f"Bringing UP {dpu} ({dpu_ip})")
-        duthost.shell(f"ip link set {dpu} up")
+        duthost.shell(f"ip link set {interface_name} up")
 
-        assert wait_until(30, 2, check_midplane_status, duthost, dpu_ip, "True"), \
-            f"Timeout: {dpu} did not show midplane reachability as True"
+        pytest_assert(wait_until(120, 20, 0, check_midplane_status, duthost, dpu_ip, "True"),
+                f"Timeout: {dpu} did not show midplane reachability as True")
 
         check_dpu_health_status(duthost, dpu, 'Online', 'up')
 
