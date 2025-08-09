@@ -27,6 +27,10 @@ parameters:
   type: string
   default: "vs"
 
+- name: TEST_SET
+  type: string
+  default: "all"
+
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
@@ -36,6 +40,8 @@ jobs:
     pool: sonic-ubuntu-1c
     steps:
       - template: impacted_area_testing/get-impacted-area.yml
+        parameters:
+          TEST_SET: ${{ parameters.TEST_SET }}
 
   - job: impacted_area_kvmtest
     displayName: " "
