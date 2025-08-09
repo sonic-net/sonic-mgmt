@@ -1,3 +1,4 @@
+from time import sleep
 import nnpy
 import ptf
 import ptf.platforms.nn as nn
@@ -95,7 +96,14 @@ class PtfTestAdapter(BaseTest):
             ptf_nn_sock_addr = 'tcp://{}:{}'.format(ptfagent.ptf_ip, ptfagent.ptf_nn_port)
             ptf.config['device_sockets'].append((ptfagent.device_num, ptfagent.ptf_port_set, ptf_nn_sock_addr))
 
-            if not self._check_ptf_nn_agent_availability(ptf_nn_sock_addr):
+            for attempt in range(3):
+                if self._check_ptf_nn_agent_availability(ptf_nn_sock_addr):
+                    break
+                else:
+                    logging.warning(f"PTF Adapter NN connection failed {ptf_nn_sock_addr}. Retry ({attempt + 1}/3)")
+                    sleep(5 ** attempt)
+            else:
+                # After 3 failed attempts, raise on the 4th
                 raise PtfAdapterNNConnectionError(ptf_nn_sock_addr)
 
         # update ptf.config based on NN platform and create dataplane instance
