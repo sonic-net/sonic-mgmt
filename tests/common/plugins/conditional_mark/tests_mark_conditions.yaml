@@ -1384,6 +1384,12 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 #######################################
 #####            fdb              #####
 #######################################
+fdb/test_fdb.py::test_fdb:
+  xfail:
+    reason: "Testcase ignored due to github issue https://github.com/sonic-net/sonic-buildimage/issues/23635"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23635 and hwsku in ['Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8']"
+
 fdb/test_fdb_mac_expire.py:
   skip:
     reason: "Not supported on this DUT topology."
