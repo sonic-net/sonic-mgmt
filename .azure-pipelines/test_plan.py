@@ -375,7 +375,8 @@ class TestPlanManager(object):
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
                     "branch": kwargs["mgmt_branch"],
-                    "pull_request_id": sonic_mgmt_pull_request_id
+                    "pull_request_id": sonic_mgmt_pull_request_id,
+                    "commit_hash": kwargs.get("mgmt_commit_hash")
                 },
                 "sonic_metadata": {
                     "repo_url": INTERNAL_SONIC_METADATA_REPO,
@@ -726,6 +727,16 @@ if __name__ == "__main__":
         default="master",
         required=False,
         help="Branch of sonic-mgmt repo to run the test"
+    )
+    parser_create.add_argument(
+        "--mgmt-commit-hash",
+        type=str,
+        dest="mgmt_commit_hash",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Specifies an exact commit hash from the `sonic-mgmt` repository to check out."
     )
     parser_create.add_argument(
         "--vm-type",
@@ -1158,6 +1169,7 @@ if __name__ == "__main__":
                     output=args.output,
                     source_repo=repo_name,
                     mgmt_branch=args.mgmt_branch,
+                    mgmt_commit_hash=args.mgmt_commit_hash,
                     common_extra_params=args.common_extra_params,
                     asic_type=args.asic_type,
                     num_asic=args.num_asic,

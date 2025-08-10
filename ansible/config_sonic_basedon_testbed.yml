@@ -128,8 +128,16 @@
     become: true
     when: hwsku == 'Cisco-8101-V64' and ('t0' in topo or 'dualtor' in topo) and (reduce_port_speed is defined and reduce_port_speed == true)
 
+  - name: override group_file for route-conv
+    set_fact:
+      conn_graph_group: "{{ testbed_facts['inv_name'] }}"
+    when: is_ixia_testbed
+
   - name: get connection graph if defined for dut (ignore any errors)
-    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    conn_graph_facts:
+      host: "{{ inventory_hostname }}"
+      group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
+      ignore_errors: true
     delegate_to: localhost
     ignore_errors: true
 
