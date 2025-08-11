@@ -26,7 +26,7 @@ def is_policer_supported(duthost):
     Return True if policer is supported in MIRROR_SESSION creation on this platform, otherwise return False.
     """
     platform = duthost.facts.get('platform', '')
-    if platform.startswith("x86_64-arista_7060x6_64pe"):
+    if platform.startswith("x86_64-arista_7060x6"):
         return False
     return True
 
