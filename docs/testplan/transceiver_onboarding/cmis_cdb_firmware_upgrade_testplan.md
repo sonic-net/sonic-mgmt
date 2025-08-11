@@ -116,7 +116,9 @@ A minimum of 1 port of a device with the onboarding transceiver should be connec
     - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
 
 **Attributes for  the below tests**
+
 Following test attributes under `transceiver_firmware_upgrade` attribute category is applicable:
+
 | Attribute | Type | Default | Manadatory | Description |
 |-----------|------|---------|------------|-------------|
 | port_under_test | Dict | None | Yes | A dictionary containing the device name as the key and list of ports to be tested as its value |
