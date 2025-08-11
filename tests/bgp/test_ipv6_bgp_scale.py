@@ -139,12 +139,18 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def graceful_restart_setup_and_teardown(nbrhosts):
+def graceful_restart_setup_and_teardown(tbinfo, nbrhosts):
+    topo_name = tbinfo['topo']['name']
     for hostname, device in nbrhosts.items():
         device['host'].eos_config(
             lines=['no graceful-restart-helper'],
             parents=['router bgp {}'.format(device['conf']['bgp']['asn'])]
         )
+        if 't1' in topo_name and 'T0' in hostname:
+            device['host'].eos_config(
+                lines=['no graceful-restart'],
+                parents=['router bgp {}'.format(device['conf']['bgp']['asn'])]
+            )
 
     yield
 
@@ -153,6 +159,11 @@ def graceful_restart_setup_and_teardown(nbrhosts):
             lines=['graceful-restart-helper'],
             parents=['router bgp {}'.format(device['conf']['bgp']['asn'])]
         )
+        if 't1' in topo_name and 'T0' in hostname:
+            device['host'].eos_config(
+                lines=['graceful-restart restart-time 700', 'graceful-restart'],
+                parents=['router bgp {}'.format(device['conf']['bgp']['asn'])]
+            )
 
 
 def get_all_bgp_ipv6_routes(duthost):
@@ -412,8 +423,6 @@ def test_sessions_flapping(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_ONE_PORT_FLAPPING.
     '''
-    import pdb; pdb.set_trace()
-    return
     global global_icmp_type
     global_icmp_type += 1
     pdp = ptfadapter.dataplane
