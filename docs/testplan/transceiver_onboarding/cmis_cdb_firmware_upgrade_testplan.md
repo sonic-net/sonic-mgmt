@@ -115,6 +115,22 @@ A minimum of 1 port of a device with the onboarding transceiver should be connec
 
     - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
 
+**Attributes for  the below tests**
+Following test attributes under `transceiver_firmware_upgrade` attribute category is applicable:
+| Attribute | Type | Default | Manadatory | Description |
+|-----------|------|---------|------------|-------------|
+| port_under_test | Dict | None | Yes | A dictionary containing the device name as the key and list of ports to be tested as its value |
+| firmware_versions | Dict | None | Yes | A dictionary containing the normalized transceiver product number as the key and list of firmware versions to be tested as its value |
+| firmware_download_timeout_minutes | Dict | 30 | No | A nested dictionary containing platform type as the outer key and normalized product number as the inner key and timeout value in minutes as the integer value |
+| restore_initial_firmwares | Bool | False | No | A flag indicating whether to restore the initial active and inactive firmware versions after testing is completed |
+| firmware_download_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware download process |
+| firmware_activation_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware activation process |
+| firmware_download_abort_method | String | "ctrl_c" | No | The method to abort the firmware download process. It can be one of the following strings : "ctrl_c", "sfputil_reset", "optic_reinsert" |
+| firmware_download_abort_percentage | List | `[10, 50, 90]` | No | The percentage of download progress at which the firmware download should be aborted. | 
+
+
+> Note: The test attributes HLD is in progress. The test attributes mentioned in this doc might change once the HLD is finalized.
+
 #### 1.1 CMIS CDB Firmware Upgrade Testing
 
 ##### 1.1.1 CMIS CDB Firmware Binary Management
@@ -278,18 +294,13 @@ This section describes the automated process for copying firmware binaries to th
 
 To ensure only the necessary firmware binaries are present for each transceiver:
 
-1. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers.
-2. **Parse `transceiver_dut_info.csv`** to identify the transceivers present on each DUT.
-3. **Parse `transceiver_common_attributes.csv`** to get the gold firmware version for each transceiver type.
-4. **For each unique combination of normalized vendor name and normalized part number on the DUT**, perform version sorting and selection:
-   - Parse firmware versions using semantic versioning (X.Y.Z format)
-   - Sort available firmware versions in descending order (most recent first)
-   - **Selection criteria:**
-     - Always include the gold firmware version (from `transceiver_common_attributes.csv`)
-     - Include the two most recent firmware versions in addition to the gold version
-     - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary. If there are fewer than 3 firmware versions available for a transceiver, the entire test will fail.
-5. **Copy only the selected firmware binaries** to the target directory structure on the DUT.
-6. **Validate firmware binary integrity** using MD5 checksums after copying.
+1. **Parse `transceiver_dut_info.csv`** to identify the transceiver present on the port identified by `port_under_test` test attribute. Generate the normalized vendor name and part number.
+2. **Parse `firmware_versions` test attribute** to get the next firmware version to download.
+3. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers. If the firmware version specified in step 2 exists for the normalized vendor name and part number from step 1:
+   - **Copy only the selected firmware binaries** to the target directory structure on the DUT.
+   - **Validate firmware binary integrity** using MD5 checksums after copying.
+   
+   Fail the test if the specified firmware version doesn't exist.
 
 **Cleanup:**
 
@@ -303,22 +314,23 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode.
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped during firmware operations.
 3. **Firmware requirements:**
-   - At least two firmware versions must be available for each transceiver type to enable upgrade testing
-   - The gold firmware version (specified in `transceiver_common_attributes.csv`) must be available
-   - All firmware versions must support the CDB protocol for proper testing
+   - The firmware version specified  by `firmware_versions` test attribute must be available.
+   - All firmware versions must support the CDB protocol for proper testing.
 4. **Module capabilities:** The module must support dual banks for firmware upgrade operations.
 5. **Network connectivity:** The DUT must have network access to the firmware server specified in `cmis_cdb_firmware_base_url.csv` for downloading firmware binaries.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Firmware download validation | 1. Download the gold firmware using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within 30 mins and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the gold firmware version<br> 4. No link flap should be seen<br>5. The kernel has no error messages in syslog<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 1 | Firmware download validation | 1. Download the next firmware specified in `firmware_versions` using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within `transceiver_download_timeout_minutes` minutes and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the downloaded firmware version<br> 4. No link flap should be seen<br>5. The kernel has no error messages in syslog<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 2 | Firmware activation validation | 1. Shut down all the interfaces part of the physical ports<br>2. Execute firmware run<br>3. Execute firmware commit<br>4. Reset the transceiver and wait for 5 seconds<br>5. Startup all the interfaces in Step 1 | 1. The return code on step 2 and 3 is 0 (Return code 0 indicates success)<br>2. Active firmware version should now match the previous inactive firmware version<br>3. Inactive firmware version should now match the previous active firmware version<br>4. `sfputil show fwversion` CLI now should show the “Committed Image” to the current active bank<br>5. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 |3 | Firmware download validation with invalid firmware binary | Download an invalid firmware binary (any file not released by the vendor) | 1. The active firmware version does not change<br>2. The inactive firmware version remains unchanged or is set to `0.0.0` or `N/A`<br> 3.  No change in "Committed Image"<br>4. No link flap should be seen<br>5. The kernel has no error messages in syslog<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-|4 | Firmware download abort | 1. Start the firmware download and abort at approximately 10%, 40%, 70%, 90%, and 95%<br>2. Use CTRL+C or kill the download process<br>3. OR reset the optics using sfputil reset<br>4. OR remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+|4 | Firmware download abort | 1. Start the firmware download and abort at the percentages specified by `firmware_download_abort_percentage`<br>2. Use the method specified in `firmware_download_abort_method` to abort the process:<br>"ctrl_c": Use CTRL+C or kill the download process<br> "sfputil_reset": reset the optics using sfputil reset<br>"optic_reinsert": remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 |5 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
-|8 | Firmware download and activation stress test | 1. Perform steps in TC #1 and TC #2 `n` number of times where `n` is specified by `--txvr-upgrade-count` arg to pytest. | 1. All the expectations of TC #1 and #2 must be met |
+|8 | Firmware download stress test | 1. Perform steps in TC #1 `firmware_download_stress_iterations` number of times. | 1. All the expectations of TC #1 must be met |
+|9 | Firmware activation stress test | 1. Perform steps in TC #2 `firmware_activation_stress_iterations` number of times. | 1. All the expectations of TC #2 must be met |
+
 
 #### CLI commands
 
