@@ -892,15 +892,15 @@ platform_tests/broadcom/test_ser.py:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
 ##############################################
-#####  cli/test_show_chassis_modules.py  #####
+#####  cli/test_show_chassis_module.py  #####
 ##############################################
-platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_midplane_status:
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
 
-platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_status:
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
