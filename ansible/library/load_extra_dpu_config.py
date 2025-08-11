@@ -114,7 +114,6 @@ class LoadExtraDpuConfigModule(object):
 
         for i in range(0, self.dpu_num):
             dpu_ip = DPU_HOST_IP_BASE.format(i + 1)
-            dpu_success = False
 
             self.module.log("Attempting to configure DPU {} at {}".format(i + 1, dpu_ip))
 
@@ -127,13 +126,11 @@ class LoadExtraDpuConfigModule(object):
             try:
                 # Attempt each step and track success
                 if (self.transfer_to_dpu(ssh, dpu_ip) and
-                    self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
-                    self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
-                    self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
-                    self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE)) and
-                    self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_FULL_CONFIG_FILE))):
-                    
-                    dpu_success = True
+                        self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
+                        self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
+                        self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
+                        self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE)) and
+                        self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_FULL_CONFIG_FILE))):
                     success_count += 1
                     self.module.log("Successfully configured DPU {} at {}".format(i + 1, dpu_ip))
                 else:
@@ -156,23 +153,23 @@ class LoadExtraDpuConfigModule(object):
                 msg="Failed to meet success threshold: {} successful configs required, "
                     "but only {} succeeded out of {} DPUs. "
                     "Failures: {}".format(
-                    required_success_count, success_count, self.dpu_num, failure_count))
+                        required_success_count, success_count, self.dpu_num, failure_count))
 
         return success_count, failure_count
 
     def run(self):
         success_count, failure_count = self.configure_dpus()
-        
+
         if failure_count == 0:
             msg = "Successfully configured all {} DPUs".format(success_count)
         else:
             msg = "Successfully configured {} out of {} DPUs ({} failures, but met success threshold)".format(
                 success_count, self.dpu_num, failure_count)
-        
-        self.module.exit_json(changed=True, msg=msg, 
-                            success_count=success_count, 
-                            failure_count=failure_count,
-                            total_dpus=self.dpu_num)
+
+        self.module.exit_json(changed=True, msg=msg,
+                              success_count=success_count,
+                              failure_count=failure_count,
+                              total_dpus=self.dpu_num)
 
 
 def main():
