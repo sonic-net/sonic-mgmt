@@ -1950,7 +1950,7 @@ class DataAnalyzer(BasicAnalyzer):
                             "\n" + case['oldest_failure_timestamp'] + "\n" + case.get('subject', '') + "\n" + "end"
                     else:
                         TestInfo = case.get('testcase', '') + "\n"+ case.get('module_path', '') + \
-                            "\n"+case['branch'] + "\n" + str(case['trigger_icm']) + "\n" + case.get('subject', '') + "\n" +"end"
+                            "\n"+case['branch'] + "\n" + "trigger_icm:" + str(case['trigger_icm']) + "\n" + case.get('subject', '') + "\n" +"end"
                     if 'failure_level_info' in case.keys():
                         FailureLevelInfo = json.dumps(
                             case['failure_level_info'], indent=4)

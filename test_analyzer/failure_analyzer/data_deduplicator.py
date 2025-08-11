@@ -657,11 +657,8 @@ class DataDeduplicator:
                     # Keep this row as it doesn't match any active ICM cluster
                     deduplicated_rows.append(row_dict)
                 else:
-                    # This row matches an active ICM cluster - mark as duplicate
-                    row_dict['trigger_icm'] = False
                     duplicated_rows.append(row_dict)
                     removed_count += 1
-
                     # Find the matched active ICM record for this cluster
                     matched_active_icm = None
                     for j, active_cluster in enumerate(clusters[len(aggregated_summaries_processed):]):
@@ -680,7 +677,10 @@ class DataDeduplicator:
 
             # Add rows with empty failure_summary (they can't be duplicates)
             empty_summary_rows = branch_group_aggregated_df[branch_group_aggregated_df['failure_summary'].isna() | (branch_group_aggregated_df['failure_summary'] == '')]
-            deduplicated_rows.extend(empty_summary_rows.to_dict('records'))
+            for _, empty_row in empty_summary_rows.iterrows():
+                empty_row_dict = empty_row.to_dict()
+                logger.debug(f"Branch group {branch_group}: found empty summary row, append it to deduplicated_rows: {empty_row_dict.get('subject', 'N/A')}")
+                deduplicated_rows.append(empty_row_dict)
 
             logger.info(f"Branch group {branch_group}: Found {removed_count} entries that match active ICM clusters")
 
@@ -689,11 +689,13 @@ class DataDeduplicator:
             deduplicated_df = pd.DataFrame(deduplicated_rows)
         else:
             deduplicated_df = pd.DataFrame(columns=aggregated_df.columns)
+            logger.info("All entries were marked as duplicates, deduplicated_df is empty.")
 
         if duplicated_rows:
             duplicated_df = pd.DataFrame(duplicated_rows)
         else:
-            duplicated_df = pd.DataFrame(columns=aggregated_df.columns)
+            duplicated_df = pd.DataFrame()
+            logger.info("No duplicated entries found.")
 
         logger.info(f"Total entries before deduplication with active IcM summaries: {len(aggregated_df)}")
         logger.info(f"Total entries after deduplication with active IcM summaries: {len(deduplicated_df)}")
@@ -1033,15 +1035,15 @@ class DataDeduplicator:
 
         return deduplicated_target_df
 
-    def filter_out_icm_list(self, failure_type, original_icm_table, aggregated_dedup_df):
-        if len(aggregated_dedup_df) == 0:
+    def filter_out_icm_list(self, failure_type, original_icm_table, aggregated_df, trigger_icm=True):
+        if len(aggregated_df) == 0:
             logger.error(f"No aggregated {failure_type} failure cases found, please check the data.")
             subject_to_summary = {}
         else:
             # Create a mapping from subject to failure_summary
-            subject_to_summary = dict(zip(aggregated_dedup_df['subject'], aggregated_dedup_df['failure_summary']))
+            subject_to_summary = dict(zip(aggregated_df['subject'], aggregated_df['failure_summary']))
 
-        # Update original_icm_table items with the aggregated failure_summary
+        # Update original_icm_table items with the aggregated failure_summary and trigger_icm
         aggregated_icm_list = []
         for item in original_icm_table:
             if item['subject'] in subject_to_summary:
@@ -1050,9 +1052,28 @@ class DataDeduplicator:
                     item['failure_summary'] = subject_to_summary[item['subject']]
                 elif item['failure_summary'] != subject_to_summary[item['subject']]:
                     logger.debug(f"{failure_type}: {item['subject']} summary is not same as the one in the aggregated_dedup_df")
-                    logger.debug(f"  - {item['failure_summary']}: {subject_to_summary[item['subject']]}")
+                    logger.debug(f"  - Original: {item['failure_summary']}")
+                    logger.debug(f"  - Updated: {subject_to_summary[item['subject']]}")
                     item['failure_summary'] = subject_to_summary[item['subject']]
+
+                if trigger_icm == False:
+                    original_trigger_icm = item.get('trigger_icm')
+                    item['trigger_icm'] = False
+                    logger.debug(f"{failure_type}: {item['subject']} updating trigger_icm from {original_trigger_icm} to {item['trigger_icm']}")
+                else:
+                    original_trigger_icm = item.get('trigger_icm')
+                    if original_trigger_icm != True:
+                        logger.error(f"{failure_type}: {item['subject']} trigger_icm is not True, which is not expected!!! Pay attention!!!")
                 aggregated_icm_list.append(item)
+
+        # Final verification: Check trigger_icm values in the result
+        if aggregated_icm_list:
+            trigger_icm_counts = {}
+            for item in aggregated_icm_list:
+                val = item.get('trigger_icm', 'missing')
+                trigger_icm_counts[val] = trigger_icm_counts.get(val, 0) + 1
+            logger.debug(f"{failure_type}: Final aggregated_icm_list trigger_icm distribution: {trigger_icm_counts}")
+
         return aggregated_icm_list
 
     def process_aggregated_failures(self, failure_type, original_icm_table, failure_duplicated_icm_table, analyzer, analysis_csv, aggregated_csv, dedup_csv):
@@ -1085,12 +1106,12 @@ class DataDeduplicator:
         logger.info(f"=================Deduplicating {failure_type} aggregated df against active IcM=================")
         aggregated_dedup_df, duplicated_df = self.deduplicate_summary_with_active_icm(aggregated_df, analyzer.active_icm_df)
         aggregated_dedup_df.to_csv(dedup_csv, index=False)
-        logger.debug(f"Found {len(aggregated_dedup_df)} real {failure_type} failures after deduplication")
-        logger.debug(f"Found {len(duplicated_df)} duplicated {failure_type} failures after deduplication with active IcM")
+        logger.debug(f"{failure_type}: Found {len(aggregated_dedup_df)} real {failure_type} failures after deduplication")
+        logger.debug(f"{failure_type}:Found {len(duplicated_df)} duplicated {failure_type} failures after deduplication with active IcM")
 
         # Convert duplicated_df to list format and add to failure_duplicated_icm_table
         if not duplicated_df.empty:
-            duplicated_list = self.filter_out_icm_list(failure_type, original_icm_table, duplicated_df)
+            duplicated_list = self.filter_out_icm_list(failure_type, original_icm_table, duplicated_df, trigger_icm=False)
             failure_duplicated_icm_table.extend(duplicated_list)
             logger.info(f"Added {len(duplicated_list)} active ICM duplicated {failure_type} entries to failure_duplicated_icm_table")
 
