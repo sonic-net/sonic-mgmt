@@ -420,9 +420,8 @@ def check_for_crc_errors(api):
     Returns:
         None
     """
-    ixnetwork = api._ixnetwork
-    port_metrics = StatViewAssistant(ixnetwork, 'Port Statistics')
-    for row in port_metrics.Rows:
+    rows = StatViewAssistant(api._ixnetwork, 'Port Statistics').Rows
+    for row in rows:
         if int(row['CRC Errors']) > 0:
             logger.warning("CRC Errors detected on port {}: {}".format(
                 row['Port Name'], row['CRC Errors']))
