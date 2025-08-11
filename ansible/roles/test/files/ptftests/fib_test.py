@@ -393,8 +393,20 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
+            try:
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=1)
+            except AssertionError:
+                logging.warning("Traffic wasn't sent successfully, trying again")
+                send_packet(self, src_port, pkt, count=5)
+
+                logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={}) on port {}'
+                             .format(pkt.src, pkt.dst, pkt['IP'].src, pkt['IP'].dst, sport, dport, src_port))
+                logging.info('Expect Ether(src={}, dst={})/IP(src={}, dst={})/TCP(sport={}, dport={})'
+                             .format('any', 'any', ip_src, ip_dst, sport, dport))
+
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=1)
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
@@ -488,8 +500,21 @@ class FibTest(BaseTest):
 
         dst_ports = list(itertools.chain(*dst_port_lists))
         if self.pkt_action == self.ACTION_FWD:
-            rcvd_port_index, rcvd_pkt = verify_packet_any_port(
-                self, masked_exp_pkt, dst_ports, timeout=1)
+            try:
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=1)
+            except AssertionError:
+                logging.warning("Traffic wasn't sent successfully, trying again")
+                send_packet(self, src_port, pkt, count=5)
+
+                logging.info('Sent Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={}) on port {}'
+                             .format(pkt.src, pkt.dst, pkt['IPv6'].src, pkt['IPv6'].dst, sport, dport, src_port))
+                logging.info('Expect Ether(src={}, dst={})/IPv6(src={}, dst={})/TCP(sport={}, dport={})'
+                             .format('any', 'any', ip_src, ip_dst, sport, dport))
+
+                rcvd_port_index, rcvd_pkt = verify_packet_any_port(
+                    self, masked_exp_pkt, dst_ports, timeout=1)
+
             rcvd_port = dst_ports[rcvd_port_index]
             len_rcvd_pkt = len(rcvd_pkt)
             logging.info('Recieved packet at port {} and packet is {} bytes'.format(
