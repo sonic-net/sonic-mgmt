@@ -44,12 +44,23 @@ class TestContLinkFlap(object):
                 f"{daemon}{('-' + asic.namespace) if asic.namespace else ''} memory status: \n%s",
                 frr_daemon_memory_output
             )
+            found = False
+            for line in frr_daemon_memory_output.splitlines():
+                if "Used ordinary blocks" in line:
+                    try:
+                        frr_daemon_memory = line.split()[-2]
+                        frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
+                        found = True
+                    except IndexError:
+                        raise ValueError(
+                            f"Malformed memory line for {daemon} on ASIC {asic.asic_index}: '{line}'"
+                        )
+                    break
 
-            frr_daemon_memory = asic.run_vtysh(
-                f'-c "show memory {daemon}" | grep "Used ordinary blocks"'
-            )["stdout"].split()[-2]
-
-            frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
+            if not found:
+                raise ValueError(
+                    f"Missing 'Used ordinary blocks' line in memory output for {daemon} on ASIC {asic.asic_index}"
+                )
 
         return frr_daemon_memory_per_asics
 
