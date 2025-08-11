@@ -1695,11 +1695,47 @@ hash/test_generic_hash.py::test_lag_hash:
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
 
+hash/test_generic_hash.py::test_lag_hash[CRC-DST_MAC:
+  xfail:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
+
+hash/test_generic_hash.py::test_lag_hash[CRC-ETHERTYPE:
+  xfail:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
+
 hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash is not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+
+hash/test_generic_hash.py::test_lag_hash[CRC-VLAN_ID:
+  xfail:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
+
+hash/test_generic_hash.py::test_lag_hash[CRC_CCITT-DST_MAC:
+  xfail:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
+
+hash/test_generic_hash.py::test_lag_hash[CRC_CCITT-ETHERTYPE:
+  xfail:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
+
+hash/test_generic_hash.py::test_lag_hash[CRC_CCITT-VLAN_ID:
+  xfail:
+    reason: "Testcase ignored due to RM issue: https://github.com/sonic-net/sonic-buildimage/issues/22586"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/22586 and asic_type in ['mellanox', 'nvidia']"
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
