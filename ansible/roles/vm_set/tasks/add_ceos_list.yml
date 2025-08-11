@@ -96,23 +96,14 @@
 
   when: ceos_docker_image_stat.images | length == 0
 
-- name: Create VMs network in parallel
-  include_tasks: create_vm_network.yml
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-
-- name: Wait for create tasks to complete
+- name: Create VMs network
   become: yes
-  async_status:
-    jid: "{{ async_create_vm_network_results[vm_name] }}"
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-  register: async_create_vm_network_poll_results
-  until: async_create_vm_network_poll_results.finished
-  retries: 30
-  delay: 60
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_targets  }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+    topo: "{{ topology }}"
 
 - name: Create net base containers
   become: yes
@@ -149,20 +140,14 @@
   retries: 10
   delay: 30
 
-- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }} in parallel
-  include_tasks: create_ceos_network.yml
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-
-- name: Wait for network tasks to complete
+- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }}
   become: yes
-  async_status:
-    jid: "{{ async_create_ceos_network_results[vm_name] }}"
+  ceos_network:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    vm_name:    "{{ vm_name }}"
+    fp_mtu:     "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
-  register: async_create_ceos_network_poll_results
-  until: async_create_ceos_network_poll_results.finished
-  retries: 30
-  delay: 60
