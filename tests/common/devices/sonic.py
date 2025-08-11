@@ -2751,6 +2751,31 @@ Totals               6450                 6449
             result_dict[counter_type]['status'] = status
         return result_dict
 
+    def set_counter_poll_interval(self, counter_type, interval, wait_for_new_interval=True):
+        """
+        A function to config the interval of counterpoll. The counter type should be a key of
+        the 'counterpoll show' cli output.
+        """
+        counter_type_cli_map = {
+            'QUEUE_STAT': 'queue',
+            'PORT_STAT': 'port',
+            'PORT_BUFFER_DROP': 'port-buffer-drop',
+            'RIF_STAT': 'rif',
+            'QUEUE_WATERMARK_STAT': 'watermark',
+            'PG_WATERMARK_STAT': 'watermark',
+            'BUFFER_POOL_WATERMARK_STAT': 'watermark',
+            'ACL': 'acl',
+            'TUNNEL_STAT': 'tunnel',
+            'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
+            'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
+        }
+        origin_interval = self.get_counter_poll_status()[counter_type]['interval']
+        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        self.shell(cmd)
+        # Sleep for the old interval for the new interval to take effect
+        if wait_for_new_interval:
+            time.sleep(origin_interval / 1000 + 1)
+
     def config(self, lines=None, parents=None, module_ignore_errors=False, asic_id=DEFAULT_ASIC_ID):
         # Convert string inputs to lists
         if isinstance(lines, str):
