@@ -527,10 +527,15 @@ class HashTest(BaseTest):
         '''
         percentage = (actual - expected) / float(expected)
         balancing_range = self.balancing_range
-        if hash_key == 'ip-proto' and 't2' in self.topo_name:
-            # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
-            # a large number of ecmp paths so relax the hashing requirements
-            balancing_range = self.RELAXED_BALANCING_RANGE
+        if hash_key == 'ip-proto':
+            # For FT2 topologies, there is not enough entropy in ip-proto to achieve good balancing
+            # So we just check if there are packets received on each expected port
+            if 'ft2' in self.topo_name:
+                return (percentage, actual >= expected * 0.2)
+            elif 't2' in self.topo_name:
+                # ip-protocol only has 8-bits of entropy which results in poor hashing distributions on topologies with
+                # a large number of ecmp paths so relax the hashing requirements
+                balancing_range = self.RELAXED_BALANCING_RANGE
         return (percentage, abs(percentage) <= balancing_range)
 
     def check_same_asic(self, src_port, exp_port_list):
