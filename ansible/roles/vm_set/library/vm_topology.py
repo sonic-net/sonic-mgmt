@@ -620,13 +620,13 @@ class VMTopology(object):
 
         if VMTopology.intf_exists(int_if, pid=self.pid):
             if not VMTopology.ip_exists(int_if, mgmt_ip_addr, pid=self.pid):
-                VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
-                               (self.pid, mgmt_ip_addr, int_if))
+                VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s || true" %
+                               (self.pid, mgmt_ip_addr, int_if), shell=True, split_cmd=False)
             if extra_mgmt_ip_addr is not None:
                 for ip_addr in extra_mgmt_ip_addr:
                     if ip_addr != "":
-                        VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s" %
-                                       (self.pid, ip_addr, int_if))
+                        VMTopology.cmd("nsenter -t %s -n ip addr add %s dev %s || true" %
+                                       (self.pid, ip_addr, int_if), shell=True, split_cmd=False)
             if mgmt_gw:
                 if api_server_pid:
                     VMTopology.cmd(
