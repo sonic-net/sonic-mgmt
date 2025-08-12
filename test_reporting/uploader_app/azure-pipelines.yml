@@ -1,14 +1,14 @@
-# Azure Pipeline for deploying SONiC Test Results Uploader App to Azure Web App
+# Azure Pipeline for deploying SONiC Test Report Uploader App to Azure Web App
 
-trigger: none
-  # branches:
-  #   include:
-  #   - internal
-  # paths:
-  #   include:
-  #   - test_reporting/uploader_app/*
-  #   - test_reporting/junit_xml_parser.py
-  #   - test_reporting/report_data_storage.py
+trigger:
+  branches:
+    include:
+    - internal
+  paths:
+    include:
+    - test_reporting/uploader_app/*
+    - test_reporting/junit_xml_parser.py
+    - test_reporting/report_data_storage.py
 
 pool:
   vmImage: 'ubuntu-latest'
