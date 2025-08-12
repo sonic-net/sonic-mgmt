@@ -260,7 +260,7 @@ class TestNeighborRetryCount:
         # Add random command to make sure SSH connection is alive, for
         # timing purposes
         for nbr in list(nbrhosts.keys()):
-            nbrhosts[nbr]['host'].command("ps -ef | grep teamd")
+            nbrhosts[nbr]['host'].command("ps")
 
         for nbr in list(nbrhosts.keys()):
             nbrhosts[nbr]['host'].command("sudo pkill -USR1 -x teamd")
