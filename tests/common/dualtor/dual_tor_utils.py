@@ -1668,8 +1668,10 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
 
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
+
 def run_mux_config_command(tor, cmd, expected_output=None, forbidden_output=None):
-    cmds = []; cmds.append(cmd)
+    cmds = []
+    cmds.append(cmd)
     result = tor.shell_cmds(cmds=cmds)
 
     if expected_output is None:
@@ -1689,6 +1691,7 @@ def run_mux_config_command(tor, cmd, expected_output=None, forbidden_output=None
 
     return True
 
+
 def check_active_active_port_status(duthost, ports, status):
     """Validate the active-active mux ports status."""
     logging.debug("Check mux status for ports {} is {}".format(ports, status))
@@ -1706,9 +1709,6 @@ def check_active_active_port_status(duthost, ports, status):
 def validate_active_active_dualtor_setup(
         duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa: F811
     """Validate that both ToRs are active for active-active mux ports."""
-
-
-
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         return
 
@@ -1726,20 +1726,21 @@ def validate_active_active_dualtor_setup(
         for duthost in duthosts:
             cmd = "config mux mode active {}".format(port)
             pt_assert(
-                wait_until(90, 10, 0, run_mux_config_command, active_tor, cmd, 
-                expected_output=["OK"], forbidden_output=["this is not a valid port present on mux_cable"]),
-                        "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd))
+                wait_until(
+                    90, 10, 0, run_mux_config_command, duthost, cmd,
+                    expected_output=["OK"],
+                    forbidden_output=["this is not a valid port present on mux_cable"]
+                ),
+                "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+            )
     duthosts.shell("systemctl restart mux.service")
     # verify both ToRs are active
     for duthost in duthosts:
         pt_assert(
             wait_until(90, 20, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
-            "Not all active-active mux ports are active on device %s" % duthost.hostname
-        )
+            "Not all active-active mux ports are active on device %s" % duthost.hostname)
 
     return
-
-
 
 
 def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally=False):
@@ -1755,11 +1756,21 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
 
     if not check_active_active_port_status(active_tor, ports, 'active') or unconditionally:
         for cmd in active_side_commands:
-            pt_assert(wait_until(90, 10, 0, run_mux_config_command, active_tor, cmd, expected_output=[], forbidden_output=["this is not a valid port present on mux_cable"]), 
-            "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd))
+            pt_assert(
+                wait_until(
+                    90, 10, 0, run_mux_config_command, active_tor, cmd, expected_output=[],
+                    forbidden_output=["this is not a valid port present on mux_cable"]
+                ),
+                "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+            )
     for cmd in standby_side_commands:
-            pt_assert(wait_until(90, 10, 0, run_mux_config_command, standby_tor, cmd, expected_output=[], forbidden_output=["this is not a valid port present on mux_cable"]),
-                  "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd))
+        pt_assert(
+            wait_until(
+                90, 10, 0, run_mux_config_command, standby_tor, cmd, expected_output=[],
+                forbidden_output=["this is not a valid port present on mux_cable"]
+            ),
+            "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+        )
 
     pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
               "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
