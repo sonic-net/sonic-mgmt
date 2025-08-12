@@ -1769,7 +1769,7 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
 
 
 @pytest.fixture
-def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):                         # noqa F811
+def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):     # noqa: F811
     """Config the active-active dualtor that one ToR as active and the other as standby."""
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         yield
