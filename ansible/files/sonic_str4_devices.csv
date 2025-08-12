@@ -14,7 +14,7 @@ str4-7060x6-64pe-fan-2,10.64.246.4/23,Arista-7060X6-64PE-O128S2,FanoutLeafSonic,
 str4-7060x6-64pe-fan-3,10.3.146.216/24,Arista-7060X6-64PE-C224O8,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-share-1,10.64.247.239/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-13,10.64.247.105/23,Arista-7060X6-64PE-P32O64,FanoutLeafSonic,,sonic
-str4-7060x6-64pe-fan-4,10.64.247.106/23,Arista-7060X6-64PE,FanoutLeafSonic,,sonic
+str4-7060x6-64pe-fan-4,10.64.247.111/23,Arista-7060X6-64PE,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-9,10.64.247.107/23,Arista-7060X6-64PE-O128S2,DevSonic,,sonic
 str4-7060x6-64pe-fan-9,10.64.247.108/23,Arista-7060X6-64PE-O128S2,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-10,10.64.247.109/23,Arista-7060X6-64PE-C256S2,DevSonic,,sonic
