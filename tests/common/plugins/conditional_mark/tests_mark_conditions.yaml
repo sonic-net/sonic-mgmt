@@ -947,6 +947,42 @@ dhcp_relay/test_dhcp_relay.py::test_interface_binding:
     conditions:
       - "release in ['201811', '201911', '202106']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enabled[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
+dhcp_relay/test_dhcpv4_relay.py:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
     reason: "Skip due to flaky issue"
