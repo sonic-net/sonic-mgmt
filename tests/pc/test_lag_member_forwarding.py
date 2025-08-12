@@ -24,9 +24,24 @@ def ignore_expected_loganalyzer_exception(loganalyzer, duthosts):
         r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
         r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*"
         ]
+    ignore_errors_nokia7215 = [
+        r".* ERR swss#orchagent: :- on_switch_shutdown_request: Syncd stopped",
+        r".* ERR syncd#syncd: xpsIdAllocator.cpp:\d+ Could not allocate id.*",
+        r".* ERR syncd#syncd: :- setEndTime: event 'create:SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000'"
+        r" took -\d+ ms to execute",
+        r".* ERR syncd#syncd: :- logEventData: op: create, key: SAI_OBJECT_TYPE_SWITCH:oid:0x21000000000000",
+        r".* ERR syncd#syncd: :- logEventData: fv:.*",
+        r".* ERR swss#orchagent: :- queryTrim.*: Failed to get attribute.*capabilities",
+        r".* ERR swss#orchagent: :- offload_supported: Unable to query BFD offload capability",
+        r".* ERR swss#orchagent: :- readTextFile: failed to read file: "
+        r"'/usr/share/swss/pfc_detect_marvell-prestera.lua': No such file or directory",
+    ]
     if loganalyzer:
         for duthost in duthosts:
             loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors)
+        if duthost.facts['hwsku'] == 'nokia-M0-7215':
+            for duthost in duthosts:
+                loganalyzer[duthost.hostname].ignore_regex.extend(ignore_errors_nokia7215)
 
     return None
 
