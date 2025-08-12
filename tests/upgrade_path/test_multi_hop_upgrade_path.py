@@ -34,7 +34,8 @@ def pytest_generate_tests(metafunc):
                 logging.warning("Unknown SAD case ({}) - skipping it.".format(input_case))
                 continue
             input_sad_list.append(input_case)
-
+        if "multi_sad" in input_sad_list and "sad_bgp" in input_sad_list and "sad_lag" in input_sad_list:
+            input_sad_list.remove("multi_sad")
         metafunc.parametrize("sad_case_type", input_sad_list, scope="module")
 
 
