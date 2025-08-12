@@ -83,7 +83,7 @@ Following test attributes under `transceiver_firmware_upgrade` attribute categor
 | restore_initial_firmwares | Bool | False | No | A flag indicating whether to restore the initial active and inactive firmware versions after testing is completed |
 | firmware_download_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware download process |
 | firmware_activation_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware activation process |
-| firmware_download_abort_method | String | "ctrl_c" | No | The method to abort the firmware download process. It can be one of the following strings : "ctrl_c", "sfputil_reset", "optic_reinsert" |
+| firmware_download_abort_method | String | "sfputil_reset" | No | The method to abort the firmware download process. It can be one of the following strings : "ctrl_c", "sfputil_reset", "optic_reinsert" |
 | firmware_download_abort_percentage | List | `[10, 50, 90]` | No | The percentage of download progress at which the firmware download should be aborted. | 
 
 
