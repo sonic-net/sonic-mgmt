@@ -256,6 +256,12 @@ class TestNeighborRetryCount:
         """
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
+
+        # Add random command to make sure SSH connection is alive, for
+        # timing purposes
+        for nbr in list(nbrhosts.keys()):
+            nbrhosts[nbr]['host'].command("ps -ef | grep teamd")
+
         for nbr in list(nbrhosts.keys()):
             nbrhosts[nbr]['host'].command("sudo pkill -USR1 -x teamd")
 
