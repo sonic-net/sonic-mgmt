@@ -172,6 +172,7 @@ def monitor_config_add_config(duthost, get_valid_acl_ports):
     json_patch = [
         {
             "op": "add",
+            "path": "/ACL_TABLE/{}".format(MONITOR_CONFIG_ACL_TABLE),
             "value": {
                 "policy_desc": "{}".format(MONITOR_CONFIG_ACL_TABLE),
                 "ports": get_valid_acl_ports,

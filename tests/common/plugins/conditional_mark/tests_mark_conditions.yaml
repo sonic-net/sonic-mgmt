@@ -1829,7 +1829,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on m0/mx testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
@@ -1838,6 +1838,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "platform in ['x86_64-mlnx_msn3800-r0']"
         - "release in ['202412']"
         - "asic_type in ['cisco-8000']"
+        - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
@@ -2222,6 +2223,18 @@ restapi/test_restapi.py:
   skip:
     reason: "Skip this test as it's not required on T0. Test needs to be improved to support T1 (ADO:29844291)"
 
+restapi/test_restapi.py::test_create_interface:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
+
+restapi/test_restapi.py::test_create_interface_sad:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
+
 restapi/test_restapi.py::test_create_vrf:
   skip:
     reason: "Only supported on Mellanox T1"
@@ -2229,6 +2242,12 @@ restapi/test_restapi.py::test_create_vrf:
     conditions:
       - "'t1' not in topo_type"
       - "asic_type not in ['mellanox']"
+
+restapi/test_restapi.py::test_data_path_sad:
+  xfail:
+    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi_vxlan_ecmp.py:
   skip:

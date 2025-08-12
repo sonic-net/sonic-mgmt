@@ -380,3 +380,6 @@ r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundErr
 
 # https://github.com/sonic-net/sonic-buildimage/issues/23142
 r, ".* ERR ntpd.*: CLOCK: leapsecond file ('/usr/share/zoneinfo/leap-seconds.list'): .*"
+
+# Ignore lldp error log, don't have real impact
+r, ".* ERR container: docker cmd: stop for lldp failed with 500 Server Error.*"
