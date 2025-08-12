@@ -163,6 +163,10 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+  xfail:
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -172,6 +176,10 @@ bgp/test_bgp_bbr.py:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
+  xfail:
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
@@ -252,6 +260,12 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
     reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
+
+bgp/test_bgp_sentinel.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20193 and '-v6-' in topo_name"
 
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
   xfail:
@@ -352,6 +366,12 @@ bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
+
+bgp/test_traffic_shift.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20194 and '-v6-' in topo_name"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
