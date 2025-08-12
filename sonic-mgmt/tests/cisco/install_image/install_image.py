@@ -248,17 +248,13 @@ def test_install_image(duthosts,localhost, creds, conn_graph_facts, request, xcv
             duthost.shell("sudo rm /etc/sonic/*config*")
         except:
             pass
-        try:
-            duthost.shell("sudo rm /etc/sonic/minigraph.xml")
-        except:
-            pass
 
     pool_list = list()
     pool = ThreadPool()
     def image_install(duthost):
         logger.info("Sonic Install the image on : {}".format(duthost))
         initImage[duthost] = duthost.shell('sonic-installer list | grep Current | cut -f2 -d " "')['stdout']
-        return duthost.shell("sudo sonic-installer install --skip_migration -y {}".format(IMAGE_LOC))
+        return duthost.shell("sudo sonic-installer install -y {}".format(IMAGE_LOC))
 
     for duthost in duthosts:
         logger.info('In sonic-install async pool loop')
