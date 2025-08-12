@@ -22,51 +22,7 @@ Tests will cover optics compliant with:
 
 ## Testbed Topology
 
-A minimum of 1 port of a device with the onboarding transceiver should be connected with a cable and should be operationally up. The port can be connected to the same device or a different device. In the case of a breakout cable, the expectation is to connect all sides of the cable to the DUT.
-
-1. Standalone topology with both ports connected on the same SONiC device (self loopback)
-
-    ```text
-    +-----------------+
-    |           Port 1|<----+
-    |                 |     | Loopback
-    |    Device       |     | Connection
-    |           Port 2|<----+
-    |                 |
-    +-----------------+
-    ```
-
-2. Point-to-point topology with port connected on different SONiC devices
-
-    ```text
-
-    +-----------------+     +-----------------+
-    |           Port 1|<--->|Port 1           |
-    |                 |     |                 |
-    |    Device 1     |     |     Device 2    |
-    |                 |     |                 |
-    |                 |     |                 |
-    +-----------------+     +-----------------+
-    ```
-
-3. Topology with port connected between SONiC device and 2 servers using a Y-cable
-
-    ```text
-                               +-----------------+
-                               |                 |
-                               |     Server 1    |
-    +-----------------+        |                 |
-    |                 |    +-->| Port            |
-    |                 |    |   |                 |
-    |   SONiC Device  |    |   +-----------------+
-    |                 |<---+   +-----------------+
-    |                 |    |   |                 |
-    |                 |    |   |     Server 2    |
-    +-----------------+    +-->| Port            |
-                               |                 |
-                               |                 |
-                               +-----------------+
-    ```
+Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#testbed-topology) section.
 
 ## Test Cases
 
@@ -117,9 +73,9 @@ A minimum of 1 port of a device with the onboarding transceiver should be connec
 
 **Attributes for  the below tests**
 
-Following test attributes under `transceiver_firmware_upgrade` attribute category is applicable:
+Following test attributes under `transceiver_firmware_upgrade` attribute category are applicable:
 
-| Attribute | Type | Default | Manadatory | Description |
+| Attribute | Type | Default | Mandatory | Description |
 |-----------|------|---------|------------|-------------|
 | port_under_test | Dict | None | Yes | A dictionary containing the device name as the key and list of ports to be tested as its value |
 | firmware_versions | Dict | None | Yes | A dictionary containing the normalized transceiver product number as the key and list of firmware versions to be tested as its value |
