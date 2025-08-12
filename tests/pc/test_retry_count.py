@@ -204,10 +204,6 @@ def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers, 
     for nbr in list(nbrhosts.keys()):
         nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
 
-    # Wait 90 seconds for retry count to get updated on the DUT
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
-                  "Retry count on neighbors has not been reset to 3.")
-
     yield
 
     for nbr in list(nbrhosts.keys()):
@@ -219,10 +215,6 @@ def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut, col
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
         duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
-
-    # Wait 90 seconds for retry count to get updated on the peers
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
-                  "Retry count on neighbors has not been reset to 3.")
 
     yield
 
@@ -297,14 +289,9 @@ def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peer
     Test that peers reset the retry count to 3 when the feature is disabled
     """
 
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    port_channels = cfg_facts["PORTCHANNEL"].keys()
-    for port_channel in port_channels:
-        port_channel_status = duthost.get_port_channel_status(port_channel)
-        for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["partner_retry_count"] == 3,
-                          "partner retry count is incorrect; expected 3, but is {}"
-                          .format(status["runner"]["partner_retry_count"]))
+    # Wait 90 seconds for retry count to get updated on the DUT
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
+                  "Retry count on one or more neighbors has not been reset to 3.")
 
     for nbr in list(nbrhosts.keys()):
         processRc = nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count get PortChannel1",
@@ -370,12 +357,9 @@ def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, 
     """
     Test that DUT resets the retry count to 3 when the feature is disabled
     """
-    for nbr in list(nbrhosts.keys()):
-        port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
-        for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["partner_retry_count"] == 3,
-                          "partner retry count is incorrect; expected 3, but is {}"
-                          .format(status["runner"]["partner_retry_count"]))
+
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
+                  "Retry count on neighbors has not been reset to 3.")
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     port_channels = cfg_facts["PORTCHANNEL"].keys()
