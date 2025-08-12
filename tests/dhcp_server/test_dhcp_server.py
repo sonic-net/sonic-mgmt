@@ -10,7 +10,7 @@ from dhcp_server_test_common import DHCP_SERVER_CONFIG_TOOL_GCU, DHCP_SERVER_CON
     verify_discover_and_request_then_release, send_and_verify, DHCP_MESSAGE_TYPE_DISCOVER_NUM, \
     DHCP_SERVER_SUPPORTED_OPTION_ID, DHCP_MESSAGE_TYPE_REQUEST_NUM, DHCP_DEFAULT_LEASE_TIME, \
     apply_dhcp_server_config_gcu, create_dhcp_client_packet, vlan_n2i
-from tests.common.fixtures.dhcp_utils import enable_sonic_dhcpv4_relay_agent
+from tests.common.dhcp_relay_utils import enable_sonic_dhcpv4_relay_agent  # noqa: F401
 
 
 pytestmark = [
@@ -64,7 +64,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc1(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -107,7 +107,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc2(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -151,7 +151,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc3(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -197,7 +197,7 @@ def test_dhcp_server_port_based_assignment_single_ip_tc4(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -246,7 +246,7 @@ def test_dhcp_server_port_based_assignment_range_ip(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -293,7 +293,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_move(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -356,7 +356,7 @@ def test_dhcp_server_port_based_assigenment_single_ip_mac_swap(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     config_tool,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -447,7 +447,7 @@ def test_dhcp_server_port_based_customize_options(
     ptfadapter,
     parse_vlan_setting_from_running_config,
     option_info,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -519,12 +519,13 @@ def test_dhcp_server_port_based_customize_options(
         verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
         send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
+
 def test_dhcp_server_config_change_dhcp_interface(
     duthost,
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -576,12 +577,13 @@ def test_dhcp_server_config_change_dhcp_interface(
         net_mask=net_mask
     )
 
+
 def test_dhcp_server_config_change_common(
     duthost,
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -658,13 +660,14 @@ def test_dhcp_server_config_change_common(
         exp_lease_time=changed_lease_time
     )
 
+
 def test_dhcp_server_config_vlan_member_change(
     duthost,
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
     loganalyzer,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -718,12 +721,13 @@ def test_dhcp_server_config_vlan_member_change(
         net_mask=net_mask
     )
 
+
 def test_dhcp_server_lease_config_change(
     duthost,
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
@@ -766,12 +770,13 @@ def test_dhcp_server_lease_config_change(
     verify_lease(duthost, vlan_name, client_mac, expected_assigned_ip, DHCP_DEFAULT_LEASE_TIME)
     send_release_packet(ptfadapter, ptf_port_index, test_xid, client_mac, expected_assigned_ip, gateway)
 
+
 def test_dhcp_server_config_vlan_intf_change(
     duthost,
     ptfhost,
     ptfadapter,
     parse_vlan_setting_from_running_config,
-    enable_sonic_dhcpv4_relay_agent,
+    enable_sonic_dhcpv4_relay_agent,  # noqa: F811
     relay_agent
 ):
     """
