@@ -274,13 +274,15 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
                     validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
-                    "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
-                    "TX": {"Ack": 1, "Offer": 1}
+                    "RX": {"Unknown": 1, "Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1,
+                           "Decline": 1, "Release": 1, "Inform": 1},
+                    "TX": {"Unknown": 1, "Ack": 1, "Offer": 1, "Nak": 1}
                 }
                 expected_uplink_counter = {
-                    "RX": {"Ack": 1, "Offer": 1},
-                    "TX": {"Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
-                           "Request": dhcp_server_sum * dhcy_relay_request_times}
+                    "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1},
+                    "TX": {"Unknown": dhcp_server_sum, "Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcy_relay_request_times, "Inform": dhcp_server_sum,
+                           "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
                 validate_dhcpcom_relay_counters(dhcp_relay, duthost,
                                                 expected_uplink_counter,
@@ -382,13 +384,15 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                     # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
                     validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
-                    "RX": {"Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1},
-                    "TX": {"Ack": 1, "Offer": 1}
+                    "RX": {"Unknown": 1, "Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1,
+                           "Decline": 1, "Release": 1, "Inform": 1},
+                    "TX": {"Unknown": 1, "Ack": 1, "Offer": 1, "Nak": 1}
                 }
                 expected_uplink_counter = {
-                    "RX": {"Ack": 1, "Offer": 1},
-                    "TX": {"Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
-                           "Request": dhcp_server_sum * dhcy_relay_request_times}
+                    "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1},
+                    "TX": {"Unknown": dhcp_server_sum, "Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcy_relay_request_times, "Inform": dhcp_server_sum,
+                           "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
                 validate_dhcpcom_relay_counters(dhcp_relay, duthost,
                                                 expected_uplink_counter,

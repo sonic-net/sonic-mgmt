@@ -8,6 +8,7 @@ from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
+from tests.common.mellanox_data import is_mellanox_device
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
@@ -198,15 +199,29 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
         if rc:
             continue
 
-        command = ('sudo python -c "import pexpect; '
-                   'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
-                   'child.expect(r\' \'); '
-                   'child.sendline(\'\\r\\r\'); '
-                   'child.expect(r\' \'); '
-                   'child.sendline(\'exit\\rexit\\r\'); '
-                   'child.expect(r\'sonic login: \'); '
-                   'print(child.after.decode()); child.close()"'
-                   % (index))
+        # Check if it's a Mellanox ASIC
+        if is_mellanox_device(duthost):
+            command = ('sudo python -c "import pexpect; '
+                       'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'\\r\\r\'); '
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'exit\\rexit\\r\'); '
+                       'child.expect(r\'Terminal\'); '
+                       'child.sendline(\'\'); '
+                       'child.expect(r\'sonic login: \'); '
+                       'print(child.after.decode()); child.close()"'
+                       % (index))
+        else:
+            command = ('sudo python -c "import pexpect; '
+                       'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'\\r\\r\'); '
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'exit\\rexit\\r\'); '
+                       'child.expect(r\'sonic login: \'); '
+                       'print(child.after.decode()); child.close()"'
+                       % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)

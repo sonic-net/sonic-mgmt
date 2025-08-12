@@ -350,12 +350,14 @@ def run_ecn_test(api,
     config_result = config_wred(host_ans=egress_duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
-                                pmax=snappi_extra_params.ecn_params["pmax"])
+                                pmax=snappi_extra_params.ecn_params["pmax"],
+                                asic_value=rx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
     config_result = config_wred(host_ans=ingress_duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
-                                pmax=snappi_extra_params.ecn_params["pmax"])
+                                pmax=snappi_extra_params.ecn_params["pmax"],
+                                asic_value=tx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     # Enable ECN marking
@@ -364,11 +366,13 @@ def run_ecn_test(api,
     pytest_assert(enable_ecn(host_ans=ingress_duthost, prio=lossless_prio), 'Unable to enable ecn')
 
     config_result = config_ingress_lossless_buffer_alpha(host_ans=egress_duthost,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         asic_value=rx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
     config_result = config_ingress_lossless_buffer_alpha(host_ans=ingress_duthost,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         asic_value=tx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
 

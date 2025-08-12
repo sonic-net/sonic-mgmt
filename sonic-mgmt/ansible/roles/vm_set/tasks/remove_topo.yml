@@ -36,14 +36,6 @@
     vars:
       ptf_portchannel_action: stop
 
-  - name: Kill exabgp and ptf_nn_agent processes in PTF container
-    ptf_control:
-      ctn_name: "ptf_{{ vm_set_name }}"
-      command: kill
-    when:
-      - topo != 'fullmesh'
-      - not 'ptf' in topo
-
   - name: Get duts ports
     include_tasks: get_dut_port.yml
     loop: "{{ duts_name.split(',') }}"
@@ -68,6 +60,7 @@
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
       batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
+
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -171,23 +164,11 @@
 
   when: container_type == "IxANVL-CONF-TESTER"
 
-- name: Destroy VMs network in parallel
-  include_tasks: destory_vm_network.yml
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-
-- name: Wait for destroy tasks to complete
+- name: Destroy VMs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names: "{{ VM_targets }}"
   become: yes
-  async_status:
-    jid: "{{ async_destroy_vm_network_results[vm_name] }}"
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-  register: async_destroy_vm_network_poll_results
-  until: async_destroy_vm_network_poll_results.finished
-  retries: 30
-  delay: 60
 
 - name: Destroy DPUs network
   vm_topology:

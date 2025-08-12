@@ -75,7 +75,8 @@ SKIP_ERROR_LOG_PSU_ABSENCE = [
     '.*ERR pmon#psud:.*Fail to read serial number: No key SN_VPD_FIELD in.*',
     '.*ERR pmon#psud:.*Fail to read revision: No key REV_VPD_FIELD in.*',
     r'.*ERR pmon#psud: Failed to read from file /var/run/hw-management/power/psu\d_volt.*',
-    r'.*ERR pmon#thermalctld: Failed to read from file \/var\/run\/hw-management\/thermal\/.*FileNotFoundError.*']
+    r'.*ERR pmon#thermalctld: Failed to read from file \/var\/run\/hw-management\/thermal\/.*FileNotFoundError.*',
+    r'.*PSU power thresholds become invalid: threshold \d+\.\d+ critical threshold N/A.*']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP.extend(SKIP_ERROR_LOG_COMMON)
 SKIP_ERROR_LOG_PSU_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
@@ -160,7 +161,8 @@ def psu_test_setup_teardown(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.fixture(scope="function")
 def ignore_particular_error_log(request, duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='turn_on_off_psu_and_check_psustatus',
+                              request=request)
     loganalyzer.load_common_config()
 
     ignore_list = request.param
