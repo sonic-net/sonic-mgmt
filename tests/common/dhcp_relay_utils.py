@@ -1,3 +1,5 @@
+import re
+import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 import json
@@ -18,7 +20,7 @@ def restart_dhcp_service(duthost):
     duthost.shell('systemctl reset-failed dhcp_relay')
 
     def _is_dhcp_relay_ready():
-        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhcp | awk \'{print $2}\'',
+        output = duthost.shell('docker exec dhcp_relay supervisorctl status | grep dhc | awk \'{print $2}\'',
                                module_ignore_errors=True)
         return (not output['rc'] and output['stderr'] == '' and len(output['stdout_lines']) != 0 and
                 all(element == 'RUNNING' for element in output['stdout_lines']))
@@ -348,3 +350,102 @@ def merge_counters(source_counter, merge_counter):
         for dhcp_type in SUPPORTED_DHCPV4_TYPE:
             source_counter[dir][dhcp_type] = source_counter.get(dir, {}).get(dhcp_type, 0) + \
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
+
+def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
+    """
+    Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
+    """
+    if dhcpv4_config_flag:
+        duthost.shell('sonic-db-cli CONFIG_DB hset "FEATURE|dhcp_relay" "has_sonic_dhcpv4_relay" "True"',
+                      module_ignore_errors=True)
+    else:
+        duthost.shell('sonic-db-cli CONFIG_DB hdel "FEATURE|dhcp_relay" "has_sonic_dhcpv4_relay"',
+                      module_ignore_errors=True)
+
+    # Save the config and restart DHCP relay service
+    duthost.shell('sudo config save -y', module_ignore_errors=True)
+    restart_dhcp_service(duthost)
+
+
+@pytest.fixture()
+def enable_sonic_dhcpv4_relay_agent(duthost, request):
+    """
+    Fixture to enable the DHCP relay feature flag and restart the service.
+    """
+    if "skip_config_dhcpv4_relay_agent" in request.keywords:
+        yield
+        return
+
+    if "dut_dhcp_relay_data" in request.fixturenames:
+        dut_dhcp_relay_data = request.getfixturevalue("dut_dhcp_relay_data")
+    else:
+        dut_dhcp_relay_data = None
+
+    try:
+        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, True)
+            sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, True)
+        yield
+    finally:
+        # Cleanup: disable the feature flag
+        if request.getfixturevalue("relay_agent") == "sonic-relay-agent":
+            sonic_dhcpv4_flag_config_and_unconfig(duthost, False)
+            sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+
+
+def check_dhcpv4_socket_status(duthost, dut_dhcp_relay_data=None, process_and_socket_check=None):
+    """
+    Check if the DHCP relay agent is running and listening on expected sockets.
+    Works for dhcp4relay.
+
+    """
+    # If checking for socket bindings
+    cmd = "docker exec -t dhcp_relay ss -nlp | grep dhcp4relay"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    output = result.get("stdout", "")
+
+    # Basic static checks
+    expected_static_patterns = [
+        r"p_raw\s+UNCONN.*dhcp4relay",
+        r"udp\s+UNCONN.*0\.0\.0\.0:67.*dhcp4relay"
+    ]
+
+    for pattern in expected_static_patterns:
+        if not re.search(pattern, output):
+            logger.error("Missing expected socket match: %s", pattern)
+            return False
+
+    # Validate presence of DHCPv4 socket for each downlink VLAN interface from test data
+    if dut_dhcp_relay_data is None:
+        logger.error("Missing dut_dhcp_relay_data for VLAN check")
+        return False
+
+    for dhcp_relay in dut_dhcp_relay_data:
+        vlan_iface_name = dhcp_relay['downlink_vlan_iface']['name']
+        vlan_pattern = r"%{}:67.*dhcp4relay".format(re.escape(vlan_iface_name))
+        if not re.search(vlan_pattern, output):
+            logger.error("Missing expected DHCPv4 VLAN socket for %s:67", vlan_iface_name)
+            return False
+
+    return True
+
+
+def sonic_dhcp_relay_config(duthost, dut_dhcp_relay_data, socket_check=True):
+
+    if dut_dhcp_relay_data:
+        for dhcp_relay in dut_dhcp_relay_data:
+            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
+            dhcp_servers = ",".join(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+            duthost.shell(f'config dhcpv4_relay add --dhcpv4-servers {dhcp_servers} {vlan}')
+
+        if socket_check:
+            pytest_assert(wait_until(40, 5, 0, check_dhcpv4_socket_status, duthost, dut_dhcp_relay_data,
+                          "sonic_dhcpv4_socket_check"))
+
+
+def sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data):
+
+    if dut_dhcp_relay_data:
+        for dhcp_relay in dut_dhcp_relay_data:
+            vlan = str(dhcp_relay['downlink_vlan_iface']['name'])
+            duthost.shell(f'config dhcpv4_relay del {vlan}', module_ignore_errors=True)
