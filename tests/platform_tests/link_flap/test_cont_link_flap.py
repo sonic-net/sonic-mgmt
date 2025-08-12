@@ -45,7 +45,7 @@ class TestContLinkFlap(object):
             output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
                 f'vtysh -c "show memory {daemon}" | grep "Used ordinary blocks"', asic.namespace))["stdout"]
             frr_daemon_memory = output.split()[-2]
-            frr_daemon_memory_per_asics[asic.index] = frr_daemon_memory
+            frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
 
         return frr_daemon_memory_per_asics
 
