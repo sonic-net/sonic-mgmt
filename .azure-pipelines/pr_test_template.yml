@@ -35,6 +35,8 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - ${{ if ne(variables['Build.Repository.Name'], 'sonic-mgmt') }}:
+          - checkout: sonic-mgmt
       - template: impacted_area_testing/get-impacted-area.yml
 
   - job: impacted_area_kvmtest
@@ -108,6 +110,8 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - ${{ if ne(variables['Build.Repository.Name'], 'sonic-mgmt') }}:
+        - checkout: sonic-mgmt
       - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
