@@ -4093,7 +4093,7 @@
   topo: dualtor-120
   ptf_image_name: docker-ptf
   ptf: bjw3-1-2
-  ptf_ip: 10.150.239.4/23
+  ptf_ip: 10.150.239.8/23
   ptf_ipv6: 2404:f801:10:16::a96:ef04/64
   server: server_bjw3_1
   vm_base: VM19139
