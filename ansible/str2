@@ -1110,7 +1110,7 @@ sonic_arista_QX:
 sonic_arista64_100:
   vars:
     iface_speed: 100000
-    msft_an_enabled: True
+    msft_an_enabled: False
   hosts:
     str2-7260cx3-acs-9:
       ansible_host: 10.3.146.137
