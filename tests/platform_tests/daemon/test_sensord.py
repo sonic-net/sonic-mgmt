@@ -36,6 +36,7 @@ def check_sensord_supported(duthosts, rand_one_dut_hostname):
         pytest.skip(f"lm-sensors not supported for this SKU {duthost.facts['platform']}")
 
 
+
 @pytest.fixture(scope="function")
 def sensord_start_and_get_pid(duthosts, rand_one_dut_hostname, check_sensord_supported):
     """
