@@ -1,8 +1,5 @@
 variables:
 - group: KUSTO_SECRETS
-- group: sonicbld
-- group: SECRETS_JSON
-- group: TBSHARE_SECRETS
 - group: NIGHTLY_HAWK
 - name: skipComponentGovernanceDetection
   value: true
@@ -28,7 +25,7 @@ jobs:
   - script: |
       CHANGED_FILES=$(git diff --name-only origin/$(baseBranch)...HEAD)
 
-      echo "Files changed are:" 
+      echo "Files changed are:"
       echo "------------------"
       echo "$CHANGED_FILES"
       echo "------------------"
@@ -72,8 +69,10 @@ jobs:
       inlineScript: |
         source $(virtualEnvName)/bin/activate
 
-        accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
-        export ACCESS_TOKEN=$accessToken
+        KustoAccessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+        export ACCESS_TOKEN=$KustoAccessToken
+        ADOAccessToken=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv)
+        export AZURE_DEVOPS_MSAZURE_TOKEN=$ADOAccessToken
 
         python -m pytest \
           -o log_cli=true -o log_cli_level=info \
@@ -85,7 +84,6 @@ jobs:
       workingDirectory: $(projectRoot)
     env:
       TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-      AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)
 
   # Leave at version 1 - version 2 has strange behaviour with how it parses file paths
   - task: PublishCodeCoverageResults@1
