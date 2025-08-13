@@ -592,9 +592,10 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
                                             outer_dscp=outer_dscp,
                                             ecn=1)
         # Ingress packet from uplink port
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, src_port, pkt, 1)
         # Get the actual egress port
-        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=5)
         actual_port = dst_ports[result[0]]
         # Get the port name from mgfacts
         for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
