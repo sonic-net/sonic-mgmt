@@ -5,12 +5,19 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_common_name, \
-                                            create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment
+                                            create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment, \
+                                            del_gnmi_client_common_name
 from tests.common.gu_utils import create_checkpoint, rollback
 
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
+
+
+def telemetry_enabled(duthost):
+    containers = duthost.get_all_containers()
+    logger.warning("running containers: {}".format(containers))
+    return "telemetry" in containers
 
 
 def apply_cert_config(duthost):
@@ -50,6 +57,34 @@ def apply_cert_config(duthost):
     command = "docker exec {} supervisorctl start {}".format(env.gnmi_container, env.gnmi_program)
     duthost.shell(command, module_ignore_errors=True)
 
+    # tememetry container not avaliable on all image
+    if telemetry_enabled(duthost):
+        # Setup telemetry config
+        command = 'sudo sonic-db-cli CONFIG_DB hset "TELEMETRY|certs" "server_crt" "/etc/sonic/telemetry/gnmiserver.crt"'
+        duthost.shell(command, module_ignore_errors=True)
+
+        command = 'sudo sonic-db-cli CONFIG_DB hset "TELEMETRY|certs" "server_key" "/etc/sonic/telemetry/gnmiserver.key"'
+        duthost.shell(command, module_ignore_errors=True)
+
+        command = 'sudo sonic-db-cli CONFIG_DB hset "TELEMETRY|certs" "ca_crt" "/etc/sonic/telemetry/gnmiCA.pem"'
+        duthost.shell(command, module_ignore_errors=True)
+
+        command = 'sudo sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" "user_auth" "cert"'
+        duthost.shell(command, module_ignore_errors=True)
+
+        command = 'sudo sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" "port" "{}"'.format(env.gnmi_port)
+        duthost.shell(command, module_ignore_errors=True)
+
+        command = 'sudo sonic-db-cli CONFIG_DB hset "TELEMETRY|gnmi" "log_level" "10"'
+        duthost.shell(command, module_ignore_errors=True)
+
+        # Restart telemetry service to apply the updated configuration changes
+        command = "docker exec {} supervisorctl stop {}".format("telemetry", "telemetry")
+        duthost.shell(command, module_ignore_errors=True)
+
+        command = "docker exec {} supervisorctl start {}".format("telemetry", "telemetry")
+        duthost.shell(command, module_ignore_errors=True)
+
 
 def recover_cert_config(duthost):
     config_reload(duthost)
@@ -79,3 +114,17 @@ def setup_gnmi_server_e2e(duthosts, rand_one_dut_hostname, localhost, ptfhost):
 
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
+
+@pytest.fixture(scope="function")
+def setup_invalid_client_cert_cname(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
+    add_gnmi_client_common_name(duthost, "invalid.cname")
+
+    keys = duthost.shell('sudo sonic-db-cli CONFIG_DB keys GNMI*')["stdout_lines"]
+    logger.debug("GNMI client cert keys: {}".format(keys))
+
+    yield
+
+    del_gnmi_client_common_name(duthost, "invalid.cname")
+    add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
