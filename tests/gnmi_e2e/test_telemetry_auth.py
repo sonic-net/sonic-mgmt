@@ -2,7 +2,7 @@ import pytest
 import logging
 
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from conftest import setup_invalid_client_cert_cname, telemetry_enabled
+from .helper import setup_invalid_client_cert_cname, telemetry_enabled
 
 logger = logging.getLogger(__name__)
 allure.logger = logger

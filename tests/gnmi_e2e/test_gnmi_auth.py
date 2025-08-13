@@ -3,7 +3,7 @@ import logging
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from conftest import setup_invalid_client_cert_cname
+from .helper import setup_invalid_client_cert_cname
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
