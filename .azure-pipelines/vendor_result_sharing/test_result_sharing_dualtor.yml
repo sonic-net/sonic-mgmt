@@ -49,7 +49,6 @@ stages:
           timeoutInMinutes: 960
           variables:
             - group: KUSTO_SECRETS
-            - group: sonicbld
             - name: skipComponentGovernanceDetection
               value: true
 
@@ -82,4 +81,4 @@ stages:
                 TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
                 VENDOR_SHARING_TOKEN: $(VENDOR_SHARING_TOKEN)
                 NIGHTLY_TEST_TOKEN: $(NIGHTLY_TEST_TOKEN)
-                AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT: $(MSSONIC-TOKEN)
+                AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT: $(System.AccessToken)

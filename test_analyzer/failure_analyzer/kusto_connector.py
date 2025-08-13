@@ -83,6 +83,7 @@ class KustoConnector(object):
         '''.rstrip()
         self.query_common_condition = f'''
             | where TestbedName != ''
+            | where BranchName != ''
             | where not(TestbedName has_any(ExcludeTestbedList))
             | where not(HardwareSku has_any(ExcludeHwSkuList))
             | where not(TopologyType has_any(ExcludeTopoList))

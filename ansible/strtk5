@@ -1709,15 +1709,10 @@ sonic_cisco_sup:
         - psu5.0
         - psu5.1
         - psu5.2
-        - PSU1
-        - PSU2
-        - PSU3
-        - PSU4
-        - PSU5
-        - PSU6
         - PSU7
         - PSU8
-        - PSU9
+        - psutray2.psu0
+        - psutray2.psu1
       asics_present: [0, 1, 4, 5, 8, 9, 10, 11, 12, 13]
       plt_reboot_dict:
         cold:

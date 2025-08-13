@@ -21,9 +21,6 @@ stages:
         timeoutInMinutes: 350
         variables:
           - group: KUSTO_SECRETS
-          - group: sonicbld
-          - group: SECRETS_JSON
-          - group: TBSHARE_SECRETS
           - group: NIGHTLY_HAWK
           - name: skipComponentGovernanceDetection
             value: true
@@ -38,8 +35,10 @@ stages:
               inlineScript: |
                 pwd
 
-                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
-                export ACCESS_TOKEN=$accessToken
+                KustoAccessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$KustoAccessToken
+                ADOAccessToken=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv)
+                export AZURE_DEVOPS_MSAZURE_TOKEN=$ADOAccessToken
 
                 set -x
                 python3 -m venv /var/AzDevOps/env-python3
@@ -58,7 +57,6 @@ stages:
                   2>&1 | tee logs/analyzer.log
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
-              AZURE_DEVOPS_MSAZURE_TOKEN: $(MSAZURE-TOKEN)
 
           - publish: test_analyzer/failure_analyzer/logs
             displayName: "Archive test logs"
