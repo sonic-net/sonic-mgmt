@@ -26,7 +26,7 @@ all:
           ansible_host: 10.150.239.3
           ansible_hostv6: 2404:f801:10:16::a96:ef03
         bjw3-1-2:
-          ansible_host: 10.150.239.4
+          ansible_host: 10.150.239.8
           ansible_hostv6: 2404:f801:10:16::a96:ef04
         bjw3-2-2:
           ansible_host: 10.150.239.5

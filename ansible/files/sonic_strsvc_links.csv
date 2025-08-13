@@ -1,5 +1,4 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
-
 svcstr-7260cx3-acs-5,Ethernet5/1,svcstr-server-1,enp59s0f0,40000,,Trunk
 svcstr-7260cx3-acs-5,Ethernet2/1,svcstr-server-2,enp59s0f1,40000,,Trunk
 svcstr-7260cx3-acs-5,Ethernet7/1,svcstr-server-3,ens4f0,40000,,Trunk

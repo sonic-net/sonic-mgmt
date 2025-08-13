@@ -1959,13 +1959,13 @@ sonic_arista_7050_S128:
       ansible_hostv6: 2404:f801:10:2200::a96:16d8
       mgmt_subnet_mask_length: 23
       model: DCS-7050CX3-32S-SSD
-      serial: HBG244605SM
-      base_mac: 54:0f:2c:49:7d:cc
+      serial: HBG2309050P
+      base_mac: ec:8a:48:7c:f4:90
       syseeprom_info:
         "0x21": "DCS-7050CX3-32S-SSD"
-        "0x22": "ASY0323113B0"
-        "0x23": "HBG244605SM"
-        "0x24": "54:0f:2c:49:7d:cc"
+        "0x22": "ASY0323113A0"
+        "0x23": "HBG2309050P"
+        "0x24": "ec:8a:48:7c:f4:90"
         "0x25": "2020/01/01 00:00:00"
         "0x26": "01"
         "0x27": "01.00"
@@ -1975,7 +1975,7 @@ sonic_arista_7050_S128:
         "0x2C": "US"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
-        "0x2F": "HBG244605SM"
+        "0x2F": "HBG2309050P"
         "0xFE": "0xdeadbeef"
 
 
