@@ -257,16 +257,13 @@ class TestNeighborRetryCount:
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
 
-        # Add random command to make sure SSH connection is alive, for
-        # timing purposes
-        for nbr in list(nbrhosts.keys()):
-            nbrhosts[nbr]['host'].command("ps")
+        start_timestamp = int(time.monotonic())
 
         for nbr in list(nbrhosts.keys()):
             nbrhosts[nbr]['host'].command("sudo pkill -USR1 -x teamd")
 
-        # Give ourselves 15 seconds to check before the LAG goes down.
-        time.sleep(135)
+        # Give ourselves 45 seconds to check before the LAG goes down.
+        time.sleep(150 - 45 - (int(time.monotonic()) - start_timestamp))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
@@ -278,8 +275,8 @@ class TestNeighborRetryCount:
                               "partner retry count is incorrect; expected 5, but is {}"
                               .format(status["runner"]["partner_retry_count"]))
 
-        # Wait 20 seconds (total of 155 seconds) to verify that the LAG did go down.
-        time.sleep(20)
+        # Wait 50 seconds to verify that the LAG did go down (total of 155 seconds since killing teamd).
+        time.sleep(50)
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
