@@ -10,10 +10,15 @@ logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 
 
+TELEMETRY_PORT = "50052"
+TELEMETRY_CONTAINER = "telemetry"
+TELEMETRY_PROGRAM = "telemetry"
+
+
 def telemetry_enabled(duthost):
     containers = duthost.get_all_containers()
     logger.warning("running containers: {}".format(containers))
-    return "telemetry" in containers
+    return TELEMETRY_CONTAINER in containers
 
 
 @pytest.fixture(scope="function")

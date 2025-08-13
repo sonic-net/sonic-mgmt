@@ -5,14 +5,14 @@ from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_common_name, \
-                                            create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment, \
-                                            del_gnmi_client_common_name
+                                            create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment
 from tests.common.gu_utils import create_checkpoint, rollback
-from .helper import telemetry_enabled
+from .helper import telemetry_enabled, TELEMETRY_PORT, TELEMETRY_CONTAINER, TELEMETRY_PROGRAM
 
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
+
 
 
 def setup_service_config(duthost, table, port):
@@ -65,13 +65,13 @@ def apply_cert_config(duthost):
     # tememetry container not avaliable on all image
     if telemetry_enabled(duthost):
         # Setup telemetry config
-        setup_service_config(duthost, "TELEMETRY", "50052")
+        setup_service_config(duthost, "TELEMETRY", TELEMETRY_PORT)
 
         # Restart telemetry service to apply the updated configuration changes
-        command = "docker exec {} supervisorctl stop {}".format("telemetry", "telemetry")
+        command = "docker exec {} supervisorctl stop {}".format(TELEMETRY_CONTAINER, TELEMETRY_PROGRAM)
         duthost.shell(command, module_ignore_errors=True)
 
-        command = "docker exec {} supervisorctl start {}".format("telemetry", "telemetry")
+        command = "docker exec {} supervisorctl start {}".format(TELEMETRY_CONTAINER, TELEMETRY_PROGRAM)
         duthost.shell(command, module_ignore_errors=True)
 
 
