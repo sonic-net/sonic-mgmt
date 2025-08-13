@@ -117,7 +117,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_name": "vendor_name",
           "vendor_pn": "vendor_part_number",
           "normalized_vendor_pn": "normalized_vendor_part_number"
-          // optional fields can be omitted if not available
+          /* optional fields can be omitted if not available */
         }
       },
       "dut_name_2": {
@@ -252,7 +252,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - `platform_specific`: Platform-specific overrides (optional)
     - `hwsku_specific`: HWSKU-specific overrides (optional)
     - `transceivers`: Normalized vendor name and part number specific configurations. Also contains transceiver specific attributes
-        - `platform_hwsku_overrides`: Highest priority overrides for specific platform+HWSKU combinations (under each transceiver) (optional)
+        - `platform_hwsku_overrides`: Highest priority overrides for specific platform+HWSKU combinations within each transceiver configuration (optional)
     > Note: Each sub-section can contain its own `defaults` fields.
 
     **Priority-based attribute resolution (highest to lowest):**
