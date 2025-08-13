@@ -3,7 +3,7 @@ import logging
 
 from tests.common.helpers.gnmi_utils import gnmi_capabilities
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
-from .helper import setup_invalid_client_cert_cname # noqa: F401
+from .helper import setup_invalid_client_cert_cname       # noqa: F401
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
@@ -34,7 +34,7 @@ def test_gnmi_authorize_passed_with_valid_cname(duthosts,
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
                                                   rand_one_dut_hostname,
                                                   localhost,
-                                                  setup_invalid_client_cert_cname):
+                                                  setup_invalid_client_cert_cname):    # noqa: F401
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path

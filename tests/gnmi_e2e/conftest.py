@@ -14,7 +14,6 @@ logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 
 
-
 def setup_service_config(duthost, table, port):
     command = 'sudo sonic-db-cli CONFIG_DB hset "{}|certs" "server_crt" "/etc/sonic/telemetry/gnmiserver.crt"' \
               .format(table)
