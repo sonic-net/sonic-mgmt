@@ -98,85 +98,346 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 **Pre-requisites for the Below Tests:**
 
-1. A file `transceiver_dut_info.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the metadata of the transceiver connected to every port of each DUT. Following should be the format of the file
+1. A file `transceiver_dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to every port of each DUT. The file should use the following JSON format:
 
-    ```csv
-    dut_name,physical_port,vendor_pn,normalized_vendor_pn,vendor_sn,vendor_date,vendor_oui,vendor_rev
-    dut_name_1,port_1,vendor_part_number,normalized_vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
-    dut_name_1,port_2,vendor_part_number,normalized_vendor_part_number,serial_number,vendor_date_code,vendor_oui,revision_number
-    # Add more DUTs as needed
+    ```json
+    {
+      "dut_name_1": {
+        "port_1": {
+          "vendor_name": "vendor_name",
+          "normalized_vendor_name": "normalized_vendor_name",   // required if different from vendor_name
+          "vendor_pn": "vendor_part_number",
+          "normalized_vendor_pn": "normalized_vendor_part_number",      // required if different from vendor_pn
+          "vendor_sn": "serial_number",              // optional
+          "vendor_date": "vendor_date_code",         // optional
+          "vendor_oui": "vendor_oui",                // optional
+          "vendor_rev": "revision_number"            // optional
+        },
+        "port_2": {
+          "vendor_name": "vendor_name",
+          "vendor_pn": "vendor_part_number",
+          "normalized_vendor_pn": "normalized_vendor_part_number"
+          // optional fields can be omitted if not available
+        }
+      },
+      "dut_name_2": {
+        "port_1": {
+          "vendor_name": "vendor_name",
+          "vendor_pn": "vendor_part_number",
+          "normalized_vendor_pn": "normalized_vendor_part_number"
+        }
+      }
+    }
     ```
 
-    - `dut_name`: The name of the DUT.
-    - `physical_port`: The physical port number on the DUT where the transceiver is connected (e.g., 1, 2, etc.).
+    **Field Definitions:**
+
+    **Mandatory Fields:**
+    - `vendor_name`: The name of the vendor as specified in the transceiver's EEPROM.
+    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
     - `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
     - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+
+    **Field Handling Rules:**
+    - If `normalized_vendor_name` is **not defined** in the JSON for a port, it will be **assumed to be the same as** `vendor_name`.
+    - If `normalized_vendor_pn` is **not defined** in the JSON for a port, it will be **assumed to be the same as** `vendor_pn`.
+    - For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide `normalized_vendor_pn`, following the cable length normalization rules.
+
+    **Optional Fields:**
     - `vendor_sn`: The vendor serial number.
     - `vendor_date`: The vendor date code.
     - `vendor_oui`: The vendor OUI.
     - `vendor_rev`: The vendor revision number.
 
-    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.
-    The `normalized_vendor_pn` from `transceiver_dut_info.csv` file should be used to fetch the common attributes of the transceiver from `transceiver_common_attributes.csv` file for a given port.
-    > Note: If any non-string value is planned to be added to the dictionary, the `convert_row_types` function should be modified to convert the relevant value to the appropriate datatype.
+    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.  
+    The `normalized_vendor_name` and `normalized_vendor_pn` from `transceiver_dut_info.json` file should be used to fetch the common attributes of the transceiver from the appropriate per-category JSON file for a given port.
 
-    Example of an dictionary created by parsing the above files
+    Example of a dictionary created by parsing the above files:
 
     ```python
     {
         "dut_name_1": {
             "port_1": {
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "vendor_sn": "serial_number",
-                "vendor_pn": "vendor_part_number",
-                "normalized_vendor_pn": "normalized_vendor_part_number",
-                "active_firmware": "active_firmware_version",
-                "inactive_firmware": "inactive_firmware_version",
-                "cmis_rev": "cmis_revision",
                 "vendor_name": "vendor_name",
                 "normalized_vendor_name": "normalized_vendor_name",
-                'vdm_supported': True,
-                'cdb_backgroundmode_supported': True,
-                'dual_bank_supported': True
+                "vendor_pn": "vendor_part_number",
+                "normalized_vendor_pn": "normalized_vendor_part_number",
+                "vendor_sn": "serial_number",
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number"
             },
             "port_2": {
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "vendor_sn": "serial_number",
+                "vendor_name": "vendor_name",
+                "normalized_vendor_name": "vendor_name",  # same as vendor_name when not explicitly set
                 "vendor_pn": "vendor_part_number",
                 "normalized_vendor_pn": "normalized_vendor_part_number",
-                "active_firmware": "active_firmware_version",
-                "inactive_firmware": "inactive_firmware_version",
-                "cmis_rev": "cmis_revision",
-                "vendor_name": "vendor_name",
-                "normalized_vendor_name": "normalized_vendor_name",
-                'vdm_supported': True,
-                'cdb_backgroundmode_supported': True,
-                'dual_bank_supported': True
+                "vendor_sn": None,  # optional field not provided
+                "vendor_date": None,
+                "vendor_oui": None,
+                "vendor_rev": None
             }
         }
     }
     ```
 
-2. A file named `transceiver_common_attributes.csv` (located in the `ansible/files/transceiver_inventory` directory) must be present to define the common attributes for each transceiver, keyed by normalized vendor part number. The file should use the following format:
+2. Multiple JSON files based on test category should be present to define the attributes for each transceiver type and the corresponding group of tests. Each JSON file should include a `defaults` section containing default value of the attributes if not overridden and a `transceivers` section for overriding the default values based on specific requirements.
 
-    ```csv
-    normalized_vendor_name,normalized_vendor_pn,active_firmware,inactive_firmware,cmis_rev,vdm_supported,cdb_backgroundmode_supported,dual_bank_supported
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<active_firmware_version_1>,<inactive_firmware_version_1>,<cmis_revision_1>,<True or False>,<True or False>,<True or False>
-    <normalized_vendor_name_2>,<normalized_vendor_pn_2>,<active_firmware_version_2>,<inactive_firmware_version_2>,<cmis_revision_2>,<True or False>,<True or False>,<True or False>
-    # Add more entries as needed
+    **Recommended JSON files and grouping:**
+
+    - `eeprom_attributes.json`      (EEPROM tests)
+    - `system_test_attributes.json` (System tests)
+    - `physical_oir_attributes.json` (Physical OIR)
+    - `soft_oir_attributes.json`    (Soft OIR / remote reseat)
+    - `cdb_fw_upgrade_attributes.json` (CDB FW Upgrade tests)
+    - `dom_attributes.json`         (DOM)
+    - `vdm_attributes.json`         (VDM)
+    - `pm_attributes.json`          (PM)
+
+    Each file should be located in the `ansible/files/transceiver/inventory` directory and use a similar hierarchical structure, keyed by normalized vendor name and part number, with support for platform/HWSKU overrides as needed.
+
+    **Schema of transceiver attributes JSON files:**
+
+    ```json
+    {
+      "mandatory": [
+        "field_1",
+        "field_2", 
+        "field_3"
+      ],
+      "defaults": {
+        "field_4": "value_4",
+        "field_5": "value_5",
+        "field_6": "value_6"
+      },
+      "platform_specific": {
+        "PLATFORM_NAME": {
+          "field_4": "platform_override_value"
+        }
+      },
+      "hwsku_specific": {
+        "HWSKU_NAME": {
+          "field_5": "hwsku_override_value"
+        }
+      },
+      "transceivers": {
+        "NORMALIZED_VENDOR_NAME": {
+          "defaults": {
+            "field_6": "vendor_default_value"
+          },
+          "NORMALIZED_VENDOR_PN": {
+            "field_1": "specific_value_1",
+            "field_2": "specific_value_2",
+            "field_3": "specific_value_3",
+            "platform_hwsku_overrides": {
+              "PLATFORM_NAME+HWSKU_NAME": {
+                "field_1": "highest_priority_value"
+              }
+            }
+          }
+        }
+      }
+    }
     ```
 
-    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    <br>The normalization rules ensure that the vendor name is consistent and compatible with directory structures used in firmware management and upgrade tests.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    <br>This ensures the inventory does not need to list every possible cable length and standardizes the format for compatibility with directory structures used in firmware management and upgrade tests. See the detailed normalization rules in the referenced section for full details.
-    - `active_firmware` and `inactive_firmware`: Firmware version strings in the format `X.Y.Z` (e.g., `1.2.3`). The `active_firmware` version represents the gold firmware version.
-    - `cmis_rev`: CMIS revision string in the format `X.Y`.
-    - `vdm_supported`, `cdb_backgroundmode_supported`, `dual_bank_supported`: Boolean values indicating support for VDM, CDB background mode, and dual bank firmware, respectively.
+    **Key Design Principles:**
+
+    - **Mandatory vs Optional Fields**: Fields listed in `mandatory` must be explicitly provided somewhere in the hierarchy and cannot rely on defaults. Fields in `defaults` are optional and provide fallback values.
+    - **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections as this creates logical inconsistency.
+    - **Validation Order**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
+
+    **Key Structure Components:**
+    - `mandatory`: List of mandatory fields that must be present in the transceiver attributes
+    - `defaults`: Default values for the transceiver or test attributes
+    - `platform_specific`: Platform-specific overrides (optional)
+    - `hwsku_specific`: HWSKU-specific overrides (optional)
+    - `transceivers`: Normalized vendor name and part number specific configurations. Also contains transceiver specific attributes
+        - `platform_hwsku_overrides`: Highest priority overrides for specific platform+HWSKU combinations (under each transceiver) (optional)
+    > Note: Each sub-section can contain its own `defaults` fields.
+
+    **Priority-based attribute resolution (highest to lowest):**
+
+    1. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
+    2. **Normalized Vendor Name + PN**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>`
+    3. **Normalized Vendor Name (defaults)**: `transceivers.<NORMALIZED_VENDOR_NAME>.defaults`
+    4. **HWSKU-specific**: `hwsku_specific.<HWSKU>` (if present in the file)
+    5. **Platform-specific**: `platform_specific.<PLATFORM>` (if present in the file)
+    6. **Global defaults**: `defaults`
+
+    **Example structure for a category file (e.g., `eeprom_attributes.json`):**
+
+    ```json
+    {
+      "mandatory": [
+        "vendor_name",
+        "normalized_vendor_name",
+        "vendor_pn", 
+        "normalized_vendor_pn",
+        "dual_bank_supported"
+      ],
+      "defaults": {
+        "vdm_supported": false,
+        "cdb_backgroundmode_supported": false,
+        "sfputil_eeprom_dump_time": 2
+      },
+      "transceivers": {
+        "NORMALIZED_VENDOR_A": {
+          "defaults": {
+            "vdm_supported": false,
+            "cdb_backgroundmode_supported": false
+          },
+          "NORMALIZED_VENDOR_PN_ABC": {
+            "vendor_name": "Vendor A",
+            "normalized_vendor_name": "VENDOR_ABC",
+            "vendor_pn": "ABC-1234", 
+            "normalized_vendor_pn": "NORMALIZED_VENDOR_PN_ABC",
+            "dual_bank_supported": true,
+            "vdm_supported": true,
+            "cdb_backgroundmode_supported": true,
+            "platform_hwsku_overrides": {
+              "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
+                "sfputil_eeprom_dump_time": 5
+              }
+            }
+          }
+        }
+      }
+    }
+    ```
+
+    **Example structure for a system tests category file (`system_test_attributes.json`):**
+
+    ```json
+    {
+      "mandatory": [
+        "max_allowed_failures",
+        "port_toggle_stress_iterations"
+      ],
+      "defaults": {
+        "verify_lldp_on_link_up": true,
+        "port_wait_time_after_shutdown_sec": 2,
+        "port_wait_time_after_startup_sec": 2,
+        "port_toggle_cycle_delay_sec": 1,
+        "port_range_toggle_stress_iterations": 50,
+        "port_range_toggle_wait_time_after_startup_sec": 2,
+        "transceiver_operation_scaling_time": 5,
+        "xcvrd_restart_settle_time": 10,
+        "pmon_restart_settle_time": 10,
+        "swss_restart_settle_time": 10,
+        "expect_pmon_restart": true,
+        "syncd_restart_settle_time": 10,
+        "config_reload_settle_time": 15,
+        "cold_reboot_settle_time": 60,
+        "cold_reboot_stress_iterations": 10,
+        "warm_reboot_settle_time": 45,
+        "fast_reboot_settle_time": 30
+      },
+      "transceivers": {
+        "NORMALIZED_VENDOR_A": {
+          "NORMALIZED_VENDOR_PN_ABC": {
+            "max_allowed_failures": 1,
+            "port_toggle_stress_iterations": 50,
+            "cold_reboot_stress_iterations": 5,
+            "platform_hwsku_overrides": {
+              "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
+                "port_toggle_cycle_delay_sec": 2,
+                "expect_pmon_restart": false
+              }
+            }
+          }
+        }
+      }
+    }
+    ```
+
+    **Guidance:**
+      Use the same priority-based override and merging logic as described above for all per-category files.
+
+    - Only include attributes relevant to the specific test category in each file.
+    - This modular approach allows teams to update, validate, and extend test parameters for each category independently, and enables more targeted schema validation and review.
+
+    **Attribute Management Infrastructure:**
+
+    The test framework should be designed to load and merge attributes from all relevant category files for each transceiver, using the same hierarchical and override rules as described above. This enables category-specific test logic to access only the attributes it needs, while still supporting platform, HWSKU, and vendor/part number overrides.
+
+    **Core Components:**
+
+    1. **AttributeManager Class**: A central class responsible for loading, merging, and providing access to transceiver attributes
+    2. **Category File Loader**: Loads JSON files for each test category
+    3. **Priority Resolver**: Implements the 6-level priority hierarchy for attribute resolution
+    4. **Validator**: Ensures mandatory fields are present
+
+    **Data Structure Design:**
+
+    A dictionary data structure should be used to store the merged attributes for each port, allowing for efficient access.
+    The `transceiver_dut_info.json` file should be used as the source to retrieve the base attributes for each port (such as the basic transceiver information). Using this information, the framework can build a comprehensive view of the transceiver's capabilities and requirements by merging in the attributes from the per-category files on per-port basis for the DUT.  
+    The resultant dictionary (`port_attributes_dict`) should be structured as follows keyed by port name:
+
+    ```python
+    {
+        "PORT_NAME": {
+            # Base transceiver information from transceiver_dut_info.json
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "vendor_name",
+                "normalized_vendor_name": "NORMALIZED_VENDOR_NAME",
+                "vendor_pn": "vendor_part_number",
+                "normalized_vendor_pn": "NORMALIZED_VENDOR_PN",
+                "vendor_sn": "serial_number",
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number"
+            },
+            # Category-specific attributes with merged overrides applied
+            "EEPROM_ATTRIBUTES": {
+                "attribute_1": "value_1",
+                "attribute_2": "value_2",
+                ...
+            }
+            "SYSTEM_TEST_ATTRIBUTES": {
+                "attribute_1": "value_1",
+                "attribute_2": "value_2",
+                ...
+            }
+            ...
+        }
+    }
+    ```
+
+    **Attribute Merging Algorithm:**
+
+    Specifically, `port_attributes_dict` should be built using the following process:
+
+    1. **Load base attributes** from `transceiver_dut_info.json` for each port
+    2. **For each category file**, perform priority-based merging:
+       - Start with global defaults
+       - Apply platform-specific overrides (if present)
+       - Apply HWSKU-specific overrides (if present)  
+       - Apply vendor defaults (if present)
+       - Apply vendor+PN specific attributes
+       - Apply platform+HWSKU combination overrides (if present)
+    3. **Validate mandatory fields** for each category using the `mandatory` array
+    4. **Store merged attributes** under the appropriate category key
+
+    **Implementation Requirements:**
+
+    - **Error Handling**: Framework must handle missing files, invalid JSON, and missing mandatory fields gracefully
+    - **Validation**: All attributes must be validated against expected data types and value ranges
+    - **Logging**: Detailed logging of attribute resolution process for debugging
+
+    **How to Use:**
+
+    - The test framework loads all relevant category files for a given test session.
+    - For each transceiver, it merges attributes from the files using the above priority order.
+    - Each test category accesses only the attributes it needs, with all overrides applied.
+    - Tests can access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`
+
+    **Benefits:**
+
+    - **Modular Design**: Maintainable and scalable as new test categories or attributes are added
+    - **Independent Updates**: Enables independent updates and validation for each test category
+    - **Conflict Prevention**: Reduces risk of accidental cross-category changes or conflicts
+    - **Override Flexibility**: Comprehensive priority system supports various deployment scenarios
+    - **Performance Optimized**: Efficient data structure design for fast attribute lookups
 
 3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
 
@@ -225,7 +486,8 @@ The following tests aim to validate the link status and stability of transceiver
 |------|------|------------------|
 | Issue CLI command to shutdown a port | Validate link status using CLI configuration | Ensure that the link goes down |
 | Issue CLI command to startup a port | Validate link status using CLI configuration | Ensure that the link is up and the port appears in the LLDP table. |
-| In a loop, issue startup/shutdown command 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
+| In a loop, issue startup/shutdown command for a port 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
+| In a loop, issue startup/shutdown command for all ports 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately for all relevant ports with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
 | Restart `xcvrd` | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
 | Induce I2C errors and restart `xcvrd` | Test link stability in case of `xcvrd` restart + I2C errors | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
 | Modify xcvrd.py to raise an Exception and induce a crash | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
@@ -431,13 +693,13 @@ This section describes the automated process for copying firmware binaries to th
 To ensure only the necessary firmware binaries are present for each transceiver:
 
 1. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers.
-2. **Parse `transceiver_dut_info.csv`** to identify the transceivers present on each DUT.
-3. **Parse `transceiver_common_attributes.csv`** to get the gold firmware version for each transceiver type.
+2. **Parse `transceiver_dut_info.json`** to identify the transceivers present on each DUT.
+3. **Parse the appropriate per-category attributes file** to get the gold firmware version for each transceiver type.
 4. **For each unique combination of normalized vendor name and normalized part number on the DUT**, perform version sorting and selection:
    - Parse firmware versions using semantic versioning (X.Y.Z format)
    - Sort available firmware versions in descending order (most recent first)
    - **Selection criteria:**
-     - Always include the gold firmware version (from `transceiver_common_attributes.csv`)
+   - Always include the gold firmware version (from the per-category attributes file)
      - Include the two most recent firmware versions in addition to the gold version
      - This ensures at least 2 firmware versions are available for upgrade testing, with the gold version guaranteed to be present as the third firmware binary. If there are fewer than 3 firmware versions available for a transceiver, the entire test will fail.
 5. **Copy only the selected firmware binaries** to the target directory structure on the DUT.
@@ -456,7 +718,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped during firmware operations.
 3. **Firmware requirements:**
    - At least two firmware versions must be available for each transceiver type to enable upgrade testing
-   - The gold firmware version (specified in `transceiver_common_attributes.csv`) must be available
+   - The gold firmware version (specified in the per-category attributes file) must be available
    - All firmware versions must support the CDB protocol for proper testing
 4. **Module capabilities:** The module must support dual banks for firmware upgrade operations.
 5. **Network connectivity:** The DUT must have network access to the firmware server specified in `cmis_cdb_firmware_base_url.csv` for downloading firmware binaries.
