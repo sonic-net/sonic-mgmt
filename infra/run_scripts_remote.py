@@ -10,6 +10,7 @@ import yaml
 import subprocess
 import shutil
 from enum import Enum
+from run_scripts import get_testcases
 
 # Path to config file
 ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
@@ -616,6 +617,7 @@ add_sim_patches={add_sim_patches},
 test_tag={test_tag},
           """)
 
+    get_testcases(script_file, test_tag, topo_type, additional_tests, device_type)
     
     if not os.path.exists(dut_data_file):
         print(f"ERROR! dut data file '{dut_data_file}' does not exist! Exiting")
