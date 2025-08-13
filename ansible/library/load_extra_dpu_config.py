@@ -19,6 +19,9 @@ CONFIG_SAVE_CMD = "sudo config save -y"
 MAX_RETRIES = 5
 RETRY_DELAY = 60  # sec
 
+# Set to 1.0 for requiring all DPUs to succeed (after HW issues are resolved)
+SUCCESS_THRESHOLD = 0.5
+
 
 class LoadExtraDpuConfigModule(object):
     def __init__(self):
@@ -64,7 +67,7 @@ class LoadExtraDpuConfigModule(object):
             if retry_count < MAX_RETRIES:
                 time.sleep(RETRY_DELAY)
 
-        self.module.fail_json(msg="Failed to connect to DPU {} after {} retries: {}".format(
+        self.module.warn("Failed to connect to DPU {} after {} retries: {}".format(
             dpu_ip, MAX_RETRIES, str(last_exception)))
         return None
 
@@ -73,46 +76,100 @@ class LoadExtraDpuConfigModule(object):
         try:
             with ssh.open_sftp() as sftp:
                 sftp.put(SRC_DPU_CONFIG_FILE, DST_DPU_CONFIG_FILE)
+            return True
         except Exception as e:
-            self.module.fail_json(msg="Failed to transfer file to DPU {}: {}".format(dpu_ip, str(e)))
+            self.module.warn("Failed to transfer file to DPU {}: {}".format(dpu_ip, str(e)))
+            return False
 
     def execute_command(self, ssh, dpu_ip, command):
         """Execute a command on the DPU"""
-        _, stdout, stderr = ssh.exec_command(command)
-        exit_code = stdout.channel.recv_exit_status()
-        if exit_code != 0:
-            self.module.fail_json(msg="{} failed on DPU {} with exit status {}: {}".format(
-                command, dpu_ip, exit_code, stderr.read().decode('utf-8')))
+        try:
+            _, stdout, stderr = ssh.exec_command(command)
+            exit_code = stdout.channel.recv_exit_status()
+            if exit_code != 0:
+                self.module.warn("{} failed on DPU {} with exit status {}: {}".format(
+                    command, dpu_ip, exit_code, stderr.read().decode('utf-8')))
+                return False
+            return True
+        except Exception as e:
+            self.module.warn("Exception executing command '{}' on DPU {}: {}".format(
+                command, dpu_ip, str(e)))
+            return False
 
     def configure_dpus(self):
         """Configure all DPUs based on the hardware SKU configuration"""
         if not os.path.isfile(SRC_DPU_CONFIG_FILE):
             self.module.fail_json(msg="DPU config file not found: {}".format(SRC_DPU_CONFIG_FILE))
 
+        success_count = 0
+        failure_count = 0
+        required_success_count = int(self.dpu_num * SUCCESS_THRESHOLD)
+
+        # Ensure at least 1 success is required when threshold < 1.0
+        if SUCCESS_THRESHOLD < 1.0 and required_success_count == 0:
+            required_success_count = 1
+
+        self.module.log("Configuring {} DPUs, requiring at least {} successful configurations".format(
+            self.dpu_num, required_success_count))
+
         for i in range(0, self.dpu_num):
             dpu_ip = DPU_HOST_IP_BASE.format(i + 1)
 
+            self.module.log("Attempting to configure DPU {} at {}".format(i + 1, dpu_ip))
+
             ssh = self.connect_to_dpu(dpu_ip)
             if not ssh:
-                self.module.fail_json(msg="Failed to ssh to DPU: {}".format(dpu_ip))
+                self.module.warn("Failed to connect to DPU {}, skipping".format(dpu_ip))
+                failure_count += 1
+                continue
 
             try:
-                self.transfer_to_dpu(ssh, dpu_ip)
-                self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD)
-                self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD)
-                self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD)
-                self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE))
-                self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_FULL_CONFIG_FILE))
+                # Attempt each step and track success
+                if (self.transfer_to_dpu(ssh, dpu_ip) and
+                        self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
+                        self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
+                        self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
+                        self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_DPU_CONFIG_FILE)) and
+                        self.execute_command(ssh, dpu_ip, "sudo rm -f {}".format(DST_FULL_CONFIG_FILE))):
+                    success_count += 1
+                    self.module.log("Successfully configured DPU {} at {}".format(i + 1, dpu_ip))
+                else:
+                    failure_count += 1
+                    self.module.warn("Failed to configure DPU {} at {}".format(i + 1, dpu_ip))
+
             except Exception as e:
-                self.module.fail_json(msg="Failed to configure DPU {}: {}".format(dpu_ip, str(e)))
+                failure_count += 1
+                self.module.warn("Exception configuring DPU {} at {}: {}".format(i + 1, dpu_ip, str(e)))
             finally:
                 ssh.close()
 
         self.module.run_command("sudo rm -f {}".format(SRC_DPU_CONFIG_FILE))
 
+        self.module.log("Configuration completed: {} successful, {} failed out of {} total DPUs".format(
+            success_count, failure_count, self.dpu_num))
+
+        if success_count < required_success_count:
+            self.module.fail_json(
+                msg="Failed to meet success threshold: {} successful configs required, "
+                    "but only {} succeeded out of {} DPUs. "
+                    "Failures: {}".format(
+                        required_success_count, success_count, self.dpu_num, failure_count))
+
+        return success_count, failure_count
+
     def run(self):
-        self.configure_dpus()
-        self.module.exit_json(changed=True, msg="Successfully configured all DPUs")
+        success_count, failure_count = self.configure_dpus()
+
+        if failure_count == 0:
+            msg = "Successfully configured all {} DPUs".format(success_count)
+        else:
+            msg = "Successfully configured {} out of {} DPUs ({} failures, but met success threshold)".format(
+                success_count, self.dpu_num, failure_count)
+
+        self.module.exit_json(changed=True, msg=msg,
+                              success_count=success_count,
+                              failure_count=failure_count,
+                              total_dpus=self.dpu_num)
 
 
 def main():
