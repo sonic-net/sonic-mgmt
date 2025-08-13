@@ -21,7 +21,7 @@ str5-7060x6-512-fan-7,10.64.246.206/23,Arista-7060X6-64PE-B-C448O16,FanoutLeafSo
 str5-7060x6-512-8,10.64.247.172/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str5-7060x6-512-fan-8,10.64.247.173/23,Arista-7060X6-64PE-B-C512S2,FanoutLeafSonic,,sonic
 str5-7060x6-moby-512-1,10.64.247.154/23,Arista-7060X6-16PE-384C-O128S2,DevSonic,,sonic
-str5-7060x6-moby-512-fan-1,10.64.247.155/23,Arista-7060X6-16PE-384C-O128S2-FANOUT,FanoutLeafSonic,,sonic
+str5-7060x6-moby-512-fan-1,10.64.247.155/23,Arista-7060X6-16PE-384C-B-O128S2-FANOUT,FanoutLeafSonic,,sonic
 str5-7060x6-moby-512-2,10.64.247.158/23,Arista-7060X6-16PE-384C-B-O128S2,DevSonic,,sonic
 str5-7060x6-moby-512-fan-2,10.64.247.159/23,Arista-7060X6-16PE-384C-B-O128S2-FANOUT,FanoutLeafSonic,,sonic
 str5-7060x6-moby-512-3,10.64.247.162/23,Arista-7060X6-16PE-384C-B-O128S2,DevSonic,,sonic
