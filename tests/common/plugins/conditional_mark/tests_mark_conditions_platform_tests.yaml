@@ -1089,14 +1089,6 @@ platform_tests/test_advanced_reboot.py:
 #       - "asic_type in ['vs']"
 #       - "release in ['202412']"
 
-# platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
-#   skip:
-#     reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
-#     conditions_logical_operator: or
-#     conditions:
-#       - "asic_type in ['vs']"
-#       - "release in ['202412']"
-
 #######################################
 #####   test_cont_warm_reboot.py  #####
 #######################################
