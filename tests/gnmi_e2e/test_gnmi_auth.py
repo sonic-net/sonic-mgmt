@@ -34,7 +34,7 @@ def test_gnmi_authorize_passed_with_valid_cname(duthosts,
 def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
                                                   rand_one_dut_hostname,
                                                   localhost,
-                                                  setup_invalid_client_cert_cname):    # noqa: F401
+                                                  setup_invalid_client_cert_cname):    # noqa: F811
     '''
     Verify GNMI native write, incremental config for configDB
     GNMI set request with invalid path

@@ -7,7 +7,7 @@ from tests.common.helpers.dut_utils import check_container_state
 from tests.common.helpers.gnmi_utils import gnmi_container, add_gnmi_client_common_name, \
                                             create_gnmi_certs, delete_gnmi_certs, GNMIEnvironment
 from tests.common.gu_utils import create_checkpoint, rollback
-from .helper import telemetry_enabled, TELEMETRY_PORT, TELEMETRY_CONTAINER, TELEMETRY_PROGRAM
+from test.gnmi_e2e.helper import telemetry_enabled, TELEMETRY_PORT, TELEMETRY_CONTAINER, TELEMETRY_PROGRAM
 
 
 logger = logging.getLogger(__name__)
