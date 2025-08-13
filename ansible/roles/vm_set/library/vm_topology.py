@@ -1813,7 +1813,13 @@ class VMTopology(object):
         except Exception:
             return None
 
-        return ctn.attrs['State']['Pid']
+        if ctn.attrs['State']['Running']:
+            # If the container is running, return its PID
+            return ctn.attrs['State']['Pid']
+        else:
+            # If the container is not running, return None
+            logging.error('!!! Container %s is not running' % ptf_name)
+            return None
 
     @staticmethod
     def brctl_show(bridge=None):

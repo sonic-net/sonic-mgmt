@@ -1,0 +1,67 @@
+logging:
+  format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+  level: INFO
+validators:
+- name: testbed
+  enabled: true
+  config: {}
+- name: device_info
+  enabled: true
+  config:
+    invalid_chars: []
+    max_length: 255
+- name: topology
+  enabled: true
+  config:
+    excludes:
+      # Exclude TGEN related topologies
+      - .*tgen.*
+      - .*ixia.*
+
+      # Topologies that current failing the validation
+      - ciscovs-5nodes              # https://github.com/sonic-net/sonic-mgmt/issues/20007
+      - dualtor-aa-64               # https://github.com/sonic-net/sonic-mgmt/issues/20009
+      - t0-standalone-32            # https://github.com/sonic-net/sonic-mgmt/issues/20011
+      - t0-35                       # https://github.com/sonic-net/sonic-mgmt/issues/20010
+      - t1-48-lag                   # https://github.com/sonic-net/sonic-mgmt/issues/20012
+      - t1-64                       # https://github.com/sonic-net/sonic-mgmt/issues/20013
+      - t2_2lc_36p-masic            # https://github.com/sonic-net/sonic-mgmt/issues/20018
+      - t2_2lc_min_ports-masic      # https://github.com/sonic-net/sonic-mgmt/issues/20019
+      - t2_5lc-mixed-96             # https://github.com/sonic-net/sonic-mgmt/issues/20020
+      - t2_single_node_max          # https://github.com/sonic-net/sonic-mgmt/issues/20021
+      - t2_single_node_min          # https://github.com/sonic-net/sonic-mgmt/issues/20022
+      - wan-pub-cisco               # https://github.com/sonic-net/sonic-mgmt/issues/20023
+- name: ip_address
+  enabled: true
+  config:
+    allow_conflict_list:
+      # Remove "-api-serv" suffix from device names for ixia
+      - from: "^(.+)-api-serv$"
+        to: "\\1"
+    exclude_devices:
+      - vlab-c-01.*
+      - vlab-c-02.*
+      - vlab-07.*
+      - .*snappi-sonic.* # vms-snappi-sonic ptf, snappi-sonic-api-serv, etc.
+      - sonic-s6100-dut2
+- name: vlan
+  enabled: true
+  config:
+    exclude_groups:
+      - .*ixia.*
+      - .*snappi.*
+    min_vlan_id: 1
+    max_vlan_id: 4096
+- name: console
+  enabled: true
+  config:
+    exclude_devices:
+      - sonic-s6100-dut1   # E3002 Device has no console connection
+      - sonic-s6100-dut2   # E3002 Device has no console connection
+- name: pdu
+  enabled: true
+  config:
+    exclude_devices:
+      - sonic-s6100-dut1   # E4002 Device has no PDU connection
+      - sonic-s6100-dut2   # E4002 Device has no PDU connection
+issue_severities: {}
