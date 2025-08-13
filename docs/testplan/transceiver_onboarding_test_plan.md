@@ -105,19 +105,18 @@ These tests do not require traffic and are standalone, designed to run on a Devi
       "dut_name_1": {
         "port_1": {
           "vendor_name": "vendor_name",
-          "normalized_vendor_name": "normalized_vendor_name",   // required if different from vendor_name
+          "normalized_vendor_name": "normalized_vendor_name",
           "vendor_pn": "vendor_part_number",
-          "normalized_vendor_pn": "normalized_vendor_part_number",      // required if different from vendor_pn
-          "vendor_sn": "serial_number",              // optional
-          "vendor_date": "vendor_date_code",         // optional
-          "vendor_oui": "vendor_oui",                // optional
-          "vendor_rev": "revision_number"            // optional
+          "normalized_vendor_pn": "normalized_vendor_part_number",
+          "vendor_sn": "serial_number",
+          "vendor_date": "vendor_date_code",
+          "vendor_oui": "vendor_oui",
+          "vendor_rev": "revision_number"
         },
         "port_2": {
           "vendor_name": "vendor_name",
           "vendor_pn": "vendor_part_number",
           "normalized_vendor_pn": "normalized_vendor_part_number"
-          /* optional fields can be omitted if not available */
         }
       },
       "dut_name_2": {
@@ -439,7 +438,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - **Override Flexibility**: Comprehensive priority system supports various deployment scenarios
     - **Performance Optimized**: Efficient data structure design for fast attribute lookups
 
-3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
+3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
 
     ```csv
     normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
