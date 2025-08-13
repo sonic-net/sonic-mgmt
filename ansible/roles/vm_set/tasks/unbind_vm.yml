@@ -12,6 +12,7 @@
     duts_name: "{{ duts_name.split(',') }}"
     max_fp_num: "{{ max_fp_num }}"
     dut_interfaces: "{{ dut_interfaces | default('') }}"
+    batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
   async: 3600
   throttle: 1
   poll: 0
