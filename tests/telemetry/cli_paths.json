@@ -1,18 +1,175 @@
 {
-	"reboot-cause": {
-		"setup":           "reboot_device",
-		"setup_fixtures":  ["duthost", "localhost"],
-		"setup_args":      [],
-		"verify":          "check_reboot_cause",
-		"verify_fixtures": ["duthost"],
-		"verify_args":     []
-	},
-	"reboot-cause/history": {
-		"setup":           "reboot_device",
-		"setup_fixtures":  ["duthost", "localhost"],
-		"setup_args":      [],
-		"verify":          "check_reboot_cause_history",
-		"verify_fixtures": ["duthost"],
-		"verify_args":     []
-	}
+        "reboot-cause": [
+                {
+                        "safeguard_only":     false,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["reboot-cause"],
+                        "setup":              "reboot_device",
+                        "setup_fixtures":     ["duthost", "localhost"],
+                        "setup_args":         [],
+                        "verify":             "check_reboot_cause",
+                        "verify_fixtures":    ["duthost"],
+                        "verify_args":        []
+                }
+        ],
+        "reboot-cause/history": [
+                {
+                        "safeguard_only":     false,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["reboot-cause/history"],
+                        "setup":              "reboot_device",
+                        "setup_fixtures":     ["duthost", "localhost"],
+                        "setup_args":         [],
+                        "verify":             "check_reboot_cause_history",
+                        "verify_fixtures":    ["duthost"],
+                        "verify_args":        []
+                }
+        ],
+        "clock": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["clock"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ],
+        "clock/timezones": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["clock/timezones"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ],
+        "ipv6/bgp/summary": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["ipv6/bgp/summary"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ],
+        "interface/counters": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["interface/counters"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                },
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["interface/counters[period=5]"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                },
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path_with_ports",
+                        "path_func_fixtures": ["duthost"],
+                        "path_func_args":     ["interface/counters", 5],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                },
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path_with_ports",
+                        "path_func_fixtures": ["duthost"],
+                        "path_func_args":     ["interface/counters[period=5]", 5],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ],
+        "interface/errors": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path_with_ports",
+                        "path_func_fixtures": ["duthost"],
+                        "path_func_args":     ["interface/errors"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ],
+        "watermark/telemetry/interval": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["watermark/telemetry/interval"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ],
+        "interface/transceiver/error-status": [
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path",
+                        "path_func_fixtures": [],
+                        "path_func_args":     ["interface/transceiver/error-status"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "setup_args":         [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                },
+                {
+                        "safeguard_only":     true,
+                        "path_func":          "get_simple_path_with_ports",
+                        "path_func_fixtures": ["duthost"],
+                        "path_func_args":     ["interface/transceiver/error-status"],
+                        "setup":              "",
+                        "setup_fixtures":     [],
+                        "verify":             "",
+                        "verify_fixtures":    [],
+                        "verify_args":        []
+                }
+        ]
 }
