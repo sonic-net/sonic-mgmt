@@ -1223,7 +1223,7 @@
   dut:
   - bjw-can-720dt-1
   inv_name: bjw
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing lab
 
 - conf-name: testbed-bjw-can-2700-1
@@ -1255,7 +1255,7 @@
   dut:
   - bjw-can-720dt-2
   inv_name: bjw
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
 
 - conf-name: testbed-bjw-can-7215-1
@@ -1399,7 +1399,7 @@
   dut:
   - bjw-can-720dt-3
   inv_name: bjw
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
 
 - conf-name: testbed-bjw-can-7050qx-1
@@ -1447,7 +1447,7 @@
   dut:
   - bjw-can-720dt-4
   inv_name: bjw
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
 
 - conf-name: vms63-t0-7060-1
@@ -4156,7 +4156,7 @@
   dut:
     - bjw2-can-720dt-1
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.78/17
@@ -4173,7 +4173,7 @@
   dut:
     - bjw2-can-720dt-2
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.79/17
@@ -4190,7 +4190,7 @@
   dut:
     - bjw2-can-720dt-7
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.84/17
@@ -4207,7 +4207,7 @@
   dut:
     - bjw2-can-720dt-8
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.85/17
@@ -4394,7 +4394,7 @@
   dut:
     - bjw2-can-720dt-3
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.80/17
@@ -4411,7 +4411,7 @@
   dut:
     - bjw2-can-720dt-4
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.81/17
@@ -4428,7 +4428,7 @@
   dut:
     - bjw2-can-720dt-5
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.82/17
@@ -4445,7 +4445,7 @@
   dut:
     - bjw2-can-720dt-6
   inv_name: bjw2
-  auto_recover: 'False'
+  auto_recover: 'True'
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.83/17
