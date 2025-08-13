@@ -343,6 +343,8 @@ r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get 
 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+# Ignore unsupported enumerated attribute
+r, ".*ERR swss#orchagent: :- queryAttributeEnumValuesCapability: returned value \d+ is not allowed on SAI_SWITCH_ATTR_.*_DEFAULT_HASH_ALGORITHM.*"
 
 # Ignore SRV6 error
 r, ".* ERR syncd#syncd: .* SAI_API_SRV6:_brcm_sai_srv6_config_get:\d+ SRV6 unsupported or not enabled on this device"
