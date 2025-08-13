@@ -45,17 +45,17 @@ class LACPRetryCount(Packet):
         ByteField("collector_length", 16),
         ShortField("collector_max_delay", 0),
         XStrFixedLenField("collector_reserved", "", 12),
-        ConditionalField(ByteField("actor_retry_count_type", 0x80), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("actor_retry_count_length", 4), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("actor_retry_count", 0), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(XStrFixedLenField("actor_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("partner_retry_count_type", 0x81), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("partner_retry_count_length", 4), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("partner_retry_count", 0), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
+        ConditionalField(ByteField("actor_retry_count_type", 0x80), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("actor_retry_count_length", 4), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("actor_retry_count", 0), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(XStrFixedLenField("actor_retry_count_reserved", "", 1), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("partner_retry_count_type", 0x81), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("partner_retry_count_length", 4), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("partner_retry_count", 0), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt: pkt.version == 0xf1),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1)],
+        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt: pkt.version == 0xf1)],
                           XStrFixedLenField("reserved", "", 50)),
     ]
 
@@ -257,6 +257,16 @@ class TestNeighborRetryCount:
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
 
+        # Do this dance of keeping track of a "start" timestamp and determining how long
+        # we need to wait. The reason for this is because in the PR testing infra, it appears
+        # that issuing a command on a neighbor VM takes 3-4 seconds to complete (the execution
+        # itself on the device is a second or less, but the total time it takes to copy the
+        # script onto the device and then execute it is 3-4 seconds.
+        #
+        # The LAGs are configured to stay up for 150 seconds (with the retry count set to 5),
+        # and we want to pause early enough to be able to check the state of the LAGs.
+        # Therefore, give ourselves 45 seconds to check the state of the LAGs, minus the time
+        # we spent sending the pkill commands.
         start_timestamp = int(time.monotonic())
 
         for nbr in list(nbrhosts.keys()):
@@ -298,7 +308,7 @@ def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peer
 
     for nbr in list(nbrhosts.keys()):
         processRc = nbrhosts[nbr]['host'].command("sudo config portchannel retry-count get PortChannel1",
-                                                module_ignore_errors=True)
+                                                  module_ignore_errors=True)
         pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
 
 
@@ -368,5 +378,5 @@ def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, 
     port_channels = cfg_facts["PORTCHANNEL"].keys()
     for port_channel in port_channels:
         processRc = duthost.command("sudo config portchannel retry-count get {}".format(port_channel),
-                                  module_ignore_errors=True)
+                                    module_ignore_errors=True)
         pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
