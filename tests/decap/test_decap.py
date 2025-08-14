@@ -136,15 +136,13 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
     setup_info.update(loopback_ips)
     logger.info(json.dumps(setup_info, indent=2))
 
-    if vxlan != "set_unset":
-        # Remove default tunnel
-        remove_default_decap_cfg(duthosts)
+    # Remove default tunnel
+    remove_default_decap_cfg(duthosts)
 
     yield setup_info
 
-    if vxlan != "set_unset":
-        # Restore default tunnel
-        restore_default_decap_cfg(duthosts)
+    # Restore default tunnel
+    restore_default_decap_cfg(duthosts)
 
 
 def apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, op):
@@ -272,8 +270,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
             # Hence a new decap config is not applied to the device in this case. This is
             # to avoid creating new tables and test ipinip decap with default loaded config
             simulate_vxlan_teardown(duthosts, ptfhost, tbinfo)
-        else:
-            apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
+        apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
 
         if 'dualtor' in tbinfo['topo']['name']:
             wait(30, 'Wait some time for mux active/standby state to be stable after toggled mux state')
@@ -337,6 +334,4 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
 
     finally:
         # Remove test decap configuration
-        if vxlan != "set_unset":
-            # in vxlan setunset case the config was not applied, hence DEL is also not required
-            apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
+        apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')
