@@ -1,6 +1,6 @@
 {%- set ns = namespace(link_metadata_defined=False) -%}
 
-{%- if 'dualtor' in topo or (macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo) or ("ixia" in topo) -%}
+{%- if 'dualtor' in topo or (macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo) or ('ixia' in topo) -%}
     {% set ns.link_metadata_defined = True %}
 {%- endif -%}
 
@@ -43,7 +43,7 @@
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
 {% for if_index in range(vm_intfs | length) %}
-{% if 'IB' not in port_alias[dut_intfs[if_index]] %}
+{% if 'IB' not in port_alias[dut_intfs[if_index]]  and vms[index].endswith('T3') %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
             <a:Properties>
