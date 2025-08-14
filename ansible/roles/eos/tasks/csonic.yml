@@ -1,0 +1,20 @@
+- include_tasks: csonic_config.yml
+
+- name: Create cSONiC container csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+  become: yes
+  docker_container:
+    name: csonic_{{ vm_set_name }}_{{ inventory_hostname }}
+    image: "{{ csonic_image }}"
+    pull: no
+    state: started
+    restart: yes
+    tty: yes
+    network_mode: container:net_{{ vm_set_name }}_{{ inventory_hostname }}
+    detach: True
+    capabilities:
+      - net_admin
+    privileged: yes
+    volumes:
+      - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/sonic:/var/sonic
+      - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr:/etc/frr
+  delegate_to: "{{ VM_host[0] }}"
