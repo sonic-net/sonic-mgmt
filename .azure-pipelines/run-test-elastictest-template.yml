@@ -133,6 +133,10 @@ parameters:
     type: string
     default: ""
 
+  - name: MGMT_COMMIT_HASH
+    type: string
+    default: ""
+
   - name: MGMT_URL
     type: string
     default: "https://raw.githubusercontent.com/sonic-net/sonic-mgmt"
@@ -305,6 +309,7 @@ steps:
       --build-reason ${{ parameters.BUILD_REASON }} \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
+      --mgmt-commit-hash ${{ parameters.MGMT_COMMIT_HASH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
       --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
       --parallel-modes-file ${{ parameters.PARALLEL_MODES_FILE }} \

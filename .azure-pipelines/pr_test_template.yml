@@ -31,6 +31,14 @@ parameters:
   type: string
   default: "all"
 
+- name: CHECKOUT_SONIC_MGMT
+  type: boolean
+  default: false
+
+- name: SONIC_MGMT_NAME
+  type: string
+  default: "sonic-mgmt"
+
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
@@ -39,6 +47,8 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+          - checkout: ${{ parameters.SONIC_MGMT_NAME }}
       - template: impacted_area_testing/get-impacted-area.yml
         parameters:
           TEST_SET: ${{ parameters.TEST_SET }}
@@ -114,6 +124,8 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
       - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
