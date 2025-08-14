@@ -151,13 +151,10 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Rollback failed. "
-                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
+                "Return code: {}, Output: {}"
             ).format(
                 rc.get('rc', 'N/A'),
-                rc.get('stdout', 'N/A'),
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
+                rc.get('stdout', 'N/A')
             )
         )
 
@@ -211,13 +208,10 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Deny Route-map apply failed. "
-                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
+                "Return code: {}, Output: {}"
             ).format(
                 rc.get('rc', 'N/A'),
-                rc.get('stdout', 'N/A'),
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
+                rc.get('stdout', 'N/A')
             )
         )
 
@@ -271,13 +265,10 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Outbound Route-map permit apply failed. "
-                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
+                "Return code: {}, Output: {}"
             ).format(
                 rc.get('rc', 'N/A'),
-                rc.get('stdout', 'N/A'),
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
+                rc.get('stdout', 'N/A')
             )
         )
 
@@ -367,13 +358,10 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
             not rc['failed'],
             (
                 "AZNG Migration Inbound Route-map permit apply failed. "
-                "Return code: {}, Output: {}, Hostname: {}, Platform: {}, HWSKU: {}"
+                "Return code: {}, Output: {}"
             ).format(
                 rc.get('rc', 'N/A'),
-                rc.get('stdout', 'N/A'),
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
+                rc.get('stdout', 'N/A')
             )
         )
 
@@ -454,11 +442,7 @@ def test_bgp_azng_migration(duthosts, enum_upstream_dut_hostname):
         pytest_assert(
             not recover_via_minigraph,
             (
-                "AZNG Migration Production set failed. Hostname: {}, Platform: {}, HWSKU: {}"
-            ).format(
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
+                "AZNG Migration Production set failed"
             )
         )
 

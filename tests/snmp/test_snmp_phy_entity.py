@@ -253,9 +253,8 @@ def test_fabric_card_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physi
         position = int(entity_info['position_in_parent'])
         expect_oid = MODULE_TYPE_FABRIC_CARD + position * MODULE_INDEX_MULTIPLE
         assert expect_oid in snmp_physical_entity_info, (
-            "Cannot find expected fan drawer OID '{}' in physical entity MIB. "
-            "Expected OID is missing from the SNMP physical entity information: {}"
-        ).format(expect_oid, snmp_physical_entity_info)
+            "Cannot find expected fan drawer OID '{}' in physical entity MIB."
+        ).format(expect_oid)
 
         fc_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert fc_snmp_fact['entPhysDescr'] == name, (
@@ -370,8 +369,7 @@ def test_fan_drawer_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physic
         assert expect_oid in snmp_physical_entity_info, (
             "Expected OID for fabric card not found in SNMP physical entity MIB.\n"
             "Expected OID: {}\n"
-            "SNMP physical entity info: {}"
-        ).format(expect_oid, snmp_physical_entity_info)
+        ).format(expect_oid)
 
         drawer_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert drawer_snmp_fact['entPhysDescr'] == name, (
@@ -492,8 +490,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         assert expect_oid in snmp_physical_entity_info, (
             "Expected OID for fabric card not found in SNMP physical entity MIB.\n"
             "Expected OID: {}\n"
-            "SNMP physical entity info: {}"
-        ).format(expect_oid, snmp_physical_entity_info)
+        ).format(expect_oid)
 
         fan_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert fan_snmp_fact['entPhysDescr'] == name, (
@@ -576,10 +573,9 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             tachometers_oid = expect_oid + SENSOR_TYPE_FAN
             assert tachometers_oid in snmp_physical_entity_info, (
                 "Cannot find fan tachometers info in physical entity MIB. "
-                "Expected OID '{}'. SNMP physical entity info: {}"
+                "Expected OID '{}'. "
             ).format(
-                tachometers_oid,
-                snmp_physical_entity_info
+                tachometers_oid
             )
 
             tachometers_fact = snmp_physical_entity_info[tachometers_oid]
@@ -721,17 +717,14 @@ def test_psu_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
             assert expect_oid not in snmp_physical_entity_info, (
                 "Unexpected OID found in SNMP physical entity MIB.\n"
                 "Expected OID '{}' to be absent, but it is present.\n"
-                "SNMP physical entity info: {}"
-            ).format(expect_oid, snmp_physical_entity_info)
+            ).format(expect_oid)
 
             continue
 
         assert expect_oid in snmp_physical_entity_info, (
             "Expected OID '{}' is missing in SNMP physical entity MIB.\n "
-            "SNMP physical entity info: {}"
         ).format(
-            expect_oid,
-            snmp_physical_entity_info
+            expect_oid
         )
         psu_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert psu_snmp_fact['entPhysDescr'] == name, (
@@ -834,19 +827,15 @@ def _check_psu_sensor(duthost, psu_name, psu_info, psu_oid, snmp_physical_entity
         if is_null_str(psu_info[field]):
             assert expect_oid not in snmp_physical_entity_info, (
                 "Unexpectedly found PSU sensor OID '{}' in physical entity MIB. "
-                "SNMP physical entity info: {}"
             ).format(
-                expect_oid,
-                snmp_physical_entity_info
+                expect_oid
             )
             continue
 
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find PSU sensor OID '{}' in physical entity MIB. "
-            "SNMP physical entity info: {}"
         ).format(
-            expect_oid,
-            snmp_physical_entity_info
+            expect_oid
         )
         phy_entity_snmp_fact = snmp_physical_entity_info[expect_oid]
         sensor_name = '{sensor_name} for {psu_name}'.format(
@@ -1008,9 +997,8 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
     snmp_entity_sensor_info = snmp_physical_entity_and_sensor_info["sensor_mib"]
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     keys = redis_get_keys(duthost, STATE_DB, THERMAL_KEY_TEMPLATE.format('*'))
-    assert keys, (
-        "Thermal information does not exist in DB:{} "
-    ).format(keys)
+    assert keys, "Thermal information does not exist in DB: {}".format(keys)
+
     for key in keys:
         thermal_info = redis_hgetall(duthost, STATE_DB, key)
         if is_null_str(thermal_info['temperature']):
@@ -1024,9 +1012,8 @@ def test_thermal_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_
         expect_oid = CHASSIS_MGMT_SUB_ID + DEVICE_TYPE_CHASSIS_THERMAL + position * DEVICE_INDEX_MULTIPLE + \
             SENSOR_TYPE_TEMP
         assert expect_oid in snmp_physical_entity_info, (
-            "Expected OID '{}' is missing in SNMP physical entity MIB.\n"
-            "SNMP physical entity info: {}"
-        ).format(expect_oid, snmp_physical_entity_info)
+            "Expected OID '{}' is missing in SNMP physical entity MIB."
+        ).format(expect_oid)
 
         thermal_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert thermal_snmp_fact['entPhysDescr'] == name, (
@@ -1280,10 +1267,8 @@ def _check_transceiver_dom_sensor_info(duthost, name, transceiver_oid, snmp_phys
         assert expect_oid in snmp_physical_entity_info, (
             "Cannot find port sensor OID '{}' in physical entity MIB. "
             "Expected to find the sensor OID in SNMP facts but it is missing. "
-            "SNMP physical entity info: {}"
         ).format(
-            expect_oid,
-            snmp_physical_entity_info
+            expect_oid
         )
         sensor_snmp_fact = snmp_physical_entity_info[expect_oid]
         assert sensor_snmp_fact['entPhysDescr'] is not None, (
@@ -1441,11 +1426,7 @@ def test_turn_off_psu_and_check_psu_info(duthosts, enum_supervisor_dut_hostname,
         # wait for psud update the database
         pytest_assert(
             wait_until(900, 20, 5, _check_psu_status_after_power_off, duthost, localhost, creds_all_duts),
-            (
-                "No PSUs turned off within the expected timeframe on DUT {}."
-            ).format(
-                duthost.hostname
-            )
+            "No PSUs turned off within the expected timeframe."
         )
 
     finally:
