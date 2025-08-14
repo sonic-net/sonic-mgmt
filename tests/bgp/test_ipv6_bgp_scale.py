@@ -576,7 +576,7 @@ def test_nexthop_group_member_scale(
                     found = True
                     break
             if not found:
-                logger.warning('Routes not found in topo')
+                logger.warning('Fail to update ASN of route %s, because of prefix was not found in topo', route[0])
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
@@ -586,7 +586,7 @@ def test_nexthop_group_member_scale(
     traffic_thread.start()
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
-        change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_WITHDRAW,
+        change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_ANNOUNCE,
                                servers_dut_interfaces.get(ptf_ip, ''))
     compressed_startup_routes = compress_expected_routes(startup_routes)
     result = check_bgp_routes_converged(
