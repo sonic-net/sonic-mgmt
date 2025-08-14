@@ -343,6 +343,12 @@ r, ".*ERR swss\d*#orchagent:.*handlePortStatusChangeNotification: Failed to get 
 
 # Ignore SAI_NEXT_HOP_GROUP_ATTR_TYPE unsupported
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
+# Ignore unsupported enumerated attribute
+r, ".*ERR swss#orchagent: :- queryAttributeEnumValuesCapability: returned value \d+ is not allowed on SAI_SWITCH_ATTR_.*_DEFAULT_HASH_ALGORITHM.*"
+
+# Ignore SRV6 error
+r, ".* ERR syncd#syncd: .* SAI_API_SRV6:_brcm_sai_srv6_config_get:\d+ SRV6 unsupported or not enabled on this device"
+r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_object_type_get_availability:\d+ availablity my_sid failed with error -2."
 
 # https://github.com/sonic-net/sonic-buildimage/issues/22346
 r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
@@ -362,3 +368,9 @@ r, ".* ERR syncd#syncd: :- process_on_fdb_event: FDB notification was not sent s
 
 # https://github.com/sonic-net/sonic-mgmt/issues/19790
 r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_stats_capability:\d+ stats capablity not supported for object.*"
+
+# Ignore all audisp-tacplus Accounting logs
+r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host: .*, command: .*, type: \d+, task ID: \d+"
+
+# Ignore lldp error log, don't have real impact
+r, ".* ERR container: docker cmd: stop for lldp failed with 500 Server Error.*"

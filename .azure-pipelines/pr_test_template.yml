@@ -1,3 +1,41 @@
+parameters:
+- name: BUILD_REASON
+  type: string
+  default: "PullRequest"
+
+- name: TIMEOUT_IN_MINUTES_PR_TEST
+  type: number
+  default: 480
+
+- name: MAX_RUN_TEST_MINUTES
+  type: number
+  default: 240
+
+- name: TEST_PLAN_NUM
+  type: string
+  default: "1"
+
+- name: TEST_PLAN_STOP_ON_FAILURE
+  type: string
+  default: "True"
+
+- name: RETRY_TIMES
+  type: string
+  default: "2"
+
+- name: ASIC_TYPE
+  type: string
+  default: "vs"
+
+- name: CHECKOUT_SONIC_MGMT
+  type: boolean
+  default: false
+
+- name: SONIC_MGMT_NAME
+  type: string
+  default: "sonic-mgmt"
+
+
 jobs:
   - job: get_impacted_area
     cancelTimeoutInMinutes: 10
@@ -6,7 +44,9 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: ../impacted_area_testing/get-impacted-area.yml
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+          - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+      - template: impacted_area_testing/get-impacted-area.yml
 
   - job: impacted_area_kvmtest
     displayName: " "
@@ -14,30 +54,36 @@ jobs:
     dependsOn: get_impacted_area
     strategy:
       matrix:
-        impacted-area-kvmtest-t0:
+        impacted-area-kvmtest-t0_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0
           CHECKER: t0_checker
           TOPOLOGY: t0
-        impacted-area-kvmtest-t0-2vlans:
+        impacted-area-kvmtest-t0-2vlans_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0-2vlans
           CHECKER: t0-2vlans_checker
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a "
           TOPOLOGY: t0
-        impacted-area-kvmtest-t1-lag:
+        impacted-area-kvmtest-t1-lag_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-lag
-        impacted-area-kvmtest-dualtor:
+        impacted-area-kvmtest-dualtor_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dualtor
           CHECKER: dualtor_checker
-          COMMON_EXTRA_PARAMS: "--disable_loganalyzer "
+          COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           TOPOLOGY: dualtor
-        impacted-area-kvmtest-multi-asic-t1:
+        impacted-area-kvmtest-multi-asic-t1_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1-multi-asic
           CHECKER: t1-multi-asic_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
-        impacted-area-kvmtest-t0-sonic:
+        impacted-area-kvmtest-multi-asic-t1_by_Elastictest_optional:
+          TESTBED_PREP_TOPOLOGY: t1
+          CHECKER: t1_checker
+          TOPOLOGY: t1-8-lag
+          NUM_ASIC: 4
+          STOP_ON_FAILURE: "False"
+        impacted-area-kvmtest-t0-sonic_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0-sonic
           CHECKER: t0-sonic_checker
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
@@ -47,36 +93,40 @@ jobs:
             {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
             {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
-        impacted-area-kvmtest-dpu:
+        impacted-area-kvmtest-dpu_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dpu
           CHECKER: dpu_checker
           TOPOLOGY: dpu
           SPECIFIC_PARAM: '[
             {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
-        impacted-area-kvmtest-t2:
+        impacted-area-kvmtest-t2_by_Elastictest_optional:
           TESTBED_PREP_TOPOLOGY: t2
           CHECKER: t2_checker
           TOPOLOGY: t2
+          STOP_ON_FAILURE: "False"
 
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       NUM_ASIC: 1
       VM_TYPE: ceos
+      STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
       COMMON_EXTRA_PARAMS: "--disable_sai_validation "
       DEPLOY_MG_EXTRA_PARAMS: ""
       SPECIFIC_PARAM: "[]"
-    timeoutInMinutes: 300
+    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: ../impacted_area_testing/calculate-instance-numbers.yml
+      - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
+        - checkout: ${{ parameters.SONIC_MGMT_NAME }}
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
-          BUILD_BRANCH: $(Build.SourceBranchName)
+          BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: ../run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: $(TOPOLOGY)
           SCRIPTS: $(SCRIPTS)
@@ -84,13 +134,14 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: $(DEPLOY_MG_EXTRA_PARAMS)
           COMMON_EXTRA_PARAMS: $(COMMON_EXTRA_PARAMS)
-          KVM_IMAGE_BRANCH: $(Build.SourceBranchName)
-          MGMT_BRANCH: $(Build.SourceBranchName)
-          BUILD_REASON: "BaselineTest"
-          RETRY_TIMES: "0"
-          STOP_ON_FAILURE: "False"
-          TEST_PLAN_NUM: $(BASELINE_MGMT_PUBLIC_MASTER_TEST_NUM)
+          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          MGMT_BRANCH: $(BUILD_BRANCH)
+          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: $(STOP_ON_FAILURE)
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           NUM_ASIC: $(NUM_ASIC)
           VM_TYPE: $(VM_TYPE)
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)
-          MAX_RUN_TEST_MINUTES: 240
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          ASIC_TYPE: ${{ parameters.ASIC_TYPE }}

@@ -912,10 +912,16 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
         # Add external sleep to make sure route is in hardware
-        if duthost.get_facts().get("modular_chassis"):
-            time.sleep(180)
-        else:
-            time.sleep(20)
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+
+        sleep_seconds = 180 if (v4_routes_count > 10000 or v6_routes_count > 10000) else 20
+        logger.info(
+            "Route scale v4_ebgp=%s v6_ebgp=%s -> sleeping %ss before verification",
+            v4_routes_count, v6_routes_count, sleep_seconds
+        )
+        time.sleep(sleep_seconds)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
