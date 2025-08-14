@@ -42,11 +42,10 @@ def verify_bfd_only(dut, nexthops, asic, expected_bfd_state):
         0,
         lambda: verify_bfd_state(dut, nexthops.values(), asic, expected_bfd_state),
     ), (
-        "Timed out waiting to verify BFD state is expected for nexthops {} on ASIC {} of DUT '{}' to reach state '{}'."
+        "Timed out waiting to verify BFD state is expected for nexthops {} on ASIC {}  to reach state '{}'."
     ).format(
         nexthops.values(),
         asic,
-        dut.hostname,
         expected_bfd_state
     )
 
@@ -198,11 +197,10 @@ def toggle_interfaces_in_parallel(cmds, dut, asic, interfaces, target_state):
             0,
             lambda: check_interfaces_oper_state(dut, asic, interfaces, target_state),
         ), (
-            "Timed out waiting for interfaces {} on ASIC {} of DUT '{}' to reach state '{}'."
+            "Timed out waiting for interfaces {} on ASIC {} of  to reach state '{}'."
         ).format(
             interfaces,
             asic,
-            dut.hostname,
             target_state
         )
 
@@ -774,11 +772,10 @@ def wait_until_given_bfd_down(next_hops, port_channel, asic_index, dut):
         0,
         lambda: verify_given_bfd_state(next_hops, port_channel, asic_index, dut, "Down"),
     ), (
-        "Timed out waiting for BFD session on port channel '{}' (ASIC {} of DUT '{}') to reach state 'Down'."
+        "Timed out waiting for BFD session on port channel '{}' (ASIC {} ) to reach state 'Down'."
     ).format(
         port_channel,
-        asic_index,
-        dut.hostname
+        asic_index
     )
 
 
