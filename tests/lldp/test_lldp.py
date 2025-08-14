@@ -44,13 +44,6 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         # make sure all critical services are up
         assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
             "Not all critical services are fully started after restarting orchagent. "
-            "Hostname: {}\n"
-            "Platform: {}\n"
-            "HWSKU: {}\n"
-        ).format(
-            duthost.hostname,
-            duthost.facts.get("platform"),
-            duthost.facts.get("hwsku")
         )
 
         # wait for ports to be up and lldp neighbor information has been received by dut
