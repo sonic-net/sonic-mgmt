@@ -84,10 +84,11 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
                         assert (get_queue_counters(asichost, port, q) == 0), (
-                            "Queue counter for port '{}' queue {} is not zero after clearing queue counters. "
-                            "Counter value: {}"
-                        ).format(port, q, get_queue_counters(asichost, port, q))
-
+                            (
+                                "Queue counter for port '{}' queue {} is not zero after clearing queue counters. "
+                                "Counter value: {}"
+                            ).format(port, q, get_queue_counters(asichost, port, q))
+                        )
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
