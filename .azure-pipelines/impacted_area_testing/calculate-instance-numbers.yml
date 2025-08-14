@@ -69,7 +69,7 @@ steps:
     pip install azure-kusto-data
     pip install azure-kusto-data azure-identity
 
-    INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }})
+    INSTANCE_NUMBER=$(python ./.azure-pipelines/impacted_area_testing/calculate_instance_number.py --scripts $(SCRIPTS) --topology ${{ parameters.TOPOLOGY }} --branch ${{ parameters.BUILD_BRANCH }} --prepare_time ${{ parameters.PREPARE_TIME }} --target_pr_test_time $(TARGET_PR_TEST_TIME))
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get instances number fails."
