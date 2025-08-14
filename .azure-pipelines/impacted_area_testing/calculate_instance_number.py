@@ -64,7 +64,7 @@ def get_access_token():
         raise Exception(f"Failed to get token after {MAX_GET_TOKEN_RETRY_TIMES} attempts")
 
 
-def main(scripts, topology, branch, prepare_time):
+def main(scripts, topology, branch, prepare_time, target_pr_test_time):
     ingest_cluster = os.getenv("TEST_REPORT_QUERY_KUSTO_CLUSTER_BACKUP")
     access_token = get_access_token()
 
@@ -125,7 +125,7 @@ def main(scripts, topology, branch, prepare_time):
     # As we need some time to prepare testbeds, the prepare time should be subtracted.
     # Obtain the number of instances by rounding up the calculation.
     # To prevent unexpected situations, we set the maximum number of instance
-    print(min(math.ceil(total_running_time / 60 / (180 - prepare_time)), MAX_INSTANCE_NUMBER))
+    print(min(math.ceil(total_running_time / 60 / (target_pr_test_time - prepare_time)), MAX_INSTANCE_NUMBER))
 
 
 if __name__ == '__main__':
@@ -134,10 +134,12 @@ if __name__ == '__main__':
     parser.add_argument("--scripts", help="Test scripts to be executed", type=str, default="")
     parser.add_argument("--branch", help="Test branch", type=str, default="")
     parser.add_argument("--prepare_time", help="Time for preparing testbeds", type=int, default=30)
+    parser.add_argument("--target_pr_test_time", help="Target PR test time", type=int, default=120)
     args = parser.parse_args()
 
     scripts = args.scripts
     topology = args.topology
     branch = args.branch
     prepare_time = args.prepare_time
-    main(scripts, topology, branch, prepare_time)
+    target_pr_test_time = args.target_pr_test_time
+    main(scripts, topology, branch, prepare_time, target_pr_test_time)

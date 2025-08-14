@@ -43,22 +43,24 @@
       loop_var: dut_name
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
-    include_tasks: unbind_vm.yml
-    loop: "{{ VM_hosts | flatten(levels=1) }}"
-    loop_control:
-      loop_var: current_vm_name
-
-  - name: Wait for unbind tasks to complete
+    vm_topology:
+      cmd: "unbind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      max_fp_num: "{{ max_fp_num }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
+      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
-    async_status:
-      jid: "{{ async_unbind_job_results[current_vm_name] }}"
-    loop: "{{ VM_hosts | flatten(levels=1) }}"
-    loop_control:
-      loop_var: current_vm_name
-    register: async_unbind_topology_poll_results
-    until: async_unbind_topology_poll_results.finished
-    retries: 30
-    delay: 60
+
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -162,23 +164,11 @@
 
   when: container_type == "IxANVL-CONF-TESTER"
 
-- name: Destroy VMs network in parallel
-  include_tasks: destroy_vm_network.yml
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-
-- name: Wait for destroy tasks to complete
+- name: Destroy VMs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names: "{{ VM_targets }}"
   become: yes
-  async_status:
-    jid: "{{ async_destroy_vm_network_results[vm_name] }}"
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-  register: async_destroy_vm_network_poll_results
-  until: async_destroy_vm_network_poll_results.finished
-  retries: 30
-  delay: 60
 
 - name: Destroy DPUs network
   vm_topology:
