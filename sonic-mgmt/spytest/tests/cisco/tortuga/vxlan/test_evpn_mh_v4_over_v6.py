@@ -422,17 +422,18 @@ def test_inter_subnet_ping():
             report_fail(nodes['leaf0'], "traffic from multihomed host to different subnet host failed with unicast traffic")
 
         #Check traffic is going over vxlan
-        leaf1_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf1'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF2_VXLAN_IP), r_t_key = 'tx_pkts')
-        st.log("\nTX counters on leaf1 EVPN connected interface to H2 is {}".format(leaf1_evpn_int_counters))
+        leaf0_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf0'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF2_VXLAN_IP), r_t_key = 'tx_pkts')
+        st.log("\nTX counters on leaf0 EVPN connected interface to H2 is {}".format(leaf0_evpn_int_counters))
 
-        leaf2_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf2'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF1_VXLAN_IP))
+        leaf2_evpn_int_counters = vxlan_obj.get_counters(nodes['leaf2'], cmd = 'show vxlan counters', target_iface = 'EVPN_{}'.format(LEAF0_VXLAN_IP))
         st.log("\nRX counters on leaf2 EVPN connected interface to H4 is {}".format(leaf2_evpn_int_counters))
 
-        if vxlan_obj.tunnel_counters_supported(nodes['leaf1']):
-            if not (leaf1_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
-                    leaf1_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
+        if vxlan_obj.tunnel_counters_supported(nodes['leaf0']):
+            if not (leaf0_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
+                    leaf0_evpn_int_counters <= 1.2*int(data.pkts_per_burst) and
                     leaf2_evpn_int_counters >= 0.98*int(data.pkts_per_burst) and
                     leaf2_evpn_int_counters <= 1.2*int(data.pkts_per_burst)):
+                report_fail(nodes['leaf0'], "Unicast traffic going from H2 to H4 not taking evpn interface")
                 report_fail(nodes['leaf1'], "Unicast traffic going from H2 to H4 not taking evpn interface")
 
         #Verify RT-5 with subnet are exchanged
