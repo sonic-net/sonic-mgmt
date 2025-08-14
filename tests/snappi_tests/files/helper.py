@@ -7,7 +7,6 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
 from tests.common.nokia_data import is_nokia_device
-from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.common.helpers.parallel import parallel_run
@@ -119,18 +118,14 @@ def get_number_of_streams(duthost, tx_ports, rx_ports):
     return no_of_test_streams
 
 
-@pytest.fixture(autouse=True, params=MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
-def multidut_port_info(request):
-    yield request.param
-
-
 @pytest.fixture(autouse=True)
 def setup_ports_and_dut(
         duthosts,
         snappi_api,
         get_snappi_ports,
         multidut_port_info,
-        number_of_tx_rx_ports):
+        number_of_tx_rx_ports,
+        tbinfo):
     for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count, rx_port_count = number_of_tx_rx_ports
         if len(get_snappi_ports) < tx_port_count + rx_port_count:
@@ -140,15 +135,15 @@ def setup_ports_and_dut(
 
         if len(rdma_ports['tx_ports']) < tx_port_count:
             pytest.skip(
-                "MULTIDUT_PORT_INFO doesn't have the required Tx ports defined for "
-                "testbed {}, subtype {} in variables.py".format(
-                    MULTIDUT_TESTBED, testbed_subtype))
+                "Not enough Tx ports for "
+                "testbed {}, subtype {} in tgen_port_config.json".format(
+                    tbinfo['conf-name'], testbed_subtype))
 
         if len(rdma_ports['rx_ports']) < rx_port_count:
             pytest.skip(
-                "MULTIDUT_PORT_INFO doesn't have the required Rx ports defined for "
-                "testbed {}, subtype {} in variables.py".format(
-                    MULTIDUT_TESTBED, testbed_subtype))
+                "Not enough Tx ports for "
+                "testbed {}, subtype {} in tgen_port_config.json".format(
+                    tbinfo['conf-name'], testbed_subtype))
         logger.info('Running test for testbed subtype: {}'.format(testbed_subtype))
         if is_snappi_multidut(duthosts):
             snappi_ports = get_snappi_ports_for_rdma(
@@ -156,7 +151,7 @@ def setup_ports_and_dut(
                 rdma_ports,
                 tx_port_count,
                 rx_port_count,
-                MULTIDUT_TESTBED)
+                tbinfo['conf-name'])
         else:
             snappi_ports = get_snappi_ports
         testbed_config, port_config_list, snappi_ports = snappi_dut_base_config(
