@@ -1,11 +1,14 @@
 import pytest
 import logging
+import os
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)  # Ensure logs are shown in pytest output
+logging.basicConfig(level=logging.INFO)  # Ensure logs appear in pytest output
 
 SCAN_BATCH_SIZE = 1000    # Redis SCAN COUNT for each iteration
 LOG_PROGRESS_EVERY = 100  # Log after this many BGP routes checked
+
+FAIL_ON_MISSING_WEIGHT = os.getenv("FAIL_ON_MISSING_WEIGHT", "1") == "1"
 
 
 @pytest.mark.bgp_ft
@@ -13,7 +16,7 @@ LOG_PROGRESS_EVERY = 100  # Log after this many BGP routes checked
 def test_bgp_route_weight_first_missing(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Scan APPL_DB ROUTE_TABLE for BGP-learned routes and
-    skip immediately if the first one without a 'weight' or with non-numeric weight is found.
+    fail or skip immediately if the first one without a 'weight' or with non-numeric weight is found.
     Clearly log the offending key and reason.
     """
 
@@ -64,19 +67,25 @@ def test_bgp_route_weight_first_missing(duthosts, enum_rand_one_per_hwsku_hostna
             if checked % LOG_PROGRESS_EVERY == 0:
                 logger.info(f"Checked {checked} BGP routes so far...")
 
-            #  Missing weight
+            # Missing weight
             if "weight" not in route_dict:
                 msg = f"First offending BGP route without weight: {key} (nexthop={nexthop})"
                 logger.error(msg)
-                pytest.skip(msg)  # <-- Will be shown with pytest -rs
+                if FAIL_ON_MISSING_WEIGHT:
+                    pytest.fail(msg)  # Fail test in CI
+                else:
+                    pytest.skip(msg)  # Skip test in local runs
 
-            #  Non-numeric weight
+            # Non-numeric weight
             try:
                 int(route_dict["weight"])
             except ValueError:
                 msg = f"First offending BGP route with non-numeric weight: {key} -> {route_dict['weight']}"
                 logger.error(msg)
-                pytest.skip(msg)  # <-- Will be shown with pytest -rs
+                if FAIL_ON_MISSING_WEIGHT:
+                    pytest.fail(msg)
+                else:
+                    pytest.skip(msg)
 
         if cursor == "0":
             break
