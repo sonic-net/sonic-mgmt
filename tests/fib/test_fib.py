@@ -189,20 +189,22 @@ def get_port_and_portchannel_members(port_name, all_port_indices, duts_minigraph
     if tbinfo['topo']['type'] == 't2' and 't2_single_node' not in tbinfo['topo']['name']:
         return []
 
-    mg_facts = None
+    # Search all ASICs for port channel information
+    portchannel_members = [port_name]  # Default is just the single port
+    found_portchannel = False
+
     for asic_id, asic_data in duts_minigraph_facts[upstream_lc]:
         mg_facts = asic_data
-        break  # Use first ASIC's facts for port channel lookup
-
-    # Check if the port is a member of any port channel
-    portchannel_members = [port_name]  # Default is just the single port
-    if mg_facts and 'minigraph_portchannels' in mg_facts:
-        for pc_name, pc_info in mg_facts['minigraph_portchannels'].items():
-            if port_name in pc_info.get('members', []):
-                portchannel_members = pc_info['members']
-                logging.info("Port {} is a member of port channel {}, adding all members: {}".format(
-                    port_name, pc_name, portchannel_members))
-                break
+        if mg_facts and 'minigraph_portchannels' in mg_facts:
+            for pc_name, pc_info in mg_facts['minigraph_portchannels'].items():
+                if port_name in pc_info.get('members', []):
+                    portchannel_members = pc_info['members']
+                    logging.info("Port {} is a member of port channel {} with {} member(s): {}".format(
+                        port_name, pc_name, len(portchannel_members), portchannel_members))
+                    found_portchannel = True
+                    break
+        if found_portchannel:
+            break
 
     # Find PTF port indices for all port channel members
     ptf_ports_to_filter = []
