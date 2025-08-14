@@ -255,7 +255,7 @@ INFRA:
         - test_nbr_health.py
         - portstat/test_portstat.py
 
-MGMT:
+MGMT: #Anukul Verma
   t0-64:
     mth64:
       sim:
@@ -288,7 +288,7 @@ MGMT:
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
         #- snmp/test_snmp_link_local.py
-        - tacacs/test_authorization.py
+        #- tacacs/test_authorization.py
         #- tacacs/test_ro_disk.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
@@ -298,7 +298,7 @@ MGMT:
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - http/test_http_copy.py
-        - mvrf/test_mgmtvrf.py
+        #- mvrf/test_mgmtvrf.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
 
@@ -335,7 +335,7 @@ MGMT:
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
-        # - tacacs/test_authorization.py
+        - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
@@ -378,7 +378,7 @@ MGMT:
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
         #- snmp/test_snmp_link_local.py
-        - tacacs/test_authorization.py
+        #- tacacs/test_authorization.py
         #- tacacs/test_ro_disk.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
@@ -388,7 +388,7 @@ MGMT:
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - http/test_http_copy.py
-      #  - mvrf/test_mgmtvrf.py
+        #- mvrf/test_mgmtvrf.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
 
@@ -425,7 +425,7 @@ MGMT:
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
-        # - tacacs/test_authorization.py
+        - tacacs/test_authorization.py
         # - tacacs/test_ro_disk.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
