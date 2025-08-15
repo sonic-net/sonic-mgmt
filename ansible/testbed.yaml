@@ -1931,15 +1931,15 @@
   auto_recover: 'True'
   comment: zitingguo
 
-- conf-name: vms92-t1-7060x6-512-4
-  group-name: vms92-1
-  topo: t1-isolated-d56u1-lag
+- conf-name: vms93-t1-7060x6-512-4
+  group-name: vms93-5
+  topo: t1-isolated-d128
   ptf_image_name: docker-ptf
-  ptf: vms92-1
+  ptf: vms93-5
   ptf_ip: 10.64.247.141/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f78d/64
-  server: server_92
-  vm_base: VM92000
+  server: server_93
+  vm_base: VM93190
   dut:
   - str5-7060x6-512-4
   inv_name: str5
