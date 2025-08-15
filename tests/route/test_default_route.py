@@ -48,6 +48,18 @@ def is_in_neighbor(neigh_types, neigh_name):
     return False
 
 
+def get_default_route_upstream_neigh_type(tb):
+    if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
+        return "T0"
+    return get_upstream_neigh_type(tb["topo"]["type"])
+
+
+def get_default_route_all_upstream_neigh_type(tb):
+    if tb["topo"]["name"] in ["t1-isolated-d128", "t1-isolated-d32"]:
+        return "T0"
+    return get_all_upstream_neigh_type(tb["topo"]["type"])
+
+
 def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     """
     Get the information for upstream neighbors present in the testbed
@@ -55,7 +67,7 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
     returns dict: {"upstream_neigh_name" : (ipv4_intf_ip, ipv6_intf_ip)}
     """
     upstream_neighbors = {}
-    neigh_types = get_all_upstream_neigh_type(tb['topo']['type'])
+    neigh_types = get_default_route_all_upstream_neigh_type(tb)
     logging.info("testbed topo {} upstream neigh types {}".format(
         tb['topo']['name'], neigh_types))
 
@@ -88,7 +100,7 @@ def get_upstream_neigh(tb, device_neigh_metadata, af, nexthops):
 
 
 def get_uplink_ns(tbinfo, bgp_name_to_ns_mapping, device_neigh_metadata):
-    neigh_types = get_all_upstream_neigh_type(tbinfo['topo']['type'])
+    neigh_types = get_default_route_all_upstream_neigh_type(tbinfo)
     asics = set()
     for name, asic in list(bgp_name_to_ns_mapping.items()):
         if not is_in_neighbor(neigh_types, name):
@@ -146,7 +158,7 @@ def test_default_route_set_src(duthosts, tbinfo):
 
     """
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     config_facts = asichost.config_facts(
@@ -187,7 +199,7 @@ def test_default_ipv6_route_next_hop_global_address(duthosts, tbinfo):
 
     """
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
     asichost = duthost.asic_instance(0 if duthost.is_multi_asic else None)
 
     rtinfo = asichost.get_ip_route_info(ipaddress.ip_network("::/0"))
@@ -249,7 +261,7 @@ def test_default_route_with_bgp_flap(duthosts, tbinfo):
                    .format(tbinfo['topo']['name']))
 
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
 
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="running")['ansible_facts']
@@ -295,7 +307,7 @@ def test_ipv6_default_route_table_enabled_for_mgmt_interface(duthosts, tbinfo):
 
     """
     duthost = find_duthost_on_role(
-        duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+        duthosts, get_default_route_upstream_neigh_type(tbinfo), tbinfo)
 
     # When management-vrf enabled, IPV6 route of management interface will not add to 'default' route table
     if is_mgmt_vrf_enabled(duthost):
