@@ -221,9 +221,8 @@ class snmpPduController(PduControllerBase):
         logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
-        if self._get_pdu_snmp_creds(pdu, "ro") is False and self._get_pdu_snmp_creds(pdu, "rw") is False:
-            logger.error("No available snmp creds for pdu")
-            return False
+        self._get_pdu_snmp_creds(pdu, "ro")
+        self._get_pdu_snmp_creds(pdu, "rw")
         self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
