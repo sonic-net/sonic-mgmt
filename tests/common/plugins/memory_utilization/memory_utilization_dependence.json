@@ -270,7 +270,7 @@
           ],
           "memory_high_threshold": {
             "type": "value",
-            "value": 256
+            "value": 384
           }
         }
       },
