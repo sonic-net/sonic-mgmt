@@ -38,7 +38,6 @@ ENI_MAC_STRING = ENI_MAC.replace(":", "")
 REMOTE_MAC = "43:BE:65:25:FA:67"
 REMOTE_MAC_STRING = REMOTE_MAC.replace(":", "")
 ENI_ID = "497f23d7-f0ac-4c99-a98f-59b470e8c7bd"
-ENI_ID2 = "44444444-ffff-4444-aaaa-555555555555"
 ROUTE_GROUP1 = "RouteGroup1"
 ROUTE_GROUP2 = "RouteGroup2"
 ROUTE_GROUP1_GUID = "48af6ce8-26cc-4293-bfa6-0126e8fcdeb2"
@@ -54,10 +53,6 @@ TRUSTED_VNI = "800"
 METER_POLICY_V4 = "MeterPolicyV4"
 METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
 METER_RULE_V4_PREFIX2 = "92.6.0.0/16"
-TUNNEL1 = "Tunnel1"
-TUNNEL1_ENDPOINT_IP = "40.40.40.40"
-TUNNEL2 = "Tunnel2"
-TUNNEL2_ENDPOINT_IPS = ["60.60.60.60", "70.70.70.70"]
 
 APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
@@ -124,20 +119,6 @@ ENI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "v4_meter_policy_id": METER_POLICY_V4,
-    }
-}
-
-ENI_TRUSTED_VNI_CONFIG = {
-    f"DASH_ENI_TRUSTED_VNI_TABLE:{ENI_ID2}": {
-        "vnet": VNET1,
-        "underlay_ip": VM1_PA,
-        "mac_address": ENI_MAC,
-        "eni_id": ENI_ID2,
-        "admin_state": State.STATE_ENABLED,
-        "pl_underlay_sip": APPLIANCE_VIP,
-        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
-        "eni_mode": EniMode.MODE_FNIC,
-        "trusted_vni": VNET1_VNI
     }
 }
 
@@ -219,19 +200,6 @@ VM_SUBNET_ROUTE_CONFIG = {
     }
 }
 
-VM_SUBNET_ROUTE_WITH_TUNNEL_CONFIG = {
-    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{VM_CA_SUBNET}": {
-        "routing_type": RoutingType.ROUTING_TYPE_DIRECT,
-        "tunnel": TUNNEL1
-    }
-}
-
-INBOUND_VM_ROUTE_RULE_CONFIG = {
-    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{VNET1_VNI}:{VM1_PA}/32": {
-        "action_type": ActionType.ACTION_TYPE_DROP
-    }
-}
-
 ROUTING_TYPE_VNET_CONFIG = {
     f"DASH_ROUTING_TYPE_TABLE:{VNET}": {
         "items": [
@@ -293,13 +261,5 @@ METER_RULE2_V4_CONFIG = {
         "priority": "10",
         "ip_prefix": f"{METER_RULE_V4_PREFIX2}",
         "metering_class": 2,
-    }
-}
-
-TUNNEL2_CONFIG = {
-    f"DASH_TUNNEL_TABLE:{TUNNEL2}": {
-        "endpoint_ips": TUNNEL2_ENDPOINT_IPS,
-        "encap_type": EncapType.ENCAP_TYPE_VXLAN,
-        "vni": VNET1_VNI,
     }
 }

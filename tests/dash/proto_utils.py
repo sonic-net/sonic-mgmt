@@ -1,5 +1,4 @@
 import base64
-import logging
 import pytest
 import re
 import socket
@@ -18,11 +17,10 @@ from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
 from dash_api.tunnel_pb2 import Tunnel
+from dash_api.route_rule_pb2 import RouteRule
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
-
-logger = logging.getLogger(__name__)
 
 ENABLE_PROTO = True
 
@@ -50,7 +48,8 @@ PB_CLASS_MAP = {
     "ENI_ROUTE": EniRoute,
     "METER_POLICY": MeterPolicy,
     "METER_RULE": MeterRule,
-    "TUNNEL": Tunnel
+    "TUNNEL": Tunnel,
+    "ROUTE_RULE": RouteRule
 }
 
 
@@ -215,3 +214,44 @@ def parse_ip_prefix(ip_prefix_str):
     else:
         mask_str = mask
     return {"ip": parse_ip_address(ip_addr_str), "mask": parse_ip_address(mask_str)}
+
+
+def json_to_proto(key: str, proto_dict: dict):
+    """
+    Custom parser for DASH configs to allow writing configs
+    in a more human-readable format
+    """
+    table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+    if table_name == "ROUTING_TYPE":
+        pb = routing_type_from_json(proto_dict)
+        return pb.SerializeToString()
+
+    message = get_message_from_table_name(table_name)
+    field_map = message.DESCRIPTOR.fields_by_name
+    new_dict = {}
+    for key, value in proto_dict.items():
+        if field_map[key].type == field_map[key].TYPE_MESSAGE:
+
+            if field_map[key].message_type.name == "IpAddress":
+                new_dict[key] = parse_ip_address(value)
+            elif field_map[key].message_type.name == "IpPrefix":
+                new_dict[key] = parse_ip_prefix(value)
+            elif field_map[key].message_type.name == "Guid":
+                new_dict[key] = parse_guid(value)
+
+        elif field_map[key].type == field_map[key].TYPE_ENUM:
+            new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
+        elif field_map[key].type == field_map[key].TYPE_BOOL:
+            new_dict[key] = value == 'true'
+
+        elif field_map[key].type == field_map[key].TYPE_BYTES:
+            new_dict[key] = parse_byte_field(value)
+
+        elif field_map[key].type in PB_INT_TYPES:
+            new_dict[key] = int(value)
+
+        if key not in new_dict:
+            new_dict[key] = value
+
+    pb = ParseDict(new_dict, message)
+    return pb.SerializeToString()

@@ -451,7 +451,7 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     apply_swssconfig_file(dpuhost, config_path)
     yield
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-        config_reload(dpuhost, safe_reload=True)
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="function")
