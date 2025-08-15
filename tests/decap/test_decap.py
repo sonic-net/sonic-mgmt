@@ -122,7 +122,6 @@ def loopback_ips(active_active_ports, duthosts, duts_running_config_facts, tbinf
 def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopback_ips,
                    fib_info_files, single_fib_for_duts, supported_ttl_dscp_params):     # noqa: F811
 
-    vxlan = supported_ttl_dscp_params['vxlan']
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
 
     setup_info = {
