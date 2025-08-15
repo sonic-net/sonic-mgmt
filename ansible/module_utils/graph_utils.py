@@ -531,4 +531,4 @@ class LabGraph(object):
                 l1_port_pair = sorted([l1_start_port, l1_end_port])
                 l1_cross_connects[l1_start_device][l1_port_pair[0]] = l1_port_pair[1]
 
-            return l1_cross_connects
+        return l1_cross_connects
