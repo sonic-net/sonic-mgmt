@@ -379,6 +379,20 @@ class TestQosSai(QosSaiBase):
                     startPos += 1
         logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
+    def check_ecn_status(self, duthost, qosConfig):
+        ecn_queue_status = []
+        if duthost.sonichost.is_multi_asic:
+            ecn_status = ""
+            for asic in duthost.asics:
+                cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
+                    asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                if cmd_output['rc'] != 0:
+                    pytest.skip("ecnconfig on/off not supported")
+                else:
+                    ecn_queue_status.append(cmd_output['stdout_lines'][1].split(':')[1].strip())
+            ecn_status = 'on' if all("on" in status for status in ecn_queue_status) else 'off'
+        return ecn_status
+
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
         ingressLossyProfile, egressLosslessProfile, dualtor_ports_for_duts
@@ -2670,3 +2684,86 @@ class TestQosSai(QosSaiBase):
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
+
+    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4"])
+    def testQosSaiDscpEcn(
+        self, ecn, duthosts, get_src_dst_asic_and_duts,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig,ecnLosslessProfile, enable_ecn,
+        change_lag_lacp_timer
+    ):
+        """
+            Test QoS SAI ECN CONFIG
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                ecnLosslessProfile (Fxiture): Map of ecn marking for lossless queue
+                enable_ecn (Fixture): enables the ecnconfig on each asic
+
+            Returns:
+                None
+
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        duthost = dutConfig["dstDutInstance"]
+        portSpeedCableLength = dutQosConfig["portSpeedCableLength"]
+        skip_test_on_no_lossless_pg(portSpeedCableLength)
+        if dutTestParams['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in dutTestParams['topo']:
+            qosConfig = dutQosConfig["param"][portSpeedCableLength]["breakout"]
+        else:
+            qosConfig = dutQosConfig["param"][ecn]
+
+        self.updateTestPortIdIp(dutConfig, get_src_dst_asic_and_duts)
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({"test_port_ids": dutConfig["testPortIds"]})
+        testParams.update({
+            "dscp": qosConfig["dscp"],
+            "ecn": qosConfig["ecn"],
+            "dst_port_id": dutConfig["testPorts"]["dst_port_id"],
+            "dst_port_ip": dutConfig["testPorts"]["dst_port_ip"],
+            "src_port_id": dutConfig["testPorts"]["src_port_id"],
+            "src_port_ip": dutConfig["testPorts"]["src_port_ip"],
+            "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
+            "num_of_pkts": qosConfig["num_of_pkts"],
+            "limit": qosConfig["limit"],
+            "min_limit": qosConfig["min_limit"],
+            "cell_size": qosConfig["cell_size"],
+            "hwsku": dutTestParams['hwsku']
+        })
+
+        if "platform_asic" in dutTestParams["basicParams"]:
+            testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+        else:
+            testParams["platform_asic"] = None
+
+
+        testParams.update({"ecn_queue_status": self.check_ecn_status(duthost, qosConfig)})
+        #enable ecnconfig for queue 0
+        if ecn == "ecn_4":
+            if duthost.sonichost.is_multi_asic:
+                for asic in duthost.asics:
+                    cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {} on".format(
+                        asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                    if cmd_output['rc'] != 0:
+                        pytest.skip("ecnconfig on/off not supported")
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
+        )
+
+        if ecn == "ecn_3":
+            if duthost.sonichost.is_multi_asic:
+                for asic in duthost.asics:
+                    cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {} off".format(
+                        asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                    if cmd_output['rc'] != 0:
+                        pytest.skip("ecnconfig on/off not supported")
+            testParams["ecn_queue_status"] = self.check_ecn_status(duthost, qosConfig)
+            self.runPtfTest(
+                ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
+            )

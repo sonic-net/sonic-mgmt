@@ -3835,7 +3835,7 @@ qos/test_ecn_config.py:
   skip:
     reason: "This test only support on cisco device"
     conditions:
-      - "asic_type not in ['cisco-8000']"
+      - "asic_type not in ['cisco-8000', 'broadcom']"
 
 qos/test_oq_watchdog.py:
   skip:
