@@ -45,17 +45,17 @@ class LACPRetryCount(Packet):
         ByteField("collector_length", 16),
         ShortField("collector_max_delay", 0),
         XStrFixedLenField("collector_reserved", "", 12),
-        ConditionalField(ByteField("actor_retry_count_type", 0x80), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("actor_retry_count_length", 4), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("actor_retry_count", 0), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(XStrFixedLenField("actor_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("partner_retry_count_type", 0x81), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("partner_retry_count_length", 4), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(ByteField("partner_retry_count", 0), lambda pkt:pkt.version == 0xf1),
-        ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt:pkt.version == 0xf1),
+        ConditionalField(ByteField("actor_retry_count_type", 0x80), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("actor_retry_count_length", 4), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("actor_retry_count", 0), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(XStrFixedLenField("actor_retry_count_reserved", "", 1), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("partner_retry_count_type", 0x81), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("partner_retry_count_length", 4), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(ByteField("partner_retry_count", 0), lambda pkt: pkt.version == 0xf1),
+        ConditionalField(XStrFixedLenField("partner_retry_count_reserved", "", 1), lambda pkt: pkt.version == 0xf1),
         ByteField("terminator_type", 0),
         ByteField("terminator_length", 0),
-        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt:pkt.version == 0xf1)],
+        MultipleTypeField([(XStrFixedLenField("reserved", "", 42), lambda pkt: pkt.version == 0xf1)],
                           XStrFixedLenField("reserved", "", 50)),
     ]
 
@@ -78,13 +78,13 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
     if request.config.getoption("neighbor_type") != "sonic":
         pytest.skip("Only supported with SONiC neighbor")
 
-    featureCheckResult = nbrhosts[list(nbrhosts.keys())[0]]['host'].shell(
+    featureCheckResult = nbrhosts[list(nbrhosts.keys())[0]]['host'].command(
             "sudo config portchannel retry-count get PortChannel1", module_ignore_errors=True)
     if featureCheckResult["rc"] != 0:
         pytest.skip("SONiC neighbor isn't running supported version of SONiC")
 
     for nbr in list(nbrhosts.keys()):
-        nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 5")
+        nbrhosts[nbr]['host'].command("sudo config portchannel retry-count set PortChannel1 5")
 
     # Wait for retry count info to be updated
     pytest_assert(wait_until(5, 1, 0, verify_retry_count, [duthost], 5),
@@ -93,7 +93,7 @@ def higher_retry_count_on_peers(request, duthost, nbrhosts):
     yield
 
     for nbr in list(nbrhosts.keys()):
-        nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count set PortChannel1 3")
+        nbrhosts[nbr]['host'].command("sudo config portchannel retry-count set PortChannel1 3")
 
     # Wait for retry count info to be updated
     pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
@@ -107,13 +107,13 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
 
-    featureCheckResult = duthost.shell("sudo config portchannel retry-count get {}".format(
+    featureCheckResult = duthost.command("sudo config portchannel retry-count get {}".format(
         list(cfg_facts["PORTCHANNEL"].keys())[0]), module_ignore_errors=True)
     if featureCheckResult["rc"] != 0:
         pytest.skip("SONiC DUT isn't running supported version of SONiC")
 
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
-        duthost.shell("sudo config portchannel retry-count set {} 5".format(port_channel))
+        duthost.command("sudo config portchannel retry-count set {} 5".format(port_channel))
 
     # Wait for retry count info to be updated
     pytest_assert(wait_until(5, 1, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 5),
@@ -122,7 +122,7 @@ def higher_retry_count_on_dut(request, duthost, nbrhosts):
     yield
 
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
-        duthost.shell("sudo config portchannel retry-count set {} 3".format(port_channel))
+        duthost.command("sudo config portchannel retry-count set {} 3".format(port_channel))
 
     # Wait for retry count info to be updated
     pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
@@ -137,7 +137,7 @@ def config_reload_on_cleanup(request, nbrhosts, duthost):
     yield
 
     for nbr in list(nbrhosts.keys()):
-        nbrhosts[nbr]['host'].shell("sudo config reload -y")
+        nbrhosts[nbr]['host'].command("sudo config reload -y")
     config_reload(duthost, safe_reload=True)
 
 
@@ -202,32 +202,24 @@ def check_lacpdu_packet_version(duthost):
 @pytest.fixture(scope="function")
 def disable_retry_count_on_peer(duthost, nbrhosts, higher_retry_count_on_peers, collect_techsupport_all_nbrs):
     for nbr in list(nbrhosts.keys()):
-        nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
-
-    # Wait 90 seconds for retry count to get updated on the DUT
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
-                  "Retry count on neighbors has not been reset to 3.")
+        nbrhosts[nbr]['host'].command("teamdctl PortChannel1 state item set runner.enable_retry_count_feature false")
 
     yield
 
     for nbr in list(nbrhosts.keys()):
-        nbrhosts[nbr]['host'].shell("teamdctl PortChannel1 state item set runner.enable_retry_count_feature true")
+        nbrhosts[nbr]['host'].command("teamdctl PortChannel1 state item set runner.enable_retry_count_feature true")
 
 
 @pytest.fixture(scope="function")
 def disable_retry_count_on_dut(duthost, nbrhosts, higher_retry_count_on_dut, collect_techsupport_all_nbrs):
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
-        duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
-
-    # Wait 90 seconds for retry count to get updated on the peers
-    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
-                  "Retry count on neighbors has not been reset to 3.")
+        duthost.command("teamdctl {} state item set runner.enable_retry_count_feature false".format(port_channel))
 
     yield
 
     for port_channel in list(cfg_facts["PORTCHANNEL"].keys()):
-        duthost.shell("teamdctl {} state item set runner.enable_retry_count_feature true".format(port_channel))
+        duthost.command("teamdctl {} state item set runner.enable_retry_count_feature true".format(port_channel))
 
 
 class TestNeighborRetryCount:
@@ -264,11 +256,24 @@ class TestNeighborRetryCount:
         """
         Test that the lag remains up for 150 seconds after killing teamd on the peer
         """
-        for nbr in list(nbrhosts.keys()):
-            nbrhosts[nbr]['host'].shell("sudo pkill -USR1 -x teamd")
 
-        # Give ourselves 15 seconds to check before the LAG goes down.
-        time.sleep(135)
+        # Do this dance of keeping track of a "start" timestamp and determining how long
+        # we need to wait. The reason for this is because in the PR testing infra, it appears
+        # that issuing a command on a neighbor VM takes 3-4 seconds to complete (the execution
+        # itself on the device is a second or less, but the total time it takes to copy the
+        # script onto the device and then execute it is 3-4 seconds.
+        #
+        # The LAGs are configured to stay up for 150 seconds (with the retry count set to 5),
+        # and we want to pause early enough to be able to check the state of the LAGs.
+        # Therefore, give ourselves 45 seconds to check the state of the LAGs, minus the time
+        # we spent sending the pkill commands.
+        start_timestamp = int(time.monotonic())
+
+        for nbr in list(nbrhosts.keys()):
+            nbrhosts[nbr]['host'].command("sudo pkill -USR1 -x teamd")
+
+        # Give ourselves 45 seconds to check before the LAG goes down.
+        time.sleep(150 - 45 - (int(time.monotonic()) - start_timestamp))
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
@@ -280,8 +285,8 @@ class TestNeighborRetryCount:
                               "partner retry count is incorrect; expected 5, but is {}"
                               .format(status["runner"]["partner_retry_count"]))
 
-        # Wait 20 seconds (total of 155 seconds) to verify that the LAG did go down.
-        time.sleep(20)
+        # Wait 50 seconds to verify that the LAG did go down (total of 155 seconds since killing teamd).
+        time.sleep(50)
 
         cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         port_channels = cfg_facts["PORTCHANNEL"].keys()
@@ -297,18 +302,13 @@ def test_peer_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_peer
     Test that peers reset the retry count to 3 when the feature is disabled
     """
 
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
-    port_channels = cfg_facts["PORTCHANNEL"].keys()
-    for port_channel in port_channels:
-        port_channel_status = duthost.get_port_channel_status(port_channel)
-        for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["partner_retry_count"] == 3,
-                          "partner retry count is incorrect; expected 3, but is {}"
-                          .format(status["runner"]["partner_retry_count"]))
+    # Wait 90 seconds for retry count to get updated on the DUT
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [duthost], 3),
+                  "Retry count on one or more neighbors has not been reset to 3.")
 
     for nbr in list(nbrhosts.keys()):
-        processRc = nbrhosts[nbr]['host'].shell("sudo config portchannel retry-count get PortChannel1",
-                                                module_ignore_errors=True)
+        processRc = nbrhosts[nbr]['host'].command("sudo config portchannel retry-count get PortChannel1",
+                                                  module_ignore_errors=True)
         pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
 
 
@@ -343,7 +343,7 @@ class TestDutRetryCount:
         """
         Test that the lag remains up for 150 seconds after killing teamd on the DUT
         """
-        duthost.shell("docker exec teamd pkill -USR1 -x teamd")
+        duthost.command("docker exec teamd pkill -USR1 -x teamd")
 
         # Give ourselves 15 seconds to check before the LAG goes down.
         time.sleep(135)
@@ -370,16 +370,13 @@ def test_dut_retry_count_disabled(duthost, nbrhosts, higher_retry_count_on_dut, 
     """
     Test that DUT resets the retry count to 3 when the feature is disabled
     """
-    for nbr in list(nbrhosts.keys()):
-        port_channel_status = nbrhosts[nbr]['host'].get_port_channel_status("PortChannel1")
-        for _, status in list(port_channel_status["ports"].items()):
-            pytest_assert(status["runner"]["partner_retry_count"] == 3,
-                          "partner retry count is incorrect; expected 3, but is {}"
-                          .format(status["runner"]["partner_retry_count"]))
+
+    pytest_assert(wait_until(90, 5, 0, verify_retry_count, [nbrhosts[nbr]['host'] for nbr in nbrhosts], 3),
+                  "Retry count on neighbors has not been reset to 3.")
 
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
     port_channels = cfg_facts["PORTCHANNEL"].keys()
     for port_channel in port_channels:
-        processRc = duthost.shell("sudo config portchannel retry-count get {}".format(port_channel),
-                                  module_ignore_errors=True)
+        processRc = duthost.command("sudo config portchannel retry-count get {}".format(port_channel),
+                                    module_ignore_errors=True)
         pytest_assert(processRc["failed"], "Expected failure for getting retry count, but instead it succeeded")
