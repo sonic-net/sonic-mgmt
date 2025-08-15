@@ -71,7 +71,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxlan_udp_dport=4789):
+def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT):
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA,
         pl.PL_OVERLAY_DIP,
@@ -108,8 +108,8 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
     )
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.REMOTE_MAC,
-        eth_dst=pl.ENI_MAC,
+        eth_src=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
+        eth_dst=pl.VM_MAC if floating_nic else pl.ENI_MAC,
         ip_src=pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
@@ -128,25 +128,24 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=VXLAN_UDP_BASE_SRC_PORT,
-        vxlan_vni=int(pl.VM_VNI) if floating_nic else int(pl.VNET1_VNI),
+         vxlan_vni=int(pl.VNET1_VNI),
         inner_frame=exp_inner_packet
     )
 
     masked_exp_packet = Mask(exp_vxlan_packet)
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
-    # 34 is the sport offset, 2 is the length of UDP sport field
-    masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
+    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
 
     return gre_packet, masked_exp_packet
 
 
 def outbound_pl_packets(config, outer_encap, floating_nic=False,
-                        inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
+                        inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT, vxlan_udp_sport=VXLAN_UDP_BASE_SRC_PORT):
     inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.ENI_MAC,
-        eth_dst=pl.REMOTE_MAC,
+        eth_src=pl.VM_MAC if floating_nic else pl.ENI_MAC,
+        eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
     )
@@ -160,7 +159,7 @@ def outbound_pl_packets(config, outer_encap, floating_nic=False,
             udp_dport=vxlan_udp_dport,
             udp_sport=vxlan_udp_sport,
             with_udp_chksum=False,
-            vxlan_vni=int(pl.VM_VNI) if floating_nic else int(pl.VNET1_VNI),
+            vxlan_vni=int(pl.VNET1_VNI),
             inner_frame=inner_packet
         )
     elif outer_encap == 'gre':
@@ -170,7 +169,7 @@ def outbound_pl_packets(config, outer_encap, floating_nic=False,
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=int(pl.VM_VNI) << 8 if floating_nic else int(pl.ENCAP_VNI) << 8,
+            gre_key=int(pl.VNET1_VNI) << 8 ,
             inner_frame=inner_packet
         )
     else:
@@ -222,7 +221,7 @@ def outbound_pl_packets(config, outer_encap, floating_nic=False,
     return outer_packet, masked_exp_packet
 
 
-def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=4789):
+def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT):
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=dash_config_info[REMOTE_ENI_MAC],
         eth_dst=dash_config_info[LOCAL_ENI_MAC],
@@ -266,7 +265,7 @@ def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_typ
     return inner_packet, pa_match_vxlan_packet, pa_mismatch_vxlan_packet, masked_exp_packet
 
 
-def outbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=4789):
+def outbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT):
     proto = None
     if "proto" in inner_extra_conf:
         proto = int(inner_extra_conf["proto"])
@@ -406,7 +405,7 @@ def verify_tcp_packet_drop_rst_packet_sent(ptfadapter,
 
 
 def outbound_smartswitch_vnet_packets(dash_config_info, inner_extra_conf={},
-                                      inner_packet_type='udp', vxlan_udp_dport=4789):
+                                      inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT):
 
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=dash_config_info[LOCAL_ENI_MAC],

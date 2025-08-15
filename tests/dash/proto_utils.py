@@ -79,18 +79,22 @@ def parse_range(range_str):
     return {"min": parts[0], "max": parts[1]}
 
 
-def parse_value_or_range(value_or_range_str):
-    parts = value_or_range_str.split(",")
-    if len(parts) == 1:
-        try:
-            int(parts[0])
-        except ValueError:
-            raise ValueError("Input string must be a valid integer.")
-        return {"value": parts[0]}
-    elif len(parts) == 2:
-        return parse_range(value_or_range_str)
+def parse_value_or_range(value_or_range):
+    if isinstance(value_or_range, int):
+        return {"value": value_or_range}
     else:
-        raise ValueError("Input string must contain either one or two numbers separated by a comma.")
+        parts = value_or_range.split(",")
+        if len(parts) == 1:
+            try:
+                int(parts[0])
+            except ValueError:
+                raise ValueError("Input string must be a valid integer.")
+            return {"value": parts[0]}
+        elif len(parts) == 2:
+            return parse_range(value_or_range)
+        else:
+            raise ValueError("Input string must contain either one or two numbers separated by a comma.")
+
 
 
 def parse_dash_proto(key: str, proto_dict: dict):

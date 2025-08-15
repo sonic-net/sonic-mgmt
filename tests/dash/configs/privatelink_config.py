@@ -54,13 +54,13 @@ APPLIANCE_CONFIG = {
     }
 }
 
-APPLIANCE_CONFIG_FLOATING_NIC = {
+APPLIANCE_CONFIG_FNIC = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP_FLOATING_NIC,
-        "trusted_vni": ENCAP_VNI
+        "trusted_vnis": ENCAP_VNI
     }
 }
 
@@ -109,11 +109,30 @@ PE_VNET_MAPPING_CONFIG = {
     }
 }
 
+PE_VNET_MAPPING_CONFIG_FNIC = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "mac_address": REMOTE_MAC,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
+    }
+}
+
 VM1_VNET_MAPPING_CONFIG = {
     f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "underlay_ip": VM1_PA,
         "metering_class_or": "2",
+    }
+}
+
+VM1_VNET_MAPPING_CONFIG_FNIC = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{VM1_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_VNET,
+        "underlay_ip": VM1_PA,
+        "mac_address": VM_MAC,
     }
 }
 
