@@ -102,28 +102,37 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     ```json
     {
+      "normalization_mappings": {
+        "vendor_names": {
+          "ACME Corp.": "ACME_CORP",
+          "Example & Co": "EXAMPLE_CO",
+          "Vendor/Inc": "VENDOR_INC"
+        },
+        "part_numbers": {
+          "QSFP-100G-AOC-15M": "QSFP-100G-AOC-GENERIC_2_ENDM",
+          "QSFP-100G-AOC-10M": "QSFP-100G-AOC-GENERIC_2_ENDM",
+          "QSFP-100G-AOC-3M": "QSFP-100G-AOC-GENERIC_1_ENDM",
+          "SFP-1000BASE-LX": "SFP-1000BASE-LX"
+        }
+      },
       "dut_name_1": {
         "port_1": {
-          "vendor_name": "vendor_name",
-          "normalized_vendor_name": "normalized_vendor_name",
-          "vendor_pn": "vendor_part_number",
-          "normalized_vendor_pn": "normalized_vendor_part_number",
+          "vendor_name": "ACME Corp.",
+          "vendor_pn": "QSFP-100G-AOC-15M",
           "vendor_sn": "serial_number",
           "vendor_date": "vendor_date_code",
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number"
         },
         "port_2": {
-          "vendor_name": "vendor_name",
-          "vendor_pn": "vendor_part_number",
-          "normalized_vendor_pn": "normalized_vendor_part_number"
+          "vendor_name": "Example & Co",
+          "vendor_pn": "SFP-1000BASE-LX"
         }
       },
       "dut_name_2": {
         "port_1": {
-          "vendor_name": "vendor_name",
-          "vendor_pn": "vendor_part_number",
-          "normalized_vendor_pn": "normalized_vendor_part_number"
+          "vendor_name": "Vendor/Inc",
+          "vendor_pn": "QSFP-100G-AOC-10M"
         }
       }
     }
@@ -131,16 +140,20 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     **Field Definitions:**
 
+    **Global Normalization Mappings:**
+    - `normalization_mappings.vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+    - `normalization_mappings.part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+
+    **Per-Port Fields:**
+
     **Mandatory Fields:**
     - `vendor_name`: The name of the vendor as specified in the transceiver's EEPROM.
-    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
     - `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
 
     **Field Handling Rules:**
-    - If `normalized_vendor_name` is **not defined** in the JSON for a port, it will be **assumed to be the same as** `vendor_name`.
-    - If `normalized_vendor_pn` is **not defined** in the JSON for a port, it will be **assumed to be the same as** `vendor_pn`.
-    - For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide `normalized_vendor_pn`, following the cable length normalization rules.
+    - **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings` section to get the corresponding normalized values.
+    - **Default normalization**: If no mapping is found in `normalization_mappings`, the normalized value defaults to the original value (with basic cleanup applied).
+    - **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.part_numbers` following the cable length normalization rules.
 
     **Optional Fields:**
     - `vendor_sn`: The vendor serial number.
@@ -157,20 +170,20 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     {
         "dut_name_1": {
             "port_1": {
-                "vendor_name": "vendor_name",
-                "normalized_vendor_name": "normalized_vendor_name",
-                "vendor_pn": "vendor_part_number",
-                "normalized_vendor_pn": "normalized_vendor_part_number",
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",  # looked up from normalization_mappings
+                "vendor_pn": "QSFP-100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",  # looked up from normalization_mappings
                 "vendor_sn": "serial_number",
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number"
             },
             "port_2": {
-                "vendor_name": "vendor_name",
-                "normalized_vendor_name": "vendor_name",  # same as vendor_name when not explicitly set
-                "vendor_pn": "vendor_part_number",
-                "normalized_vendor_pn": "normalized_vendor_part_number",
+                "vendor_name": "Example & Co",
+                "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings
+                "vendor_pn": "SFP-1000BASE-LX",
+                "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings (same value)
                 "vendor_sn": None,  # optional field not provided
                 "vendor_date": None,
                 "vendor_oui": None,
@@ -219,6 +232,11 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "field_5": "hwsku_override_value"
         }
       },
+      "dut_specific": {
+        "DUT_NAME": {
+          "field_1": "dut_specific_value_1"
+        }
+      },
       "transceivers": {
         "NORMALIZED_VENDOR_NAME": {
           "defaults": {
@@ -244,24 +262,31 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - **Mandatory vs Optional Fields**: Fields listed in `mandatory` must be explicitly provided somewhere in the hierarchy and cannot rely on defaults. Fields in `defaults` are optional and provide fallback values.
     - **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections as this creates logical inconsistency.
     - **Validation Order**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
+    - **Normalization Integration**: The normalized vendor name and part number are automatically derived from the `normalization_mappings` using the raw vendor name and part number as keys. If no mapping exists, the original value is used with basic cleanup applied.
+    - **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
+    - **Backward Compatibility**: Missing optional sections (platform_specific, hwsku_specific, etc.) are silently ignored to support gradual adoption and legacy configurations.
 
     **Key Structure Components:**
     - `mandatory`: List of mandatory fields that must be present in the transceiver attributes
     - `defaults`: Default values for the transceiver or test attributes
     - `platform_specific`: Platform-specific overrides (optional)
     - `hwsku_specific`: HWSKU-specific overrides (optional)
-    - `transceivers`: Normalized vendor name and part number specific configurations. Also contains transceiver specific attributes
+    - `dut_specific`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory based hostname of the DUT
+    - `transceivers`: Normalized vendor name and part number specific configurations. Also contains transceiver specific attributes (mandatory)
         - `platform_hwsku_overrides`: Highest priority overrides for specific platform+HWSKU combinations within each transceiver configuration (optional)
     > Note: Each sub-section can contain its own `defaults` fields.
 
     **Priority-based attribute resolution (highest to lowest):**
 
-    1. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
-    2. **Normalized Vendor Name + PN**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>`
-    3. **Normalized Vendor Name (defaults)**: `transceivers.<NORMALIZED_VENDOR_NAME>.defaults`
-    4. **HWSKU-specific**: `hwsku_specific.<HWSKU>` (if present in the file)
-    5. **Platform-specific**: `platform_specific.<PLATFORM>` (if present in the file)
-    6. **Global defaults**: `defaults`
+    1. **DUT-specific**: `dut_specific.<DUT_NAME>`
+    2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
+    3. **Normalized Vendor Name + PN**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>`
+    4. **Normalized Vendor Name (defaults)**: `transceivers.<NORMALIZED_VENDOR_NAME>.defaults`
+    5. **HWSKU-specific**: `hwsku_specific.<HWSKU>` (if present in the file)
+    6. **Platform-specific**: `platform_specific.<PLATFORM>` (if present in the file)
+    7. **Global defaults**: `defaults`
+
+    > **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
 
     **Example structure for a category file (e.g., `eeprom_attributes.json`):**
 
@@ -330,6 +355,11 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         "cold_reboot_stress_iterations": 10,
         "warm_reboot_settle_time": 45,
         "fast_reboot_settle_time": 30
+      },
+      "dut_specific": {
+        "DUT_NAME": {
+          "ports_to_be_stressed": ["Ethernet0", "Ethernet1"]
+        }
       },
       "transceivers": {
         "NORMALIZED_VENDOR_A": {
@@ -404,31 +434,54 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     **Attribute Merging Algorithm:**
 
-    Specifically, `port_attributes_dict` should be built using the following process:
+    The `port_attributes_dict` should be built using the following systematic process:
 
-    1. **Load base attributes** from `transceiver_dut_info.json` for each port
-    2. **For each category file**, perform priority-based merging:
-       - Start with global defaults
-       - Apply platform-specific overrides (if present)
-       - Apply HWSKU-specific overrides (if present)  
-       - Apply vendor defaults (if present)
-       - Apply vendor+PN specific attributes
-       - Apply platform+HWSKU combination overrides (if present)
-    3. **Validate mandatory fields** for each category using the `mandatory` array
-    4. **Store merged attributes** under the appropriate category key
+    1. **Initialize port dictionary** from `transceiver_dut_info.json` base attributes for each port
+    2. **For each category file** (EEPROM, System, DOM, VDM, PM, etc.), perform priority-based attribute merging:
+       - **Step 2a**: Start with global `defaults` section as the base layer
+       - **Step 2b**: Apply `platform_specific.<PLATFORM>` overrides (if present and applicable)
+       - **Step 2c**: Apply `hwsku_specific.<HWSKU>` overrides (if present and applicable)
+       - **Step 2d**: Apply `transceivers.<NORMALIZED_VENDOR_NAME>.defaults` vendor-level defaults (if present)
+       - **Step 2e**: Apply `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>` specific attributes
+       - **Step 2f**: Apply `platform_hwsku_overrides.<PLATFORM>+<HWSKU>` highest priority overrides (if present)
+       - **Step 2g**: Apply `dut_specific.<DUT_NAME>` overrides (if present)
+    3. **Validate mandatory fields** for the current category using the `mandatory` array - ensure all required fields are resolved
+    4. **Store merged category attributes** under the appropriate category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_TEST_ATTRIBUTES`)
+    5. **Add categorized attributes** to the `port_attributes_dict` for the current port
+    6. **Attach the complete `port_attributes_dict`** to the DUT host object for the selected `enum_rand_one_per_hwsku_hostname`
+
+    **Merging Behavior:**
+    - **Dictionary merging**: Later priority levels completely override earlier values for the same key
+    - **Missing sections**: If any priority level section is missing, it is silently skipped without error
+    - **Key conflicts**: Higher priority levels always win - no merge conflict resolution needed
 
     **Implementation Requirements:**
 
-    - **Error Handling**: Framework must handle missing files, invalid JSON, and missing mandatory fields gracefully
-    - **Validation**: All attributes must be validated against expected data types and value ranges
+    - **Error Handling**: Framework must handle missing files, invalid JSON, missing mandatory fields, and malformed data structures gracefully with descriptive error messages
     - **Logging**: Detailed logging of attribute resolution process for debugging
+
+    **Error Scenarios:**
+    - **Missing mandatory fields**: Framework should fail fast with clear identification of missing fields and their expected sources
+    - **Invalid JSON schema**: Graceful handling with file path and line number information where possible  
 
     **How to Use:**
 
-    - The test framework loads all relevant category files for a given test session.
-    - For each transceiver, it merges attributes from the files using the above priority order.
-    - Each test category accesses only the attributes it needs, with all overrides applied.
-    - Tests can access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`
+    - **Framework Integration**: The test framework automatically loads all relevant category files during test session initialization
+    - **Attribute Resolution**: For each transceiver, the framework merges attributes using the priority hierarchy described above
+    - **Category-Specific Access**: Each test category accesses only the attributes it needs, with all overrides pre-applied
+    - **Runtime Access Pattern**: Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]` from the duthost for the selected `enum_rand_one_per_hwsku_hostname`
+    - **Example Usage**:
+
+      ```python
+      port_attributes_dict = duthost.get_port_attributes()
+      # Access EEPROM attributes for a specific port
+      eeprom_attrs = port_attributes_dict["Ethernet0"]["EEPROM_ATTRIBUTES"]
+      dual_bank_supported = eeprom_attrs["dual_bank_supported"]
+      
+      # Access system test attributes
+      system_attrs = port_attributes_dict["Ethernet0"]["SYSTEM_TEST_ATTRIBUTES"] 
+      max_failures = system_attrs["max_allowed_failures"]
+      ```
 
     **Benefits:**
 
@@ -456,7 +509,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - `fw_binary_name`: The filename of the firmware binary.
     - `md5sum`: The MD5 checksum of the firmware binary.
 
-4. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver_inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+4. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
 
     ```csv
     inv_name,fw_base_url
