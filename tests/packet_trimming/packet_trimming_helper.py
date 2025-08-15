@@ -12,7 +12,7 @@ import random
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, check_qos_db_fv_reference_with_table
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
@@ -484,6 +484,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     for interface in interfaces:
         logger.info(f"Queue counters before filling for {interface}:")
         duthost.shell(f"show queue counters {interface}")
+        duthost.shell(f"show queue counters {interface} --json")
 
     # Create a large packet to efficiently fill the buffer
     fill_packet_size = 1500  # Standard Ethernet MTU
@@ -569,6 +570,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     for interface in interfaces:
         logger.info(f"Queue counters after filling for {interface}:")
         duthost.shell(f"show queue counters {interface}")
+        duthost.shell(f"show queue counters {interface} --json")
 
     return total_sent_packets
 
@@ -613,7 +615,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
             # Fill the buffer first if requested
             if fill_buffer:
                 # Get buffer configuration and size to calculate how many packets to send
-                buffer_size = calculate_buffer_size_for_queue(
+                buffer_size = compute_buffer_threshold(
                     duthost,
                     egress_port['name'],
                     block_queue
@@ -736,7 +738,7 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
             # Fill the buffer first if requested
             if fill_buffer:
                 # Get buffer configuration and size to calculate how many packets to send
-                buffer_size = calculate_buffer_size_for_queue(
+                buffer_size = compute_buffer_threshold(
                     duthost,
                     egress_port['name'],
                     block_queue
@@ -762,7 +764,196 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
         raise
 
 
-def calculate_buffer_size_for_queue(duthost, interface, queue_id):
+def get_buffer_profile_for_queue(duthost, interface, queue_id):
+    """
+    Get buffer profile information for a specific queue on an interface.
+
+    Args:
+        duthost: DUT host object
+        interface (str): Interface name
+        queue_id (str): Queue ID
+
+    Returns:
+        dict: Buffer profile attributes including pool, size, dynamic_th, etc.
+              Returns None if profile not found or error occurs
+    """
+    try:
+        # Check if buffer is in APPL_DB or CONFIG_DB
+        if check_qos_db_fv_reference_with_table(duthost):
+            # Buffer is in APPL_DB (database 0)
+            db = "0"
+            queue_key = f"BUFFER_QUEUE_TABLE:{interface}:{queue_id}"
+            profile_keystr = "BUFFER_PROFILE_TABLE:"
+        else:
+            # Buffer is in CONFIG_DB (database 4)
+            db = "4"
+            queue_key = f"BUFFER_QUEUE|{interface}|{queue_id}"
+            profile_keystr = "BUFFER_PROFILE|"
+
+        # Get buffer profile name for the queue
+        cmd = f"redis-cli -n {db} HGET '{queue_key}' profile"
+        result = duthost.shell(cmd)
+        profile_name = result["stdout"].strip()
+
+        if not profile_name:
+            logger.warning(f"No buffer profile found for queue {queue_id} on {interface}")
+            return None
+
+        logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {profile_name}")
+
+        # Get buffer profile details
+        profile_key = f"{profile_keystr}{profile_name}"
+        cmd = f"redis-cli -n {db} HGETALL '{profile_key}'"
+        result = duthost.shell(cmd)
+
+        # Parse the profile details
+        profile_details = {}
+        lines = result["stdout"].strip().split("\n")
+        for i in range(0, len(lines), 2):
+            if i + 1 < len(lines):
+                profile_details[lines[i]] = lines[i + 1]
+
+        if not profile_details:
+            logger.warning(f"No buffer profile details found for {profile_name}")
+            return None
+
+        logger.info(f"Buffer profile details for {profile_name}: {profile_details}")
+        return profile_details
+
+    except Exception as e:
+        logger.error(f"Error getting buffer profile for queue {queue_id} on {interface}: {str(e)}")
+        return None
+
+
+def get_buffer_pool_size(duthost, pool_name):
+    """
+    Get buffer pool size from database.
+
+    Args:
+        duthost: DUT host object
+        pool_name (str): Buffer pool name
+
+    Returns:
+        int: Buffer pool size in bytes, or 0 if not found
+    """
+    try:
+        # Check if buffer is in APPL_DB or CONFIG_DB
+        if check_qos_db_fv_reference_with_table(duthost):
+            # Buffer is in APPL_DB (database 0)
+            db = "0"
+            keystr = "BUFFER_POOL_TABLE:"
+        else:
+            # Buffer is in CONFIG_DB (database 4)
+            db = "4"
+            keystr = "BUFFER_POOL|"
+
+        cmd = f"redis-cli -n {db} HGET '{keystr}{pool_name}' size"
+        result = duthost.shell(cmd)
+        pool_size = int(result["stdout"].strip())
+        logger.info(f"Buffer pool '{pool_name}' size: {pool_size}")
+        return pool_size
+
+    except Exception as e:
+        logger.error(f"Error getting buffer pool size for '{pool_name}': {str(e)}")
+        return 0
+
+
+def calculate_dynamic_buffer_scale(dynamic_th):
+    """
+    Calculate buffer scale factor for dynamic threshold.
+
+    Args:
+        dynamic_th (str): Dynamic threshold value
+
+    Returns:
+        float: Buffer scale factor
+    """
+    try:
+        if dynamic_th == "7":
+            alpha = 64
+        else:
+            alpha = 2 ** float(dynamic_th)
+
+        buffer_scale = alpha / (alpha + 1)
+        logger.info(f"Dynamic threshold: {dynamic_th}, Alpha: {alpha}, Buffer scale: {buffer_scale:.4f}")
+        return buffer_scale
+
+    except Exception as e:
+        logger.error(f"Error calculating buffer scale for dynamic_th '{dynamic_th}': {str(e)}")
+        return 0.5  # Default scale factor
+
+
+def compute_buffer_threshold(duthost, interface, queue_id):
+    """
+    Automatically select and call the appropriate buffer threshold computation function
+    based on SAI profile configuration.
+
+    Args:
+        duthost: DUT host object
+        interface (str): Interface name
+        queue_id (str): Queue ID
+
+    Returns:
+        int: Computed buffer threshold in bytes
+    """
+    # Check SAI profile for SAI_KEY_DISABLE_PORT_ALPHA=1
+    cmd = "docker exec syncd cat /usr/share/sonic/hwsku/sai.profile"
+    if "SAI_KEY_DISABLE_PORT_ALPHA=1" in duthost.shell(cmd)['stdout']:
+        logger.info("Using compute_buffer_threshold_for_common_device due to SAI_KEY_DISABLE_PORT_ALPHA=1")
+        return compute_buffer_threshold_for_common_device(duthost, interface, queue_id)
+    else:
+        logger.info("Using compute_buffer_threshold_for_nvidia_device (no DISABLE_PORT_ALPHA)")
+        return compute_buffer_threshold_for_nvidia_device(duthost, interface, queue_id)
+
+
+def compute_buffer_threshold_for_common_device(duthost, interface, queue_id):
+    """
+    Compute buffer threshold for dynamic threshold profiles.
+    This function is based on __computeBufferThreshold from qos_sai_base.py.
+
+    Args:
+        duthost: DUT host object
+        interface (str): Interface name
+        queue_id (str): Queue ID
+
+    Returns:
+        int: Computed buffer threshold in bytes
+
+    Raises:
+        pytest.fail: If buffer profile is not found or computation fails
+    """
+    try:
+        # Get buffer profile for the queue
+        buffer_profile = get_buffer_profile_for_queue(duthost, interface, queue_id)
+        if not buffer_profile:
+            error_msg = f"No buffer profile found for queue {queue_id} on {interface}"
+            logger.error(error_msg)
+            pytest.fail(error_msg)
+
+        logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {buffer_profile}")
+
+        # Get buffer pool size
+        pool_size = get_buffer_pool_size(duthost, buffer_profile["pool"])
+
+        # Calculate buffer scale
+        buffer_scale = calculate_dynamic_buffer_scale(buffer_profile["dynamic_th"])
+
+        # Calculate static threshold: profile_size + (buffer_scale * pool_size)
+        static_threshold = int(buffer_profile["size"]) + int(buffer_scale * pool_size * 1.5)
+
+        logger.info(f"Computed buffer threshold for queue {queue_id} on {interface}: {static_threshold}")
+        logger.info(f"Pool size: {pool_size}, Buffer scale: {buffer_scale:.4f}, "
+                    f"Buffer size: {static_threshold}")
+
+        return static_threshold
+
+    except Exception as e:
+        logger.error(f"Error computing buffer threshold for queue {queue_id} on {interface}: {str(e)}")
+        # Fail the test case if computation fails
+        pytest.fail(f"Failed to compute buffer threshold for queue {queue_id} on {interface}: {str(e)}")
+
+
+def compute_buffer_threshold_for_nvidia_device(duthost, interface, queue_id):
     """
     Calculate the approximate buffer size for a specific queue on an interface.
 
@@ -775,22 +966,14 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
         int: Approximate buffer size in bytes
     """
     try:
-        # Get buffer profile for the queue
-        cmd = f"redis-cli -n 4 HGET 'BUFFER_QUEUE|{interface}|{queue_id}' profile"
-        result = duthost.shell(cmd)
-        profile_name = result["stdout"].strip()
-        logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {profile_name}")
+        # Get buffer profile for the queue using the unified function
+        profile_details = get_buffer_profile_for_queue(duthost, interface, queue_id)
+        if not profile_details:
+            error_msg = f"No buffer profile found for queue {queue_id} on {interface}"
+            logger.error(error_msg)
+            pytest.fail(error_msg)
 
-        # Get buffer profile details
-        cmd = f"redis-cli -n 4 HGETALL 'BUFFER_PROFILE|{profile_name}'"
-        result = duthost.shell(cmd)
-
-        # Parse the profile details
-        profile_details = {}
-        lines = result["stdout"].strip().split("\n")
-        for i in range(0, len(lines), 2):
-            if i + 1 < len(lines):
-                profile_details[lines[i]] = lines[i + 1]
+        logger.info(f"Queue {queue_id} on {interface} uses buffer profile: {profile_details}")
 
         # Get buffer size from profile
         buffer_size = 0
@@ -800,9 +983,7 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
         # Get pool name and its size
         if "pool" in profile_details:
             pool_name = profile_details["pool"]
-            cmd = f"redis-cli -n 4 HGET 'BUFFER_POOL|{pool_name}' size"
-            result = duthost.shell(cmd)
-            pool_size = int(result["stdout"].strip())
+            pool_size = get_buffer_pool_size(duthost, pool_name)
 
             # If the profile has dynamic threshold, calculate maximum size
             if "dynamic_th" in profile_details:
@@ -824,16 +1005,19 @@ def calculate_buffer_size_for_queue(duthost, interface, queue_id):
             if buffer_size == 0 and pool_size > 0:
                 buffer_size = pool_size // 4  # Use 25% of pool as an estimate
 
-        # If we still have no buffer size, use a default
+        # If we still have no buffer size, fail the test
         if buffer_size == 0:
-            buffer_size = 1000000  # Default 1MB
+            error_msg = f"Unable to determine buffer size for queue {queue_id} on {interface}"
+            logger.error(error_msg)
+            pytest.fail(error_msg)
 
-        logger.info(f"Estimated buffer size for queue {queue_id} on {interface}: {buffer_size} bytes")
+        logger.info(f"Estimated buffer size for queue {queue_id} on {interface}, buffer_size: {buffer_size} bytes")
         return buffer_size
 
     except Exception as e:
-        logger.warning(f"Error calculating buffer size: {str(e)}")
-        return 1000000  # Default 1MB on error
+        logger.error(f"Error calculating buffer size: {str(e)}")
+        # Fail the test case if calculation fails
+        pytest.fail(f"Failed to calculate buffer size for queue {queue_id} on {interface}: {str(e)}")
 
 
 class ConfigTrimming:
