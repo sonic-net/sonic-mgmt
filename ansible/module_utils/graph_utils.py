@@ -7,7 +7,10 @@ from operator import itemgetter
 from itertools import groupby
 from natsort import natsorted
 
-from ansible.module_utils.port_utils import get_port_alias_to_name_map
+try:
+    from ansible.module_utils.port_utils import get_port_alias_to_name_map
+except ImportError:
+    from module_utils.port_utils import get_port_alias_to_name_map
 
 
 class LabGraph(object):
