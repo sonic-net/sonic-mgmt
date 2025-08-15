@@ -3859,16 +3859,28 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
             if out[0].strip() == "1":
                 cmd_opt = ""
-            cmd = "sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)
-            out, err, ret = self.exec_cmd_on_dut(
-                self.dst_server_ip,
-                self.test_params['dut_username'],
-                self.test_params['dut_password'],
-                cmd)
-            if err and out == []:
-                raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
+            cmds = ["sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)]
+            # dst_port_id may have changed from get_rx_port, ensure this port is set in
+            # the scheduler if its name information is available.
+            if ('dst' not in sai_base_test.interface_to_front_mapping or
+               str(dst_port_id) not in sai_base_test.interface_to_front_mapping['dst']):
+                log_message("Unexpected interface_to_front_mapping for dst_port_id {}: {}".format(
+                    dst_port_id, sai_base_test.interface_to_front_mapping))
             else:
-                print("Success in setting scheduler in DUT.", file=sys.stderr)
+                dst_port_name = sai_base_test.interface_to_front_mapping['dst'][str(dst_port_id)]
+                cmd = '''docker exec syncd /bin/sh -c 'echo "\nset_port_cir(\\"{}\\", {})" >> set_scheduler.py\'''' \
+                    .format(dst_port_name, 5 * (10 ** 9))
+                cmds.append(cmd)
+            for cmd in cmds:
+                out, err, ret = self.exec_cmd_on_dut(
+                    self.dst_server_ip,
+                    self.test_params['dut_username'],
+                    self.test_params['dut_password'],
+                    cmd)
+                if err and out == []:
+                    raise RuntimeError("cmd({}) might have failed in the DUT. Error:{}".format(cmd, err))
+                else:
+                    print("Success in setting scheduler in DUT.", file=sys.stderr)
         else:
             # Release port
             self.sai_thrift_port_tx_enable(
