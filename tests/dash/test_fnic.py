@@ -23,6 +23,10 @@ pytestmark = [pytest.mark.topology("t1"), pytest.mark.skip_check_dut_health]
 """
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
+
+Note: It's also necessary for the DPU to learn the neighbor info of the dataplane port to the NPU before any
+DASH configs are programmed. This should be handled automatically by fixture ordering and does not require
+manual steps.
 """
 
 
