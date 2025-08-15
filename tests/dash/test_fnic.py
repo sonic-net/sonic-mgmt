@@ -8,7 +8,7 @@ import ptf
 import pytest
 from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
-from packets import outbound_pl_packets, inbound_pl_packets
+from packets import rand_udp_port_packets
 from tests.common.helpers.assertions import pytest_assert
 from tests.dash.conftest import get_interface_ip
 from tests.common.helpers.smartswitch_util import get_dpu_dataplane_port
@@ -104,7 +104,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     set_vxlan_udp_sport_range,
-    add_npu_static_routes,
+    add_npu_static_routes,  # manually invoke to ensure routes are added before DASH configs are programmed
     single_endpoint,
 ):
     if skip_config:
@@ -206,17 +206,30 @@ def verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_
 
 
 def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
-    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan", floating_nic)
-    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, floating_nic)
-    exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
+    pkt_sets = list()
 
-    num_packets = 5
-    ptfadapter.dataplane.flush()
+    if single_endpoint:
+        num_packets = 5
+    else:
+        # need a lot of packets to check ECMP distribution
+        num_packets = 1000
+
+    for _ in range(num_packets):
+        vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
+            dash_pl_config, floating_nic
+        )
+        exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
+        pkt_sets.append((vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt))
+    # vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan", floating_nic)
+    # pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, floating_nic)
+
     if single_endpoint:
         tunnel_endpoint_counts = {ip: 0 for ip in TUNNEL1_ENDPOINT_IPS}
     else:
         tunnel_endpoint_counts = {ip: 0 for ip in TUNNEL2_ENDPOINT_IPS}
-    for _ in range(num_packets):
+
+    ptfadapter.dataplane.flush()
+    for vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt in pkt_sets:
         testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
         testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
@@ -224,6 +237,7 @@ def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
         verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_endpoint_counts)
 
     recvd_pkts = sum(tunnel_endpoint_counts.values())
+    logger.info(f"Received packets: {recvd_pkts}, Tunnel endpoint counts: {tunnel_endpoint_counts}")
     pytest_assert(
         recvd_pkts == num_packets,
         f"Expected {num_packets} packets, but received {recvd_pkts} packets. " f"Counts: {tunnel_endpoint_counts}",
@@ -233,11 +247,10 @@ def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
     # so this check wouldn't hold true for nvidia-bluefield platform
     # Either send a different flavor or packet
 
-    # expected_pkt_per_endpoint = num_packets // len(pl.TUNNEL2_ENDPOINT_IPS)
-    # pkt_count_low = expected_pkt_per_endpoint * 0.75
-    # pkt_count_high = expected_pkt_per_endpoint * 1.25
-    # for ip, count in tunnel_endpoint_counts.items():
-    #     pytest_assert(
-    #         pkt_count_low <= count <= pkt_count_high,
-    #         f"Packet count for {ip} is out of expected range: {count}"
-    #     )
+    expected_pkt_per_endpoint = num_packets // len(tunnel_endpoint_counts)
+    pkt_count_low = expected_pkt_per_endpoint * 0.75
+    pkt_count_high = expected_pkt_per_endpoint * 1.25
+    for ip, count in tunnel_endpoint_counts.items():
+        pytest_assert(
+            pkt_count_low <= count <= pkt_count_high, f"Packet count for {ip} is out of expected range: {count}"
+        )
