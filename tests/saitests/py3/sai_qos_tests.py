@@ -3851,15 +3851,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 recv_pkt = scapy.Ether(received.packet)
 
         if asic_type == 'cisco-8000':
-            out, err, ret = self.exec_cmd_on_dut(
-                self.dst_server_ip,
-                self.test_params['dut_username'],
-                self.test_params['dut_password'],
-                "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
-            cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
-            if out[0].strip() == "1":
-                cmd_opt = ""
-            cmds = ["sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt)]
+            cmds = []
             # dst_port_id may have changed from get_rx_port, ensure this port is set in
             # the scheduler if its name information is available.
             if ('dst' not in sai_base_test.interface_to_front_mapping or
@@ -3871,6 +3863,15 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 cmd = '''docker exec syncd /bin/sh -c 'echo "\nset_port_cir(\\"{}\\", {})" >> set_scheduler.py\'''' \
                     .format(dst_port_name, 5 * (10 ** 9))
                 cmds.append(cmd)
+            out, err, ret = self.exec_cmd_on_dut(
+                self.dst_server_ip,
+                self.test_params['dut_username'],
+                self.test_params['dut_password'],
+                "show platform summary | egrep 'ASIC Count' | awk -F: '{print $2}'")
+            cmd_opt = "-n asic{}".format(self.test_params['dst_asic_index'])
+            if out[0].strip() == "1":
+                cmd_opt = ""
+            cmds.append("sudo show platform npu script {} -s set_scheduler.py".format(cmd_opt))
             for cmd in cmds:
                 out, err, ret = self.exec_cmd_on_dut(
                     self.dst_server_ip,
