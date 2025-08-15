@@ -10,6 +10,7 @@ go_library(
     testonly = 1,
     srcs = [
         "augment.go",
+        "config_convergence.go",
         "config_restorer.go",
 	"gnmi.go",
         "gnoi.go",
@@ -20,7 +21,7 @@ go_library(
         "platform_info.go",
         "port_management.go",
 	"results.go",
-      	"ssh.go",
+        "ssh.go",
         "//infrastructure/testhelper/platform_info:platform_info",
     ],
     data = [

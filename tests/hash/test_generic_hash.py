@@ -116,16 +116,16 @@ def config_validate_algorithm(duthost, algorithm_type, supported_algorithms):
                 check_global_hash_algorithm(duthost, lag_hash_algo=algorithm)
 
 
-def test_hash_capability(duthost, global_hash_capabilities):  # noqa:F811
+def test_hash_capability(rand_selected_dut, global_hash_capabilities):  # noqa:F811
     """
     Test case to verify the 'show switch-hash capabilities' command.
     Args:
-        duthost (AnsibleHost): Device Under Test (DUT)
+        rand_selected_dut (AnsibleHost): Device Under Test (DUT)
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
     with allure.step('Check the dut hash capabilities are as expected'):
         ecmp_hash_capability, lag_hash_capability = global_hash_capabilities['ecmp'], global_hash_capabilities['lag']
-        asic_type = duthost.facts["asic_type"]
+        asic_type = rand_selected_dut.facts["asic_type"]
         expected_hash_capabilities = HASH_CAPABILITIES.get(asic_type, HASH_CAPABILITIES['default'])
         expected_ecmp_hash_capability = expected_hash_capabilities['ecmp']
         expected_lag_hash_capability = expected_hash_capabilities['lag']
@@ -330,9 +330,17 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
         )
 
 
+def is_bgp_session_established(duthost, neighbor_ip):
+    """
+    Check if the BGP session is established.
+    """
+    bgp_neighbors = duthost.get_bgp_neighbors()
+    return bgp_neighbors.get(neighbor_ip, {}).get('state') == 'established'
+
+
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
-                      toggle_all_aa_ports_to_rand_selected_tor):                                      # noqa:F811
+                      toggle_all_aa_ports_to_rand_selected_tor, duthost):                             # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -407,8 +415,11 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
     with allure.step('Startup the interface, and then flap it 3 more times'):
         startup_interface(rand_selected_dut, interface)
         flap_interfaces(rand_selected_dut, [interface], times=3)
-        pytest_assert(wait_until(10, 2, 0, check_default_route, rand_selected_dut, uplink_interfaces.keys()),
-                      'The default route is not restored after the flapping.')
+        ip_intfs = duthost.show_and_parse('show ip interface')
+        ip_intf = next((intf for intf in ip_intfs if intf['interface'] == interface), None)
+        neighbor_ip = ip_intf['neighbor ip']
+        pytest_assert(wait_until(60, 2, 0, is_bgp_session_established, duthost, neighbor_ip),
+                      "BGP session is not established on DUT after the flapping")
         ptf_params['expected_port_groups'] = origin_ptf_expected_port_groups
     with allure.step('Start the ptf test, send traffic and check the balancing'):
         ptf_runner(
@@ -712,12 +723,12 @@ def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_f
 
 
 @pytest.mark.disable_loganalyzer
-def test_backend_error_messages(duthost, reload, global_hash_capabilities):  # noqa:F811
+def test_backend_error_messages(rand_selected_dut, reload, global_hash_capabilities):  # noqa:F811
     """
     Test case to validate there are backend errors printed in the syslog when
     the hash config is removed or updated with invalid values via redis cli.
     Args:
-        duthost (AnsibleHost): Device Under Test (DUT)
+        rand_selected_dut (AnsibleHost): Device Under Test (DUT)
         reload: fixture to reload the configuration after the test
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
@@ -797,37 +808,37 @@ def test_backend_error_messages(duthost, reload, global_hash_capabilities):  # n
          # noqa:E501
          }
     ]
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="test_backend_error_msgs:")
+    loganalyzer = LogAnalyzer(ansible_host=rand_selected_dut, marker_prefix="test_backend_error_msgs:")
     for item in test_data:
         random_ecmp_algo = random.choice(global_hash_capabilities['ecmp_algo'])
         random_lag_algo = random.choice(global_hash_capabilities['lag_algo'])
         with allure.step('Configure all supported fields to the global ecmp and lag hash'):
-            config_all_hash_fields(duthost, global_hash_capabilities)
+            config_all_hash_fields(rand_selected_dut, global_hash_capabilities)
 
         with allure.step(f"Random chose algorithm: {random_ecmp_algo} from supported ecmp hash "
                          f"algorithms: {global_hash_capabilities['ecmp_algo']}"):
-            duthost.set_switch_hash_global_algorithm('ecmp', random_ecmp_algo)
+            rand_selected_dut.set_switch_hash_global_algorithm('ecmp', random_ecmp_algo)
 
         with allure.step(f"Random chose algorithm: {random_lag_algo} from supported lag hash "
                          f"algorithms: {global_hash_capabilities['lag_algo']}"):
-            duthost.set_switch_hash_global_algorithm('lag', random_lag_algo)
+            rand_selected_dut.set_switch_hash_global_algorithm('lag', random_lag_algo)
 
         with allure.step(item['info']):
             loganalyzer.expect_regex = item['expected_regex']
             marker = loganalyzer.init()
-            duthost.shell(item['command'])
+            rand_selected_dut.shell(item['command'])
             time.sleep(1)
             loganalyzer.analyze(marker)
 
 
-def test_algorithm_config(duthost, global_hash_capabilities):  # noqa:F811
+def test_algorithm_config(rand_selected_dut, global_hash_capabilities):  # noqa:F811
     """
     Test case to validate the hash algorithm configuration.
     Args:
-        duthost (AnsibleHost): Device Under Test (DUT)
+        rand_selected_dut (AnsibleHost): Device Under Test (DUT)
         global_hash_capabilities: module level fixture to get the dut hash capabilities
     """
     with allure.step('Test ECMP hash algorithm configuration'):
-        config_validate_algorithm(duthost, 'ecmp', global_hash_capabilities['ecmp_algo'])
+        config_validate_algorithm(rand_selected_dut, 'ecmp', global_hash_capabilities['ecmp_algo'])
     with allure.step('Test LAG hash algorithm configuration'):
-        config_validate_algorithm(duthost, 'lag', global_hash_capabilities['lag_algo'])
+        config_validate_algorithm(rand_selected_dut, 'lag', global_hash_capabilities['lag_algo'])

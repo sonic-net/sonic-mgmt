@@ -106,7 +106,11 @@ router bgp {{ host['bgp']['asn'] }}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
- neighbor {{ remote_ip }} next-hop-self
+{# set LT2/FT2 as reflector to advertise route to DUT #}
+{% if props.swrole is defined and props.swrole in ("lowerspine", "fabricspine") %}
+ neighbor {{ remote_ip }} route-reflector-client
+ neighbor {{ remote_ip }} additional-paths send any
+{% endif %}
 {% if remote_ip | ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate

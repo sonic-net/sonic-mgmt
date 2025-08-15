@@ -222,10 +222,6 @@ class SRv6Packets():
                 packet['exp_outer_dscp_uniform'] = packet['outer_dscp'] = i % 64
                 packet['exp_inner_dscp_pipe'] = packet['inner_dscp'] = (packet['outer_dscp'] + 8) % 64
 
-            # Alternate between IPv4 and IPv6 for inner packet
-            if i % 2 == 1:
-                packet['inner_pkt_ver'] = '4'
-
             srv6_packets.append(packet)
 
         return srv6_packets
@@ -501,3 +497,103 @@ def create_srv6_sid(duthost,
 def del_srv6_sid(duthost, locator_name, ip_addr):
     logger.info(f'Delete sid: SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}')
     duthost.shell(f'sonic-db-cli CONFIG_DB DEL "SRV6_MY_SIDS|{locator_name}|{ip_addr}/{SRv6.prefix_len}"')
+
+
+def validate_srv6_in_appl_db(duthost,
+                             mysid_list,
+                             block_len=32,
+                             node_len=16,
+                             func_len=0,
+                             arg_len=0):
+    """
+    Validate all SRv6 MySIDs in Application DB using a single query.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        mysid_list (list): MySID list
+        block_len (int): Block length for SRv6 SID
+        node_len (int): Node length for SRv6 SID
+        func_len (int): Function length for SRv6 SID
+        arg_len (int): Argument length for SRv6 SID
+
+    Returns:
+        bool: True if all MySIDs are valid, False otherwise
+    """
+    try:
+        # Get all SRv6 MySID entries from APPL_DB
+        appl_db_keys = duthost.shell('sonic-db-cli APPL_DB KEYS "SRV6_MY_SID_TABLE*"')["stdout"]
+        if not appl_db_keys:
+            logger.error("No SRv6 MySID entries found in APPL_DB")
+            return False
+
+        # Convert keys to a set for faster lookup
+        appl_db_keys_set = set(appl_db_keys.split())
+
+        # Validate each MySID
+        for entry in mysid_list:
+            prefix = entry[1]
+            expected_key = f"SRV6_MY_SID_TABLE:{block_len}:{node_len}:{func_len}:{arg_len}:{prefix}"
+
+            # Check if the key exists
+            if expected_key not in appl_db_keys_set:
+                logger.error(f"MySID entry not found in APPL_DB: {expected_key}")
+                return False
+
+        return True
+
+    except Exception as err:
+        raise Exception(f"Failed to validate SRv6 MySIDs in Application DB: {str(err)}")
+
+
+def validate_srv6_in_asic_db(duthost, mysid_list):
+    """
+    Validate all SRv6 MySIDs in ASIC DB using a single query.
+
+    Args:
+        duthost (SonicHost): DUT host object
+        mysid_list (list): MySID list
+
+    Returns:
+        bool: True if all MySIDs are valid, False otherwise
+    """
+    try:
+        asic_db_keys = duthost.shell('sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
+        if not asic_db_keys:
+            logger.error("No SRv6 MySID entries found in ASIC_DB")
+            return False
+
+        # Validate each MySID
+        for entry in mysid_list:
+            prefix = entry[1]
+
+            # Check if the key exists
+            if prefix not in asic_db_keys:
+                logger.error(f"MySID entry not found in ASIC_DB: {prefix}")
+                return False
+
+        return True
+
+    except Exception as err:
+        raise Exception(f"Failed to validate SRv6 MySIDs in ASIC DB: {str(err)}")
+
+
+def validate_srv6_route(duthost, route_prefix):
+    """
+    Validate the SRv6 route in ASIC DB
+    Args:
+        duthost (SonicHost): DUT host object
+        route_prefix (str): Route prefix
+    """
+    try:
+        asic_route = duthost.shell(
+            f'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route_prefix}::/16*"')["stdout"]
+
+        if not asic_route:
+            logger.error(f"No SRv6 route {route_prefix}::/16 found")
+            return False
+
+        logger.info(f"SRv6 route {route_prefix}::/16 installed")
+        return True
+
+    except Exception as err:
+        raise Exception(f"Failed to validate SRv6 route {route_prefix}::/16: {str(err)}")

@@ -279,6 +279,13 @@ class TestPlanManager(object):
         if max_execute_seconds == 0 and test_plan_type == "PR":
             max_execute_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN", 21600))
 
+        # Check and add GitHub api proxy env to setup-container params
+        setup_container_params = kwargs.get("setup_container_params", "")
+        github_api_proxy = os.getenv("SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL", None)
+        if github_api_proxy:
+            setup_container_params = (f"{setup_container_params} "
+                                      f"-e SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL={github_api_proxy}")
+
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
             f"build info:{repo_name} {pr_id} {build_id}"
@@ -293,7 +300,7 @@ class TestPlanManager(object):
             # Add topo arg
             if topology in ["t0", "t0-64-32"]:
                 common_extra_params = common_extra_params + " --topology=t0,any"
-            elif topology in ["t1-lag", "t1-8-lag"]:
+            elif topology in ["t1-lag", "t1-8-lag", "t1-vpp", "t1-lag-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
             elif topology == "dualtor":
                 common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
@@ -334,12 +341,15 @@ class TestPlanManager(object):
                 "min": min_worker,
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
+                "asic_type": kwargs["asic_type"],
                 "asic_num": kwargs["num_asic"],
                 "lock_wait_timeout_seconds": lock_wait_timeout_seconds,
             },
             "test_option": {
+                "setup_container_params": setup_container_params,
                 "skip_remove_add_topo_for_nightly": kwargs.get("skip_remove_add_topo_for_nightly", True),
                 "add_topo_params": kwargs.get("add_topo_params", ""),
+                "skip_restart_ptf": kwargs.get("skip_restart_ptf", False),
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
@@ -358,12 +368,14 @@ class TestPlanManager(object):
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
-                    "kvm_image_branch": kvm_image_branch
+                    "kvm_image_branch": kvm_image_branch,
+                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None)
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
                     "branch": kwargs["mgmt_branch"],
-                    "pull_request_id": sonic_mgmt_pull_request_id
+                    "pull_request_id": sonic_mgmt_pull_request_id,
+                    "commit_hash": kwargs.get("mgmt_commit_hash")
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
@@ -620,6 +632,16 @@ if __name__ == "__main__":
         help="Test set."
     )
     parser_create.add_argument(
+        "--setup-container-params",
+        type=str,
+        nargs='?',
+        const='',
+        dest="setup_container_params",
+        default="",
+        required=False,
+        help="Setup sonic-mgmt container params"
+    )
+    parser_create.add_argument(
         "--skip-remove-add-topo-for-nightly",
         type=ast.literal_eval,
         dest="skip_remove_add_topo_for_nightly",
@@ -651,6 +673,17 @@ if __name__ == "__main__":
         help="Deploy minigraph extra params"
     )
     parser_create.add_argument(
+        "--skip-restart-ptf",
+        type=ast.literal_eval,
+        dest="skip_restart_ptf",
+        nargs='?',
+        const=False,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Whether skip restart ptf for nightly test."
+    )
+    parser_create.add_argument(
         "--kvm-image-branch",
         type=str,
         dest="kvm_image_branch",
@@ -671,6 +704,16 @@ if __name__ == "__main__":
         help="KVM build id."
     )
     parser_create.add_argument(
+        "--kvm-image-build-pipeline-id",
+        type=str,
+        dest="kvm_image_build_pipeline_id",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="KVM image build pipeline id."
+    )
+    parser_create.add_argument(
         "--mgmt-branch",
         type=str,
         dest="mgmt_branch",
@@ -681,12 +724,32 @@ if __name__ == "__main__":
         help="Branch of sonic-mgmt repo to run the test"
     )
     parser_create.add_argument(
+        "--mgmt-commit-hash",
+        type=str,
+        dest="mgmt_commit_hash",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Specifies an exact commit hash from the `sonic-mgmt` repository to check out."
+    )
+    parser_create.add_argument(
         "--vm-type",
         type=str,
         dest="vm_type",
         default="ceos",
         required=False,
         help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--asic-type",
+        type=str,
+        dest="asic_type",
+        nargs='?',
+        const="",
+        default="",
+        required=False,
+        help="ASIC type"
     )
     parser_create.add_argument(
         "--specified-params",
@@ -1084,10 +1147,13 @@ if __name__ == "__main__":
                     args.topology,
                     test_plan_name=test_plan_name,
                     skip_remove_add_topo_for_nightly=args.skip_remove_add_topo_for_nightly,
+                    setup_container_params=args.setup_container_params,
                     add_topo_params=args.add_topo_params,
                     deploy_mg_extra_params=args.deploy_mg_extra_params,
+                    skip_restart_ptf=args.skip_restart_ptf,
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,
+                    kvm_image_build_pipeline_id=args.kvm_image_build_pipeline_id,
                     min_worker=args.min_worker,
                     max_worker=args.max_worker,
                     pr_id=pr_id,
@@ -1098,7 +1164,9 @@ if __name__ == "__main__":
                     output=args.output,
                     source_repo=repo_name,
                     mgmt_branch=args.mgmt_branch,
+                    mgmt_commit_hash=args.mgmt_commit_hash,
                     common_extra_params=args.common_extra_params,
+                    asic_type=args.asic_type,
                     num_asic=args.num_asic,
                     specified_params=args.specified_params,
                     specific_param=specific_param,

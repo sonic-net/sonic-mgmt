@@ -1,5 +1,6 @@
 import ipaddress
 import logging
+import time
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
@@ -33,6 +34,35 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
                 logger.info("Found route to DHCP server via default GW(MGMT interface)")
                 return False
     return True
+
+
+def check_dhcp_stress_status(duthost, test_duration_seconds):
+    # Monitor DHCP status during the test
+    start_time = time.time()
+    sleep_time = 30
+    while time.time() - start_time < test_duration_seconds - sleep_time:
+        # Check the status of the DHCP container
+        dhcp_container_status = duthost.shell('docker ps | grep dhcp_relay')["stdout"]
+        if dhcp_container_status == "":
+            assert False, "DHCP container is NOT running."
+
+        # Check CPU usage of the DHCP process
+        dhcp_cpu_usage = duthost.shell('show processes cpu --verbose | grep dhc | awk \'{print $9}\'')["stdout"]
+        if dhcp_cpu_usage:
+            dhcp_cpu_usage_lines = dhcp_cpu_usage.splitlines()
+            for cpu_usage in dhcp_cpu_usage_lines:
+                cpu_usage_float = float(cpu_usage)
+            assert cpu_usage_float < 50.0, "DHCP CPU usage is too high: {}%".format(cpu_usage_float)
+
+        # Check the status of multiple DHCP processes inside the container
+        dhcp_process_status = duthost.shell(
+             'docker exec dhcp_relay supervisorctl status | grep dhcp | grep -v dhcp6')["stdout"]
+        if dhcp_process_status:
+            dhcp_process_status_lines = dhcp_process_status.splitlines()
+            for dhcp_process_status_line in dhcp_process_status_lines:
+                process_name, process_status = dhcp_process_status_line.split()[0], dhcp_process_status_line.split()[1],
+                assert process_status == "RUNNING", "{} is not running!".format(process_name)
+    time.sleep(sleep_time)
 
 
 def restart_dhcp_service(duthost):

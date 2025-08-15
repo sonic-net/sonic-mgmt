@@ -19,8 +19,20 @@
     {% if fanout_hwsku == "Arista-720DT-G48S4" and (fanout_port_config[port_name]['lanes'] | int) <= 24 %}
             "autoneg": "on",
     {% endif %}
-    {% if fanout_port_config[port_name]['speed'] | default('100000') == "100000" %}
+    {% if fanout_port_config[port_name]['speed'] | default('100000') in ["100000", "400000", "800000"] %}
             "fec" : "rs",
+    {% endif %}
+    {% if port_name in device_conn[inventory_hostname] %}
+        {% if 'autoneg' in device_conn[inventory_hostname][port_name] %}
+                {% if 'on' in device_conn[inventory_hostname][port_name]['autoneg'] %}
+                    "autoneg": "on",
+                    {% if msft_an_enabled is defined %}
+                        "fec": "none",
+                    {% endif %}
+                {% elif 'off' in device_conn[inventory_hostname][port_name]['autoneg'] %}
+                    "autoneg": "off",
+                {% endif %}
+        {% endif %}
     {% endif %}
     {% if 'broadcom' in fanout_sonic_version["asic_type"] or 'marvell' in fanout_sonic_version["asic_type"] or 'mellanox' in fanout_sonic_version["asic_type"] %}
         {% if port_name in device_port_vlans[inventory_hostname] and device_port_vlans[inventory_hostname][port_name]["mode"].lower() == "access" %}
