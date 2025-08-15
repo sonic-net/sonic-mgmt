@@ -14,7 +14,6 @@
     privileged: yes
 - name: Create network for csonic/ceos container csonic|ceos_{{ vm_set_name }}_{{ item }}
   become: yes
-  ceos_network:
   cnet_network:
     name: net_{{ vm_set_name }}_{{ item }}
     vm_name:    "{{ item }}"
