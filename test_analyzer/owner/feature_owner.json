@@ -1559,19 +1559,21 @@
     },
     {
         "feature": "srv6",
-        "owner": "Xin Wang",
-        "email": "xiwang5@microsoft.com",
+        "owner": "Riff Jiang",
+        "email": "riffjiang@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "srv6.test_srv6_basic_sanity"
                 ],
-                "owner": "Xin Wang",
-                "email": "xiwang5@microsoft.com"
+                "owner": "Riff Jiang",
+                "email": "riffjiang@microsoft.com"
             },
             {
                 "scripts": [
-                    "srv6.test_srv6_static_config"
+                    "srv6.test_srv6_static_config",
+                    "srv6.test_srv6_dataplane",
+                    "srv6.test_srv6_vlan_forwarding"
                 ],
                 "owner": "Changrong Wu",
                 "email": "changrongwu@microsoft.com"

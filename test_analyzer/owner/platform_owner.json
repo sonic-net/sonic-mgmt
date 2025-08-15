@@ -80,14 +80,6 @@
         "tag": "Yes"
     },
     {
-        "hwsku": "Arista-7050CX3-32S-S128",
-        "topo": "m1",
-        "owner": "Zhijian Li",
-        "email": "zhijianli@microsoft.com",
-        "new_platform": "Yes",
-        "tag": "Yes"
-    },
-    {
         "hwsku": "Arista-7050QX32S-Q32",
         "topo": "t1",
         "owner": "Liping Xu",
@@ -721,7 +713,7 @@
     },
     {
         "hwsku": "Arista-7060X6-64PE-B-C448O16",
-        "topo": "t1-isolated-d56u2",
+        "topo": "t1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -792,6 +784,14 @@
         "tag": "Yes"
     },
     {
+        "hwsku": "Arista-7060X6-64PE-P32O64",
+        "topo": "lt2",
+        "owner": "Bing Wang",
+        "email": "bingwang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
         "hwsku": "Arista-7060X6-64PE-B-P64",
         "topo": "ft2",
         "owner": "Bing Wang",
@@ -820,6 +820,62 @@
         "topo": "dualtor",
         "owner": "Longxiang Lyu",
         "email": "longxianglyu@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32C-C32",
+        "topo": "t0",
+        "owner": "Xiawei Zhang",
+        "email": "xiaweizhang@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-S128",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C6S104",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32S-C28S16",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32C-S128",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32C-C6S104",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
+    },
+    {
+        "hwsku": "Arista-7050CX3-32C-C28S16",
+        "topo": "m1",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     }
