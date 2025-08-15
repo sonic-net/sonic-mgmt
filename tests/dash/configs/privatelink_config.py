@@ -69,7 +69,7 @@ APPLIANCE_FNIC_CONFIG = {
     }
 }
 
-ENI_TRUSTED_VNI_CONFIG = {
+ENI_FNIC_CONFIG = {
     f"DASH_ENI_TABLE:{ENI_ID}": {
         "vnet": VNET1,
         "underlay_ip": VM1_PA,
@@ -82,7 +82,7 @@ ENI_TRUSTED_VNI_CONFIG = {
     }
 }
 
-ENI_FNIC_CONFIG = {
+ENI_FNIC_TRUSTED_VNI_CONFIG = {
     f"DASH_ENI_TABLE:{ENI_ID}": {
         "vnet": VNET1,
         "underlay_ip": VM1_PA,
@@ -157,7 +157,7 @@ TUNNEL2_CONFIG = {
     f"DASH_TUNNEL_TABLE:{TUNNEL2}": {
         "endpoints": TUNNEL2_ENDPOINT_IPS,
         "encap_type": EncapType.ENCAP_TYPE_VXLAN,
-        "vni": 202,
+        "vni": ENCAP_VNI,
     }
 }
 
@@ -168,10 +168,17 @@ ROUTE_RULE1_CONFIG = {
     }
 }
 
-VM_SUBNET_ROUTE_WITH_TUNNEL_CONFIG = {
+VM_SUBNET_ROUTE_WITH_TUNNEL_MULTI_ENDPOINT = {
     f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{VM_CA_SUBNET}": {
         "routing_type": RoutingType.ROUTING_TYPE_DIRECT,
         "tunnel": TUNNEL2
+    }
+}
+
+VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT = {
+    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{VM_CA_SUBNET}": {
+        "routing_type": RoutingType.ROUTING_TYPE_DIRECT,
+        "tunnel": TUNNEL1
     }
 }
 

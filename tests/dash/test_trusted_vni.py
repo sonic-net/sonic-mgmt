@@ -12,7 +12,8 @@ from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.helpers.assertions import pytest_assert
 from tests.dash.conftest import get_interface_ip
 from tests.common.helpers.smartswitch_util import get_dpu_dataplane_port
-from configs.privatelink_config import TUNNEL2_ENDPOINT_IPS
+from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
+from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
 
@@ -21,9 +22,7 @@ pytestmark = [pytest.mark.topology("t1"), pytest.mark.skip_check_dut_health]
 
 """
 Test prerequisites:
-- DPU needs the Appliance VIP configured as its loopback IP
 - Assign IPs to DPU-NPU dataplane interfaces
-- Default route on DPU to NPU
 """
 
 
@@ -32,7 +31,7 @@ def floating_nic(duthost):
     return True
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
     if skip_config:
 
@@ -54,8 +53,10 @@ def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
     dpuhost.shell_cmds(cmds=dpu_cmds)
 
 
-@pytest.fixture(scope="module", autouse=True)
-def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts, dpu_setup):
+@pytest.fixture(scope="function", autouse=True)
+def add_npu_static_routes(
+    duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts, dpu_setup, single_endpoint
+):
     dpuhost = dpuhosts[dpu_index]
     if not skip_config:
         cmds = []
@@ -65,7 +66,12 @@ def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dp
         # cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         cmds.append(f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
         cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-        for tunnel_ip in TUNNEL2_ENDPOINT_IPS:
+
+        if single_endpoint:
+            tunnel_endpoints = TUNNEL1_ENDPOINT_IPS
+        else:
+            tunnel_endpoints = TUNNEL2_ENDPOINT_IPS
+        for tunnel_ip in tunnel_endpoints:
             cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
         cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
         logger.info(f"Adding static routes: {cmds}")
@@ -77,22 +83,41 @@ def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dp
         cmds = []
         cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-        for tunnel_ip in TUNNEL2_ENDPOINT_IPS:
+        for tunnel_ip in tunnel_endpoints:
             cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
         cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
         logger.info(f"Removing static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
+def single_endpoint(request):
+    return request.param
+
+
+@pytest.fixture(autouse=True, scope="function")
 def common_setup_teardown(
-    localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts, set_vxlan_udp_sport_range, add_npu_static_routes
+    localhost,
+    duthost,
+    ptfhost,
+    dpu_index,
+    skip_config,
+    dpuhosts,
+    set_vxlan_udp_sport_range,
+    add_npu_static_routes,
+    single_endpoint,
 ):
     if skip_config:
         yield
         return
     dpuhost = dpuhosts[dpu_index]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
+
+    if single_endpoint:
+        tunnel_config = pl.TUNNEL1_CONFIG
+    else:
+        tunnel_config = pl.TUNNEL2_CONFIG
+
     base_config_messages = {
         **pl.APPLIANCE_FNIC_CONFIG,
         **pl.ROUTING_TYPE_PL_CONFIG,
@@ -101,16 +126,20 @@ def common_setup_teardown(
         **pl.VNET2_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
         **pl.METER_POLICY_V4_CONFIG,
-        **pl.TUNNEL2_CONFIG,
+        **tunnel_config,
     }
     logger.info(base_config_messages)
 
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
 
+    if single_endpoint:
+        vm_subnet_route_config = pl.VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT
+    else:
+        vm_subnet_route_config = pl.VM_SUBNET_ROUTE_WITH_TUNNEL_MULTI_ENDPOINT
     route_and_mapping_messages = {
         **pl.PE_VNET_MAPPING_CONFIG,
         **pl.PE_SUBNET_ROUTE_CONFIG,
-        **pl.VM_SUBNET_ROUTE_WITH_TUNNEL_CONFIG,
+        **vm_subnet_route_config,
         **pl.INBOUND_VM_ROUTE_RULE_CONFIG,
         **pl.ROUTE_RULE1_CONFIG,
     }
@@ -124,18 +153,21 @@ def common_setup_teardown(
     logger.info(meter_rule_messages)
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
 
-    logger.info(pl.ENI_TRUSTED_VNI_CONFIG)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index)
+    logger.info(pl.ENI_FNIC_CONFIG)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_FNIC_CONFIG, dpuhost.dpu_index)
 
     logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
     apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
 
     yield
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
-    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
+
+    # DASH object deletion not fully supported on all platforms so cleanup via config reload for now.
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+    # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
+    # apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index, False)
+    # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
+    # apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
+    # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
 
 def verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_endpoint_counts):
@@ -156,14 +188,14 @@ def verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_
                 if ptf.dataplane.match_exp_pkt(exp_dpu_to_vm_pkt, result.packet):
                     tunnel_endpoint_counts[pkt_repr["IP"].dst] += 1
                     logging.info(
-                        f"Packet matched expected packet Tunnelendpoint \
-                         {pkt_repr['IP'].dst}: \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
+                        f"Packet sent to tunnel endpoint {pkt_repr['IP'].dst} matches:\
+                            \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
                     )
                     return
                 else:
                     logging.error(
-                        f"pkt did not match expected packet Tunnel endpoint \
-                          {pkt_repr['IP'].dst}: \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
+                        f"Packet sent to tunnel endpoint {pkt_repr['IP'].dst} does not match expected pkt\
+                          \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
                     )
             else:
                 logging.info(f"Unexpected destination IP, not a relevant packet: {pkt_repr['IP'].dst}, continue")
@@ -173,18 +205,17 @@ def verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_
     pytest.fail(f"Failed to match expected packet {exp_dpu_to_vm_pkt}")
 
 
-def test_fnic_multi_endpoint(
-    ptfadapter,
-    dash_pl_config,
-    floating_nic,
-):
+def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan", floating_nic)
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, floating_nic)
     exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
 
     num_packets = 5
     ptfadapter.dataplane.flush()
-    tunnel_endpoint_counts = {ip: 0 for ip in pl.TUNNEL2_ENDPOINT_IPS}
+    if single_endpoint:
+        tunnel_endpoint_counts = {ip: 0 for ip in TUNNEL1_ENDPOINT_IPS}
+    else:
+        tunnel_endpoint_counts = {ip: 0 for ip in TUNNEL2_ENDPOINT_IPS}
     for _ in range(num_packets):
         testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
