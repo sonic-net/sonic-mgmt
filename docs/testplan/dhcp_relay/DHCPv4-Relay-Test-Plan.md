@@ -13,8 +13,10 @@
   - [Test Cases](#test-cases)
     - [1. Basic Functionality Tests](#1-basic-functionality-tests)
       - [1.1 Interface Binding Test (`test_interface_binding`)](#11-interface-binding-test-test_interface_binding)
-      - [1.2 Default DHCPv4 relay Test (`test_dhcp_relay_default`)](#12-default-dhcpv4-relay-test-test_dhcp_relay_default)
-      - [1.3 Source Port IP in Relay Test (`test_dhcp_relay_with_source_port_ip_in_relay_enabled`)](#13-source-port-ip-in-relay-test-test_dhcp_relay_with_source_port_ip_in_relay_enabled)
+      - [1.2 DHCPv4 Feature Flag Validation Test (`test_dhcpv4_feature_flag_validation`)](#12-dhcpv4-feature-flag-validation-test-test_dhcpv4_feature_flag_validation)
+      - [1.3 DHCPv4 Relay Disabled Validation Test (`test_dhcpv4_relay_disabled_validation`)](#13-dhcpv4-relay-disabled-validation-test-test_dhcpv4_relay_disabled_validation)
+      - [1.4 Default DHCPv4 relay Test (`test_dhcp_relay_default`)](#14-default-dhcpv4-relay-test-test_dhcp_relay_default)
+      - [1.5 Source Port IP in Relay Test (`test_dhcp_relay_with_source_port_ip_in_relay_enabled`)](#15-source-port-ip-in-relay-test-test_dhcp_relay_with_source_port_ip_in_relay_enabled)
     - [2. Network Resilience Tests](#2-network-resilience-tests)
       - [2.1 Link Flap Test (`test_dhcp_relay_after_link_flap`)](#21-link-flap-test-test_dhcp_relay_after_link_flap)
       - [2.2 Uplinks Down at Start Test (`test_dhcp_relay_start_with_uplinks_down`)](#22-uplinks-down-at-start-test-test_dhcp_relay_start_with_uplinks_down)
@@ -22,7 +24,7 @@
       - [3.1 Unicast MAC Test (`test_dhcp_relay_unicast_mac`)](#31-unicast-mac-test-test_dhcp_relay_unicast_mac)
       - [3.2 Random Source Port Test (`test_dhcp_relay_random_sport`)](#32-random-source-port-test-test_dhcp_relay_random_sport)
       - [3.3 Counter Validation Test (`test_dhcp_relay_counter`)](#33-counter-validation-test-test_dhcp_relay_counter)
-      - [3.4 max-hop-count Test (`test_dhcp_relay_max_hop_count`)](#34-max-hop-count-test-test_dhcp_relay_max_hop_count)
+      - [3.4 max-hop-count Test (`test_dhcp_max_hop_count`)](#34-max-hop-count-test-test_dhcp_max_hop_count)
     - [4. Option 82 and Agent Mode Tests](#4-option-82-and-agent-mode-tests)
       - [4.1 Option 82 Sub-options Test (`test_dhcp_relay_option82_suboptions`)](#41-option-82-sub-options-test-test_dhcp_relay_option82_suboptions)
       - [4.2 Agent Mode Test (`test_dhcp_relay_agent_mode`)](#42-agent-mode-test-test_dhcp_relay_agent_mode)
@@ -46,7 +48,7 @@
 
 ## Document Information
 - **Test Suite**: SONiC DHCPv4 relay Testing
-- **File**: `tests/dhcp_relay/test_dhcp_relay.py`
+- **Files**: `tests/dhcp_relay/test_dhcp_relay.py`, `tests/dhcp_relay/test_dhcpv4_relay.py`
 - **Date**: June 25, 2025
 - **Version**: 1.0
 
@@ -77,11 +79,10 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 | Category | Test Count | Description |
 |----------|------------|-------------|
-| Basic Functionality | 2 | Core DHCPv4 relay operations |
-| Network Resilience | 4 | Link failure and recovery scenarios |
-| Advanced Features | 6 | MAC handling, counters, and special modes |
+| Basic Functionality | 5 | Core DHCPv4 relay operations and feature flags |
+| Network Resilience | 2 | Link failure and recovery scenarios |
+| Advanced Features | 4 | MAC handling, counters, and special modes |
 | Option 82 Testing | 2 | DHCP Option 82 sub-options and modes |
-| Multiple relay agents | 4 | Multiple DHCP relay agents in series |
 | VRF Support | 2 | Virtual Routing and Forwarding scenarios |
 
 ## Test Cases
@@ -90,7 +91,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 #### 1.1 Interface Binding Test (`test_interface_binding`)
 - **Objective**: Verify DHCPv4 relay agent binds to correct interfaces
-- **Relay Agents**: ISC only
+- **Relay Agents**: Both ISC and SONiC
 - **Test Steps**:
   1. Check if DHCPv4 relay service is listening on port 67
   2. Verify binding to downlink VLAN interface
@@ -98,7 +99,25 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
   4. Reload configuration if binding fails
 - **Expected Results**: All interfaces show `:67` binding in socket status
 
-#### 1.2 Default DHCPv4 relay Test (`test_dhcp_relay_default`)
+#### 1.2 DHCPv4 Feature Flag Validation Test (`test_dhcpv4_feature_flag_validation`)
+- **Objective**: Verify DHCPv4 feature flag enable/disable behavior
+- **Relay Agents**: SONiC only
+- **Test Steps**:
+  1. Apply valid relay config and enable feature flag
+  2. Verify sonic-dhcpv4 sockets are active
+  3. Cleanup config and disable feature flag
+- **Expected Results**: Feature flag controls sonic-dhcpv4 process startup correctly
+
+#### 1.3 DHCPv4 Relay Disabled Validation Test (`test_dhcpv4_relay_disabled_validation`)
+- **Objective**: Verify that DHCP relay doesn't work when feature flag is disabled
+- **Relay Agents**: SONiC only
+- **Test Steps**:
+  1. Configure DHCP relay but keep feature flag disabled
+  2. Execute PTF test to verify no DHCP response
+  3. Verify sonic-dhcpv4 process/socket is not running
+- **Expected Results**: DHCP Discover packet receives no response when feature disabled
+
+#### 1.4 Default DHCPv4 relay Test (`test_dhcp_relay_default`)
 - **Objective**: Validate basic DHCPv4 relay functionality
 - **Relay Agents**: Both ISC and SONiC
 - **Test Steps**:
@@ -109,7 +128,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
   5. Check dual-tor standby behavior if applicable
 - **Expected Results**: Complete DHCP transaction with correct counter values and client is assigned a valid IP address
 
-#### 1.3 Source Port IP in Relay Test (`test_dhcp_relay_with_source_port_ip_in_relay_enabled`)
+#### 1.5 Source Port IP in Relay Test (`test_dhcp_relay_with_source_port_ip_in_relay_enabled`)
 - **Objective**: Test DHCPv4 relay with source IP set to client interface IP for request packets. This functionality is exercised for deployment_id of 8.
 - **Relay Agents**: Both ISC and SONiC
 - **Test Steps**:
@@ -163,7 +182,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 #### 3.3 Counter Validation Test (`test_dhcp_relay_counter`)
 - **Objective**: Verify DHCP message counters in STATE_DB
-- **Relay Agents**: ISC only
+- **Relay Agents**: Both ISC and SONiC
 - **Version Requirements**: Excludes 201811, 201911, 202012
 - **Test Steps**:
   1. Initialize counters to zero
@@ -172,7 +191,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
   4. Check RX/TX counters on all interfaces
 - **Expected Results**: Accurate counter reporting for all DHCP messages
 
-#### 3.4 max-hop-count Test (`test_dhcp_relay_max_hop_count`)
+#### 3.4 max-hop-count Test (`test_dhcp_max_hop_count`)
 - **Objective**: Validate max-hop-count functionality in DHCPv4 relay
 - **Relay Agents**: SONiC only
 - **Test Steps**:
@@ -200,9 +219,8 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 - **Relay Agents**: SONiC only
 - **Agent Modes**:
   - `discard`: Drop packets with Option 82
-  - `forward_untouched`: Forward Option 82 unchanged
-  - `forward_and_replace`: Replace existing Option 82
-  - `forward_and_append`: Append to existing Option 82
+  - `replace`: Replace existing Option 82
+  - `append`: Append to existing Option 82
 - **Test Steps**:
   1. Configure relay with specific agent mode
   2. Execute PTF test with Option 82 packets
@@ -306,8 +324,11 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 ### Debug Commands
 ```bash
 # Check DHCPv4 relay status
-isc-dhcp: docker exec -t dhcp_relay ss -nlp | grep dhcp4relay
-sonic-dhcp: docker exec -t dhcp_relay ss -nlp | grep dhcrelay
+# ISC relay agent:
+docker exec -t dhcp_relay ss -nlp | grep dhcrelay
+
+# SONiC relay agent:
+docker exec -t dhcp_relay ss -nlp | grep dhcp4relay
 
 # View DHCP counters
 sonic-db-cli COUNTERS_DB hgetall "DHCPV4_COUNTER_TABLE:Vlan1000"
