@@ -63,7 +63,6 @@ def add_npu_static_routes(
         vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
         pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
 
-        # cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         cmds.append(f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
         cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
 
@@ -181,7 +180,7 @@ def verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_
         if isinstance(result, ptfadapter.dataplane.PollSuccess):
             pkt_repr = scapy.Ether(result.packet)
             if "IP" not in pkt_repr:
-                logging.error(f"Packet missing IP layer: {pkt_repr}")
+                logging.info(f"Packet missing IP layer: {pkt_repr}")
                 continue
 
             if pkt_repr["IP"].dst in tunnel_endpoint_counts:
@@ -220,8 +219,6 @@ def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
         )
         exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
         pkt_sets.append((vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt))
-    # vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan", floating_nic)
-    # pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, floating_nic)
 
     if single_endpoint:
         tunnel_endpoint_counts = {ip: 0 for ip in TUNNEL1_ENDPOINT_IPS}
@@ -242,10 +239,6 @@ def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
         recvd_pkts == num_packets,
         f"Expected {num_packets} packets, but received {recvd_pkts} packets. " f"Counts: {tunnel_endpoint_counts}",
     )
-    # TODO: Currently the packet goes back to the same tunnel endpoint for a unique 5-tuple,
-    # overlay src/dst IP, overlay udp src/dst port,
-    # so this check wouldn't hold true for nvidia-bluefield platform
-    # Either send a different flavor or packet
 
     expected_pkt_per_endpoint = num_packets // len(tunnel_endpoint_counts)
     pkt_count_low = expected_pkt_per_endpoint * 0.75
