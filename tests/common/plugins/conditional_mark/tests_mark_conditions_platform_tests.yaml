@@ -888,15 +888,15 @@ platform_tests/broadcom/test_ser.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17459 and hwsku in ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-O128S2', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-16PE-384C-O128S2-COPPER', 'Arista-7060X6-16PE-384C-O128S2']"
 
 ##############################################
-#####  cli/test_show_chassis_modules.py  #####
+#####  cli/test_show_chassis_module.py  #####
 ##############################################
-platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_midplane_status:
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
 
-platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_status:
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
