@@ -27,6 +27,10 @@ parameters:
   type: string
   default: "vs"
 
+- name: TEST_SET
+  type: string
+  default: "all"
+
 - name: CHECKOUT_SONIC_MGMT
   type: boolean
   default: false
@@ -34,7 +38,6 @@ parameters:
 - name: SONIC_MGMT_NAME
   type: string
   default: "sonic-mgmt"
-
 
 jobs:
   - job: get_impacted_area
@@ -47,6 +50,8 @@ jobs:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
           - checkout: ${{ parameters.SONIC_MGMT_NAME }}
       - template: impacted_area_testing/get-impacted-area.yml
+        parameters:
+          TEST_SET: ${{ parameters.TEST_SET }}
 
   - job: impacted_area_kvmtest
     displayName: " "
