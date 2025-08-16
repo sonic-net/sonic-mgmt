@@ -13,7 +13,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_reload
@@ -242,6 +242,50 @@ def is_vnet_route_configured_on_asic(duthost, dest):
     return bool(result)
 
 
+def is_vnet_route_active(duthost):
+    """
+    Check if all routes in 'show vnet route all' are active.
+    Returns True only if ALL routes have 'active' status.
+    """
+    # Use show_and_parse to automatically parse the table output
+    # start_line_index=3 skips the first table and starts from the second table with status column
+    routes = duthost.show_and_parse("show vnet route all", start_line_index=3)
+    Logger.info("Routes: %s", routes)
+
+    # If no routes found, consider it as not active (routes should exist)
+    if not routes:
+        Logger.info("No routes found")
+        return False
+
+    # Filter out incomplete route entries caused by line wrapping
+    valid_routes = []
+    for route in routes:
+        vnet_name = route.get('vnet name', '').strip()
+        prefix = route.get('prefix', '').strip()
+        # Only consider routes with non-empty vnet name and prefix as valid routes
+        if vnet_name and prefix:
+            valid_routes.append(route)
+
+    Logger.info("Valid routes after filtering: %s", valid_routes)
+
+    # If no valid routes found, consider it as not active
+    if not valid_routes:
+        Logger.info("No valid routes found after filtering")
+        return False
+
+    # Check if all valid routes have active status
+    for route in valid_routes:
+        status = route.get('status', '').lower()
+        # If any route is not active, return False
+        if status != 'active':
+            Logger.info("Route %s has status: %s", route.get('prefix', 'unknown'), status)
+            return False
+
+    # All valid routes are active
+    Logger.info("All %d valid routes are active", len(valid_routes))
+    return True
+
+
 class Test_VxLAN_BFD_TSA():
     '''
         Class for all the Vxlan tunnel cases where primary and secondary next hops are configured.
@@ -261,6 +305,11 @@ class Test_VxLAN_BFD_TSA():
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
         '''
+        pytest_assert(
+            wait_until(90, 2, 0, is_vnet_route_active, self.vxlan_test_setup['duthost']),
+            "Route is not active"
+        )
+
         if tolerance is None:
             tolerance = self.vxlan_test_setup['tolerance']
         if ecmp_utils.Constants['DEBUG']:
