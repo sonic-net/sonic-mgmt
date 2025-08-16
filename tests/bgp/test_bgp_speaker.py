@@ -2,7 +2,6 @@ import pytest
 from netaddr import IPNetwork, IPAddress
 import time
 import logging
-import requests
 import ipaddress
 import json
 
@@ -18,6 +17,7 @@ from tests.common.utilities import wait_until
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
     is_route_flow_counter_supported  # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
+from tests.common2.bgp_route_control import announce_route, withdraw_route
 
 
 pytestmark = [
@@ -47,23 +47,6 @@ def generate_ips(num, prefix, exclude_ips):
         raise Exception("Not enough available IPs")
 
     return generated_ips
-
-
-def announce_route(ptfip, neighbor, route, nexthop, port):
-    change_route("announce", ptfip, neighbor, route, nexthop, port)
-
-
-def withdraw_route(ptfip, neighbor, route, nexthop, port):
-    change_route("withdraw", ptfip, neighbor, route, nexthop, port)
-
-
-def change_route(operation, ptfip, neighbor, route, nexthop, port):
-    url = "http://%s:%d" % (ptfip, port)
-    data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
-    r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200, (
-        "Request failed with status code {}. Expected 200. "
-    ).format(r.status_code)
 
 
 @pytest.fixture(scope="module", autouse=True)
