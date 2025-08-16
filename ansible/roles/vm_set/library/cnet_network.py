@@ -172,6 +172,10 @@ class CeosNetwork(object):
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
         ret_code = process.returncode
+            # Decode from bytes → str
+        stdout = stdout.decode("utf-8", errors="ignore")
+        stderr = stderr.decode("utf-8", errors="ignore")
+
         if ret_code != 0:
             raise Exception("ret_code=%d, error message=%s. cmd=%s" % (ret_code, stderr, cmdline))
         with open(cmd_debug_fname, 'a') as fp:
