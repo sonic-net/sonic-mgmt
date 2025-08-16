@@ -269,9 +269,9 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
                 duthost.shell("config mux mode active all")
                 unselected_duthost.shell("config mux mode standby all")
                 pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
-                              "Could not config ports to active on {}".format(duthost.hostname))
+                              "Could not config ports to active ")
                 pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
-                              "Could not config ports to standby on {}".format(unselected_duthost.hostname))
+                              "Could not config ports to standby ")
             # FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
