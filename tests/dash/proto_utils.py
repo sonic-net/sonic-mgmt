@@ -96,7 +96,6 @@ def parse_value_or_range(value_or_range):
             raise ValueError("Input string must contain either one or two numbers separated by a comma.")
 
 
-
 def parse_dash_proto(key: str, proto_dict: dict):
     """
     Custom parser for DASH configs to allow writing configs

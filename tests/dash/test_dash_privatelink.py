@@ -95,9 +95,10 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
+
 @pytest.fixture(scope="module")
 def common_setup_teardown_fnic(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts,
-                          set_vxlan_udp_sport_range):
+                               set_vxlan_udp_sport_range):
     if skip_config:
         return
     dpuhost = dpuhosts[dpu_index]
@@ -143,6 +144,7 @@ def common_setup_teardown_fnic(localhost, duthost, ptfhost, dpu_index, skip_conf
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, base_config_messages_fnic, dpuhost.dpu_index, False)
 
+
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_basic_transform(
     ptfadapter,
@@ -153,16 +155,13 @@ def test_privatelink_basic_transform(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto)
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)
 
-    import pdb; pdb.set_trace()
-
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
-    pdb.set_trace()
     testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
 
-'''
+
 @pytest.mark.parametrize("encap_proto", ["vxlan", "gre"])
 def test_privatelink_fnic_basic_transform(
     ptfadapter,
@@ -173,13 +172,9 @@ def test_privatelink_fnic_basic_transform(
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto, True)
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, True)
 
-    import pdb; pdb.set_trace()
-
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
     testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
-    pdb.set_trace()
 
     testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
-'''

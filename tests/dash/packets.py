@@ -128,7 +128,7 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=VXLAN_UDP_BASE_SRC_PORT,
-         vxlan_vni=int(pl.VNET1_VNI),
+        vxlan_vni=int(pl.VNET1_VNI),
         inner_frame=exp_inner_packet
     )
 
@@ -142,7 +142,8 @@ def inbound_pl_packets(config, floating_nic=False, inner_packet_type='udp', vxla
 
 
 def outbound_pl_packets(config, outer_encap, floating_nic=False,
-                        inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT, vxlan_udp_sport=VXLAN_UDP_BASE_SRC_PORT):
+                        inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT,
+                        vxlan_udp_sport=VXLAN_UDP_BASE_SRC_PORT):
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.VM_MAC if floating_nic else pl.ENI_MAC,
         eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
@@ -169,7 +170,7 @@ def outbound_pl_packets(config, outer_encap, floating_nic=False,
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=int(pl.VNET1_VNI) << 8 ,
+            gre_key=int(pl.VNET1_VNI) << 8,
             inner_frame=inner_packet
         )
     else:
@@ -221,7 +222,8 @@ def outbound_pl_packets(config, outer_encap, floating_nic=False,
     return outer_packet, masked_exp_packet
 
 
-def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT):
+def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp',
+                         vxlan_udp_dport=DEFAULT_VXLAN_PORT):
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=dash_config_info[REMOTE_ENI_MAC],
         eth_dst=dash_config_info[LOCAL_ENI_MAC],
@@ -265,7 +267,8 @@ def inbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_typ
     return inner_packet, pa_match_vxlan_packet, pa_mismatch_vxlan_packet, masked_exp_packet
 
 
-def outbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp', vxlan_udp_dport=DEFAULT_VXLAN_PORT):
+def outbound_vnet_packets(dash_config_info, inner_extra_conf={}, inner_packet_type='udp',
+                          vxlan_udp_dport=DEFAULT_VXLAN_PORT):
     proto = None
     if "proto" in inner_extra_conf:
         proto = int(inner_extra_conf["proto"])
