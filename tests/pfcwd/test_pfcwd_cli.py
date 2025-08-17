@@ -323,7 +323,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         neigh_port_channel = None
         min_links = None
         if isinstance(vm_host, EosHost):
-            neigh_port_channels = vm_host.eos_command(commands=['show port-channel | json']) \
+            neigh_port_channels = vm_host.eos_command(commands=['show port-channel | json'])\
                                     ['stdout'][0]["portChannels"]
             for po_name, po_config in neigh_port_channels.items():
                 for member in po_config['activePorts']:
