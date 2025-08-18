@@ -623,6 +623,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-0:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5021
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D70
@@ -642,6 +643,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-1:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5022
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D70
@@ -661,6 +663,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-2:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5023
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D6U
@@ -680,6 +683,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-3:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5024
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D6U
@@ -699,6 +703,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-4:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5025
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D7X
@@ -718,6 +723,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-5:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5026
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D7X
@@ -737,6 +743,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-6:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5027
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D7M
@@ -756,6 +763,7 @@ sonic_pensando_elba_smartswitch_dpu:
     str3-8102-07-dpu-7:
       ansible_host: 10.3.146.173
       ansible_hostv6: 2a01:111:e210:3000::a03:92ad
+      ansible_ssh_port: 5028
       mgmt_subnet_mask_length: 24
       model: DSS-MTFUJI
       serial: FLM29100D7M
