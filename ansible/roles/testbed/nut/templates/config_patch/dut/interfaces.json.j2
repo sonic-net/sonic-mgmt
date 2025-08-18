@@ -1,10 +1,13 @@
 { "op": "add", "path": "/INTERFACE", "value": {} },
-{% for port, peer in bgp_neighbor_ports.items() %}
+{% for port, intf in intfs.items() %}
 { "op": "add", "path": "/INTERFACE/{{ port }}", "value": {} },
-{% if peer.local_ip_v4 %}
-{ "op": "add", "path": "/INTERFACE/{{ port }}|{{ peer.local_ip_v4 }}~1{{ peer.p2p_v4_subnet_size }}", "value": {} },
+{% if intf.vrf_name %}
+{ "op": "add", "path": "/INTERFACE/{{ port }}/vrf_name", "value": "{{ intf.vrf_name }}" },
 {% endif %}
-{% if peer.local_ip_v6 %}
-{ "op": "add", "path": "/INTERFACE/{{ port }}|{{ peer.local_ip_v6 }}~1{{ peer.p2p_v6_subnet_size }}", "value": {} },
+{% if intf.ip_v4 %}
+{ "op": "add", "path": "/INTERFACE/{{ port }}|{{ intf.ip_v4 }}~1{{ intf.ip_v4_subnet_size}}", "value": {} },
+{% endif %}
+{% if intf.ip_v6 %}
+{ "op": "add", "path": "/INTERFACE/{{ port }}|{{ intf.ip_v6 }}~1{{ intf.ip_v6_subnet_size }}", "value": {} },
 {% endif %}
 {% endfor %}
