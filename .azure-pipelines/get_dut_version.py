@@ -52,35 +52,56 @@ def get_duts_version(sonichosts, output=None):
         duts_version = sonichosts.command("show version")
         for dut, version in duts_version.items():
             ret[dut] = {}
+            ret[dut]["Docker images"] = []
+
             dut_version = version["stdout_lines"]
+            in_docker_section = False
 
             for line in dut_version:
+                if not line.strip():
+                    continue
+
+                # Detect start of docker images section
+                if line.startswith("Docker images"):
+                    in_docker_section = True
+                    continue
+
+                # Parse docker images table
+                if in_docker_section:
+                    if line.startswith("REPOSITORY"):
+                        # skip header line
+                        continue
+
+                    parts = line.split()
+                    if len(parts) >= 4:
+                        image = {
+                            "REPOSITORY": parts[0],
+                            "TAG": parts[1],
+                            "IMAGE ID": parts[2],
+                            "SIZE": " ".join(parts[3:])  # safer for "1.2 GB" cases
+                        }
+                        ret[dut]["Docker images"].append(image)
+                    continue
+
+                # Parse general key:value lines
                 if ":" in line:
-                    line_splitted = line.split(":", 1)
-                    key = line_splitted[0].strip()
-                    value = line_splitted[1].strip()
-                    if key == "Docker images":
-                        ret[dut]["Docker images"] = []
-                        continue
+                    key, value = [x.strip() for x in line.split(":", 1)]
+
+                    if key == "HwSKU":
+                        # Keep both HwSKU and mapped ASIC TYPE
+                        ret[dut]["HwSKU"] = value
+                        ret[dut]["ASIC TYPE"] = read_asic_name(value)
                     elif key == "ASIC":
-                        ret[dut]["ASIC TYPE"] = value
-                        continue
-                    elif key == "HwSKU":
-                        ret[dut]["ASIC"] = read_asic_name(value)
-                    ret[dut][key] = value
-                elif "docker" in line:
-                    line_splitted = line.split()
-                    ret[dut]["Docker images"].append({"REPOSITORY": line_splitted[0],
-                                                      "TAG": line_splitted[1],
-                                                      "IMAGE ID": line_splitted[2],
-                                                      "SIZE": line_splitted[3]})
+                        # Preserve raw ASIC value
+                        ret[dut]["ASIC"] = value
+                    else:
+                        ret[dut][key] = value
 
         if output:
             with open(output, "w") as f:
-                f.write(json.dumps(ret))
-                f.close()
+                json.dump(ret, f, indent=2)
         else:
-            print(ret)
+            print(json.dumps(ret, indent=2))
     except Exception as e:
         logger.error("Failed to get DUT version: {}".format(e))
         sys.exit(RC_GET_DUT_VERSION_FAILED)
