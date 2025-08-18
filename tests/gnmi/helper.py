@@ -84,7 +84,12 @@ def recover_cert_config(duthost):
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    ret = wait_until(300, 3, 0, check_gnmi_status, duthost)
+    if not ret:
+        dut_command = "tail /var/log/gnmi.log"
+        output = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
+        pytest.fail("Failed to recover GNMI client cert configuration.")
 
 
 def check_ntp_sync_status(duthost):
