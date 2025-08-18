@@ -2329,6 +2329,12 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['cisco-8000']"
 
+platform_tests/test_service_warm_restart.py:
+  skip:
+    reason: "Platform x86_64-nokia_ixr7220_d4-r0 does not support warm/fast reboot"
+    conditions:
+      - "platform in ['x86_64-nokia_ixr7220_d4-r0']"
+
 #######################################
 #####     process_monitoring      #####
 #######################################
