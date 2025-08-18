@@ -2310,6 +2310,13 @@ pc/test_po_cleanup.py:
     conditions:
       - "len(minigraph_portchannels) == 0 and not is_multi_asic"
 
+pc/test_po_cleanup.py::test_po_cleanup_after_reload:
+  xfail:
+    reason: "Skip test due on dualtor setup due to github issue https://github.com/sonic-net/sonic-buildimage/issues/20414 on mellanox platform"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/20414 and asic_type in ['mellanox']"
+
+
 pc/test_po_update.py::test_po_update:
   skip:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
