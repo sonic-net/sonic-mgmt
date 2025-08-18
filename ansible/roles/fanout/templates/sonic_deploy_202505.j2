@@ -195,7 +195,7 @@
     "Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4",
     "Arista-7050CX3-32S-S128", "Arista-7050CX3-32S-C6S104", "Arista-7050CX3-32S-C28S16"
 ) %}
-{% if not (fanout_hwsku in no_buffer_hwsku or "Arista-7060X6-64PE" in fanout_hwsku) %}
+{% if not (fanout_hwsku in no_buffer_hwsku or "Arista-7060X6" in fanout_hwsku) %}
     "BUFFER_QUEUE": {
     {% for port_name in fanout_port_config %}
          "{{ port_name }}|0-7": {
