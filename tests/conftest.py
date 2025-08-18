@@ -1109,10 +1109,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             log_path="logs",
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
-        if 'routes' not in res:
+        if 'topo_routes' not in res:
             logger.warning("No routes generated.")
         else:
-            bgp_routes.update(res['routes'])
+            bgp_routes.update(res['topo_routes'])
     return bgp_routes
 
 
