@@ -53,7 +53,15 @@ parameters:
     type: string
     default: ""
 
+  - name: SKIP_RESTART_PTF
+    type: boolean
+    default: false
+
   - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: ""
+
+  - name: ASIC_TYPE
     type: string
     default: ""
 
@@ -172,6 +180,10 @@ parameters:
     type: string
     default: ""
 
+  - name: KVM_IMAGE_BUILD_PIPELINE_ID
+    type: string
+    default: ""
+
   - name: EXPECTED_RESULT
     type: string
     default: ""
@@ -268,11 +280,15 @@ steps:
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
       --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
+      --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
       --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
+      --skip-restart-ptf ${{ parameters.SKIP_RESTART_PTF }} \
       --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
-      --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
+      --asic-type ${{ parameters.ASIC_TYPE }} \
+      --vm-type ${{ parameters.VM_TYPE }} \
+      --num-asic ${{ parameters.NUM_ASIC }} \
       --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
       --image_url ${{ parameters.IMAGE_URL }} \
       --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \

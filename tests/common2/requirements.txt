@@ -1,0 +1,28 @@
+# Pre-commit and code quality tools for tests/common2/
+# Based on INSTALL.md requirements
+
+# Pre-commit framework for running automated checks
+pre-commit>=3.0.0
+
+# Python linter for code quality checks
+pylint>=2.15.0
+
+# Spell checking support for pylint
+pyenchant>=3.2.0
+
+# Additional dependencies that may be needed for the hooks
+black>=22.0.0
+mypy>=1.0.0
+isort>=6.0.1
+flake8>=5.0.0
+
+# Type stubs for better mypy support
+types-PyYAML
+types-six
+types-paramiko
+types-requests
+
+# package dependencies required by
+# checks by pylint
+pytest
+requests

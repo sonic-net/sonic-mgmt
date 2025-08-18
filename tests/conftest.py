@@ -1,5 +1,6 @@
 import concurrent.futures
 from functools import lru_cache
+import enum
 import os
 import json
 import logging
@@ -17,6 +18,7 @@ import subprocess
 import threading
 import pathlib
 import importlib
+import inspect
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -38,6 +40,9 @@ from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
+from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
+from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
 
 from tests.common.helpers.constants import (
     ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, NAMESPACE_PREFIX,
@@ -139,6 +144,13 @@ def pytest_addoption(parser):
 
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
+    #####################################
+    # dash, vxlan, route shared options #
+    #####################################
+    parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
+    parser.addoption("--num_routes", action="store", default=None, type=int,
+                     help="Number of routes (tests: route, vxlan)")
 
     ############################
     # pfc_asym options         #
@@ -242,7 +254,7 @@ def pytest_addoption(parser):
                      help="gNMI target port number")
     parser.addoption("--gnmi_insecure", action="store_true", default=True,
                      help="Use insecure connection to gNMI target")
-    parser.addoption("--disable_sai_validation", action="store_true", default=False,
+    parser.addoption("--disable_sai_validation", action="store_true", default=True,
                      help="Disable SAI validation")
     ############################
     #   Parallel run options   #
@@ -780,6 +792,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
+    if tbinfo['topo']['name'].startswith("nut-"):
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -908,7 +922,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     for server in servers:
         vm_base = int(server['vm_base'][2:])
         vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.parse_topology_vms(
+        vms = MultiServersUtils.get_vms_by_dut_interfaces(
                 tbinfo['topo']['properties']['topology']['VMs'],
                 server['dut_interfaces']
             ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
@@ -925,13 +939,18 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa: F811
+def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
     """
 
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
+
+    if tbinfo['topo']['name'].startswith('nut-'):
+        # Nut topology has no fanout
+        return fanout_hosts
+
     # WA for virtual testbed which has no fanout
     for dut_host, value in list(dev_conn.items()):
         duthost = duthosts[dut_host]
@@ -3371,3 +3390,226 @@ def restore_golden_config_db(duthost):
 def gnmi_connection(request, setup_connection):
     connection = setup_connection
     yield connection
+
+
+class DualtorMuxPortSetupConfig(enum.Flag):
+    """Dualtor mux port setup config."""
+    DUALTOR_SKIP_SETUP_MUX_PORTS = enum.auto()
+    DUALTOR_SETUP_MUX_PORT_MANUAL_MODE = enum.auto()
+
+    # active-standby mux setup configs
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+
+    # active-active mux setup configs
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+
+
+@pytest.fixture(autouse=True)
+def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+    """Setup dualtor mux ports."""
+    def _get_enumerated_dut_hostname(request):
+        for k, v in request.node.callspec.params.items():
+            if k in ("enum_dut_hostname",
+                     "enum_frontend_dut_hostname",
+                     "enum_supervisor_dut_hostname",
+                     "enum_rand_one_per_hwsku_hostname",
+                     "enum_rand_one_per_hwsku_frontend_hostname"):
+                return v
+        return None
+
+    def _get_peer_dut_hostname(local_dut_hostname):
+        """Get the peer DUT hostname."""
+        for dut in duthosts:
+            if dut.hostname != local_dut_hostname:
+                return dut.hostname
+        return None
+
+    def _is_dut_hostname_valid(dut_hostname):
+        """Check if the dut hostname is valid/present in the tb."""
+        return dut_hostname in duthosts.duts
+
+    topo_name = tbinfo["topo"]["name"]
+    is_dualtor = "dualtor" in topo_name
+
+    if not is_dualtor:
+        logging.info("skip setup dualtor mux cables on non-dualtor testbed")
+        yield False
+        return
+
+    is_dualtor_aa = "dualtor-aa" in topo_name
+    # read setup configs from pytest markers
+    dualtor_setup_config = DualtorMuxPortSetupConfig(0)
+    for marker in request.node.iter_markers():
+        try:
+            dualtor_setup_config |= DualtorMuxPortSetupConfig[marker.name.upper()]
+        except KeyError:
+            continue
+    logging.debug("dualtor mux port setup config: %s", dualtor_setup_config)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SKIP_SETUP_MUX_PORTS:
+        logging.info("skip setup dualtor mux cables")
+        yield False
+        return
+
+    is_test_func_parametrized = hasattr(request.node, "callspec")
+    is_enum = is_test_func_parametrized and \
+        any(param.startswith("enum_") for param in request.node.callspec.params.keys())
+    rand_one_unselected_dut_hostname = _get_peer_dut_hostname(rand_one_dut_hostname_var)
+
+    if is_dualtor_aa:
+        # NOTE: Skip setup mux ports if the test explicitly calls
+        # an active-active mux toggle fixture.
+        for fixture in request.fixturenames:
+            if fixture == "config_active_active_dualtor_active_standby":
+                logging.info("Skip setup dualtor mux cables as toggle "
+                             "fixture %s is explicitly called",
+                             fixture)
+                yield False
+                return
+
+        active_dut_hostname = None
+        standby_dut_hostname = None
+
+        if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR:
+            if is_test_func_parametrized:
+                standby_dut_hostname = _get_enumerated_dut_hostname(request)
+                active_dut_hostname = _get_peer_dut_hostname(standby_dut_hostname)
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR:
+            standby_dut_hostname = duthosts[0].hostname
+            active_dut_hostname = duthosts[-1].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR:
+            standby_dut_hostname = duthosts[-1].hostname
+            active_dut_hostname = duthosts[0].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR:
+            standby_dut_hostname = rand_one_dut_hostname_var
+            active_dut_hostname = rand_one_unselected_dut_hostname
+        elif dualtor_setup_config & \
+                DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR:
+            standby_dut_hostname = rand_one_unselected_dut_hostname
+            active_dut_hostname = rand_one_dut_hostname_var
+        else:
+            # NOTE: If no marker is explicitly specified on active-active dualtor, let's
+            # leave the ToRs pair in active-active by default.
+            pass
+
+        if (_is_dut_hostname_valid(active_dut_hostname) and
+                _is_dut_hostname_valid(standby_dut_hostname)):
+            logging.info("Setup active-active dualtor, DUT %s as active side, "
+                         "DUT %s as standby side",
+                         active_dut_hostname, standby_dut_hostname)
+            config_active_active_dualtor(
+                duthosts[active_dut_hostname],
+                duthosts[standby_dut_hostname],
+                active_active_ports,
+                dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+            )
+        else:
+            yield False
+            return
+
+    else:
+        # NOTE: Skip setup mux ports if the test explicitly calls
+        # an active-standby mux toggle fixture.
+        for fixture in request.fixturenames:
+            if fixture.startswith("toggle_") and fixture in dir(mux_simulator_control):
+                logging.info("Skip setup dualtor mux cables as toggle "
+                             "fixture %s is explicitly called",
+                             fixture)
+                yield False
+                return
+
+        if is_enum and not (dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR):
+            logging.info(
+                "skip setup dualtor mux cables on test with enum fixture")
+            yield False
+            return
+
+        target_dut_hostname = None
+        test_func_args = [_ for _ in inspect.signature(request.node.function).parameters.keys()]
+
+        if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR:
+            # retrieve the current enumerated dut hostname
+            if is_test_func_parametrized:
+                target_dut_hostname = _get_enumerated_dut_hostname(request)
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR:
+            target_dut_hostname = duthosts[0].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR:
+            target_dut_hostname = duthosts[-1].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR:
+            target_dut_hostname = rand_one_dut_hostname_var
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR:
+            target_dut_hostname = rand_one_unselected_dut_hostname
+        else:
+            # if the test function uses `rand_selected_dut`, toggle active side to `rand_selected_dut`
+            rand_dut_fixture = "rand_one_dut_hostname"
+            duthost_fixture = "duthost"
+            if rand_dut_fixture in test_func_args or rand_dut_fixture in request.fixturenames:
+                logging.debug("Select random selected DUT %s as the toggle target",
+                              rand_one_dut_hostname_var)
+                target_dut_hostname = rand_one_dut_hostname_var
+            # if the test function uses `duthost`, toggle active side to `duthost`.
+            elif duthost_fixture in test_func_args or duthost_fixture in request.fixturenames:
+                logging.debug("Select duthost DUT %s as the toggle target",
+                              duthost.hostname)
+                target_dut_hostname = duthost.hostname
+
+        if not _is_dut_hostname_valid(target_dut_hostname):
+            logging.warn("Invalid DUT selected %s as the toggle target, fallback to use the upper ToR %s",
+                         target_dut_hostname, duthosts[0].hostname)
+            target_dut_hostname = duthosts[0].hostname
+        logging.info("Toggle mux ports to the target DUT %s",
+                     target_dut_hostname)
+        mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
+                                                                        duthosts,
+                                                                        mux_server_url,
+                                                                        tbinfo)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
+        logger.info("Set all mux ports to manual mode on all ToRs")
+        duthosts.shell("config muxcable mode manual all")
+
+    yield True
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
+        logger.info("Set all muxcable to auto mode on all ToRs")
+        duthosts.shell("config muxcable mode auto all")
+        duthosts.shell("config save -y")
+
+
+def pytest_runtest_setup(item):
+    # Let's place `setup_dualtor_mux_ports` at the tail of fixture list
+    # to make it running as last as possible.
+    fixtureinfo = item._fixtureinfo
+    for fixturedef in fixtureinfo.name2fixturedefs.values():
+        fixturedef = fixturedef[0]
+        if fixturedef.argname == "setup_dualtor_mux_ports":
+            fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
+            fixtureinfo.names_closure.append("setup_dualtor_mux_ports")

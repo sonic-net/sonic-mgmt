@@ -10,6 +10,7 @@ from jinja2 import Template
 import logging
 import json
 import re
+import ipaddress
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
@@ -57,13 +58,15 @@ class GenerateGoldenConfigDBModule(object):
                                     port_index_map=dict(require=False, type='dict', default=None),
                                     macsec_profile=dict(require=False, type='str', default=None),
                                     num_asics=dict(require=False, type='int', default=1),
-                                    hwsku=dict(require=False, type='str', default=None)),
+                                    hwsku=dict(require=False, type='str', default=None),
+                                    vm_configuration=dict(require=False, type='dict', default={})),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
+        self.vm_configuration = self.module.params['vm_configuration']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -166,15 +169,18 @@ class GenerateGoldenConfigDBModule(object):
         rc, out, err = self.module.run_command("show runningconfiguration all")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
-
-        return out
+        config = json.loads(out)
+        # From the running configure, only keep the key "FEATURE"
+        for namespace, ns_data in config.items():
+            config[namespace] = {k: ns_data[k] for k in ns_data if k == "FEATURE"}
+        return config
 
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
                                                      state="enabled", feature_data=None):
         full_config = json.loads(config)
         if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
             # need dump running config FEATURE + selected feature
-            gold_config_db = json.loads(self.get_multiasic_feature_config())
+            gold_config_db = self.get_multiasic_feature_config()
         else:
             # need existing config + selected feature
             gold_config_db = full_config
@@ -237,6 +243,151 @@ class GenerateGoldenConfigDBModule(object):
             }
         else:
             gold_config_db = ori_config_db
+
+        return json.dumps(gold_config_db, indent=4)
+
+    def get_portchannle_config(self, vm_configuration):
+        portchannel_configs = []
+
+        for device_name, device_data in vm_configuration.items():
+            # Only process T0 neighbors
+            if not device_name.endswith("T0"):
+                continue
+
+            interfaces = device_data.get("interfaces", {})
+            for intf_name, intf_config in interfaces.items():
+                if "Port-Channel" in intf_name and '.' in intf_name:
+                    base, sub_id = intf_name.split('.')
+                    base = base.replace("Port-Channel", "PortChannel")
+
+                    # Handle IPv4
+                    ipv4_addr = intf_config.get("ipv4")
+                    if ipv4_addr:
+                        try:
+                            network_v4 = ipaddress.IPv4Interface(ipv4_addr).network
+                            subinterface_ipv4 = str(network_v4)
+                            portchannel_configs.append((device_name, base, sub_id, subinterface_ipv4))
+                        except Exception as e:
+                            raise ValueError("Error parsing IPv4 on {}: {}".format(intf_name, e))
+
+                    # Handle IPv6
+                    ipv6_addr = intf_config.get("ipv6")
+                    if ipv6_addr:
+                        try:
+                            iface_v6 = ipaddress.IPv6Interface(ipv6_addr)
+                            new_ip = str(iface_v6.ip - 1)
+                            subnet = "{}/{}".format(new_ip, iface_v6.network.prefixlen)
+                            portchannel_configs.append((device_name, base, sub_id, subnet))
+                        except Exception as e:
+                            raise ValueError("Error parsing IPv6 on {}: {}".format(intf_name, e))
+
+        if not portchannel_configs:
+            raise ValueError("No valid Port-Channel subinterface found in any T0 neighbor")
+
+        return portchannel_configs
+
+    def get_bgp_config(self, vm_configuration):
+
+        vrf_name = "Vrf_Q10DDOS"
+        bgp_neighbors = {}
+        for device_name, config in self.vm_configuration.items():
+            if not device_name.endswith("T0"):
+                continue  # Skip non-T0 devices
+            interfaces = config.get("interfaces", {})
+            subintf_exists = any(
+                "Port-Channel" in intf_name and '.' in intf_name
+                for intf_name in interfaces
+            )
+            if not subintf_exists:
+                continue  # Skip if no Port-Channel subinterfaces
+
+            bgp = config.get("bgp", {})
+            local_asn = bgp.get("asn")
+            peers = bgp.get("peers", {})
+            if not peers:
+                continue  # Skip if no BGP peers
+            ipv4_count = 0
+            ipv6_count = 0
+
+            for peer_asn, neighbor_list in peers.items():
+                for idx, ip in enumerate(neighbor_list):
+                    try:
+                        ip_obj = ipaddress.ip_address(ip)
+                        local_ip = str(ip_obj)
+                        neighbor_ip = str(ip_obj + 1)
+                        if isinstance(ip_obj, ipaddress.IPv4Address):
+                            if ipv4_count == 0:
+                                neighbor_key = neighbor_ip
+                            else:
+                                neighbor_key = "{}|{}".format(vrf_name, neighbor_ip)
+                            ipv4_count += 1
+
+                        else:
+                            if ipv6_count == 0:
+                                neighbor_key = neighbor_ip
+                            else:
+                                neighbor_key = "{}|{}".format(vrf_name, neighbor_ip)
+                            ipv6_count += 1
+
+                        bgp_neighbors[neighbor_key] = {
+                            "admin_status": "up",
+                            "name": device_name,
+                            "holdtime": "10",
+                            "keepalive": "3",
+                            "rrclient": "0",
+                            "local_addr": local_ip,
+                            "asn": local_asn,
+                            "nhopself": "0"
+                        }
+                    except ipaddress.AddressValueError:
+                        print("[ERROR] Invalid IPv4 address in {}: {}".format(device_name, ip))
+        return bgp_neighbors
+
+    def generate_filterleaf_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate FEATURE table from init_cfg.ini
+        ori_config_db = json.loads(out)
+        if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            return "{}"
+
+        if "FEATURE" not in ori_config_db \
+                or "dhcp_relay" not in ori_config_db["FEATURE"]:
+            return "{}"
+        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "disabled"
+
+        if "VRF" not in ori_config_db:
+            ori_config_db["VRF"] = {}
+        ori_config_db["VRF"]["Vrf_Q10DDOS"] = {}
+
+        if "VLAN_SUB_INTERFACE" not in ori_config_db:
+            ori_config_db["VLAN_SUB_INTERFACE"] = {}
+
+        portchannel_configs = self.get_portchannle_config(self.vm_configuration)
+
+        for device_name, base_interface, vlan, ip_subnet in portchannel_configs:
+            base_interface = base_interface + '.' + vlan
+            if vlan in ['7', '9', '11', '13']:
+                ori_config_db["VLAN_SUB_INTERFACE"][base_interface] = {}
+                ori_config_db["VLAN_SUB_INTERFACE"]["{}|{}".format(base_interface, ip_subnet)] = {}
+            else:
+                ori_config_db["VLAN_SUB_INTERFACE"][base_interface] = {
+                    "vrf_name": "Vrf_Q10DDOS"
+                }
+                ori_config_db["VLAN_SUB_INTERFACE"]["{}|{}".format(base_interface, ip_subnet)] = {}
+
+        bgp_neighbors = self.get_bgp_config(self.vm_configuration)
+        ori_config_db["BGP_NEIGHBOR"] = bgp_neighbors
+
+        gold_config_db = {
+            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "VRF": copy.deepcopy(ori_config_db["VRF"]),
+            "VLAN_SUB_INTERFACE": copy.deepcopy(ori_config_db["VLAN_SUB_INTERFACE"]),
+            "BGP_NEIGHBOR": copy.deepcopy(ori_config_db["BGP_NEIGHBOR"]),
+        }
 
         return json.dumps(gold_config_db, indent=4)
 
@@ -382,6 +533,34 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def generate_default_init_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        return json.dumps(golden_config_db, indent=4)
+
+    def update_zmq_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+
+        # Older version image may not support ZMQ feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "orch_northbond_route_zmq_enabled" in out:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -407,7 +586,7 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_mgfx_golden_config_db()
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"]:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
@@ -421,8 +600,13 @@ class GenerateGoldenConfigDBModule(object):
         elif self.hwsku and is_full_lossy_hwsku(self.hwsku):
             module_msg = module_msg + " for full lossy hwsku"
             config = self.generate_full_lossy_golden_config_db()
+        elif self.topo_name in ["t1-filterleaf-lag"]:
+            config = self.generate_filterleaf_golden_config_db()
         else:
-            config = "{}"
+            config = self.generate_default_init_config_db()
+
+        # update ZMQ config
+        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)

@@ -131,6 +131,30 @@ def check_database_status(duthost):
     return True
 
 
+def check_redis_db_is_reachable(duthost, asic_index=None):
+    if asic_index is not None:
+        cmd = f"sonic-db-cli -n asic{asic_index} PING"
+    else:
+        cmd = "sonic-db-cli PING"
+
+    out = duthost.shell(cmd, module_ignore_errors=True)
+    if "PONG" not in out['stdout']:
+        return False
+    return True
+
+
+def check_redis_db_status(duthost):
+    # For multi-asic check each asics database
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            if not check_redis_db_is_reachable(duthost, asic.asic_index):
+                return False
+    else:
+        if not check_redis_db_is_reachable(duthost):
+            return False
+    return True
+
+
 def execute_config_reload_cmd(duthost, timeout=120, check_interval=5):
     start_time = time.time()
     _, res = duthost.shell("sudo config reload -y",
@@ -183,13 +207,21 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
 
     reboot(duthost, localhost, reboot_type="cold", return_after_reconnect=True)
 
-    # Check if all database containers have started
-    # Some device after reboot may take some longer time to have database container started up
-    # we must give it a little longer or else it may falsely fail the test.
-    wait_until(360, 1, 0, check_database_status, duthost)
+    # check if redis-db is reachable before attempting to run any command.
+    wait_until(360, 1, 0, check_redis_db_status, duthost)
 
     logging.info("Reload configuration check")
-    result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+
+    # sometimes redis is not up in time (eg. t2 chassis), so retry until it's up
+    for i in range(10):
+        result, out = execute_config_reload_cmd(duthost, config_reload_timeout)
+
+        # Redis is up - can stop looping
+        if result and "RuntimeError: Unable to connect to redis" not in out['stderr']:
+            break
+
+        time.sleep(1)
+
     # config reload command shouldn't work immediately after system reboot
     assert result and "Retry later" in out['stdout'], (
         "The config reload command did not return the expected 'Retry later' message. "

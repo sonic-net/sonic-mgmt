@@ -174,15 +174,17 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     4: do the test, reset bgp or swss or do the reboot
     5: Verify all bgp sessions are up
     '''
+    duthost = duthosts[rand_one_dut_hostname]
+
     # Skip the test on dualtor with reboot test type
     pytest_require(
         ("dualtor" not in tbinfo["topo"]["name"] or test_type != "reboot"),
         "warm reboot is not supported on dualtor"
     )
-    if test_type == "reboot" and "isolated" in tbinfo["topo"]["name"]:
-        pytest.skip("Warm Reboot is not supported on isolated topology")
-
-    duthost = duthosts[rand_one_dut_hostname]
+    if test_type == "reboot" and (
+        "isolated" in tbinfo["topo"]["name"] or
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")):
+        pytest.skip("Warm Reboot is not supported on isolated topology or smartswitch")
 
     if "x86_64-nokia_ixr7220_d4-r0" in duthost.facts['platform'] and test_type == "reboot":
         pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))

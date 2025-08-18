@@ -2,14 +2,36 @@ steps:
   - script: |
       echo "Checking if pre-commit configuration .pre-commit-config.[yaml|yml] exists"
       if [ -f .pre-commit-config.yaml ] || [ -f .pre-commit-config.yml ]; then
+        # Update with timeout and retry logic
+        timeout 180s sudo apt-get update -y || {
+          echo "apt-get update failed or timed out"
+          exit 1
+        }
+        # Install aspell and aspell-en non-interactively
+        timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends aspell aspell-en libenchant-2-2 libenchant-2-dev || {
+          echo "Failed to install aspell or aspell-en or libenchant-2-2 or libenchant-2-dev"
+          exit 1
+        }
+        pip install pyenchant
         pip install pre-commit
-        # TODO have a way for the calling project to pass
-        # installation pre-requisites
-        pip install pylint  # required as pylint is run in local mode
-        echo "Running pre-commit"
-        # configuration is loaded from .pre-commit-config.yaml
-        pre-commit run --all-files --show-diff-on-failure --color=never | head -20
+        pip install pylint # required as pylint is run in local mode
+        pip install -r tests/common2/requirements_pylint_prereq.txt
+
+        pre-commit install
+        pre-commit install-hooks
+
+        # Source the shared script to get changed files (all files, not just Python)
+        source .azure-pipelines/common2/scripts/get-changed-python-files.sh all
+
+        if [ "$HAS_CHANGED_FILES" = "false" ]; then
+          echo "Skipping pre-commit run for this directory."
+        else
+          echo "Running pre-commit on specific changed files..."
+          # configuration is loaded from .pre-commit-config.yaml
+          # We pass the list of changed files to pre-commit
+          pre-commit run --files $CHANGED_FILES --show-diff-on-failure --color=never
+        fi
       else
         echo "Pre-commit configuration not found. Nothing to do"
       fi
-    displayName: 'Run pre-commit hooks'
+    displayName: 'Run pre-commit hooks on changed files in tests/common2'

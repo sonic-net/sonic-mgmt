@@ -431,7 +431,12 @@ class EosHost(AnsibleHostBase):
 
         speed_list = found_txt.groups()[0]
         speed_list = speed_list.split(',')
-        speed_list.remove('auto')
+
+        try:
+            speed_list.remove('auto')
+        except ValueError:
+            # auto may not be in speed options for certain versions
+            pass
 
         def extract_speed_only(v):
             return re.match(r'\d+', v.strip()).group() + '000'

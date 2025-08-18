@@ -891,6 +891,21 @@ platform_tests/broadcom/test_ser.py:
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
+##############################################
+#####  cli/test_show_chassis_modules.py  #####
+##############################################
+platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_midplane_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
@@ -982,6 +997,15 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
 
+############################################
+##### link_flap/test_cont_link_flap.py #####
+############################################
+platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_link_flap:
+  xfail:
+    reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
+
 #######################################
 #####           mellanox          #####
 #######################################
@@ -1054,6 +1078,7 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/6794"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "release in ['202412']"

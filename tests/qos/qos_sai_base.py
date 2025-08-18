@@ -47,10 +47,10 @@ class QosBase:
     """
     SUPPORTED_T0_TOPOS = [
         "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
-        "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-64-breakout", "t0-120", "t0-80",
-        "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64", "t0-standalone-128",
-        "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2", "t0-88-o8c80"
-
+        "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
+        "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
+        "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
+        "t0-88-o8c80"
     ]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
@@ -103,22 +103,22 @@ class QosBase:
         elif dut_test_params_qos["topo"] in self.SUPPORTED_T0_TOPOS:
             dut_test_params_qos["basicParams"]["router_mac"] = ''
 
-        elif "dualtor" in tbinfo["topo"]["name"]:
-            # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
-            # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
-            dut_test_params_qos["basicParams"]["is_dualtor"] = True
+            if "dualtor" in tbinfo["topo"]["name"]:
+                # For dualtor qos test scenario, DMAC of test traffic is default vlan interface's MAC address.
+                # To reduce duplicated code, put "is_dualtor" and "def_vlan_mac" into dutTestParams['basicParams'].
+                dut_test_params_qos["basicParams"]["is_dualtor"] = True
 
-            vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
-            if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
-                default_vlan_name = vlan_cfgs['default_vlan_config']
-                if default_vlan_name:
-                    for vlan in vlan_cfgs[default_vlan_name].values():
-                        if 'mac' in vlan and vlan['mac']:
-                            dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
-                            break
+                vlan_cfgs = tbinfo['topo']['properties']['topology']['DUT']['vlan_configs']
+                if vlan_cfgs and 'default_vlan_config' in vlan_cfgs:
+                    default_vlan_name = vlan_cfgs['default_vlan_config']
+                    if default_vlan_name:
+                        for vlan in vlan_cfgs[default_vlan_name].values():
+                            if 'mac' in vlan and vlan['mac']:
+                                dut_test_params_qos["basicParams"]["def_vlan_mac"] = vlan['mac']
+                                break
 
-            pytest_assert(dut_test_params_qos["basicParams"]["def_vlan_mac"] is not None,
-                          "Dual-TOR miss default VLAN MAC address")
+                pytest_assert(dut_test_params_qos["basicParams"]["def_vlan_mac"] is not None,
+                              "Dual-TOR miss default VLAN MAC address")
         else:
             try:
                 duthost = get_src_dst_asic_and_duts['src_dut']
@@ -557,7 +557,7 @@ class QosSaiBase(QosBase):
 
         return {"schedProfile": schedProfile, "schedWeight": schedWeight}
 
-    def __assignTestPortIps(self, mgFacts, topo):
+    def __assignTestPortIps(self, mgFacts, topo, lower_tor_host):  # noqa: F811
         """
             Assign IPs to test ports of DUT host
 
@@ -596,9 +596,13 @@ class QosSaiBase(QosBase):
                 if vlan_type is not None and "Tagged" in vlan_type:
                     vlan_id = mgFacts["minigraph_vlans"][testVlan]['vlanid']
 
+            config_facts = lower_tor_host.config_facts(host=lower_tor_host.hostname, source="running")['ansible_facts']
+
             for i in range(len(testVlanMembers)):
                 portIndex = mgFacts["minigraph_ptf_indices"][testVlanMembers[i]]
-                portIpMap = {'peer_addr': str(testVlanIp + portIndex + 1)}
+                peer_addr = config_facts['MUX_CABLE'][testVlanMembers[i]]['server_ipv4'].split('/')[0] \
+                    if 'dualtor' in topo else testVlanIp + portIndex + 1
+                portIpMap = {'peer_addr': str(peer_addr)}
                 if vlan_id is not None:
                     portIpMap['vlan_id'] = vlan_id
                 dutPortIps.update({portIndex: portIpMap})
@@ -854,7 +858,7 @@ class QosSaiBase(QosBase):
             else:
                 srcPorts = [1]
         if (get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"]
-                in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"]):
+                in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1", "Cisco-8102-28FH-DPU-O"]):
             srcPorts = [testPortIds[0][0].index(uplinkPortIds[0])]
             dstPorts = [testPortIds[0][0].index(x) for x in uplinkPortIds[1:4]]
             logging.debug("Test Port dst:{}, src:{}".format(dstPorts, srcPorts))
@@ -1070,7 +1074,7 @@ class QosSaiBase(QosBase):
                 dualTorPortIndexes = testPortIds
 
             testPortIps[src_dut_index] = {}
-            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
+            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo, lower_tor_host)
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
@@ -1113,7 +1117,8 @@ class QosSaiBase(QosBase):
                     if (use_separated_upkink_dscp_tc_map or
                         (get_src_dst_asic_and_duts["src_asic"]
                          .sonichost.facts["hwsku"]
-                         in ["Cisco-8101-O8C48", "Cisco-8101-O8V48", "Cisco-8102-28FH-DPU-O-T1"])):
+                         in ["Cisco-8101-O8C48", "Cisco-8101-O8V48",
+                             "Cisco-8102-28FH-DPU-O-T1", "Cisco-8102-28FH-DPU-O"])):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
@@ -1135,7 +1140,7 @@ class QosSaiBase(QosBase):
 
             # Need to fix this
             testPortIps[src_dut_index] = {}
-            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo)
+            testPortIps[src_dut_index][src_asic_index] = self.__assignTestPortIps(src_mgFacts, topo, lower_tor_host)
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
@@ -1362,7 +1367,7 @@ class QosSaiBase(QosBase):
             "srcDutInstance": src_dut,
             "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
-            "dualTorScenario": len(dualtor_ports_for_duts) != 0
+            "dualTorScenario": len(dualtor_ports_for_duts) != 0 and "dualtor" not in tbinfo["topo"]["name"]
         }
 
     @pytest.fixture(scope='class')
@@ -2372,6 +2377,34 @@ class QosSaiBase(QosBase):
         for dut_asic in get_src_dst_asic_and_duts['all_asics']:
             dut_asic.command("counterpoll watermark disable")
             dut_asic.command("counterpoll queue disable")
+
+    @pytest.fixture
+    def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
+
+        """
+            Block all gRPC traffic on active-active dualtor
+
+            Args:
+                tbinfo: Testbed info
+                lower_tor_host: DUT in t0 / dualtor topologies
+
+            Returns:
+                None
+        """
+
+        _, port, _ = nic_simulator_info
+        if port is None:
+            yield
+
+        else:
+
+            lower_tor_host.shell(f"sudo iptables -A OUTPUT -p tcp --dport {port} -j DROP")
+            lower_tor_host.shell(f"sudo iptables -A INPUT -p tcp --sport {port} -j DROP")
+
+            yield
+
+            lower_tor_host.shell(f"sudo iptables -D OUTPUT -p tcp --dport {port} -j DROP")
+            lower_tor_host.shell(f"sudo iptables -D INPUT -p tcp --sport {port} -j DROP")
 
     @pytest.fixture(scope='class')
     def dualtor_ports_for_duts(request, get_src_dst_asic_and_duts):
