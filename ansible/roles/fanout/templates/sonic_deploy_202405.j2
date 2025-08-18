@@ -203,7 +203,7 @@
     {% endfor %}
     },
 {% endif %}
-{% if fanout_hwsku not in ("Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4") and "Arista-7060X6-64PE" not in fanout_hwsku %}
+{% if fanout_hwsku not in ("Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4") and "Arista-7060X6" not in fanout_hwsku %}
     "BUFFER_QUEUE": {
     {% for port_name in fanout_port_config %}
          "{{ port_name }}|0-7": {
