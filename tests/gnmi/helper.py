@@ -85,7 +85,7 @@ def recover_cert_config(duthost):
 
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
-    
+
     dut_command = "tail /var/log/gnmi.log"
     output = duthost.shell(dut_command, module_ignore_errors=True)
 
