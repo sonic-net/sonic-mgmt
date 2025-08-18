@@ -1987,6 +1987,12 @@ ipfwd/test_mtu.py:
     conditions:
       - "topo_type not in ['t1', 't2']"
 
+ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
+  xfail:
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
+
 #######################################
 #####            ixia             #####
 #######################################
