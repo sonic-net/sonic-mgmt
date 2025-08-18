@@ -207,8 +207,8 @@ def outbound_pl_packets(
 
     exp_overlay_dip = get_pl_overlay_dip(inner_packet[scapy.IP].dst, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK)
 
-    logger.info(f"Expecting overlay SIP: {exp_overlay_sip}")
-    logger.info(f"Expecting overlay DIP: {exp_overlay_dip}")
+    logger.debug(f"Expecting overlay SIP: {exp_overlay_sip}")
+    logger.debug(f"Expecting overlay DIP: {exp_overlay_dip}")
 
     if inner_packet_type == 'tcp':
         exp_inner_packet = scapy.Ether() / scapy.IPv6() / scapy.TCP()

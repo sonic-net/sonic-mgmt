@@ -49,7 +49,7 @@ TUNNEL1_ENDPOINT_IP = "40.40.40.40"
 TUNNEL2 = "Tunnel2"
 TUNNEL1_ENDPOINT_IPS = [TUNNEL1_ENDPOINT_IP]
 TUNNEL2_ENDPOINT_IPS = ["60.60.60.60", "70.70.70.70"]
-TRUSTED_VNI = "800"
+ENI_TRUSTED_VNI = "800"
 METER_POLICY_V4 = "MeterPolicyV4"
 METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
 METER_RULE_V4_PREFIX2 = "92.6.0.0/16"
@@ -66,6 +66,7 @@ APPLIANCE_FNIC_CONFIG = {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP,
+        "local_region_id": LOCAL_REGION_ID
     }
 }
 
@@ -92,7 +93,7 @@ ENI_FNIC_TRUSTED_VNI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "mode": EniMode.MODE_FNIC,
-        "trusted_vni": TRUSTED_VNI
+        "trusted_vni": ENI_TRUSTED_VNI
     }
 }
 
@@ -139,12 +140,7 @@ VM1_VNET_MAPPING_CONFIG = {
         "metering_class_or": "2",
     }
 }
-EXGW_ROUTE_CONFIG = {
-    f"DASH_ROUTE_TABLE:{ROUTE_GROUP1}:{PE_CA_SUBNET}": {
-        "routing_type": RoutingType.ROUTING_TYPE_DIRECT,
-        "tunnel": TUNNEL2
-    }
-}
+
 TUNNEL1_CONFIG = {
     f"DASH_TUNNEL_TABLE:{TUNNEL1}": {
         "endpoints": TUNNEL1_ENDPOINT_IPS,

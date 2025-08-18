@@ -164,7 +164,8 @@ def common_setup_teardown(
 
     yield
 
-    # DASH object deletion not fully supported on all platforms so cleanup via config reload for now.
+    # Route rule removal is broken so config reload to cleanup for now
+    # https://github.com/sonic-net/sonic-buildimage/issues/23590
     config_reload(dpuhost, safe_reload=True, yang_validate=False)
     # apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index, False)
     # apply_messages(localhost, duthost, ptfhost, pl.ENI_TRUSTED_VNI_CONFIG, dpuhost.dpu_index, False)
@@ -190,7 +191,7 @@ def verify_tunnel_packets(ptfadapter, dash_pl_config, exp_dpu_to_vm_pkt, tunnel_
             if pkt_repr["IP"].dst in tunnel_endpoint_counts:
                 if ptf.dataplane.match_exp_pkt(exp_dpu_to_vm_pkt, result.packet):
                     tunnel_endpoint_counts[pkt_repr["IP"].dst] += 1
-                    logging.info(
+                    logging.debug(
                         f"Packet sent to tunnel endpoint {pkt_repr['IP'].dst} matches:\
                             \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
                     )
