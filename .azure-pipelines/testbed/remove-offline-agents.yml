@@ -35,8 +35,6 @@ jobs:
         ${{ each AGENT_POOL in parameters.AGENT_POOLS }}:
           ${{ AGENT_POOL }}:
             poolName: ${{ AGENT_POOL }}
-    variables:
-      - group: sonicbld
     steps:
       - task: PythonScript@0
         inputs:
@@ -94,10 +92,10 @@ jobs:
                     print(f'Removing offline agent: {agent["id"]}, {agent["name"]}')
                     del_agent(organization=azure_org, pool_id=pool_id, agent=agent, token=token)
                     n += 1
-            print(f'Removed {n} offline agents') 
+            print(f'Removed {n} offline agents')
 
         env:
-          TOKEN: $(MSSONIC-TOKEN)
           AZURE_ORG: ${{ parameters.AZURE_ORG }}
           AGENT_POOL: $(poolName)
+          TOKEN: $(System.AccessToken)
         displayName: 'Run remove offline agents'
