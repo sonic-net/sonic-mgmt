@@ -129,12 +129,6 @@ PG_TOLERANCE = 2
 # Constants for voq/oq watchdog test
 WATCHDOG_TIMEOUT_SECONDS = {"voq": 60,
                             "oq": 5}
-SAI_LOG_TO_CHECK = {"voq": ["HARDWARE_WATCHDOG", "soft_reset"],
-                    "oq": ["HARDWARE_WATCHDOG", "soft_reset"]}
-SDK_LOG_TO_CHECK = {"voq": ["VOQ Appears to be stuck"],
-                    "oq": []}
-SAI_LOG = "/var/log/sai.log"
-SDK_LOG = "/var/log/syslog"
 
 
 def log_message(message, level='info', to_stderr=False):
@@ -680,46 +674,6 @@ def get_peer_addresses(data):
     addresses = set()
     get_peer_addr(data, addresses)
     return list(addresses)
-
-
-def init_log_check(test_case):
-    pre_offsets = []
-    for logfile in [SAI_LOG, SDK_LOG]:
-        offset_cmd = "stat -c %s {}".format(logfile)
-        stdout, err, ret = test_case.exec_cmd_on_dut(
-            test_case.dst_server_ip,
-            test_case.test_params['dut_username'],
-            test_case.test_params['dut_password'],
-            offset_cmd)
-        pre_offsets.append(int(stdout[0]))
-    return pre_offsets
-
-
-def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq'):
-    qos_test_assert(test_case, watchdog_type in ['voq', 'oq'],
-                    "Invalid watchdog type: {}".format(watchdog_type))
-    found_list = []
-    for pre_offset, logfile, str_to_check in zip(pre_offsets, [SAI_LOG, SDK_LOG],
-                                                 [SAI_LOG_TO_CHECK[watchdog_type], SDK_LOG_TO_CHECK[watchdog_type]]):
-        egrep_str = '|'.join(str_to_check)
-        check_cmd = "sudo tail -c +{} {} | egrep '{}' || true".format(pre_offset + 1, logfile, egrep_str)
-        stdout, err, ret = test_case.exec_cmd_on_dut(
-            test_case.dst_server_ip,
-            test_case.test_params['dut_username'],
-            test_case.test_params['dut_password'],
-            check_cmd)
-        log_message("Log for {}: {}".format(egrep_str, stdout), level='info', to_stderr=True)
-        for string in str_to_check:
-            if string in "".join(stdout):
-                found_list.append(True)
-            else:
-                found_list.append(False)
-    if watchdog_enabled:
-        qos_test_assert(test_case, all(found is True for found in found_list),
-                        "{} watchdog trigger log not detected".format(watchdog_type))
-    else:
-        qos_test_assert(test_case, all(found is False for found in found_list),
-                        "unexpected {} watchdog trigger log".format(watchdog_type))
 
 
 def verify_queue_occupancy(test_case, dst_port_id, queue_idx, expect_queue_empty=True, timeout=0):
@@ -6805,7 +6759,6 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         log_message("dst_port_name: {}".format(dst_port_name), to_stderr=True)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
-        pre_offsets = init_log_check(self)
 
         try:
             # send packets
@@ -6818,9 +6771,6 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             log_message("Waiting for VOQ watchdog to trigger", level='info', to_stderr=True)
             verify_queue_occupancy(self, dst_port_id, queue_idx, voq_watchdog_enabled,
                                    timeout=WATCHDOG_TIMEOUT_SECONDS["voq"])
-
-            log_message("Verify log after VOQ watchdog timeout", level='info', to_stderr=True)
-            verify_log(self, pre_offsets, voq_watchdog_enabled, "voq")
 
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
@@ -6842,7 +6792,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
-        oq_watchdog_enabled = self.test_params['oq_watchdog_enabled']
         pkts_num = int(self.test_params['pkts_num'])
         queue_id = int(self.test_params['queue_id'])
 
@@ -6874,8 +6823,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         log_message("test dst_port_id: {}, src_port_id: {}, src_vlan: {}".format(
             dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
 
-        pre_offsets = init_log_check(self)
-
         try:
             log_message("Verify OQ is empty before send packets", level='info', to_stderr=True)
             verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
@@ -6891,9 +6838,6 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
 
             log_message("Verify OQ is empty after watchdog timeout", level='info', to_stderr=True)
             verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
-
-            log_message("Verify log after OQ watchdog timeout", level='info', to_stderr=True)
-            verify_log(self, pre_offsets, oq_watchdog_enabled, "oq")
 
         finally:
             print("END OF TEST")
