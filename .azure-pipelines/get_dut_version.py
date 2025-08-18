@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import os
 import sys
-import json
+
 import yaml
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
@@ -47,12 +48,17 @@ def read_asic_name(hwsku):
 
 
 def get_duts_version(sonichosts, output=None):
+    """
+    Collect version information from DUTs via `show version`.
+
+    Returns:
+        dict: Parsed version info per DUT, structured with general fields and Docker images.
+    """
     try:
         ret = {}
         duts_version = sonichosts.command("show version")
         for dut, version in duts_version.items():
             ret[dut] = {}
-            ret[dut]["Docker images"] = []
 
             dut_version = version["stdout_lines"]
             in_docker_section = False
@@ -63,6 +69,7 @@ def get_duts_version(sonichosts, output=None):
 
                 # Detect start of docker images section
                 if line.startswith("Docker images"):
+                    ret[dut]["Docker images"] = []
                     in_docker_section = True
                     continue
 
@@ -98,10 +105,12 @@ def get_duts_version(sonichosts, output=None):
                         ret[dut][key] = value
 
         if output:
-            with open(output, "w") as f:
+            with open(output, "w", encoding="utf-8") as f:
                 json.dump(ret, f, indent=2)
         else:
             print(json.dumps(ret, indent=2))
+
+        return ret
     except Exception as e:
         logger.error("Failed to get DUT version: {}".format(e))
         sys.exit(RC_GET_DUT_VERSION_FAILED)
