@@ -201,7 +201,7 @@ def test_pfcwd_basic_multi_lossless_prio_reboot(snappi_api,                 # no
                                                 lossless_prio_list,         # noqa: F811
                                                 tbinfo,      # noqa: F811
                                                 prio_dscp_map,              # noqa F811
-                                                tgen_port_info,        # noqa: F811             # noqa: F811
+                                                tgen_port_info,        # noqa: F811
                                                 setup_ports_and_dut,        # noqa: F811
                                                 reboot_duts,                # noqa: F811
                                                 trigger_pfcwd):
@@ -270,7 +270,7 @@ def test_pfcwd_basic_single_lossless_prio_service_restart(snappi_api,           
     """
     testbed_config, port_config_list, snappi_ports = tgen_port_info
     logger.info('Ports:{}'.format(snappi_ports))
-    
+
     lossless_prio = random.sample(lossless_prio_list, 1)
     lossless_prio = int(lossless_prio[0])
 
@@ -360,7 +360,7 @@ def test_pfcwd_basic_multi_lossless_prio_restart_service(snappi_api,            
 
     testbed_config, port_config_list, snappi_ports = tgen_port_info
     logger.info('Ports:{}'.format(snappi_ports))
-    
+
     if (snappi_ports[0]['duthost'].is_multi_asic):
         ports_dict = defaultdict(list)
         for port in snappi_ports:
