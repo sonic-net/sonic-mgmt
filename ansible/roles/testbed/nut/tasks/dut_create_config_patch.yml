@@ -1,6 +1,10 @@
 ---
 - name: allocate ip for device
-  nut_allocate_ip: testbed_facts="{{ testbed_facts }}" device_info="{{ device_info }}" device_port_links="{{ device_conn }}"
+  nut_allocate_ip:
+    testbed_facts: "{{ testbed_facts }}"
+    device_info: "{{ device_info }}"
+    device_port_links: "{{ device_conn }}"
+    device_port_vrfs: "{{ device_port_vrfs }}"
   delegate_to: localhost
 
 - name: output device info
@@ -14,6 +18,10 @@
 - name: output device conn
   debug:
     var: device_conn[inventory_hostname]
+
+- name: output device port vlan
+  debug:
+    var: device_vlan_map_list[inventory_hostname]
 
 - name: output device bgp neighbor devices
   debug:
@@ -42,6 +50,10 @@
     info: "{{ device_info[inventory_hostname] }}"
     meta: "{{ device_meta[inventory_hostname] }}"
     conn: "{{ device_conn[inventory_hostname] }}"
+    vlans: "{{ device_vlan_list[inventory_hostname] }}"
+    vrfs: "{{ device_vrfs[inventory_hostname] }}"
+    intfs: "{{ device_interfaces[inventory_hostname] }}"
+    port_vlans: "{{ device_port_vlans[inventory_hostname] }}"
     bgp_neighbor_devices: "{{ device_bgp_neighbor_devices[inventory_hostname] }}"
     bgp_neighbor_ports: "{{ device_bgp_neighbor_ports[inventory_hostname] }}"
     features: "{{ device_feature_settings }}"
