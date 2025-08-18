@@ -3693,3 +3693,15 @@ zmq/test_gnmi_zmq.py:
     conditions:
       - "'arista' in platform"
       - "'isolated' in topo_name"
+
+#######################################
+#####       session monitors      #####
+#######################################
+session_monitor/test_bgp_session_tracker.py:
+  skip:
+    reason: "Skip bgp session tracker test for non-smartswitch t0 devices"
+    conditions_logical_operator: OR
+    conditions:
+      - "hwsku not in ['Cisco-8102-28FH-DPU-C28']"
+      - "release not in ['202505']"
+      - "topo_type not in ['t0']"
