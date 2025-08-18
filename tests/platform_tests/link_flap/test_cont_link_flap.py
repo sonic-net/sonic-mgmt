@@ -38,17 +38,13 @@ class TestContLinkFlap(object):
         frr_daemon_memory_per_asics = {}
 
         for asic in duthost.asics:
-            frr_daemon_memory_output = asic.run_vtysh(f'-c "show memory {daemon}"')["stdout"]
+            frr_daemon_memory_output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+                f'vtysh -c "show memory {daemon}"', asic.namespace))["stdout"]
+            logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
 
-            logging.info(
-                f"{daemon}{('-' + asic.namespace) if asic.namespace else ''} memory status: \n%s",
-                frr_daemon_memory_output
-            )
-
-            frr_daemon_memory = asic.run_vtysh(
-                f'-c "show memory {daemon}" | grep "Used ordinary blocks"'
-            )["stdout"].split()[-2]
-
+            output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+                f'vtysh -c "show memory {daemon}" | grep "Used ordinary blocks"', asic.namespace))["stdout"]
+            frr_daemon_memory = output.split()[-2]
             frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
 
         return frr_daemon_memory_per_asics
