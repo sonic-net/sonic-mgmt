@@ -77,7 +77,7 @@ def verify_all_routes_announce_to_neighs(dut_host, neigh_hosts, routes_dut, ip_v
             if skip:
                 continue
             if route not in list(routes.keys()):
-                logger.warn("{} not found on {}".format(route, hostname))
+                logger.warning("{} not found on {}".format(route, hostname))
                 return False
     return True
 
