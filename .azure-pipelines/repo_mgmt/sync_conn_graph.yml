@@ -49,7 +49,6 @@ stages:
         pool: ${{ parameters.AGENT_POOL }}
         timeoutInMinutes: 30
         variables:
-          - group: sonicbld
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -67,4 +66,4 @@ stages:
 
                 python3 sync_conn_graph.py
             env:
-              MSSONIC_PUBLIC_TOKEN: $(MSSONIC-TOKEN)
+              MSSONIC_PUBLIC_TOKEN: $(System.AccessToken)
