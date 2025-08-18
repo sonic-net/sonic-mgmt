@@ -402,7 +402,8 @@ class QosSaiBase(QosBase):
             platform_support_nvidia_new_algorithm_cal_buffer_thr = ["x86_64-nvidia_sn5600-r0",
                                                                     "x86_64-nvidia_sn5640-r0",
                                                                     "x86_64-nvidia_sn5400-r0"]
-            if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr:
+            if dut_asic.sonichost.facts['platform'] in platform_support_nvidia_new_algorithm_cal_buffer_thr \
+                    and self.is_port_alpha_enabled(dut_asic):
                 self.__compute_buffer_threshold_for_nvidia_device(dut_asic, table, port, bufferProfile)
             else:
                 self.__computeBufferThreshold(dut_asic, bufferProfile)
@@ -3135,3 +3136,10 @@ def set_queue_pir(interface, queue, rate):
         logging.info(f"weights_list: {weights_list}")
 
         return weights_list
+
+    def is_port_alpha_enabled(self, duthost):
+        # only spc4 and above support enable or disable port alpha function
+        get_sai_profile_cmd = "sudo docker exec syncd  cat /usr/share/sonic/hwsku/sai.profile"
+        sai_profile_content = duthost.shell(get_sai_profile_cmd)['stdout']
+        logging.info(f"sai_profile_content: {sai_profile_content}")
+        return "SAI_KEY_DISABLE_PORT_ALPHA=1" not in sai_profile_content
