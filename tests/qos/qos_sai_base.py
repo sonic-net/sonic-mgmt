@@ -1095,7 +1095,7 @@ class QosSaiBase(QosBase):
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
-                testPortIps.update(dutPortIps)
+                testPortIps[src_dut_index][src_asic_index].update(dutPortIps[src_dut_index][src_asic_index])
 
             if is_supported_per_dir:
                 for portIndex, _ in testPortIps[src_dut_index][src_asic_index].items():
@@ -3048,7 +3048,9 @@ def set_queue_pir(interface, queue, rate):
     @pytest.fixture(scope='class', autouse=True)
     def is_supported_per_dir(self, get_src_dst_asic_and_duts, tbinfo):  # noqa F811
         supported_per_dir_platform = ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2",
-                                      "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1"]
+                                      "Mellanox-SN5600-C224O8", "Mellanox-SN5600-C256S1",
+                                      "Arista-7060X6-16PE-384C-B-O128S2",
+                                      "Arista-7060X6-64PE-B-O128", "Arista-7060X6-64PE-O128S2"]
         is_supported_per_dir = \
             get_src_dst_asic_and_duts["src_asic"].sonichost.facts["hwsku"] in supported_per_dir_platform
         logging.info(f"is_supported_per_dir: {is_supported_per_dir}")
