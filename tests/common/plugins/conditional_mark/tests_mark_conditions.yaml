@@ -1565,6 +1565,12 @@ generic_config_updater/test_dynamic_acl.py:
       - "topo_name in ['m0-2vlan']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
 
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
+  skip:
+    reason: "DHCP is not enabled in isolated topo"
+    conditions:
+      - "'t0-isolated' in topo_name"
+
 generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
   skip:
     reason: "This test is not run on this asic type, topology, or version currently"
@@ -1663,6 +1669,13 @@ generic_config_updater/test_pg_headroom_update.py:
     conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+
+generic_config_updater/test_srv6:
+  skip:
+    reason: "Unsupported topology."
+    conditions_logical_operator: "OR"
+    conditions:
+      - "topo_name in ['t0-isolated-d96u32s2']"
 
 #######################################
 #####           gnmi              #####
@@ -2157,6 +2170,12 @@ ipfwd/test_mtu.py:
     conditions:
       - "topo_type not in ['t1', 't2']"
 
+ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
+  xfail:
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/16218 on mellanox platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
+
 #######################################
 #####            ixia             #####
 #######################################
@@ -2212,6 +2231,12 @@ lldp/test_lldp.py::test_lldp_neighbor:
     reason: "Skipping LLDP test because the topology is standalone. No LLDP neighbors detected."
     conditions:
       - "'standalone' in topo_name"
+
+lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
+  xfail:
+    reason: "Xfail the test due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/19658"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/19658 and asic_type in ['mellanox', 'nvidia']"
 
 #######################################
 #####           macsec            #####
@@ -2392,6 +2417,13 @@ pc/test_po_cleanup.py:
     conditions:
       - "len(minigraph_portchannels) == 0 and not is_multi_asic"
 
+pc/test_po_cleanup.py::test_po_cleanup_after_reload:
+  xfail:
+    reason: "Skip test due on dualtor setup due to github issue https://github.com/sonic-net/sonic-buildimage/issues/20414 on mellanox platform"
+    conditions:
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/20414 and asic_type in ['mellanox']"
+
+
 pc/test_po_update.py::test_po_update:
   skip:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
@@ -2477,7 +2509,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for 202412 / Pfcwd warm reboot is not supported on cisco-8000 platform."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
@@ -2485,7 +2517,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "platform in ['x86_64-mlnx_msn3800-r0']"
         - "topo_type in ['m0', 'mx', 'm1']"
         - "asic_type in ['cisco-8000']"
-        - "release in ['202412']"
+        - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
@@ -2544,7 +2576,7 @@ qos/test_buffer.py:
     reason: "These tests don't apply to cisco 8000 platforms or T2 or M* since they support only traditional model."
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['cisco-8000'] or 't2' in topo_name"
+      - "asic_type in ['cisco-8000'] or topo_type == 't2'"
       - "topo_type in ['m0', 'mx', 'm1']"
 
 qos/test_buffer.py::test_buffer_model_test:
@@ -2553,7 +2585,7 @@ qos/test_buffer.py::test_buffer_model_test:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
-      - "asic_type in ['cisco-8000'] or 't2' in topo_name"
+      - "asic_type in ['cisco-8000'] or topo_type == 't2'"
       - "topo_type in ['m0', 'mx', 'm1']"
 
 qos/test_buffer_traditional.py:
@@ -3185,7 +3217,7 @@ srv6/test_srv6_dataplane.py:
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_static_config.py:
   skip:
@@ -3194,7 +3226,7 @@ srv6/test_srv6_static_config.py:
     conditions:
       - "release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
 srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
@@ -3209,7 +3241,7 @@ srv6/test_srv6_vlan_forwarding.py:
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
-      - "topo_name in ['t0-isolated-d96u32', 't1-isolated-d128', 't1-isolated-d32']"
+      - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
 #######################################
 #####             ssh             #####
