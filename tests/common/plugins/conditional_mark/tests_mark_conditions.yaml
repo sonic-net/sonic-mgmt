@@ -3008,6 +3008,12 @@ snmp/test_snmp_default_route.py::test_snmp_default_route:
     conditions:
       - "'standalone' in topo_name"
 
+snmp/test_snmp_interfaces.py::test_snmp_interfaces_error_discard:
+  skip:
+    reason: "Skipping test since the flag is set to false for BCM DNX platforms and the RIF stats are not supported."
+    conditions:
+      - "asic_subtype in ['broadcom-dnx']"
+
 snmp/test_snmp_link_local.py:
   skip:
     reason: "SNMP over IPv6 support not present in release branches."
