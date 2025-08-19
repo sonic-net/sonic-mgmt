@@ -16,6 +16,25 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(autouse=True)
+def ignore_expected_loganalyzer_exceptions(duthosts, rand_one_dut_hostname, loganalyzer):
+    """
+       Ignore expected errors in logs during test execution
+
+       Args:
+           loganalyzer: Loganalyzer utility fixture
+           duthost: DUT host object
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if loganalyzer:
+        loganalyzer_ignore_regex = [
+            ".*ERR sonic_yang: Data Loading Failed:Invalid JSON data (unexpected value).*",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(loganalyzer_ignore_regex)
+
+    yield
+
+
 @pytest.fixture(scope="function")
 def ensure_dut_readiness(duthost):
     """
