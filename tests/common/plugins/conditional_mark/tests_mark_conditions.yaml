@@ -2007,6 +2007,12 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_inte
     conditions:
       - "'Arista-7060X6' in hwsku"
 
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_interface_speed_40G_100G:
+  skip:
+    reason: "Testcase has issue on Cisco platform. Skipping this test until the issue is resolved."
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 iface_namingmode/test_iface_namingmode.py::TestShowInterfaces::test_config_interface_state:
   xfail:
     reason: "Cisco-8101-O8V48 testbed is not supported."
