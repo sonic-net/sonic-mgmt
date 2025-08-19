@@ -132,7 +132,8 @@ scan_dbs = {
             "keys_to_skip_comp": {
                 "PORT_TABLE",
                 "TRANSCEIVER_INFO",
-                "TRANSCEIVER_STATUS"
+                "TRANSCEIVER_STATUS",
+                "TRANSCEIVER_STATUS_FLAG_CLEAR_TIME\\|Ethernet[0-9]+"
             },
             "keys_skip_val_comp": {
                 "last_update_time"
