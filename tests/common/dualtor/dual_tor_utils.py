@@ -1662,6 +1662,7 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
 
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
+
 def check_active_active_port_status(duthost, ports, status):
     """Validate the active-active mux ports status."""
     logging.debug("Check mux status for ports {} is {}".format(ports, status))
@@ -1686,16 +1687,17 @@ def run_mux_config_command(tor, cmd, expected_output=None, forbidden_output=None
         forbidden_output = []
 
     for output in forbidden_output:
-       if output in result['results'][0]['stdout']:
-           logging.error("Unexpected output {} in when running command {}".format(output, cmd))
-           return False
+        if output in result['results'][0]['stdout']:
+            logging.error("Unexpected output {} in when running command {}".format(output, cmd))
+            return False
 
     for output in expected_output:
-       if output not in result['results'][0]['stdout']:
-           logging.error("Unexpected output {} in when running command {}".format(output, cmd))
-           return False
+        if output not in result['results'][0]['stdout']:
+            logging.error("Unexpected output {} in when running command {}".format(output, cmd))
+            return False
 
     return True
+
 
 def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally=False):
     """Toggle the active-active mux ports via CLI."""
@@ -2017,4 +2019,3 @@ def disable_timed_oscillation_active_standby(duthosts, tbinfo):
     for duthost in duthosts:
         duthost.shell('sonic-db-cli CONFIG_DB HSET "MUX_LINKMGR|TIMED_OSCILLATION" "oscillation_enabled" "false"')
         duthost.shell("config save -y")
-
