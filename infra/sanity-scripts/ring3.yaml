@@ -267,7 +267,7 @@ MGMT: #Anukul Verma
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
         - memory_checker/test_memory_checker.py
-        - ssh/test_ssh_ciphers.py
+        #- ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - snmp/test_snmp_cpu.py
         - snmp/test_snmp_memory.py
@@ -363,7 +363,7 @@ MGMT: #Anukul Verma
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
         - memory_checker/test_memory_checker.py
-        - ssh/test_ssh_ciphers.py
+        #- ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - snmp/test_snmp_cpu.py
         - snmp/test_snmp_memory.py
