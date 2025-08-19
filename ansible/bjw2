@@ -84,24 +84,9 @@ all:
           ansible_host: 10.150.23.126
           ansible_hostv6: 2404:f801:10:2200::a96:177e
         # 10.150.23.127 is used as netns_mgmt_ip of testbed-bjw2-can-dual-t0-7050-1
-        bjw2-9-1:
-          ansible_host: 10.150.23.128
-          ansible_hostv6: 2404:f801:10:2200::a96:1780
-        bjw2-9-2:
-          ansible_host: 10.150.23.129
-          ansible_hostv6: 2404:f801:10:2200::a96:1781
-        bjw2-9-3:
-          ansible_host: 10.150.23.130
-          ansible_hostv6: 2404:f801:10:2200::a96:1782
-        bjw2-9-4:
-          ansible_host: 10.150.23.131
-          ansible_hostv6: 2404:f801:10:2200::a96:1783
         bjw2-2-c:
           ansible_host: 10.150.23.134
           ansible_hostv6: 2404:f801:10:2200::a96:1786
-        bjw2-9-5:
-          ansible_host: 10.150.23.135
-          ansible_hostv6: 2404:f801:10:2200::a96:1787
         bjw2-3-6:
           ansible_host: 10.150.23.78
           ansible_hostv6: 2404:f801:10:2200::a96:174e
@@ -186,6 +171,21 @@ all:
         bjw2-b-a:
           ansible_host: 10.150.23.121
           ansible_hostv6: 2404:f801:10:2200::a96:1779
+        bjw2-5-c:
+          ansible_host: 10.150.23.135
+          ansible_hostv6: 2404:f801:10:2200::a96:1787
+        bjw2-9-1:
+          ansible_host: 10.150.23.128
+          ansible_hostv6: 2404:f801:10:2200::a96:1780
+        bjw2-9-2:
+          ansible_host: 10.150.23.129
+          ansible_hostv6: 2404:f801:10:2200::a96:1781
+        bjw2-4-2:
+          ansible_host: 10.150.23.130
+          ansible_hostv6: 2404:f801:10:2200::a96:1782
+        bjw2-1-1:
+          ansible_host: 10.150.23.131
+          ansible_hostv6: 2404:f801:10:2200::a96:1783
 
     pdu:
       hosts:
