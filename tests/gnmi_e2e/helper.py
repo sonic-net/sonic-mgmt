@@ -4,12 +4,13 @@ import logging
 
 from tests.common.helpers.gnmi_utils import add_gnmi_client_common_name, \
                                             del_gnmi_client_common_name, \
-                                            GNMI_CERT_NAME
+                                            GNMI_CERT_NAME, TELEMETRY_CONTAINER
 
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
 INVALID_CERT_NAME = "invalid.cname"
+
 
 def telemetry_enabled(duthost):
     containers = duthost.get_all_containers()
