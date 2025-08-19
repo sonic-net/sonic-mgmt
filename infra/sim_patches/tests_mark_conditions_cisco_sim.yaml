@@ -98,6 +98,14 @@ pc/test_lag_2.py::test_lag:
   skip:
     reason: "Test is looking for fanout and in sim topology we don't have that"
 
+#######################################
+#####           infra             #####
+#######################################
+iface_namingmode/test_iface_namingmode.py::TestConfigInterface:
+  skip:
+    reason: 'Skip the test for T0 sim'
+    conditions:
+      - "'t0' in topo_name"
 
 ##### the following skips are added based on skip for cisco 8000 #####
 ######################################################################
