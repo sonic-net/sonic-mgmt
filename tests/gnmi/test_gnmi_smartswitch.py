@@ -26,6 +26,7 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     Update DASH_VNET_TABLE
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
     cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     metadata = cfg_facts["DEVICE_METADATA"]["localhost"]
     subtype = metadata.get('subtype', None)
