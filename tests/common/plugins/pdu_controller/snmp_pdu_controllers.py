@@ -150,23 +150,79 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
+        if not hasattr(self, 'ro_snmp_auth'):
+            logger.error('Does not have readonly snmp_auth')
+            return
 
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
-
         for lane_id in range(1, self.max_lanes + 1):
-            self._probe_lane(lane_id, cmdGen, snmp_auth)
+            self._probe_lane(lane_id, cmdGen, self.ro_snmp_auth)
+
+    def _render_value(self, value, context):
+        if '{{' in value and '}}' in value:
+            return jinja2.Template(value).render(context)
+        return value
+
+    def _get_pdu_snmp_creds(self, pdu, perm):
+        context = {'secret_group_vars': pdu['secret_group_vars']}
+        if 'pdu_{}_snmp_version'.format(perm) in pdu:
+            version = pdu['pdu_{}_snmp_version'.format(perm)]
+            if version == 'v2c':
+                if 'pdu_snmp_{}community'.format(perm) not in pdu:
+                    logger.error("If pdu_{}_snmp_version is v2c, pdu_snmp_{}community should be provided"
+                                 .format(perm, perm))
+                    return False
+                snmp_auth = cmdgen.CommunityData(self._render_value(pdu['pdu_snmp_{}community'.format(perm)], context))
+            elif version == 'v3':
+                if 'pdu_{}_snmp_user'.format(perm) not in pdu:
+                    logger.error("If pdu_{}_snmp_version is v3, pdu_{}_snmp_user should be provided".format(perm, perm))
+                    return False
+                if 'pdu_{}_snmp_auth_type'.format(perm) not in pdu or 'pdu_{}_snmp_auth_pass'.format(perm) not in pdu:
+                    logger.error("If pdu_{}_snmp_version is v3, pdu_{}_snmp_auth_type/pass should be provided"
+                                 .format(perm, perm))
+                    return False
+                if pdu['pdu_{}_snmp_auth_type'.format(perm)] == "sha":
+                    auth_type = cmdgen.usmHMACSHAAuthProtocol
+                elif pdu['pdu_{}_snmp_auth_type'.format(perm)] == "md5":
+                    auth_type = cmdgen.usmHMACMD5AuthProtocol
+                else:
+                    logger.error("Unknown auth_type {}, only accepts sha, md5"
+                                 .format(pdu['pdu_{}_snmp_auth_type'.format(perm)]))
+                    return False
+                if 'pdu_{}_snmp_priv_type'.format(perm) in pdu and 'pdu_{}_snmp_priv_pass'.format(perm) in pdu:
+                    if pdu['pdu_{}_snmp_priv_type'.format(perm)] == "aes":
+                        priv_type = cmdgen.usmAesCfb128Protocol
+                    elif pdu['pdu_{}_snmp_priv_type'.format(perm)] == "des":
+                        priv_type = cmdgen.usmDESPrivProtocol
+                    else:
+                        logger.error("Unknown priv_type {}, only accepts aes, des"
+                                     .format(pdu['pdu_{}_snmp_priv_type'.format(perm)]))
+                        return False
+                    snmp_auth = cmdgen.UsmUserData(self._render_value(pdu['pdu_{}_snmp_user'.format(perm)], context),
+                                                   authProtocol=auth_type,
+                                                   authKey=self._render_value(pdu['pdu_{}_snmp_auth_pass'.format(perm)],
+                                                                              context),
+                                                   privProtocol=priv_type,
+                                                   privKey=self._render_value(pdu['pdu_{}_snmp_priv_pass'.format(perm)],
+                                                                              context))
+                else:
+                    snmp_auth = cmdgen.UsmUserData(pdu['pdu_{}_snmp_user'.format(perm)],
+                                                   authProtocol=auth_type,
+                                                   authKey=self._render_value(pdu['pdu_{}_snmp_auth_pass'.format(perm)],
+                                                                              context))
+
+        else:
+            snmp_community = pdu['snmp_{}community'.format(perm)]
+            snmp_auth = cmdgen.CommunityData(self._render_value(snmp_community, context))
+        setattr(self, "{}_snmp_auth".format(perm), snmp_auth)
+        return True
 
     def __init__(self, controller, pdu, hwsku, psu_peer_type):
         logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
-        self.snmp_rocommunity = pdu['snmp_rocommunity']
-        if 'secret_group_vars' in pdu['snmp_rwcommunity']:
-            context = {'secret_group_vars': pdu['secret_group_vars']}
-            self.snmp_rwcommunity = jinja2.Template(pdu['snmp_rwcommunity']).render(context)
-        else:
-            self.snmp_rwcommunity = pdu['snmp_rwcommunity']
+        self._get_pdu_snmp_creds(pdu, "ro")
+        self._get_pdu_snmp_creds(pdu, "rw")
         self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
@@ -190,11 +246,14 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('Unable to turn on: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return False
+        if not hasattr(self, 'rw_snmp_auth'):
+            logger.error("Does not have readwrite snmp_auth")
+            return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
         errorIndication, errorStatus, _, _ = \
             cmdgen.CommandGenerator().setCmd(
-                cmdgen.CommunityData(self.snmp_rwcommunity),
+                self.rw_snmp_auth,
                 cmdgen.UdpTransportTarget((self.controller, 161)),
                 (port_oid, rfc1902.Integer(self.CONTROL_ON))
             )
@@ -219,11 +278,14 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('Unable to turn off: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return False
+        if not hasattr(self, 'rw_snmp_auth'):
+            logger.error("Does not have readwritew snmp_auth")
+            return False
 
         port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
         errorIndication, errorStatus, _, _ = \
             cmdgen.CommandGenerator().setCmd(
-                cmdgen.CommunityData(self.snmp_rwcommunity),
+                self.rw_snmp_auth,
                 cmdgen.UdpTransportTarget((self.controller, 161)),
                 (port_oid, rfc1902.Integer(self.CONTROL_OFF))
             )
@@ -303,8 +365,12 @@ class snmpPduController(PduControllerBase):
                  The outlet in returned result is integer starts from 0.
         """
         results = []
+
         if not self.pduType:
             logger.error('Unable to retrieve status: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            return results
+        if not hasattr(self, 'ro_snmp_auth'):
+            logger.error('Does not have readonly snmp_auth')
             return results
 
         if not outlet and not hostname:
@@ -322,10 +388,8 @@ class snmpPduController(PduControllerBase):
                 logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
         cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
-
         for port in ports:
-            status = self._get_one_outlet_status(cmdGen, snmp_auth, port)
+            status = self._get_one_outlet_status(cmdGen, self.ro_snmp_auth, port)
             if status:
                 results.append(status)
 
