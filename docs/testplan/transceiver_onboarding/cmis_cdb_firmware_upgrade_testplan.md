@@ -84,8 +84,6 @@ Following test attributes under `transceiver_firmware_upgrade` attribute categor
 | thermalctld_disabling_required | Bool | False | No | A flag indicating whether to disable the thermalctld during the test. |
 
 
-> Note: The test attributes HLD is in progress. The test attributes mentioned in this doc might change once the HLD is finalized.
-
 #### 1.1 CMIS CDB Firmware Upgrade Testing
 
 ##### 1.1.1 CMIS CDB Firmware Binary Management
@@ -266,8 +264,8 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 
 **Prerequisites:**
 
-1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode.
-2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped during firmware operations.
+1. **DOM polling must be disabled** to prevent race conditions between I2C transactions and the CDB mode for modules that cannot support CDB background mode. Test should wait for `sleep_after_dom_disable_sec` seconds after disabling DOM to avoid the race condition.
+2. **Platform-specific processes:** On some platforms, `thermalctld` or similar user processes that perform I2C transactions with the module may need to be stopped if `thermalctld_disabling_required` flag is set.
 3. **Firmware requirements:**
    - The firmware version specified  by `firmware_versions` test attribute must be available.
    - All firmware versions must support the CDB protocol for proper testing.
