@@ -28,11 +28,9 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 
 **Pre-requisites for the Below Tests:**
 
-1. A file `transceiver_dut_info.csv` (located in `ansible/files/transceiver_inventory` directory) should be present to describe the metadata of the transceiver connected to every port of each DUT. The format of the file is defined in [Transceiver DUT Information Format](./transceiver_onboarding_test_plan.md#1-tests-not-involving-traffic)
+1. All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases) must be met.
 
-2. A file named `transceiver_common_attributes.csv` (located in the `ansible/files/transceiver_inventory` directory) must be present to define the common attributes for each transceiver, keyed by normalized vendor part number. The format of the file is defined in [Transceiver DUT Information Format](./transceiver_onboarding_test_plan.md#1-tests-not-involving-traffic)
-
-3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver_inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
+2. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
 
     ```csv
     normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
@@ -50,7 +48,7 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
     - `fw_binary_name`: The filename of the firmware binary.
     - `md5sum`: The MD5 checksum of the firmware binary.
 
-4. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver_inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+3. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
 
     ```csv
     inv_name,fw_base_url
@@ -67,24 +65,23 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
     lab,http://1.2.3.4/cmis_cdb_firmware/
     ```
 
-5. A file (`sonic_{inv_name}_links.csv`) containing the connections of the ports should be present. This file is used to create the topology of the testbed which is required for minigraph generation.
-
-    - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
-
 **Attributes for  the below tests**
 
 Following test attributes under `transceiver_firmware_upgrade` attribute category are applicable:
 
-| Attribute | Type | Default | Mandatory | Description |
+| Attribute Name | Type | Default | Mandatory | Description |
 |-----------|------|---------|------------|-------------|
-| port_under_test | Dict | None | Yes | A dictionary containing the device name as the key and list of ports to be tested as its value |
-| firmware_versions | Dict | None | Yes | A dictionary containing the normalized transceiver product number as the key and list of firmware versions to be tested as its value |
-| firmware_download_timeout_minutes | Dict | 30 | No | A nested dictionary containing platform type as the outer key and normalized product number as the inner key and timeout value in minutes as the integer value |
+| port_under_test | List | All | No | A list under `dut_specific.dut_name` containing the ports to be tested for cmis fw upgrade test only.<br>This attribute must exist only under `dut_specific` field. |
+| firmware_versions | List | None | Yes | A list containing firmware versions to be tested as its values. |
+| firmware_download_timeout_minutes | Int | 30 | No | Firmware download timeout value in minutes as the integer value |
 | restore_initial_firmwares | Bool | False | No | A flag indicating whether to restore the initial active and inactive firmware versions after testing is completed |
 | firmware_download_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware download process |
 | firmware_activation_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware activation process |
 | firmware_download_abort_method | String | "sfputil_reset" | No | The method to abort the firmware download process. It can be one of the following strings: "ctrl_c", "sfputil_reset", "optic_reinsert" |
 | firmware_download_abort_percentage | List | `[10, 50, 90]` | No | The percentage of download progress at which the firmware download should be aborted. | 
+| sleep_after_dom_disable_sec | Int | 5 | No | The number of seconds to sleep after disabling DOM monitoring before proceeding with the test. |
+| monitor_kernel_errors | Bool | False | No | A flag indicating whether to monitor kernel errors during the test. |
+| thermalctld_disabling_required | Bool | False | No | A flag indicating whether to disable the thermalctld during the test. |
 
 
 > Note: The test attributes HLD is in progress. The test attributes mentioned in this doc might change once the HLD is finalized.
@@ -252,7 +249,7 @@ This section describes the automated process for copying firmware binaries to th
 
 To ensure only the necessary firmware binaries are present for each transceiver:
 
-1. **Parse `transceiver_dut_info.csv`** to identify the transceiver present on the port identified by `port_under_test` test attribute. Generate the normalized vendor name and part number.
+1. **Parse `transceiver_dut_info.json`** to identify the transceiver present on the port identified by `port_under_test` test attribute. Generate the normalized vendor name and part number.
 2. **Parse `firmware_versions` test attribute** to get the next firmware version to download.
 3. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers. If the firmware version specified in step 2 exists for the normalized vendor name and part number from step 1:
    - **Copy only the selected firmware binaries** to the target directory structure on the DUT.
@@ -279,9 +276,9 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Firmware download validation | 1. Download the next firmware specified in `firmware_versions` using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within `transceiver_download_timeout_minutes` minutes and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the downloaded firmware version<br> 4. No link flap should be seen<br>5. The kernel has no error messages in syslog<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-| 2 | Firmware activation validation | 1. Shut down all the interfaces part of the physical ports<br>2. Execute firmware run<br>3. Execute firmware commit<br>4. Reset the transceiver and wait for 5 seconds<br>5. Startup all the interfaces in Step 1 | 1. The return code on step 2 and 3 is 0 (Return code 0 indicates success)<br>2. Active firmware version should now match the previous inactive firmware version<br>3. Inactive firmware version should now match the previous active firmware version<br>4. Link should be up within `port_wait_time_after_startup_sec` seconds.<br>5. `sfputil show fwversion` CLI now should show the “Committed Image” to the current active bank<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-|3 | Firmware download validation with invalid firmware binary | Download an invalid firmware binary (any file not released by the vendor) | 1. The active firmware version does not change<br>2. The inactive firmware version remains unchanged or is set to `0.0.0` or `N/A`<br> 3.  No change in "Committed Image"<br>4. No link flap should be seen<br>5. The kernel has no error messages in syslog<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 1 | Firmware download validation | 1. Download the next firmware specified in `firmware_versions` using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within `firmware_download_timeout_minutes` minutes and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the downloaded firmware version<br> 4. No link flap should be seen<br>5. The kernel has no error messages in syslog if `monitor_kernel_errors` flag is set<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 2 | Firmware activation validation | 1. Shut down all the interfaces part of the physical ports<br>2. Execute firmware run<br>3. Execute firmware commit<br>4. Reset the transceiver and wait for 5 seconds<br>5. Startup all the interfaces in Step 1 | 1. The return code on step 2 and 3 is 0 (Return code 0 indicates success)<br>2. Active firmware version should now match the previous inactive firmware version<br>3. Inactive firmware version should now match the previous active firmware version<br>4. Link should be up within `port_wait_time_after_startup_sec` seconds.<br>5. `sfputil show fwversion` CLI should now show the “Committed Image” to the current active bank<br>6. Previous active firmware should show up in the inactive bank<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+|3 | Firmware download validation with invalid firmware binary | Download an invalid firmware binary (any file not released by the vendor) | 1. The active firmware version does not change<br>2. The inactive firmware version remains unchanged or is set to `0.0.0` or `N/A`<br> 3.  No change in "Committed Image"<br>4. No link flap should be seen<br>5. The kernel has no error messages in syslog if `monitor_kernel_errors` flag is set<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 |4 | Firmware download abort | 1. Start the firmware download and abort at the percentages specified by `firmware_download_abort_percentage`<br>2. Use the method specified in `firmware_download_abort_method` to abort the process:<br>"ctrl_c": Use CTRL+C or kill the download process<br> "sfputil_reset": reset the optics using sfputil reset<br>"optic_reinsert": remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 |5 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
@@ -292,154 +289,4 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 
 #### CLI commands
 
-**Note**
-
-1. `<port>` in the below commands should be replaced with the logical port number i.e. EthernetXX
-
-2. `<namespace>` in the below commands should be replaced with the asic of the port.
-
-Issuing shutdown command for a port
-```
-sudo config interface -n '<namespace>' shutdown <port>
-```
-
-Issuing startup command for a port
-```
-sudo config interface -n '<namespace>' startup <port>
-```
-
-Check link status of a port
-```
-show interface status <port>
-```
-
-Enable/disable DOM monitoring for a port
-
-**Note:** For breakout cables, always issue this command for the first subport within the breakout port group, irrespective of the specific subport currently in use.
-```
-config interface -n '<namespace>' transceiver dom <port> enable/disable
-
-Verification
-sonic-db-cli -n '<namespace>' CONFIG_DB hget "PORT|<port>" "dom_polling"
-
-Expected o/p
-For enable: "dom_polling" = "enabled" or "(nil)"
-For disable: "dom_polling" = "disabled"
-```
-
-Restart `xcvrd`
-
-```
-docker exec pmon supervisorctl restart xcvrd
-```
-
-Get uptime of `xcvrd`
-
-```
-docker exec pmon supervisorctl status xcvrd | awk '{print $NF}'
-```
-
-Start/Stop `thermalctld` (if applicable)
-
-```
-docker exec pmon supervisorctl start thermalctld
-OR
-docker exec pmon supervisorctl stop thermalctld
-```
-
-CLI to get link flap count from redis-db
-
-```
-sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "flap_count"
-```
-
-CLI to get link uptime/downtime from redis-db
-
-```
-sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "last_up_time"
-sonic-db-cli -n '<namespace>' APPL_DB hget "PORT_TABLE:<port>" "last_down_time"
-```
-
-Restart `pmon`
-
-```
-sudo systemctl restart pmon
-```
-
-Restart `swss`
-
-```
-sudo systemctl restart swss
-```
-
-Restart `syncd`
-
-```
-sudo systemctl restart syncd
-```
-
-sfputil reset
-
-```
-sudo sfputil reset <port>
-```
-
-Check if transceiver is present
-
-```
-sudo sfputil show presence -p <port>
-```
-
-Dump EEPROM of the transceiver
-
-```
-sudo sfputil show eeprom -p <port>
-```
-
-Check transceiver specific information through CLI relying on redis-db
-
-```
-show int transceiver info <port>
-```
-
-Check transceiver error-status through CLI relying on redis-db
-
-```
-show int transceiver error-status <port>
-```
-
-Check transceiver error-status through CLI relying on transceiver HW
-
-```
-show int transceiver error-status -hw <port>
-```
-
-Check FW version of the transceiver
-
-```
-sudo sfputil show fwversion <port>
-```
-
-Download firmware
-
-```
-sudo sfputil download <port> <fwfile>
-```
-
-Run firmware
-
-```
-sudo sfputil firmware run <port>
-```
-
-Commit firmware
-
-```
-sudo sfputil firmware commit <port>
-```
-
-Finding I2C errors from dmesg
-
-```
-dmesg -T -L -lerr
-```
+Refer to [CLI commands](./transceiver_onboarding_test_plan.md#cli-commands) section for the CLI commands used in the above test cases.
