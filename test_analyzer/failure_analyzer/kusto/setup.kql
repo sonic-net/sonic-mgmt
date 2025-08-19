@@ -1,10 +1,10 @@
 
-###############################################################################
-# TEST CASE ANALYSIS TABLE SETUP                                              #
-# 1. Create a TestcaseAnalysis table to store test case analysis results      #
-# 2. Add a JSON mapping for the table                                         #
-###############################################################################
-.create-or-alter table TestcaseAnalysis (UploadTimestamp: datetime,
+#########################################################################################
+# TEST CASE ANALYSIS TABLE SETUP                                                        #
+# 1. Create a NightlyTestFailureAnalysis table to store test case analysis results      #
+# 2. Add a JSON mapping for the table                                                   #
+#########################################################################################
+.create-or-alter table NightlyTestFailureAnalysis (UploadTimestamp: datetime,
                                 ModulePath: string,
                                 TestCase: string,
                                 Branch: string,
@@ -20,10 +20,11 @@
                                 PerHwskuOsversionTestInfo: dynamic,
                                 PerTopologyHwskuTestInfo: dynamic,
                                 AutoBlameId: string,
-                                FailureSummary: string)
+                                FailureSummary: string,
+                                CorrelateCases: dynamic)
 
 
-.create-or-alter table TestcaseAnalysis ingestion json mapping 'FlatTestCaseAnalysisMappingV1'
+.create-or-alter table NightlyTestFailureAnalysis ingestion json mapping 'NightlyTestFailureAnalysisMappingV1'
 ```
 [
 	{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},
@@ -42,7 +43,8 @@
 	{"column":"PerHwskuOsversionTestInfo","Properties":{"path":"$.per_hwsku_osversion_info"}},
 	{"column":"PerTopologyHwskuTestInfo","Properties":{"path":"$.per_topology_hwsku_info"}},
 	{"column":"AutoBlameId","Properties":{"path":"$.autoblame_id"}},
-	{"column":"FailureSummary","Properties":{"path":"$.failure_summary"}}
+	{"column":"FailureSummary","Properties":{"path":"$.failure_summary"}},
+	{"column":"CorrelateCases","Properties":{"path":"$.correlate_cases"}}
 ]
 ```
 
@@ -52,7 +54,7 @@
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table AutoBlameReport (UploadTimestamp: datetime, ReportId: string, Repo: string, Subject: string, CommitUrl: string,
-                         Author: string, Committer: string, MergedAt: datetime, Base: string, 
+                         Author: string, Committer: string, MergedAt: datetime, Base: string,
                          CommitSha: string, Stats: string, Files: string, Labels: string, KeyWord: string)
 .create table AutoBlameReport ingestion json mapping 'AutoBlameReportMapping' @'[{"column":"UploadTimestamp","Properties":{"path":"$.upload_timestamp"}},'
                                                                      '{"column":"ReportId","Properties":{"path":"$.reportid"}},'
@@ -72,8 +74,8 @@
 
 
 ###############################################################################
-# TEST CASE ANALYSIS TABLE SETUP                                              #
-# 1. Create a TestcaseAnalysis table to store test case analysis results      #
+# TEST CASE TABLE SETUP                                                       #
+# 1. Create a TestReportUnionData table to store test case results            #
 # 2. Add a JSON mapping for the table                                         #
 ###############################################################################
 .create table TestReportUnionData (StartTimeUTC: datetime,

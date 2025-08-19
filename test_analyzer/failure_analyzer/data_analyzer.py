@@ -728,7 +728,7 @@ class DataAnalyzer(BasicAnalyzer):
             module_path = items[0]
             branch = items[1]
             response = self.kusto_connector.query_history_results(
-                testcase_name=None, module_path=module_path, is_module_path=True,
+                testcase_name=None, module_path=module_path,
                 is_common=self.common_trigger,
                 is_legacy=self.legacy_trigger,
                 is_consistent=self.consistent_trigger,
@@ -739,7 +739,7 @@ class DataAnalyzer(BasicAnalyzer):
             module_path = items[0][:-len(testcase)-1]
             branch = items[1]
             response = self.kusto_connector.query_history_results(
-                testcase, module_path, is_module_path=False,
+                testcase, module_path,
                 is_common=False,
                 is_legacy=self.legacy_trigger,
                 is_consistent=self.consistent_trigger,

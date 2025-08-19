@@ -25,7 +25,7 @@ except ImportError:
 
 class KustoConnector(object):
     """connect the Kusto and run query"""
-    TEST_CASE_ANALYSIS_TABLE = "TestcaseAnalysis"
+    TEST_CASE_ANALYSIS_TABLE = "NightlyTestFailureAnalysis"
     AUTO_BLAME_REPORT_TABLE = "AutoBlameReport"
 
     TABLE_FORMAT_LOOKUP = {
@@ -34,7 +34,7 @@ class KustoConnector(object):
     }
 
     TABLE_MAPPING_LOOKUP = {
-        TEST_CASE_ANALYSIS_TABLE: "FlatTestCaseAnalysisMappingV1",
+        TEST_CASE_ANALYSIS_TABLE: "NightlyTestFailureAnalysisMappingV1",
         AUTO_BLAME_REPORT_TABLE: "AutoBlameReportMapping"
     }
 
@@ -311,7 +311,7 @@ class KustoConnector(object):
         logger.info("Query 7 days's legacy failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
-    def query_history_results(self, testcase_name, module_path, is_module_path=False, is_common=False, is_legacy=False, is_consistent=False, is_flaky=False):
+    def query_history_results(self, testcase_name, module_path, is_common=False, is_legacy=False, is_consistent=False, is_flaky=False):
         """
         Query failed test cases for the past one day, which total case number should be more than 100
         in case of collecting test cases from unhealthy testbed.
@@ -391,7 +391,7 @@ class KustoConnector(object):
         This is more efficient than querying one by one for each active ICM.
         """
         query_str = '''
-            TestcaseAnalysis
+            NightlyTestFailureAnalysis
             | where TriggerIcM == 'true'
             | project UploadTimestamp, ModulePath, TestCase, Branch, Subject, FailureSummary
             | sort by UploadTimestamp desc
@@ -404,7 +404,7 @@ class KustoConnector(object):
         in case of collecting test cases from unhealthy testbed.
         """
         query_str = '''
-            TestcaseAnalysis
+            NightlyTestFailureAnalysis
             | where Subject == "{}"
             | where TriggerIcM == 'true'
             | project UploadTimestamp, ModulePath, TestCase, Branch, Subject, FailureSummary
