@@ -23,7 +23,7 @@ def setup(rand_selected_dut):
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
     ]
-    logger.log_info('wahab')
+    logger.info('wahab')
     print('hello from wahab')
     rand_selected_dut.shell_cmds(cmds)
     yield
