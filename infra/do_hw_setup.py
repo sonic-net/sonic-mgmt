@@ -8,10 +8,10 @@ import paramiko
 import os
 import yaml
 import urllib.parse
-from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, dut_username, dut_password, extractFromImageName, getImageUCS, \
+from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractFromImageName, getImageUCS, \
     cleanUpImageFolder, removeImageDir, checkSpace, getTestbedInfoDict, checkProdImage, telnetConnection, telnetLoginUtil, checklldpCount, \
     login_prompt, passwd_prompt, cisco_prompt, pre_sonic_prompt, sonic_login_prompt, admin_prompt, pre_admin_prompt, first_login, onie_prompt, \
-    dut_alt_password, dut_alt_username, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
+    DUT_PASSWORD, DUT_USERNAME, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
     scpUtil, sonic_prompt, getDockerExecCommand, checkForMGFailures, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
     default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability, channelConnection
 
@@ -91,7 +91,7 @@ def configure_user_on_prod_images(stream, testbed_info_dict):
             for command in commands:
                 p2.sendline(f"sudo {command}")
                 if "adduser" in command:
-                    p2 = add_user(p2, dut_username, dut_password, prompt)
+                    p2 = add_user(p2, DUT_USERNAME, DUT_PASSWORD, prompt)
                 p2.expect(prompt)
             time.sleep(120)
             logging.info("User and permissions successfully configured.")
@@ -266,14 +266,9 @@ def onie_install(args, index):
 
     # # login or sudo or onie install
     prod_image = checkProdImage(stream)
-    if prod_image==True:
-        username = dut_alt_username
-        password = dut_alt_password
-        prompt = cisco_prompt
-    else:
-        username = dut_username
-        password = dut_password
-        prompt = admin_prompt
+    username = DUT_USERNAME
+    password = DUT_PASSWORD
+    prompt = admin_prompt
     log.debug(f"prod_image: {prod_image}")
     skip_onie = False
     retry_count = 0
@@ -401,7 +396,7 @@ def onie_install(args, index):
         return -1
     checkForDockers(p)
     p.sendline(newline_prompt)
-    p.expect(cisco_prompt)
+    p.expect(admin_prompt)
 
     log.debug("check for extra onie commands")
     # Send extra commands after loading image, map of what commands to run on which telnet connection
@@ -478,7 +473,7 @@ def deploy_mg(args):
             if checkforInterfaces("telnet", p) == -1:
                 return -1
             p.sendline("show ip bgp summary")
-            p.expect(cisco_prompt)
+            p.expect(admin_prompt)
             p.close()
     elif install_mode == "sonic":
         if len(testbed_info_dict['dut_ssh']) >= 1:
@@ -586,7 +581,7 @@ def sonic_install(args, index):
             cmd = cmd.strip().replace("$image_url", image_url)
         cmd_list.append(cmd)
     log.debug(cmd_list)
-    rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], dut_username, dut_password, cmd_list, False)
+    rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], DUT_USERNAME, DUT_PASSWORD, cmd_list, False)
     time.sleep(120)
     log.debug("Image loaded, log into dut again and check for docker count")
 
@@ -601,13 +596,13 @@ def sonic_install(args, index):
             scp_cmd = scp_cmd.strip().replace("$topology", topology)
         if "$sonic-mgmt-folder" in scp_cmd:
             scp_cmd = scp_cmd.strip().replace("$sonic-mgmt-folder", getSonicMgmtFolder(stream, testbed))
-        scpUtil(p2, scp_cmd, dut_password)
+        scpUtil(p2, scp_cmd, DUT_PASSWORD)
         time.sleep(30)
         p2.close()
         for ssh in testbed_info_dict['dut_ssh']:
             if len(testbed_info_dict['extra_sonic_commands']) > 1:
                 cmd_list = testbed_info_dict['extra_sonic_commands'][1:]
-                rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], ssh, dut_username, dut_password, cmd_list, True)
+                rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], ssh, DUT_USERNAME, DUT_PASSWORD, cmd_list, True)
                 if rc!=0:
                     log.error("Execution failed in extra_sonic_commands")
     
@@ -621,14 +616,7 @@ def checkForDockersSonic(testbed, stream, index=0):
     testbed_info_dict = getTestbedInfoDict(testbed)
     docker_count = testbed_info_dict['docker_count'] if 'docker_count' in testbed_info_dict else DEFAULT_DOCKER_COUNT
     # connection gets lost after loading new image, reconnect with retry
-    prod_image = checkProdImage(stream)
-    if prod_image==True:
-        username = dut_alt_username
-        password = dut_alt_password
-    else:
-        username = dut_username
-        password = dut_password
-    return nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], username, password, cmd_list, True, docker_count)
+    return nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], DUT_USERNAME, DUT_PASSWORD, cmd_list, True, docker_count)
 
 def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user, target_key, cmd_list, retry, docker_count=None):
     """Connect to a target host via a bastion host using Paramiko."""
@@ -788,7 +776,7 @@ def checkforInterfaces(type, arg, index = 0):
     time.sleep(10)
     if type == "telnet":
         arg.sendline("show int po")
-        i = arg.expect(["LACP(A)(Dw)", cisco_prompt, admin_prompt])
+        i = arg.expect(["LACP(A)(Dw)", admin_prompt])
         if i == 0:
             log.error("All Interfaces are not up.")
             return -1
@@ -800,7 +788,7 @@ def checkforInterfaces(type, arg, index = 0):
         cmd_list.append("show int po")
         cmd_list.append("show ip bgp summary")
         # connection gets lost after loading new image, reconnect
-        rc = nested_ssh(arg["ucs_host_name"], arg["ucs_username"], arg["ucs_password"], arg["dut_ssh"][index], dut_username, dut_password, cmd_list, True)
+        rc = nested_ssh(arg["ucs_host_name"], arg["ucs_username"], arg["ucs_password"], arg["dut_ssh"][index], DUT_USERNAME, DUT_PASSWORD, cmd_list, True)
     return rc
 
 

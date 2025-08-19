@@ -133,18 +133,8 @@ passwd_prompt = 'Password'
 lower_pass_prompt = 'password'
 
 #credentials/commands to send
-dut_username = 'cisco'
-dut_password = 'cisco123'
-dut_alt_username = 'admin'
-dut_alt_password = 'password'
-#ucs_m3_1
-ucs_m31_host = "sonic-ucs-m3-1"
-ucs_m31_username = "rraghav"
-ucs_m31_password = "roZes@123"
-ucs_m31_cmd_prompt = "rraghav@sonic-ucs-m3-1:"
-ucs_m31_scp_prompt = "rraghav@1.72.33.7:/var/www/html/IMAGES"
-ucs_m31_images_folder = "/var/www/html/IMAGES"
-ucs_m31_wget = "wget "
+DUT_USERNAME = 'admin'
+DUT_PASSWORD = 'password'
 
 WHITEBOX_TOKEN = os.getenv("WHITEBOX_TOKEN")
 PIPELINE_TYPE = os.getenv("PIPELINE_TYPE")
@@ -278,18 +268,9 @@ def sshUtil(username, host, password, timeout):
     return thread
 
 def sshDUTUtil(p1, dut_ssh_host, prodImage=False):
-    if prodImage == False:
-        username = dut_username
-        password = dut_password
-        prompt = cisco_prompt
-    else:
-        username = dut_alt_username
-        password = dut_alt_password
-        prompt = admin_prompt
-    log.debug(username)
-    log.debug(password)
-    log.debug(prompt)
-    p1.sendline(f'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {username}@{dut_ssh_host}')
+    log.debug(DUT_USERNAME)
+    log.debug(admin_prompt)
+    p1.sendline(f'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no {DUT_USERNAME}@{dut_ssh_host}')
     time.sleep(5)
 
     while True:
@@ -297,10 +278,10 @@ def sshDUTUtil(p1, dut_ssh_host, prodImage=False):
         if i == 0:
             p1.sendline("yes")
         elif i == 1:
-            p1.sendline(f'{password}')
+            p1.sendline(f'{DUT_PASSWORD}')
         else:
             break
-    return [p1, prompt]
+    return [p1, admin_prompt]
 
 def getSonicMgmtContainterName(stream, testbed):
     testbed_info_dict = getTestbedInfoDict(testbed)
@@ -383,20 +364,14 @@ def telnetConnection(host, port, timeout, logfile_loc, encoding, without_port, t
 
 def telnetLoginUtil(p, stream, changed_creds=False):
     retry_count = 0
-    if checkProdImage(stream) == True and changed_creds==False:
-        username = dut_alt_username
-        password = dut_alt_password
-    else:
-        username = dut_username
-        password = dut_password
     while True:
         i = p.expect([login_prompt, passwd_prompt, "Login incorrect", cisco_prompt, admin_prompt])
         if i == 0:
             # send user name
-            p.sendline(username)
+            p.sendline(DUT_USERNAME)
         elif i == 1:
             # send password
-            p.sendline(password)
+            p.sendline(DUT_PASSWORD)
         elif i == 2:
             time.sleep(1) # retry 3 times
             if retry_count == 3:
@@ -447,7 +422,7 @@ def checklldpCount(p, testbed_info_dict):
     lldp_count = testbed_info_dict["lldp_count"] if "lldp_count" in testbed_info_dict else DEFAULT_LLDP_COUNT
     i = p.expect(["Total entries displayed:  "])
     if i==0:
-        p.expect(cisco_prompt)
+        p.expect(admin_prompt)
         count = p.before
         if int(count.replace(" ",""))>=lldp_count:
             log.debug(f"{cmd} looks good")
@@ -464,7 +439,7 @@ def checklldpCount(p, testbed_info_dict):
             p.sendline(cmd)
             i = p.expect(["Total entries displayed:  ", "RuntimeError: Sonic database config file doesn't exist at "])
             if i==0 or i==1:
-                p.expect(cisco_prompt)
+                p.expect(admin_prompt)
                 count = p.before
                 if int(count.replace(" ",""))>=lldp_count:
                     log.debug(f"{cmd} looks good")
@@ -976,10 +951,11 @@ def checkForExistingRuns(p, test_string, expect_string):
 def pollingRuns(testbed_info_dict, test_suites):
     local_ucs = testbed_info_dict['ucs_host_name']
     child = sshUtil(testbed_info_dict['ucs_username'], testbed_info_dict['ucs_host'], testbed_info_dict['ucs_password'], None)
+    run_string = testbed_info_dict['run_type_check'] if 'run_type_check' in testbed_info_dict else DEFAULT_RUN_STRING
     child.expect(local_ucs)
     while True:
         time.sleep(120) #timeout for 2 minutes
-        run_count = checkForExistingRuns(child, DEFAULT_RUN_STRING, local_ucs)
+        run_count = checkForExistingRuns(child, run_string, local_ucs)
         log.debug(f"checkForExistingRuns: {run_count}")
         if run_count==0:
             return 0
@@ -1135,7 +1111,7 @@ def setupMemChecker(stream, testbed, thread, local_ucs):
 
     scpUtil(thread, f'scp {scp_prompt}/{STRESS_DEB} .', pswd)
     thread.sendline("docker cp /home/cisco/stress_1.0.4-4_amd64.deb telemetry:/")
-    thread.expect(cisco_prompt)
+    thread.expect(admin_prompt)
 
     thread.sendline("exit")
     thread.expect(local_ucs)

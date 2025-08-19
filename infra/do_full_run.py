@@ -11,7 +11,7 @@ import paramiko
 from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, prep_special_run_commands, \
     run_scripts, sshUtil, allure_directory, UNSET_PROXY, runIndividualTests, getLatestValidAllureReport, \
     checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, getSonicMgmtContainterName, getTechSupport, \
-    nested_ssh_connection, dut_username, dut_password, WORKSPACE, SANITY_LOGS_PATH
+    nested_ssh_connection, DUT_USERNAME, DUT_PASSWORD, WORKSPACE, SANITY_LOGS_PATH
 from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, upload_log_files_to_log_server, create_sanity_log_tarball, SANITY_LOG_TARBALL, print_folder_contents
 
 # Parse config file
@@ -235,7 +235,7 @@ def run_test(args):
 
     for dut in testbed_info_dict['dut_ssh']:
         log.debug(f"Collect show tech logs for dut: {dut}")
-        target_client, bastion_client = nested_ssh_connection(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], dut, dut_username, dut_password, True)
+        target_client, bastion_client = nested_ssh_connection(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], dut, DUT_USERNAME, DUT_PASSWORD, True)
         rc = getTechSupport(target_client, local_log_dir)
         if rc!=0:
             log.error(f"Tech support failure")
