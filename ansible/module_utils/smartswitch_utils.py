@@ -28,7 +28,7 @@ smartswitch_hwsku_config = {
     ]
 }
 
-# Mellanox SKUs 
+# Mellanox SKUs
 smartswitch_hwsku_config.update({
     "Mellanox-SN4280-O28": common_mellanox_hwsku_config.copy(),
     "Mellanox-SN4280-O8C40": common_mellanox_hwsku_config.copy()
