@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+GNMI_CERT_NAME = "test.client.gnmi.sonic"
 
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
@@ -231,8 +232,8 @@ def create_gnmi_certs(duthost, localhost, ptfhost):
     local_command = "openssl req \
                         -new \
                         -key gnmiclient.key \
-                        -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr"
+                        -subj '/CN={}' \
+                        -out gnmiclient.csr".format(GNMI_CERT_NAME)
     localhost.shell(local_command)
 
     # Sign client certificate
