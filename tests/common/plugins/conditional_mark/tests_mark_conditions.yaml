@@ -3066,6 +3066,12 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
 #######################################
 #####     process_monitoring      #####
 #######################################
+process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336 on hwsku Mellanox-SN2700"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/10336 and hwsku in ['Mellanox-SN2700']"
+
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices.
