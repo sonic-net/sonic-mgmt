@@ -79,6 +79,18 @@ folder3:
     reason: "Skip all the test scripts under subfolder 'folder3'"
 ```
 
+## Evaluation order of conditions
+
+Conditions are evaluated top to bottom, left to right.
+As soon as a value of a condition can be determined, the terms are left unevaluated.
+This matters when issue URLs are involved, because checking issue involves sending a HTTP request.
+To avoid unnecessary checks, prefer putting the issue URLs at the right or bottom of the condition.
+
+For example, prefer `release in ['master'] and https://github.com/sonic-net/sonic-mgmt/issues/1234`
+over `https://github.com/sonic-net/sonic-mgmt/issues/1234 and release in ['master']`.
+In the first case, the state of the issue will be checked only for master release.
+In the second case, the state of the issue will always be checked, regardless of the release.
+
 ## Match rule
 
 This plugin process each expanded (for parametrized test cases) test cases one by one.
