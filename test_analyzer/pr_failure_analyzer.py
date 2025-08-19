@@ -76,6 +76,7 @@ def get_pr_test_plans(kusto_client, start_time, end_time):
     TestPlans
     | where TestPlanType == "PR"
     | where CreatedByType == "PR"
+    | where TestPlanName !contains "optional"
     | where EndTime between (datetime({start_time}) .. datetime({end_time}))
     | join kind=leftouter TestBeds on TestPlanId
     | extend RunDate = todatetime(format_datetime(EndTime, "yyyy-MM-dd"))
