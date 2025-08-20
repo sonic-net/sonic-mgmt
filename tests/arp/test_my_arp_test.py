@@ -11,6 +11,9 @@ from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 
 logger = logging.getLogger(__name__)
+logger.info('wahab')
+print('hello from wahab')
+logger.warning('wahab')
 
 pytestmark = [
     pytest.mark.topology("t0")
@@ -23,8 +26,7 @@ def setup(rand_selected_dut):
         "docker exec swss supervisorctl stop arp_update",
         "ip neigh flush all"
     ]
-    logger.info('wahab')
-    print('hello from wahab')
+    
     rand_selected_dut.shell_cmds(cmds)
     yield
     cmds[0] = "docker exec swss supervisorctl start arp_update"
