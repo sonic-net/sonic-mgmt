@@ -76,7 +76,7 @@ def parse_range(range_str):
         int(parts[1])
     except ValueError:
         raise ValueError("Both parts of the input string must be valid integers.")
-    return {"min": parts[0], "max": parts[1]}
+    return {"range": {"min": int(parts[0]), "max": int(parts[1])}}
 
 
 def parse_value_or_range(value_or_range):
@@ -89,7 +89,7 @@ def parse_value_or_range(value_or_range):
                 int(parts[0])
             except ValueError:
                 raise ValueError("Input string must be a valid integer.")
-            return {"value": parts[0]}
+            return {"value": int(parts[0])}
         elif len(parts) == 2:
             return parse_range(value_or_range)
         else:
