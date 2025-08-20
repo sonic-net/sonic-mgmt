@@ -52,7 +52,7 @@ def apply_cert_config(duthost):
     add_gnmi_client_common_name(duthost, GNMI_CERT_NAME, role)
 
     # Setup gnmi config
-    setup_service_config(duthost, "GNMI", gnmi_env.gnmi_port)
+    setup_service_config(duthost, gnmi_env.gnmi_config_table, gnmi_env.gnmi_port)
 
     # restart gnmi
     command = "docker exec {} supervisorctl stop {}".format(gnmi_env.gnmi_container, gnmi_env.gnmi_program)
@@ -65,7 +65,7 @@ def apply_cert_config(duthost):
     if telemetry_enabled(duthost):
         tele_env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
         # Setup telemetry config
-        setup_service_config(duthost, "TELEMETRY", tele_env.gnmi_port)
+        setup_service_config(duthost, tele_env.gnmi_config_table, tele_env.gnmi_port)
 
         # Restart telemetry service to apply the updated configuration changes
         command = "docker exec {} supervisorctl stop {}".format(tele_env.gnmi_container, tele_env.gnmi_program)
