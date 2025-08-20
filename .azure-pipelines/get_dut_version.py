@@ -81,7 +81,7 @@ def get_duts_version(sonichosts, output=None):
                             dut_info["HwSKU"] = value
                             dut_info["ASIC"] = read_asic_name(value)
                         elif key == "ASIC":
-                            ret[dut]["ASIC TYPE"] = value
+                            dut_info["ASIC TYPE"] = value
                         else:
                             dut_info[key] = value
                     continue
@@ -113,7 +113,7 @@ def get_duts_version(sonichosts, output=None):
 
         return ret
     except Exception as e:
-        logger.error("Failed to get DUT version: {}".format(e))
+        logger.error(f"Failed to get DUT version: {repr(e)}", exc_info=True)
         sys.exit(RC_GET_DUT_VERSION_FAILED)
 
 
