@@ -76,15 +76,38 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec gnmi ps -efwww"
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI process status: {}".format(output['stdout']))
+    dut_command = "docker exec gnmi supervisorctl status"
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI supervisorctl status: {}".format(output['stdout']))
+
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
+
+    dut_command = "tail /var/log/gnmi.log"
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+
     dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
     duthost.shell(dut_command, module_ignore_errors=True)
+
+    dut_command = "docker exec gnmi ps -efwww"
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI process status: {}".format(output['stdout']))
+    dut_command = "docker exec gnmi supervisorctl status"
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    logger.info("GNMI supervisorctl status: {}".format(output['stdout']))
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    ret = wait_until(300, 3, 0, check_gnmi_status, duthost)
+    if not ret:
+        dut_command = "tail /var/log/gnmi.log"
+        output = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
+        pytest.fail("Failed to recover GNMI client cert configuration.")
 
 
 def check_ntp_sync_status(duthost):
