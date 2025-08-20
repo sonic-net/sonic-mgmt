@@ -2200,10 +2200,11 @@ mclag/test_mclag_l3.py:
 #######################################
 memory_checker/test_memory_checker.py:
   skip:
-    reason: "Testcase ignored due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/19295"
+    reason: "Testcase ignored due to GitHub issue: https://github.com/sonic-net/sonic-buildimage/issues/19295 / Skip this test as it won't impact gnmi show command"
+    conditions_logical_operator: or
     conditions:
-      - https://github.com/sonic-net/sonic-buildimage/issues/19295
-      - "'sn4280' in platform"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/19295 and 'sn4280' in platform"
+      - "release in ['202412']"
 
 #######################################
 #####            mpls             #####
