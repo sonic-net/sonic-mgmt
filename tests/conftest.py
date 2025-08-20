@@ -3376,17 +3376,25 @@ def gnmi_connection(request, setup_connection):
 
 
 @pytest.fixture(scope="session", autouse=True)
-def setup_auditd_container(duthosts, enum_rand_one_per_hwsku_hostname, creds, testbed):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+def setup_auditd_container(duthost, creds):
     logger.info(f"Setting up auditd containers on {duthost.hostname}")
-
     registry = load_docker_registry_info(duthost, creds)
+
     containers = ["docker-auditd", "docker-auditd-watchdog"]
-    versions = ["internal", "internal"]
+    versions = ["20250818.bld-134153144", "20250818.bld-134153144"]
     names = ["auditd", "auditd_watchdog"]
+
     parameters = {
-        "auditd": "--privileged --pid=host --net=host -v /etc/audit/rules.d:/etc/audit/rules.d:rw -v /etc/audit/plugins.d:/etc/audit/plugins.d:rw -v /lib/systemd/system:/lib/systemd/system:rw -v /etc/audit:/etc/audit:rw -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro",
-        "auditd_watchdog": "--privileged --pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+        "auditd": "--privileged --pid=host --net=host "
+                  "-v /etc/audit/rules.d:/etc/audit/rules.d:rw "
+                  "-v /etc/audit/plugins.d:/etc/audit/plugins.d:rw "
+                  "-v /lib/systemd/system:/lib/systemd/system:rw "
+                  "-v /etc/audit:/etc/audit:rw "
+                  "-v /etc/localtime:/etc/localtime:ro "
+                  "-v /etc/sonic:/etc/sonic:ro",
+        "auditd_watchdog": "--privileged --pid=host --net=host "
+                           "-v /etc/localtime:/etc/localtime:ro "
+                           "-v /etc/sonic:/etc/sonic:ro"
     }
 
     for container, version, name in zip(containers, versions, names):
@@ -3395,7 +3403,7 @@ def setup_auditd_container(duthosts, enum_rand_one_per_hwsku_hostname, creds, te
         download_image(duthost, registry, container, version)
         duthost.shell(f"docker stop {name}", module_ignore_errors=True)
         duthost.shell(f"docker rm {name}", module_ignore_errors=True)
-        result = duthost.shell(f"docker run -d {parameters[container]} --name {name} {image}", module_ignore_errors=True)
+        result = duthost.shell(f"docker run -d {parameters[name]} --name {name} {image}", module_ignore_errors=True)
         if result['rc'] != 0:
             pytest.fail(f"Failed to run container: {name}")
 
