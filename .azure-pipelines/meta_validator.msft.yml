@@ -49,6 +49,9 @@ validators:
       - vlab-07.*
       - .*snappi-sonic.* # vms-snappi-sonic ptf, snappi-sonic-api-serv, etc.
       - sonic-s6100-dut2
+      # Exclude expected conflicts
+      - .*-ixia-.*                # All ixia are shared resources and subject to conflicts
+      - .*-dpu-.*                 # SmartSwitch DPUs. The all share the same IP as the NPU
       # E2001 IP conflicts - exclude one device from each conflicting pair
       - str2-msn4700-fanout-05    # conflicts with str2-7804-lc6-1
       - str2-8800-sup-3           # conflicts with str2-8800-sup-2
@@ -85,6 +88,8 @@ validators:
       - str2-8800-lc2-3           # inconsistent IPs between sources
       - str2-8800-lc3-3           # inconsistent IPs between sources
       - str4-acs-serv-74          # inconsistent IPs between sources
+      - STR43-7060x6-512-C17-U08  # inconsistent IPs between sources
+      - STR43-7060x6-512-C17-U10  # inconsistent IPs between sources
       # E2005 IPv4/IPv6 mismatch devices - explicit device names
       - ptf10-0                   # IPv4/IPv6 mismatch
       - ptf3-0                    # IPv4/IPv6 mismatch
@@ -286,7 +291,7 @@ validators:
       # E7003/E7007 VLAN issues - exclude groups with problematic devices
       - str2         # str2-7260cx3-acs-root02 has VLAN duplicate issues
       - str3         # str3-7260cx3-acs-root03 has multiple VLAN duplicate issues
-      - str4         # str4-7060x6-pe64-root has VLAN duplicate issues  
+      - str4         # str4-7060x6-pe64-root has VLAN duplicate issues
       - str5         # str5-7260cx3-acs-root has multiple VLAN duplicate issues
       - strsvc2      # svcstr2-7260cx3-acs-1 has VLAN duplicate issues
       - bjw2         # bjw2-can-7260-* devices have invalid VLAN ranges and duplicates
@@ -309,6 +314,7 @@ validators:
       - str3-7808-sup-2           # duplicate device conflicts on console-179:29
       - str-sn5640-stress-t0-3    # conflicts with str2-7050cx3-acs-14 on console-194:13
       - str2-7804-sup-1           # duplicate device conflicts on console-199:49
+      - str2-8101-fanout-20       # conflicts with STR43-7060x6-512-C17-U08
       # E3007 invalid console server devices - all strtk5 devices pointing to non-existent servers
       - strtk5-.*                 # all strtk5 devices have invalid console servers
 - name: pdu
@@ -357,6 +363,13 @@ validators:
       - str2-7250-sup-2           # device with internal PSU conflicts
       - str3-7808-sup-2           # device with internal PSU conflicts (different from earlier)
       - str2-7260cx3-d10-u21      # device with internal PSU conflicts
+      - str4-7060x6-512-4         # conflicts with str4-sn5600-4
+      - str3-7808-sup-1           # conflicts with STR43-7060x6-512-C17-U08
+      - str3-7808-sup-1           # conflicts with STR43-7060x6-512-C17-U10
+      - bjw3-can-7215a1d-leaf-1   # conflicts with bjw3-can-7215a1d-leaf-2
+      - bjw3-can-7215a1d-1        # conflicts with bjw3-can-7215a1d-leaf-2
+      - bjw3-can-7215a1d-2        # conflicts with bjw3-can-7215a1d-leaf-2
+      - str2-7260cx3-d10-u42      # conflicts with str2-7260cx3-d10-u42
 issue_severities:
   E2005: error   # Enable IPv4 IPv6 conflict issue
   E3002: info    # Ignore missing console issue

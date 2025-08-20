@@ -198,12 +198,18 @@ def check_cross_dependency(imports_in_script):
             if imported_module_feature_path is not None:
                 project_path = os.path.dirname(file_feature_path)
                 # Import from these paths are allowed.
+                #
+                # Cross-feature dependency:
+                # - tests/mx/test_kea_dhcp_server_internal_only.py: tests.dhcp_server.dhcp_server_test_common
+                # - tests/metadata-scripts/test_metadata_upgrade_path.py: tests.platform_tests.verify_dut_health
                 if imported_module_feature_path not in [os.path.join(project_path, "common"),
                                                         os.path.join(project_path, "ptf_runner.py"),
                                                         os.path.join(project_path, "conftest.py"),
+                                                        os.path.join(project_path, "dhcp_server"),
+                                                        os.path.join(project_path, "platform_tests"),
                                                         file_feature_path]:
-                    print("There is a cross-feature dependence. File: {}, import module: {}"
-                          .format(file_path, imported_module["module"]))
+                    print("There is a cross-feature dependency. File: {}, import module: {} ({})"
+                          .format(file_path, imported_module["module"], imported_module_feature_path))
                     cross_dependency = True
     return cross_dependency
 

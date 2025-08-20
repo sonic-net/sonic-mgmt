@@ -15,7 +15,7 @@ stages:
       - script: |
           git fetch origin
           echo "Fetching changes from origin rc = $?"
-          CHANGED_FILES=$(git diff --name-only origin/master)
+          CHANGED_FILES=$(git diff --name-only origin/internal)
           echo "Changed files:"
           echo "$CHANGED_FILES"
           if echo "$CHANGED_FILES" | grep -q "^tests/common2"; then
