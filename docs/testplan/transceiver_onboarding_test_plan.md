@@ -146,7 +146,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         }
       },
       "dut_name_2": {
-        "Ethernet0-96:4": {
+        "Ethernet0:97:4": {
           "vendor_name": "ACME Corp.",
           "vendor_pn": "QSFP-100G-AOC-15M",
         }
@@ -172,14 +172,14 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     1. **Individual Port**: `"Ethernet0"` - Single port specification
     2. **Range**: `"Ethernet4-12"` - Continuous range from Ethernet4 to Ethernet12 (inclusive)
-    3. **Range with Step**: `"Ethernet0-96:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
+    3. **Range with Step**: `"Ethernet0:97:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
     4. **List**: `"Ethernet16,Ethernet20,Ethernet24"` - Comma-separated list of specific ports
     5. **Mixed**: `"Ethernet28-32,Ethernet36,Ethernet40-44"` - Combination of ranges and individual ports
 
     **Port Range Parsing Rules:**
 
     - **Range Format**: `EthernetX-Y` where X and Y are port numbers (X ≤ Y)
-    - **Step Format**: `EthernetX-Y:Z` where Z is the step size (must be > 0)
+    - **Step Format**: `EthernetX:Y:Z` where X is start, Y is stop (exclusive), Z is step size (must be > 0)
     - **List Format**: Comma-separated port names without spaces
     - **Mixed Format**: Combination of ranges and individual ports separated by commas
     - **Port Numbering**: Must follow SONiC logical port naming convention (e.g., Ethernet0, Ethernet4, Ethernet8...)
