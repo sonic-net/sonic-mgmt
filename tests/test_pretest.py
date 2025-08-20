@@ -422,7 +422,8 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         try:
             # Try to get codename from syncd container
             if duthost.is_multi_asic:
-                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} grep VERSION_CODENAME /etc/os-release | "
+                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
+                                      f"grep VERSION_CODENAME /etc/os-release | "
                                       f"cut -d= -f2 | tr -d '\"'")
             else:
                 syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
