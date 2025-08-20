@@ -34,7 +34,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory         
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
-from tests.common.fixtures.ptfhost_utils import disable_ipv6                                # noqa: F401
+from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx                       # noqa: F401
 from tests.common.dualtor.dual_tor_utils import dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.pfc_storm import PFCStorm
@@ -849,7 +849,7 @@ class TestQosSai(QosSaiBase):
 
     def testQosSaiHeadroomPoolSize(
         self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            ingressLosslessProfile, disable_ipv6, change_lag_lacp_timer):                # noqa: F811
+            ingressLosslessProfile, iptables_drop_ipv6_tx, change_lag_lacp_timer):                # noqa: F811
         # NOTE: cisco-8800 will skip this test since there are no headroom pool
         """
             Test QoS SAI Headroom pool size
@@ -1709,7 +1709,7 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1929,7 +1929,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer
+        resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer,
+        blockGrpcTraffic
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
@@ -2072,7 +2073,8 @@ class TestQosSai(QosSaiBase):
 
     @pytest.mark.parametrize("decap_mode", ["uniform", "pipe"])
     def testIPIPQosSaiDscpToPgMapping(
-        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode  # noqa: F811
+        self, duthost, ptfhost, dutTestParams, downstream_links, upstream_links, dut_qos_maps, decap_mode,  # noqa: F811
+        loganalyzer
     ):
         """
             Test QoS SAI DSCP to PG mapping ptf test
@@ -2093,7 +2095,7 @@ class TestQosSai(QosSaiBase):
             pytest.skip("Skip this test since separated DSCP_TO_TC_MAP is applied")
 
         # Setup DSCP decap config on DUT
-        apply_dscp_cfg_setup(duthost, decap_mode)
+        apply_dscp_cfg_setup(duthost, decap_mode, loganalyzer)
 
         loopback_ip = get_ipv4_loopback_ip(duthost)
         downlink = select_random_link(downstream_links)
@@ -2135,7 +2137,7 @@ class TestQosSai(QosSaiBase):
         logger.info(tabulate(data, headers=headers))
 
         # Teardown DSCP decap config on DUT
-        apply_dscp_cfg_teardown(duthost)
+        apply_dscp_cfg_teardown(duthost, loganalyzer)
 
         if local_fail_logs:
             pytest.fail("Test Failed: {}".format(local_fail_logs))

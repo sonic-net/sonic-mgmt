@@ -1,6 +1,7 @@
 """
 SONiC Dataplane Qos tests
 """
+import re
 import time
 import logging
 import ptf.packet as scapy
@@ -707,7 +708,7 @@ def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq
             test_case.test_params['dut_username'],
             test_case.test_params['dut_password'],
             check_cmd)
-        log_message("Log for {}: {}".format(egrep_str, stdout))
+        log_message("Log for {}: {}".format(egrep_str, stdout), level='info', to_stderr=True)
         for string in str_to_check:
             if string in "".join(stdout):
                 found_list.append(True)
@@ -715,10 +716,78 @@ def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq
                 found_list.append(False)
     if watchdog_enabled:
         qos_test_assert(test_case, all(found is True for found in found_list),
-                        "{} watchdog trigger not detected".format(watchdog_type))
+                        "{} watchdog trigger log not detected".format(watchdog_type))
     else:
         qos_test_assert(test_case, all(found is False for found in found_list),
-                        "unexpected {} watchdog trigger".format(watchdog_type))
+                        "unexpected {} watchdog trigger log".format(watchdog_type))
+
+
+def verify_queue_occupancy(test_case, dst_port_id, queue_idx, expect_queue_empty=True, timeout=0):
+    time_elapsed = 0
+    while True:
+        queue_counters = sai_thrift_read_queue_occupancy(test_case.dst_client, "dst", dst_port_id)
+        if expect_queue_empty and queue_counters[queue_idx] == 0:
+            break
+        elif not expect_queue_empty and queue_counters[queue_idx] > 0:
+            break
+        time.sleep(5)
+        time_elapsed += 5
+        if time_elapsed > timeout * 2:
+            break
+
+    if expect_queue_empty:
+        qos_test_assert(test_case, queue_counters[queue_idx] == 0,
+                        "Queue {} is not empty: queue_occupancy={}".format(queue_idx, queue_counters[queue_idx]))
+    elif not queue_counters[queue_idx]:
+        qos_test_assert(test_case, False,
+                        "Queue {} is expected to be not empty, but it is empty".format(queue_idx))
+    log_message("voq occupancy verified after {} seconds".format(time_elapsed), level='info', to_stderr=True)
+    qos_test_assert(test_case, time_elapsed <= timeout * 1.3,
+                    "voq occupancy verification took too long: {} seconds".format(time_elapsed))
+
+
+def get_queue_ptrs(test_case, interface, queue_idx):
+    """
+    Get queue read and write pointers for the given interface.
+    """
+    cmd = "sudo show platform npu tx cgm_state -i {}".format(interface)
+    stdout, err, ret = test_case.exec_cmd_on_dut(
+        test_case.dst_server_ip,
+        test_case.test_params['dut_username'],
+        test_case.test_params['dut_password'],
+        cmd)
+    log_message("{}: {}".format(cmd, stdout), level='info', to_stderr=True)
+    for line in stdout:
+        if "queue {} rd_ptr".format(queue_idx) in line:
+            pattern = r"queue {} rd_ptr (\d+) wr_ptr (\d+)".format(queue_idx)
+            result = re.search(pattern, line)
+            if result:
+                rd_ptr = int(result.group(1))
+                wr_ptr = int(result.group(2))
+                log_message("{} Queue {}: rd_ptr={}, wr_ptr={}".format(interface, queue_idx, rd_ptr, wr_ptr),
+                            level='info', to_stderr=True)
+                return rd_ptr, wr_ptr
+    raise RuntimeError(
+        "Queue {} not found in CGM state for interface {}".format(queue_idx, interface))
+
+
+def verify_tx_cgm_state(test_case, dst_interfaces, queue_idx, expect_queue_empty=True):
+    """
+    Verify TX CGM state for the given interfaces.
+    """
+    pkts_in_queue = False
+    for interface in dst_interfaces:
+        rd_ptr, wr_ptr = get_queue_ptrs(test_case, interface, queue_idx)
+        if expect_queue_empty:
+            qos_test_assert(test_case, rd_ptr == wr_ptr,
+                            "Queue {} is not empty: rd_ptr={}, wr_ptr={}".format(queue_idx, rd_ptr, wr_ptr))
+        elif rd_ptr != wr_ptr:
+            pkts_in_queue = True
+            log_message("Queue {} is not empty: rd_ptr={}, wr_ptr={}".format(queue_idx, rd_ptr, wr_ptr),
+                        level='warning', to_stderr=True)
+    if not expect_queue_empty and not pkts_in_queue:
+        qos_test_assert(test_case, False,
+                        "Queue {} is expected to be not empty, but it is empty".format(queue_idx))
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
@@ -752,6 +821,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_dut_index = self.test_params['dst_dut_index']
         self.dst_asic_index = self.test_params.get('dst_asic_index', None)
         self.testbed_type = self.test_params['testbed_type']
+        self.t0_src_uplink_dst_downlink = self.test_params.get('t0_src_uplink_dst_downlink', False)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -818,7 +888,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                         send_packet(self, dst_port_id, arpreq_pkt)
 
             # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
-            if self.test_port_ips:
+            if self.test_port_ips and not self.t0_src_uplink_dst_downlink:
                 ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
                 if ips:
                     cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
@@ -1511,6 +1581,11 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         }
 
         try:
+            # Any watermark value before disabling the tx should be ignored
+            pg_shared_wm_res_before_tx_disable = sai_thrift_read_pg_shared_watermark(
+                    self.src_client, asic_type, port_list['src'][src_port_id])
+            logging.info(f"pg_shared_wm_res_before_tx_disable: {pg_shared_wm_res_before_tx_disable}")
+
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -1569,14 +1644,26 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 )
                 pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
                     self.src_client, asic_type, port_list['src'][src_port_id])
-                logging.info(pg_shared_wm_res_base)
+                logging.info(f"pg_shared_wm_res_base: {pg_shared_wm_res_base}")
+
+                # Ignore the watermark values before disabling the tx, do this for all the PGs only for the
+                # first iteration.
+                if pg_shared_wm_res_before_tx_disable:
+                    pg_shared_wm_res_base = \
+                        [pg_shared_wm_res_base[pg] - pg_shared_wm_res_before_tx_disable[pg] for pg in range(PG_NUM)]
+                    logging.info(
+                        f"pg_shared_wm_res_base - pg_shared_wm_res_before_tx_disable: {pg_shared_wm_res_base}")
+                    pg_shared_wm_res_before_tx_disable = None
+
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
                 time.sleep(8)
 
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
                                                                        port_list['src'][src_port_id])
+                logging.info(f"pg_shared_wm_res: {pg_shared_wm_res}")
                 pg_wm_inc = pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
+                logging.info(f"pg_wm_inc: {pg_wm_inc}")
                 lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
@@ -3266,7 +3353,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
-        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-28', 't0-64', 't0-116', 't0-118', 't0-120']:
+        if self.testbed_type in [
+                'dualtor', 'dualtor-56', 'dualtor-aa-64-breakout',
+                't0', 't0-28', 't0-64', 't0-116', 't0-118', 't0-120']:
             # populate ARP
             # sender's MAC address is corresponding PTF port's MAC address
             # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
@@ -6680,6 +6769,7 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
+        queue_idx = int(self.test_params['queue_idx'])
         router_mac = self.test_params['router_mac']
         sonic_version = self.test_params['sonic_version']
         dst_port_id = int(self.test_params['dst_port_id'])
@@ -6692,6 +6782,8 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         voq_watchdog_enabled = self.test_params['voq_watchdog_enabled']
         asic_type = self.test_params['sonic_asic_type']
         pkts_num = int(self.test_params['pkts_num'])
+        dutInterfaces = self.test_params['dutInterfaces']
+        testPorts = self.test_params['testPorts']
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -6726,6 +6818,8 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+        dst_port_name = dutInterfaces[testPorts["dst_port_id"]]
+        log_message("dst_port_name: {}".format(dst_port_name), to_stderr=True)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pre_offsets = init_log_check(self)
@@ -6734,10 +6828,15 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             # send packets
             send_packet(self, src_port_id, pkt, pkts_num)
 
-            # allow enough time to trigger voq watchdog
-            time.sleep(WATCHDOG_TIMEOUT_SECONDS["voq"] * 1.3)
+            # Verify that voq is not empty
+            verify_queue_occupancy(self, dst_port_id, queue_idx, expect_queue_empty=False)
 
-            # verify voq watchdog is triggered
+            # Verify that voq is empty after watchdog timeout
+            log_message("Waiting for VOQ watchdog to trigger", level='info', to_stderr=True)
+            verify_queue_occupancy(self, dst_port_id, queue_idx, voq_watchdog_enabled,
+                                   timeout=WATCHDOG_TIMEOUT_SECONDS["voq"])
+
+            log_message("Verify log after VOQ watchdog timeout", level='info', to_stderr=True)
             verify_log(self, pre_offsets, voq_watchdog_enabled, "voq")
 
         finally:
@@ -6755,12 +6854,14 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        dst_interfaces = self.test_params.get('dst_interfaces', [])
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         oq_watchdog_enabled = self.test_params['oq_watchdog_enabled']
         pkts_num = int(self.test_params['pkts_num'])
+        queue_id = int(self.test_params['queue_id'])
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -6793,13 +6894,22 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         pre_offsets = init_log_check(self)
 
         try:
+            log_message("Verify OQ is empty before send packets", level='info', to_stderr=True)
+            verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
+
             # send packets
             send_packet(self, src_port_id, pkt, pkts_num)
+
+            log_message("Verify OQ is not empty after send packets", level='info', to_stderr=True)
+            verify_tx_cgm_state(self, dst_interfaces, queue_id, False)
 
             # allow enough time to trigger oq watchdog
             time.sleep(WATCHDOG_TIMEOUT_SECONDS["oq"] * 1.3)
 
-            # verify voq watchdog is triggered
+            log_message("Verify OQ is empty after watchdog timeout", level='info', to_stderr=True)
+            verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
+
+            log_message("Verify log after OQ watchdog timeout", level='info', to_stderr=True)
             verify_log(self, pre_offsets, oq_watchdog_enabled, "oq")
 
         finally:
