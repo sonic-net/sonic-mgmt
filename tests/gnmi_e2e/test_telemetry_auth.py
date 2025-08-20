@@ -32,7 +32,7 @@ def ptf_telemetry_get(duthost, ptfhost):
     cmd += '-m get -x DEVICE_METADATA/localhost -xt CONFIG_DB'
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     logger.debug("ptf_telemetry_capabilities: {} output: {}".format(cmd, output))
-    return output
+    return "\n".join(output['stdout_lines'])
 
 
 def test_telemetry_authorize_passed_with_valid_cname(duthosts,
