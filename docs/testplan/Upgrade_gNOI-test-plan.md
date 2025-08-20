@@ -219,3 +219,94 @@ Run these negative setups per scenario to validate error handling and robustness
 Notes
 - Each scenario should include automation where possible (Ansible or test scripts) so PR-level tests can inject antagonists reliably.
 - Add per-scenario timeouts and retries to avoid false positives due to transient lab issues.
+
+### Test examples & code snippets
+Practical snippets and checks to include in test cases and automation.
+
+1) gNOI sanity checks (grpcurl)
+```sh
+# List services (plaintext test)
+grpcurl -plaintext DUT:50051 list
+# Describe the System service or method
+grpcurl -plaintext DUT:50051 describe System.SetPackage
+```
+
+2) Go: SetPackage client (illustrative)
+```go
+// Illustrative: open a SetPackage stream and send package metadata with SHA256 digest.
+stream, err := client.SetPackage(ctx)
+if err != nil { return err }
+
+pkg := &system.SetPackageRequest{
+ Request: &system.SetPackageRequest_Package{
+  Package: &system.Package{
+   Filename: "SONiC.bin",
+   Version:  "SONiC-2025",
+   RemoteDownload: &common.RemoteDownload{
+    Path: "https://fw.test/SONiC.bin",
+    Protocol: common.RemoteDownload_HTTP,
+   },
+   Hash: &types.Hash{ Type: types.Hash_SHA256, Value: sha256sum },
+  },
+ },
+}
+if err := stream.Send(pkg); err != nil { return err }
+// handle responses...
+```
+
+3) Go helper: compute SHA‑256
+```go
+func computeSHA256(path string) ([]byte, error) {
+ f, err := os.Open(path); if err!=nil { return nil, err }
+ defer f.Close()
+ h := sha256.New()
+ if _, err := io.Copy(h, f); err!=nil { return nil, err }
+ return h.Sum(nil), nil
+}
+```
+
+4) Phase‑1 wrapper / agent invocation (bash sketch)
+```sh
+# phase-1 wrapper should require HTTPS + SHA256
+upgrade-agent download \
+  --url "${URL:?https URL required}" \
+  --filename "/tmp/sonic-image.bin" \
+  --sha256 "${SHA256:?sha256 required}"
+```
+
+5) Ansible task snippet: deploy gNOI docker
+```yaml
+- name: Deploy gNOI docker
+  community.docker.docker_container:
+    name: gnmi-server
+    image: myrepo/gnmi-server:latest
+    state: started
+    published_ports: ["50051:50051"]
+```
+
+6) Antagonist / test-harness commands (automation helpers)
+```sh
+# Simulate low disk
+fallocate -l 4G /tmp/fillfile
+# Disable mgmt interface
+ip link set dev eth0 down
+# Block firmware server
+iptables -A OUTPUT -d ${FW_IP} -j REJECT
+# Corrupt image (serve wrong content)
+# Kill gNOI server during transfer
+pkill -f gnmi-server
+```
+
+7) Verification commands to include in tests
+```sh
+# Check file integrity on DUT
+sha256sum /tmp/SONiC.bin
+# Ensure gNOI service lists System and File services
+grpcurl -plaintext DUT:50051 list
+# Query version/state via gNMI (example)
+# gnmi-client get --target DUT --path /sonic/system/version
+```
+
+Notes:
+- Keep snippets short and adapt tokens (ports, service names) to your environment.
+- Add these examples to your CI job scripts or Ansible playbooks for reproducible tests.
