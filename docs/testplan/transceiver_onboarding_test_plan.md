@@ -98,7 +98,9 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 **Pre-requisites for the Below Tests:**
 
-1. A file `transceiver_dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to corresponding ports of each DUT. The file supports multiple port specification formats for flexibility and efficiency:
+1. A file `transceiver_dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to corresponding ports of each DUT. This file serves as the foundational source of truth for transceiver identification and contains data that is unique to each physical transceiver and its corresponding port configuration.
+
+    The file supports multiple port specification formats for flexibility and efficiency:
 
     **Example of transceiver_dut_info.json**
 
