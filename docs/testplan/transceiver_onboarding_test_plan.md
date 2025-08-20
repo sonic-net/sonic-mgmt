@@ -127,7 +127,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_rev": "revision_number",
           "hardware_rev": "hardware_revision_number"
         },
-        "Ethernet4-6": {
+        "Ethernet4:7": {
           "vendor_name": "ACME Corp.",
           "vendor_pn": "QSFP-100G-AOC-15M",
           "vendor_sn": "serial_number",
@@ -140,7 +140,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_name": "Example & Co",
           "vendor_pn": "SFP-1000BASE-LX",
         },
-        "Ethernet28-32,Ethernet36,Ethernet40-44": {
+        "Ethernet28:33,Ethernet36,Ethernet40:45": {
           "vendor_name": "Vendor/Inc",
           "vendor_pn": "QSFP-100G-AOC-10M"
         }
@@ -162,23 +162,23 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     **Port Configuration Keys:**
     - **Individual Ports**: Standard SONiC port names (e.g., `"Ethernet0"`, `"Ethernet4"`)
-    - **Port Ranges**: Range notation (e.g., `"Ethernet4-12"`, `"Ethernet0-96:4"`)
+    - **Port Ranges**: Range notation (e.g., `"Ethernet4:13"`, `"Ethernet0:97:4"`)
     - **Port Lists**: Comma-separated lists (e.g., `"Ethernet16,Ethernet20,Ethernet24"`)
-    - **Mixed Specifications**: Combined ranges and lists (e.g., `"Ethernet28-32,Ethernet36,Ethernet40-44"`)
+    - **Mixed Specifications**: Combined ranges and lists (e.g., `"Ethernet28:33,Ethernet36,Ethernet40:45"`)
 
     **Port Specification Formats:**
 
     The framework supports multiple flexible port specification formats to reduce configuration overhead:
 
     1. **Individual Port**: `"Ethernet0"` - Single port specification
-    2. **Range**: `"Ethernet4-12"` - Continuous range from Ethernet4 to Ethernet12 (inclusive)
+    2. **Range**: `"Ethernet4:13"` - Continuous range from Ethernet4 to Ethernet12 (inclusive)
     3. **Range with Step**: `"Ethernet0:97:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
     4. **List**: `"Ethernet16,Ethernet20,Ethernet24"` - Comma-separated list of specific ports
-    5. **Mixed**: `"Ethernet28-32,Ethernet36,Ethernet40-44"` - Combination of ranges and individual ports
+    5. **Mixed**: `"Ethernet28:33,Ethernet36,Ethernet40:45"` - Combination of ranges and individual ports
 
     **Port Range Parsing Rules:**
 
-    - **Range Format**: `EthernetX-Y` where X and Y are port numbers (X ≤ Y)
+    - **Range Format**: `EthernetX:Y` where X is start, Y is stop (exclusive), following Python slice convention
     - **Step Format**: `EthernetX:Y:Z` where X is start, Y is stop (exclusive), Z is step size (must be > 0)
     - **List Format**: Comma-separated port names without spaces
     - **Mixed Format**: Combination of ranges and individual ports separated by commas
