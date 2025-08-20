@@ -26,7 +26,7 @@ CICD_LOG_URL = "https://allure.cisco.com/auto/mb/sonic/workspace/sonic-cicd/sani
 SUCCESS_STATUS = "success"
 FAILURE_STATUS = "failure"
 
-from utils import upload_log_files_to_log_server 
+from utils import upload_log_files_to_log_server
 
 class FAILURE_RESONS(str, Enum):
     SIM_BAD_STATE = "sim_bad_state"
@@ -151,7 +151,7 @@ def trigger_run_scripts(host, username, password, script_file,drop_version,log_d
     time.sleep(3)
     resp = chan.recv(9999)
     print(resp.decode("utf-8", errors="replace"))
-    
+
     reports_dir = allure_config['allure']['local-report-dir']
     chan.send(f'rm -f {reports_dir}/* \n')
     time.sleep(3)
@@ -248,7 +248,7 @@ def trigger_run_scripts(host, username, password, script_file,drop_version,log_d
     else:
         status = SUCCESS_STATUS
         failure_reason = None
-    
+
     if create_allure_report:
         copy_allure_report_tar_to_remote_and_generate_url(host=host, username=username, password=password, build_project_name=build_project_name, docker_mgmt_container=docker_mgmt_container, ssh_port=ssh_port)
 
@@ -353,12 +353,12 @@ def get_report_file(host, username, password, sonic_test_dir, ssh_port=22):
 
 def copy_allure_report_tar_to_remote_and_generate_url(host, username, password, build_project_name, docker_mgmt_container, ssh_port=22):
     print("Getting allure report tar file")
-    
+
     report_folder_name = "allure-report-{}".format(build_project_name)
     report_dir_path = "/tmp/{}".format(report_folder_name)
     report_tar_path = "{}.tar.gz".format(report_dir_path)
 
-    remote_path = allure_config['allure']['remote-report-dir'] 
+    remote_path = allure_config['allure']['remote-report-dir']
     remote_path = remote_path if remote_path.endswith('/') else remote_path + '/'
 
     ssh = paramiko.SSHClient()
@@ -376,7 +376,7 @@ def copy_allure_report_tar_to_remote_and_generate_url(host, username, password, 
         ssh.close()
         ftp_client.close()
         return
-    
+
     sys.stdout.flush()
 
     # get allure report tar file from the VM
@@ -406,7 +406,7 @@ def copy_allure_report_tar_to_remote_and_generate_url(host, username, password, 
     result = subprocess.run(["rm", "-rf", report_tar_path])
     if result.returncode != 0:
         print("Error! Could not remove allure report tar file! {} {}".format(result.stderr, result.stdout))
-    
+
     result = subprocess.run(["rm", "-rf", report_dir_path])
     if result.returncode != 0:
         print("Error! Could not remove allure report folder! {} {}".format(result.stderr, result.stdout))
@@ -453,8 +453,8 @@ def get_sanity_logs(host, username, password, log_dir, sonic_test_dir, ssh_port=
         print(f"Error! Could not extract sanity_logs.tar.gz! stderr: {result.stderr}, stdout: {result.stdout}")
 
 def get_syslogs(dut_data_file):
-    dut_uname = 'cisco'
-    dut_passwd = 'cisco123'
+    dut_uname = 'admin'
+    dut_passwd = 'password'
 
     with open(dut_data_file) as f:
         dut_data = yaml.load(f, Loader=yaml.FullLoader)
@@ -533,11 +533,11 @@ def generate_results_json(run_result, failure_reason):
     ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
 
     sum = {
-        "total": 0, 
-        "failed": 0, 
-        "passed": 0, 
-        "skipped": 0, 
-        "success_rate": 0.0, 
+        "total": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "success_rate": 0.0,
         "status" : run_result,
         "failure_reason": failure_reason
     }
@@ -569,7 +569,7 @@ def generate_results_json(run_result, failure_reason):
         print("error: report.html file does not exist!")
         sum["status"] = FAILURE_STATUS
         sum["failure_reason"] = sum["failure_reason"] or FAILURE_RESONS.NO_REPORT_FILE
-    
+
     try:
         with open(ALLURE_REPORT_URL_FILE, 'r') as f:
             allure_url = f.readline()
@@ -679,29 +679,29 @@ test_tag={test_tag},
     print("Running Sanity Scripts : '{}', additional tests: '{}'".format(uploaded_script_files_str, additional_tests))
     try:
         run_result, failure_reason = trigger_run_scripts(
-            host, 
-            username, 
-            password, 
+            host,
+            username,
+            password,
             uploaded_script_files_str,
             drop_version,
             log_dir,
             device_type,
             topo_type,
-            create_allure_report, 
+            create_allure_report,
             additional_tests,
-            ssh_port, 
-            topo_name, 
-            docker_mgmt_container, 
-            skip_sanity, 
-            dut_data_file, 
-            add_sim_patches, 
+            ssh_port,
+            topo_name,
+            docker_mgmt_container,
+            skip_sanity,
+            dut_data_file,
+            add_sim_patches,
             test_tag
         )
     except Exception as e:
         print(f"Caught exception while running run_scripts.py! error: {e}")
         run_result = FAILURE_STATUS
         failure_reason = FAILURE_RESONS.RUN_SCRIPTS_EXCEPTION
-    
+
     sanity_end_time = datetime.datetime.now()
 
     try:
@@ -712,7 +712,7 @@ test_tag={test_tag},
         print(f"Caught exception while creating report! error: {e}")
         run_result = FAILURE_STATUS
         failure_reason = failure_reason or FAILURE_RESONS.CREATE_REPORT_FAIL
-    
+
     try:
         get_sanity_logs(host, username, password, log_dir, sonic_test_dir, ssh_port)
         get_syslogs(dut_data_file)
@@ -794,7 +794,7 @@ if __name__ == '__main__':
     dut_data_file = args['dut_data_file']
     add_sim_patches = args['add_sim_patches']
     test_tag = args['test_tag']
-    
+
     ret = run_scripts_remote(
         host_address,
         username,

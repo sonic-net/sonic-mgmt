@@ -26,12 +26,12 @@ devices:
     alias: null
     ansible:
       ansible_host: 192.168.122.47
-      ansible_ssh_pass: cisco123
-      ansible_ssh_user: cisco
+      ansible_ssh_pass: password
+      ansible_ssh_user: admin
     credentials:
-      enable_password: cisco123
-      password: cisco123
-      username: cisco
+      enable_password: password
+      password: password
+      username: admin
     device_type: DevSonic
     hwsku: Cisco-8101-O32
     os: sonic
@@ -51,15 +51,15 @@ devices:
   str-acs-serv-01:
     alias: null
     ansible:
-      ansible_become_pass: cisco123
+      ansible_become_pass: password
       ansible_host: 172.17.0.1/23
-      ansible_ssh_pass: cisco123
+      ansible_ssh_pass: password
       ansible_ssh_user: vxr
-      sonicadmin_initial_password: cisco123
-      sonicadmin_password: cisco123
-      sonicadmin_user: cisco
+      sonicadmin_initial_password: password
+      sonicadmin_password: password
+      sonicadmin_user: admin
     credentials:
-      password: cisco123
+      password: password
       username: vxr
     device_type: server
     hwsku: TestServ
@@ -323,8 +323,8 @@ veos:
   skip_image_downloading: false
   vm_console_base: 7000
   vm_host_ansible:
-    ansible_password: cisco123
-    ansible_sudo_pass: cisco123
+    ansible_password: password
+    ansible_sudo_pass: password
     ansible_user: vxr
   vm_images_url: https://acsbe.blob.core.windows.net/vmimages
   vm_host_1:

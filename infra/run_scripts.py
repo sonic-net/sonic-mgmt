@@ -264,8 +264,8 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,ts
     total_error = 0
     final_total = 0
     ssh_port = 22
-    dut_uname = 'cisco'
-    dut_passwd = 'cisco123'
+    dut_uname = 'admin'
+    dut_passwd = 'password'
     if collect_logs and dut_address is not None:
         cmd_list = list()
         cmd_list.append('mkdir swss_logs_{}\n'.format(drop_version))
@@ -408,8 +408,8 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,ts
 
 def get_techsupport(dut_address, tc_name, dut_name, log_dir):
     ssh_port = 22
-    dut_uname = 'cisco'
-    dut_passwd = 'cisco123'
+    dut_uname = 'admin'
+    dut_passwd = 'password'
     ts_dir='/var/dump'
 
     try:
@@ -453,7 +453,7 @@ def process_conditions_files(mark_conditions_files):
 
 def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files='',test_tag=None, device_type=None):
     print("running new_run_scripts")
-    print("params: ", 
+    print("params: ",
           "\nscript_file: " + str(script_file),
           "\ndrop_version: " + str(drop_version),
           "\nlog_dir: " + str(log_dir),
@@ -467,7 +467,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
           "\ndut_address: " + str(dut_address),
           "\nadditional_tests: " + str(additional_tests),
           "\nrun_options: " + str(run_options),
-          "\ndut_data_file: " + str(dut_data_file), 
+          "\ndut_data_file: " + str(dut_data_file),
           "\nmark_conditions_files: " + str(mark_conditions_files),
           "\ntest_tag: " + str(test_tag),
           "\ndevice_type: " + str(device_type)
@@ -493,8 +493,8 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     total_error = 0
     final_total = 0
     ssh_port = 22
-    dut_uname = 'cisco'
-    dut_passwd = 'cisco123'
+    dut_uname = 'admin'
+    dut_passwd = 'password'
     if collect_logs and dut_address is not None:
         cmd_list = list()
         cmd_list.append('mkdir swss_logs_{}\n'.format(drop_version))

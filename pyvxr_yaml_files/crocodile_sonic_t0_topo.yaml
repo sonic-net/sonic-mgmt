@@ -5,7 +5,7 @@ simulation:
     hours: 24
     partition: regression
     cluster: rch-slurm-m1
-          
+
 devices:
   docker_ptf:
     platform: linux
@@ -14,7 +14,7 @@ devices:
     linux_password: lab
     linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
-    extended_pci_bus: True
+    extended_pci_bus: true
     vcpu: 4
     memory: '4G'
     mgmt_intf_name: mgmt
@@ -26,8 +26,8 @@ devices:
     platform: spitfire_f
     os_type: sonic
     xr_port_redir: [22]
-    linux_username: "cisco"
-    linux_password: "cisco123"
+    linux_username: "admin"
+    linux_password: "password"
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     onie-install: /ws/prbikkan-sjc/sonic/images/Apr26/sonic-cisco-8000.bin
     linecard_types: ['8111-32EH']
@@ -37,12 +37,12 @@ devices:
         ConfigS1NpsuiteVer: 1.131.0
 
 
-  sonic_mgmt :
+  sonic_mgmt:
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    image: /globalnobackup/sonic/ubuntu1804_mgt.qcow2
     linux_username: 'vxr'
-    linux_password : 'cisco123'
+    linux_password: 'cisco123'
     linux_prompt: 'vxr@vxr-vm:~\$'
     vcpu: 32
     memory: '64G'
@@ -50,14 +50,14 @@ devices:
 device_groups:
   veos:
     devices:
-    - "veos[1..4]"
+      - "veos[1..4]"
     platform: veos
     xr_port_redir: [22]
     image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
     disks:
-    - hda:
-        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
-        type: reference
+      - hda:
+          file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+          type: reference
 
 connections:
   hubs:
@@ -67,25 +67,25 @@ connections:
   custom:
     ptf_injected29:
       ports:
-      - docker_ptf.eth28
-      - sonic_dut.Ethernet28
-      - veos1.Ethernet1
+        - docker_ptf.eth28
+        - sonic_dut.Ethernet28
+        - veos1.Ethernet1
     ptf_injected30:
       ports:
-      - docker_ptf.eth29
-      - sonic_dut.Ethernet29
-      - veos2.Ethernet1
+        - docker_ptf.eth29
+        - sonic_dut.Ethernet29
+        - veos2.Ethernet1
     ptf_injected31:
       ports:
-      - docker_ptf.eth30
-      - sonic_dut.Ethernet30
-      - veos3.Ethernet1
+        - docker_ptf.eth30
+        - sonic_dut.Ethernet30
+        - veos3.Ethernet1
     ptf_injected32:
       ports:
-      - docker_ptf.eth31
-      - sonic_dut.Ethernet31
-      - veos4.Ethernet1
+        - docker_ptf.eth31
+        - sonic_dut.Ethernet31
+        - veos4.Ethernet1
     backplane:
       ports:
-      - veos[1..4].Ethernet9
-      - docker_ptf.backplane  
+        - veos[1..4].Ethernet9
+        - docker_ptf.backplane

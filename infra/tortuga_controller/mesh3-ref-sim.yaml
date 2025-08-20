@@ -14,7 +14,7 @@ devices:
     data_port_attributes:
       transport: e1000
     linux_username: vxr
-    linux_password: cisco123
+    linux_password: password
     linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
@@ -55,8 +55,8 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: /nobackup/images/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB

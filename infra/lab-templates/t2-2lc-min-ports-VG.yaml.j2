@@ -16,7 +16,7 @@ all:
             os: nxos
           hosts:
             nexus-5:
-              ansible_host: 1.74.23.205 
+              ansible_host: 1.74.23.205
     ptf:
       hosts:
         docker-ptf:
@@ -42,8 +42,8 @@ sonic_cisco_sup:
     switch_type: chassis-packet
   hosts:
     sfd-01:
-      ansible_ssh_user: cisco
-      ansible_ssh_pass: cisco123
+      ansible_ssh_user: admin
+      ansible_ssh_pass: password
       ansible_host: {{ vxr_ports['sonic_dut']['xr_mgmt_ip'] }}
       hwsku: Cisco-8800-RP
       num_asics: 16
@@ -123,8 +123,8 @@ sonic_cisco_lc_400G:
       loopback4096_ip: [3.3.3.3/32,3.3.3.4/32,3.3.3.5/32]
       loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128,2603:10e2:400::5/128]
       ansible_host: {{ vxr_ports['sonic_dut_lc0']['xr_mgmt_ip'] }}
-      ansible_ssh_user: cisco
-      ansible_ssh_pass: cisco123
+      ansible_ssh_user: admin
+      ansible_ssh_pass: password
       model: 88-LC0-36FH-MO
       serial: FOC2417NH06
       base_mac: F8:6B:D9:78:5E:18
@@ -163,8 +163,8 @@ sonic_cisco_lc_100G:
       loopback4096_ip: [3.3.3.6/32,3.3.3.7/32]
       loopback4096_ipv6: [2603:10e2:400::6/128,2603:10e2:400::7/128]
       ansible_host: {{ vxr_ports['sonic_dut_lc1']['xr_mgmt_ip'] }}
-      ansible_ssh_user: cisco
-      ansible_ssh_pass: cisco123
+      ansible_ssh_user: admin
+      ansible_ssh_pass: password
       model: 8800-LC-48H-O
       serial: FOC2434PLPJ
       base_mac: E4:1F:7B:DE:01:50

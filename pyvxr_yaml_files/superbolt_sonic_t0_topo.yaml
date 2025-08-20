@@ -5,7 +5,7 @@ simulation:
     hours: 30
     partition: regression
     cluster: rch-slurm-m1
-          
+
 devices:
   docker_ptf:
     platform: linux
@@ -14,7 +14,7 @@ devices:
     linux_password: lab
     linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
-    extended_pci_bus: True
+    extended_pci_bus: true
     data_port_attributes:
       transport: e1000
     vcpu: 4
@@ -32,23 +32,23 @@ devices:
       sudo bash -c "echo 'net.core.wmem_default = 16777216' >> /etc/sysctl.conf"
       sudo sysctl -p
     xr_port_redir: [22]
-    linux_username: "cisco"
-    linux_password: "cisco123"
+    linux_username: "admin"
+    linux_password: "password"
     vcpu: 10
     memory: '20G'
     linecard_types: ['8122-64EHF-O']
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
     onie-install: /auto/vxr1/sonic-images/mbagherz/sonic_images/202405/sonic-cisco-8000.bin
     port_breakout:
-       lc0:
-          0..63: 2x400
+      lc0:
+        0..63: 2x400
 
-  sonic_mgmt :
+  sonic_mgmt:
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    image: /globalnobackup/sonic/ubuntu1804_mgt.qcow2
     linux_username: 'vxr'
-    linux_password : 'cisco123'
+    linux_password: 'cisco123'
     linux_prompt: 'vxr@vxr-vm:~\$'
     vcpu: 10
     memory: '20G'
@@ -56,81 +56,81 @@ devices:
 device_groups:
   veos:
     devices:
-    - "veos[1..4]"
+      - "veos[1..4]"
     platform: veos
     xr_port_redir: [22]
     image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
     disks:
-    - hda:
-        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
-        type: reference
+      - hda:
+          file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+          type: reference
 
 connections:
-   hubs:
+  hubs:
     hub0_0:
-    - docker_ptf.eth[0..1]
-    - sonic_dut.Ethernet0/[0..1]
+      - docker_ptf.eth[0..1]
+      - sonic_dut.Ethernet0/[0..1]
     hub0_1:
-    - docker_ptf.eth[2..3]
-    - sonic_dut.Ethernet1/[0..1]
+      - docker_ptf.eth[2..3]
+      - sonic_dut.Ethernet1/[0..1]
     hub0_2:
-    - docker_ptf.eth[4..5]
-    - sonic_dut.Ethernet2/[0..1]
+      - docker_ptf.eth[4..5]
+      - sonic_dut.Ethernet2/[0..1]
     hub0_3:
-    - docker_ptf.eth[6..7]
-    - sonic_dut.Ethernet3/[0..1]
+      - docker_ptf.eth[6..7]
+      - sonic_dut.Ethernet3/[0..1]
     hub0_4:
-    - docker_ptf.eth[8..9]
-    - sonic_dut.Ethernet4/[0..1]
+      - docker_ptf.eth[8..9]
+      - sonic_dut.Ethernet4/[0..1]
     hub0_5:
-    - docker_ptf.eth[10..11]
-    - sonic_dut.Ethernet5/[0..1]
+      - docker_ptf.eth[10..11]
+      - sonic_dut.Ethernet5/[0..1]
     hub0_6:
-    - docker_ptf.eth[12..13]
-    - sonic_dut.Ethernet6/[0..1]
+      - docker_ptf.eth[12..13]
+      - sonic_dut.Ethernet6/[0..1]
     hub0_7:
-    - docker_ptf.eth[14..15]
-    - sonic_dut.Ethernet7/[0..1]
+      - docker_ptf.eth[14..15]
+      - sonic_dut.Ethernet7/[0..1]
     hub0_8:
-    - docker_ptf.eth[16..17]
-    - sonic_dut.Ethernet8/[0..1]
+      - docker_ptf.eth[16..17]
+      - sonic_dut.Ethernet8/[0..1]
     hub0_9:
-    - docker_ptf.eth[18..19]
-    - sonic_dut.Ethernet9/[0..1]
+      - docker_ptf.eth[18..19]
+      - sonic_dut.Ethernet9/[0..1]
     hub0_10:
-    - docker_ptf.eth[20..21]
-    - sonic_dut.Ethernet10/[0..1]
+      - docker_ptf.eth[20..21]
+      - sonic_dut.Ethernet10/[0..1]
     hub0_11:
-    - docker_ptf.eth[22..23]
-    - sonic_dut.Ethernet11/[0..1]
+      - docker_ptf.eth[22..23]
+      - sonic_dut.Ethernet11/[0..1]
     hub0_12:
-    - docker_ptf.eth[24..25]
-    - sonic_dut.Ethernet12/[0..1]
+      - docker_ptf.eth[24..25]
+      - sonic_dut.Ethernet12/[0..1]
     hub0_13:
-    - docker_ptf.eth[26..27]
-    - sonic_dut.Ethernet13/[0..1]
-   custom:
+      - docker_ptf.eth[26..27]
+      - sonic_dut.Ethernet13/[0..1]
+  custom:
     ptf_injected29:
       ports:
-      - docker_ptf.eth28
-      - sonic_dut.Ethernet14/0
-      - veos1.Ethernet1
+        - docker_ptf.eth28
+        - sonic_dut.Ethernet14/0
+        - veos1.Ethernet1
     ptf_injected30:
       ports:
-      - docker_ptf.eth29
-      - sonic_dut.Ethernet14/1
-      - veos2.Ethernet1
+        - docker_ptf.eth29
+        - sonic_dut.Ethernet14/1
+        - veos2.Ethernet1
     ptf_injected31:
       ports:
-      - docker_ptf.eth30
-      - sonic_dut.Ethernet15/0
-      - veos3.Ethernet1
+        - docker_ptf.eth30
+        - sonic_dut.Ethernet15/0
+        - veos3.Ethernet1
     ptf_injected32:
       ports:
-      - docker_ptf.eth31
-      - sonic_dut.Ethernet15/1
-      - veos4.Ethernet1
+        - docker_ptf.eth31
+        - sonic_dut.Ethernet15/1
+        - veos4.Ethernet1
     backplane:
       ports:
-      - veos[1..4].Ethernet9
-      - docker_ptf.backplane  
+        - veos[1..4].Ethernet9
+        - docker_ptf.backplane

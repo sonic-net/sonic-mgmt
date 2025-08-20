@@ -14,7 +14,6 @@
 # -t Topology file for PyVxr
 # -c Clean pre-existing sim
 #
-# After the script is run – you can log into the sonic dut (admin/cisco123 – I change the password to cisco123) and check for bgp summary – both v4 and v6.
 #
 
 import argparse
@@ -75,9 +74,9 @@ def _create_parser():
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
-                      required=False,default="cisco123")
+                      required=False,default="password")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
-                      required=False,default="cisco")
+                      required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
     parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib, laguna',
@@ -407,10 +406,10 @@ def attach_vxr():
 def print_env_info(data, device_type):
     if 'tortuga-controller' not in data['topo_type']:
         print("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
-        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf0']['HostAgent'], data['leaf0']['serial0'], data['leaf0']['xr_mgmt_ip'], data['leaf0']['xr_redir22']))
-        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf1']['HostAgent'], data['leaf1']['serial0'], data['leaf1']['xr_mgmt_ip'], data['leaf1']['xr_redir22']))
-        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['spine0']['HostAgent'], data['spine0']['serial0'], data['spine0']['xr_mgmt_ip'], data['spine0']['xr_redir22']))
-        print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['spine1']['HostAgent'], data['spine1']['serial0'], data['spine1']['xr_mgmt_ip'], data['spine1']['xr_redir22']))
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf0']['HostAgent'], data['leaf0']['serial0'], data['leaf0']['xr_mgmt_ip'], data['leaf0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['leaf1']['HostAgent'], data['leaf1']['serial0'], data['leaf1']['xr_mgmt_ip'], data['leaf1']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['spine0']['HostAgent'], data['spine0']['serial0'], data['spine0']['xr_mgmt_ip'], data['spine0']['xr_redir22']))
+        print("Spine1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['spine1']['HostAgent'], data['spine1']['serial0'], data['spine1']['xr_mgmt_ip'], data['spine1']['xr_redir22']))
         print("Ixia Chassis (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {} ".format(data['ixia_chassis']['HostAgent'], data['ixia_chassis']['serial0']))
         print("Ixia Gui (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}  redir3389: {}".format(data['ixia_gui']['HostAgent'], data['ixia_gui']['serial0'], data['ixia_gui']['redir3389']))
         print("Ixia (ixia-pc/<>) :  SlurmHost: {}   Tlnt Port: {}".format(data['ixia']['HostAgent'], data['ixia']['serial0']))
@@ -418,10 +417,10 @@ def print_env_info(data, device_type):
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
         host_ports = list()
-        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
-        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
-        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
-        print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
         for i in range(1,8):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
@@ -430,11 +429,11 @@ def print_env_info(data, device_type):
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
         host_ports = list()
-        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
-        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
-        print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
-        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
-        print("Spine1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
         for i in range(1,11):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
@@ -443,10 +442,10 @@ def print_env_info(data, device_type):
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22']]
         host_ports = list()
-        print("Leaf0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
-        print("Leaf1 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
-        print("Leaf2 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
-        print("Spine0 (cisco/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
         for i in range(1,11):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
@@ -501,8 +500,8 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
         dur_ssh_port = "{}_SSH_PORT".format(dut_name.upper().replace(" ", "_"))
 
         sim_cfg[dut_host] = device['HostAgent']
-        sim_cfg[dut_username] = "cisco"
-        sim_cfg[dut_pass] = "cisco123"
+        sim_cfg[dut_username] = "admin"
+        sim_cfg[dut_pass] = "password"
         sim_cfg[dur_ssh_port] = device['xr_redir22']
 
     sim_cfg["SONIC_MGMT_HOST"] = data['sonic_mgmt']['HostAgent']
@@ -552,7 +551,7 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
 def collect_showtechsupport(data, dut_ports):
     files_downloaded = []
     for port in dut_ports:
-        tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"cisco","cisco123",["show techsupport"])
+        tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"admin","password",["show techsupport"])
         print(tar_file_output)
         tar_file = [j for j in tar_file_output.split('\n') if j != ''][-1]
         ret = get_showtechsupport(data, port, tar_file)
@@ -583,7 +582,7 @@ def get_showtechsupport(data, port, tar_file):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data['L0']['HostAgent'], port,"cisco","cisco123")
+        ssh.connect(data['L0']['HostAgent'], port,"admin","password")
         ftp_client=ssh.open_sftp()
         ftp_client.get(tar_file,os.path.basename(tar_file))
     except Exception as e:
@@ -735,7 +734,7 @@ def main():
     if cicd_clean:
         print("****** Clearing SIM at the end of CICD run ******** ")
         os.system("{} clean".format(vxr_path))
-    
+
     return ret
 
 if __name__ == '__main__':

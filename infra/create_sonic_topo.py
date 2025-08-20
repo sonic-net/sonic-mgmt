@@ -14,7 +14,6 @@
 # -t Topology file for PyVxr
 # -c Clean pre-existing sim
 #
-# After the script is run – you can log into the sonic dut (admin/cisco123 – I change the password to cisco123) and check for bgp summary – both v4 and v6.
 #
 
 import argparse
@@ -158,7 +157,7 @@ def _create_parser():
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
-                      required=False,default="YourPaSsWoRd")
+                      required=False,default="password")
     parser.add_argument('-u', '--dut_uname', type=str, help='Dut username, when it is different from admin',
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
@@ -316,7 +315,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
 
     if topo_type == 'dualtor-56-4':
         pre_processing_cmds.append('cp /data/ansible/vars/topo_dualtor-56-4.yml /data/ansible/vars/topo_dualtor-56.yml')
-    
+
 
     if len(pre_processing_cmds) != 0:
         logging.info("Pre-precseeing Testbed")
@@ -426,7 +425,7 @@ def change_dut_passwd(device):
     user = device['uname']
     passwd = device['passwd']
     #passwd = "cisco123"
-    new_passwd = "cisco123"
+    new_passwd = "password"
     mgmt_ip = device['xr_mgmt_ip']
 
     ssh = paramiko.SSHClient()
@@ -506,6 +505,7 @@ def change_dut_passwd(device):
     time.sleep(3)
     chan.send('sudo cp /etc/sonic/config_db.json /tmp/config_db.json\n')
     time.sleep(1)
+    '''
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
@@ -518,7 +518,7 @@ def change_dut_passwd(device):
         stdout, stderr, status_code = _run_cmd_in_ssh(ssh, "sudo useradd -m -d /home/cisco -s /bin/bash cisco &&   sudo usermod -aG  admin,sudo,docker,redis cisco &&  echo 'cisco:cisco123' | sudo chpasswd\n")
         if status_code != 0:
             raise Exception(f"Failed to add cisco user: stdout: {stdout}, stderr: {stderr}")
-
+    '''
     ssh.close()
 
 
@@ -725,7 +725,7 @@ def add_sim_patches(data):
         logging.info(f"****** Applying simulation patches for eth4 on {dut_name} ******")
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        connect_with_retries(ssh, data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], "cisco123", timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
+        connect_with_retries(ssh, data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
 
         ftp_client=ssh.open_sftp()
         ftp_client.get('/usr/local/bin/fast-reboot','fast-reboot')
@@ -775,7 +775,7 @@ def add_sim_patches(data):
         cmd_list.append('sudo cp /tmp/route_check.py /usr/local/bin/route_check.py\n')
         cmd_list.append('sudo cp /tmp/fast-reboot /usr/local/bin/fast-reboot\n')
         cmd_list.append('sudo cp /tmp/warm-reboot /usr/local/bin/warm-reboot\n')
-        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], 'cisco123', cmd_list)
+        run_exec_cmds(data[dut_name]['HostAgent'], data[dut_name]['xr_redir22'], data[dut_name]['uname'], data[dut_name]['passwd'], cmd_list)
         logging.info(f"******  Finished applying simulation patches for eth4 on {dut_name} ******")
 
 
@@ -998,7 +998,7 @@ def determine_base_topo(topo_type, device_type):
 
 def create_vxr_log_tarball(vxr_path):
     os.system(f"bash -c '{vxr_path} logs'")
-    os.system(f"tar -czvf vxr.out.tar.gz vxr.out")    
+    os.system(f"tar -czvf vxr.out.tar.gz vxr.out")
 
 def generate_results_json(run_result, failure_reason):
     # Path to config file
@@ -1006,11 +1006,11 @@ def generate_results_json(run_result, failure_reason):
     SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
 
     sum = {
-        "total": 0, 
-        "failed": 0, 
-        "passed": 0, 
-        "skipped": 0, 
-        "success_rate": 0.0, 
+        "total": 0,
+        "failed": 0,
+        "passed": 0,
+        "skipped": 0,
+        "success_rate": 0.0,
         "status" : run_result,
         "failure_reason": failure_reason
     }
@@ -1117,7 +1117,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     logging.info("********** Configure PTF backplane ip address **********")
     add_ptf_backplane_addr(data)
     logging.info("********** Configure PTF backplane ip address is finished ********")
-                 
+
     logging.info("********** Install Allure package **********")
     install_allure(data)
     logging.info("********** Install Allure package is finished ********")
@@ -1126,7 +1126,7 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
 def print_env_info(data, device_type, vEOS_count):
     for dut_name in get_dut_names(data):
         device = data[dut_name]
-        logging.info("Sonic DUT '{}' (cisco/cisco123):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
+        logging.info("Sonic DUT '{}' (admin/password):  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(dut_name, device['HostAgent'], device['serial0'], device['xr_mgmt_ip'], device['xr_redir22']))
 
     logging.info("Sonic Mgmt (vxr/cisco123) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['serial0'], data['sonic_mgmt']['xr_mgmt_ip'], data['sonic_mgmt']['xr_redir22']))
 
@@ -1179,8 +1179,8 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
         dur_ssh_port = "{}_SSH_PORT".format(dut_name.upper().replace(" ", "_"))
 
         file_contents +=  f"export {dut_host}={device['HostAgent']}\n"
-        file_contents +=  f"export {dut_username}=cisco\n"
-        file_contents +=  f"export {dut_pass}=cisco123\n"
+        file_contents +=  f"export {dut_username}=admin\n"
+        file_contents +=  f"export {dut_pass}=password\n"
         file_contents +=  f"export {dur_ssh_port}={device['xr_redir22']}\n"
 
     file_contents +=  f"export SONIC_MGMT_HOST={data['sonic_mgmt']['HostAgent']}\n"
@@ -1217,7 +1217,7 @@ def check_dut_reachable(dut_name, data):
         sonic_mgmt_client = paramiko.SSHClient()
         sonic_mgmt_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         connect_with_retries(
-            sonic_mgmt_client, 
+            sonic_mgmt_client,
             hostname=sonic_mgmt_ip,
             port=sonic_mgmt_ssh_port,
             username=sonic_mgmt_username,
