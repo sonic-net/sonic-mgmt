@@ -124,6 +124,7 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
 
     vxlan = supported_ttl_dscp_params['vxlan']
     is_multi_asic = duthosts[0].sonichost.is_multi_asic
+    asic_type = duthosts[0].facts["asic_type"]
 
     setup_info = {
         "fib_info_files": fib_info_files[:3],  # Test at most 3 DUTs in case of multi-DUT
@@ -136,13 +137,13 @@ def setup_teardown(request, duthosts, duts_running_config_facts, ip_ver, loopbac
     setup_info.update(loopback_ips)
     logger.info(json.dumps(setup_info, indent=2))
 
-    if vxlan != "set_unset":
+    if vxlan != "set_unset" or asic_type in ["cisco-8000"]:
         # Remove default tunnel
         remove_default_decap_cfg(duthosts)
 
     yield setup_info
 
-    if vxlan != "set_unset":
+    if vxlan != "set_unset" or asic_type in ["cisco-8000"]:
         # Restore default tunnel
         restore_default_decap_cfg(duthosts)
 
@@ -272,7 +273,7 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
             # Hence a new decap config is not applied to the device in this case. This is
             # to avoid creating new tables and test ipinip decap with default loaded config
             simulate_vxlan_teardown(duthosts, ptfhost, tbinfo)
-        else:
+        if vxlan != "set_unset" or asic_type in ["cisco-8000"]:
             apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'SET')
 
         if 'dualtor' in tbinfo['topo']['name']:
@@ -337,6 +338,6 @@ def test_decap(tbinfo, duthosts, ptfhost, setup_teardown, mux_server_url,       
 
     finally:
         # Remove test decap configuration
-        if vxlan != "set_unset":
+        if vxlan != "set_unset" or asic_type in ["cisco-8000"]:
             # in vxlan setunset case the config was not applied, hence DEL is also not required
             apply_decap_cfg(duthosts, ip_ver, loopback_ips, ttl_mode, dscp_mode, ecn_mode, 'DEL')

@@ -7,6 +7,7 @@
    1. [2.1. Basic Usage](#21-basic-usage)
    2. [2.2. Configuration-Driven Validation](#22-configuration-driven-validation)
    3. [2.3. Advanced Options](#23-advanced-options)
+   4. [2.4. Output Formats](#24-output-formats)
 3. [3. Architecture](#3-architecture)
    1. [3.1. Core Components](#31-core-components)
    2. [3.2. Validation Flow](#32-validation-flow)
@@ -23,8 +24,9 @@
       4. [5.1.4. PDU Validator](#514-pdu-validator)
       5. [5.1.5. Topology Validator](#515-topology-validator)
    2. [5.2. Group Validators](#52-group-validators)
-      1. [5.2.1. Device Info Validator](#521-device-info-validator)
-      2. [5.2.2. Vlan Validator](#522-vlan-validator)
+      1. [5.2.0. Common Group Validator Configuration](#520-common-group-validator-configuration)
+      2. [5.2.1. Device Info Validator](#521-device-info-validator)
+      3. [5.2.2. Vlan Validator](#522-vlan-validator)
 6. [6. Extending the Framework](#6-extending-the-framework)
    1. [6.1. Creating Custom Validators](#61-creating-custom-validators)
       1. [6.1.1. Step 1: Define Issue Definitions](#611-step-1-define-issue-definitions)
@@ -447,23 +449,40 @@ validators:
     config: {}
   - name: ip_address
     enabled: true
-    config: {}
+    config:
+      allow_conflict_list:
+        - from: "^(.+)-dut$"          # Match devices ending with "-dut"
+          to: "\\1"                   # Remove "-dut" suffix
+      exclude_devices:
+        - "^test-.*"                  # Exclude test devices
+        - ".*-temp$"                  # Exclude temporary devices
   - name: device_info
     enabled: true
     config:
       invalid_chars: [' ', '\t', '\n', '\r']
       max_length: 255
+      exclude_groups:
+        - "^test.*"      # Skip groups starting with "test"
+        - ".*staging.*"  # Skip groups containing "staging"
   - name: vlan
     enabled: true
     config:
       min_vlan_id: 1
       max_vlan_id: 4096
+      exclude_groups:
+        - "lab-temp-.*"  # Skip temporary lab groups
   - name: console
     enabled: true
-    config: {}
+    config:
+      exclude_devices:
+        - "^test-.*"      # Exclude devices starting with "test-"
+        - ".*-backup$"    # Exclude devices ending with "-backup"
   - name: pdu
     enabled: true
-    config: {}
+    config:
+      exclude_devices:
+        - "^test-.*"      # Exclude devices starting with "test-"
+        - ".*-backup$"    # Exclude devices ending with "-backup"
 ```
 
 ### 4.2. Issue Severities
@@ -549,7 +568,60 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Purpose**: Validates that no IP address conflicts exist between devices and testbeds across all infrastructure groups.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `allow_conflict_list`: List of conflict resolution rules to ignore specific IP conflicts (default: [])
+- `exclude_devices`: List of regex patterns to exclude devices from IP validation (default: [])
+
+**Allow Conflict List Configuration:**
+
+The `allow_conflict_list` allows you to ignore IP conflicts between devices when they represent the same logical entity with different naming conventions. Each rule contains:
+
+- `from`: Regex pattern to match device names
+- `to`: Replacement string to normalize device names
+
+If two conflicting devices normalize to the same name after regex replacement, the conflict is ignored.
+
+**Example Configuration:**
+
+```yaml
+validators:
+  - name: ip_address
+    enabled: true
+    config:
+      allow_conflict_list:
+        - from: "^(.+)-dut$"          # Match devices ending with "-dut"
+          to: "\\1"                   # Remove "-dut" suffix
+        - from: "^lab-(.+)-switch$"   # Match lab switches
+          to: "\\1"                   # Keep only the middle part
+```
+
+**Example Behavior:**
+
+- `sonic-s6100-dut` and `sonic-s6100` → Both normalize to `sonic-s6100` → Conflict ignored
+- `lab-spine1-switch` and `spine1` → Both normalize to `spine1` → Conflict ignored
+
+**Exclude Devices Configuration:**
+
+The `exclude_devices` allows you to completely exclude specific devices from IP validation. Devices matching any of the regex patterns will be ignored entirely during validation.
+
+**Example Configuration:**
+
+```yaml
+validators:
+  - name: ip_address
+    enabled: true
+    config:
+      exclude_devices:
+        - "^test-.*"         # Exclude all devices starting with "test-"
+        - ".*-temp$"         # Exclude all devices ending with "-temp"
+        - "mgmt-server-.*"   # Exclude management servers
+```
+
+**Example Behavior:**
+- `test-device-1` → Excluded from all IP validation
+- `switch-temp` → Excluded from all IP validation
+- `mgmt-server-lab1` → Excluded from all IP validation
 
 **Validation Rules:**
 
@@ -572,7 +644,9 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Purpose**: Validates that all DevSonic and Fanout devices have console connections configured and checks for conflicts across all infrastructure groups.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `exclude_devices`: List of regex patterns to exclude devices from validation (default: [])
 
 **Validation Rules:**
 
@@ -600,7 +674,9 @@ Global validators run once with access to data from all infrastructure groups. T
 
 **Purpose**: Validates that all DevSonic and Fanout devices have PDU (Power Distribution Unit) connections configured and checks for conflicts across all infrastructure groups.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `exclude_devices`: List of regex patterns to exclude devices from validation (default: [])
 
 **Validation Rules:**
 
@@ -678,6 +754,28 @@ validators:
 
 Group validators run individually for each infrastructure group, operating only on data from a single group. They validate group-specific configurations and constraints.
 
+#### 5.2.0. Common Group Validator Configuration
+
+All group validators support a common `exclude_groups` configuration parameter that allows skipping validation for specific groups based on regex patterns:
+
+**Common Configuration:**
+
+- `exclude_groups`: List of regex patterns to match against group names
+
+Here is an example:
+
+```yaml
+validators:
+  - name: device_info
+    enabled: true
+    config:
+      exclude_groups:
+        - "^test.*"      # Skip groups starting with "test"
+        - ".*staging.*"  # Skip groups containing "staging"
+        - "lab-[0-9]+"   # Skip groups matching "lab-1", "lab-2", etc.
+      # validator-specific config options...
+```
+
 #### 5.2.1. Device Info Validator
 
 **Purpose**: Validates that all device info is correct within each infrastructure group.
@@ -686,6 +784,7 @@ Group validators run individually for each infrastructure group, operating only 
 
 - `invalid_chars`: List of invalid characters in device names (default: [])
 - `max_length`: Maximum allowed device name length (default: 255)
+- `exclude_groups`: List of regex patterns to exclude groups (default: [])
 
 **Validation Rules:**
 
@@ -713,6 +812,7 @@ Group validators run individually for each infrastructure group, operating only 
 
 - `min_vlan_id`: Minimum valid VLAN ID (default: 1)
 - `max_vlan_id`: Maximum valid VLAN ID (default: 4096)
+- `exclude_groups`: List of regex patterns to exclude groups (default: [])
 
 **Validation Approach:**
 

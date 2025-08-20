@@ -16,9 +16,9 @@ class VlanValidator(GroupValidator):
         super().__init__(
             name="vlan",
             description="Validates VLAN configurations using BFS traversal from DUTs through connected devices",
-            category="networking"
+            category="networking",
+            config=config
         )
-        self.config = config or {}
         self.min_vlan_id = self.config.get('min_vlan_id', 1)
         self.max_vlan_id = self.config.get('max_vlan_id', 4096)
 

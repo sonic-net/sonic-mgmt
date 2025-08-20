@@ -2,6 +2,7 @@
 PDUValidator - Validates that all DevSonic and Fanout devices have PDU connections configured
 """
 
+import re
 from .base_validator import GlobalValidator, ValidatorContext
 from .validator_factory import register_validator
 
@@ -14,9 +15,28 @@ class PDUValidator(GlobalValidator):
         super().__init__(
             name="pdu",
             description="Validates that all DevSonic and Fanout devices have PDU connections configured",
-            category="connectivity"
+            category="connectivity",
+            config=config
         )
-        self.config = config or {}
+        self.exclude_devices = self.config.get('exclude_devices', [])
+
+    def _is_device_excluded(self, device_name):
+        """
+        Check if a device should be excluded from validation based on regex patterns
+
+        Args:
+            device_name: Name of the device to check
+
+        Returns:
+            bool: True if device should be excluded, False otherwise
+        """
+        for pattern in self.exclude_devices:
+            try:
+                if re.match(pattern, device_name):
+                    return True
+            except re.error as e:
+                self.logger.warning(f"Invalid regex pattern '{pattern}' in exclude_devices: {e}")
+        return False
 
     def _validate(self, context: ValidatorContext) -> None:
         """
@@ -82,7 +102,9 @@ class PDUValidator(GlobalValidator):
                 if isinstance(device_info, dict):
                     device_type = device_info.get('Type', '')
                     if device_type == 'DevSonic' or device_type.startswith('Fanout'):
-                        all_target_devices.append((device_name, group_name))
+                        # Check if device should be excluded
+                        if not self._is_device_excluded(device_name):
+                            all_target_devices.append((device_name, group_name))
 
             # Add all devices and PDU links (with group info for debugging)
             for device_name, device_info in devices.items():
