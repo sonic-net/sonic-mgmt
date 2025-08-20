@@ -15,6 +15,7 @@ from tests.common.portstat_utilities import parse_portstat
 from tests.drop_packets.drop_packets import is_mellanox_fanout
 
 pytestmark = [
+    pytest.mark.asic('cisco-8000'),
     pytest.mark.topology('any')
 ]
 
