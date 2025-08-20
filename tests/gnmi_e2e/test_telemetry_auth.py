@@ -45,7 +45,7 @@ def test_telemetry_authorize_passed_with_valid_cname(duthosts,
     if not telemetry_enabled(duthost):
         pytest.skip("Skipping because telemetry not enabled")
 
-    ret, msg = ptf_telemetry_get(duthost, ptfhost)
+    msg = ptf_telemetry_get(duthost, ptfhost)
     logger.debug("test_telemetry_authorize_passed_with_valid_cname: {}".format(msg))
 
     assert "Unauthenticated" not in msg, (
@@ -65,7 +65,7 @@ def test_telemetry_authorize_failed_with_invalid_cname(duthosts,
     if not telemetry_enabled(duthost):
         pytest.skip("Skipping because telemetry not enabled")
 
-    ret, msg = ptf_telemetry_get(duthost, ptfhost)
+    msg = ptf_telemetry_get(duthost, ptfhost)
     logger.debug("test_telemetry_authorize_failed_with_invalid_cname: {}".format(msg))
 
     assert "Unauthenticated" in msg, (
