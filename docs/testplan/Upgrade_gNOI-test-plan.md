@@ -13,6 +13,9 @@ The goal of this test is to verify that the Upgrade Service, implemented via gNO
 ## Background
 Legacy SONiC upgrades commonly relied on ad-hoc scripts and a HardwareProxy that performed firmware transfer and activation over SSH/Telnet using prompt parsing. These approaches are brittle, hard to test, and offer limited observability.
 
+## Current State: HardwareProxy Upgrade MoPs
+
+```mermaid
 graph TB
     subgraph External
         FUSE["Orchestrator (FUSE)"]
@@ -40,8 +43,9 @@ graph TB
     SCRIPTS --> UPDATE
     SCRIPTS --> POST
     UPDATE --> INSTALLER
+```
 
-
+**Issues**: Multiple layers • String transfer • Primitive communication • Resource competition
 ## Scope
 This test targets SONiC systems running in three environments: local Linux VM, KVM-based SONiC, and physical SONiC devices. The purpose is to validate the compatibility and correctness of the upgrade service across these platforms, ensuring consistent behavior and reliability.
 
