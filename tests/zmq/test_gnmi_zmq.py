@@ -57,6 +57,16 @@ def enable_zmq(duthost):
     logger.debug("set subtype subtype: {}".format(result))
     save_reload_config(duthost)
 
+    pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
+                  "Not all critical services are fully started")
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    bgp_neighbors = config_facts.get('BGP_NEIGHBOR', {})
+    pytest_assert(
+        wait_until(360, 10, 0, duthost.check_bgp_session_state, bgp_neighbors),
+        "bgp sessions {} are not up".format(bgp_neighbors)
+    )
+
     yield
 
     # revert change
