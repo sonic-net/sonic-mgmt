@@ -1581,6 +1581,11 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         }
 
         try:
+            # Any watermark value before disabling the tx should be ignored
+            pg_shared_wm_res_before_tx_disable = sai_thrift_read_pg_shared_watermark(
+                    self.src_client, asic_type, port_list['src'][src_port_id])
+            logging.info(f"pg_shared_wm_res_before_tx_disable: {pg_shared_wm_res_before_tx_disable}")
+
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
@@ -1639,14 +1644,26 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 )
                 pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
                     self.src_client, asic_type, port_list['src'][src_port_id])
-                logging.info(pg_shared_wm_res_base)
+                logging.info(f"pg_shared_wm_res_base: {pg_shared_wm_res_base}")
+
+                # Ignore the watermark values before disabling the tx, do this for all the PGs only for the
+                # first iteration.
+                if pg_shared_wm_res_before_tx_disable:
+                    pg_shared_wm_res_base = \
+                        [pg_shared_wm_res_base[pg] - pg_shared_wm_res_before_tx_disable[pg] for pg in range(PG_NUM)]
+                    logging.info(
+                        f"pg_shared_wm_res_base - pg_shared_wm_res_before_tx_disable: {pg_shared_wm_res_base}")
+                    pg_shared_wm_res_before_tx_disable = None
+
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
                 time.sleep(8)
 
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
                                                                        port_list['src'][src_port_id])
+                logging.info(f"pg_shared_wm_res: {pg_shared_wm_res}")
                 pg_wm_inc = pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
+                logging.info(f"pg_wm_inc: {pg_wm_inc}")
                 lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
