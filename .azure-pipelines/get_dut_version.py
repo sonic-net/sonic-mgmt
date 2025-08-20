@@ -79,7 +79,9 @@ def get_duts_version(sonichosts, output=None):
                         key, value = [x.strip() for x in line.split(":", 1)]
                         if key == "HwSKU":
                             dut_info["HwSKU"] = value
-                            dut_info["ASIC TYPE"] = read_asic_name(value)
+                            dut_info["ASIC"] = read_asic_name(value)
+                        elif key == "ASIC":
+                            ret[dut]["ASIC TYPE"] = value
                         else:
                             dut_info[key] = value
                     continue
