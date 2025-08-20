@@ -57,53 +57,52 @@ def get_duts_version(sonichosts, output=None):
     try:
         ret = {}
         duts_version = sonichosts.command("show version")
-        for dut, version in duts_version.items():
-            ret[dut] = {}
 
-            dut_version = version["stdout_lines"]
+        for dut, version in duts_version.items():
+            dut_info = {}
+            dut_version = version.get("stdout_lines", [])
             in_docker_section = False
 
             for line in dut_version:
-                if not line.strip():
+                line = line.strip()
+                if not line:
                     continue
 
-                # Detect start of docker images section
-                if line.startswith("Docker images"):
-                    ret[dut]["Docker images"] = []
-                    in_docker_section = True
-                    continue
-
-                # Parse docker images table
-                if in_docker_section:
-                    if line.startswith("REPOSITORY"):
-                        # skip header line
+                # ---- General info ----
+                if not in_docker_section:
+                    if line.startswith("Docker images"):
+                        dut_info["Docker images"] = []
+                        in_docker_section = True
                         continue
 
-                    parts = line.split()
-                    if len(parts) >= 4:
-                        image = {
-                            "REPOSITORY": parts[0],
-                            "TAG": parts[1],
-                            "IMAGE ID": parts[2],
-                            "SIZE": " ".join(parts[3:])  # safer for "1.2 GB" cases
-                        }
-                        ret[dut]["Docker images"].append(image)
+                    if ":" in line:
+                        key, value = [x.strip() for x in line.split(":", 1)]
+                        if key == "HwSKU":
+                            dut_info["HwSKU"] = value
+                            dut_info["ASIC TYPE"] = read_asic_name(value)
+                        else:
+                            dut_info[key] = value
                     continue
 
-                # Parse general key:value lines
-                if ":" in line:
-                    key, value = [x.strip() for x in line.split(":", 1)]
+                # ---- Docker images ----
+                if line.startswith("REPOSITORY"):
+                    continue  # skip header
 
-                    if key == "HwSKU":
-                        # Keep both HwSKU and mapped ASIC TYPE
-                        ret[dut]["HwSKU"] = value
-                        ret[dut]["ASIC TYPE"] = read_asic_name(value)
-                    elif key == "ASIC":
-                        # Preserve raw ASIC value
-                        ret[dut]["ASIC"] = value
-                    else:
-                        ret[dut][key] = value
+                parts = line.split()
+                if len(parts) < 4:
+                    continue  # malformed line, skip
 
+                image = {
+                    "REPOSITORY": parts[0],
+                    "TAG": parts[1],
+                    "IMAGE ID": parts[2],
+                    "SIZE": " ".join(parts[3:])  # safe join for "742 MB" / "683kB"
+                }
+                dut_info["Docker images"].append(image)
+
+            ret[dut] = dut_info
+
+        # ---- Output handling ----
         if output:
             with open(output, "w", encoding="utf-8") as f:
                 json.dump(ret, f, indent=2)
