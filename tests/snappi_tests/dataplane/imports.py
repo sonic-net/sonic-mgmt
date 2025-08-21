@@ -151,6 +151,7 @@ from tests.common.snappi_tests.common_helpers import (
     config_ingress_lossless_buffer_alpha,
     get_peer_snappi_chassis,
     get_addrs_in_subnet,
+    get_other_hosts_from_ipv6_host,
 )
 
 # ==============================
