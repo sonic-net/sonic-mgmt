@@ -92,9 +92,25 @@ def verify_expected_loganalyzer_logs(
         loganalyzer: Loganalyzer utility fixture
     """
     expectRegex = [
+        # TODO: uncomment when sairedis submodule is updated in sonic-buildimage PR #23334
+        #   sairedis submodule is not able to be merged due to test failure because of change in expected logs.
+        #   However, changing the expected logs fails current tests due to differences in log output.
+        #   Temporarily move log matches to ignoreRegex to pass both versions.
+
+        # ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",
+        ".*ERR.* addRoutePost: Failed to create route.*",
+        ]
+    ignoreRegex = [
+        # Ignored logs
+        ".*ERR.* create failed, object already exists.*",
+        ".*ERR.* bulkCreate: Failed to create object.*",
+        ".*ERR.* api SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
+        ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
+
+        # Expected logs. TODO: remove after PR #23334 merges
+        ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",
         ".*ERR.* meta_sai_validate_route_entry:.* already exists.*",
         ".*ERR.* status: SAI_STATUS_ITEM_ALREADY_EXISTS.*",
-        ".*ERR.* addRoutePost: Failed to create route.*",
         ".*ERR.* handleSaiFailure: Encountered failure in create operation, SAI API: SAI_API_ROUTE.*",
         ]
     if loganalyzer:
@@ -102,6 +118,10 @@ def verify_expected_loganalyzer_logs(
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(
             expectRegex
         )
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
+            ignoreRegex
+        )
+
 
 
 @pytest.fixture(scope="module", autouse=True)
