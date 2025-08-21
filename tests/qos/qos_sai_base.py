@@ -1000,13 +1000,7 @@ class QosSaiBase(QosBase):
 
         # Build a set of Ethernet ports to exclude (with 18.x.202.0/31 IPs)
         excluded_ports = set()
-        for item in duthosts[0].show_and_parse("show ip interface"):
-            # Match lines starting with "Ethernet" and IP in 18.x.202.0/31
-            ip_mask = item.get('ipv4 address/mask', '')
-            ip = ip_mask.split('/')[0]
-            octets = ip.split('.')
-            if len(octets) >= 3 and octets[0] == '18' and octets[2] == '202':
-                excluded_ports.add(item['interface'])
+        excluded_ports.update(duthosts[0].get_backplane_ports())
         # Filter minigraph_ptf_indices to exclude dynamic ports
         src_mgFacts["minigraph_ptf_indices"] = {
             key: value
