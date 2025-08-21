@@ -47,6 +47,8 @@ jobs:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
           - checkout: ${{ parameters.SONIC_MGMT_NAME }}
       - template: impacted_area_testing/get-impacted-area.yml
+        parameters:
+          BUILD_BRANCH: $(BUILD_BRANCH)
 
   - job: impacted_area_kvmtest
     displayName: " "
