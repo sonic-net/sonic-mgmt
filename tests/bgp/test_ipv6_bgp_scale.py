@@ -568,7 +568,7 @@ def test_nexthop_group_member_scale(
     )
     for hostname, routes in peers_routes_to_change.items():
         for route in routes:
-            prefix = route[0]
+            prefix = route[0].upper()
             found = False
             for topo_route in topo_bgp_routes[hostname]['ipv6']:
                 if topo_route[0] == prefix:

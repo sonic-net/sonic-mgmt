@@ -626,8 +626,8 @@ def fib_t1_lag(topo, ptf_ip, topo_name, no_default_route=False, action="announce
         downstream_tor_number = len(downstream_vm_config)
         lov6_address_pattern = ipv6_address_pattern.split("/")[0] + "/128"
         current_routes_offset = last_suffix
-        topo_routes[k] = {}
         for index, k in enumerate(sorted(downstream_vm_config.keys())):
+            topo_routes[k] = {}
             v = downstream_vm_config[k]
             if dpus and k in dpus:
                 continue
@@ -880,7 +880,7 @@ def fib_m0(topo, ptf_ip, action="announce", topo_routes={}):
 
         topo_routes[k] = {}
         topo_routes[k][IPV4] = routes_v4
-        topo_routes[k][IPv6] = routes_v6
+        topo_routes[k][IPV6] = routes_v6
         if action != GENERATE_WITHOUT_APPLY:
             change_routes(action, ptf_ip, port, routes_v4)
             change_routes(action, ptf_ip, port6, routes_v6)
@@ -1045,7 +1045,7 @@ def fib_mx(topo, ptf_ip, action="announce", topo_routes={}):
 
         topo_routes[k] = {}
         topo_routes[k][IPV4] = routes_v4
-        topo_routes[k][IPv6] = routes_v6
+        topo_routes[k][IPV6] = routes_v6
         if action != GENERATE_WITHOUT_APPLY:
             change_routes(action, ptf_ip, port, routes_v4)
             change_routes(action, ptf_ip, port6, routes_v6)
@@ -1173,7 +1173,7 @@ def fib_m1(topo, ptf_ip, action="announce", topo_routes={}):
 
         topo_routes[k] = {}
         topo_routes[k][IPV4] = routes_v4
-        topo_routes[k][IPv6] = routes_v6
+        topo_routes[k][IPV6] = routes_v6
         if action != GENERATE_WITHOUT_APPLY:
             # routes_v4 = generate_m1_routes(nhipv4)
             change_routes(action, ptf_ip, port, routes_v4)
@@ -1296,7 +1296,7 @@ def fib_ft2_routes(topo, ptf_ip, action="announce", topo_routes={}):
             ipv6_routes.append(("::/0", nhipv6, default_route_as_path))
             topo_routes[vm_name] = {}
             topo_routes[vm_name][IPV4] = ipv4_routes
-            topo_routes[vm_name][IPv6] = ipv6_routes
+            topo_routes[vm_name][IPV6] = ipv6_routes
             if action != GENERATE_WITHOUT_APPLY:
                 # Send the routes to the PTF
                 change_routes(action, ptf_ip, port, ipv4_routes)
@@ -1382,7 +1382,7 @@ def generate_t2_routes(dut_vm_dict, topo, ptf_ip, action="announce", topo_routes
                         filterout_subnet_ipv6(aggregate_routes, routes_v6)
                         routes_v6.extend(aggregate_routes_v6)
                     random.shuffle(routes_v6)
-                    topo_routes[a_vm][IPv6] = routes_v6
+                    topo_routes[a_vm][IPV6] = routes_v6
                     r_set.append((routes_v6, port6, action, ptf_ip))
 
                 if 'vips' in vms_config[a_vm] and action != GENERATE_WITHOUT_APPLY:
@@ -1452,7 +1452,7 @@ def fib_t0_mclag(topo, ptf_ip, action="announce", topo_routes={}):
             if aggregate_routes_v6:
                 filterout_subnet_ipv6(aggregate_routes, routes_v6)
                 routes_v6.extend(aggregate_routes_v6)
-            topo_routes[vm][IPv6] = routes_v6
+            topo_routes[vm][IPV6] = routes_v6
             if action != GENERATE_WITHOUT_APPLY:
                 change_routes(action, ptf_ip, port6, routes_v6)
 
@@ -1513,7 +1513,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
 
             topo_routes[vm_name] = {}
             topo_routes[vm_name][IPV4] = ipv4_routes
-            topo_routes[vm_name][IPv6] = ipv6_routes
+            topo_routes[vm_name][IPV6] = ipv6_routes
             if action != GENERATE_WITHOUT_APPLY:
                 change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
                 change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
@@ -1539,7 +1539,7 @@ def fib_lt2_routes(topo, ptf_ip, action="annouce", topo_routes={}):
         if vm_name not in topo_routes:
             topo_routes[vm_name] = {}
         topo_routes[vm_name][IPV4] = ipv4_routes
-        topo_routes[vm_name][IPv6] = ipv6_routes
+        topo_routes[vm_name][IPV6] = ipv6_routes
         if action != GENERATE_WITHOUT_APPLY:
             change_routes(action, ptf_ip, IPV4_BASE_PORT + vm_offset, ipv4_routes)
             change_routes(action, ptf_ip, IPV6_BASE_PORT + vm_offset, ipv6_routes)
@@ -1564,7 +1564,7 @@ def fib_dpu(topo, ptf_ip, action="announce", topo_routes={}):
 
         topo_routes[vm] = {}
         topo_routes[vm][IPV4] = routes_v4
-        topo_routes[vm][IPv6] = routes_v6
+        topo_routes[vm][IPV6] = routes_v6
         if action != GENERATE_WITHOUT_APPLY:
             change_routes(action, ptf_ip, port, routes_v4)
             change_routes(action, ptf_ip, port6, routes_v6)
