@@ -7,6 +7,7 @@ This script contains re-usable functions for checking status of interfaces on SO
 import re
 import logging
 import json
+from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
 
@@ -214,14 +215,19 @@ def get_physical_port_indices(duthost, logical_intfs=None):
         # Get interfaces of this asic
         interface_list = get_port_map(duthost, asic_index)
         interfaces_per_asic = {k: v for k, v in list(interface_list.items()) if k in logical_intfs}
-        # logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
-        for intf in interfaces_per_asic:
-            if asic_index is not None:
-                cmd = 'sonic-db-cli -n asic{} CONFIG_DB HGET "PORT|{}" index'.format(asic_index, intf)
-            else:
-                cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
-            index = duthost.command(cmd)["stdout"]
-            physical_port_index_dict[intf] = (int(index))
+        logging.debug("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
+        asic_subcommand = f'-n asic{asic_index}' if asic_index is not None else ''
+        cmd_keys = f'sonic-db-cli {asic_subcommand} CONFIG_DB KEYS "PORT|Ethernet*"'
+        cmd_hget = f'sonic-db-cli {asic_subcommand} CONFIG_DB HGET $key index'
+        cmd = f'for key in $({cmd_keys}); do echo "$key : $({cmd_hget})" ; done'
+        cmd_out = duthost.command(cmd, _uses_shell=True)["stdout_lines"]
+        cmd_out_dict = {}
+        for line in cmd_out:
+            key, index = line.split(':')
+            intf_name = key.split('|')[1].strip()
+            cmd_out_dict[intf_name] = int(index.strip())
+        for logical_intf in interfaces_per_asic:
+            physical_port_index_dict[logical_intf] = cmd_out_dict.get(logical_intf, None)
 
     return physical_port_index_dict
 
@@ -282,3 +288,25 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
             logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
 
     return interfaces
+
+
+def get_physical_to_logical_port_mapping(physical_port_indices):
+    """
+    @summary: Returns dictionary map of physical ports to corresponding logical port indices
+    """
+    pport_to_lport_mapping = defaultdict(list)
+    for k, v in physical_port_indices.items():
+        pport_to_lport_mapping[v].append(k)
+    logging.debug("Physical to Logical Port Mapping: {}".format(pport_to_lport_mapping))
+    return pport_to_lport_mapping
+
+
+def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
+    """
+    @summary: Returns the first subport of logical ports.
+    """
+    physical_port_indices = get_physical_port_indices(duthost, logical_intfs)
+    pport_to_lport_mapping = get_physical_to_logical_port_mapping(physical_port_indices)
+    first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
+    logging.debug("First subports mapping: {}".format(first_subport_dict))
+    return first_subport_dict

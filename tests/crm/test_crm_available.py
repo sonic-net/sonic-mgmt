@@ -3,7 +3,7 @@ import logging
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -18,6 +18,7 @@ SKU_NEXTHOP_THRESHOLDS = {
     'arista-7050cx3-32s-c28s4': 255,
     'Arista-7050CX3-32S-C32': 255,
     'arista-7050cx3-32s-s128': 255,
+    'arista-7050cx3-32s-c6s104': 255,
 }
 
 DEFAULT_NEXTHOP_THRESHOLD = 256

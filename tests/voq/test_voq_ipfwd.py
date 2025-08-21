@@ -15,7 +15,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup
 
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 
 from .test_voq_nbr import LinkFlap
 
@@ -225,7 +225,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
 
     if dutA is None:
         pytest.skip("Did not find any asic in the DUTs (linecards) \
-            that are connected to T1 VM's")
+            that are connected to T1/LT2 VM's")
 
     for asic_index, asic_cfg in enumerate(all_cfg_facts[dutA.hostname]):
         cfg_facts = asic_cfg['ansible_facts']
@@ -243,7 +243,8 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
                     # No pos interfaces, let see if we have other ethernet ports in this asic
                     if len(eths) != 1:
                         # We have more than 1 eth interface, pick it for port B
-                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, eths, version, dutA, asic_index,
+                        left_eths = [eth for eth in eths if eth != intfs_to_test['portA']['port']]
+                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, left_eths, version, dutA, asic_index,
                                                                      nbrhosts)
         else:
             # port type is portchannel
@@ -256,11 +257,15 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
                     # No eth interfaces, let see if we have other pc ports in this asic
                     if len(pos) != 1:
                         # We have more than 1 pc interface, pick it for port B
-                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, pos, version, dutA, asic_index,
+                        left_pos = [po for po in pos if po != intfs_to_test['portA']['port']]
+                        intfs_to_test['portB'] = get_info_for_a_port(cfg_facts, left_pos, version, dutA, asic_index,
                                                                      nbrhosts)
 
         if 'portA' in intfs_to_test:
             break
+
+    if 'portA' not in intfs_to_test:
+        pytest.skip("Could not find portA that is connected to a downstream T1/LT2 VM's")
 
     if len(duthosts.frontend_nodes) == 1:
         # We are dealing with a single card, lets find the portC and portD in other asic on the same card

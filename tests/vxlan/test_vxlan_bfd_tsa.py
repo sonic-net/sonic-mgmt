@@ -13,10 +13,9 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.config_reload import config_reload
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -70,8 +69,7 @@ def fixture_setUp(duthosts,
                   rand_one_dut_hostname,
                   minigraph_facts,
                   tbinfo,
-                  encap_type,
-                  backup_and_restore_config_db_on_duts):        # noqa F811
+                  encap_type):
     '''
         Setup for the entire script.
         The basic steps in VxLAN configs are:
@@ -233,14 +231,6 @@ def fixture_setUp(duthosts,
     ecmp_utils.stop_bfd_responder(data['ptfhost'])
 
 
-@pytest.fixture(scope="module", autouse=True)
-def restore_config_by_config_reload(duthosts, rand_one_dut_hostname, localhost):
-    yield
-    duthost = duthosts[rand_one_dut_hostname]
-
-    config_reload(duthost, safe_reload=True)
-
-
 def is_vnet_route_configured_on_asic(duthost, dest):
     '''
         Function to check if a VNET route to dest is configured on ASIC DB.
@@ -248,7 +238,7 @@ def is_vnet_route_configured_on_asic(duthost, dest):
         PTF tests.
     '''
     result = duthost.shell(f"sonic-db-cli ASIC_DB KEYS \
-                           'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*{dest}*'")["stdout_lines"]
+                           'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*{dest}*'")["stdout_lines"]  # noqa: E231
     return bool(result)
 
 
@@ -545,7 +535,8 @@ class Test_VxLAN_BFD_TSA():
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
-        wait_until(20, 2, 0, is_vnet_route_configured_on_asic, duthost, dest)
+        pytest_assert(wait_until(40, 2, 0, is_vnet_route_configured_on_asic, duthost, dest),
+                      "Vnet route not configured on ASIC")
 
         self.dump_self_info_and_run_ptf("test4b", encap_type, True, [])
 
