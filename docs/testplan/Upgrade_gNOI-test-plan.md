@@ -12,8 +12,8 @@ The goal of this test is to verify that the Upgrade Service, implemented via gNO
 
 ## Background
 **Components:**
-- **upgrade-agent** (Client): CLI tool that reads YAML workflows and translates them to gNOI calls
-- **gNOI Server** (Server): Containerized gNOI service with mock platform implementations  
+- **upgrade-agent(new)** (Client): CLI tool that reads YAML workflows and translates them to gNOI calls
+- **gNOI Server(new)** (Server): Containerized gNOI service with mock platform implementations  
 - **HTTP Firmware Server**: Serves test firmware files for download validation
 - **Test Harness**: Coordinates test scenarios and validates results
 
@@ -23,55 +23,51 @@ This test targets upgrades running in three environments: local Linux VM, KVM-ba
 
 ### Related APIs
 Server-side (gNOI)
-- `gnoi.system.System.SetPackage`  
+- `gnoi.system.System.SetPackage`
   - Test individually: unit tests and grpcurl (stream semantics, request validation, error paths) against a mock gNOI server.  
   - Test combined: run with `upgrade-agent` + HTTP firmware server to validate streaming, remote-download → SetPackage flow, checksum verification, session state, and recovery on failures.
-- `gnoi.system.System.GetStatus`  
+- `gnoi.system.System.GetStatus`
   - Test individually: grpcurl/unit tests to verify status payloads and error responses.  
   - Test combined: assert status reflects progress and post-upgrade health in integration runs.
 - `gnoi.file.File.TransferToRemote` (file transfer API)  
   - Test individually: grpcurl streaming tests and mock-file-service unit tests (happy/error paths, partial writes).  
   - Test combined: agent-triggered transfers from HTTP server to DUT; verify integrity and resume behavior.
-- `gnoi.file.File.Remove`  
+- `gnoi.file.File.Remove`
   - Test individually: grpcurl/unit tests for removal behavior and error codes.  
   - Test combined: cleanup step verification after aborted/failed upgrades.
-- `grpc.reflection.v1alpha.ServerReflection`  
+- `grpc.reflection.v1alpha.ServerReflection`
   - Test individually: grpcurl discovery checks (service listing) as a quick health check.
 
 Agent-side (upgrade-agent / workflow)
-- `upgrade-agent apply` (including `--dry-run`)  
+- `upgrade-agent apply` (including `--dry-run`)
   - Test individually: unit tests for YAML parsing, sequencing, CLI flags, and dry-run semantics (use `file://` or local stubs).  
-  - Test combined: run against mock and real gNOI servers + HTTP firmware server to validate end-to-end workflow execution.
-- Internal agent actions (download, verify-checksum, install/SetPackage, reboot, session-persist)  
-  - Test individually: unit/functional tests that stub network, file I/O, and persistence to cover retries, timeouts, and error reporting.  
-  - Test combined: exercise full action chain in integration and E2E runs to validate cross-component interactions and recovery.
+  - Test combined: run against real gNOI servers + HTTP firmware server to validate end-to-end workflow execution.
+
+workflow yaml example:
+```yaml
+# test-download-workflow.yml
+apiVersion: sonic.net/v1
+kind: UpgradeWorkflow
+metadata:
+  name: test-download
+spec:
+  steps:
+    - name: download-test-firmware
+      type: download
+      params:
+        url: "http://localhost:8080/test-firmware.bin"
+        filename: "/tmp/test-firmware.bin"
+        sha256: "d41d8cd98f00b204e9800998ecf8427e"
+        timeout: 30
+```
 
 ## Test structure
 ### Setup Configuration
-1. Deploy gNOI server on the target environment (Linux VM, KVM SONiC, or physical SONiC).
-2. Build and install upgrade-agent on the testbed or control host.
+1. Deploy gNOI server on Linux local host. (sonic-gnmi PR test only)
+2. Build and install upgrade-agent.
 3. Ensure gRPC port is reachable from the agent.
-4. Prepare a valid upgrade YAML configuration file.
 
 ### Configuration scripts
-Docker build script – build and deploy gnmi docker
-```bash
-# Examples:
-#   ./build_run_docker_testonly.sh -t admin@vlab-01              # Deploy to device
-#   ./build_run_docker_testonly.sh -t admin@vlab-01 -a :8080     # Custom port
-#   ./build_run_docker_testonly.sh -t admin@vlab-01 --enable-tls # Enable TLS
-#   ./build_run_docker_testonly.sh -t admin@vlab-01 -i v1.0.0    # Custom image tag
-#
-
-usage() {
-  echo "Usage: $0 -t <target> [-i <image_tag>] [-a <address>] [--enable-tls]"
-  echo "  -t <target>    Target SONiC device (e.g., admin@vlab-01)"
-  echo "  -i <image_tag> Docker image tag (default: latest)"
-  echo "  -a <address>   Server address to listen on (default: :50055)"
-  echo "  --enable-tls   Enable TLS for secure connections (default: disabled)"
-  exit 1
-}
-```
 upgrade-agent – CLI tool for upgrade operations
 
 ## Test scenario
@@ -86,11 +82,10 @@ Testbed components
 - Control host / Test controller (PTF or CI runner) running the workflow engine / `upgrade-agent` and test harness.
 - Firmware server (HTTP/HTTPS) hosting test images.
 - DUT running SONiC with gNOI server available (container or daemon).
-- Optional: PTF/host with test tools (grpcurl, gnmi-client) and network isolation controls.
 
 ## Setup Instructions
 
-### 1. Deploy gNOI Server Container
+### 1. Deploy gNOI Server Container (Optional for Linux local test - sonic-gnmi PR testing)
 
 ```bash
 # Build and run gNOI server with mock platform support
@@ -255,8 +250,8 @@ Expected output:
 4. **Status Reporting**: Progress updates appear during operations
 5. **Error Handling**: Invalid inputs produce clear error messages
 
-## Cleanup
-
+## Cleanup 
+- Only required for Linux local test (sonic-gnmi PR test)
 ```bash
 # Stop and remove containers
 docker stop gnoi-test-server
@@ -275,7 +270,7 @@ rm -rf /tmp/firmware-server /tmp/test-firmware.bin
 #### Test objective
 
 Verify that the upgrade service functions correctly in a local Linux VM environment. (Can run along with sonic-gnmi PR testing)
-1. Deploy gNOI server locally using build_deploy.sh.
+1. Deploy gNOI server locally.
 2. Run grpcurl to list services and verify connectivity.
 3. Use upgrade-agent download with a test file URL.
 4. Use upgrade-agent apply with a dry-run config.
@@ -285,17 +280,7 @@ Verify that the upgrade service functions correctly in a local Linux VM environm
 #### Test objective
 
 Validate upgrade service behavior on a KVM-based SONiC device.
-1. Deploy gNOI server on DUT and agent on PTF server.
-
-```yaml
-- name: Deploy gNOI docker
-  community.docker.docker_container:
-    name: gnmi-server
-    image: myrepo/gnmi-server:latest
-    state: started
-    published_ports: ["50051:50051"]
-```
-
+1. gNOI server health check and client readiness check.
 ```go
 // Illustrative: open a SetPackage stream and send package metadata with SHA256 digest.
 stream, err := client.SetPackage(ctx)
@@ -318,17 +303,14 @@ if err := stream.Send(pkg); err != nil { return err }
 // handle responses...
 ```
 
-2. Run full upgrade flow: download → apply → reboot.
-3. Verify session tracking and post-upgrade state.
-4. Simulate failure (e.g., invalid URL) and verify error handling.
+2. Run full upgrade flow: download → apply.
 
 ### Test Fixture #3 - Physical SONiC Compatibility
 
 #### Test objective
 
 Ensure upgrade service works reliably on physical SONiC hardware.
-1. Deploy gNOI server and agent on PFT server.
-2. gNOI server health check and client readiness check.
+1. gNOI server health check and client readiness check.
 3. Run upgrade with a real image and reboot.
 4. Validate system health post-upgrade.
 5. Test watchdog reboot and missing next-hop scenarios.
@@ -341,9 +323,6 @@ Test robustness of the upgrade service under failure conditions.
 1. Use unreachable URL in download config.
 2. Connection timeout.
 3. APIs failure.
-4. Apply malformed YAML config.
-5. Simulate TLS handshake failure.
-6. Kill gNOI server mid-upgrade and observe behavior.
 
 ### Antagonist (sad-case) scenarios
 Run these negative setups per scenario to validate error handling and robustness. Each antagonist defines: setup, expected behavior, and verification.
