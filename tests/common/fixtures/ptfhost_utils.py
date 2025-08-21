@@ -690,4 +690,3 @@ def iptables_drop_ipv6_tx(ptfhost):
     ptfhost.shell("ip6tables -P OUTPUT DROP")
     yield
     ptfhost.shell("ip6tables -P OUTPUT ACCEPT")
-
