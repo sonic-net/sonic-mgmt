@@ -1,17 +1,11 @@
-# 1. Document
-Packet Trimming HLD: https://github.com/sonic-net/SONiC/pull/1898  
-Packet Trimming Testcase: https://github.com/sonic-net/sonic-mgmt/pull/18051
-
-
-
-# 2. Feature Overview
+# 1. Feature Overview
 In traditional packet loss handling, when a lossy queue exceeds its buffer threshold, packets are silently dropped without notifying the destination host. While packet recovery can occur via fast retransmission or timeout-based retransmission, the latter method introduces significant latency, degrading application performance.
 
 Packet Trimming is an enhancement mechanism designed to optimize network performance during congestion conditions. It will trim packet to a configured size, and try sending it on a different queue to deliver a packet drop notification to an end host. This speeds up retransmissions and reduces network latency.
 
 
 
-# 3. Packet Flow
+# 2. Packet Flow
 <img src="Img/Packet_Trimming_Process.png" style="float: left;" />
 
 **Notes**:
@@ -38,7 +32,7 @@ Packet Trimming is an enhancement mechanism designed to optimize network perform
 
 
 
-# 4. Symmetric / Asymmetric DSCP 
+# 3. Symmetric / Asymmetric DSCP
 ## 1. Symmetric DSCP
 Symmetric DSCP uses the same DSCP value for the trimmed packets sent from different ports. In this case, the receiver cannot identify the source of congestion.
 
@@ -89,6 +83,51 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
     }
 }
 ```
+
+
+
+# 4. Packet Trimming Drop Counter
+## Queue Level
+- `SAI_QUEUE_STAT_TRIM_PACKETS` ---> `Trim/pkts`
+- `SAI_QUEUE_STAT_TX_TRIM_PACKETS` ---> `TrimSent/pkts`
+- `SAI_QUEUE_STAT_DROPPED_TRIM_PACKETS` ---> `TrimDrop/pkts`
+  ```
+  root@sonic:/home/admin# show queue counters Ethernet0 --all
+       Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts    TrimSent/pkts    TrimDrop/pkts
+  ---------  -----  --------------  ---------------  -----------  ------------  -----------  ---------------  ---------------
+  Ethernet0    UC0             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC1             N/A              N/A          100          6400          100               50               50
+  Ethernet0    UC2             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC3             100             6400          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC4             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC5             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC6             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  ```
+
+## Port Level
+- `SAI_PORT_STAT_TRIM_PACKETS` ---> `TRIM_PKTS`
+- `SAI_PORT_STAT_TX_TRIM_PACKETS` ---> `TRIM_TX_PKTS`
+- `SAI_PORT_STAT_DROPPED_TRIM_PACKETS` ---> `TRIM_DRP_PKTS`
+  ```
+  root@sonic:/home/admin# show interfaces counters trim Ethernet0
+      IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+  ---------  -------  -----------  --------------  ---------------
+  Ethernet0        U          100              50               50
+  ```
+
+
+## Switch Level
+- `SAI_SWITCH_STAT_TX_TRIM_PACKETS`      ---> `TrimSent/pkts`
+- `SAI_SWITCH_STAT_DROPPED_TRIM_PACKETS` ---> `TrimDrop/pkts`
+  ```
+  root@sonic:/home/admin# show switch counters all
+    TrimSent/pkts    TrimDrop/pkts
+  ---------------  ---------------
+              200              100
+  ```
+
+
 
 
 # 5. Limitation
@@ -248,6 +287,51 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
     ```
 
 
+4. Counter related config.
+- Config command
+  ```
+  counterpoll switch enable
+  counterpoll switch interval 1000
+
+  counterpoll port enable
+  counterpoll port interval 1000
+
+  counterpoll queue enable
+  counterpoll queue interval 1000
+  ```
+
+- Show command
+  - Switch level
+  ```
+  root@sonic:/home/admin# show switch counters all
+    TrimSent/pkts    TrimDrop/pkts
+  ---------------  ---------------
+              200              100
+  ```
+  - Port level
+  ```
+  root@sonic:/home/admin# show interfaces counters trim Ethernet0
+      IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+  ---------  -------  -----------  --------------  ---------------
+  Ethernet0        U          100             100                0
+  ```
+  - Queue level
+  ```
+  root@sonic:/home/admin# show queue counters Ethernet0 --all
+       Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts    TrimSent/pkts    TrimDrop/pkts
+  ---------  -----  --------------  ---------------  -----------  ------------  -----------  ---------------  ---------------
+  Ethernet0    UC0             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC1             N/A              N/A          100          6400          100               50               50
+  Ethernet0    UC2             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC3             100             6400          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC4             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC5             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC6             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+  ```
+
+
+
 # 7. Test Cases
 ## Test Case 1: Verify Trimming Configuration via CLI command / Config DB
 **Objective**: Validate trimming configuration through CLI commands / Config DB.  
@@ -283,6 +367,19 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
    - `dscp_value`: 0-63
    - `queue_index`: 0-7
 5. Config invalid value, verify syslog records error messages.
+6. Enable counterpoll and config poll interval, verify the commands successfully.
+    ```
+    counterpoll switch enable
+    counterpoll port enable
+    counterpoll queue enable
+    counterpoll acl enable
+
+    counterpoll switch interval 1000
+    counterpoll port interval 1000
+    counterpoll queue interval 1000
+    counterpoll acl interval 1000
+    ```
+7. Verify the boundary values of the counter command.
 
 ---
 
@@ -299,7 +396,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 4. Send 1500B packets (If the queue has WRED enabled, the packet should have ECN enabled) from PTF to DUT to trigger trimming (cover ipv4_tcp / ipv4_udp / ipv6_tcp / ipv6_udp packets).
 5. Capture egress packets and verify trimmed packet size is 256B, verify the TTL value is correct in the trimmed packet.
 6. Check the queue counter by command `show queue counters EthernetXX` or `queuestat -p EthernetXX --trim`.
-   ```json
+   ```
    root@r-r640-03-135:/home/admin# show queue counters Ethernet0
    Last cached time was 2025-04-01T15:09:50.632897
    Ethernet0 Last cached time was 2025-04-01T15:09:50.632897
@@ -314,7 +411,7 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
    Ethernet0    UC6             100             6400            0           N/A
    Ethernet0    UC7             107           10,130            0           N/A
    ```
-   ```json
+   ```
    root@r-r640-03-135:/home/admin# queuestat -p Ethernet0
         Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts
    ---------  -----  --------------  ---------------  -----------  ------------  -----------
@@ -469,9 +566,10 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 6. Verify trimming global config and queue bindings persist and trimming function still works well.
 7. DUT cold reboot.
 8. Verify trimming global config and queue bindings persist and trimming function still works well.
-9. Update packet trimming with asymmetric DSCP.
-10. DUT config reload/reboot.
-11. Verify trimming global config and queue bindings persist and trimming function still works well.
+9. Verify the counter config and the trimmed packet counters after config reload/reboot.
+10. Update packet trimming with asymmetric DSCP.
+11. DUT config reload/reboot.
+12. Verify trimming global config and queue bindings persist and trimming function still works well.
 
 ---
 
@@ -493,9 +591,10 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 9. Toggle admin state 10 times on Ethernet0.
 10. After each toggle, verify the buffer profile and buffer configuration are applied correctly on Ethernet0.
 11. After each toggle, send traffic and verify trimming function works well on Ethernet0.
-12. Update packet trimming with asymmetric DSCP.
-13. Toggle admin state 10 times on Ethernet0 and Ethernet4.
-14. After each toggle, verify the `TC_TO_DSCP_MAP` and `PORT_QOS_MAP` are applied correctly.
+12. Verify the trimmed packet counters.
+13. Update packet trimming with asymmetric DSCP.
+14. Toggle admin state 10 times on Ethernet0 and Ethernet4.
+15. After each toggle, verify the `TC_TO_DSCP_MAP` and `PORT_QOS_MAP` are applied correctly.
 
 ---
 
@@ -534,3 +633,346 @@ Asymmetric DSCP allows different DSCP values to be used for trimmed packets sent
 2. Update trimming configuration via `config apply-patch`, verify configuration is updated successfully.
 3. Add invalid trimming configuration via `config apply-patch`, verify configuration is added fail and report error info.
 4. Remove trimming configuration via `config apply-patch`, verify configuration is removed successfully.
+
+---
+
+## Test Case 13: Verify Packet Trimming Counter
+**Objective**: Ensure packet trimming counter is correct in different level.  
+**Test Steps**
+1. Enable switch/port/queue level counters and set switch level counter poll interval 10 seconds.
+2. Configure packet trimming in global level.
+3. Update the buffer profile setting `packet_discard_action=trim` and apply buffer profile.
+4. Create congestion on queue1 of egress port Ethernet0.  
+   `sonic-db-cli CONFIG_DB hset "SCHEDULER|SCHEDULER_BLOCK_DATA_PLANE" "type" DWRR "weight" 15 "pir" 1`  
+   `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|1' scheduler SCHEDULER_BLOCK_DATA_PLANE`
+5. Send packets from PTF to DUT to trigger packet trimming on Ethernet0 queue1.
+6. Verify the trimming counters.
+   - Queue level
+   ```
+   root@sonic:/home/admin# show queue counters Ethernet0 --all
+        Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts    TrimSent/pkts    TrimDrop/pkts
+   ---------  -----  --------------  ---------------  -----------  ------------  -----------  ---------------  ---------------
+   Ethernet0    UC0             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC1             N/A              N/A          100          6400          100              100                0
+   Ethernet0    UC2             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC3             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC4             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC5             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC6             100             6400          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   ```
+   ```
+   root@sonic:/home/admin# sudo show queue counters Ethernet0 --all --json
+   {
+     "Ethernet0": {
+       ...
+       "UC1": {
+         "dropbytes": "6400",
+         "droppacket": "100",
+         "totalbytes": "0",
+         "totalpacket": "0",
+         "trimdroppacket": "N/A",
+         "trimpacket": "100",
+         "trimsentpacket": "100"
+       },
+       ...
+       "UC6": {
+         "dropbytes": "N/A",
+         "droppacket": "0",
+         "totalbytes": "6400",
+         "totalpacket": "100",
+         "trimdroppacket": "N/A",
+         "trimpacket": "0",
+         "trimsentpacket": "N/A"
+       },
+       ...
+     }
+   }
+   ```
+   - Port level
+   ```
+   root@sonic:/home/admin# show interfaces counters trim Ethernet0
+       IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+   ---------  -------  -----------  --------------  ---------------
+   Ethernet0        U          100             100                0
+   ```
+   ```
+   root@sonic:/home/admin# show interfaces counters trim Ethernet0 --json
+   {
+       "Ethernet0": {
+           "STATE": "U",
+           "TRIM_DRP_PKTS": "N/A",
+           "TRIM_PKTS": "100",
+           "TRIM_TX_PKTS": "100"
+       }
+   }
+   ```
+   - Switch level
+   ```
+   root@sonic:/home/admin# show switch counters all
+     TrimSent/pkts    TrimDrop/pkts
+   ---------------  ---------------
+               100                0
+   ```
+   ```
+   root@sonic:/home/admin# show switch counters all --json
+   {
+       "trim_drop": "N/A",
+       "trim_sent": "100"
+   }
+   ```
+7. Create congestion on queue2 of egress ports Etherent0, then send packets to trigger packet trimming on queue2.  
+   `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet0|2' scheduler SCHEDULER_BLOCK_DATA_PLANE`
+8. Verify the trimming counters.
+   - Queue level
+   ```
+   root@sonic:/home/admin# show queue counters Ethernet0 --all
+        Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts    TrimSent/pkts    TrimDrop/pkts
+   ---------  -----  --------------  ---------------  -----------  ------------  -----------  ---------------  ---------------
+   Ethernet0    UC0             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC1             N/A              N/A          100          6400          100              100                0
+   Ethernet0    UC2             N/A              N/A          100          6400          100              100                0
+   Ethernet0    UC3             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC4             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC5             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC6             200            12800          N/A           N/A          N/A              N/A              N/A
+   Ethernet0    UC7             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+   ```
+   ```
+   root@sonic:/home/admin# sudo show queue counters Ethernet0 --all --json
+   {
+     "Ethernet0": {
+       ...
+       "UC1": {
+         "dropbytes": "6400",
+         "droppacket": "100",
+         "totalbytes": "0",
+         "totalpacket": "0",
+         "trimdroppacket": "N/A",
+         "trimpacket": "100",
+         "trimsentpacket": "100"
+       },
+       "UC2": {
+         "dropbytes": "6400",
+         "droppacket": "100",
+         "totalbytes": "0",
+         "totalpacket": "0",
+         "trimdroppacket": "N/A",
+         "trimpacket": "100",
+         "trimsentpacket": "100"
+       },
+       ...
+       "UC6": {
+         "dropbytes": "N/A",
+         "droppacket": "0",
+         "totalbytes": "12800",
+         "totalpacket": "200",
+         "trimdroppacket": "N/A",
+         "trimpacket": "0",
+         "trimsentpacket": "N/A"
+       },
+       ...
+     }
+   }
+   ```
+   - Port level
+   ```
+   root@sonic:/home/admin# show interfaces counters trim Ethernet0
+       IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+   ---------  -------  -----------  --------------  ---------------
+   Ethernet0        U          200             200                0
+   ```
+   ```
+   root@sonic:/home/admin# show interfaces counters trim Ethernet0 --json
+   {
+       "Ethernet0": {
+           "STATE": "U",
+           "TRIM_DRP_PKTS": "N/A",
+           "TRIM_PKTS": "200",
+           "TRIM_TX_PKTS": "200"
+       }
+   }
+   ```
+   - Switch level
+   ```
+   root@sonic:/home/admin# show switch counters all
+     TrimSent/pkts    TrimDrop/pkts
+   ---------------  ---------------
+               200                0
+   ```
+   ```
+   root@sonic:/home/admin# show switch counters all --json
+   {
+       "trim_drop": "N/A",
+       "trim_sent": "200"
+   }
+   ```
+9.  Create congestion on queue1 of egress ports Etherent1, then send packets to trigger packet trimming on queue1.  
+   `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet1|1' scheduler SCHEDULER_BLOCK_DATA_PLANE`
+10. Verify the trimming counters.
+    - Queue level
+    ```
+    root@sonic:/home/admin# show queue counters Ethernet1 --all
+         Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts    TrimSent/pkts    TrimDrop/pkts
+    ---------  -----  --------------  ---------------  -----------  ------------  -----------  ---------------  ---------------
+    Ethernet1    UC0             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC1             N/A              N/A          100          6400          100              100                0
+    Ethernet1    UC2             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC3             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC4             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC5             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC6             100             6400          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC7             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    ```
+    ```
+    root@sonic:/home/admin# sudo show queue counters Ethernet1 --all --json
+    {
+      "Ethernet1": {
+        ...
+        "UC1": {
+          "dropbytes": "6400",
+          "droppacket": "100",
+          "totalbytes": "0",
+          "totalpacket": "0",
+          "trimdroppacket": "N/A",
+          "trimpacket": "100",
+          "trimsentpacket": "100"
+        },
+        ...
+        "UC6": {
+          "dropbytes": "N/A",
+          "droppacket": "0",
+          "totalbytes": "6400",
+          "totalpacket": "100",
+          "trimdroppacket": "N/A",
+          "trimpacket": "0",
+          "trimsentpacket": "N/A"
+        },
+        ...
+      }
+    }
+    ```
+    - Port level
+    ```
+    root@sonic:/home/admin# show interfaces counters trim
+        IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+    ---------  -------  -----------  --------------  ---------------
+    Ethernet0        U          200             200                0
+    Ethernet1        U          100             100                0
+    ```
+    ```
+    root@sonic:/home/admin# show interfaces counters trim --json
+    {
+        "Ethernet0": {
+            "STATE": "U",
+            "TRIM_DRP_PKTS": "N/A",
+            "TRIM_PKTS": "100",
+            "TRIM_TX_PKTS": "100"
+        },
+        "Ethernet1": {
+            "STATE": "U",
+            "TRIM_DRP_PKTS": "N/A",
+            "TRIM_PKTS": "100",
+            "TRIM_TX_PKTS": "100"
+        }
+    }
+    ```
+    - Switch level
+    ```
+    root@sonic:/home/admin# show switch counters all
+        TrimSent/pkts    TrimDrop/pkts
+    ---------------  ---------------
+                300                0
+    ```
+    ```
+    root@sonic:/home/admin# show switch counters all --json
+    {
+        "trim_drop": "N/A",
+        "trim_sent": "300"
+    }
+    ```
+11. Block Ethernet1 queue6, which forward trimming packet, then send 100 packet to Ethernet1 queue1.  
+   `sonic-db-cli CONFIG_DB hset 'QUEUE|Ethernet1|6' scheduler SCHEDULER_BLOCK_DATA_PLANE`
+12. Verify the trimming counters.
+    - Queue level
+    ```
+    root@sonic:/home/admin# show queue counters Ethernet1 --all
+         Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes    Trim/pkts    TrimSent/pkts    TrimDrop/pkts
+    ---------  -----  --------------  ---------------  -----------  ------------  -----------  ---------------  ---------------
+    Ethernet1    UC0             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC1             N/A              N/A          200         12800          200              200                0
+    Ethernet1    UC2             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC3             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC4             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC5             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC6             100             6400          N/A           N/A          N/A              N/A              N/A
+    Ethernet1    UC7             N/A              N/A          N/A           N/A          N/A              N/A              N/A
+    ```
+    ```
+    root@sonic:/home/admin# sudo show queue counters Ethernet1 --all --json
+    {
+      "Ethernet1": {
+        ...
+        "UC1": {
+          "dropbytes": "12800",
+          "droppacket": "200",
+          "totalbytes": "0",
+          "totalpacket": "0",
+          "trimdroppacket": "N/A",
+          "trimpacket": "200",
+          "trimsentpacket": "200"
+        },
+        ...
+        "UC6": {
+          "dropbytes": "N/A",
+          "droppacket": "0",
+          "totalbytes": "6400",
+          "totalpacket": "100",
+          "trimdroppacket": "N/A",
+          "trimpacket": "0",
+          "trimsentpacket": "N/A"
+        },
+        ...
+      }
+    }
+    ```
+    - Port level
+    ```
+    root@sonic:/home/admin# show interfaces counters trim
+        IFACE    STATE    TRIM_PKTS    TRIM_TX_PKTS    TRIM_DRP_PKTS
+    ---------  -------  -----------  --------------  ---------------
+    Ethernet0        U          200             200                0
+    Ethernet1        U          200             100              100
+    ```
+    ```
+    root@sonic:/home/admin# show interfaces counters trim --json
+    {
+        "Ethernet0": {
+            "STATE": "U",
+            "TRIM_DRP_PKTS": "N/A",
+            "TRIM_PKTS": "200",
+            "TRIM_TX_PKTS": "200"
+        },
+        "Ethernet1": {
+            "STATE": "U",
+            "TRIM_DRP_PKTS": "100",
+            "TRIM_PKTS": "100",
+            "TRIM_TX_PKTS": "100"
+        }
+    }
+    ```
+    - Switch level
+    ```
+    root@sonic:/home/admin# show switch counters all
+      TrimSent/pkts    TrimDrop/pkts
+    ---------------  ---------------
+                300              100
+    ```
+    ```
+    root@sonic:/home/admin# show switch counters all --json
+    {
+        "trim_drop": "100",
+        "trim_sent": "300"
+    }
+    ```
+13. Set switch level counter poll interval 30 seconds, repeat the test.
