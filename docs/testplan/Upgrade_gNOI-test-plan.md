@@ -85,7 +85,7 @@ Testbed components
 
 ## Setup Instructions
 
-### 1. Deploy gNOI Server Container (Optional for Linux local test - sonic-gnmi PR testing)
+### 1. Deploy gNOI Server Container (Only for Linux local test - sonic-gnmi PR testing)
 
 ```bash
 # Build and run gNOI server with mock platform support
