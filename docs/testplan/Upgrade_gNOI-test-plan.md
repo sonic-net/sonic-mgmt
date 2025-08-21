@@ -306,7 +306,3 @@ grpcurl -plaintext DUT:50051 list
 # Query version/state via gNMI (example)
 # gnmi-client get --target DUT --path /sonic/system/version
 ```
-
-Notes:
-- Keep snippets short and adapt tokens (ports, service names) to your environment.
-- Add these examples to your CI job scripts or Ansible playbooks for reproducible tests.
