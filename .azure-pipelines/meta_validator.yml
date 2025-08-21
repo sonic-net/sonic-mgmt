@@ -19,22 +19,18 @@ validators:
       - .*ixia.*
 
       # Topologies that current failing the validation
-      - ciscovs-5nodes
-      - dualtor-aa-64
-      - t0-35
-      - t0-standalone-32
-      - t1-64
-      - t1-48-lag
-      - t1-isolated-d448u16
-      - t1-isolated-d448u15-lag
-      - t1-isolated-v6-d28u1
-      - t1-isolated-v6-d448u15-lag
-      - t2_2lc_36p-masic
-      - t2_2lc_min_ports-masic
-      - t2_5lc-mixed-96
-      - t2_single_node_min
-      - t2_single_node_max
-      - wan-pub-cisco
+      - ciscovs-5nodes              # https://github.com/sonic-net/sonic-mgmt/issues/20007
+      - dualtor-aa-64               # https://github.com/sonic-net/sonic-mgmt/issues/20009
+      - t0-standalone-32            # https://github.com/sonic-net/sonic-mgmt/issues/20011
+      - t0-35                       # https://github.com/sonic-net/sonic-mgmt/issues/20010
+      - t1-48-lag                   # https://github.com/sonic-net/sonic-mgmt/issues/20012
+      - t1-64                       # https://github.com/sonic-net/sonic-mgmt/issues/20013
+      - t2_2lc_36p-masic            # https://github.com/sonic-net/sonic-mgmt/issues/20018
+      - t2_2lc_min_ports-masic      # https://github.com/sonic-net/sonic-mgmt/issues/20019
+      - t2_5lc-mixed-96             # https://github.com/sonic-net/sonic-mgmt/issues/20020
+      - t2_single_node_max          # https://github.com/sonic-net/sonic-mgmt/issues/20021
+      - t2_single_node_min          # https://github.com/sonic-net/sonic-mgmt/issues/20022
+      - wan-pub-cisco               # https://github.com/sonic-net/sonic-mgmt/issues/20023
 - name: ip_address
   enabled: true
   config:
@@ -57,9 +53,15 @@ validators:
     min_vlan_id: 1
     max_vlan_id: 4096
 - name: console
-  enabled: false
-  config: {}
+  enabled: true
+  config:
+    exclude_devices:
+      - sonic-s6100-dut1   # E3002 Device has no console connection
+      - sonic-s6100-dut2   # E3002 Device has no console connection
 - name: pdu
-  enabled: false
-  config: {}
+  enabled: true
+  config:
+    exclude_devices:
+      - sonic-s6100-dut1   # E4002 Device has no PDU connection
+      - sonic-s6100-dut2   # E4002 Device has no PDU connection
 issue_severities: {}

@@ -473,10 +473,16 @@ validators:
         - "lab-temp-.*"  # Skip temporary lab groups
   - name: console
     enabled: true
-    config: {}
+    config:
+      exclude_devices:
+        - "^test-.*"      # Exclude devices starting with "test-"
+        - ".*-backup$"    # Exclude devices ending with "-backup"
   - name: pdu
     enabled: true
-    config: {}
+    config:
+      exclude_devices:
+        - "^test-.*"      # Exclude devices starting with "test-"
+        - ".*-backup$"    # Exclude devices ending with "-backup"
 ```
 
 ### 4.2. Issue Severities
@@ -638,7 +644,9 @@ validators:
 
 **Purpose**: Validates that all DevSonic and Fanout devices have console connections configured and checks for conflicts across all infrastructure groups.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `exclude_devices`: List of regex patterns to exclude devices from validation (default: [])
 
 **Validation Rules:**
 
@@ -666,7 +674,9 @@ validators:
 
 **Purpose**: Validates that all DevSonic and Fanout devices have PDU (Power Distribution Unit) connections configured and checks for conflicts across all infrastructure groups.
 
-**Configuration Options:** No configuration options available.
+**Configuration Options:**
+
+- `exclude_devices`: List of regex patterns to exclude devices from validation (default: [])
 
 **Validation Rules:**
 

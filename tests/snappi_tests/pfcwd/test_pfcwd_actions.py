@@ -132,7 +132,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 1,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/One_Ingress_Egress_pfcwd_drop_90_10_dist'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfcwd/One_Ingress_Egress_pfcwd_drop_90_10_dist'+str(port_map[1])+'Gbps',
                 'line_card_choice': "ixia_testbed",
                 'port_map': port_map,
                 'enable_pfcwd_drop': True,
@@ -260,7 +260,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 1,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/One_Ingress_Egress_pfcwd_drop_uni_dist'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfcwd/One_Ingress_Egress_pfcwd_drop_uni_dist'+str(port_map[1])+'Gbps',
                 'line_card_choice': "ixia_dut_tb",
                 'port_map': port_map,
                 'enable_pfcwd_drop': True,
@@ -427,7 +427,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 1,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/One_Ingress_Egress_pfcwd_frwd_90_10_dist'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfcwd/One_Ingress_Egress_pfcwd_frwd_90_10_dist'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd_drop': False,
@@ -557,23 +557,25 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     test_check = {'lossless': 100, 'lossy': 0, 'speed_tol': 83, 'loss_expected': True, 'pfc': True}
 
     test_def = {}
-    test_def = {'TEST_FLOW_AGGR_RATE_PERCENT': 40,
-                'BG_FLOW_AGGR_RATE_PERCENT': 9,
-                'data_flow_pkt_size': pkt_size,
-                'DATA_FLOW_DURATION_SEC': 300,
-                'data_flow_delay_sec': 1,
-                'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Two_Ingress_Single_Egress_pfcwd_drop_40_9_dist'+str(port_map[1])+'Gbps',
-                'line_card_choice': "ixia_dut_tb",
-                'port_map': port_map,
-                'enable_pfcwd_drop': True,
-                'enable_pfcwd_fwd': False,
-                'enable_credit_wd': True,
-                'stats_interval': 60,
-                'background_traffic': True,
-                'verify_flows': False,
-                'imix': False,
-                'test_check': test_check}
+    test_def = {
+        'TEST_FLOW_AGGR_RATE_PERCENT': 40,
+        'BG_FLOW_AGGR_RATE_PERCENT': 9,
+        'data_flow_pkt_size': pkt_size,
+        'DATA_FLOW_DURATION_SEC': 300,
+        'data_flow_delay_sec': 1,
+        'SNAPPI_POLL_DELAY_SEC': 60,
+        'test_type': 'logs/snappi_tests/pfcwd/Two_Ingress_Single_Egress_pfcwd_drop_40_9_dist'+str(port_map[1])+'Gbps',
+        'line_card_choice': "ixia_dut_tb",
+        'port_map': port_map,
+        'enable_pfcwd_drop': True,
+        'enable_pfcwd_fwd': False,
+        'enable_credit_wd': True,
+        'stats_interval': 60,
+        'background_traffic': True,
+        'verify_flows': False,
+        'imix': False,
+        'test_check': test_check
+    }
 
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
@@ -724,23 +726,25 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
     # loss_expected to check losses on DUT and TGEN.
     test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 3, 'loss_expected': False, 'pfc': True}
 
-    test_def = {'TEST_FLOW_AGGR_RATE_PERCENT': 40,
-                'BG_FLOW_AGGR_RATE_PERCENT': 9,
-                'data_flow_pkt_size': pkt_size,
-                'DATA_FLOW_DURATION_SEC': 300,
-                'data_flow_delay_sec': 1,
-                'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Two_Ingress_Single_Egress_pfcwd_frwd_40_9_dist'+str(port_map[1])+'Gbps',
-                'line_card_choice': testbed_subtype,
-                'port_map': port_map,
-                'enable_pfcwd_drop': False,
-                'enable_pfcwd_fwd': True,
-                'enable_credit_wd': True,
-                'stats_interval': 60,
-                'background_traffic': True,
-                'verify_flows': False,
-                'imix': False,
-                'test_check': test_check}
+    test_def = {
+        'TEST_FLOW_AGGR_RATE_PERCENT': 40,
+        'BG_FLOW_AGGR_RATE_PERCENT': 9,
+        'data_flow_pkt_size': pkt_size,
+        'DATA_FLOW_DURATION_SEC': 300,
+        'data_flow_delay_sec': 1,
+        'SNAPPI_POLL_DELAY_SEC': 60,
+        'test_type': 'logs/snappi_tests/pfcwd/Two_Ingress_Single_Egress_pfcwd_frwd_40_9_dist'+str(port_map[1])+'Gbps',
+        'line_card_choice': testbed_subtype,
+        'port_map': port_map,
+        'enable_pfcwd_drop': False,
+        'enable_pfcwd_fwd': True,
+        'enable_credit_wd': True,
+        'stats_interval': 60,
+        'background_traffic': True,
+        'verify_flows': False,
+        'imix': False,
+        'test_check': test_check
+    }
 
     # Selecting only one lossless priority for the test.
     test_prio_list = random.sample(lossless_prio_list, 1)
@@ -855,23 +859,25 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     # loss_expected to check losses on DUT and TGEN.
     test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 41, 'loss_expected': False, 'pfc': True}
 
-    test_def = {'TEST_FLOW_AGGR_RATE_PERCENT': 40,
-                'BG_FLOW_AGGR_RATE_PERCENT': 60,
-                'data_flow_pkt_size': pkt_size,
-                'DATA_FLOW_DURATION_SEC': 300,
-                'data_flow_delay_sec': 1,
-                'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Single_Egress_pause_cngstn_'+str(port_map[1])+'Gbps',
-                'line_card_choice': "ixia_dut_tb",
-                'port_map': port_map,
-                'enable_pfcwd_drop': False,
-                'enable_pfcwd_fwd': False,
-                'enable_credit_wd': False,
-                'stats_interval': 60,
-                'background_traffic': True,
-                'verify_flows': False,
-                'imix': False,
-                'test_check': test_check}
+    test_def = {
+        'TEST_FLOW_AGGR_RATE_PERCENT': 40,
+        'BG_FLOW_AGGR_RATE_PERCENT': 60,
+        'data_flow_pkt_size': pkt_size,
+        'DATA_FLOW_DURATION_SEC': 300,
+        'data_flow_delay_sec': 1,
+        'SNAPPI_POLL_DELAY_SEC': 60,
+        'test_type': 'logs/snappi_tests/pfcwd/Single_Ingress_Single_Egress_pause_cngstn_'+str(port_map[1])+'Gbps',
+        'line_card_choice': "ixia_dut_tb",
+        'port_map': port_map,
+        'enable_pfcwd_drop': False,
+        'enable_pfcwd_fwd': False,
+        'enable_credit_wd': False,
+        'stats_interval': 60,
+        'background_traffic': True,
+        'verify_flows': False,
+        'imix': False,
+        'test_check': test_check
+    }
 
     # Selecting only one lossless priority for the test.
     test_prio_list = random.sample(lossless_prio_list, 1)
