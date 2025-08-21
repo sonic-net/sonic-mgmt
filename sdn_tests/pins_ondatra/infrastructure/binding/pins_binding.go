@@ -42,12 +42,11 @@ var (
 	_ proxy.Dialer    = &Binding{}
 )
 
-var backend bindingbackend.Backend
-
 // Binding is a binding for PINS switches.
 type Binding struct {
 	resv       *binding.Reservation
 	httpDialer func(target string) (proxy.HTTPDoCloser, error)
+        backend    bindingbackend.Backend
 }
 
 // Option are configurable inputs to the binding.
@@ -57,6 +56,13 @@ type Option func(b *Binding)
 func WithHTTPDialer(f func(target string) (proxy.HTTPDoCloser, error)) Option {
 	return func(b *Binding) {
 		b.httpDialer = f
+	}
+}
+
+// WithBackend provides a custom backend to support different bindings.
+func WithBackend(backend bindingbackend.Backend) Option {
+	return func(b *Binding) {
+		b.backend = backend
 	}
 }
 
@@ -77,9 +83,11 @@ func defaultHTTPDialer(target string) (proxy.HTTPDoCloser, error) {
 	return &httpClient{http.DefaultClient}, nil
 }
 
+// createBackendFromFlag creates a backend based on the passed flag.
 func createBackendFromFlag() (bindingbackend.Backend, error) {
 	switch *backendType {
 	case "pins":
+                log.Infof("Creating PINS backend")
 		return pinsbackend.New(), nil
 	default:
 		return nil, fmt.Errorf("unknown backend type: %q", *backendType)
@@ -96,41 +104,26 @@ func NewWithOpts(opts ...Option) (*Binding, error) {
 		opt(b)
 	}
 
-        var err error
-	if backend == nil {
-		backend, err = createBackendFromFlag()
-		if err != nil {
-			return nil, fmt.Errorf("createBackendFromFlag() failed, err : %v", err)
-		}
+        if b.backend != nil {
+		return b, nil
 	}
+
+	backend, err := createBackendFromFlag()
+	if err != nil {
+		return nil, fmt.Errorf("createBackendFromFlag() failed, err : %v", err)
+	}
+	b.backend = backend
 
 	return b, nil
 }
 
-// SetBackend sets the backend for binding.
-func SetBackend(b bindingbackend.Backend) {
-	backend = b
-}
-
-// CloseBackend closes the backend.
-func CloseBackend() {
-	if backend != nil {
-		backend.Close()
-	}
-	backend = nil
-}
-
 // Reserve returns a testbed meeting requirements of testbed proto.
 func (b *Binding) Reserve(ctx context.Context, tb *opb.Testbed, runtime, waitTime time.Duration, partial map[string]string) (*binding.Reservation, error) {
-	if backend == nil {
-		return nil, fmt.Errorf("backend is not set")
-	}
-
 	if len(partial) > 0 {
 		return nil, fmt.Errorf("PINSBind Reserve does not yet support partial mappings")
 	}
 
-	reservedtopology, err := backend.ReserveTopology(ctx, tb, runtime, waitTime)
+	reservedtopology, err := b.backend.ReserveTopology(ctx, tb, runtime, waitTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reserve topology: %v", err)
 	}
@@ -166,7 +159,7 @@ func (b *Binding) Reserve(ctx context.Context, tb *opb.Testbed, runtime, waitTim
 
 // Release returns the testbed to a pool of resources.
 func (b *Binding) Release(ctx context.Context) error {
-	return backend.Release(ctx)
+	return b.backend.Release(ctx)
 }
 
 type pinsDUT struct {
@@ -185,11 +178,7 @@ type pinsATE struct {
 // be used by any new service definitions which create underlying gRPC
 // connections.
 func (b *Binding) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	if backend == nil {
-		return nil, fmt.Errorf("backend is not set")
-	}
-
-	return backend.DialGRPC(ctx, addr, opts...)
+	return b.backend.DialGRPC(ctx, addr, opts...)
 }
 
 // HTTPClient returns a http client that is capable of dialing the provided target.
@@ -225,7 +214,7 @@ func (d *pinsDUT) DialGNMI(ctx context.Context, opts ...grpc.DialOption) (gpb.GN
 		return nil, fmt.Errorf("dialGRPC() for GNMI failed, err : %v", err)
 	}
 
-	cli, err := backend.GNMIClient(ctx, d.AbstractDUT, conn)
+	cli, err := d.bind.backend.GNMIClient(ctx, d.AbstractDUT, conn)
 	if err != nil {
 		return nil, err
 	}
@@ -353,7 +342,7 @@ func (d *pinsDUT) DialP4RT(ctx context.Context, opts ...grpc.DialOption) (p4pb.P
 
 // DialConsole returns a StreamClient for the DUT.
 func (d *pinsDUT) DialConsole(ctx context.Context) (binding.ConsoleClient, error) {
-	return backend.DialConsole(ctx, d.AbstractDUT)
+	return d.bind.backend.DialConsole(ctx, d.AbstractDUT)
 }
 
 // FetchReservation unimplemented for experimental purposes.

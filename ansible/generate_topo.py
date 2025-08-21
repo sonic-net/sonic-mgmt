@@ -41,7 +41,7 @@ roles_cfg = {
         "asn_v6": 4200000000,
         "downlink": None,
         "uplink": {"role": "t1", "asn": 64600, "asn_v6": 4200100000, "asn_increment": 0},
-        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 4200000000, "asn_increment": 1},
+        "peer": {"role": "pt0", "asn": 65100, "asn_v6": 64620, "asn_increment": 1},
     },
     "t1": {
         "asn": 65100,
@@ -105,8 +105,8 @@ hw_port_cfg = {
                          'peer_ports': [64, 65],
                          'skip_ports': [],
                          "panel_port_step": 1},
-    'c448o16':          {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': [12, 13, 16, 17, 44, 45, 48, 49],
+    'c448o16-lag':      {"ds_breakout": 8, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
+                         'uplink_ports': PortList(LagPort(12), 13, 16, 17, 44, 45, 48, 49),
                          'peer_ports': [],
                          'skip_ports': [],
                          "panel_port_step": 1},
@@ -121,13 +121,13 @@ hw_port_cfg = {
                              'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                              "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
+                         'uplink_ports': PortList(45, 46, 47, 48, 49, 50, 51, 52),
                          'peer_ports': [],
                          'skip_ports': PortList(63),
                          "panel_port_step": 1},
     'p32o64lt2':        {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
                          'uplink_ports': PortList(45, 49, 46, 50),
-                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30, 61, 62, 63),
+                         'skip_ports': PortList(11, 12, 13, 14, 27, 28, 29, 30),
                          "fabric_breakout": 1,
                          'fabric_ports': PortList(
                                  *[p for p in range(0, 32)]
@@ -374,6 +374,7 @@ def generate_topo(role: str,
             end_vlan_range = link_id_start + len(lag_port) * num_breakout
 
             vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
+            vm_role_cfg["asn_v6"] += vm_role_cfg.get("asn_increment", 1)
             vm = VM(range(link_id_start, end_vlan_range), len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                     dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id_start,
                     num_lags=len(lag_port) * num_breakout)
@@ -397,14 +398,19 @@ def generate_topo(role: str,
 
             # Create the VM or host interface based on the configuration
             if vm_role_cfg is not None:
+                if 'lt2' not in role:    # For non LT2 topo , the VM id is per-link basis.
+                    per_role_vm_count[vm_role_cfg["role"]] += 1
 
                 if (link_id - link_id_start) % link_step == 0 and panel_port_id not in skip_ports:
                     # Skip breakout if defined
                     if (panel_port_id, link_id - link_id_start) in skip_ports:
                         continue
 
-                    per_role_vm_count[vm_role_cfg["role"]] += 1
+                    if 'lt2' in role:  # for LT2 topo, the VM id is continuous regardless of the link.
+                        per_role_vm_count[vm_role_cfg["role"]] += 1
+
                     vm_role_cfg["asn"] += vm_role_cfg.get("asn_increment", 1)
+                    vm_role_cfg["asn_v6"] += vm_role_cfg.get("asn_increment", 1)
                     vm = VM(link_id, len(vm_list), per_role_vm_count[vm_role_cfg["role"]], tornum,
                             dut_role_cfg["asn"], dut_role_cfg["asn_v6"], vm_role_cfg, link_id,
                             num_lags=vm_role_cfg.get('num_lags', 0))
@@ -498,6 +504,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'o128t0'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -p 64 -l 'c256-sparse'
@@ -507,13 +514,11 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'o128t1'
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'c512s2-sparse'
-    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16'
-    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c512s2-sparse'
-    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16'
-    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-sparse'
+    - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag'
     - ./generate_topo.py -r t1 -k isolated-v6 -t t1-isolated-v6 -c 64 -l 'c448o16-lag-sparse'
     - ./generate_topo.py -r lt2 -k o128 -t lt2_128 -c 64 -l 'o128lt2'
     - ./generate_topo.py -r lt2 -k p32o64 -t lt2_p32o64 -c 64 -l 'p32o64lt2'

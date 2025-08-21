@@ -16,6 +16,7 @@ SUPPORTED_PLATFORMS = [
     "8101_32fh",
     "8111_32eh",
     "arista",
+    "x86_64-nvidia",
     "x86_64-88_lc0_36fh_m-r0",
     "x86_64-nexthop_4010-r0",
     "marvell"
@@ -152,6 +153,9 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     for intf in intf_status:
         intf_name = intf['iface']
         speed = duthost.get_speed(intf_name)
+        # Speed is a empty string if the port isn't up
+        if speed == '':
+            continue
         # Convert the speed to gbps format
         speed_gbps = f"{int(speed) // 1000}G"
         if speed_gbps not in SUPPORTED_SPEEDS:

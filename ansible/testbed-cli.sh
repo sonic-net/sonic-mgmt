@@ -185,6 +185,54 @@ function read_file
   fi
 }
 
+function read_nut_file
+{
+  echo "Reading NUT testbed file '$tbfile' for testbed '$1'"
+  content=$(python -c "from __future__ import print_function; import yaml; print('+'.join(str(tb) for tb in yaml.safe_load(open('$tbfile')) if '$1'==tb['name']))")
+  echo ""
+
+  IFS=$'+' read -r -a tb_lines <<< $content
+  linecount=${#tb_lines[@]}
+
+  if [ $linecount == 0 ]
+  then
+    echo "Couldn't find testbed name '$1'"
+    exit
+  elif [ $linecount -gt 1 ]
+  then
+    echo "Find more than one testbed name in $tbfile"
+    exit
+  else
+    echo "Testbed found: $1"
+  fi
+
+  tb_line=${tb_lines[0]}
+  line_arr=($1)
+  for attr in inv_name test_tags duts l1s;
+  do
+    value=$(python -c "from __future__ import print_function; tb=eval(\"$tb_line\"); print(tb.get('$attr', None))")
+    [ "$value" == "None" ] && value=
+    line_arr=("${line_arr[@]}" "$value")
+  done
+
+  inv_name=${line_arr[1]}
+  echo "- Inventory: $inv_name"
+
+  test_tags=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[2]}\")))")
+  echo "- Test Tags: $test_tags"
+
+  duts=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[3]}\")))")
+  echo "- DUTs: $duts"
+
+  l1s=${line_arr[4]}
+  if [ ! -z "$l1s" ]; then
+    l1s=$(python -c "from __future__ import print_function; print(','.join(eval(\"${line_arr[4]}\")))")
+  fi
+  echo "- L1s: $l1s"
+
+  echo ""
+}
+
 function start_vms
 {
   if [[ $vm_type == ceos ]]; then
@@ -592,6 +640,56 @@ function test_minigraph
   echo Done
 }
 
+function deploy_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Deploying config to testbed '$testbed_name'"
+
+  read_nut_file $testbed_name
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true $@
+
+  echo Done
+}
+
+function generate_config
+{
+  testbed_name=$1
+  inventory=$2
+  passfile=$3
+  shift
+  shift
+  shift
+
+  echo "Generate config for testbed '$testbed_name' for testing"
+
+  read_nut_file $testbed_name
+
+  devices=$duts
+  if [ ! -z "$l1s" ]; then
+    devices="$devices,$l1s"
+  fi
+  echo "Devices to generate config for: $devices"
+  echo ""
+
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile $@
+
+  echo Done
+}
+
 function config_y_cable
 {
   testbed_name=$1
@@ -914,6 +1012,10 @@ case "${subcmd}" in
   deploy-mg)   deploy_minigraph $@
                ;;
   test-mg)     test_minigraph $@
+               ;;
+  deploy-cfg)  deploy_config $@
+               ;;
+  gen-cfg)     generate_config $@
                ;;
   config-y-cable) config_y_cable $@
                ;;

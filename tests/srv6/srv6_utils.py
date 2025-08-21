@@ -29,100 +29,6 @@ class MySIDs(MyLocators):
     ]
 
 
-def validate_srv6_in_appl_db(duthost,
-                             block_len=32,
-                             node_len=16,
-                             func_len=0,
-                             arg_len=0):
-    """
-    Validate all SRv6 MySIDs in Application DB using a single query.
-
-    Args:
-        duthost (SonicHost): DUT host object
-        block_len (int): Block length for SRv6 SID
-        node_len (int): Node length for SRv6 SID
-        func_len (int): Function length for SRv6 SID
-        arg_len (int): Argument length for SRv6 SID
-
-    Returns:
-        bool: True if all MySIDs are valid, False otherwise
-    """
-    try:
-        # Get all SRv6 MySID entries from APPL_DB
-        appl_db_keys = duthost.shell('sonic-db-cli APPL_DB KEYS "SRV6_MY_SID_TABLE*"')["stdout"]
-        if not appl_db_keys:
-            logger.error("No SRv6 MySID entries found in APPL_DB")
-            return False
-
-        # Convert keys to a set for faster lookup
-        appl_db_keys_set = set(appl_db_keys.split())
-
-        # Validate each MySID
-        for entry in MySIDs.MY_SID_LIST:
-            prefix = entry[1]
-            expected_key = f"SRV6_MY_SID_TABLE:{block_len}:{node_len}:{func_len}:{arg_len}:{prefix}"
-
-            # Check if the key exists
-            if expected_key not in appl_db_keys_set:
-                logger.error(f"MySID entry not found in APPL_DB: {expected_key}")
-                return False
-
-        return True
-
-    except Exception as err:
-        raise Exception(f"Failed to validate SRv6 MySIDs in Application DB: {str(err)}")
-
-
-def validate_srv6_in_asic_db(duthost):
-    """
-    Validate all SRv6 MySIDs in ASIC DB using a single query.
-
-    Args:
-        duthost (SonicHost): DUT host object
-
-    Returns:
-        bool: True if all MySIDs are valid, False otherwise
-    """
-    try:
-        asic_db_keys = duthost.shell('sonic-db-cli ASIC_DB keys "*ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY*"')["stdout"]
-        if not asic_db_keys:
-            logger.error("No SRv6 MySID entries found in ASIC_DB")
-            return False
-
-        # Validate each MySID
-        for entry in MySIDs.MY_SID_LIST:
-            prefix = entry[1]
-
-            # Check if the key exists
-            if prefix not in asic_db_keys:
-                logger.error(f"MySID entry not found in ASIC_DB: {prefix}")
-                return False
-
-        return True
-
-    except Exception as err:
-        raise Exception(f"Failed to validate SRv6 MySIDs in ASIC DB: {str(err)}")
-
-
-def validate_srv6_route(duthost):
-    """
-    Validate the SRv6 route in ASIC DB
-    """
-    try:
-        asic_route = duthost.shell(
-            f'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{ROUTE_BASE}::/16*"')["stdout"]
-
-        if not asic_route:
-            logger.error(f"No SRv6 route {ROUTE_BASE}::/16 found")
-            return False
-
-        logger.info(f"SRv6 route {ROUTE_BASE}::/16 installed")
-        return True
-
-    except Exception as err:
-        raise Exception(f"Failed to validate SRv6 route {ROUTE_BASE}::/16: {str(err)}")
-
-
 def validate_sai_sdk_dump_files(duthost, techsupport_folder, feature_list=[]):
     """
     Validated that expected SAI dump file available inside in techsupport dump file
@@ -282,12 +188,14 @@ def runSendReceive(pkt, src_port, exp_pkt, dst_ports, pkt_expected, ptfadapter):
     @param pkt_expected: Indicated whether it is expected to receive the exp_pkt on one of the dst_ports
     @param ptfadapter: The ptfadapter fixture
     """
+    ptfadapter.dataplane.flush()
+    ptfadapter.dataplane.set_qlen(1000000)
     # Send the packet and poll on destination ports
     testutils.send(ptfadapter, src_port, pkt, 1)
     logger.debug("Sent packet: " + pkt.summary())
 
     time.sleep(1)
-    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+    (index, rcv_pkt) = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=60)
     received = False
     if rcv_pkt:
         received = True
