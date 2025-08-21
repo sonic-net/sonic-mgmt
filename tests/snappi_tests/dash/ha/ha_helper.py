@@ -299,18 +299,21 @@ def duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case):
                  'if_midplane_ip': ''},
         'dpu2': {'loopback_ip': '',
                  'if_ip': '',
-                 'if_midplane_ip': ''}
+                 'if_midplane_ip': ''},
+        'static_routes': []
     }
 
     config_db_stdout = duthost.shell("cat /etc/sonic/config_db.json")["stdout"]
     config_db = json.loads(config_db_stdout)
 
+    static_routes = []
     static_ips = []
     if_ip = []
     if_midplane_ip = []
     lb_ip = []
 
     for key in config_db['STATIC_ROUTE'].keys():
+        static_routes.append(key.partition("|")[2])
         if key.endswith('/16'):
             ip = config_db['STATIC_ROUTE'][key]['nexthop']
             static_ips.append(ip)
@@ -319,6 +322,8 @@ def duthost_ha_config(duthost, nw_config, tbinfo, ha_test_case):
             ip = config_db['STATIC_ROUTE'][key]['nexthop']
             if_ip.append(ip)
             lb_ip.append(loopback_list)
+
+    dpu_if_ips['static_routes'] = static_routes
 
     dhcp_config = config_db.get('DHCP_SERVER_IPV4_PORT', {})
     for key in dhcp_config:
@@ -864,6 +869,48 @@ child.close()'"""
     return result
 
 
+def get_ip_routes(duthost, interface):
+    duthost_stdout = duthost.shell(f'show ip route {interface}')
+
+    return "".join(duthost_stdout['stdout_lines'])
+
+
+def extract_bgp_interfaces(route_text):
+    # Find protocol in: Known via "BGP"
+    proto_match = re.search(r'Known via\s+"?([A-Za-z0-9._/-]+)"?', route_text, re.IGNORECASE)
+    protocol = proto_match.group(1).lower() if proto_match else ''
+
+    interfaces: List[str] = []
+    if protocol == 'bgp':
+        # Capture interface tokens after 'via', e.g., 'via Ethernet-BP0'
+        found = re.findall(r'\bvia\s+([A-Za-z0-9./:-]+)', route_text)
+        seen = set()
+        for iface in found:
+            if iface not in seen:
+                seen.add(iface)
+                interfaces.append(iface)
+
+    return protocol, interfaces
+
+
+def disable_ecmp_interfaces_one(duthost, ifaces):
+
+    # Disable all but one interface
+    for iface in ifaces[:-1]:
+        duthost.shell(f"sudo config interface shutdown {iface}")
+
+    return
+
+
+def disable_last_ecmp_interface(duthost, ifaces):
+
+    # Disable last interface
+    for iface in ifaces[-1:]:
+        duthost.shell(f"sudo config interface shutdown {iface}")
+
+    return
+
+
 def run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value, ha_test_case):
 
     if ha_test_case == "linkloss4":
@@ -879,6 +926,22 @@ def run_linkloss(duthost, tbinfo, api, dpu_if_ips, initial_cps_value, ha_test_ca
         dpu_ip = dpu_if_ips['dpu2']['if_ip']
         dpu_midplane_ip = dpu_if_ips['dpu2']['if_midplane_ip']
     elif ha_test_case == "linkloss7":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu2']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu2']['if_midplane_ip']
+    elif ha_test_case == "linkloss8":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu1']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu1']['if_midplane_ip']
+    elif ha_test_case == "linkloss9":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu2']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu2']['if_midplane_ip']
+    elif ha_test_case == "linkloss10":
+        npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
+        dpu_ip = dpu_if_ips['dpu2']['if_ip']
+        dpu_midplane_ip = dpu_if_ips['dpu2']['if_midplane_ip']
+    elif ha_test_case == "linkloss11":
         npu_ip = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
         dpu_ip = dpu_if_ips['dpu2']['if_ip']
         dpu_midplane_ip = dpu_if_ips['dpu2']['if_midplane_ip']
