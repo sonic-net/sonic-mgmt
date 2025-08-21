@@ -52,6 +52,8 @@ CONSISTENT_AFTER_ANALYSIS_CSV = 'logs/consistent_analyzed_df.csv'
 CONSISTENT_AFTER_AGGREGATION_CSV = 'logs/consistent_aggregated_df.csv'
 CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV = 'logs/consistent_deduplicated_icm_df.csv'
 CONSISTENT_AFTER_DEDUPLICATION_CSV = 'logs/consistent_deduplicated_df.csv'
+NEW_ICM_CSV = 'logs/new_icm.csv'
+DUPLICATE_CASES_CSV = 'logs/duplicate_cases.csv'
 
 def config_logging():
     """Configure log to rotating file

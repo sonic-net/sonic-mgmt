@@ -1,4 +1,3 @@
-from config import configuration, logger, AUTH, ICM_PREFIX, BRANCH_PREFIX_LEN, LEGACY_CSV, ALL_RESUTLS_CSV, FLAKY_CSV, CONSISTENT_CSV
 from data_deduplicator import DataDeduplicator
 from kusto_connector import KustoConnector
 import traceback
@@ -15,6 +14,10 @@ import pytz
 import math
 import copy
 import json
+import pandas as pd
+from config import configuration, logger, AUTH, ICM_PREFIX, \
+        BRANCH_PREFIX_LEN, LEGACY_CSV, ALL_RESUTLS_CSV, \
+        FLAKY_CSV, CONSISTENT_CSV, NEW_ICM_CSV, DUPLICATE_CASES_CSV
 
 
 class BasicAnalyzer(object):
@@ -402,10 +405,14 @@ class DataAnalyzer(BasicAnalyzer):
         self.kusto_connector.upload_autoblame_data(autoblame_table)
 
         final_upload_icm_table = self.rearrange_icm_list(new_icm_table, configuration['branch']['included_branch'])
+
+        # Flatten final_upload_icm_table for CSV saving
+        flattened_final_upload_icm_table = []
         for idx, each_upload_list in enumerate(final_upload_icm_table):
             ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
             for each_icm in each_upload_list:
                 each_icm['upload_timestamp'] = ingested_time
+                flattened_final_upload_icm_table.append(each_icm)
 
             logger.info("Upload {} IcMs to kusto.".format(len(each_upload_list)))
             self.kusto_connector.upload_analyzed_data(each_upload_list)
@@ -414,13 +421,64 @@ class DataAnalyzer(BasicAnalyzer):
                     "Sleep for 30 mins to cover kusto ingestion delay and avoid IcM throttling...")
                 time.sleep(30 * 60)
 
+        # Save flattened final_upload_icm_table to CSV
+        if flattened_final_upload_icm_table:
+            final_upload_df = pd.DataFrame(flattened_final_upload_icm_table)
+            # Reorder columns according to the specified format
+            final_upload_df = self._reorder_csv_columns(final_upload_df)
+            final_upload_df.to_csv(NEW_ICM_CSV, index=False)
+            logger.info("Saved {} new ICMs to {}".format(len(flattened_final_upload_icm_table), NEW_ICM_CSV))
+
         ingested_time = str(datetime.utcnow() + timedelta(minutes=7))
         for row in duplicated_icm_table:
             row['upload_timestamp'] = ingested_time
+
+        # Save duplicated_icm_table to CSV
+        if duplicated_icm_table:
+            duplicated_df = pd.DataFrame(duplicated_icm_table)
+            # Reorder columns according to the specified format
+            duplicated_df = self._reorder_csv_columns(duplicated_df)
+            duplicated_df.to_csv(DUPLICATE_CASES_CSV, index=False)
+            logger.info("Saved {} duplicated ICMs to {}".format(len(duplicated_icm_table), DUPLICATE_CASES_CSV))
+
         logger.info("Upload {} duplicated IcMs table to kusto.".format(
             len(duplicated_icm_table)))
         self.kusto_connector.upload_analyzed_data(duplicated_icm_table)
         return
+
+    def _reorder_csv_columns(self, df):
+        """
+        Reorder DataFrame columns according to the specified order.
+        Expected order: upload_timestamp, module_path, testcase, branch, subject,
+        trigger_icm, failure_level_info, per_testbed_info, per_asic_info,
+        per_topology_info, per_hwsku_info, per_hwsku_topo_info,
+        per_os_version_info, per_hwsku_osversion_info, per_topology_hwsku_info,
+        autoblame_id, failure_summary
+        """
+        # Define the desired column order
+        desired_order = [
+            'upload_timestamp', 'module_path', 'testcase', 'branch', 'subject',
+            'trigger_icm', 'failure_level_info', 'per_testbed_info', 'per_asic_info',
+            'per_topology_info', 'per_hwsku_info', 'per_hwsku_topo_info',
+            'per_os_version_info', 'per_hwsku_osversion_info', 'per_topology_hwsku_info',
+            'autoblame_id', 'failure_summary'
+        ]
+
+        # Keep only columns that exist in the DataFrame and add missing ones with empty values
+        missing_columns = [col for col in desired_order if col not in df.columns]
+
+        # Find extra columns that are not in desired_order
+        extra_columns = [col for col in df.columns if col not in desired_order]
+
+        # Add missing columns with empty string values
+        for col in missing_columns:
+            df[col] = ''
+
+        # Create final column order: desired_order + extra_columns
+        final_order = desired_order + extra_columns
+
+        # Reorder columns and return
+        return df[final_order]
 
     def collect_previous_upload_record(self, title):
         """ The table header looks like this, save all of these information
