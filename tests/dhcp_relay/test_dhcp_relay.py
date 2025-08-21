@@ -61,54 +61,6 @@ def check_interface_status(duthost):
     return False
 
 
-def query_dhcpcom_relay_counter_result(duthost, query_key):
-    '''
-    Query the DHCPv4 counters from the COUNTERS_DB by the given key.
-    The returned value is a dictionary and the counter values are converted to integers.
-
-    Example return value:
-    {"TX": {"Unknown": 0, "Discover": 48, "Offer": 0, "Request": 96, "Decline": 0, "Ack": 0, "Nak": 0, "Release": 0,
-    "Inform": 0, "Bootp": 48}, "RX": {"Unknown": 0, "Discover": 0, "Offer": 1, "Request": 0, "Decline": 0, "Ack": 1,
-    "Nak": 0, "Release": 0, "Inform": 0, "Bootp": 0}}
-    '''
-    counters_query_string = 'sonic-db-cli COUNTERS_DB hgetall "DHCPV4_COUNTER_TABLE:{key}"'
-    shell_result = json.loads(
-        duthost.shell(counters_query_string.format(key=query_key))['stdout'].replace("\"", "").replace("'", "\"")
-    )
-    return {
-        rx_or_tx: {
-            dhcp_type: int(counter_value) for dhcp_type, counter_value in counters.items()
-        } for rx_or_tx, counters in shell_result.items()}
-
-
-def query_and_sum_dhcpcom_relay_counters(duthost, vlan_name, interface_name_list):
-    '''Query the DHCPv4 counters from the COUNTERS_DB and sum the counters for the given interface names.'''
-    if interface_name_list is None or len(interface_name_list) == 0:
-        # If no interface names are provided, return the counters for the VLAN interface only.
-        return query_dhcpcom_relay_counter_result(duthost, vlan_name)
-    total_counters = {}
-    # If interface names are provided, sum all of the provided interface names' counters
-    for interface_name in interface_name_list:
-        internal_shell_result = query_dhcpcom_relay_counter_result(duthost, vlan_name + ":" + interface_name)
-        for rx_or_tx, counters in internal_shell_result.items():
-            total_value = total_counters.setdefault(rx_or_tx, {})
-            for dhcp_type, counter_value in counters.items():
-                total_value[dhcp_type] = total_value.get(dhcp_type, 0) + counter_value
-    return total_counters
-
-
-def compare_dhcpcom_relay_counter_values(dhcp_relay_counter, expected_counter):
-    """Compare the DHCP relay counter value with the expected counter."""
-    for dir in SUPPORTED_DIR:
-        for dhcp_type in SUPPORTED_DHCPV4_TYPE:
-            expected_value = expected_counter.setdefault(dir, {}).get(dhcp_type, 0)
-            actual_value = dhcp_relay_counter.setdefault(dir, {}).get(dhcp_type, 0)
-            pytest_assert(actual_value == expected_value,
-                          "DHCP relay counter {} {} is {}, but expected {}".format(dir, dhcp_type,
-                                                                                   actual_value,
-                                                                                   expected_value))
-
-
 @pytest.fixture(scope="function")
 def enable_source_port_ip_in_relay(duthosts, rand_one_dut_hostname, tbinfo):
     duthost = duthosts[rand_one_dut_hostname]
