@@ -1059,6 +1059,13 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
       - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
 
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status:
+  xfail:
+    reason: "Mellanox SN5640 Optics issue: Interface SFP error status https://github.com/sonic-net/sonic-mgmt/issues/20351"
+    conditions_logical_operator: or
+    conditions:
+    - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']
+
 #######################################
 ####    test_advanced_reboot      #####
 #######################################
