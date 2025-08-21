@@ -591,6 +591,10 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                    is_python3=True)
 
 def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_config, rand_unselected_dut):     # noqa F811
+    """
+    Test the dhcp relay function on dual tor standby host
+    The packets are expected to relay to client port.
+    """
     testing_mode, duthost = testing_config
     if testing_mode != DUAL_TOR_MODE:
         pytest.skip("This test is only for DUAL_TOR_MODE")
