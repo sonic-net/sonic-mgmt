@@ -217,7 +217,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     2. **Expand to Individual Ports**: Convert all specifications to individual port names
     3. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
 
-    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases.  
+    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases for a specific DUT.  
     The `normalized_vendor_name` and `normalized_vendor_pn` from `transceiver_dut_info.json` file should be used to fetch the common attributes of the transceiver from the appropriate per-category JSON file for a given port.
 
     Example of a dictionary created by parsing the above file:
@@ -290,16 +290,16 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     **Recommended JSON files and grouping:**
 
-    - `eeprom_attributes.json`      (EEPROM tests)
-    - `system_test_attributes.json` (System tests)
-    - `physical_oir_attributes.json` (Physical OIR)
-    - `soft_oir_attributes.json`    (Soft OIR / remote reseat)
-    - `cdb_fw_upgrade_attributes.json` (CDB FW Upgrade tests)
-    - `dom_attributes.json`         (DOM)
-    - `vdm_attributes.json`         (VDM)
-    - `pm_attributes.json`          (PM)
+    - `eeprom.json`      (EEPROM tests)
+    - `system.json` (System tests)
+    - `physical_oir.json` (Physical OIR)
+    - `soft_oir.json`    (Soft OIR / remote reseat)
+    - `cdb_fw_upgrade.json` (CDB FW Upgrade tests)
+    - `dom.json`         (DOM)
+    - `vdm.json`         (VDM)
+    - `pm.json`          (PM)
 
-    Each file should be located in the `ansible/files/transceiver/inventory` directory and follow the same JSON schema structure with `mandatory`, `defaults`, `platform`, `hwsku`, `dut`, and `transceivers` sections for consistent attribute management across all test categories.
+    Each file should be located in the `ansible/files/transceiver/inventory/attributes/` directory and follow the same JSON schema structure with `mandatory`, `defaults`, `platform`, `hwsku`, `dut`, and `transceivers` sections for consistent attribute management across all test categories.
 
     **Schema of transceiver attributes JSON files:**
 
@@ -381,7 +381,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     > **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
 
-    **Example structure for a category file (e.g., `eeprom_attributes.json`):**
+    **Example structure for a category file (e.g., `attributes/eeprom.json`):**
 
     ```json
     {
@@ -422,7 +422,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     }
     ```
 
-    **Example structure for a system tests category file (`system_test_attributes.json`):**
+    **Example structure for a system tests category file (`attributes/system.json`):**
 
     ```json
     {
@@ -515,7 +515,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "attribute_2": "value_2",
                 ...
             }
-            "SYSTEM_TEST_ATTRIBUTES": {
+            "SYSTEM_ATTRIBUTES": {
                 "attribute_1": "value_1",
                 "attribute_2": "value_2",
                 ...
@@ -539,7 +539,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
        - **Step 2f**: Apply `platform_hwsku_overrides.<PLATFORM>+<HWSKU>` overrides (if present)
        - **Step 2g**: Apply `dut.<DUT_NAME>` overrides (if present)
     3. **Validate mandatory fields** for the current category using the `mandatory` array - ensure all required fields are resolved
-    4. **Store merged category attributes** under the appropriate category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_TEST_ATTRIBUTES`)
+    4. **Store merged category attributes** under the appropriate category key with the key being the filename stem in uppercase appended with `_ATTRIBUTES` (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
     5. **Add categorized attributes** to the `port_attributes_dict` for the current port
     6. **Attach the complete `port_attributes_dict`** to the DUT host object for the selected `enum_rand_one_per_hwsku_hostname`
 
@@ -568,7 +568,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
       dual_bank_supported = eeprom_attrs["dual_bank_supported"]
       
       # Access system test attributes
-      system_attrs = port_attributes_dict["Ethernet0"]["SYSTEM_TEST_ATTRIBUTES"] 
+      system_attrs = port_attributes_dict["Ethernet0"]["SYSTEM_ATTRIBUTES"]
       max_failures = system_attrs["max_allowed_failures"]
       ```
 
