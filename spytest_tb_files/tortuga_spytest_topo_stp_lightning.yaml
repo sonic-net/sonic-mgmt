@@ -17,37 +17,37 @@ devices:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.170, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD2:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.191, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 11, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD3:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.42, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD4:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.10, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD5:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.53, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 12, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD6:
         device_type: DevSonic
         access: {protocol: ssh, ip: 192.168.122.204, port: 22}
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     SD7:
         device_type: linux
