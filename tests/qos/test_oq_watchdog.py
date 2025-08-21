@@ -37,19 +37,6 @@ pytestmark = [
 PKTS_NUM = 100
 
 
-@pytest.fixture(scope="function")
-def ignore_log_oq_watchdog(duthosts, loganalyzer):
-    if not loganalyzer:
-        yield
-        return
-    ignore_list = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*"]
-    for dut in duthosts:
-        for line in ignore_list:
-            loganalyzer[dut.hostname].ignore_regex.append(line)
-    yield
-    return
-
-
 class TestOqWatchdog(QosSaiBase):
     """TestVoqWatchdog derives from QosSaiBase and contains collection of OQ watchdog test cases.
     """
@@ -60,7 +47,7 @@ class TestOqWatchdog(QosSaiBase):
 
     def testOqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            get_src_dst_asic_and_duts, ignore_log_oq_watchdog,
+            get_src_dst_asic_and_duts,
             disable_voq_watchdog_function_scope
     ):
         """
