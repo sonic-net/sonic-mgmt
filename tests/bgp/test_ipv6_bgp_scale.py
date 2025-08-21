@@ -576,7 +576,7 @@ def test_nexthop_group_member_scale(
                     found = True
                     break
             if not found:
-                logger.warning('Fail to update ASN of route %s, because of prefix was not found in topo', route[0])
+                logger.warning('Fail to update AS path of route %s, because of prefix was not found in topo', route[0])
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
