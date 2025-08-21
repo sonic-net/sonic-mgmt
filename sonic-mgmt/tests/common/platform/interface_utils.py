@@ -226,7 +226,7 @@ def get_physical_port_indices(duthost, logical_intfs=None):
             key, index = line.split(':')
             intf_name = key.split('|')[1].strip()
             cmd_out_dict[intf_name] = int(index.strip())
-        for logical_intf in logical_intfs:
+        for logical_intf in interfaces_per_asic:
             physical_port_index_dict[logical_intf] = cmd_out_dict.get(logical_intf, None)
 
     return physical_port_index_dict

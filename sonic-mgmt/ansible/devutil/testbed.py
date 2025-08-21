@@ -96,7 +96,7 @@ class TestBed(object):
         self.duts = raw_dict.get("duts", raw_dict.get("dut", []))
 
         # Create a PTF node object
-        if "ptf" in raw_dict:
+        if "ptf" in raw_dict and raw_dict["ptf"]:
             self.ptf_node = DeviceInfo(
                 hostname=self.ptf,
                 management_ip=self.ptf_ip.split("/")[0],
@@ -123,6 +123,13 @@ class TestBed(object):
                     break
             else:
                 print(f"Error: Failed to find device info for DUT {dut}")
+
+        self.ocs_nodes = {}
+        for ocs in raw_dict.get("l1s", []):
+            for inv in device_inventories:
+                ocs_device = inv.get_device(ocs)
+                if ocs_device is not None:
+                    self.ocs_nodes[ocs] = ocs_device
 
         # Some testbeds are dummy ones and doesn't have inv_name specified,
         # so we need to use "unknown" as inv_name instead.

@@ -18,6 +18,13 @@ DATA_DIR = os.path.join(BASE_DIR, "files")
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture
+def skip_non_container_test(request):
+    container_test = request.config.getoption("--container_test", default="")
+    if not container_test:
+        pytest.skip("Testcase skipped for non container test")
+
+
 @pytest.fixture(scope="module", autouse=True)
 def setup_user_auth(duthosts, enum_rand_one_per_hwsku_hostname):
     """
