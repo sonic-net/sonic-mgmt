@@ -1,18 +1,18 @@
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403
-sys.path.append('../test_reporting/telemetry')    # noqa: F401, F403
-from reporter_factory import TelemetryReporterFactory   # noqa: F401, F403
-from metric_definitions import *   # noqa: F401, F403
-from metrics import GaugeMetric     # noqa: F401, F403
+from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
+sys.path.append('../test_reporting/telemetry')    # noqa: F401, F403, F405
+from reporter_factory import TelemetryReporterFactory   # noqa: F401, F403, F405
+from metric_definitions import *   # noqa: F401, F403, F405
+from metrics import GaugeMetric     # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import (
-    set_primary_chassis,   # noqa: F401
-    create_snappi_config,  # noqa: F401
+    set_primary_chassis,
+    create_snappi_config,
     create_traffic_items,
     get_duthost_bgp_details,
     configure_acl_for_route_withdrawl,
     start_stop,
     get_stats,
     check_bgp_state
-)  # noqa: F401
+)  # noqa: F401, F403, F405, E402
 
 common_labels = [
     Point("Test_Info")
@@ -193,7 +193,7 @@ def get_convergence_for_single_session_flap(
         flow_stats = get_stats(snappi_api, "Flow Statistics")
         pytest_assert(
             int(flow_stats[0].loss) == 0,
-            f"Total Tx Rx Rates are not equal after link flap",
+            "Total Tx Rx Rates are not equal after link flap",
         )
         logger.info('Total Tx and Rx Rates are equal after link flap')
         delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
@@ -269,7 +269,7 @@ def get_convergence_for_single_session_flap(
         flow_stats = get_stats(snappi_api, "Flow Statistics")
         pytest_assert(
             int(flow_stats[0].loss) == 0,
-            f"Tx Rx Rates are not equal after route withdraw",
+            "Tx Rx Rates are not equal after route withdraw",
         )
         logger.info('Total Tx and Rx Rates are equal after route withdraw')
         dut_obj.command("sudo config acl remove table {}".format(table_name))
