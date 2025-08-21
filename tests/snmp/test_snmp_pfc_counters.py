@@ -30,7 +30,7 @@ def test_snmp_pfc_counters(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
             continue
 
         # Skip management ports for Arista 7060x6 platforms
-        if 'Arista-7060X6-64PE' in hwsku and 'PT0' in desc:
+        if 'Arista-7060X6' in hwsku and 'PT0' in desc:
             continue
 
         # Check for required PFC counters
