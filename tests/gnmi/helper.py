@@ -67,6 +67,16 @@ def apply_cert_config(duthost):
         pytest.fail("Failed to start gnmi server")
 
 
+def check_gnmi_process(duthost):
+    """
+    Make sure there's no GNMI process running.
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec %s pgrep -f %s" % (env.gnmi_container, env.gnmi_process)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    return output['stdout'].strip() == ""
+
+
 def check_gnmi_status(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
@@ -76,15 +86,32 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    # Kill the GNMI process
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
-    duthost.shell(dut_command, module_ignore_errors=True)
+    wait_until(60, 1, 0, check_gnmi_process, duthost)
+    # Recover all stopped program
+    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    for line in output['stdout_lines']:
+        res = line.split()
+        if len(res) < 3:
+            continue
+        program = res[0]
+        status = res[1]
+        if status == "STOPPED":
+            dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
+            duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    ret = wait_until(300, 3, 0, check_gnmi_status, duthost)
+    if not ret:
+        dut_command = "tail /var/log/gnmi.log"
+        output = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
+        pytest.fail("Failed to recover GNMI client cert configuration.")
 
 
 def check_ntp_sync_status(duthost):

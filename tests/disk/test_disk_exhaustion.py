@@ -1,12 +1,13 @@
 import ipaddress
+import logging
+import re
+import time
 
 import ptf.testutils as testutils
-import re
-import logging
-import time
 import pytest
 from paramiko.ssh_exception import AuthenticationException
 from ptf import mask, packet
+
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import paramiko_ssh
 
@@ -141,6 +142,8 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
         tbinfo: Testbed information
     """
 
+    MOUNT_POINT = "/host"  # mount point to simulate disk exhaustion
+
     PKT_NUM = 1000
     PKT_NUM_MIN = PKT_NUM * 0.9
 
@@ -170,22 +173,23 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
     # Create a shell script to do the operations like fallocate and remove file,
     # because when space is full, duthost.command() is not work
 
-    # Get available space in /tmp mounted partition, the output of "df /tmp" was like below:
+    # Get available space in mounted partition, for example, the output of "df /host" was like below:
     #   Filesystem     1K-blocks    Used Available Use% Mounted on
-    #   root-overlay    14874056 6429908   8427764  44% /
-    df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+    #   /dev/sda1       28610340 4252848  24341108  15% /host
+    df_rst = duthost.shell(f"df {MOUNT_POINT}")["stdout_lines"][1].split()
     available_kb = int(df_rst[3])
     allocate_kb = int(available_kb * 0.95)
     used_before_test = int(df_rst[4].rstrip('%'))
-    logger.info(f"Preparing to allocate ~{allocate_kb} KB (95% of available) to simulate disk exhaustion")
+    logger.info(
+        f"Preparing to allocate ~{allocate_kb} KB (95% of available) on {MOUNT_POINT} to simulate disk exhaustion")
 
     # Setup test.sh and execute
     duthost.shell_cmds(cmds=[
-        f"echo 'fallocate -l {allocate_kb}K /tmp/huge_dummy_file' > /tmp/test.sh",
-        "echo 'sleep 60' >> /tmp/test.sh",
-        "echo 'sudo rm -f /tmp/huge_dummy_file' >> /tmp/test.sh",
-        "chmod u+x /tmp/test.sh",
-        "nohup /tmp/test.sh >/dev/null 2>&1 &"
+        f"echo 'fallocate -l {allocate_kb}K {MOUNT_POINT}/huge_dummy_file' > {MOUNT_POINT}/test.sh",
+        "echo 'sleep 60' >> {MOUNT_POINT}/test.sh",
+        f"echo 'sudo rm -f {MOUNT_POINT}/huge_dummy_file' >> {MOUNT_POINT}/test.sh",
+        f"chmod u+x {MOUNT_POINT}/test.sh",
+        f"nohup {MOUNT_POINT}/test.sh >/dev/null 2>&1 &"
     ], continue_on_fail=False, module_ignore_errors=True)
 
     try:
@@ -197,10 +201,10 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
         time.sleep(5)
         match_cnt = testutils.count_matched_packets_all_ports(ptfadapter, exp_pkt, ports=out_ptf_indices)
 
-        pytest_assert(match_cnt >= PKT_NUM_MIN, "DUT Forwarded {} packets, not in expected range".format(match_cnt))
-        logger.info("DUT Forwarded {} packets, in expected range".format(match_cnt))
+        pytest_assert(match_cnt >= PKT_NUM_MIN, f"DUT Forwarded {match_cnt} packets, not in expected range")
+        logger.info(f"DUT Forwarded {match_cnt} packets, in expected range")
     except AuthenticationException:
-        logger.info("Cannot access DUT {} via ssh, error: Password incorrect.")
+        logger.info(f"Cannot access DUT {duthost.mgmt_ip} via ssh, error: Password incorrect.")
         raise
     except Exception:
         raise
@@ -212,10 +216,12 @@ def test_disk_exhaustion(duthost, ptfadapter, tbinfo, creds):
         time.sleep(60)
 
         # Delete test.sh
-        duthost.shell("sudo rm -f /tmp/test.sh")
+        duthost.shell(f"sudo rm -f {MOUNT_POINT}/test.sh")
         # Confirm disk space was released
-        df_rst = duthost.shell("df /tmp")["stdout_lines"][1].split()
+        df_rst = duthost.shell(f"df {MOUNT_POINT}")["stdout_lines"][1].split()
         used_after_test = int(df_rst[4].rstrip('%'))
-        logger.info("Use% before test is {}%, Use% after test is {}%".format(used_before_test, used_after_test))
-        pytest_assert(used_after_test < 100 and used_after_test <= used_before_test / 0.8,
-                      "Disk space was not released expectedly, please check.")
+        logger.info(f"Use% before test is {used_before_test}%, Use% after test is {used_after_test}%")
+        pytest_assert(
+            used_after_test < 100 and used_after_test <= used_before_test / 0.8,
+            "Disk space was not released expectedly, please check."
+        )

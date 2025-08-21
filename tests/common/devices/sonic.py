@@ -2673,7 +2673,7 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        if out["stdout_lines"]:
+        if out["stdout_lines"] and out["stdout_lines"][0] != "(nil)":
             return out["stdout_lines"][0]
         else:
             return None
@@ -2770,6 +2770,12 @@ Totals               6450                 6449
             'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
             'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
         }
+        origin_interval = self.get_counter_poll_status()[counter_type]['interval']
+        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        self.shell(cmd)
+        # Sleep for the old interval for the new interval to take effect
+        if wait_for_new_interval:
+            time.sleep(origin_interval / 1000 + 1)
 
     def config(self, lines=None, parents=None, module_ignore_errors=False, asic_id=DEFAULT_ASIC_ID):
         # Convert string inputs to lists
