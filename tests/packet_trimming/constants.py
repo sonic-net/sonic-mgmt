@@ -60,6 +60,7 @@ ECN = 2   # ECN Capable Transport(0), ECT(0)
 TRIM_QUEUE_PROFILE = "egress_lossy_profile"
 DYNAMIC_TH = "3"
 TRIMMING_CAPABILITY = "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT=257"
+STATIC_THRESHOLD_MULTIPLIER = 1.5   # Multiplier to ensure the buffer can be fully exhausted
 
 # Asymmetric DSCP constants
 ASYM_TC = TRIM_QUEUE
