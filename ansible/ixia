@@ -593,6 +593,9 @@ sonic_nvidia_sn5640_stress:
     str-sn5640-snake-1:
       ansible_host: 10.64.246.106
       hwsku: Mellanox-SN5640-C512S2
+    STR-SN5640-RDMA-1:
+      ansible_host: 10.3.146.15
+      hwsku: Mellanox-SN5640-C512S2
   vars:
     iface_speed: 100000
     mgmt_subnet_mask_length: 23

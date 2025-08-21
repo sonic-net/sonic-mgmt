@@ -104,6 +104,19 @@ all:
           ansible_hostv6: 2404:f801:10:2200::a96:174d
 
     pdu:
+      vars:
+        pdu_ro_snmp_version: v3
+        pdu_ro_snmp_user: public
+        pdu_ro_snmp_auth_type: sha
+        pdu_ro_snmp_auth_pass: "{{ secret_group_vars['vm_host']['altpasswords'][0] }}"
+        pdu_ro_snmp_priv_type: aes
+        pdu_ro_snmp_priv_pass: "{{ secret_group_vars['vm_host']['altpasswords'][0] }}"
+        pdu_rw_snmp_version: v3
+        pdu_rw_snmp_user: private
+        pdu_rw_snmp_auth_type: sha
+        pdu_rw_snmp_auth_pass: "{{ secret_group_vars['vm_host']['altpasswords'][0] }}"
+        pdu_rw_snmp_priv_type: aes
+        pdu_rw_snmp_priv_pass: "{{ secret_group_vars['vm_host']['altpasswords'][0] }}"
       hosts:
         bjw-pdu-126-130:
           ansible_host: 10.150.126.130
