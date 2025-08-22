@@ -28,7 +28,6 @@ def ignore_expected_loganalyzer_exceptions(duthosts, loganalyzer):
         "Failed to prepare bulk counter for queue stats.*",
         ".*ERR syncd#SDK: .*mlnx_sai_buffer.c.*Failed to prepare bulk counter for pg occupancy stats.*",
         ".*ERR syncd#SDK: .*mlnx_sai_buffer.c.*Failed to deallocate SDK occupancy buffer.*",
-        ".*ERR syncd#SDK: .*Invalid value for key SAI_KEY_PFC_WD_FORWARD_ACTION_BEHAVIOR.*",
         ".*WARNING kernel:.*syncd: page allocation failure: order:.*, mode:.*GFP_KERNEL.__GFP_COMP., "
         "nodemask=.null.,cpuset=.*,mems_allowed=.*"
     ]
