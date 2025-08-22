@@ -48,7 +48,7 @@ Following table summarizes the key attributes:
 | port_toggle_iterations | integer | 100 | ✗ | transceivers or platform_hwsku_overrides | Number of iterations for port toggle stress test |
 | port_toggle_delay_sec | integer | 2 | ✗ | transceivers or platform_hwsku_overrides | Delay between port toggle cycles |
 | port_range_toggle_iterations | integer | 50 | ✗ | transceivers or platform_hwsku_overrides | Number of iterations for port range toggle stress test |
-| port_range_test_ports | list | [] | ✗ | dut | List of specific ports to include in port range stress test. Empty list means use all available ports |
+| port_range_test_ports | list | [] | ✗ | dut | List of specific port names (e.g., 'Ethernet0', 'Ethernet4') to include in port range stress test. Empty list means use all available ports. |
 | port_range_startup_wait_sec | integer | 60 | ✗ | transceivers or platform_hwsku_overrides | Wait time after port range startup (may scale with transceiver count) |
 | xcvrd_restart_settle_sec | integer | 120 | ✗ | HWSKU | Time to wait after xcvrd restart before checking link status |
 | pmon_restart_settle_sec | integer | 120 | ✗ | HWSKU | Time to wait after pmon restart before verification |
