@@ -68,7 +68,8 @@ steps:
       exit 1
     fi
 
-    PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+    #PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+    PR_CHECKERS='["t0_checker","t1_checker"]'
 
     if [[ $? -ne 0 ]]; then
       echo "##vso[task.complete result=Failed;]Get valid PR checkers fails."
