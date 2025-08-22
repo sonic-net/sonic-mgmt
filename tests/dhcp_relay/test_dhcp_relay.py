@@ -598,28 +598,27 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
     testing_mode, duthost = testing_config
     try:
         for dhcp_relay in dut_dhcp_relay_data:
-            if not skip_dhcpmon:
-                standby_duthost = rand_unselected_dut
-                start_dhcp_monitor_debug_counter(standby_duthost)
-                init_dhcpcom_relay_counters(standby_duthost)
-                expected_standby_agg_counter_message = (
-                    r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                    r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                    r"Discover: +0/ +0, Offer: +1/ +1, Request: +0/ +0, ACK: +1/ +1+"
-                ) % (dhcp_relay['downlink_vlan_iface']['name'])
-                loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
-                marker_standby = loganalyzer_standby.init()
-                loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
-                start_dhcp_monitor_debug_counter(duthost)
-                init_dhcpcom_relay_counters(duthost)
-                expected_agg_counter_message = (
-                    r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
-                    r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
-                    r"Discover: +0/ +0, Offer: +0/ +0, Request: +0/ +0, ACK: +0/ +0+"
-                ) % (dhcp_relay['downlink_vlan_iface']['name'])
-                loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
-                marker = loganalyzer.init()
-                loganalyzer.expect_regex = [expected_agg_counter_message]
+            standby_duthost = rand_unselected_dut
+            start_dhcp_monitor_debug_counter(standby_duthost)
+            init_dhcpcom_relay_counters(standby_duthost)
+            expected_standby_agg_counter_message = (
+                r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                r"Discover: +0/ +0, Offer: +1/ +1, Request: +0/ +0, ACK: +1/ +1+"
+            ) % (dhcp_relay['downlink_vlan_iface']['name'])
+            loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
+            marker_standby = loganalyzer_standby.init()
+            loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
+            start_dhcp_monitor_debug_counter(duthost)
+            init_dhcpcom_relay_counters(duthost)
+            expected_agg_counter_message = (
+                r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
+                r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
+                r"Discover: +0/ +0, Offer: +0/ +0, Request: +0/ +0, ACK: +0/ +0+"
+            ) % (dhcp_relay['downlink_vlan_iface']['name'])
+            loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
+            marker = loganalyzer.init()
+            loganalyzer.expect_regex = [expected_agg_counter_message]
 
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
@@ -647,29 +646,27 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
                        log_file=("/tmp/dhcp_relay_test.DHCPTest.test_dhcp_relay_on_dualtor_standby.{}.log"
                                  .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                        is_python3=True)
-            if not skip_dhcpmon:
-                time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
-                loganalyzer.analyze(marker)
-                loganalyzer_standby.analyze(marker_standby)
-                expected_downlink_counter = {
-                    "TX": {"Unknown": 1, "Ack": 1, "Offer": 1, "Nak": 1}
-                }
-                expected_uplink_counter = {
-                    "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1}
-                }
-                # because all packets send to standby dut, the packets are expected to countted on standby's counters.
-                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
-                                                expected_uplink_counter,
-                                                expected_downlink_counter)
-                # active dut counters should be all 0
-                validate_dhcpcom_relay_counters(dhcp_relay, duthost, {}, {})
+            time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+            loganalyzer.analyze(marker)
+            loganalyzer_standby.analyze(marker_standby)
+            expected_downlink_counter = {
+                "TX": {"Unknown": 1, "Ack": 1, "Offer": 1, "Nak": 1}
+            }
+            expected_uplink_counter = {
+                "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1}
+            }
+            # because all packets send to standby dut, the packets are expected to countted on standby's counters.
+            validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
+                                            expected_uplink_counter,
+                                            expected_downlink_counter)
+            # active dut counters should be all 0
+            validate_dhcpcom_relay_counters(dhcp_relay, duthost, {}, {})
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
 
-    if not skip_dhcpmon:
-        # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
-        restart_dhcp_service(duthost)
-        restart_dhcp_service(standby_duthost)
-        pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost))
-        pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+    # Clean up - Restart DHCP relay service on DUT to recover original dhcpmon setting
+    restart_dhcp_service(duthost)
+    restart_dhcp_service(standby_duthost)
+    pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost))
+    pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
