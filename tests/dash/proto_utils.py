@@ -1,5 +1,4 @@
 import base64
-import pytest
 import re
 import socket
 import uuid
@@ -7,11 +6,11 @@ import importlib
 from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.eni_pb2 import Eni, State, EniMode  # noqa: F401
+from dash_api.eni_pb2 import Eni
 from dash_api.eni_route_pb2 import EniRoute
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa: F401
+from dash_api.route_type_pb2 import ActionType, RouteType, RouteTypeItem
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
@@ -72,10 +71,7 @@ def parse_guid(guid_str):
 
 
 def parse_value_or_range(orig):
-    if isinstance(orig, str):
-        val = int(orig)
-        return {"value": val}
-    elif isinstance(orig, list):
+    if isinstance(orig, list):
         if len(orig) == 1:
             val = int(orig[0])
             return {"value": val}
@@ -83,7 +79,9 @@ def parse_value_or_range(orig):
             min = int(orig[0])
             max = int(orig[1])
             return {"range": {"min": min, "max": max}}
-    pytest.fail(f"Invalid ValueOrRange: {orig}")
+    else:
+        val = int(orig)
+        return {"value": val}
 
 
 def parse_dash_proto(key: str, proto_dict: dict):
