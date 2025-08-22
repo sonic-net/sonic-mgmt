@@ -11,7 +11,7 @@ pytestmark = [
 This test demonstrates a pipeline issue where tests marked with topology('any')
 are not mapped to specialized topology checkers like:
 - dpu_checker
-- dualtor_checker  
+- dualtor_checker
 - t1-multi-asic_checker (shown as multi-asic-t1 in pipeline)
 - t0-2vlans_checker
 - t0-sonic_checker
