@@ -553,6 +553,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
+  skip:
+    reason: "The test case only tests DHCP relay on the dualtor standby dut"
+    conditions:
+      - "'dualtor' not in topo_name"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
     reason: "Skip test_dhcp_relay_random_sport on dualtor in 201811 and 201911 or platform x86_64-8111_32eh_o-r0"
