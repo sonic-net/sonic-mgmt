@@ -108,8 +108,8 @@ jobs:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
 
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], matrix.CHECKER)
     variables:
+      CHECKER: $[ matrix.CHECKER ]
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       NUM_ASIC: 1
       VM_TYPE: ceos
@@ -120,6 +120,7 @@ jobs:
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
     steps:
       - script: |
           echo "CHECKER=$(CHECKER)"
