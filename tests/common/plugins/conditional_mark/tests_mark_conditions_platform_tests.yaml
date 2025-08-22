@@ -892,15 +892,15 @@ platform_tests/broadcom/test_ser.py:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
 
 ##############################################
-#####  cli/test_show_chassis_modules.py  #####
+#####  cli/test_show_chassis_module.py  #####
 ##############################################
-platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_midplane_status:
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
 
-platform_tests/cli/test_show_chassis_modules.py::test_show_chassis_module_status:
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
   skip:
     reason: "Not supported on T2 single node topology"
     conditions:
@@ -1072,6 +1072,12 @@ platform_tests/test_advanced_reboot.py:
       - "asic_type in ['vs']"
       - "release in ['202412']"
 
+platform_tests/test_advanced_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Skip for smartswitch topology"
+    conditions:
+      - "is_smartswitch==True"
+
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
     reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform / Warm reboot is not required for 202412"
@@ -1102,11 +1108,12 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "release in ['202412']"
+      - "is_smartswitch==True"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
