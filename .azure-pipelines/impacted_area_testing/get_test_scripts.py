@@ -45,7 +45,7 @@ def distribute_scripts_to_PR_checkers(match, script_name, test_scripts_per_topol
     for topology in match.group(1).split(","):
         topology_mark = topology.strip().strip('"').strip("'")
         if topology_mark == "any":
-            for key in ["t0_checker", "t1_checker", "t2_checker"]:
+            for key in test_scripts_per_topology_checker.keys():
                 if script_name not in test_scripts_per_topology_checker[key]:
                     test_scripts_per_topology_checker[key].append(script_name)
         else:
