@@ -112,8 +112,6 @@ str2-7250-sup-2,10.3.146.119/24,Nokia-IXR7250E-SUP-10,DevSonic,,sonic
 str2-7250-lc1-2,10.3.146.135/24,Nokia-IXR7250E-36x100G,DevSonic,,sonic
 str2-7250-lc2-2,10.3.146.136/24,Nokia-IXR7250E-36x100G,DevSonic,,sonic
 str2-7215-acs-2,10.3.146.63/24,Nokia-7215,FanoutLeafSonic,,sonic
-str2-7215-acs-3,10.3.146.154/24,Nokia-7215,DevSonic,,sonic
-str2-7215-acs-4,10.3.146.62/24,Nokia-7215,FanoutLeafSonic,,sonic
 str2-bluefield-01,10.64.247.32/23,Nvidia-9009d3b600CVAA,DevSonic,,sonic
 str2-bluefield-bmc-01,10.64.247.33/23,DPU,DevSonic,,sonic
 str2-bluefield-host-01,10.64.246.248/23,DPU,DevSonic,,sonic
