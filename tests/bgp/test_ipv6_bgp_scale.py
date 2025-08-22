@@ -464,6 +464,7 @@ def test_nexthop_group_member_scale(
     tbinfo,
     bgp_peers_info,
     announce_bgp_routes_teardown,
+    topo_bgp_routes,
     request
 ):
     '''
@@ -565,6 +566,17 @@ def test_nexthop_group_member_scale(
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
+    for hostname, routes in peers_routes_to_change.items():
+        for route in routes:
+            prefix = route[0].upper()
+            found = False
+            for topo_route in topo_bgp_routes[hostname]['ipv6']:
+                if topo_route[0] == prefix:
+                    route[2] = topo_route[2]
+                    found = True
+                    break
+            if not found:
+                logger.warning('Fail to update AS path of route %s, because of prefix was not found in topo', route[0])
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
@@ -574,7 +586,8 @@ def test_nexthop_group_member_scale(
     traffic_thread.start()
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
-        announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
+        change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_ANNOUNCE,
+                               servers_dut_interfaces.get(ptf_ip, ''))
     compressed_startup_routes = compress_expected_routes(startup_routes)
     result = check_bgp_routes_converged(
         duthost,
