@@ -185,10 +185,10 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     config_port_channel_members = [list(port_channel.keys()) for port_channel in list(config_portchannels.values())]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
     ports = [
-        port for port in config_ports 
-        if port in config_port_indices 
-        and config_port_indices[port] in ptf_ports_available_in_topo 
-        and config_ports[port].get('admin_status', 'down') == 'up' 
+        port for port in config_ports
+        if port in config_port_indices
+        and config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
         and port not in config_port_channel_member_ports
     ]
     return ports
