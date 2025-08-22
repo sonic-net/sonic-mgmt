@@ -421,8 +421,13 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         # This applies to: master branch and internal branches >= 202405 (except 202411)
         try:
             # Try to get codename from syncd container
-            syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
-                                  "cut -d= -f2 | tr -d '\"'")
+            if duthost.is_multi_asic:
+                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
+                                      f"grep VERSION_CODENAME /etc/os-release | "
+                                      f"cut -d= -f2 | tr -d '\"'")
+            else:
+                syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
+                                      "cut -d= -f2 | tr -d '\"'")
             syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
             if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
                 debian_codename = syncd_codename_result['stdout'].strip()
