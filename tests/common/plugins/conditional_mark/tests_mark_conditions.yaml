@@ -165,6 +165,12 @@ bgp/test_bgp_multipath_relax.py:
       - "'backend' in topo_name"
       - "'t1-isolated' in topo_name"
 
+bgp/test_bgp_operation_in_ro.py:
+  skip:
+    reason: "Feature is reverted and pending enhancement"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
+
 bgp/test_bgp_port_disable.py:
   skip:
     reason: "Not supperted on master."
