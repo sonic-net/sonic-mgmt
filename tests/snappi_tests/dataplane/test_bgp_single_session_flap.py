@@ -193,7 +193,6 @@ def get_convergence_for_single_session_flap(
             # calculate pld
             wait(20, "For statistics to be collected")
             flow_stats = get_stats(snappi_api, "Flow Statistics")
-            import pdb; pdb.set_trace()
             pytest_assert(
                 int(flow_stats[0].loss) == 0,
                 "Total Tx Rx Rates are not equal after link flap",
@@ -261,7 +260,7 @@ def get_convergence_for_single_session_flap(
             snappi_api.set_control_state(cs)
             end_time = time.time()
             wait(20, "For routes to be withdrawn")
-            import pdb; pdb.set_trace()
+
             delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
             pkt_loss_duration = 1000 * (delta_frames / flow_stats[0].frames_tx_rate)
             logger.info("Delta Frames : {}".format(delta_frames))
