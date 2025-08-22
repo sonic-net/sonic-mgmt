@@ -15,11 +15,9 @@ CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 # db and pmon will be privileged hardening
 # syncd, gbsyncd, and swss cannot be privileged hardening
 PRIVILEGED_CONTAINERS = [
-    "database",
     "pmon",
     "syncd",
     "gbsyncd",
-    "swss",
 ]
 
 
