@@ -91,7 +91,8 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
 
         all_port_handles.append(port_handle1)
         all_port_handles.append(port_handle2)
-
+        tg_handle1.tg_traffic_control(action='reset', port_handle=[port_handle1, port_handle2])
+        st.wait(10)
         tg_handle1.tg_traffic_control(action='clear_stats', port_handle=[port_handle1, port_handle2])
         ###Tgen interface config###
         if addr_family == 'ipv6':
@@ -126,7 +127,7 @@ def tgen_preconfig(stream_info, traffic_item_type, data, addr_family='ipv4'):
                     transmit_mode=data.transmit_mode, pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent, circuit_endpoint_type=data.circuit_endpoint_type, 
                     frame_size=data.frame_size, mac_src=stream_info['src_endpoint']['mac'], mac_dst=stream_info['dst_endpoint']['mac'])
             stream_id = receive["stream_id"]
-            handles = {"tg_handle": tg_handle1, "int_handle" : int_handle_1, "port_handle1": port_handle1, "port_handle2": port_handle2, "stream_id": stream_id,"all_port_handles": all_port_handles,"traffic_item_type": traffic_item_type}
+            handles = {"tg_handle": tg_handle1, "int_handle" : int_handle_1, "int_handle2" : int_handle_2, "port_handle1": port_handle1, "port_handle2": port_handle2, "stream_id": stream_id,"all_port_handles": all_port_handles,"traffic_item_type": traffic_item_type}
         else:
              st.log("Unknown traffic_item_type")
              st.report_fail("Unknown traffic_item_type")
