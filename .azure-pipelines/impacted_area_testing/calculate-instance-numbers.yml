@@ -19,11 +19,12 @@ steps:
     echo "$TEST_SCRIPTS" > /tmp/ts.json
     echo "TEST_SCRIPTS value from file:"
     cat /tmp/ts.json
-    TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker"' /tmp/ts.json)
+    TEST_SCRIPTS=$(jq -r -c '."${{ parameters.TOPOLOGY }}_checker" // []' /tmp/ts.json)
     rm /tmp/ts.json
-    if [[ -z "$TEST_SCRIPTS" ]]; then
-      echo "##vso[task.complete result=Failed;]Get test scripts of specfic topology fails."
-      exit 1
+    if [[ "$TEST_SCRIPTS" == "[]" ]]; then
+      echo "##vso[task.complete result=Failed;]No test scripts found for topology."
+      INSTANCE_NUMBER=0
+      exit 0
     fi
     SCRIPTS=$(echo "$TEST_SCRIPTS" | jq -r '. | join(",")')
     echo -n "##vso[task.setvariable variable=SCRIPTS]$SCRIPTS"
