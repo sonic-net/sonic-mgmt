@@ -1,0 +1,315 @@
+spine0:
+  sonic:
+    config: |
+      sudo config interface ipv6 enable use-link-local-only D1D3P1
+      sudo config interface ipv6 enable use-link-local-only D1D3P2
+      sudo config interface ipv6 enable use-link-local-only D1D4P1
+      sudo config interface ipv6 enable use-link-local-only D1D4P2
+      sudo config interface ip add Loopback0 1.1.1.1/32
+      sudo config interface ip add Loopback0 1111::1/128
+      
+    deconfig: |
+      sudo config interface ip rem Loopback0 1.1.1.1/32
+      sudo config interface ipv6 disable use-link-local-only D1D3P1
+      sudo config interface ipv6 disable use-link-local-only D1D3P2
+      sudo config interface ipv6 disable use-link-local-only D1D4P1
+      sudo config interface ipv6 disable use-link-local-only D1D4P2
+  bgp:
+    config: |
+      router bgp 65100
+      bgp router-id 1.1.1.1
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor TRANSIT disable-connected-check
+      neighbor TRANSIT description "leaf-spine"
+      neighbor D1D3P1 interface peer-group TRANSIT
+      neighbor D1D3P2 interface peer-group TRANSIT
+      neighbor D1D4P1 interface peer-group TRANSIT
+      neighbor D1D4P2 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      end
+      exit
+    deconfig: |
+      no router bgp 65100
+      end
+      exit
+
+spine1:
+  sonic:
+    config: |
+      sudo config interface ip add Loopback0 4.4.4.4/32
+      sudo config interface ip add Loopback0 4444::4/128
+      sudo config interface ipv6 enable use-link-local-only D2D3P1
+      sudo config interface ipv6 enable use-link-local-only D2D3P2
+      sudo config interface ipv6 enable use-link-local-only D2D4P1
+      sudo config interface ipv6 enable use-link-local-only D2D4P2
+    deconfig: |
+      sudo config interface ip rem Loopback0 4.4.4.4/32
+      sudo config interface ipv6 disable use-link-local-only D2D3P1
+      sudo config interface ipv6 disable use-link-local-only D2D3P2
+      sudo config interface ipv6 disable use-link-local-only D2D4P1
+      sudo config interface ipv6 disable use-link-local-only D2D4P2
+  bgp:
+    config: |
+      router bgp 65100
+      bgp router-id 4.4.4.4
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor TRANSIT disable-connected-check
+      neighbor TRANSIT description "leaf-spine"
+      neighbor D2D4P1 interface peer-group TRANSIT
+      neighbor D2D4P2 interface peer-group TRANSIT
+      neighbor D2D3P1 interface peer-group TRANSIT
+      neighbor D2D3P2 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      end
+      exit
+    deconfig: |
+      no router bgp 65100
+      end
+      exit
+
+leaf0:
+  sonic:
+    config: |
+      sudo config interface ipv6 enable use-link-local-only D3D1P1
+      sudo config interface ipv6 enable use-link-local-only D3D1P2
+      sudo config interface ipv6 enable use-link-local-only D3D2P1
+      sudo config interface ipv6 enable use-link-local-only D3D2P2
+      sudo config interface ip add Loopback0 2.2.2.2/32
+      sudo config interface ip add Loopback0 2222::2/128
+      sudo config interface ip add D3T1P1 30.30.30.1/24
+      sudo config vlan add 10
+      sudo config vlan member add -u 10 D3T1P2
+      sudo config vxlan add VXLAN 2.2.2.2
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vxlan map add VXLAN 10 5010
+      sudo config vrf add Vrf01
+      sudo config interface vrf bind Vlan10 Vrf01
+      sudo config vlan add 30
+      sudo config interface vrf bind Vlan30 Vrf01
+      sudo config interface vrf bind D3T1P1 Vrf01
+      sudo config vxlan map add VXLAN 30 5030
+      sudo config vrf add_vrf_vni_map Vrf01 5030
+      sudo config interface ip add Vlan10 10.212.10.10/24
+      sudo config static-anycast-gateway mac_address add 00:55:55:55:44:11
+      sudo config vlan static-anycast-gateway enable 10
+      sudo config interface ip add D3T1P1 60.60.60.1/24
+      sudo config interface ip add D3T1P1 6000::1/64
+      sudo config interface vrf bind Loopback27 Vrf01
+      sudo config interface ip add Loopback27 27.1.1.1/32
+    deconfig: |
+      sudo config interface vrf unbind Loopback0
+      sudo config interface ip rem Loopback0 2.2.2.2/32
+      sudo config interface ip rem Loopback27 27.1.1.1/32
+      sudo config interface ip rem D2D4P2 30.30.30.1/24
+      sudo config interface ip rem D3T1P1 60.60.60.1/24
+      sudo config interface ip rem D3T1P1 6000::1/64
+      sudo config interface ipv6 disable use-link-local-only D3D1P1
+      sudo config interface ipv6 disable use-link-local-only D3D1P2
+      sudo config interface ipv6 disable use-link-local-only D3D2P1
+      sudo config interface ipv6 disable use-link-local-only D3D2P2
+  bgp:
+    config: |
+      route-map anycast_ip permit 10
+      set extcommunity bandwidth num-multipaths
+      exit
+      router bgp 65101
+      bgp router-id 2.2.2.2
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor D3D1P1 interface peer-group TRANSIT
+      neighbor D3D1P2 interface peer-group TRANSIT
+      neighbor D3D2P1 interface peer-group TRANSIT
+      neighbor D3D2P2 interface peer-group TRANSIT
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback0
+      neighbor 3.3.3.3 peer-group OVERLAY
+      address-family l2vpn evpn
+      no use-es-l3nhg
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      address-family ipv4 unicast
+      redistribute connected
+      redistribute static
+      neighbor TRANSIT route-map anycast_ip out
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      exit
+      vrf Vrf01
+      vni 5030
+      exit
+      router bgp 65101 vrf Vrf01
+      bgp router-id 2.2.2.2
+      bgp bestpath as-path multipath-relax
+      address-family ipv4 unicast
+      redistribute connected
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      exit-address-family
+      address-family l2vpn evpn
+      no use-es-l3nhg
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      end
+      exit
+    deconfig: |
+      no router bgp 65101 vrf Vrf01
+      vrf Vrf01
+      no vni 5030
+      exit
+      no router bgp 65101
+      end
+      exit
+
+leaf1:
+  sonic:
+    config: |
+      sudo config interface ipv6 enable use-link-local-only D4D1P2
+      sudo config interface ipv6 enable use-link-local-only D4D2P1
+      sudo config interface ipv6 enable use-link-local-only D4D2P2
+      sudo config interface ip add Loopback0 3.3.3.3/32
+      sudo config interface ip add Loopback0 3333::3/128
+      sudo config interface ip add D4T1P1 50.50.50.1/24
+      sudo config vlan add 10
+      sudo config vlan member add -u 10 D4T1P2
+      sudo config vxlan add VXLAN 3.3.3.3
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vxlan map add VXLAN 10 5010
+      sudo config vrf add Vrf01
+      sudo config interface vrf bind Vlan10 Vrf01
+      sudo config interface vrf bind D4T1P1 Vrf01
+      sudo config interface ip add Vlan10 10.212.10.10/24
+      sudo config static-anycast-gateway mac_address add 00:55:55:55:44:11
+      sudo config vlan static-anycast-gateway enable 10
+      sudo config vlan add 30
+      sudo config interface vrf bind Vlan30 Vrf01
+      sudo config vxlan map add VXLAN 30 5030
+      sudo config vrf add_vrf_vni_map Vrf01 5030
+      sudo config interface vrf bind  D4T1P1 Vrf01
+      sudo config interface ip add D4T1P1 70.70.70.1/24
+      sudo config interface ip add D4T1P1 7000::1/64
+      sudo config interface vrf bind Loopback27 Vrf01
+      sudo config interface ip add Loopback27 28.1.1.1/32
+    deconfig: |
+      sudo config interface vrf unbind Loopback0
+      sudo config interface ip rem Loopback0 3.3.3.3/32
+      sudo config interface ip rem Loopback27 28.1.1.1/32
+      sudo config interface ip rem D4T1P1 50.50.50.1/24
+      sudo config interface ip rem D4T1P1 70.70.70.1/24
+      sudo config interface ip rem D4T1P1 7000::1/64
+      sudo config interface ipv6 disable use-link-local-only D4D1P2
+      sudo config interface ipv6 disable use-link-local-only D4D2P1
+      sudo config interface ipv6 disable use-link-local-only D4D2P2
+  bgp:
+    config: |
+      route-map anycast_ip permit 10
+      set extcommunity bandwidth num-multipaths
+      exit
+      router bgp 65102
+      bgp router-id 3.3.3.3
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor TRANSIT peer-group
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor D4D1P1 interface peer-group TRANSIT
+      neighbor D4D1P2 interface peer-group TRANSIT
+      neighbor D4D2P1 interface peer-group TRANSIT
+      neighbor D4D2P2 interface peer-group TRANSIT
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback0
+      neighbor 2.2.2.2 peer-group OVERLAY
+      address-family l2vpn evpn
+      no use-es-l3nhg
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      address-family ipv4 unicast
+      redistribute connected
+      redistribute static
+      neighbor TRANSIT route-map anycast_ip out
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      redistribute static
+      neighbor TRANSIT route-map anycast_ip out
+      neighbor TRANSIT activate
+      exit-address-family
+      exit
+      vrf Vrf01
+      vni 5030
+      exit
+      router bgp 65102 vrf Vrf01
+      bgp router-id 3.3.3.3
+      bgp bestpath as-path multipath-relax
+      address-family ipv4 unicast
+      redistribute connected
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      exit-address-family
+      address-family l2vpn evpn
+      no use-es-l3nhg
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      end
+      exit
+    deconfig: |
+      no router bgp 65102 vrf Vrf01
+      vrf Vrf01
+      no vni 5030
+      exit
+      no router bgp 65102
+      end
+      exit
