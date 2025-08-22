@@ -85,8 +85,9 @@ def common_setup_teardown(
         **pl.PE_VNET_MAPPING_CONFIG,
         **pl.PE_SUBNET_ROUTE_CONFIG,
         **vm_subnet_route_config,
-        **pl.INBOUND_VM_ROUTE_RULE_CONFIG,
-        **pl.ROUTE_RULE1_CONFIG,
+        **pl.VM_VNI_ROUTE_RULE_CONFIG,
+        **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+        **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
     }
     logger.info(route_and_mapping_messages)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
@@ -162,7 +163,7 @@ def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
 
     for _ in range(num_packets):
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
-            dash_pl_config, floating_nic
+            dash_pl_config, floating_nic, outbound_vni=pl.ENI_TRUSTED_VNI
         )
         # Usually `testutils.send` automatically updates the packet payload to include the test nome
         # and `testutils.verify_packet*` updates the expected packet payload to match. Since we are polling

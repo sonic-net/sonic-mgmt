@@ -61,12 +61,14 @@ APPLIANCE_CONFIG = {
         "local_region_id": LOCAL_REGION_ID
     }
 }
+
 APPLIANCE_FNIC_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP,
-        "local_region_id": LOCAL_REGION_ID
+        "local_region_id": LOCAL_REGION_ID,
+        "trusted_vnis": ENCAP_VNI
     }
 }
 
@@ -79,21 +81,8 @@ ENI_FNIC_CONFIG = {
         "admin_state": State.STATE_ENABLED,
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
-        "eni_mode": EniMode.MODE_FNIC
-    }
-}
-
-ENI_FNIC_TRUSTED_VNI_CONFIG = {
-    f"DASH_ENI_TABLE:{ENI_ID}": {
-        "vnet": VNET1,
-        "underlay_ip": VM1_PA,
-        "mac_address": ENI_MAC,
-        "eni_id": ENI_ID,
-        "admin_state": State.STATE_ENABLED,
-        "pl_underlay_sip": APPLIANCE_VIP,
-        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
-        "mode": EniMode.MODE_FNIC,
-        "trusted_vni": ENI_TRUSTED_VNI
+        "eni_mode": EniMode.MODE_FNIC,
+        "trusted_vnis": ENI_TRUSTED_VNI
     }
 }
 
@@ -103,6 +92,7 @@ VNET_CONFIG = {
         "guid": VNET1_GUID
     }
 }
+
 VNET2_CONFIG = {
     f"DASH_VNET_TABLE:{VNET2}": {
         "vni": VM_VNI,
@@ -157,8 +147,17 @@ TUNNEL2_CONFIG = {
     }
 }
 
-ROUTE_RULE1_CONFIG = {
+INBOUND_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENCAP_VNI}:{PE_PA}/32": {
+        "action_type": ActionType.ACTION_TYPE_DECAP,
+        "priority": 1
+    }
+}
+
+# For floating NIC, outbound packet will pass through inbound pipeline first before going to the outbound pipeline
+# Need this route rule entry to prevent the packet from being dropped in the inbound pipeline
+TRUSTED_VNI_ROUTE_RULE_CONFIG = {
+    f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{ENI_TRUSTED_VNI}:{VM1_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
         "priority": 1
     }
@@ -178,7 +177,7 @@ VM_SUBNET_ROUTE_WITH_TUNNEL_SINGLE_ENDPOINT = {
     }
 }
 
-INBOUND_VM_ROUTE_RULE_CONFIG = {
+VM_VNI_ROUTE_RULE_CONFIG = {
     f"DASH_ROUTE_RULE_TABLE:{ENI_ID}:{VM_VNI}:{VM1_PA}/32": {
         "action_type": ActionType.ACTION_TYPE_DECAP,
         "priority": 1
