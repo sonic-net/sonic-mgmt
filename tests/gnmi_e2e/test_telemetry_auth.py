@@ -48,7 +48,7 @@ def test_telemetry_authorize_passed_with_valid_cname(duthosts,
     failed, msg = ptf_telemetry_get(duthost, ptfhost)
     logger.debug("test_telemetry_authorize_passed_with_valid_cname: {}".format(msg))
 
-    assert not failed, ("Telemetry 'get' command failed to execute: ").format(msg)
+    assert not failed, ("Telemetry 'get' command failed to execute: {}").format(msg)
 
     assert "Unauthenticated" not in msg, (
         "'Unauthenticated' error message found in Telemetry response. "
@@ -70,7 +70,7 @@ def test_telemetry_authorize_failed_with_invalid_cname(duthosts,
     failed, msg = ptf_telemetry_get(duthost, ptfhost)
     logger.debug("test_telemetry_authorize_failed_with_invalid_cname: {}".format(msg))
 
-    assert failed, ("Telemetry 'get' command executed successfully: ").format(msg)
+    assert failed, ("Telemetry 'get' command executed successfully: {}").format(msg)
 
     assert "Unauthenticated" in msg, (
         "'Unauthenticated' error message not found in Telemetry response. "
