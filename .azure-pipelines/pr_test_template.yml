@@ -108,8 +108,9 @@ jobs:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
 
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], format(',{0},', variables['CHECKER']))
     variables:
+      PR_CHECKERS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'] ]
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       NUM_ASIC: 1
       VM_TYPE: ceos
@@ -123,7 +124,7 @@ jobs:
     steps:
       - script: |
           echo "CHECKER=$(CHECKER)"
-          echo "PR_CHECKERS=$(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'])"
+          echo "PR_CHECKERS=$(PR_CHECKERS)"
         displayName: "Debug condition variables"
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
