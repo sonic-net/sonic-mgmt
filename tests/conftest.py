@@ -1091,6 +1091,31 @@ def creds(duthost):
     return creds_on_dut(duthost)
 
 
+@pytest.fixture(scope="session")
+def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+    bgp_routes = {}
+    topo_name = tbinfo['topo']['name']
+    servers_dut_interfaces = None
+    if 'servers' in tbinfo:
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
+    for ptfhost in ptfhosts:
+        ptf_ip = ptfhost.mgmt_ip
+        res = localhost.announce_routes(
+            topo_name=topo_name,
+            ptf_ip=ptf_ip,
+            action='generate',
+            path="../ansible/",
+            log_path="logs",
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+        )
+        if 'topo_routes' not in res:
+            logger.warning("No routes generated.")
+        else:
+            bgp_routes.update(res['topo_routes'])
+    return bgp_routes
+
+
 @pytest.fixture(scope='module')
 def creds_all_duts(duthosts):
     creds_all_duts = dict()
