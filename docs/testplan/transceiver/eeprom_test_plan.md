@@ -24,6 +24,8 @@ Please refer to the [Testbed Topology](../transceiver_onboarding_test_plan.md#te
 
 Before executing the EEPROM tests, ensure the following pre-requisites are met:
 
+### Setup Requirements
+
 - The testbed is set up according to the [Testbed Topology](../transceiver_onboarding_test_plan.md#testbed-topology)
 - All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) must be met
 
@@ -43,6 +45,10 @@ Following table summarizes the key attributes:
 | sff8024_identifier | string | - | ✓ | transceivers | SFF-8024 identifier for the transceiver |
 | is_non_dac_cmis | boolean | False | ✗ | transceivers | Whether the transceiver is a non-DAC CMIS transceiver |
 | eeprom_dump_timeout_sec | integer | 5 | ✗ | transceivers or platform | Default EEPROM dump timeout in seconds |
+
+## CLI Commands Reference
+
+For detailed CLI commands used in the test cases below, please refer to the [CLI Commands section](../transceiver_onboarding_test_plan.md#cli-commands) in the transceiver onboarding test plan. This section provides comprehensive examples of all relevant commands
 
 ## Test Cases
 
