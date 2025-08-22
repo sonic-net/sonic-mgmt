@@ -66,7 +66,7 @@ Following table summarizes the key attributes:
 | transceiver_reset_i2c_recover_sec | integer | 5 | ✗ | transceivers | Time to wait for I2C recovery after transceiver state changes (reset, low power mode) before verification |
 | low_power_mode_supported | boolean | False | ✗ | transceivers | Whether transceiver supports low power mode |
 | loopback_supported | boolean | False | ✗ | transceivers | Whether transceiver supports loopback functionality |
-| supported_loopback_modes | list | [] | ✗ | transceivers | List of supported loopback modes (e.g., ["host-side-input", "media-side-input", "host-side-output", "media-side-output"]) |
+| supported_loopback_modes | list | [] | ✗ | transceivers | List of supported loopback modes. Possible values include, but are not limited to: ["host-side-input", "media-side-input", "host-side-output", "media-side-output"]. |
 | loopback_settle_sec | integer | 15 | ✗ | transceivers | Time to wait after loopback mode changes |
 | low_pwr_request_hw_asserted | boolean | False | ✗ | platform | Whether to check DataPath state and LowPwrRequestHW signal. When True, expects LowPwrRequestHW signal to be asserted (1); when False, skips these checks |
 
