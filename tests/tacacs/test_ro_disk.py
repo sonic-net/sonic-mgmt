@@ -261,10 +261,12 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
         # Verify after monit fix login issue ,remote user can run TSA/TSB command.
         res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSA")
         logger.debug("TSA res={}".format(res))
-        assert "System Mode: Normal -> Maintenance" in res["stdout_lines"], "Failed to TSA"
+        assert res["rc"] == 0, "failed to TSA"
+        assert "System Mode: Normal -> Maintenance" in res["stdout_lines"][0], "Failed to TSA"
         res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSB")
         logger.debug("TSB res={}".format(res))
-        assert "System Mode: Maintenance -> Normal" in res["stdout_lines"], "Failed to TSB"
+        assert res["rc"] == 0, "failed to TSB"
+        assert "System Mode: Maintenance -> Normal" in res["stdout_lines"][0], "Failed to TSB"
 
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)
