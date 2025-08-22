@@ -596,10 +596,6 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
     The packets are expected to relay to client port.
     """
     testing_mode, duthost = testing_config
-    if testing_mode != DUAL_TOR_MODE:
-        pytest.skip("This test is only for DUAL_TOR_MODE")
-    skip_dhcpmon = any(vers in duthost.os_version for vers in ["201811", "201911", "202111"])
-
     try:
         for dhcp_relay in dut_dhcp_relay_data:
             if not skip_dhcpmon:
