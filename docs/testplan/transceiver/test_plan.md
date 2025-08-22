@@ -217,39 +217,16 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
 
-#### 1.1 Link related tests
-
-The following tests aim to validate the link status and stability of transceivers under various conditions.
-
-| Step | Goal | Expected Results |
-|------|------|------------------|
-| Issue CLI command to shutdown a port | Validate link status using CLI configuration | Ensure that the link goes down |
-| Issue CLI command to startup a port | Validate link status using CLI configuration | Ensure that the link is up and the port appears in the LLDP table. |
-| In a loop, issue startup/shutdown command 100 times | Stress test for link status validation | Ensure link status toggles to up/down appropriately with each startup/shutdown command. Verify ports appear in the LLDP table when the link is up |
-| Restart `xcvrd` | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
-| Induce I2C errors and restart `xcvrd` | Test link stability in case of `xcvrd` restart + I2C errors | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Modify xcvrd.py to raise an Exception and induce a crash | Test link and xcvrd stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table. Also ensure that xcvrd is up for at least 2 mins |
-| Restart `pmon` | Test link stability | Confirm `xcvrd` restarts successfully without causing link flaps for the corresponding ports, and verify their presence in the LLDP table |
-| Restart `swss` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
-| Restart `syncd` | Validate transceiver re-initialization and link status post container restart | Ensure `xcvrd` restarts (for Mellanox platform, ensure pmon restarts) and the expected ports link up again, with port details visible in the LLDP table |
-| Perform a config reload | Test transceiver re-initialization and link status | Ensure `xcvrd` restarts and the expected ports link up again, with port details visible in the LLDP table |
-| Execute a cold reboot | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-| In a loop, execute cold reboot 100 times | Stress test to validate transceiver re-initialization and link status with cold reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-| Execute a warm reboot (if platform supports it) | Test link stability through warm reboot | Ensure `xcvrd` restarts and maintains link stability for the interested ports, with their presence confirmed in the LLDP table |
-| Execute a fast reboot (if platform supports it) | Validate transceiver re-initialization and link status post-device reboot | Confirm the expected ports link up again post-reboot, with port details visible in the LLDP table |
-
-#### 1.2 `sfputil` Command Tests
+#### 1.1 `sfputil` Command Tests
 
 The following tests aim to validate various functionalities of the transceiver (transceiver) using the `sfputil` command.
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
-| Reset the transceiver followed by issuing shutdown and then startup command | Transceiver reset validation | Ensure that the port is linked down after reset and is in low power mode (if transceiver supports it). Also, ensure that the DataPath is in DPDeactivated state and LowPwrAllowRequestHW (page 0h, byte 26.6) is set to 1. The shutdown and startup commands are later issued to re-initialize the port and bring the link up |
-| Put transceiver in low power mode (if transceiver supports it) followed by restoring to high power mode | Transceiver low power mode validation | Ensure transceiver is in high power mode initially. Then put the transceiver in low power mode and ensure that the port is linked down and the DataPath is in DPDeactivated state. Ensure that the port is in low power mode through CLI. Disable low power mode and ensure that the link is up now and transceiver is in high power mode now |
 | Verify DOM information of the transceiver using CLI when interface is in shutdown and no shutdown state (if transceiver supports DOM) | Basic DOM validation | Ensure the fields are in line with the expectation based on interface shutdown/no shutdown state |
 | Verify different types of loopback | Transceiver loopback validation | Ensure that the various supported types of loopback work on the transceiver. The LLDP neighbor can also be used to verify the data path after enabling loopback (such as host-side input loopback) |
 
-#### 1.3 `sfpshow` Command Tests
+#### 1.2 `sfpshow` Command Tests
 
 The following tests aim to validate various functionalities of the transceiver using the `sfpshow` command.
 
@@ -262,11 +239,11 @@ The following tests aim to validate various functionalities of the transceiver u
 | Verify transceiver error-status | Validate CLI relying on redis-db | Ensure the relevant port is in an "OK" state |
 | Verify transceiver error-status with hardware verification | Validate CLI relying on transceiver hardware | Ensure the relevant port is in an "OK" state |
 
-#### 1.4 CMIS CDB Firmware Upgrade Testing
+#### 1.3 CMIS CDB Firmware Upgrade Testing
 
-##### 1.4.1 CMIS CDB Firmware Binary Management
+##### 1.3.1 CMIS CDB Firmware Binary Management
 
-###### 1.4.1.1 Firmware Binary Naming Guidelines
+###### 1.3.1.1 Firmware Binary Naming Guidelines
 
 CMIS CDB firmware binaries must follow strict naming conventions to ensure compatibility across different filesystems and automation tools.
 
@@ -281,7 +258,7 @@ CMIS CDB firmware binaries must follow strict naming conventions to ensure compa
 2. **File Extension:**
    - Use `.bin` extension
 
-###### 1.4.1.2 Normalization Rules for Vendor Name and Part Number
+###### 1.3.1.2 Normalization Rules for Vendor Name and Part Number
 
 To ensure compatibility and uniqueness across filesystems and automation tools, the following normalization rules should be applied to vendor names and part numbers:
 
@@ -351,7 +328,7 @@ def normalize_vendor_field(field: str) -> str:
     return field.upper()
 ```
 
-###### 1.4.1.3 Firmware Binary Storage on SONiC Device
+###### 1.3.1.3 Firmware Binary Storage on SONiC Device
 
 The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name and part number.
 
@@ -385,7 +362,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 └── ...
 ```
 
-###### 1.4.1.4 Firmware Binary Storage on Remote Server
+###### 1.3.1.4 Firmware Binary Storage on Remote Server
 
 The CMIS CDB firmware binaries must be stored on a remote server with the following requirements:
 
@@ -417,7 +394,7 @@ Firmware binaries are accessed using the following URL pattern:
 http://firmware-server.example.com/cmis_cdb_firmware/ACMECORP/QSFP-100G-AOC-GENERIC_2_ENDM/ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ```
 
-##### 1.4.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
+##### 1.3.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
 
 This section describes the automated process for copying firmware binaries to the DUT, ensuring only the required firmware versions are present for testing.
 
@@ -443,7 +420,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 - The firmware binary folder on the DUT (`/tmp/cmis_cdb_firmware/`) will be deleted after the test module run is complete to ensure a clean state for subsequent tests
 - Cleanup includes removing both the directory structure and any temporary files created during the process
 
-##### 1.4.3 CMIS CDB Firmware Upgrade Tests
+##### 1.3.3 CMIS CDB Firmware Upgrade Tests
 
 **Prerequisites:**
 
@@ -466,7 +443,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 |6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
 |7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
 
-#### 1.5 Remote Reseat related tests
+#### 1.4 Remote Reseat related tests
 
 The following tests aim to validate the functionality of remote reseating of the transceiver module.
 All the below steps should be executed in a sequential manner.
@@ -481,9 +458,9 @@ All the below steps should be executed in a sequential manner.
 |6 | Issue CLI command to startup the port | Remote reseat validation | Ensure that the port is linked up and is seen in the LLDP table |
 |7 | Issue CLI command to enable DOM monitoring for the port | Remote reseat validation | Ensure that the DOM monitoring is enabled for the port |
 
-#### 1.6 Transceiver Specific Capabilities
+#### 1.5 Transceiver Specific Capabilities
 
-##### 1.6.1 General Tests
+##### 1.5.1 General Tests
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
@@ -492,14 +469,14 @@ All the below steps should be executed in a sequential manner.
 | Adjust FEC mode | Validate FEC mode adjustment for transceivers supporting FEC | Ensure that the FEC mode can be adjusted to different modes and revert to original FEC mode after testing |
 | Validate FEC stats counters | Validate FEC stats counters | Ensure that FEC correctable, uncorrectable and symbol errors have integer values |
 
-##### 1.6.2 C-CMIS specific tests
+##### 1.5.2 C-CMIS specific tests
 
 | Step | Goal | Expected Results |
 |------|------|------------------|
 | Adjust frequency | Validate frequency adjustment for C-CMIS transceivers | Ensure that the frequency can be adjusted to minimum and maximum supported frequency and revert to original frequency after testing |
 | Adjust tx power | Validate tx power adjustment for C-CMIS transceivers | Ensure that the tx power can be adjusted to minimum and maximum supported power and revert to original tx power after testing |
 
-##### 1.6.3 VDM specific tests
+##### 1.5.3 VDM specific tests
 
 **Prerequisites:**
 
