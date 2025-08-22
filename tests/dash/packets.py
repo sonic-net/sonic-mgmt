@@ -70,7 +70,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def rand_udp_port_packets(config, floating_nic=True):
+def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None):
     """
     Randomly generate the inner (overlay) UDP source and destination ports.
     Useful to ensure an even distribution of packets across multiple ECMP endpoints.
@@ -78,7 +78,7 @@ def rand_udp_port_packets(config, floating_nic=True):
     sport = random.randint(49152, 65535)
     dport = random.randint(49152, 65535)
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(
-        config, "vxlan", floating_nic, inner_sport=sport, inner_dport=dport
+        config, "vxlan", floating_nic, inner_sport=sport, inner_dport=dport, vni=outbound_vni
     )
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(config, floating_nic, inner_sport=dport, inner_dport=sport)
     return vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt
@@ -159,12 +159,12 @@ def outbound_pl_packets(
     floating_nic=False,
     inner_packet_type="udp",
     vxlan_udp_dport=4789,
-    inner_extra_conf={},
     vxlan_udp_sport=1234,
-    nsg_packet=False,
     inner_sport=6789,
     inner_dport=4567,
+    vni=None
 ):
+    outer_vni = int(vni if vni else pl.VM_VNI)
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.VM_MAC if floating_nic else pl.ENI_MAC,
         eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
@@ -184,7 +184,7 @@ def outbound_pl_packets(
             udp_dport=vxlan_udp_dport,
             udp_sport=vxlan_udp_sport,
             with_udp_chksum=False,
-            vxlan_vni=int(pl.VM_VNI),
+            vxlan_vni=outer_vni,
             inner_frame=inner_packet,
         )
     elif outer_encap == "gre":
@@ -194,7 +194,7 @@ def outbound_pl_packets(
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=int(pl.VM_VNI) << 8,
+            gre_key=outer_vni << 8,
             inner_frame=inner_packet,
         )
     else:
