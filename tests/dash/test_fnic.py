@@ -6,14 +6,13 @@ import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import ptf
 import pytest
-from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
+from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import rand_udp_port_packets
 from tests.common.helpers.assertions import pytest_assert
-from tests.dash.conftest import get_interface_ip
-from tests.common.helpers.smartswitch_util import get_dpu_dataplane_port
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
 from tests.common import config_reload
+from route_setup import dpu_setup, add_npu_static_routes  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -35,64 +34,6 @@ def floating_nic(duthost):
     return True
 
 
-@pytest.fixture(scope="function", autouse=True)
-def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
-    if skip_config:
-
-        return
-    dpuhost = dpuhosts[dpu_index]
-    intfs = dpuhost.shell("show ip int")["stdout"]
-    dpu_cmds = list()
-    if "Loopback0" not in intfs:
-        dpu_cmds.append("config loopback add Loopback0")
-        dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
-
-    npu_data_port = get_dpu_dataplane_port(duthost, dpu_index)
-    npu_data_ip = get_interface_ip(duthost, npu_data_port)
-
-    dpu_cmds.append(
-        'who am i | grep -oE "([0-9]{1,3}\.){3}[0-9]{1,3}" | xargs -I{} sudo ip route replace {}/32 via 169.254.200.254'  # noqa W605
-    )
-    dpu_cmds.append(f"ip route replace default via {npu_data_ip.ip}")
-    dpuhost.shell_cmds(cmds=dpu_cmds)
-
-
-@pytest.fixture(scope="function", autouse=True)
-def add_npu_static_routes(
-    duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts, dpu_setup, single_endpoint
-):
-    dpuhost = dpuhosts[dpu_index]
-    if not skip_config:
-        cmds = []
-        vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
-        pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
-
-        cmds.append(f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-
-        if single_endpoint:
-            tunnel_endpoints = TUNNEL1_ENDPOINT_IPS
-        else:
-            tunnel_endpoints = TUNNEL2_ENDPOINT_IPS
-        for tunnel_ip in tunnel_endpoints:
-            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
-        cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
-        logger.info(f"Adding static routes: {cmds}")
-        duthost.shell_cmds(cmds=cmds)
-
-    yield
-
-    if not skip_config and not skip_cleanup:
-        cmds = []
-        cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
-        cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
-        for tunnel_ip in tunnel_endpoints:
-            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
-        cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
-        logger.info(f"Removing static routes: {cmds}")
-        duthost.shell_cmds(cmds=cmds)
-
-
 @pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
 def single_endpoint(request):
     return request.param
@@ -107,7 +48,8 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     set_vxlan_udp_sport_range,
-    add_npu_static_routes,  # manually invoke to ensure routes are added before DASH configs are programmed
+    # manually invoke add_npu_static_routes to ensure routes are added before DASH configs are programmed
+    add_npu_static_routes,  # noqa: F811
     single_endpoint,
 ):
     if skip_config:
@@ -222,6 +164,9 @@ def test_fnic(ptfadapter, dash_pl_config, floating_nic, single_endpoint):
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
             dash_pl_config, floating_nic
         )
+        # Usually `testutils.send` automatically updates the packet payload to include the test nome
+        # and `testutils.verify_packet*` updates the expected packet payload to match. Since we are polling
+        # the dataplane directly for the DPU to VM packet, we need to manually update the payload
         exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
         pkt_sets.append((vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt))
 
