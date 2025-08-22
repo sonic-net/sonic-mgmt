@@ -58,7 +58,8 @@ APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
-        "local_region_id": LOCAL_REGION_ID
+        "local_region_id": LOCAL_REGION_ID,
+        "trusted_vnis": ENCAP_VNI
     }
 }
 
@@ -110,6 +111,7 @@ ENI_CONFIG = {
         "pl_underlay_sip": APPLIANCE_VIP,
         "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
         "v4_meter_policy_id": METER_POLICY_V4,
+        "trusted_vnis": VM_VNI
     }
 }
 
