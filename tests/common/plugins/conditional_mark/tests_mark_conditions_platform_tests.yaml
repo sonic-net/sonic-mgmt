@@ -1043,6 +1043,13 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 #####            sfp              #####
 #######################################
+platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status:
+  xfail:
+    reason: "Per lane interface status is not supported on SP4/SP5 platform."
+    conditions_logical_operator: or
+    conditions:
+    - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"
@@ -1058,13 +1065,6 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
     conditions:
       - "(platform in ['x86_64-cel_e1031-r0'] or 't2' in topo_name) and https://github.com/sonic-net/sonic-mgmt/issues/6218"
       - "asic_type in ['nvidia-bluefield']"
-
-platform_tests/sfp/test_sfputil.py::test_check_sfputil_error_status:
-  xfail:
-    reason: "Per lane interface status is not supported on SP4/SP5 platform."
-    conditions_logical_operator: or
-    conditions:
-    - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']
 
 #######################################
 ####    test_advanced_reboot      #####
