@@ -14,9 +14,9 @@ steps:
 - script: |
     set -x
 
-    echo "PR_CHECKERS=$(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'])"
-    echo "This job CHECKER=$(CHECKER)"
-    if [[ ! ",${PR_CHECKERS}," == *",${CHECKER},"* ]]; then
+    echo "PR_CHECKERS=$PR_CHECKERS"
+    echo "CHECKER=$CHECKER"
+    if [[ ! "$PR_CHECKERS" == *"$CHECKER"* ]]; then
       echo "Checker not in impacted list, skipping..."
       exit 0
     fi
