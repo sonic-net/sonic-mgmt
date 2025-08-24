@@ -110,6 +110,7 @@ jobs:
 
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      PR_CHECKERS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'] ]
       NUM_ASIC: 1
       VM_TYPE: ceos
       STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
@@ -146,5 +147,3 @@ jobs:
           SPECIFIC_PARAM: $(SPECIFIC_PARAM)
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           ASIC_TYPE: ${{ parameters.ASIC_TYPE }}
-
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
