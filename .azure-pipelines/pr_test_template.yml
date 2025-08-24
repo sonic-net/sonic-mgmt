@@ -121,17 +121,7 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      # - script: |
-      #     set -x
-
-      #     echo "PR_CHECKERS=$PR_CHECKERS"
-      #     echo "CHECKER=$CHECKER"
-      #     if [[ ! "$PR_CHECKERS" == *"$CHECKER"* ]]; then
-      #       echo "Checker not in impacted list, skipping..."
-      #       echo -n "##vso[task.setvariable variable=SKIP_FOLLOWING_TESTS]true"
-      #       exit 0
-      #     fi
-      #   name: CheckChecker
+    - ${{ if contains(variables['PR_CHECKERS'], variables['CHECKER']) }}:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
       - template: impacted_area_testing/calculate-instance-numbers.yml
@@ -141,7 +131,6 @@ jobs:
           BUILD_BRANCH: $(BUILD_BRANCH)
 
       - template: run-test-elastictest-template.yml
-        condition: contains(variables['PR_CHECKERS'], variables['CHECKER'])
         parameters:
           TOPOLOGY: $(TOPOLOGY)
           SCRIPTS: $(SCRIPTS)
