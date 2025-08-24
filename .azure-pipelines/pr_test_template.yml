@@ -108,7 +108,7 @@ jobs:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
 
-    condition: contains(t0_checker, variables['CHECKER'])
+    condition: contains('t0_checker', variables['CHECKER'])
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       NUM_ASIC: 1
