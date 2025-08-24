@@ -108,7 +108,6 @@ jobs:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
 
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
       NUM_ASIC: 1
@@ -121,6 +120,7 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
+      - condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
       - template: impacted_area_testing/calculate-instance-numbers.yml
