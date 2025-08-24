@@ -14,17 +14,6 @@ steps:
 - script: |
     set -x
 
-    echo "PR_CHECKERS=$PR_CHECKERS"
-    echo "CHECKER=$CHECKER"
-    if [[ ! "$PR_CHECKERS" == *"$CHECKER"* ]]; then
-      echo "Checker not in impacted list, skipping..."
-      exit 0
-    fi
-  displayName: "Check if checker should to be skipped"
-
-- script: |
-    set -x
-
     sudo apt-get -o DPkg::Lock::Timeout=600 update && sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     echo "$TEST_SCRIPTS" > /tmp/ts.json
