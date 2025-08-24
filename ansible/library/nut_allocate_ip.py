@@ -214,35 +214,35 @@ class GenerateDeviceConfig():
         logging.debug(f"Preparing device config generation for testbed: {self.testbed_facts['name']}")
 
         # Build device template map
-        for tg in self.testbed_facts['duts']:
+        for dut in self.testbed_facts['duts']:
             for device_template in self.testbed_facts['topo']['properties']['dut_templates']:
-                if re.match(device_template['name'], tg):
-                    self.device_templates[tg] = device_template
-                    logging.debug(f"Found template for DUT {tg}: {device_template}")
+                if re.match(device_template['name'], dut):
+                    self.device_templates[dut] = device_template
+                    logging.debug(f"Found template for DUT {dut}: {device_template}")
                     break
             else:
-                raise ValueError(f"No template found for DUT {tg}")
+                raise ValueError(f"No template found for DUT {dut}")
 
         # Build device IP allocator for P2P links
         p2p_v4_allocator_map = {}
         p2p_v6_allocator_map = {}
-        for tg in self.testbed_facts['duts']:
-            device_template = self.device_templates[tg]
+        for dut in self.testbed_facts['duts']:
+            device_template = self.device_templates[dut]
             if 'p2p_v4' in device_template:
                 p2p_v4_cidr = device_template['p2p_v4']
                 if p2p_v4_cidr not in p2p_v4_allocator_map:
                     p2p_v4_allocator_map[p2p_v4_cidr] = IPAllocator(p2p_v4_cidr, 30)
 
-                self.device_ipv4_allocators[tg] = p2p_v4_allocator_map[p2p_v4_cidr]
-                logging.debug(f"Found P2P v4 allocator for {tg} with CIDR {p2p_v4_cidr}")
+                self.device_ipv4_allocators[dut] = p2p_v4_allocator_map[p2p_v4_cidr]
+                logging.debug(f"Found P2P v4 allocator for {dut} with CIDR {p2p_v4_cidr}")
 
             if 'p2p_v6' in device_template:
                 p2p_v6_cidr = device_template['p2p_v6']
                 if p2p_v6_cidr not in p2p_v6_allocator_map:
                     p2p_v6_allocator_map[p2p_v6_cidr] = IPAllocator(p2p_v6_cidr, 126)
 
-                self.device_ipv6_allocators[tg] = p2p_v6_allocator_map[p2p_v6_cidr]
-                logging.debug(f"Found P2P v6 allocator for {tg} with CIDR {p2p_v6_cidr}")
+                self.device_ipv6_allocators[dut] = p2p_v6_allocator_map[p2p_v6_cidr]
+                logging.debug(f"Found P2P v6 allocator for {dut} with CIDR {p2p_v6_cidr}")
 
         tg_template = self.testbed_facts['topo']['properties']['tg_template']
         for tg in self.testbed_facts['tgs']:
