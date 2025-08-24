@@ -68,7 +68,6 @@ steps:
       exit 1
     fi
 
-    TEST_SCRIPTS='{"t0_checker": ["acl/custom_acl_table/test_custom_acl_table.py"]}'
     PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
 
     if [[ $? -ne 0 ]]; then
