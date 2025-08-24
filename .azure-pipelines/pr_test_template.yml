@@ -60,68 +60,31 @@ jobs:
           TESTBED_PREP_TOPOLOGY: t0
           CHECKER: t0_checker
           TOPOLOGY: t0
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          VM_TYPE: ceos
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          SPECIFIC_PARAM: "[]"
         impacted-area-kvmtest-t0-2vlans_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0-2vlans
           CHECKER: t0-2vlans_checker
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a "
           TOPOLOGY: t0
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          VM_TYPE: ceos
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          SPECIFIC_PARAM: "[]"
         impacted-area-kvmtest-t1-lag_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-lag
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          VM_TYPE: ceos
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          SPECIFIC_PARAM: "[]"
         impacted-area-kvmtest-dualtor_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dualtor
           CHECKER: dualtor_checker
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           TOPOLOGY: dualtor
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          VM_TYPE: ceos
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          SPECIFIC_PARAM: "[]"
         impacted-area-kvmtest-multi-asic-t1_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t1-multi-asic
           CHECKER: t1-multi-asic_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          VM_TYPE: ceos
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          SPECIFIC_PARAM: "[]"
         impacted-area-kvmtest-multi-asic-t1_by_Elastictest_optional:
           TESTBED_PREP_TOPOLOGY: t1
           CHECKER: t1_checker
           TOPOLOGY: t1-8-lag
           NUM_ASIC: 4
           STOP_ON_FAILURE: "False"
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          VM_TYPE: ceos
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          SPECIFIC_PARAM: "[]"
         impacted-area-kvmtest-t0-sonic_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: t0-sonic
           CHECKER: t0-sonic_checker
@@ -132,10 +95,6 @@ jobs:
             {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
             {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          DEPLOY_MG_EXTRA_PARAMS: ""
         impacted-area-kvmtest-dpu_by_Elastictest:
           TESTBED_PREP_TOPOLOGY: dpu
           CHECKER: dpu_checker
@@ -143,25 +102,21 @@ jobs:
           SPECIFIC_PARAM: '[
             {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          VM_TYPE: ceos
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          DEPLOY_MG_EXTRA_PARAMS: ""
         impacted-area-kvmtest-t2_by_Elastictest_optional:
           TESTBED_PREP_TOPOLOGY: t2
           CHECKER: t2_checker
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
-          TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-          NUM_ASIC: 1
-          VM_TYPE: ceos
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          DEPLOY_MG_EXTRA_PARAMS: ""
-          SPECIFIC_PARAM: "[]"
 
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
+    condition: contains(t0_checker, variables['CHECKER'])
+    variables:
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      NUM_ASIC: 1
+      VM_TYPE: ceos
+      STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+      COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+      DEPLOY_MG_EXTRA_PARAMS: ""
+      SPECIFIC_PARAM: "[]"
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
