@@ -267,4 +267,3 @@ D2:
       no router bgp 65201
       end
       exit
-      

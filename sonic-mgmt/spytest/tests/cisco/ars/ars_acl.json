@@ -1,0 +1,15 @@
+{
+    "ACL_RULE": {
+      "ARS_IPV4|RULE_1": { "ARS": "arsp", "PRIORITY": "9990", "DSCP": "57" },
+      "NON_ARS_IPV4|RULE_1": { "PACKET_ACTION": "FORWARD", "PRIORITY": "9990", "DSCP": "58" },
+      "ARS_IPV6|RULE_1": { "ARS": "arsp", "PRIORITY": "9990", "DSCP": "57" },
+      "NON_ARS_IPV6|RULE_1": { "PACKET_ACTION": "FORWARD", "PRIORITY": "9990", "DSCP": "58" }
+    },
+    "ACL_TABLE": {
+      "ARS_IPV4":   { "type": "L3",   "policy_desc": "ARS_IPV4",   "ports": ["PORT_PLACEHOLDER"], "stage": "INGRESS" },
+      "NON_ARS_IPV4": { "type": "L3", "policy_desc": "NON_ARS_IPV4", "ports": ["PORT_PLACEHOLDER"], "stage": "INGRESS" },
+      "ARS_IPV6":   { "type": "L3V6", "policy_desc": "ARS_IPV6",   "ports": ["PORT_PLACEHOLDER"], "stage": "INGRESS" },
+      "NON_ARS_IPV6": { "type": "L3V6", "policy_desc": "NON_ARS_IPV6", "ports": ["PORT_PLACEHOLDER"], "stage": "INGRESS" }
+    }
+  }
+  
