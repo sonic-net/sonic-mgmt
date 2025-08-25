@@ -16,20 +16,6 @@ pytestmark = [
 
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
 cmd_sfp_presence = "sudo sfpshow presence"
-DEFAULT_COLLECTED_PORTS_NUM = 5
-
-
-def pytest_addoption(parser):
-    """
-    Add command line options for pytest
-    """
-    parser.addoption(
-        "--collected-ports-num",
-        action="store",
-        default=DEFAULT_COLLECTED_PORTS_NUM,
-        type=int,
-        help="Number of ports to collect for testing (default: {})".format(DEFAULT_COLLECTED_PORTS_NUM)
-    )
 
 
 @pytest.fixture(scope="session")
@@ -37,7 +23,7 @@ def collected_ports_num(request):
     """
     Fixture to get the number of ports to collect from command line argument
     """
-    return request.config.getoption("collected_ports_num", default=DEFAULT_COLLECTED_PORTS_NUM)
+    return request.config.getoption("--collected-ports-num")
 
 
 class TestMACFault(object):
@@ -79,7 +65,7 @@ class TestMACFault(object):
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def select_random_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, collected_ports_num):
+    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         sfp_presence = dut.command(cmd_sfp_presence)
@@ -88,31 +74,29 @@ class TestMACFault(object):
         eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
         eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
-        available_optical_interfaces = get_supported_available_optical_interfaces(eeprom_infos, parsed_presence)
+        supported_available_optical_interfaces = get_supported_available_optical_interfaces(eeprom_infos, parsed_presence)
 
-        pytest_assert(available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
-        logging.info("Available Optical interfaces for tests: {}".format(available_optical_interfaces))
+        pytest_assert(supported_available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
+        logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
 
-        # Select 5 random interfaces (or fewer if not enough available)
-        selected_interfaces = random.sample(available_optical_interfaces,
-                                            min(collected_ports_num, len(available_optical_interfaces)))
-        logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
-
-        return dut, selected_interfaces
+        return dut, supported_available_optical_interfaces
 
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "down"),
                       "Interface {} did not go down after shutdown".format(interface))
-        
+
         dut.command("sudo config interface startup {}".format(interface))
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
                       "Interface {} did not come up after startup".format(interface))
 
-    def test_mac_local_fault_increment(self, select_random_interfaces):
-        dut, interfaces = select_random_interfaces
+    def test_mac_local_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
+        dut, supported_available_optical_interfaces = get_dut_and_supported_available_optical_interfaces
 
-        for interface in interfaces:
+        selected_interfaces = random.sample(supported_available_optical_interfaces, min(collected_ports_num, len(supported_available_optical_interfaces)))
+        logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
+
+        for interface in selected_interfaces:
             self.shutdown_and_startup_interfaces(dut, interface)
 
             pytest_assert(self.get_interface_status(dut, interface) == "up",
@@ -140,10 +124,13 @@ class TestMACFault(object):
             pytest_assert(local_fault_after > local_fault_before,
                           "MAC local fault count did not increment after disabling/enabling rx-output on the device")
 
-    def test_mac_remote_fault_increment(self, select_random_interfaces):
-        dut, interfaces = select_random_interfaces
+    def test_mac_remote_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
+        dut, supported_available_optical_interfaces = get_dut_and_supported_available_optical_interfaces
 
-        for interface in interfaces:
+        selected_interfaces = random.sample(supported_available_optical_interfaces, min(collected_ports_num, len(supported_available_optical_interfaces)))
+        logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
+
+        for interface in selected_interfaces:
             self.shutdown_and_startup_interfaces(dut, interface)
 
             pytest_assert(self.get_interface_status(dut, interface) == "up",
