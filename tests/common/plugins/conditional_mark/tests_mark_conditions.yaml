@@ -1973,6 +1973,16 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####             hft             #####
+#######################################
+high_frequency_telemetry:
+  skip:
+    reason: "High frequency telemetry isn't supported in this platform"
+    conditions_logical_operator: or
+    conditions:
+      - "'nvidia_sn5600' not in platform"
+
+#######################################
 #####    iface_loopback_action    #####
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
@@ -3628,3 +3638,4 @@ zmq/test_gnmi_zmq.py:
     conditions:
       - "'arista' in platform"
       - "'isolated' in topo_name"
+
