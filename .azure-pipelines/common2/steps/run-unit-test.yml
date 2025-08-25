@@ -1,6 +1,13 @@
 steps:
   - script: |
-      pip install pytest pytest-cov
+      # Install dependencies
+      pip install pytest pytest-cov coverage
+
+      # Ensure make is available (most Ubuntu agents have it, but just in case)
+      if ! command -v make &> /dev/null; then
+        echo "Installing make..."
+        sudo apt-get update && sudo apt-get install -y make
+      fi
 
       # Source the shared script to get changed Python files
       source .azure-pipelines/common2/scripts/get-changed-python-files.sh
@@ -8,10 +15,9 @@ steps:
       if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
         echo "Skipping Unit Tests with Coverage Check."
       else
-        echo "Running Unit Tests with Coverage Check for tests/common2..."
-        # The command below will run tests found in 'tests/common2'
-        # and collect coverage for source files in 'tests/common2'.
-        # It will fail the step if coverage is below 80% due to --cov-fail-under=80.
-        pytest tests/common2 --cov=tests/common2 --cov-report=xml --cov-fail-under=80
+        echo "Running Unit Tests with Coverage Enforcement for tests/common2..."
+        # Change to the tests/common2 directory and use the Makefile target
+        # This will run unit tests and enforce 80% coverage for each module
+        cd tests/common2 && make coverage-enforce
       fi
-    displayName: 'Run Unit Tests with Coverage Check (conditional)'
+    displayName: 'Run Unit Tests with Coverage Enforcement (conditional)'
