@@ -2326,6 +2326,12 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
 #######################################
 #####     platform_tests          #####
 #######################################
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
+  xfail:
+    reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
+
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
