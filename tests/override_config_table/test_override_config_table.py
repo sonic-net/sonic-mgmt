@@ -19,6 +19,11 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
+LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
+                         'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
+                         'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
+                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+
 
 @pytest.fixture(scope="module", autouse=True)
 def check_image_version(duthost):
@@ -50,6 +55,9 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
+    hwsku = duthost.facts["hwsku"]
+    if hwsku in LOSSY_HWSKU:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
@@ -63,6 +71,8 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     yield running_config
 
     if topo_type in ["m0", "mx"]:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
+    if hwsku in LOSSY_HWSKU:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
