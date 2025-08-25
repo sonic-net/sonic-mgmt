@@ -4,7 +4,7 @@ import json
 
 from .helper import gnoi_request
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import wait_for_startup
+from tests.common.reboot import wait_for_startup, wait_for_shutdown
 
 
 pytestmark = [
@@ -50,6 +50,10 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
     pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.Reboot API returned msg: {}".format(msg))
+
+    # Wait for the device to go down first
+    wait_for_shutdown(duthost, localhost, delay=10, timeout=300, reboot_res=None)
+    logging.info("Device has gone down for reboot")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
