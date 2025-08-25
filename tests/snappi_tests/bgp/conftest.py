@@ -264,8 +264,16 @@ def patch_conn_graph_facts(duthosts, tbinfo):
 
 @pytest.fixture(scope="session")
 def record_property(request):
-    def _handler(key, value):
-        add_custom_msg(request, key, value)
+    from tabulate import tabulate
+
+    def _print_table(arr_dict_value):
+        logger.info(tabulate([
+            d.values() for d in arr_dict_value
+        ], headers=arr_dict_value[0].keys(), tablefmt="psql"))
+
+    def _handler(key, arr_dict_value):
+        add_custom_msg(request, key, arr_dict_value)
+        _print_table(arr_dict_value)
     return _handler
 
 

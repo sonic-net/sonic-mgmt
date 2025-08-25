@@ -7,7 +7,6 @@ import os
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
-from tabulate import tabulate
 from statistics import mean
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
@@ -865,17 +864,25 @@ def get_convergence_for_link_flap(duthosts,
 
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
+    convergence_result = [
+        {
+            "Test Name": f"{test_name} (link down)",
+            "Iteration": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": avg_pld
+        },
+        {
+            "Test Name": f"{test_name} (link up)",
+            "Iteration": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": avg_pld2
+        }
+    ]
 
-    convergence_result = tabulate([
-        [f"{test_name} (Link DOWN)", iteration, traffic_type,
-         portchannel_count, total_routes, mean(avg_pld)],
-        [f"{test_name} (Link UP)", iteration, traffic_type,
-         portchannel_count, total_routes, mean(avg_pld2)]
-    ], headers=columns, tablefmt="psql")
-
-    logger.info("\n%s" % convergence_result)
     record_property("convergence_result", convergence_result)
 
 
@@ -1004,7 +1011,7 @@ def get_convergence_for_process_flap(duthosts,
                         format(topology.DeviceGroup.find()[0].Name))
             continue
 
-    table = []
+    convergence_result = []
     logger.info('\n')
     logger.info('Testing with Route Range: {}'.format(route_range))
     logger.info('\n')
@@ -1013,7 +1020,6 @@ def get_convergence_for_process_flap(duthosts,
             container_names = get_container_names_from_asic_count(duthost, container_name)
             if duthost.hostname == host_name:
                 for container in container_names:
-                    row = []
                     avg_pld = []
                     for i in range(0, iteration):
                         logger.info(
@@ -1093,19 +1099,18 @@ def get_convergence_for_process_flap(duthosts,
                         api.set_control_state(cs)
                         wait(SNAPPI_TRIGGER, "For Protocols To stop")
                         logger.info('\n')
-                    row.append(test_name)
-                    row.append(f'{container}')
-                    row.append(f'{process_name}')
-                    row.append(iteration)
-                    row.append(traffic_type)
-                    row.append(portchannel_count)
-                    row.append(total_routes)
-                    row.append(mean(avg_pld))
-                    table.append(row)
-    columns = ['Test Name', 'Container Name', 'Process Name', 'Iterations', 'Traffic Type',
-               'Uplink ECMP Paths', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
-    convergence_result = tabulate(table, headers=columns, tablefmt="psql")
-    logger.info("\n%s" % convergence_result)
+
+                    convergence_result.append({
+                        "Test Name": test_name,
+                        "Container Name": container,
+                        "Process Name": process_name,
+                        "Iterations": iteration,
+                        "Traffic Type": traffic_type,
+                        "Uplink ECMP Paths": portchannel_count,
+                        "Route Count": total_routes,
+                        "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+                    })
+
     record_property("convergence_result", convergence_result)
 
 
@@ -1252,14 +1257,24 @@ def get_convergence_for_tsa_tsb(duthosts,
 
             logger.info('\n')
 
-        columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-                   'Avg Calculated Packet Loss Duration (ms)']
-
-        convergence_result = tabulate([[test_name+' (TSA)', iteration, traffic_type, portchannel_count,
-                                      total_routes, mean(avg_pld)], [test_name+' (TSB)', iteration,
-                                      traffic_type, portchannel_count, total_routes, mean(avg_pld2)]],
-                                      headers=columns, tablefmt="psql")
-        logger.info("\n%s" % convergence_result)
+        convergence_result = [
+            {
+                "Test Name": f"{test_name} (TSA)",
+                "Iterations": iteration,
+                "Traffic Type": traffic_type,
+                "Uplink ECMP Paths": portchannel_count,
+                "Route Count": total_routes,
+                "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+            },
+            {
+                "Test Name": f"{test_name} (TSB)",
+                "Iterations": iteration,
+                "Traffic Type": traffic_type,
+                "Uplink ECMP Paths": portchannel_count,
+                "Route Count": total_routes,
+                "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld2)
+            }
+        ]
 
         record_property("convergence_result", convergence_result)
 
@@ -1470,14 +1485,24 @@ def get_convergence_for_blackout(duthosts,
         api.set_control_state(cs)
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
-    convergence_result = tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
-                                  total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
-                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
-                                  tablefmt="psql")
-
-    logger.info("\n%s" % convergence_result)
+    convergence_result = [
+        {
+            "Test Name": f"{test_name} (Link Down)",
+            "Iterations": iteration,
+            "Traffic type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+        },
+        {
+            "Test Name": f"{test_name} (Link Down)",
+            "Iterations": iteration,
+            "Traffic type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld2)
+        }
+    ]
 
     record_property("convergence_result", convergence_result)
 
@@ -1648,22 +1673,23 @@ def get_convergence_for_ungraceful_restart(duthosts,
         api.set_control_state(cs)
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[test_name+' (DOWN))', iteration, traffic_type, portchannel_count,
-                                  total_routes, mean(avg_pld)], [test_name+' (UP)', iteration,
-                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
-                                  tablefmt="psql"))
+    convergence_result = [
+        {
+            "Test Name": f"{test_name} (Link DOWN)",
+            "Iterations": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+        },
+        {
+            "Test Name": f"{test_name} (Link UP)",
+            "Iterations": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld2)
+        }
+    ]
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
-
-    convergence_result = tabulate([
-        [f"{test_name} (Link DOWN)", iteration, traffic_type,
-         portchannel_count, total_routes, mean(avg_pld)],
-        [f"{test_name} (Link UP)", iteration, traffic_type,
-         portchannel_count, total_routes, mean(avg_pld2)]
-    ], headers=columns, tablefmt="psql")
-
-    logger.info("\n%s" % convergence_result)
     record_property("convergence_result", convergence_result)
