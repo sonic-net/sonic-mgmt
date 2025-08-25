@@ -143,14 +143,14 @@ def test_modules_changes(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds,
                          verify_auditd_containers_running,
-                         check_auditd,
-                         reset_auditd_rate_limit):
+                         check_auditd):
+                         # reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
     kernel_version = duthost.command("uname -r")["stdout"].strip()
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                   "sudo ls -l /lib/modules/6.1.0-29-2-amd64/kernel/drivers/net/dummy.ko")
+                   "sudo cat /lib/modules/6.1.0-29-2-amd64/kernel/drivers/net/dummy.ko > /dev/null")
 
     # Search SYSCALL & PATH logs
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
@@ -171,8 +171,8 @@ def test_directory_based_keys(localhost,
                               enum_rand_one_per_hwsku_hostname,
                               creds,
                               verify_auditd_containers_running,
-                              check_auditd,
-                              reset_auditd_rate_limit):
+                              check_auditd):
+                              # reset_auditd_rate_limit):
     """
     Test directory-based rules (triggered by creating files in watched directories)
     """
@@ -232,8 +232,8 @@ def test_file_based_keys(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds,
                          verify_auditd_containers_running,
-                         check_auditd,
-                         reset_auditd_rate_limit):
+                         check_auditd):
+                         # reset_auditd_rate_limit):
     """
     Test file-based auditd rules using 'sudo chown root:root <file>'
     """
@@ -282,8 +282,8 @@ def test_docker_config(localhost,
                        enum_rand_one_per_hwsku_hostname,
                        creds,
                        verify_auditd_containers_running,
-                       check_auditd,
-                       reset_auditd_rate_limit):
+                       check_auditd):
+                       # reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     key_file_mapping = {
@@ -327,8 +327,8 @@ def test_docker_commands(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds,
                          verify_auditd_containers_running,
-                         check_auditd,
-                         reset_auditd_rate_limit):
+                         check_auditd):
+                         # reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -352,8 +352,8 @@ def test_auditd_host_failure(localhost,
                              duthosts,
                              enum_rand_one_per_hwsku_hostname,
                              verify_auditd_containers_running,
-                             check_auditd_failure,
-                             reset_auditd_rate_limit):
+                             check_auditd_failure):
+                             # reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
@@ -381,8 +381,8 @@ def test_32bit_failure(duthosts,
                        enum_rand_one_per_hwsku_hostname,
                        verify_auditd_containers_running,
                        check_auditd_failure_32bit,
-                       check_auditd,
-                       reset_auditd_rate_limit):
+                       check_auditd):
+                       # reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     hwsku = duthost.facts["hwsku"]
