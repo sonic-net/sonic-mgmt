@@ -77,6 +77,7 @@ def load_lossless_info_from_pg_profile_lookup(duthost, dut_asic):
         if len(tokens) > 6:
             profile_info['xon_offset'] = tokens[6]
         DEFAULT_LOSSLESS_PROFILES[(speed, cable_length)] = profile_info
+    return DEFAULT_LOSSLESS_PROFILES
 
 
 def make_dict_from_output_lines(lines):
