@@ -1710,7 +1710,8 @@ class TestQosSai(QosSaiBase):
     @pytest.mark.parametrize("pgProfile", ["wm_pg_shared_lossless", "wm_pg_shared_lossy"])
     def testQosSaiPgSharedWatermark(
         self, pgProfile, ptfhost, get_src_dst_asic_and_duts, dutTestParams, dutConfig, dutQosConfig,
-        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic, disable_ipv6
+        resetWatermark, skip_src_dst_different_asic, change_lag_lacp_timer, blockGrpcTraffic,
+        iptables_drop_ipv6_tx  # noqa: F811
     ):
         """
             Test QoS SAI PG shared watermark test for lossless/lossy traffic
@@ -1931,7 +1932,7 @@ class TestQosSai(QosSaiBase):
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         resetWatermark, skip_src_dst_different_asic, skip_pacific_dst_asic, change_lag_lacp_timer,
-        blockGrpcTraffic, disable_ipv6
+        blockGrpcTraffic, iptables_drop_ipv6_tx  # noqa: F811
     ):
         """
             Test QoS SAI Queue shared watermark test for lossless/lossy traffic
