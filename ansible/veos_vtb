@@ -120,6 +120,8 @@ all:
         mgmt_subnet_v6_mask_length: 64
         ansible_connection: multi_passwd_ssh
         ansible_altpassword: YourPaSsWoRd
+      children:
+        vms_1:
       hosts:
         vlab-01:
           ansible_host: 10.250.0.101
