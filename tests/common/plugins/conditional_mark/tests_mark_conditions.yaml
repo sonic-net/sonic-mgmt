@@ -165,6 +165,12 @@ bgp/test_bgp_multipath_relax.py:
       - "'backend' in topo_name"
       - "'t1-isolated' in topo_name"
 
+bgp/test_bgp_operation_in_ro.py:
+  skip:
+    reason: "Feature is reverted and pending enhancement"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
+
 bgp/test_bgp_port_disable.py:
   skip:
     reason: "Not supperted on master."
@@ -552,6 +558,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
+  skip:
+    reason: "The test case only tests DHCP relay on the dualtor standby dut"
+    conditions:
+      - "'dualtor' not in topo_name"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_random_sport:
   skip:
@@ -2437,6 +2449,12 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
 #######################################
 #####     platform_tests          #####
 #######################################
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
+  xfail:
+    reason: "Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
+
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"

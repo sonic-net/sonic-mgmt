@@ -2521,6 +2521,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             hysteresis = 0
         hwsku = self.test_params['hwsku']
         src_dst_asic_diff = self.test_params['src_dst_asic_diff']
+        dut_asic = self.test_params['dut_asic']
+
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         # get a snapshot of counter values at recv and transmit ports
@@ -2768,11 +2770,13 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     fill_leakout_plus_one(
                         self, src_port_id, dst_port_2_id,
                         pkt2, int(self.test_params['pg']), asic_type)
-                    send_packet(
-                        self, src_port_id, pkt2,
-                        (pkts_num_leak_out + pkts_num_dismiss_pfc +
-                         hysteresis) // cell_occupancy - margin - 2
-                    )
+                    if dut_asic == 'gr2':
+                        pkt_count = (pkts_num_leak_out + pkts_num_dismiss_pfc +
+                                     hysteresis) // cell_occupancy - margin - 2
+                    else:
+                        pkt_count = (pkts_num_leak_out + pkts_num_dismiss_pfc +
+                                     hysteresis) // cell_occupancy + margin - 2
+                    send_packet(self, src_port_id, pkt2, pkt_count)
                 else:
                     fill_egress_plus_one(
                         self, src_port_id,
@@ -2814,7 +2818,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     fill_leakout_plus_one(
                         self, src_port_id, dst_port_3_id,
                         pkt3, int(self.test_params['pg']), asic_type)
-                    send_packet(self, src_port_id, pkt3, pkts_num_leak_out + margin * 2)
+                    if dut_asic == 'gr2':
+                        pkt_count = pkts_num_leak_out + margin * 2
+                    else:
+                        pkt_count = pkts_num_leak_out
+                    send_packet(self, src_port_id, pkt3, pkt_count)
                 else:
                     fill_egress_plus_one(
                         self, src_port_id,
