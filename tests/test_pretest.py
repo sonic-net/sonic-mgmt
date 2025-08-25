@@ -3,11 +3,15 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
+
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
+from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
@@ -29,26 +33,29 @@ FEATURE_STATE_VERIFYING_THRESHOLD_SECS = 600
 FEATURE_STATE_VERIFYING_INTERVAL_SECS = 10
 
 
-def test_features_state(duthosts, enum_dut_hostname, localhost):
+def test_features_state(duthosts, localhost):
     """Checks whether the state of each feature is valid or not.
     Args:
-      duthosts: Fixture returns a list of Ansible object DuT.
-      enum_dut_hostname: Fixture returns name of DuT.
+      duthosts: Fixture returns a list of Ansible object DuT..
 
     Returns:
       None.
     """
-    duthost = duthosts[enum_dut_hostname]
-    logger.info("Checking the state of each feature in 'CONFIG_DB' ...")
-    if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, duthost):
-        logger.warning("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(duthost.hostname))
-        reboot(duthost, localhost)
-        # Some services are not ready immeidately after reboot
-        wait_critical_processes(duthost)
+    def check_feature_state(dut):
+        logger.info("Checking the state of each feature in 'CONFIG_DB' of {}...".format(dut.hostname))
+        if not wait_until(180, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0, verify_features_state, dut):
+            logger.warning("Not all states of features in 'CONFIG_DB' are valid, rebooting DUT {}".format(dut.hostname))
+            reboot(dut, localhost)
+            # Some services are not ready immeidately after reboot
+            wait_critical_processes(dut)
 
-    pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0,
-                             verify_features_state, duthost), "Not all service states are valid!")
-    logger.info("The states of features in 'CONFIG_DB' are all valid.")
+        pytest_assert(wait_until(FEATURE_STATE_VERIFYING_THRESHOLD_SECS, FEATURE_STATE_VERIFYING_INTERVAL_SECS, 0,
+                                 verify_features_state, dut), "Not all service states are valid!")
+        logger.info("The states of features in 'CONFIG_DB' are all valid.")
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(check_feature_state, duthost)
 
 
 def test_cleanup_cache():
@@ -57,23 +64,28 @@ def test_cleanup_cache():
         os.system('rm -rf {}'.format(folder))
 
 
-def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
-    duthost = duthosts[enum_dut_hostname]
+def test_cleanup_testbed(duthosts, request, ptfhost):
     deep_clean = request.config.getoption("--deep_clean")
     if deep_clean:
-        logger.info("Deep cleaning DUT {}".format(duthost.hostname))
-        # Remove old log files.
-        duthost.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
-        # Remove old core files.
-        duthost.shell("sudo rm -f /var/core/*", executable="/bin/bash")
-        # Remove old dump files.
-        duthost.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
 
-        # delete other log files that are more than a day old,
-        # this step is needed to remove some backup files or the debug files added by users
-        # which can create issue for log-analyzer
-        duthost.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
+        def deep_clean_dut(dut):
+            logger.info("Deep cleaning DUT {}".format(dut.hostname))
+            # Remove old log files.
+            dut.shell("sudo find /var/log/ -name '*.gz' | sudo xargs rm -f", executable="/bin/bash")
+            # Remove old core files.
+            dut.shell("sudo rm -f /var/core/*", executable="/bin/bash")
+            # Remove old dump files.
+            dut.shell("sudo rm -rf /var/dump/*", executable="/bin/bash")
+
+            # delete other log files that are more than a day old,
+            # this step is needed to remove some backup files or the debug files added by users
+            # which can create issue for log-analyzer
+            dut.shell("sudo find /var/log/ -mtime +1 | sudo xargs rm -f",
                       module_ignore_errors=True, executable="/bin/bash")
+
+        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+            for duthost in duthosts:
+                executor.submit(deep_clean_dut, duthost)
 
     # Cleanup rsyslog configuration file that might have damaged by test_syslog.py
     if ptfhost:
@@ -81,15 +93,17 @@ def test_cleanup_testbed(duthosts, enum_dut_hostname, request, ptfhost):
                       "uniq /etc/rsyslog.conf.orig > /etc/rsyslog.conf; fi", executable="/bin/bash")
 
 
-def test_disable_container_autorestart(duthosts, enum_dut_hostname, disable_container_autorestart):
-    duthost = duthosts[enum_dut_hostname]
-    disable_container_autorestart(duthost)
+def test_disable_container_autorestart(duthosts, disable_container_autorestart):
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(disable_container_autorestart, duthost)
+
     # Wait sometime for snmp reloading
-    SNMP_RELOADING_TIME = 30
-    time.sleep(SNMP_RELOADING_TIME)
+    snmp_reloading_time = 30
+    time.sleep(snmp_reloading_time)
 
 
-def collect_dut_info(dut):
+def collect_dut_info(dut, metadata):
     status = dut.show_interface(command='status')['ansible_facts']['int_status']
     features, _ = dut.get_feature_status()
 
@@ -126,7 +140,7 @@ def collect_dut_info(dut):
             }
         )
 
-    return dut_info
+    metadata[dut.hostname] = dut_info
 
 
 def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
@@ -134,9 +148,9 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
 
-    for dut in duthosts:
-        dutinfo = collect_dut_info(dut)
-        metadata[dut.hostname] = dutinfo
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(collect_dut_info, duthost, metadata)
 
     info = {tbname: metadata}
     folder = 'metadata'
@@ -152,47 +166,94 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     prepare_autonegtest_params(duthosts, fanouthosts)
 
 
-def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
-    duthost = duthosts[enum_dut_hostname]
-    features_dict, succeed = duthost.get_feature_status()
-    if not succeed:
-        # Something unexpected happened.
-        # We don't want to fail here because it's an util
-        logging.warning("Failed to retrieve feature status")
-        return
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")
-    try:
-        is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
-    except KeyError:
-        is_dhcp_server_enable = None
+def test_disable_rsyslog_rate_limit(duthosts):
 
-    output = duthost.command('config syslog --help')['stdout']
-    manually_enable_feature = False
-    feature_exception_dict = dict()
-    if 'rate-limit-feature' in output:
-        # in 202305, the feature is disabled by default for warmboot/fastboot
-        # performance, need manually enable it via command
-        duthost.command('config syslog rate-limit-feature enable')
-        manually_enable_feature = True
-    for feature_name, state in list(features_dict.items()):
-        if 'enabled' not in state:
-            continue
-        # Skip dhcp_relay check if dhcp_server is enabled
-        if is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and feature_name == "dhcp_relay":
-            continue
-        if feature_name == "telemetry":
-            # Skip telemetry if there's no docker image
-            output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
-            if "sonic-telemetry" not in output:
-                continue
+    def disable_rsyslog_rate_limit(dut):
+        features_dict, succeed = dut.get_feature_status()
+        if not succeed:
+            # Something unexpected happened.
+            # We don't want to fail here because it's an util
+            logging.warning("Failed to retrieve feature status")
+            return
+        config_facts = dut.config_facts(host=dut.hostname, source="running")
         try:
-            duthost.modify_syslog_rate_limit(feature_name, rl_option='disable')
-        except Exception as e:
-            feature_exception_dict[feature_name] = str(e)
-    if manually_enable_feature:
-        duthost.command('config syslog rate-limit-feature disable')
-    if feature_exception_dict:
-        pytest.fail(f"The test failed on some of the dockers. feature_exception_dict = {feature_exception_dict}")
+            is_dhcp_server_enable = config_facts["ansible_facts"]["DEVICE_METADATA"]["localhost"]["dhcp_server"]
+        except KeyError:
+            is_dhcp_server_enable = None
+
+        output = dut.command('config syslog --help')['stdout']
+        manually_enable_feature = False
+        feature_exception_dict = dict()
+        if 'rate-limit-feature' in output:
+            # in 202305, the feature is disabled by default for warmboot/fastboot
+            # performance, need manually enable it via command
+            dut.command('config syslog rate-limit-feature enable')
+            manually_enable_feature = True
+        for feature_name, state in list(features_dict.items()):
+            if 'enabled' not in state:
+                continue
+            # Skip dhcp_relay check if dhcp_server is enabled
+            if (is_dhcp_server_enable is not None and "enabled" in is_dhcp_server_enable and
+                    feature_name == "dhcp_relay"):
+                continue
+            if feature_name == "frr_bmp":
+                continue
+            if feature_name == "telemetry":
+                # Skip telemetry if there's no docker image
+                output = dut.shell("docker images", module_ignore_errors=True)['stdout']
+                if "sonic-telemetry" not in output:
+                    continue
+            try:
+                dut.modify_syslog_rate_limit(feature_name, rl_option='disable')
+            except Exception as e:
+                feature_exception_dict[feature_name] = str(e)
+        if manually_enable_feature:
+            dut.command('config syslog rate-limit-feature disable')
+        if feature_exception_dict:
+            pytest.fail(f"The test failed on some of the dockers. feature_exception_dict = {feature_exception_dict}")
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(disable_rsyslog_rate_limit, duthost)
+
+
+def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
+    """
+    Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
+    """
+    is_ixia_testbed = "tgen" in (request.config.getoption("--topology") or "") \
+        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"] \
+        or "nut" in tbinfo["topo"]["name"]
+
+    pytest_require(is_ixia_testbed,
+                   "Skip snappi metadata generation for non-tgen testbed")
+
+    metadata = {}
+    tbname = tbinfo['conf-name']
+    pytest_require(tbname, "skip test due to lack of testbed name.")
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for dut in duthosts:
+            executor.submit(collect_dut_info, dut, metadata)
+
+    for dut in duthosts:
+        dutinfo = metadata[dut.hostname]
+        asic_to_interface = {}
+        for asic in dut.asics:
+            interfaces = dut.show_interface(command="status", namespace=asic.namespace)["ansible_facts"]["int_status"]
+            asic_to_interface[asic.namespace] = list(interfaces.keys())
+        dutinfo.update({"asic_to_interface": asic_to_interface})
+        metadata[dut.hostname] = dutinfo
+
+    folder = 'metadata/snappi_tests'
+    filepath = os.path.join(folder, tbname + '.json')
+    info = {tbname: metadata}
+    try:
+        if not os.path.exists(folder):
+            os.makedirs(folder)
+        with open(filepath, 'w') as yf:
+            json.dump(info, yf, indent=4)
+    except IOError as e:
+        logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
 def collect_dut_lossless_prio(dut):
@@ -208,7 +269,7 @@ def collect_dut_lossless_prio(dut):
 
     """ Here we assume all the ports have the same lossless priorities """
     intf = list(port_qos_map.keys())[0]
-    if 'pfc_enable' not in port_qos_map[intf]:
+    if not port_qos_map[intf].get('pfc_enable'):
         return []
 
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
@@ -316,15 +377,82 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_update_saithrift_ptf(request, ptfhost):
+def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
     '''
     py_saithrift_url = request.config.getoption("--py_saithrift_url")
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
+
+    duthost = duthosts[enum_dut_hostname]
+    output = duthost.shell("show version", module_ignore_errors=True)['stdout']
+    version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
+    asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
+    # sample value: SONiC.20240510.33, SONiC.20250505.07, SONiC.internal.129741107-8524154c2d,
+    # SONiC.master.882522-695c23859
+    version = version_reg.findall(output)[0] if version_reg.search(output) else ""
+    # only broadcom, cisco-8000, mellanox support qos sai tests
+    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else ""
+
+    if "master" in version:
+        branch_name = "master"
+    elif "internal" in version:
+        branch_name = "internal"
+    else:
+        # Extract year/month from version string to determine branch
+        date_match = re.search(r'(\d{4})(\d{2})', version)
+        if date_match:
+            year, month = date_match.groups()
+            branch_name = f"internal-{year}{month}"
+        else:
+            pytest.fail("Unable to parse or recognize version format: {}".format(version))
+
+    # Apply special codename overrides for specific internal branches
+    if branch_name == "internal-202411" and asic != "mellanox":
+        # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
+        debian_codename = "bullseye"
+    elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+        # For internal branches older than 202405, use the original URL without modification
+        # No need to get debian_codename as URL won't be modified
+        debian_codename = None
+    else:
+        # Get debian codename from syncd container (not host OS)
+        # This applies to: master branch and internal branches >= 202405 (except 202411)
+        try:
+            # Try to get codename from syncd container
+            if duthost.is_multi_asic:
+                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
+                                      f"grep VERSION_CODENAME /etc/os-release | "
+                                      f"cut -d= -f2 | tr -d '\"'")
+            else:
+                syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
+                                      "cut -d= -f2 | tr -d '\"'")
+            syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
+            if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
+                debian_codename = syncd_codename_result['stdout'].strip()
+            else:
+                pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
+                    syncd_codename_result['rc'], syncd_codename_result['stdout']))
+        except Exception as e:
+            pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
+
     pkg_name = py_saithrift_url.split("/")[-1]
+    ip_addr = py_saithrift_url.split("/")[2]
     ptfhost.shell("rm -f {}".format(pkg_name))
+
+    if branch_name.startswith("internal-") and branch_name < "internal-202405":
+        # For internal branches older than 202405, use the original URL without modification
+        pass
+    elif branch_name == "master":
+        py_saithrift_url = (f"http://{ip_addr}/mssonic-public-pipelines/"
+                            f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
+                            f"latest/target/debs/{debian_codename}/{pkg_name}")
+    else:
+        # For internal branches newer than 202405 and other branches
+        py_saithrift_url = (f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/"
+                            f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+
     # Retry download of saithrift library
     retry_count = 5
     while retry_count > 0:
@@ -335,7 +463,7 @@ def test_update_saithrift_ptf(request, ptfhost):
         retry_count -= 1
 
     if result["failed"] or "OK" not in result["msg"]:
-        pytest.skip("Download failed/error while installing python saithrift package")
+        pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
     # We need to move it out to the correct location
@@ -354,23 +482,30 @@ def prepare_autonegtest_params(duthosts, fanouthosts):
     max_interfaces_per_dut = 3
     filepath = os.path.join('metadata', 'autoneg-test-params.json')
     try:
-        for duthost in duthosts:
-            all_ports = list_dut_fanout_connections(duthost, fanouthosts)
+
+        def select_test_ports(dut):
+            all_ports = list_dut_fanout_connections(dut, fanouthosts)
             selected_ports = {}
             for dut_port, fanout, fanout_port in all_ports:
                 if len(selected_ports) == max_interfaces_per_dut:
                     break
                 auto_neg_mode = fanout.get_auto_negotiation_mode(fanout_port)
-                fec_mode = duthost.get_port_fec(dut_port)
+                fec_mode = dut.get_port_fec(dut_port)
                 if auto_neg_mode is not None and fec_mode is not None:
-                    speeds = get_common_supported_speeds(duthost, dut_port, fanout, fanout_port)
+                    speeds = get_common_supported_speeds(dut, dut_port, fanout, fanout_port)
                     selected_ports[dut_port] = {
                         'fanout': fanout.hostname,
                         'fanout_port': fanout_port,
                         'common_port_speeds': speeds
                     }
+
             if len(selected_ports) > 0:
-                cadidate_test_ports[duthost.hostname] = selected_ports
+                cadidate_test_ports[dut.hostname] = selected_ports
+
+        with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+            for duthost in duthosts:
+                executor.submit(select_test_ports, duthost)
+
         if len(cadidate_test_ports) > 0:
             with open(filepath, 'w') as yf:
                 json.dump(cadidate_test_ports, yf, indent=4)
@@ -388,21 +523,26 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
     Returns:
         None.
     """
-    for duthost in duthosts.frontend_nodes:
-        platform = duthost.facts['platform']
-        file_check = {}
+
+    def disable_startup_tsa_tsb(dut):
+        platform = dut.facts['platform']
         startup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/startup-tsa-tsb.conf".format(platform)
         backup_tsa_tsb_file_path = "/usr/share/sonic/device/{}/backup-startup-tsa-tsb.bck".format(platform)
-        file_check = duthost.shell("[ -f {} ]".format(startup_tsa_tsb_file_path), module_ignore_errors=True)
+        file_check = dut.shell("[ -f {} ]".format(startup_tsa_tsb_file_path), module_ignore_errors=True)
         if file_check.get('rc') == 0:
-            out = duthost.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
+            out = dut.shell("cat {}".format(startup_tsa_tsb_file_path), module_ignore_errors=True)['rc']
             if not out:
-                duthost.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
-                output = duthost.shell("TSB", module_ignore_errors=True)
+                dut.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
+                output = dut.shell("TSB", module_ignore_errors=True)
                 pytest_assert(not output['rc'], "Failed TSB")
+                dut.shell("sudo config save -y")
         else:
             logger.info("{} file does not exist in the specified path on dut {}".
-                        format(startup_tsa_tsb_file_path, duthost.hostname))
+                        format(startup_tsa_tsb_file_path, dut.hostname))
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts.frontend_nodes:
+            executor.submit(disable_startup_tsa_tsb, duthost)
 
 
 """
@@ -433,10 +573,39 @@ def test_generate_running_golden_config(duthosts):
     """
     Generate running golden config after pre test.
     """
-    for duthost in duthosts:
-        duthost.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
-        if duthost.is_multi_asic:
-            for asic_index in range(0, duthost.facts.get('num_asic')):
+
+    def generate_running_golden_config(dut):
+        dut.shell("sonic-cfggen -d --print-data > /etc/sonic/running_golden_config.json")
+        if dut.is_multi_asic:
+            for asic_index in range(0, dut.facts.get('num_asic')):
                 asic_ns = 'asic{}'.format(asic_index)
-                duthost.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
-                              format(asic_ns, asic_index))
+                dut.shell("sonic-cfggen -n {} -d --print-data > /etc/sonic/running_golden_config{}.json".
+                          format(asic_ns, asic_index))
+
+    with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
+        for duthost in duthosts:
+            executor.submit(generate_running_golden_config, duthost)
+
+
+def test_clean_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
+    """
+    Clean mux/nic simulator logs from /tmp/ on the server before test run.
+    """
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    log_name = None
+    if active_standby_ports:
+        server = tbinfo['server']
+        tbname = tbinfo['conf-name']
+        inv_files = utilities.get_inventory_files(request)
+        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
+        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
+    elif active_active_ports:
+        vm_set = tbinfo['group-name']
+        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
+
+    if log_name:
+        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
+        for log_file in log_files:
+            vmhost.shell("rm -f {}".format(log_file))

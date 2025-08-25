@@ -180,6 +180,7 @@ class ReloadTest(BaseTest):
         self.check_param('asic_type', '', required=False)
         self.check_param('logfile_suffix', None, required=False)
         self.check_param('neighbor_type', 'eos', required=False)
+        self.check_param('ceos_neighbor_lacp_multiplier', 3, required=False)
         self.check_param('port_channel_intf_idx', [], required=False)
         if not self.test_params['preboot_oper'] or self.test_params['preboot_oper'] == 'None':
             self.test_params['preboot_oper'] = None
@@ -738,6 +739,11 @@ class ReloadTest(BaseTest):
         self.log("Enabling arp_responder")
         self.cmd(["supervisorctl", "restart", "arp_responder"])
 
+        # Give arp_responder 15 seconds to start up, because with the libpcap backend, scapy will first get information
+        # about all of the interfaces on the system (which takes a bit of time) and then proceeds.
+        self.log("Waiting 15 seconds for ARP responder to complete initialization")
+        time.sleep(15)
+
         return
 
     def setup_fdb(self):
@@ -1142,7 +1148,7 @@ class ReloadTest(BaseTest):
         self.fails['dut'].clear()
 
         # wait until sniffer and sender threads have started
-        while not (self.sniff_thr.isAlive() and self.sender_thr.isAlive()):
+        while not (self.sniff_thr.is_alive() and self.sender_thr.is_alive()):
             time.sleep(1)
 
         self.log("IO sender and sniffer threads have started, wait until completion")
@@ -1400,6 +1406,10 @@ class ReloadTest(BaseTest):
         self.assertTrue(is_good, errors)
 
     def runTest(self):
+        # Set LACP timer multiplier for cEOS peers when it is not default (3)
+        if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
+            self.ceos_set_lacp_all_neighs(self.test_params['ceos_neighbor_lacp_multiplier'])
+
         self.pre_reboot_test_setup()
         try:
             self.log("Check that device is alive and pinging")
@@ -1453,7 +1463,28 @@ class ReloadTest(BaseTest):
             traceback_msg = traceback.format_exc()
             self.fails['dut'].add(traceback_msg)
         finally:
+            # Restore cEOS LACP timer multiplier to default (3)
+            if self.test_params['neighbor_type'] == "eos" and self.test_params['ceos_neighbor_lacp_multiplier'] != 3:
+                self.ceos_set_lacp_all_neighs(3)
+
             self.handle_post_reboot_test_reports()
+
+    def ceos_set_lacp_all_neighs(self, multiplier):
+        for neigh in self.ssh_targets:
+            self.neigh_handle = HostDevice.getHostDeviceInstance(
+                                    self.test_params['neighbor_type'], neigh, None, self.test_params)
+            self.neigh_handle.connect()
+
+            raw_json = self.neigh_handle.do_cmd("show lacp interface | json")
+            neigh_int_json = json.loads(raw_json[raw_json.find("{"):raw_json.rfind("}")+1])
+
+            self.neigh_handle.do_cmd("config")
+            for lag in neigh_int_json["portChannels"]:
+                for neigh_int in neigh_int_json["portChannels"][lag]['interfaces']:
+                    self.neigh_handle.do_cmd(f"interface {neigh_int}")
+                    self.neigh_handle.do_cmd(f"lacp timer multiplier {multiplier}")
+
+            self.neigh_handle.disconnect()
 
     def neigh_lag_status_check(self):
         """
@@ -1720,9 +1751,7 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
-        max_allowed_lacp_session_wait = 90
-        if self.test_params['neighbor_type'] == "sonic":
-            max_allowed_lacp_session_wait = 150
+        max_allowed_lacp_session_wait = 150
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -1858,12 +1887,11 @@ class ReloadTest(BaseTest):
             sniff_filter (str): Filter that tcpdump will use to collect only relevant packets
         """
         try:
-            capture_pcap = ("/tmp/capture_%s.pcap" % self.logfile_suffix
-                            if self.logfile_suffix is not None else "/tmp/capture.pcap")
+            capture_pcap = ("/tmp/capture_%s.pcapng" % self.logfile_suffix
+                            if self.logfile_suffix is not None else "/tmp/capture.pcapng")
             subprocess.call(["rm", "-rf", capture_pcap])  # remove old capture
             self.kill_sniffer = False
             self.start_sniffer(capture_pcap, sniff_filter, wait)
-            self.create_single_pcap(capture_pcap)
             self.packets = scapyall.rdpcap(capture_pcap)
             self.log("Number of all packets captured: {}".format(len(self.packets)))
         except Exception:
@@ -1876,23 +1904,24 @@ class ReloadTest(BaseTest):
         """
         self.tcpdump_data_ifaces = [
             iface for iface in scapyall.get_if_list() if iface.startswith('eth')]
-        processes_list = []
+        process_args = ['dumpcap', '-w', pcap_path, '-f', tcpdump_filter, '-Z', 'none', '-s', '1514', '-t']
         for iface in self.tcpdump_data_ifaces:
-            iface_pcap_path = '{}_{}'.format(pcap_path, iface)
-            process = subprocess.Popen(
-                ['tcpdump', '-i', iface, tcpdump_filter, '-w', iface_pcap_path],
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.PIPE,
-                text=True
-            )
-            self.log('Tcpdump sniffer starting on iface: {}'.format(iface))
-            processes_list.append(process)
+            process_args += ['-i', iface]
 
-        for proc in processes_list:
-            while True:
-                line = proc.stderr.readline()
-                if not line or 'listening on' in line:
-                    break
+        process = subprocess.Popen(process_args, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        self.log('Dumpcap sniffer process started')
+
+        pcap_existence_check_limit = 10
+        pcap_existence_check_count = 0
+        while not os.path.exists(pcap_path) and pcap_existence_check_count < pcap_existence_check_limit:
+            time.sleep(1)
+            pcap_existence_check_count += 1
+
+        if not os.path.exists(pcap_path):
+            self.log("Dumpcap did not create pcap file!")
+            process.terminate()
+            process.kill()
+            return
 
         # Unblock waiter for the send_in_background.
         self.sniffer_started.set()
@@ -1904,71 +1933,27 @@ class ReloadTest(BaseTest):
             if curr_time - time_start > timeout:
                 break
 
-        self.log("Going to kill all tcpdump processes by SIGTERM")
-        for process in processes_list:
-            process.terminate()
-
-        for process in processes_list:
+        self.log("Going to kill dumpcap process by SIGTERM")
+        process.terminate()
+        try:
             process.wait(timeout=5)
-            # Return code here could be 0, so we need to explicitly check for None
-            if process.returncode is not None:
-                self.log("Tcpdump process {} terminated".format(process.args))
+        except subprocess.TimeoutExpired:
+            pass
 
-        for process in processes_list:
-            if process.returncode is not None:
-                continue
-            self.log("Killing tcpdump process {}".format(process.args))
-            process.kill()
+        # Return code here could be 0, so we need to explicitly check for None
+        if process.returncode is not None:
+            self.log("Dumpcap process terminated")
+            return
+
+        self.log("Killing dumpcap process")
+        process.kill()
+        try:
             process.wait(timeout=5)
-            # Return code here could be 0, so we need to explicitly check for None
-            if process.returncode is not None:
-                self.log("Tcpdump process {} killed".format(process.args))
-
-        self.log("Killed all tcpdump processes")
-
-    def create_single_pcap(self, pcap_path):
-        """
-        Merge all pcaps from each interface into single pcap file
-        """
-        pcapng_full_capture = self.merge_pcaps(
-            pcap_path, self.tcpdump_data_ifaces)
-        self.convert_pcapng_to_pcap(pcap_path, pcapng_full_capture)
-        self.log('Pcap files merged into single pcap file: {}'.format(pcap_path))
-
-    def merge_pcaps(self, pcap_path, data_ifaces):
-        """
-        Merge all pcaps into one, format: pcapng
-        """
-        pcapng_full_capture = '{}.pcapng'.format(pcap_path)
-        cmd = ['mergecap', '-w', pcapng_full_capture]
-        ifaces_pcap_files_list = []
-        for iface in data_ifaces:
-            pcap_file_path = '{}_{}'.format(pcap_path, iface)
-            if os.path.exists(pcap_file_path):
-                cmd.append(pcap_file_path)
-                ifaces_pcap_files_list.append(pcap_file_path)
-
-        self.log('Starting merge pcap files')
-        subprocess.call(cmd)
-        self.log('Pcap files merged into tmp pcapng file')
-
-        # Remove pcap files created per interface
-        for pcap_file in ifaces_pcap_files_list:
-            subprocess.call(['rm', '-f', pcap_file])
-
-        return pcapng_full_capture
-
-    def convert_pcapng_to_pcap(self, pcap_path, pcapng_full_capture):
-        """
-        Convert pcapng file into pcap. We can't just merge all in pcap,
-        mergecap can merge multiple files only into pcapng format
-        """
-        cmd = ['mergecap', '-F', 'pcap', '-w', pcap_path, pcapng_full_capture]
-        self.log('Converting pcapng file into pcap file')
-        subprocess.call(cmd)
-        self.log('Pcapng file converted into pcap file')
-        # Remove tmp pcapng file
-        subprocess.call(['rm', '-f', pcapng_full_capture])
+        except subprocess.TimeoutExpired:
+            pass
+        # Return code here could be 0, so we need to explicitly check for None
+        if process.returncode is not None:
+            self.log("Dumpcap process killed")
 
     def check_tcp_payload(self, packet):
         """
@@ -2077,7 +2062,7 @@ class ReloadTest(BaseTest):
                     sent_payload = int(bytes(packet[scapyall.TCP].payload))
                     if sent_payload in sent_packets:
                         flooded_pkts.append(sent_payload)
-                    sent_packets[sent_payload] = packet.time
+                    sent_packets[sent_payload] = float(packet.time)
                     sent_counter += 1
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
@@ -2149,9 +2134,9 @@ class ReloadTest(BaseTest):
                         self.log("")
                         if not self.disruption_start:
                             self.disruption_start = datetime.datetime.fromtimestamp(
-                                prev_time)
+                               float(prev_time))
                         self.disruption_stop = datetime.datetime.fromtimestamp(
-                            received_time)
+                            float(received_time))
                 prev_payload = received_payload
                 prev_time = received_time
             self.log(

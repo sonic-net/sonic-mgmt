@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import json
 
 from jinja2 import Template
 from tests.common.errors import MissingInputError
@@ -11,6 +12,26 @@ ANSIBLE_ROOT = os.path.realpath((os.path.join(os.path.dirname(__file__), "../../
 RUN_PLAYBOOK = os.path.realpath(os.path.join(os.path.dirname(__file__), "../../scripts/exec_template.yml"))
 
 logger = logging.getLogger(__name__)
+
+
+def get_chip_name_if_asic_pfc_storm_supported(fanout):
+    hwSkuInfo = {
+        "Arista DCS-7060DX5": "Tomahawk4",
+        "Arista DCS-7060PX5": "Tomahawk4",
+        "Arista DCS-7060X6": "Tomahawk5",
+        "Arista-7060X6": "Tomahawk5",
+        "Arista DCS-7060CX": "Tomahawk",
+        "Arista-7060CX": "Tomahawk",
+        "Arista DCS-7260CX3": "Tomahawk2",
+        "Arista-7260CX3": "Tomahawk2",
+        "Arista-7260QX3": "Tomahawk2",
+        }
+
+    for sku, chip in hwSkuInfo.items():
+        if fanout.startswith(sku):
+            return chip
+
+    return None
 
 
 class PFCStorm(object):
@@ -29,6 +50,7 @@ class PFCStorm(object):
             fanouthosts(AnsibleHost) : fanout instance
             kwargs(dict):
                 peer_info(dict): keys are 'peerdevice', 'pfc_fanout_interface'. Optional: 'hwsku'
+                pfc_gen_chip_name(string) : chip name of switch where PFC frames are generated. default: None
                 pfc_queue_index(int) : queue on which the PFC storm should be generated. default: 3
                 pfc_frames_number(int) : Number of PFC frames to generate. default: 100000
                 pfc_gen_file(string): Script which generates the PFC traffic. default: 'pfc_gen.py'
@@ -43,6 +65,7 @@ class PFCStorm(object):
         self.fanout_hosts = fanouthosts
         self.pfc_gen_file = kwargs.pop('pfc_gen_file', "pfc_gen.py")
         self.pfc_gen_multiprocess = kwargs.pop('pfc_gen_multiprocess', False)
+        self.pfc_gen_chip_name = None
         self.pfc_queue_idx = kwargs.pop('pfc_queue_index', 3)
         self.pfc_frames_number = kwargs.pop('pfc_frames_number', 100000)
         self.send_pfc_frame_interval = kwargs.pop('send_pfc_frame_interval', 0)
@@ -125,6 +148,23 @@ class PFCStorm(object):
         if not out['stat']['exists'] or not out['stat']['isdir']:
             self.peer_device.file(path=pfc_gen_fpath, state="touch")
 
+    def _get_eos_fanout_version(self):
+        """
+        Get version info for eos fanout device
+        """
+        cmd = 'Cli -c "show version"'
+        return self.peer_device.shell(cmd)['stdout_lines']
+
+    def _get_sonic_fanout_hwsku(self):
+        """
+        Get hwsku for sonic fanout device
+        """
+        cmd = 'show version'
+        out_lines = self.peer_device.shell(cmd)['stdout_lines']
+        for line in out_lines:
+            if line.startswith('HwSKU:'):
+                return line.split()[1]
+
     def deploy_pfc_gen(self):
         """
         Deploy the pfc generation file on the fanout
@@ -132,6 +172,15 @@ class PFCStorm(object):
         if self.asic_type == 'vs':
             return
         if self.peer_device.os in ('eos', 'sonic'):
+            chip_name = None
+            if self.peer_device.os == 'eos':
+                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
+            elif self.peer_device.os == 'sonic':
+                chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
+            if self.peer_device.os in ('eos', 'sonic') and chip_name:
+                self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
+                self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
+                self.pfc_gen_chip_name = chip_name
             src_pfc_gen_file = "common/helpers/{}".format(self.pfc_gen_file)
             self._create_pfc_gen()
             if self.fanout_asic_type == 'mellanox':
@@ -185,6 +234,7 @@ class PFCStorm(object):
             "pfc_queue_index": self.pfc_queue_idx,
             "pfc_frames_number": self.pfc_frames_number,
             "pfc_fanout_interface": self.peer_info['pfc_fanout_interface'] if self.asic_type != 'vs' else "",
+            "pfc_gen_chip_name": self.pfc_gen_chip_name,
             "ansible_eth0_ipv4_addr": self.ip_addr,
             "peer_hwsku": self.peer_info['hwsku'] if self.asic_type != 'vs' else "",
             "send_pfc_frame_interval": self.send_pfc_frame_interval,
@@ -210,15 +260,21 @@ class PFCStorm(object):
         Populates the pfc storm start template
         """
         self._update_template_args()
-        if self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        if self.asic_type == 'vs':
+            self.pfc_start_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_eos.j2")
+        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_mlnx_{}.j2".format(self.peer_device.os))
-        elif self.asic_type == 'vs':
+        elif ((self.peer_device.os == 'eos' and
+               get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
+              (self.peer_device.os == 'sonic' and
+               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
             self.pfc_start_template = os.path.join(
-                TEMPLATES_DIR, "pfc_storm_eos.j2")
+                TEMPLATES_DIR, "pfc_storm_arista_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_start_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_{}.j2".format(self.peer_device.os))
@@ -229,15 +285,21 @@ class PFCStorm(object):
         Populates the pfc storm stop template
         """
         self._update_template_args()
-        if self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
+        if self.asic_type == 'vs':
+            self.pfc_stop_template = os.path.join(
+                TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
+        elif self.dut.topo_type == 't2' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}_t2.j2".format(self.peer_device.os))
         elif self.fanout_asic_type == 'mellanox' and self.peer_device.os == 'sonic':
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_mlnx_{}.j2".format(self.peer_device.os))
-        elif self.asic_type == 'vs':
+        elif ((self.peer_device.os == 'eos' and
+               get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])) or
+              (self.peer_device.os == 'sonic' and
+               get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku()))):
             self.pfc_stop_template = os.path.join(
-                TEMPLATES_DIR, "pfc_storm_stop_eos.j2")
+                TEMPLATES_DIR, "pfc_storm_stop_arista_{}.j2".format(self.peer_device.os))
         else:
             self.pfc_stop_template = os.path.join(
                 TEMPLATES_DIR, "pfc_storm_stop_{}.j2".format(self.peer_device.os))
@@ -255,10 +317,13 @@ class PFCStorm(object):
                 cmds = tmpl.render(**self.extra_vars).splitlines()
             cmds = (_.strip() for _ in cmds)
             cmd = "; ".join(_ for _ in cmds if _)
+            logger.info("Running command: {}".format(cmd))
             self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules
+            logger.info("Running Template: {}".format(json.dumps(self.extra_vars)))
+
             self.peer_device.exec_template(
                 ANSIBLE_ROOT, RUN_PLAYBOOK,
                 self.inventory, **self.extra_vars

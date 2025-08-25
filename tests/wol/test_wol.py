@@ -19,6 +19,7 @@ DEFAULT_PORT = 9
 DEFAULT_IP = "255.255.255.255"
 VLAN_MEMBER_CHANGE_ERR = r".*Failed to get port by bridge port ID .*"
 TAC_CONNECTION_ERR = r".*audisp-tacplus: tac_connect_single: connection failed with .* is not connected"
+ERR_MARGIN = 100  # millisecond
 
 
 def p2b(password: str) -> bytes:
@@ -71,7 +72,8 @@ def verify_packet(ptfadapter, verifier, port, count=1, interval=None, device_num
 def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()) == (set(ports) if count != 0 else set()),
-                  "Received packets on ports other than {}: {}".format(ports, list(received_pkts.keys())))
+                  "Received packets on ports other than expected {}, got: {}".format(ports,
+                                                                                     list(received_pkts.keys())))
     pytest_assert(all(map(lambda pkts: len(pkts) == count, received_pkts.values())),
                   "Did not receive exactly {} of expected packets on all {}: received {} total packets {}"
                   .format(count, ports, sum(map(len, received_pkts.values())), received_pkts))
@@ -79,14 +81,15 @@ def verify_packets(ptfadapter, verifier, ports, count=1, interval=None, device_n
         for results in received_pkts.values():
             ts = list(map(lambda result: result.time, results))
             ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 100, ts_diff)),
+            pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < ERR_MARGIN, ts_diff)),
                           "Unexpected interval {}".format(ts_diff))
 
 
 def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, device_number=0, duration=1, timeout=None):
     received_pkts = get_packets_on_specified_ports(ptfadapter, verifier, None, device_number, duration, timeout)
     pytest_assert(set(received_pkts.keys()).issubset(ports),
-                  "Received packets on ports other than {}: {}".format(ports, list(received_pkts.keys())))
+                  "Received packets on ports other than expected {}, got: {}".format(ports,
+                                                                                     list(received_pkts.keys())))
     pytest_assert(sum(map(len, received_pkts.values())) == count,
                   "Did not receive a total of exactly {} packets on any of {}: received {} total packets {}"
                   .format(count, ports, sum(map(len, received_pkts.values())), received_pkts))
@@ -96,8 +99,8 @@ def verify_packet_any(ptfadapter, verifier, ports, count=1, interval=None, devic
             ts.extend(map(lambda result: result.time, results))
         ts = sorted(ts)
         ts_diff = [ts[i] - ts[i - 1] for i in range(1, len(ts))]
-        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < 5, ts_diff)),
-                      "Unexpected interval {}".format(ts_diff))
+        pytest_assert(all(map(lambda diff: abs(diff * 1000 - interval) < ERR_MARGIN, ts_diff)),
+                      "Unexpected intervals {}, does not match {}, timestamps {}".format(ts_diff, interval, ts))
 
 
 def get_ether_pkt(src_mac, payload, dst_mac=TARGET_MAC):

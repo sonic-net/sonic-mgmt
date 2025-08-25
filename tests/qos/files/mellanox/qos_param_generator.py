@@ -29,6 +29,11 @@ class QosParamMellanox(object):
                 'cell_size': 192,
                 'headroom_overhead': 47,
                 'private_headroom': 30
+            },
+            'spc5': {
+                'cell_size': 192,
+                'headroom_overhead': 47,
+                'private_headroom': 30
             }
         }
         self.asic_type = asic_type
@@ -86,7 +91,7 @@ class QosParamMellanox(object):
             headroom = xon + xoff
             ingress_lossless_size = int(
                 math.ceil(float(self.ingressLosslessProfile['static_th']) / self.cell_size)) - xon
-            if self.asic_type == "spc4":
+            if self.asic_type == "spc4" or self.asic_type == 'spc5':
                 pg_q_alpha = self.ingressLosslessProfile['pg_q_alpha']
                 port_alpha = self.ingressLosslessProfile['port_alpha']
                 pool_size = int(math.ceil(float(self.ingressLosslessProfile['pool_size']) / self.cell_size))
@@ -122,7 +127,7 @@ class QosParamMellanox(object):
             self.qos_parameters['dst_port_id'] = dst_testPortIds[0]
             pgs_per_port = 2 if not self.dualTor else 4
             occupied_buffer = 0
-            if self.asic_type == "spc4":
+            if self.asic_type == "spc4" or self.asic_type == 'spc5':
                 for i in range(1, ingress_ports_num_shp):
                     for j in range(pgs_per_port):
                         pg_occupancy = int(math.ceil(
@@ -218,6 +223,8 @@ class QosParamMellanox(object):
         wm_pg_shared_lossless['pkts_num_trig_pfc'] = pkts_num_dismiss_pfc
         wm_pg_shared_lossless['cell_size'] = self.cell_size
         wm_pg_shared_lossless["pkts_num_margin"] = 3
+        if self.asic_type == 'spc1':
+            wm_pg_shared_lossless["pkts_num_margin"] = 4
 
         wm_q_shared_lossless = self.qos_params_mlnx[self.speed_cable_len]['wm_q_shared_lossless']
         wm_q_shared_lossless['pkts_num_trig_ingr_drp'] = pkts_num_trig_ingr_drp
@@ -236,6 +243,11 @@ class QosParamMellanox(object):
         self.qos_params_mlnx['wm_pg_shared_lossy'].update(wm_shared_lossy)
         wm_shared_lossy["pkts_num_margin"] = 8
         self.qos_params_mlnx['wm_q_shared_lossy'].update(wm_shared_lossy)
+        if 'lossy_dscp' in self.egressLossyProfile:
+            lossy_queue['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_pg_shared_lossy']['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_q_shared_lossy']['dscp'] = self.egressLossyProfile['lossy_dscp']
+            self.qos_params_mlnx['wm_q_shared_lossy']['queue'] = self.egressLossyProfile['lossy_queue']
 
         wm_buf_pool_lossless = self.qos_params_mlnx['wm_buf_pool_lossless']
         wm_buf_pool_lossless['pkts_num_trig_pfc'] = pkts_num_trig_pfc
@@ -281,3 +293,15 @@ class QosParamMellanox(object):
                             update_dict_value(sub_qos_config_value, qos_params_dict[sub_qos_config_key])
                     else:
                         qos_params_dict[sub_qos_config_key] = sub_qos_config_value
+
+        if int(self.asic_type.split('spc')[1]) >= 4:
+            margin_ratio = 0.02
+            self.qos_params_mlnx['lossy_queue_1']['pkts_num_margin'] = int(
+                self.qos_params_mlnx['lossy_queue_1']['pkts_num_trig_egr_drp'] * margin_ratio)
+            wm_margin_ratio = 0.001
+            self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'] = max(
+                self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_margin'],
+                int(self.qos_params_mlnx['wm_pg_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))
+            self.qos_params_mlnx['wm_q_shared_lossy']['pkts_num_margin'] = max(
+                self.qos_params_mlnx['wm_q_shared_lossy']['pkts_num_margin'],
+                int(self.qos_params_mlnx['wm_q_shared_lossy']['pkts_num_trig_egr_drp'] * wm_margin_ratio))

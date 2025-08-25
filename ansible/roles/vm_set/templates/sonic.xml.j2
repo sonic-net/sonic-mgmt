@@ -22,17 +22,31 @@
     <model fallback='forbid'/>
     <topology sockets='1' dies='1' cores='3' threads='2'/>
   </cpu>
-{% elif "dualtor" in topo %}
-  <memory unit='GiB'>6</memory>
-  <currentMemory unit='GiB'>6</currentMemory>
-  <vcpu placement='static'>4</vcpu>
+{% elif hwsku == 'Nokia-IXR7250E-36x400G' %}
+  <memory unit='GB'>8</memory>
+  <vcpu placement='static'>5</vcpu>
   <cpu mode='host-model'>
     <model fallback='forbid'/>
-    <topology sockets='1' dies='1' cores='2' threads='2'/>
+    <topology sockets='1' dies='1' cores='5' threads='1'/>
+  </cpu>
+{% elif hwsku == 'Nokia-IXR7250E-SUP-10' %}
+  <memory unit='GB'>4</memory>
+  <vcpu placement='static'>3</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='3' threads='1'/>
+  </cpu>
+{% elif asic_type == 'vpp' %}
+  <memory unit='GiB'>8</memory>
+  <currentMemory unit='GiB'>8</currentMemory>
+  <vcpu placement='static'>6</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='6' threads='1'/>
   </cpu>
 {% else %}
-  <memory unit='GiB'>4</memory>
-  <currentMemory unit='GiB'>4</currentMemory>
+  <memory unit='GiB'>6</memory>
+  <currentMemory unit='GiB'>6</currentMemory>
   <vcpu placement='static'>4</vcpu>
   <cpu mode='host-model'>
     <model fallback='forbid'/>
@@ -69,12 +83,20 @@
     </serial>
     <interface type='ethernet'>
         <target dev='{{ dut_name }}-0' />
+    {% if asic_type == 'vpp' %}
+        <model type='virtio-net-pci' />
+    {% else %}
         <model type='e1000' />
+    {% endif %}
     </interface>
 {% for i in range(port_alias|length) %}
     <interface type='ethernet' >
         <target dev='{{ dut_name }}-{{ i + 1 }}' />
+    {% if asic_type == 'vpp' %}
+        <model type='virtio-net-pci' />
+    {% else %}
         <model type='e1000' />
+    {% endif %}
         <mtu size='{{ fp_mtu_size }}' />
     </interface>
 {% endfor %}

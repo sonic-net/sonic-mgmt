@@ -1,0 +1,40 @@
+# List of packages required by pylint.
+# Everytime a new third-party package is used in a file under
+# tests/common2 add the package to the list here.
+#
+# NOTE: This list contains only packages actually used in tests/common
+# Versions don't matter - this is for pylint to not complain
+
+# Testing framework
+pytest
+pytest-ansible
+
+# Network libraries
+requests
+netaddr
+scapy
+paramiko
+pysnmp
+
+# Data processing and templating
+jinja2
+yaml
+PyYAML
+
+# Text processing and parsing
+tabulate
+six
+natsort
+
+# System management
+pexpect
+ansible
+
+# Reporting
+allure-commons
+
+# Type checking support
+types-PyYAML
+types-six
+types-paramiko
+types-requests

@@ -44,3 +44,9 @@ async def reboot_by_cmd(duthost):
     command = asyncio.create_task(async_command_ignore_errors(duthost, "reboot"))
     yield True
     await command
+
+
+async def config_reload_by_cmd(duthost):
+    command = asyncio.create_task(async_command_ignore_errors(duthost, "config reload -f -y"))
+    yield True
+    await command

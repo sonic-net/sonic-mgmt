@@ -14,6 +14,7 @@ from paramiko.ssh_exception import AuthenticationException
 
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
@@ -183,8 +184,13 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     config_port_channel_members = [list(port_channel.keys()) for port_channel in list(config_portchannels.values())]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
-    ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
-             config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
+    ports = [
+        port for port in config_ports
+        if port in config_port_indices
+        and config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
+        and port not in config_port_channel_member_ports
+    ]
     return ports
 
 
@@ -230,13 +236,16 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # increase timeout for check_orch_cpu_utilization to 120sec for chassis
     # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
     duthost = duthosts[rand_one_dut_hostname]
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    orch_cpu_timeout = 120 if is_chassis else 60
+    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
         v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
         v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
+        v4_routes_count = v4ebgps[duthost.hostname]
+        v6_routes_count = v6ebgps[duthost.hostname]
+        if v4_routes_count > 10000 or v6_routes_count > 10000:
+            orch_cpu_timeout = 120
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
@@ -570,7 +579,7 @@ def load_dscp_to_pg_map(duthost, port, dut_qos_maps_module):
         for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_pg_map[dscp] = tc_to_pg_map[tc]
         return dscp_to_pg_map
-    except:     # noqa E722
+    except:     # noqa: E722
         logger.error("Failed to retrieve dscp to pg map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -594,7 +603,7 @@ def load_dscp_to_queue_map(duthost, port, dut_qos_maps_module):
         for dscp, tc in list(dscp_to_tc_map.items()):
             dscp_to_queue_map[dscp] = tc_to_queue_map[tc]
         return dscp_to_queue_map
-    except:     # noqa E722
+    except:     # noqa: E722
         logger.error("Failed to retrieve dscp to queue map for port {} on {}".format(port, duthost.hostname))
         return {}
 
@@ -603,10 +612,14 @@ def check_bgp_router_id(duthost, mgFacts):
     """
     Check bgp router ID is same as Loopback0
     """
-    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    check_bgp_router_id_cmd = r'vtysh -c "show bgp summary json"'
     bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
     try:
         bgp_summary_json = json.loads(bgp_summary['stdout'])
+        if 'ipv4Unicast' not in bgp_summary_json:
+            logger.info("No ipv4Unicast in BGP summary")
+            # for Ipv6 only device, just check if routerId exists or not.
+            return 'routerId' in bgp_summary_json['ipv6Unicast']
         router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
         loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
         if router_id == loopback0:
@@ -759,24 +772,34 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                     snmp_ipv6_address[duthost.hostname].append(ip_addr.lower())
 
     # Do config_reload after processing BOTH SNMP and MGMT config
-    for duthost in duthosts.nodes:
-        if config_db_modified[duthost.hostname]:
-            logger.info(f"config changed. Doing config reload for {duthost.hostname}")
+    def config_reload_if_modified(dut):
+        if config_db_modified[dut.hostname]:
+            logger.info(f"config changed. Doing config reload for {dut.hostname}")
             try:
-                config_reload(duthost, wait=300, wait_for_bgp=True)
+                config_reload(dut, safe_reload=True, wait_for_bgp=True)
             except AnsibleConnectionFailure as e:
                 # IPV4 mgmt interface been deleted by config reload
                 # In latest SONiC, config reload command will exit after mgmt interface restart
                 # Then 'duthost' will lost IPV4 connection and throw exception
                 logger.warning(f'Exception after config reload: {e}')
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(config_reload_if_modified, duthost)
+
     duthosts.reset()
 
-    for duthost in duthosts.nodes:
-        if config_db_modified[duthost.hostname]:
+    def wait_for_processes_and_bgp(dut):
+        if config_db_modified[dut.hostname]:
             # Wait until all critical processes are up,
             # especially snmpd as it needs to be up for SNMP status verification
-            wait_critical_processes(duthost)
-            wait_bgp_sessions(duthost)
+            wait_critical_processes(dut)
+            if not dut.is_supervisor_node():
+                wait_bgp_sessions(dut)
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts.nodes:
+            executor.submit(wait_for_processes_and_bgp, duthost)
 
     # Verify mgmt-interface status
     mgmt_intf_name = "eth0"
@@ -828,3 +851,42 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
             pt_assert(addr not in cmd_output,
                       f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+
+
+def is_sai_profile_multi_binding_enabled(duthost):
+    """
+    Check if SAI_ACL_MULTI_BINDING_ENABLED is enabled in syncd docker's sai.profile
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in sai.profile, False otherwise
+    """
+    try:
+        # Check if sai.profile exists in syncd docker
+        result = duthost.shell(
+            "docker exec syncd ls /tmp/sai.profile", module_ignore_errors=True)
+        if result['rc'] != 0:
+            return False
+
+        # Check if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in the file
+        result = duthost.shell(
+            "docker exec syncd grep 'SAI_ACL_MULTI_BINDING_ENABLED=1' /tmp/sai.profile", module_ignore_errors=True)
+        return result['rc'] == 0
+    except Exception as e:
+        logger.error("Failed to check sai.profile: %s", str(e))
+        return False
+
+
+@pytest.fixture(scope="module")
+def is_multi_binding_acl_enabled(duthosts, tbinfo):
+    """
+    Check if multi-binding ACL is enabled on the DUT
+    """
+    for duthost in duthosts:
+        if not is_sai_profile_multi_binding_enabled(duthost):
+            if is_mellanox_device(duthost) and 'dualtor' in tbinfo['topo']['name']:
+                pytest.fail(
+                    "No multi-binding ACL supported on this platform, please check the sai.profile")
+            pytest.skip("No multi-binding ACL supported on this platform")

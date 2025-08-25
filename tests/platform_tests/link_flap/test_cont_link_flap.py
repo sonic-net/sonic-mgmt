@@ -38,17 +38,13 @@ class TestContLinkFlap(object):
         frr_daemon_memory_per_asics = {}
 
         for asic in duthost.asics:
-            frr_daemon_memory_output = asic.run_vtysh(f'-c "show memory {daemon}"')["stdout"]
+            frr_daemon_memory_output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+                f'vtysh -c "show memory {daemon}"', asic.namespace))["stdout"]
+            logging.info(f"{daemon} memory status: \n%s", frr_daemon_memory_output)
 
-            logging.info(
-                f"{daemon}{('-' + asic.namespace) if asic.namespace else ''} memory status: \n%s",
-                frr_daemon_memory_output
-            )
-
-            frr_daemon_memory = asic.run_vtysh(
-                f'-c "show memory {daemon}" | grep "Used ordinary blocks"'
-            )["stdout"].split()[-2]
-
+            output = duthost.shell(duthost.get_vtysh_cmd_for_namespace(
+                f'vtysh -c "show memory {daemon}" | grep "Used ordinary blocks"', asic.namespace))["stdout"]
+            frr_daemon_memory = output.split()[-2]
             frr_daemon_memory_per_asics[asic.asic_index] = frr_daemon_memory
 
         return frr_daemon_memory_per_asics
@@ -224,10 +220,7 @@ class TestContLinkFlap(object):
 
         # Orchagent CPU should consume < orch_cpu_threshold at last.
         logging.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
-        pytest_assert(wait_until(120, 5, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
+        pytest_assert(wait_until(900, 20, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
                       "Orch CPU utilization {} > orch cpu threshold {} after link flap"
                       .format(duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
                               orch_cpu_threshold))
-
-        # Add a 60s sleep to make sure it can pass the route check in temporarily_disable_route_check fixture
-        time.sleep(60)

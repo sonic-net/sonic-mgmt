@@ -190,7 +190,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
             try:
-                if attrs[val].get('secondary') == 'true':
+                if isinstance(attrs[val], dict) and attrs[val].get('secondary') == 'true':
                     continue
                 ip = ip_interface(val)
                 if ip.version == 4:
@@ -210,15 +210,16 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     if 'dualtor' in tbinfo['topo']['name']:
         server_ip = mux_cable_server_ip(rand_selected_dut)
 
+    ip_offset = 0
     for port in vlan_members:
         ptf_index = dut_to_ptf_port_map[port]
+        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         if 'dualtor' in tbinfo['topo']['name']:
             arp_responder_cfg['eth{}'.format(ptf_index)] = [
                 server_ip[port]['server_ipv4'].split('/')[0],
                 server_ip[port]['server_ipv6'].split('/')[0]
             ]
             continue
-        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         arp_responder_cfg['eth{}'.format(ptf_index)] = [
             str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
         ]
@@ -458,8 +459,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 server_ipv4 = str(server_ipv4_base_addr + i)
                 server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa F821
-                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa F821
+                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa: F821
+                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa: F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -685,16 +686,7 @@ def skip_traffic_test(request):
 
 
 @pytest.fixture(scope='function')
-def disable_ipv6(ptfhost):
-    default_ipv6_status = ptfhost.shell("sysctl -n net.ipv6.conf.all.disable_ipv6")["stdout"]
-    changed = False
-    # Disable IPv6 on all interfaces in PTF container
-    if default_ipv6_status != "1":
-        ptfhost.shell("echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6")
-        changed = True
-
+def iptables_drop_ipv6_tx(ptfhost):
+    ptfhost.shell("ip6tables -P OUTPUT DROP")
     yield
-
-    # Restore the original IPv6 setting on all interfaces in the PTF container
-    if changed:
-        ptfhost.shell("echo {} > /proc/sys/net/ipv6/conf/all/disable_ipv6".format(default_ipv6_status))
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")

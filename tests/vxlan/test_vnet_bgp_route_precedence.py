@@ -114,6 +114,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     if tbinfo["topo"]["type"] == "mx":
         dut_port = rand_selected_dut.acl_facts()["ansible_facts"]["ansible_acl_facts"]["DATAACL"]["ports"][0]
     else:
+        if not mg_facts['minigraph_portchannels']:
+            pytest.skip('No portchannels found')
         dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
     if not dut_port:
         pytest.skip('No portchannels found')
@@ -310,8 +312,8 @@ class Test_VNET_BGP_route_Precedence():
         routes_prefix[vnet] = {}
         if fixed_route:
             if self.prefix_type == 'v4':
-                routes_prefix[vnet][f"{prefix_offset}.131.131.1"] = nexthops.copy()
-                routes_adv[vnet][f"{prefix_offset}.131.131.1"] = f"{prefix_offset}.131.131.0"
+                routes_prefix[vnet][f"{prefix_offset}.131.131.0"] = nexthops.copy()
+                routes_adv[vnet][f"{prefix_offset}.131.131.0"] = f"{prefix_offset}.131.131.0"
                 return routes_adv, routes_prefix
             else:
                 routes_prefix[vnet][f"dcfa:{prefix_offset}:131::"] = nexthops.copy()
@@ -320,19 +322,17 @@ class Test_VNET_BGP_route_Precedence():
         count = 0
         if self.prefix_type == 'v4':
             for i in range(1, 250):
-                key1 = f"{prefix_offset}.{i}.0.{postfix}" if postfix != "" else f"{prefix_offset}.{i}.0.0"
-                key2 = f"{prefix_offset}.{i}.0.0"
-                routes_prefix[vnet][key1] = nexthops.copy()
-                routes_adv[vnet][key1] = key2
+                key = f"{prefix_offset}.{i}.0.0"
+                routes_prefix[vnet][key] = nexthops.copy()
+                routes_adv[vnet][key] = key
                 count = count + 1
                 if count >= num_routes:
                     return routes_adv, routes_prefix
         else:
             for i in range(1, 250):
-                key1 = f"dc4a:{prefix_offset}:{i}::{postfix}" if postfix != "" else f"dc4a:{prefix_offset}:{i}::"
-                key2 = f"dc4a:{prefix_offset}:{i}::"
-                routes_prefix[vnet][key1] = nexthops.copy()
-                routes_adv[vnet][key1] = key2
+                key = f"dc4a:{prefix_offset}:{i}::"
+                routes_prefix[vnet][key] = nexthops.copy()
+                routes_adv[vnet][key] = key
                 count = count + 1
                 if count >= num_routes:
                     return routes_adv, routes_prefix
@@ -420,9 +420,14 @@ class Test_VNET_BGP_route_Precedence():
                 adv = routes_adv[vnet][prefix]
                 result = tor['host'].run_command("show run | grep 'router bgp'")
                 bgp_id_cmd = result['stdout'][0]
+                # configure loopback with a host address within the network
+                if self.prefix_type == 'v4':
+                    loopback_ip = adv.rsplit('.', 1)[0] + '.1'
+                else:
+                    loopback_ip = adv.rstrip(':') + '::1'
                 cmds = ["configure",
                         "interface loopback 10",
-                        "{} address {}/{}".format(type1, prefix, self.adv_mask),
+                        "{} address {}/{}".format(type1, loopback_ip, self.adv_mask),
                         "exit",
                         bgp_id_cmd,
                         "address-family {}".format(type),
@@ -446,9 +451,13 @@ class Test_VNET_BGP_route_Precedence():
                 adv_pfx = routes_adv[vnet][prefix]
                 result = tor['host'].run_command("show run | grep 'router bgp'")
                 bgp_id_cmd = result['stdout'][0]
+                if self.prefix_type == 'v4':
+                    loopback_ip = adv_pfx.rsplit('.', 1)[0] + '.1'
+                else:
+                    loopback_ip = adv_pfx.rstrip(':') + '::1'
                 cmds = ["configure",
                         "interface loopback 10",
-                        "no {} address {}/{}".format(type1, prefix, self.prefix_mask),
+                        "no {} address {}/{}".format(type1, loopback_ip, self.prefix_mask),
                         "exit",
                         bgp_id_cmd,
                         "address-family {}".format(type),

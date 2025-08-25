@@ -111,7 +111,7 @@ def get_ld_path(duthost):
         Because tac_plus server not support regex in command name, and SONiC will send full path to tacacs server side
         for authorization, so the 'python' and 'ld' path in tac_plus config file need fix.
     """
-    find_ld_command = "find /lib/ -type f,l -regex '\/lib\/.*-linux-.*/ld-linux-.*\.so\.[0-9]*'"   # noqa W605
+    find_ld_command = "find /lib/ -type f,l -regex '\/lib\/.*-linux-.*/ld-linux-.*\.so\.[0-9]*'"   # noqa: W605
     return duthost.shell(find_ld_command)['stdout']
 
 
@@ -171,9 +171,12 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     if 'ansible_ssh_user' in dut_options and 'ansible_ssh_pass' in dut_options:
         duthost_ssh_user = dut_options['ansible_ssh_user']
         duthost_ssh_passwd = dut_options['ansible_ssh_pass']
-        logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
-        extra_vars['duthost_ssh_user'] = duthost_ssh_user
-        extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
+        if not duthost_ssh_user == extra_vars['duthost_admin_user']:
+            logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
+            extra_vars['duthost_ssh_user'] = duthost_ssh_user
+            extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
+        else:
+            logger.debug("setup_tacacs_server: ansible_ssh_user is the same as duthost_admin_user.")
     else:
         logger.debug("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
 
@@ -219,7 +222,7 @@ def stop_tacacs_server(ptfhost):
 
 def remove_all_tacacs_server(duthost):
     # use grep command to extract tacacs server address from tacacs config
-    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'    # noqa W605
+    find_server_command = 'show tacacs | grep -Po "TACPLUS_SERVER address \K.*"'    # noqa: W605
     server_list = duthost.shell(find_server_command, module_ignore_errors=True)['stdout_lines']
     for tacacs_server in server_list:
         tacacs_server = tacacs_server.rstrip()
@@ -341,7 +344,7 @@ def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return res
 
 
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
+def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=6):
     while retry_count > 0:
         res = ssh_remote_run(localhost, dutip, user,
                              password, command)
@@ -365,7 +368,7 @@ def check_nss_config(duthost):
 
 
 @pytest.fixture(scope="module")
-def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds): # noqa F811
+def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     tacacs_server_ip = ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']

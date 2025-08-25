@@ -13,6 +13,7 @@ import string
 import sys
 import six
 import tabulate
+import warnings
 
 from collections import defaultdict
 from datetime import datetime
@@ -28,15 +29,15 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa F401
-from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter                       # noqa F401
-from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                           # noqa F401
+from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                            # noqa: F401
+from tests.common.dualtor.nic_simulator_control import nic_simulator_flap_counter                       # noqa: F401
+from tests.common.dualtor.mux_simulator_control import simulator_flap_counter                           # noqa: F401
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa F401
-from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa F401
-from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa F401
-from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                                             # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_standby_ports                                   # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa: F401
+from tests.common.dualtor.dual_tor_common import mux_config                                             # noqa: F401
 from tests.common.helpers.generators import generate_ip_through_default_route
 from tests.common.utilities import dump_scapy_packet_show_output, get_intf_by_sub_intf, is_ipv4_address, wait_until
 from tests.ptf_runner import ptf_runner
@@ -48,6 +49,7 @@ __all__ = ['tor_mux_intf', 'tor_mux_intfs', 'ptf_server_intf', 't1_upper_tor_int
            'setup_standby_ports_on_rand_selected_tor',
            'setup_standby_ports_on_rand_unselected_tor',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m',
+           'setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m',
            'setup_standby_ports_on_rand_unselected_tor_unconditionally',
            'setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally',
            ]
@@ -498,7 +500,7 @@ def _oper_up_dut_intfs(tor_host, dut_intfs):
 
 @pytest.fixture
 def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinfo,
-                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa: F811
     """
     Fixture for shutting down fanout interfaces connected to specified upper_tor interfaces.
 
@@ -532,7 +534,7 @@ def shutdown_fanout_upper_tor_intfs(upper_tor_host, upper_tor_fanouthosts, tbinf
 
 @pytest.fixture
 def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinfo,
-                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+                                    cable_type, active_active_ports, active_standby_ports):     # noqa: F811
     """
     Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
@@ -566,7 +568,7 @@ def shutdown_fanout_lower_tor_intfs(lower_tor_host, lower_tor_fanouthosts, tbinf
 
 @pytest.fixture
 def fanout_upper_tor_port_control(upper_tor_host, upper_tor_fanouthosts, tbinfo,
-                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+                                  cable_type, active_active_ports, active_standby_ports):     # noqa: F811
     """
     Fixture returns methods to shutdown and restart all fanout ports connected to
     the upper_tor_host.
@@ -592,7 +594,7 @@ def fanout_upper_tor_port_control(upper_tor_host, upper_tor_fanouthosts, tbinfo,
 
 @pytest.fixture
 def fanout_lower_tor_port_control(lower_tor_host, lower_tor_fanouthosts, tbinfo,
-                                    cable_type, active_active_ports, active_standby_ports):     # noqa F811
+                                  cable_type, active_active_ports, active_standby_ports):     # noqa: F811
     """
     Fixture returns methods to shutdown and restart all fanout ports connected to
     the upper_tor_host.
@@ -618,7 +620,7 @@ def fanout_lower_tor_port_control(lower_tor_host, lower_tor_fanouthosts, tbinfo,
 
 @pytest.fixture
 def shutdown_fanout_tor_intfs(upper_tor_host, upper_tor_fanouthosts, lower_tor_host, lower_tor_fanouthosts,
-                              tbinfo, cable_type, active_active_ports, active_standby_ports):       # noqa F811
+                              tbinfo, cable_type, active_active_ports, active_standby_ports):       # noqa: F811
     """Fixture for shutting down fanout interfaces connected to specified lower_tor interfaces.
 
     Args:
@@ -1024,7 +1026,7 @@ def generate_hashed_packet_to_server(ptfadapter, duthost, hash_key, target_serve
 
         return send_pkt, exp_pkt, exp_tunnel_pkt
 
-    src_mac = ptfadapter.dataplane.get_mac(0, 0)
+    src_mac = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
     dst_mac = duthost.facts["router_mac"]
 
     # initialize the packets cache
@@ -1424,7 +1426,7 @@ def build_ipv4_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt_ttl = random.choice(list(range(3, 65)))
     pkt = testutils.simple_ip_packet(
         eth_dst=duthost.facts["router_mac"],
-        eth_src=ptfadapter.dataplane.get_mac(0, 0),
+        eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
         ip_src="1.1.1.1",
         ip_dst=target_server_ip,
         ip_dscp=pkt_dscp,
@@ -1450,7 +1452,12 @@ def build_ipv6_packet_to_server(duthost, ptfadapter, target_server_ip):
     pkt_hl = random.choice(list(range(3, 65)))
     pktlen = 100
     pkt_tc = testutils.ip_make_tos(0, 0, pkt_dscp)
-    pkt = Ether(src=ptfadapter.dataplane.get_mac(0, 0), dst=duthost.facts["router_mac"])
+    pkt = Ether(
+        src=ptfadapter.dataplane.get_mac(
+            *list(ptfadapter.dataplane.ports.keys())[0]
+        ),
+        dst=duthost.facts["router_mac"]
+    )
     pkt /= IPv6(src="fc02:1200::1", dst=target_server_ip, fl=0, tc=pkt_tc, hlim=pkt_hl)
     pkt /= "".join(random.choice(string.ascii_lowercase) for _ in range(pktlen - len(pkt)))
     logging.info(
@@ -1633,7 +1640,7 @@ def is_tunnel_qos_remap_enabled(duthost):
 
 
 @pytest.fixture(scope="session")
-def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # noqa F811
+def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # noqa: F811
     """
     Apply standard ARP responder for dualtor testbeds
 
@@ -1662,86 +1669,146 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
 
+def run_mux_config_command(tor, cmd, expected_output=None, forbidden_output=None):
+    cmds = []
+    cmds.append(cmd)
+    result = tor.shell_cmds(cmds=cmds)
+
+    if expected_output is None:
+        expected_output = []
+    if forbidden_output is None:
+        forbidden_output = []
+
+    for output in forbidden_output:
+        if output in result['results'][0]['stdout']:
+            logging.error("Unexpected output {} in when running command {}".format(output, cmd))
+            return False
+
+    for output in expected_output:
+        if output not in result['results'][0]['stdout']:
+            logging.error("Unexpected output {} in when running command {}".format(output, cmd))
+            return False
+
+    return True
+
+
+def check_active_active_port_status(duthost, ports, status):
+    """Validate the active-active mux ports status."""
+    logging.debug("Check mux status for ports {} is {}".format(ports, status))
+    show_mux_status_ret = show_muxcable_status(duthost)
+    logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
+    for port in ports:
+        if port not in show_mux_status_ret:
+            return False
+        elif show_mux_status_ret[port]['status'] != status:
+            return False
+    return True
+
+
 @pytest.fixture
 def validate_active_active_dualtor_setup(
-    duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa F811
+        duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa: F811
     """Validate that both ToRs are active for active-active mux ports."""
-
-    def check_active_active_port_status(duthost, ports, status):
-        logging.debug("Check mux status for ports {} is {}".format(ports, status))
-        show_mux_status_ret = show_muxcable_status(duthost)
-        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
-        for port in ports:
-            if port not in show_mux_status_ret:
-                return False
-            elif show_mux_status_ret[port]['status'] != status:
-                return False
-        return True
-
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         return
 
-    if not all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
-        restart_nic_simulator()
-        ptfhost.shell("supervisorctl restart icmp_responder")
+    if all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        return
+
+    restart_nic_simulator()
+    ptfhost.shell("supervisorctl restart icmp_responder")
 
     # verify icmp_responder is running
     icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
     pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
 
+    for port in active_active_ports:
+        for duthost in duthosts:
+            cmd = "config mux mode active {}".format(port)
+            pt_assert(
+                wait_until(
+                    90, 10, 0, run_mux_config_command, duthost, cmd,
+                    expected_output=["OK"],
+                    forbidden_output=["this is not a valid port present on mux_cable"]
+                ),
+                "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+            )
+    duthosts.shell("systemctl restart mux.service")
     # verify both ToRs are active
     for duthost in duthosts:
         pt_assert(
-            wait_until(30, 5, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
-            "Not all active-active mux ports are active on device %s" % duthost.hostname
-        )
+            wait_until(90, 20, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
+            "Not all active-active mux ports are active on device %s" % duthost.hostname)
 
     return
 
 
+def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally=False):
+    """Toggle the active-active mux ports via CLI."""
+    active_side_commands = []
+    standby_side_commands = []
+    logging.info("Configuring {} as active".format(active_tor.hostname))
+    logging.info("Configuring {} as standby".format(standby_tor.hostname))
+
+    for port in ports:
+        active_side_commands.append("config mux mode active {}".format(port))
+        standby_side_commands.append("config mux mode standby {}".format(port))
+
+    if not check_active_active_port_status(active_tor, ports, 'active') or unconditionally:
+        for cmd in active_side_commands:
+            pt_assert(
+                wait_until(
+                    90, 10, 0, run_mux_config_command, active_tor, cmd, expected_output=[],
+                    forbidden_output=["this is not a valid port present on mux_cable"]
+                ),
+                "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+            )
+    for cmd in standby_side_commands:
+        pt_assert(
+            wait_until(
+                90, 10, 0, run_mux_config_command, standby_tor, cmd, expected_output=[],
+                forbidden_output=["this is not a valid port present on mux_cable"]
+            ),
+            "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+        )
+
+    pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
+              "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
+    pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
+              "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+    time.sleep(90)
+
+
 @pytest.fixture
-def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):                         # noqa F811
+def config_active_active_dualtor_active_standby(duthosts, active_active_ports, tbinfo):     # noqa: F811
     """Config the active-active dualtor that one ToR as active and the other as standby."""
     if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
         yield
         return
 
-    def check_active_active_port_status(duthost, ports, status):
-        logging.debug("Check mux status for ports {} is {}".format(ports, status))
-        show_mux_status_ret = show_muxcable_status(duthost)
-        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
-        for port in ports:
-            if port not in show_mux_status_ret:
-                return False
-            elif show_mux_status_ret[port]['status'] != status:
+    def check_docker_status(duthost):
+        containers = duthost.get_all_containers()
+        for container in containers:
+            if not duthost.is_service_fully_started(container):
                 return False
         return True
 
-    def _config_the_active_active_dualtor(active_tor, standby_tor, ports, unconditionally=False):
-        active_side_commands = []
-        standby_side_commands = []
-        logging.info("Configuring {} as active".format(active_tor.hostname))
-        logging.info("Configuring {} as standby".format(standby_tor.hostname))
+    def _config_active_active_dualtor_active_standby(active_tor, standby_tor, ports, unconditionally=False):
+        wait_until(300, 10, 0, check_docker_status, standby_tor)
         for port in ports:
             if port not in active_active_ports:
                 raise ValueError("Port {} is not in the active-active ports".format(port))
-            active_side_commands.append("config mux mode active {}".format(port))
-            standby_side_commands.append("config mux mode standby {}".format(port))
 
-        if not check_active_active_port_status(active_tor, ports, 'active') or unconditionally:
-            active_tor.shell_cmds(cmds=active_side_commands)
-        standby_tor.shell_cmds(cmds=standby_side_commands)
-
-        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
-                  "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
-        pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
-                  "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+        config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally)
 
         ports_to_restore.extend(ports)
 
     ports_to_restore = []
 
-    yield _config_the_active_active_dualtor
+    warnings.warn("Deprecated mux port setup fixture, please use setup_dualtor_mux_ports "
+                  "(docs/tests/setup.dualtor.mux.ports.md).", DeprecationWarning)
+
+    yield _config_active_active_dualtor_active_standby
 
     if ports_to_restore:
         restore_cmds = []
@@ -1754,23 +1821,23 @@ def config_active_active_dualtor_active_standby(duthosts, active_active_ports, t
 
 @pytest.fixture
 def toggle_all_aa_ports_to_lower_tor(config_active_active_dualtor_active_standby,
-                                     lower_tor_host, upper_tor_host, active_active_ports):  # noqa F811
+                                     lower_tor_host, upper_tor_host, active_active_ports):  # noqa: F811
     if active_active_ports:
         config_active_active_dualtor_active_standby(lower_tor_host, upper_tor_host, active_active_ports)
     return
 
 
 @pytest.fixture
-def toggle_all_aa_ports_to_rand_selected_tor(config_active_active_dualtor_active_standby,
-                                             rand_selected_dut, rand_unselected_dut, active_active_ports):  # noqa F811
+def toggle_all_aa_ports_to_rand_selected_tor(config_active_active_dualtor_active_standby, rand_selected_dut,
+                                             rand_unselected_dut, active_active_ports):  # noqa: F811
     if active_active_ports:
         config_active_active_dualtor_active_standby(rand_selected_dut, rand_unselected_dut, active_active_ports)
     return
 
 
 @pytest.fixture
-def toggle_all_aa_ports_to_rand_unselected_tor(config_active_active_dualtor_active_standby,
-                                               rand_selected_dut, rand_unselected_dut, active_active_ports):  # noqa F811
+def toggle_all_aa_ports_to_rand_unselected_tor(config_active_active_dualtor_active_standby, rand_selected_dut,
+                                               rand_unselected_dut, active_active_ports):  # noqa: F811
     if active_active_ports:
         config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
     return
@@ -1778,7 +1845,8 @@ def toggle_all_aa_ports_to_rand_unselected_tor(config_active_active_dualtor_acti
 
 @pytest.fixture(autouse=True)
 def check_simulator_flap_counter(
-    nic_simulator_flap_counter, simulator_flap_counter, active_active_ports, active_standby_ports, cable_type   # noqa F811
+    nic_simulator_flap_counter, simulator_flap_counter,     # noqa: F811
+    active_active_ports, active_standby_ports, cable_type   # noqa: F811
 ):
     """Check the flap count for mux ports."""
 
@@ -1870,16 +1938,17 @@ def check_simulator_flap_counter(
 
 
 @pytest.fixture
-def setup_standby_ports_on_rand_selected_tor(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
-                                             config_active_active_dualtor_active_standby,                                  # noqa F811
-                                             validate_active_active_dualtor_setup):                                        # noqa F811
+def setup_standby_ports_on_rand_selected_tor(active_active_ports, rand_selected_dut, rand_unselected_dut,  # noqa: F811
+                                             config_active_active_dualtor_active_standby,                  # noqa: F811
+                                             validate_active_active_dualtor_setup):                        # noqa: F811
     if active_active_ports:
         config_active_active_dualtor_active_standby(rand_unselected_dut, rand_selected_dut, active_active_ports)
     return
 
 
 @pytest.fixture
-def setup_standby_ports_on_rand_unselected_tor(active_active_ports, rand_selected_dut, rand_unselected_dut,                  # noqa F811
+def setup_standby_ports_on_rand_unselected_tor(active_active_ports, rand_selected_dut,      # noqa: F811
+                                               rand_unselected_dut,
                                                config_active_active_dualtor_active_standby,
                                                validate_active_active_dualtor_setup):
     if active_active_ports:
@@ -1889,7 +1958,7 @@ def setup_standby_ports_on_rand_unselected_tor(active_active_ports, rand_selecte
 
 @pytest.fixture
 def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
-    active_active_ports,                                                   # noqa F811
+    active_active_ports,                                                   # noqa: F811
     enum_rand_one_per_hwsku_frontend_hostname,
     config_active_active_dualtor_active_standby,
     validate_active_active_dualtor_setup,
@@ -1905,8 +1974,25 @@ def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
 
 
 @pytest.fixture
-def setup_standby_ports_on_rand_unselected_tor_unconditionally(
+def setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m(
     active_active_ports,                                                   # noqa F811
+    enum_rand_one_per_hwsku_hostname,
+    config_active_active_dualtor_active_standby,
+    validate_active_active_dualtor_setup,
+    upper_tor_host,
+    lower_tor_host,
+    duthosts
+):
+    if active_active_ports:
+        active_tor = duthosts[enum_rand_one_per_hwsku_hostname]
+        standby_tor = upper_tor_host if active_tor == lower_tor_host else lower_tor_host
+        config_active_active_dualtor_active_standby(active_tor, standby_tor, active_active_ports)
+    return
+
+
+@pytest.fixture
+def setup_standby_ports_on_rand_unselected_tor_unconditionally(
+    active_active_ports,                                                   # noqa: F811
     rand_selected_dut,
     rand_unselected_dut,
     config_active_active_dualtor_active_standby
@@ -1918,7 +2004,7 @@ def setup_standby_ports_on_rand_unselected_tor_unconditionally(
 
 @pytest.fixture
 def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally(
-    active_active_ports,                                                   # noqa F811
+    active_active_ports,                                                   # noqa: F811
     enum_rand_one_per_hwsku_frontend_hostname,
     config_active_active_dualtor_active_standby,
     upper_tor_host,

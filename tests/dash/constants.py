@@ -4,6 +4,7 @@ TEMPLATE_DIR = path.abspath(_TEMPLATE_DIR)
 # Constants used for generating dash configs
 ENI = "eni"
 LOOPBACK_IP = "loopback_ip"
+LOCAL_REGION_ID = "local_region_id"
 VM_VNI = "vm_vni"
 VNET1_VNI = "vnet1_vni"
 VNET1_NAME = "vnet1_name"
@@ -46,3 +47,6 @@ ACL_DST_TAG = "dst_tag"
 ACL_PROTOCOL = "protocol"
 ACL_TAG = "acl_tag"
 ACL_PREFIX_LIST = "prefix_list"
+# For VxLAN source UDP port range
+VXLAN_UDP_BASE_SRC_PORT = 5128
+VXLAN_UDP_SRC_PORT_MASK = 7  # number of least significant bits

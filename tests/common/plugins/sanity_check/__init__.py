@@ -81,7 +81,7 @@ def _update_check_items(old_items, new_items, supported_items):
     return updated_items
 
 
-def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
+def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True):
 
     def print_cmds_output_from_duthost(dut, is_dual_tor, ptf):
         logger.info("Run commands to print logs")
@@ -92,14 +92,15 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
 
-        # check PTF device reachability
-        if ptf.mgmt_ip:
-            cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
-            cmds.append("traceroute {}".format(ptf.mgmt_ip))
+        if check_ptf_mgmt:
+            # check PTF device reachability
+            if ptf.mgmt_ip:
+                cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
+                cmds.append("traceroute {}".format(ptf.mgmt_ip))
 
-        if ptf.mgmt_ipv6:
-            cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
-            cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
+            if ptf.mgmt_ipv6:
+                cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
+                cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
@@ -130,7 +131,10 @@ def filter_check_items(tbinfo, duthosts, check_items):
                 return True
         return False
 
-    if 't2' not in tbinfo['topo']['name'] or _is_voq_chassis(duthosts):
+    if 'ft2' in tbinfo['topo']['name'] or \
+        'lt2' in tbinfo['topo']['name'] or \
+            't2' not in tbinfo['topo']['name'] or \
+            _is_voq_chassis(duthosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:
@@ -202,7 +206,7 @@ def prepare_parallel_run(request, parallel_run_context):
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
@@ -215,6 +219,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
+    nbr_hosts = None
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -320,7 +325,8 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                nbr_hosts = request.getfixturevalue('nbrhosts')
+                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
@@ -346,8 +352,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
+                if not nbr_hosts:
+                    nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
-                                                nbrhosts, post_check_items, recover_method, request, tbinfo,
+                                                nbr_hosts, post_check_items, recover_method, request, tbinfo,
                                                 STAGE_POST_TEST)
 
             logger.info("Done post-test sanity check")

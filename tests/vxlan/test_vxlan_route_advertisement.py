@@ -86,8 +86,9 @@ def fixture_setUp(duthosts,
             data['t2'].append(nbrhosts[name])
 
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox", "vs"]:
-        pytest.skip(f"{asic_type} is not a supported platform for this test. Only support MNLX and CISCO platforms.")
+    if asic_type not in ["cisco-8000", "mellanox", "marvell-teralynx", "vs"]:
+        pytest.skip(f"{asic_type} is not a supported platform for this test. \
+                Only support MNLX, CISCO and marvell-teralynx platforms.")
 
     # Should I keep the temporary files copied to DUT?
     ecmp_utils.Constants['KEEP_TEMP_FILES'] = \
@@ -333,7 +334,7 @@ class Test_VxLAN_route_Advertisement():
 
         return
 
-    def test_basic_route_advertisement(self, setUp, encap_type, duthost):  # noqa F811
+    def test_basic_route_advertisement(self, setUp, encap_type, duthost):  # noqa: F811
         '''
         Create a tunnel route and advertise the tunnel route to all neighbor without community id
         Result: All BGP neighbors can recieve the advertised BGP routes
@@ -353,7 +354,7 @@ class Test_VxLAN_route_Advertisement():
         self.verify_nighbor_doesnt_have_routes(routes, "")
         return
 
-    def test_basic_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa F811
+    def test_basic_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa: F811
         '''
         Create a tunnel route and advertise the tunnel route to all neighbor with community id.
         Result: All BGP neighbors can recieve the advertised BGP routes with community id
@@ -376,7 +377,7 @@ class Test_VxLAN_route_Advertisement():
         self.remove_bgp_profile("FROM_SDN_SLB_ROUTES")
         return
 
-    def test_basic_route_advertisement_with_community_change(self, setUp, encap_type, duthost):  # noqa F811
+    def test_basic_route_advertisement_with_community_change(self, setUp, encap_type, duthost):  # noqa: F811
         '''
         Update a tunnel route and advertise the tunnel route to all neighbor with new community id.
         Result:	All BGP neighbors can recieve the advertised BGP routes with new community id
@@ -401,7 +402,7 @@ class Test_VxLAN_route_Advertisement():
         self.remove_bgp_profile("FROM_SDN_SLB_ROUTES")
         return
 
-    def test_route_advertisement_without_and_with_community(self, setUp, encap_type, duthost):  # noqa F811
+    def test_route_advertisement_without_and_with_community(self, setUp, encap_type, duthost):  # noqa: F811
         '''
         Create a tunnel route and advertise the tunnel route to all neighbor with BGP profile,
         but create the profile later
@@ -428,7 +429,7 @@ class Test_VxLAN_route_Advertisement():
         self.remove_bgp_profile("FROM_SDN_SLB_ROUTES")
         return
 
-    def test_scale_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa F811
+    def test_scale_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa: F811
         '''
         Create 4k tunnel routes and advertise all tunnel routes to all neighbor with community id.
         Result: All BGP neighbors can recieve 4k advertised BGP routes with community id and record the time.

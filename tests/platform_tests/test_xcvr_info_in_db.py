@@ -7,7 +7,7 @@ https://github.com/sonic-net/SONiC/blob/master/doc/pmon/sonic_platform_test_plan
 import logging
 import pytest
 from tests.common.platform.transceiver_utils import check_transceiver_status
-from tests.common.platform.interface_utils import get_port_map
+from tests.common.platform.interface_utils import get_port_map, get_lport_to_first_subport_mapping
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
 
 pytestmark = [
@@ -16,7 +16,8 @@ pytestmark = [
 
 
 def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                         enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list, port_list_with_flat_memory):   # noqa F811
+                         enum_frontend_asic_index,
+                         conn_graph_facts, xcvr_skip_list, port_list_with_flat_memory):   # noqa: F811
     """
     @summary: This test case is to verify that xcvrd works as expected by checking transceiver information in DB
     """
@@ -34,5 +35,7 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         logging.info("ASIC {} interface_list {}".format(
             enum_frontend_asic_index, all_interfaces))
 
-    check_transceiver_status(
-        duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list, port_list_with_flat_memory)
+    # Get the first subport of the logical port since DOM is returned only for first subport.
+    lport_to_first_subport_mapping = get_lport_to_first_subport_mapping(duthost, all_interfaces)
+    check_transceiver_status(duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list,
+                             port_list_with_flat_memory, lport_to_first_subport_mapping)
