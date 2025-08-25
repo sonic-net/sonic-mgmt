@@ -358,7 +358,7 @@ crm/test_crm.py:
   xfail:
     reason: "Testcase ignored due to https://github.com/sonic-net/sonic-buildimage/issues/21243 on dualtor aa setup"
     conditions:
-      - "https://github.com/sonic-net/sonic-buildimage/issues/21243 and 'dualtor-aa' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/21243 and 'dualtor-aa' in topo_name and asic_type in ['mellanox']"
 
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
