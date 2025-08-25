@@ -192,12 +192,12 @@ class GenerateDeviceConfig():
         self._prepare()
         logging.debug("")
 
-        for index, tg in enumerate(self.testbed_facts['duts']):
+        for index, dut in enumerate(self.testbed_facts['duts']):
             logging.debug("=================================================================")
-            logging.debug(f"Start allocating device metadata and IP for {tg} (index={index})")
-            self._set_dut_device_meta(tg)
-            self._allocate_dut_loopback_ip(index, tg)
-            self._allocate_dut_bgp_asn(index, tg)
+            logging.debug(f"Start allocating device metadata and IP for {dut} (index={index})")
+            self._set_dut_device_meta(dut)
+            self._allocate_dut_loopback_ip(index, dut)
+            self._allocate_dut_bgp_asn(index, dut)
         logging.debug("")
 
         for index, tg in enumerate(self.testbed_facts['tgs']):
