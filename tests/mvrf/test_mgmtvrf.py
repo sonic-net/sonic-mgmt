@@ -7,7 +7,7 @@ from tests.common import reboot
 from tests.common.utilities import wait_until
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use   # noqa: F401
+from tests.common.helpers.ntp_helper import NtpDaemon, ntp_daemon_in_use, setup_ntp_context   # noqa: F401
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 from tests.common.devices.ptf import PTFHost
 
@@ -156,20 +156,6 @@ def execute_dut_command(duthost, command, mvrf=True, ignore_errors=False):
     return result
 
 
-def setup_ntp(ptfhost, duthost, ntp_servers):
-    """setup ntp client and server"""
-    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
-    # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
-                  "NTP server was not started in PTF container {}; NTP service start result {}"
-                  .format(ptfhost.hostname, ntp_en_res))
-    # setup ntp on dut to sync with ntp server
-    for ntp_server in ntp_servers:
-        duthost.command("config ntp del %s" % ntp_server)
-    duthost.command("config ntp add %s" % ptfhost.mgmt_ip)
-
-
 class TestMvrfInbound():
     def test_ping(self, duthost):
         duthost.ping()
@@ -227,22 +213,10 @@ class TestServices():
         duthost = duthosts[rand_one_dut_hostname]
         # Check if ntp was not in sync with ntp server before enabling mvrf, if yes then setup ntp server on ptf
         if check_ntp_sync:
-            setup_ntp(ptfhost, duthost, ntp_servers)
-
-        # There is no entry ntp in `/etc/passwd` on kvm testbed.
-        cmd = "getent passwd ntp"
-        ntp_uid_output = duthost.command(cmd, module_ignore_errors=True)
-        if duthost.facts["asic_type"] == "vs" and ntp_uid_output['rc'] == 2:
-            return
-        assert ntp_uid_output['rc'] == 0, "Run command '{}' failed".format(cmd)
-        ntp_uid = ":".join(ntp_uid_output['stdout'].split(':')[2:4])
-
-        force_ntp = "timeout 20 ntpd -gq -u {}".format(ntp_uid)
-        duthost.service(name="ntp", state="stopped")
-        logger.info("Ntp restart in mgmt vrf")
-        execute_dut_command(duthost, force_ntp)
-        duthost.service(name="ntp", state="restarted")
-        pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
+            with setup_ntp_context(ptfhost, duthost, False):
+                pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
+        else:
+            pytest_assert(wait_until(400, 10, 0, check_ntp_status, duthost, ntp_daemon_in_use), "Ntp not started")
 
     def test_service_acl(self, duthosts, rand_one_dut_hostname, localhost):
         duthost = duthosts[rand_one_dut_hostname]

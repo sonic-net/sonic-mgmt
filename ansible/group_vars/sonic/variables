@@ -16,7 +16,7 @@ broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32
 broadcom_th2_hwskus: ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
 broadcom_th3_hwskus: ['DellEMC-Z9332f-M-O16C64',  'DellEMC-Z9332f-O32']
 broadcom_th4_hwskus: ['Arista-7060DX5-32', 'Arista-7060DX5-64S']
-broadcom_th5_hwskus: ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-O128S2', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-16PE-384C-O128S2', 'NH-4010', 'Arista-7060X6-64PE-P32O64', 'Arista-7060X6-64PE-P64']
+broadcom_th5_hwskus: ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-O128S2', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-16PE-384C-O128S2', 'NH-4010', 'Arista-7060X6-64PE-P32O64', 'Arista-7060X6-64PE-P64', 'Arista-7060X6-16PE-384C-B-O128S2', 'Arista-7060X6-16PE-384C-B-O128S2-LAB', 'Arista-7060X6-16PE-384C-B-O128S2-COPPER-LAB', 'Arista-7060X6-64PE-B-O128']
 broadcom_j2c+_hwskus: ['Nokia-IXR7250E-36x100G', 'Nokia-IXR7250E-36x400G', 'Arista-7280DR3A-36', 'Arista-7280DR3AK-36', 'Arista-7280DR3AK-36S', 'Arista-7280DR3AM-36', 'Arista-7800R3A-36DM2-C36', 'Arista-7800R3A-36DM2-D36', 'Arista-7800R3AK-36DM2-C36', 'Arista-7800R3AK-36DM2-D36', 'Nokia-IXR7250-X3B']
 
 broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48', 'Arista-7800R3-48CQM2-C48']
@@ -37,8 +37,8 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 marvell_hwskus: [ "et6448m", "Nokia-7215" ]
 innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
-cisco_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8111-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48","Cisco-8111-C32", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8800-LC-48H-C48", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "cisco-8101-p4-32x100-vs", "Cisco-8102-28FH-DPU-O-T1"]
-cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8111-C32", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "Cisco-8102-28FH-DPU-O-T1"]
+cisco_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8111-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8101C01-C32", "Cisco-8101C01-C28S4", "Cisco-8111-C32", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8800-LC-48H-C48", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "cisco-8101-p4-32x100-vs", "Cisco-8102-28FH-DPU-O"]
+cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8101C01-C32", "Cisco-8101C01-C28S4", "Cisco-8111-C32", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "Cisco-8102-28FH-DPU-O", "Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-C28", "Cisco-8102-28FH-DPU-O8V40", "Cisco-8102-28FH-DPU-O8C20", "Cisco-8102-28FH-DPU-O12C16"]
 cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
 cisco-8000_gr2_hwskus: ["Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128"]
 cisco-8000_pac_hwskus: ["Cisco-8800-LC-48H-C48"]
@@ -73,3 +73,5 @@ orchagent_docker_volumes_dict:
   "/host/machine.conf:/host/machine.conf":
 
 orchagent_docker_volumes: "{{ orchagent_docker_volumes_dict.keys() }}"
+
+sonic_qos_profile: "BALANCED"    # Possible values: DEFAULT, RDMA-CENTRIC, TCP-CENTRIC, BALANCED
