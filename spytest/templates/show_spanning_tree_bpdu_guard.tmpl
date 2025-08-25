@@ -1,0 +1,10 @@
+Value BG_IFNAME (\S+)
+Value BG_CFG_SHUT (\S+)
+Value BG_OPER_SHUT (\S+)
+
+Start
+  ^\s*PortNum\s+Shutdown\s+Port Shut\s*$$
+  ^-+\s*$$
+  ^\s*${BG_IFNAME}\s+${BG_CFG_SHUT}\s+${BG_OPER_SHUT}\s*$$ -> Record
+
+EOF
