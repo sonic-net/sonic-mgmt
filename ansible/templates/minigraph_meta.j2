@@ -26,6 +26,13 @@
             <a:Reference i:nil="true"/>
             <a:Value>Profile0</a:Value>
           </a:DeviceProperty>
+{% if sonic_qos_profile is defined and sonic_qos_profile != "DEFAULT" %}
+          <a:DeviceProperty>
+            <a:Name>SonicQosProfile</a:Name>
+            <a:Reference i:nil="true"/>
+            <a:Value>{{ sonic_qos_profile }}</a:Value>
+          </a:DeviceProperty>
+{% endif %}
 {% if 't2' in topo %}
 {% if card_type is not defined or card_type != 'supervisor' %}
           <a:DeviceProperty>
@@ -37,13 +44,6 @@
            <a:Value>False</a:Value>
 {% endif %}
         </a:DeviceProperty>
-{% endif %}
-{% if 'lt2' in topo %}
-          <a:DeviceProperty>
-            <a:Name>SubRole</a:Name>
-            <a:Reference i:nil="true"/>
-            <a:Value>LowerSpineRouter</a:Value>
-          </a:DeviceProperty>
 {% endif %}
 {% endif %}
 {% if 'dualtor' in topo %}

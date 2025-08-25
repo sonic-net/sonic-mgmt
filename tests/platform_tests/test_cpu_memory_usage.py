@@ -4,8 +4,8 @@ import pytest
 from collections import namedtuple, Counter
 from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll     # noqa: F401
 from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa: F401
-from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
-from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
+from tests.common.constants import CounterpollConstants
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert

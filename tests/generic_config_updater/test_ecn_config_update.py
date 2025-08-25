@@ -46,7 +46,7 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def get_asic_db_values(duthost, fields):
+def get_asic_db_values(duthost, fields, cli_namespace_prefix):
     """
     Args:
         duthost: DUT host object
@@ -56,13 +56,13 @@ def get_asic_db_values(duthost, fields):
         A dictionary where keys are WRED profile OIDs in ASIC DB and values are the field-value pairs
         for the fields in configdb_field.
     """
-    wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
-    wred_objects = wred_objects.split("\n")
+    wred_objects = get_wred_objects(duthost, cli_namespace_prefix)
     asic_db_values = {}
     for wred_object in wred_objects:
         oid = wred_object[wred_object.rfind(':') + 1:]
         asic_db_values[oid] = {}
-        wred_data = duthost.shell('sonic-db-cli ASIC_DB hgetall {}'.format(wred_object))["stdout"]
+        wred_data = duthost.shell('sonic-db-cli {} ASIC_DB hgetall {}'
+                                  .format(cli_namespace_prefix, wred_object))["stdout"]
         if "NULL" in wred_data:
             continue
         wred_data = ast.literal_eval(wred_data)
@@ -72,7 +72,7 @@ def get_asic_db_values(duthost, fields):
     return asic_db_values
 
 
-def get_wred_objects(duthost):
+def get_wred_objects(duthost, cli_namespace_prefix):
     """
     Args:
         duthost: DUT host object
@@ -80,7 +80,7 @@ def get_wred_objects(duthost):
     Returns:
         A list of WRED profile objects in ASIC DB.
     """
-    wred_objects = duthost.shell('sonic-db-cli ASIC_DB keys *WRED*')["stdout"]
+    wred_objects = duthost.shell('sonic-db-cli {} ASIC_DB keys *WRED*'.format(cli_namespace_prefix))["stdout"]
     wred_objects = wred_objects.split("\n")
     return wred_objects
 
@@ -107,7 +107,7 @@ def dict_compare(fields):
     return compare
 
 
-def ensure_application_of_updated_config(duthost, fields, new_values):
+def ensure_application_of_updated_config(duthost, fields, new_values, cli_namespace_prefix):
     """
     Ensures application of the JSON patch config update
 
@@ -116,11 +116,12 @@ def ensure_application_of_updated_config(duthost, fields, new_values):
         fields: config db field(s) under test
         new_values: expected value(s) of fields. It is a dictionary where keys are WRED profile names
                     and values are dictionaries of field-value pairs for all fields in fields.
+        cli_namespace_prefix: CLI ASIC namespace for sonic-db-cli commands
     """
     # Since there is no direct way to obtain the WRED profile name to oid mapping, we will just make sure
     # that the set of values in ASIC DB matches the set of values in CONFIG DB.
     def validate_wred_objects_in_asic_db():
-        asic_db_values = get_asic_db_values(duthost, fields)
+        asic_db_values = get_asic_db_values(duthost, fields, cli_namespace_prefix)
         asic_db_values_list = sorted(list(asic_db_values.values()), key=cmp_to_key(dict_compare(fields)))
         new_values_list = sorted(list(new_values.values()), key=cmp_to_key(dict_compare(fields)))
         return asic_db_values_list == new_values_list
@@ -133,8 +134,9 @@ def ensure_application_of_updated_config(duthost, fields, new_values):
     )
 
 
-def get_wred_profiles(duthost):
-    wred_profiles = duthost.shell("sonic-db-cli CONFIG_DB keys 'WRED_PROFILE|*' | cut -d '|' -f 2")["stdout"]
+def get_wred_profiles(duthost, cli_namespace_prefix):
+    wred_profiles = duthost.shell(f"sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
+                                  'WRED_PROFILE|*' | cut -d '|' -f 2")["stdout"]
     wred_profiles = wred_profiles.split('\n')
     return wred_profiles
 
@@ -142,13 +144,15 @@ def get_wred_profiles(duthost):
 @pytest.mark.parametrize("configdb_field", ["green_min_threshold", "green_max_threshold", "green_drop_probability",
                          "green_min_threshold,green_max_threshold,green_drop_probability"])
 @pytest.mark.parametrize("operation", ["replace"])
-def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation):
+def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, operation,
+                            enum_rand_one_frontend_asic_index, cli_namespace_prefix):
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of field: {} and operation: {}"
                 .format(tmpfile, configdb_field, operation))
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
 
     fields = configdb_field.split(',')
-    wred_profiles = get_wred_profiles(duthost)
+    wred_profiles = get_wred_profiles(duthost, cli_namespace_prefix)
     if not wred_profiles:
         pytest.skip("No WRED profiles found in CONFIG_DB, skipping test.")
     json_patch = list()
@@ -157,7 +161,8 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
     new_values = {}
     # Creating a JSON patch for all WRED profiles in CONFIG_DB.
     for wred_profile in wred_profiles:
-        ecn_data = duthost.shell(f"sonic-db-cli CONFIG_DB hgetall 'WRED_PROFILE|{wred_profile}'")["stdout"]
+        ecn_data = duthost.shell("sonic-db-cli {} CONFIG_DB hgetall 'WRED_PROFILE|{}'"
+                                 .format(cli_namespace_prefix, wred_profile))['stdout']
         ecn_data = ast.literal_eval(ecn_data)
         new_values[wred_profile] = {}
         for field in fields:
@@ -181,12 +186,13 @@ def test_ecn_config_updates(duthost, ensure_dut_readiness, configdb_field, opera
                                "path": f"/WRED_PROFILE/{wred_profile}/{field}",
                                "value": "{}".format(value)})
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         if is_valid_platform_and_version(duthost, "WRED_PROFILE", "ECN tuning", operation):
             expect_op_success(duthost, output)
-            ensure_application_of_updated_config(duthost, fields, new_values)
+            ensure_application_of_updated_config(duthost, fields, new_values, cli_namespace_prefix)
         else:
             expect_op_failure(output)
     finally:

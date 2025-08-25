@@ -15,7 +15,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
-    get_pfcwd_stats
+    get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics, \
     fetch_flow_metrics_for_macsec    # noqa: F401
@@ -23,7 +23,7 @@ from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
-
+from tests.common.macsec.macsec_helper import get_macsec_counters, clear_macsec_counters
 # Imported to support rest_py in ixnetwork
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 
@@ -244,6 +244,7 @@ def generate_background_flows(testbed_config,
                               bg_flow_prio_list,
                               prio_dscp_map,
                               snappi_extra_params,
+                              number_of_streams=1,
                               flow_index=None):
     """
     Generate background configurations of flows. Test flows and background flows are also known as data flows.
@@ -534,6 +535,7 @@ def run_traffic(duthost,
         clear_dut_interface_counters(host)
         clear_dut_que_counters(host)
         clear_dut_pfc_counters(host)
+        clear_macsec_counters(host)
 
     logger.info("Starting transmit on all flows ...")
     cs = api.control_state()
@@ -599,7 +601,7 @@ def run_traffic(duthost,
         time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
         logger.info("Polling TGEN for in-flight traffic statistics...")
         if not ptype:
-            in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
+            in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
         else:
             in_flight_flow_metrics = fetch_flow_metrics_for_macsec(api).Rows
         time.sleep(exp_dur_sec*(3/5))
@@ -661,6 +663,19 @@ def run_traffic(duthost,
     cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
     api.set_control_state(cs)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
+
+
+def get_dict_macsec_counters(duthost, port):
+    '''
+    Queries get_macsec_counter and returns flattened dictionary.
+    '''
+    egr_counter, ing_counter = get_macsec_counters(duthost, port)
+    new_stats = {}
+    new_stats[duthost.hostname] = {}
+    new_stats[duthost.hostname][port] = egr_counter
+    new_stats[duthost.hostname][port].update(ing_counter)
+
+    return (new_stats)
 
 
 def verify_pause_flow_for_macsec(flow_metrics,
@@ -1314,9 +1329,10 @@ def run_traffic_and_collect_stats(rx_duthost,
         while retry > 0 and not stormed:
             for dut, port in dutport_list:
                 for pri in switch_tx_lossless_prios:
-                    if dut == tx_duthost:
-                        stormed = clear_pfc_counter_after_storm(dut, port, pri)
+                    stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
+                        clear_dut_pfc_counters(rx_duthost)
+                        clear_dut_pfc_counters(tx_duthost)
                         logger.info("PFC storm detected on {}:{}".format(dut.hostname, port))
                         break  # break inner for
                 if stormed:
@@ -1354,6 +1370,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
         for dut, port in dutport_list:
             f_stats = update_dict(m, f_stats, flatten_dict(get_interface_stats(dut, port)))
+            f_stats = update_dict(m, f_stats, flatten_dict(get_interface_counters_detailed(dut, port)))
             f_stats = update_dict(m, f_stats, flatten_dict(get_pfc_count(dut, port)))
             f_stats = update_dict(m, f_stats, flatten_dict(get_queue_count_all_prio(dut, port)))
 

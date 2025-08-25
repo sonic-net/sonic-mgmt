@@ -16,7 +16,7 @@ from tests.bgp.traffic_checker import get_traffic_shift_state, check_tsa_persist
 from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_NO_NEIGHBORS
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2')
+    pytest.mark.topology('t1')
 ]
 
 logger = logging.getLogger(__name__)

@@ -13,7 +13,8 @@ from scapy.all import sniff
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
-from tests.ip.ip_util import parse_rif_counters, sum_ifaces_counts
+from tests.common.utilities import parse_rif_counters
+from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -60,8 +61,10 @@ class TestLinkLocalIPacket:
         sai_settings = {}
         sai_profile = "/usr/share/sonic/device/{}/{}/sai.profile".format(platform, hwsku)
         for line in duthost.command("cat %s" % sai_profile)["stdout_lines"]:
-            key, value = line.split("=")
-            sai_settings[key] = value
+            if (not re.match("^[ \t]*#", line)) and re.search("=", line):
+                # line should not a comment, and must contain the "=".
+                key, value = line.split("=")
+                sai_settings[key] = value
         if int(sai_settings.get("SAI_NOT_DROP_SIP_DIP_LINK_LOCAL", 0)) != 1:
             pytest.skip("Test is not supported, SAI_NOT_DROP_SIP_DIP_LINK_LOCAL is not equal 1 or not specified")
 
@@ -134,6 +137,18 @@ class TestLinkLocalIPacket:
             format(ipv6_prefix, pc_ipv6_addr)
         vtysh_cmd_for_namespace = duthost.get_vtysh_cmd_for_namespace(tag_route_cmd, ptf_port_idx_namespace)
         duthost.shell(vtysh_cmd_for_namespace)
+
+    @pytest.fixture(scope='class', autouse=True)
+    def config_counter_poll_interval(self, duthost):
+        """
+        Set counter poll interval to 100ms to ensure that the counters are updated in time
+        """
+        origin_queue_interval = duthost.get_counter_poll_status()['PORT_STAT']['interval']
+        duthost.set_counter_poll_interval('PORT_STAT', 100)
+
+        yield
+
+        duthost.set_counter_poll_interval('PORT_STAT', origin_queue_interval)
 
     @staticmethod
     def remove_ips_form_downlink_ifaces(duthost, mg_facts, rx_iface, tx_iface):

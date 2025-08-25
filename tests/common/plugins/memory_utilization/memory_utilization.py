@@ -177,7 +177,16 @@ class MemoryMonitor:
                 except (ValueError, TypeError) as e:
                     logger.error("Failed to process value threshold: {}".format(str(e)), exc_info=True)
                     return float('inf')
-
+            elif threshold_type == 'percentage_points':
+                try:
+                    value = round(float(threshold_value), 1)
+                    if value < 0:
+                        logger.warning("Negative threshold value: {}".format(value))
+                    logger.debug("Using absolute percentage points value: {}".format(value))
+                    return value
+                except (ValueError, TypeError) as e:
+                    logger.error("Failed to process percentage_points threshold: {}".format(str(e)), exc_info=True)
+                    return float('inf')
             else:
                 logger.error("Unknown threshold type: {}".format(threshold_type))
                 return float('inf')
@@ -243,28 +252,29 @@ class MemoryMonitor:
         logger.info("{}:{}, previous_values: {}".format(name, mem_item, previous_values))
         logger.info("{}:{}, current_values: {}".format(name, mem_item, current_values))
 
-        # Enhanced formatting for value and threshold
-        def fmt(val, unit="MB"):
-            if isinstance(val, float) or isinstance(val, int):
-                return f"{val:.1f} {unit}"
-            return str(val)
+        def fmt(val, threshold_type="value"):
+            """Format value with appropriate unit based on threshold type"""
+            if threshold_type == "percentage_points":
+                return f"{val:.1f}%"
+            else:
+                return f"{val:.1f} MB"
 
-        # Determine threshold type and format accordingly
         def format_threshold_and_value(threshold, value):
             if isinstance(threshold, dict) and 'type' in threshold:
-                if threshold['type'] == 'percentage':
-                    return f"{value:.1f}%", f"{threshold['value']}"
-                elif threshold['type'] == 'value':
+                threshold_type = threshold['type']
+                if threshold_type == 'percentage':
+                    return f"{value:.1f}%", f"{threshold['value']}%"
+                elif threshold_type == 'percentage_points':
+                    return f"{value:.1f}%", f"{threshold['value']}%"
+                else:  # 'value' type
                     return fmt(value), fmt(float(threshold['value']))
             elif isinstance(threshold, list):
-                # Find the first threshold dict with type
                 for t in threshold:
                     if isinstance(t, dict) and 'type' in t:
                         return format_threshold_and_value(t, value)
                 return str(value), str(threshold)
             else:
-                # fallback
-                return str(value), str(threshold)
+                return fmt(value), str(threshold)
 
         threshold_str = self._format_threshold_for_display(threshold)
         logger.debug("Threshold exceeded - measured value: {}, formatted threshold: {}".format(
@@ -273,28 +283,34 @@ class MemoryMonitor:
         prev_val = previous_values.get(name, {}).get(mem_item, 0)
         curr_val = current_values.get(name, {}).get(mem_item, 0)
 
-        # Format for increase or high threshold
+        threshold_type = "value"  # default
+        if isinstance(threshold, dict) and 'type' in threshold:
+            threshold_type = threshold['type']
+        elif isinstance(threshold, list):
+            for t in threshold:
+                if isinstance(t, dict) and 'type' in t:
+                    threshold_type = t['type']
+                    break
+
         if is_increase:
             val_str, th_str = format_threshold_and_value(threshold, value)
             message = (
                 "[ALARM]: {}:{} memory usage increased by {}, exceeds increase threshold {} (previous: {}, current: {})"
-                .format(name, mem_item, val_str, th_str, fmt(prev_val), fmt(curr_val))
+                .format(name, mem_item, val_str, th_str, fmt(prev_val, threshold_type), fmt(curr_val, threshold_type))
             )
         else:
             which = "Current" if is_current else "Previous"
             val_str, th_str = format_threshold_and_value(threshold, value)
             message = (
                 "[ALARM]: {}:{}, {} memory usage {} exceeds high threshold {} (previous: {}, current: {})"
-                .format(name, mem_item, which, val_str, th_str, fmt(prev_val), fmt(curr_val))
+                .format(name, mem_item, which, val_str, th_str, fmt(prev_val, threshold_type), fmt(curr_val, threshold_type))  # noqa: E501
             )
 
-        # Not return failure on Virtual Switch
         asic_type = self.ansible_host.facts['asic_type']
         if asic_type == "vs":
             logger.warning(message)
         else:
             logger.error(message)
-            # pytest.fail(message)
             # Store error instead of failing immediately
             self.memory_errors.append(message)
             logger.debug("Stored memory error: {}".format(message))
@@ -314,7 +330,6 @@ class MemoryMonitor:
 
         if isinstance(threshold, dict) and 'type' in threshold and 'value' in threshold:
             if threshold['type'] == 'percentage':
-                # Ensure the percentage has a % symbol
                 value = threshold['value']
                 if isinstance(value, str) and value.endswith('%'):
                     formatted = value
@@ -322,12 +337,15 @@ class MemoryMonitor:
                     formatted = "{}%".format(value)
                 logger.debug("Formatted percentage threshold as: {}".format(formatted))
                 return formatted
+            elif threshold['type'] == 'percentage_points':
+                formatted = "{}%".format(threshold['value'])
+                logger.debug("Formatted percentage_points threshold as: {}".format(formatted))
+                return formatted
             else:
                 formatted = str(threshold['value'])
                 logger.debug("Formatted value threshold as: {}".format(formatted))
                 return formatted
         elif isinstance(threshold, list):
-            # Format a list of thresholds
             logger.debug("Formatting list of {} thresholds".format(len(threshold)))
             formatted = []
             for t in threshold:
@@ -338,7 +356,6 @@ class MemoryMonitor:
             logger.debug("Joined list thresholds as: {}".format(result))
             return result
         else:
-            # Simple value or percentage string
             result = str(threshold)
             logger.debug("Formatted simple threshold as: {}".format(result))
             return result
@@ -478,12 +495,12 @@ def parse_free_output(output, memory_params):
     return memory_values
 
 
-def parse_monit_status_output(output, memory_params):
-    """Parse the 'monit status' command output to extract memory usage information."""
+def parse_monit_validate_output(output, memory_params):
+    """Parse the 'monit validate' command output to extract memory usage information."""
     memory_values = {}
 
     if not output:
-        logger.warning("Empty output for monit status command, returning empty values")
+        logger.warning("Empty output for monit validate command, returning empty values")
         return memory_values
 
     memory_pattern = r"memory usage\s+([\d\.]+ \w+)\s+\[(\d+\.\d+)%\]"
