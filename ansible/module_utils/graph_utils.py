@@ -208,6 +208,8 @@ class LabGraph(object):
             end_vlan_id = link.get("EndVlanID", vlan_ID)
             end_vlan_mode = link.get("EndVlanMode", vlan_mode)
             end_vrf_name = link.get("EndVrf", None)
+            start_port_mac = link.get("StartPortMac", None)
+            end_port_mac = link.get("EndPortMac", None)
             autoneg_mode = link.get("AutoNeg")
             fec_disable = link.get("FECDisable", False)
 
@@ -238,6 +240,12 @@ class LabGraph(object):
             if autoneg_mode:
                 start_port_linked_port.update({"autoneg": autoneg_mode})
                 end_port_linked_port.update({"autoneg": autoneg_mode})
+
+            if start_port_mac:
+                start_port_linked_port.update({"mac": start_port_mac})
+
+            if end_port_mac:
+                end_port_linked_port.update({"mac": end_port_mac})
 
             links[start_device][start_port] = start_port_linked_port
             links[end_device][end_port] = end_port_linked_port

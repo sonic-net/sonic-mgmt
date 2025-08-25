@@ -386,10 +386,12 @@ class GenerateDeviceConfig():
 
                 self.device_interfaces[local_device].setdefault(local_port, {
                     'vrf_name': self.device_port_vrfs[local_device].get(local_port, {}).get('name', ''),
+                    'mac_addr': self.device_port_links[local_device].get(local_port, {}).get('mac', ''),
                 })
 
                 self.device_interfaces[peer_device].setdefault(peer_port, {
                     'vrf_name': self.device_port_vrfs[peer_device].get(peer_port, {}).get('name', ''),
+                    'mac_addr': self.device_port_links[peer_device].get(peer_port, {}).get('mac', ''),
                 })
 
                 local_device_config = {
