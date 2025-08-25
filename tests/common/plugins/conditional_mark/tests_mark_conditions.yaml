@@ -44,6 +44,17 @@ acl/test_acl_outer_vlan.py:
     conditions:
       - "'dualtor' in topo_name"
 
+
+#######################################
+#####          acstests              #####
+#######################################
+
+acstests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
 #######################################
 #####            arp              #####
 #######################################
@@ -83,6 +94,12 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - platform in ['7060x6pe', '5640']"
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
@@ -300,6 +317,12 @@ cacl/test_ebtables_application.py:
 #######################################
 #####           configlet         #####
 #######################################
+configlet:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - platform in ['7060x6pe', '5640']"
+
 configlet/test_add_rack.py:
   skip:
     reason: "AddRack is not yet supported on multi-ASIC platform"
@@ -511,6 +534,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - "platform in ['7060x6pe', '5640']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
@@ -675,6 +704,15 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
     reason: "Skip test_interface_binding in old release version"
     conditions:
       - "release in ['201911', '202106']"
+
+#######################################
+#####         dhcp_server     #####
+#######################################
+dhcp_server:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - "platform in ['7060x6pe', '5640']"
 
 #######################################
 #####         drop_packets        #####
@@ -1533,9 +1571,7 @@ generic_config_updater/test_dhcp_relay.py:
 
 generic_config_updater/test_dynamic_acl.py:
   skip:
-    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-    on m0-2vlan testbed causes consistent failures
-    / Dynamic ACL is not supported in Cisco Q200 based platforms"
+    reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test on m0-2vlan testbed causes consistent failures / Dynamic ACL is not supported in Cisco Q200 based platforms"
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
@@ -1837,8 +1873,7 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -1878,8 +1913,7 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCO
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -1922,8 +1956,7 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -1961,8 +1994,7 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
-    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
+    reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -1971,6 +2003,16 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+ #######################################
+#####           http          #####
+#######################################
+http:
+  skip:
+    reason: "It is skipped on TH5, 5640,Mellanox,Dualtor platform"
+    conditions:
+      - "7060x6pe or 5640 or 4700 dualtor"
+
 
 #######################################
 #####    iface_loopback_action    #####
@@ -2123,6 +2165,12 @@ ixia:
 #######################################
 #####            k8s              #####
 #######################################
+k8s:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
 k8s/test_config_reload.py:
   skip:
     reason: "There is no k8s in veos_vtb, skip in PR testing"
@@ -2176,6 +2224,12 @@ lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
 #######################################
 #####           macsec            #####
 #######################################
+mac_sec:
+  skip:
+    reason: "It is skipped on TH5,dualtor,5640 platform"
+    conditions:
+      - "7060x6pe or 5640 or dualtor"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -2197,6 +2251,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
 #######################################
 #####           mclag             #####
 #######################################
+mclag:
+  skip:
+    reason: "It is skipped on TH5,dualtor,5640 platform"
+    conditions:
+      - "7060x6pe or 5640 or dualtor"
+
 mclag/test_mclag_l3.py:
   skip:
     reason: "Mclag test only support on t0-mclag platform which is not in PR test"
@@ -2216,6 +2276,12 @@ memory_checker/test_memory_checker.py:
 #######################################
 #####            mpls             #####
 #######################################
+mpls:
+  skip:
+    reason: "It is skipped on Th5,5640, dualtor platform"
+    conditions:
+      - "7060x6pe or 5640 or dualtor"
+
 mpls/test_mpls.py:
   skip:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
@@ -2255,6 +2321,16 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
+#####           mx              #####
+#######################################
+mx:
+  skip:
+    reason: "It is skipped on Th5,5640, dualtor platform"
+    conditions:
+      - "no mx or m0"
+
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
@@ -2270,9 +2346,10 @@ nat:
 #######################################
 ospf:
   skip:
-    reason: "Neighbor type must be sonic, skip in PR testing"
+    reason: "Neighbor type must be sonic, skip in PR testing,It is skipped on TH5, 5640 platform"
     conditions:
       - "asic_type in ['vs']"
+      - platform in ['7060x6pe', '5640']"
 
 #######################################
 #####    override_config_table    #####
@@ -2365,6 +2442,12 @@ pfc/test_unknown_mac.py:
 #######################################
 #####         pfc_asym            #####
 #######################################
+pfc_asym:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
 pfc_asym/test_pfc_asym.py:
   skip:
     reason: 'pfc_asym test skip except for on Barefoot platforms'
@@ -2376,9 +2459,9 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed."
+    reason: "Pfcwd tests skipped on M* testbed,TH5, 5640 platform"
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1']"
+      - "topo_type in ['m0', 'mx', 'm1'],7060x6pe or 5600 t1 or 5640"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -2463,6 +2546,15 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
     reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices.
     conditions:
       - "'t1' in topo_name"
+
+#######################################
+#####     ptftests      #####
+#######################################
+ptftests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
 
 #######################################
 #####           qos               #####
@@ -2662,9 +2754,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
-      and asic_type in ['cisco-8000']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100'] and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox'] and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
       - "asic_type in ['vs']"
@@ -2805,6 +2895,12 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
 #######################################
 #####          read_mac           #####
 #######################################
+read_mac:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - "platform in ['7060x6pe', '5640']"
+
 read_mac/test_read_mac_metadata.py:
   skip:
     reason: "Read_mac test needs specific variables and image urls, currently do not support on KVM and regular nightly test."
@@ -2814,6 +2910,12 @@ read_mac/test_read_mac_metadata.py:
 #######################################
 #####      reset_factory          #####
 #######################################
+reset_factory:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - "platform in ['7060x6pe', '5640']"
+
 reset_factory/test_reset_factory.py:
   skip:
     reason: "This case has a known issue which leaves the DUT in a bad state. Skipping until the issue is addressed."
@@ -2916,6 +3018,33 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "https://github.com/sonic-net/sonic-buildimage/issues/4930"
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+#######################################
+#####           sai_qualify       #####
+#######################################
+sai_qualify:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+
+#######################################
+#####              saitests         #####
+#######################################
+saitests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
+#####            scripts         #####
+#######################################
+scripts:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
 
 #######################################
 #####              sflow          #####
@@ -2961,6 +3090,25 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
       - "is_multi_asic==True"
+
+
+#######################################
+#####         smart_saf       #####
+#######################################
+smart_saf:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
+#####         smartswitch      #####
+#######################################
+smartswitch:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - platform in ['7060x6pe', '5640']"
 
 #######################################
 #####         snappi_tests        #####
@@ -3079,9 +3227,9 @@ snmp/test_snmp_queue_counters.py:
 #######################################
 span:
   skip:
-    reason: "Skipping span test on broadcom/cisco-8000 platform."
+    reason: "Skipping span test on broadcom/cisco-8000 platform,except mellanox"
     conditions:
-      - "asic_type in ['broadcom', 'cisco-8000']"
+      - "asic_type in ['broadcom', 'cisco-8000'],not mellanox"
 
 span/test_port_mirroring.py:
   xfail:
@@ -3280,18 +3428,20 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
 #######################################
 test_pktgen.py:
   skip:
-    reason: "No need in M0/Mx/M1"
+    reason: "No need in M0/Mx/M1,It is skipped on TH5, 5640 platform"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "platform in ['7060x6pe', '5640']"
 
 #######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
   skip:
-    reason: "Skip vs_chassis setup on non-vs testbeds"
+    reason: "Skip vs_chassis setup on non-vs testbeds,It is skipped on TH5, 5640 platform"
     conditions:
       - "asic_type not in ['vs']"
+      - "platform in ['7060x6pe', '5640']"
 
 #######################################
 #####         upgrade_path        #####
@@ -3336,9 +3486,9 @@ vlan/test_vlan_ping.py:
 #######################################
 voq:
   skip:
-    reason: "Cisco 8800 doesn't support voq tests"
+    reason: "Cisco 8800 doesn't support voq tests,except T2"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "asic_type in ['cisco-8000'],not T2"
 
 voq/test_fabric_cli_and_db.py:
   skip:
@@ -3607,6 +3757,16 @@ vxlan/test_vxlan_route_advertisement.py:
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs']"
 
+
+#######################################
+#####           wan          #####
+#######################################
+wan:
+  skip:
+    reason: "It is skipped on TH5, 5640,dualtor platform"
+    conditions:
+      - " asic type = cisco "
+
 #######################################
 #####           wan_lacp          #####
 #######################################
@@ -3617,6 +3777,24 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+#######################################
+#####           wan_test         #####
+#######################################
+wan_test:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
+#####           wol          #####
+#######################################
+wol:
+  skip:
+    reason: "It is skipped on TH5, 5640 platform"
+    conditions:
+      - platform in ['7060x6pe', '5640']
 
 #######################################
 #####             zmq             #####
