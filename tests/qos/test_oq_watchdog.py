@@ -35,6 +35,7 @@ pytestmark = [
 ]
 
 PKTS_NUM = 100
+EXPECT_OQ_WD_DETECT_RE = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*", r".*Output Queue appears to be stuck*"]
 
 
 class TestOqWatchdog(QosSaiBase):
@@ -48,7 +49,7 @@ class TestOqWatchdog(QosSaiBase):
     def testOqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
             get_src_dst_asic_and_duts,
-            disable_voq_watchdog_function_scope
+            disable_voq_watchdog_function_scope, loganalyzer
     ):
         """
             Test OQ watchdog functionality.
@@ -75,6 +76,8 @@ class TestOqWatchdog(QosSaiBase):
         dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
         dst_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["dst_port_id"]]
         interfaces = self.get_port_channel_members(dst_dut, dst_port)
+
+        loganalyzer[dst_dut.hostname].expect_regex.extend(EXPECT_OQ_WD_DETECT_RE)
 
         testParams = dict()
         testParams.update(dutTestParams["basicParams"])

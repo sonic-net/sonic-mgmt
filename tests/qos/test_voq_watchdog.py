@@ -35,7 +35,7 @@ pytestmark = [
 ]
 
 PKTS_NUM = 100
-EXPECT_VOQ_WD_DETECT_RE = ".* VOQ Appears to be stuck.*"
+EXPECT_VOQ_WD_DETECT_RE = [r".*HARDWARE_WATCHDOG.*", r".*soft_reset*", r".*VOQ Appears to be stuck*"]
 
 
 class TestVoqWatchdog(QosSaiBase):
@@ -69,7 +69,7 @@ class TestVoqWatchdog(QosSaiBase):
         try:
             if voq_watchdog_enabled:
                 dst_dut = get_src_dst_asic_and_duts['dst_dut']
-                loganalyzer[dst_dut.hostname].expect_regex.append(EXPECT_VOQ_WD_DETECT_RE)
+                loganalyzer[dst_dut.hostname].expect_regex.extend(EXPECT_VOQ_WD_DETECT_RE)
             else:
                 self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=False)
 
