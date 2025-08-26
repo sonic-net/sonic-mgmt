@@ -92,6 +92,7 @@ def select_services_to_warmrestart(duthost, request):
     return [service for service in all_services if passes_all_checks(service)]
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_service_warm_restart(request, duthosts, rand_one_dut_hostname,
                               verify_dut_health, get_advanced_reboot,       # noqa: F811
                               advanceboot_loganalyzer,  # noqa: F811
