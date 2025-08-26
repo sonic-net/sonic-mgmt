@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 
-import os, sys
-sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "module_utils"))
-from port_utils import get_port_alias_to_name_map
+import os
+import sys
 import argparse
 from abc import ABC, abstractmethod
 from functools import cmp_to_key
 import re
 import csv
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "module_utils"))
+from port_utils import get_port_alias_to_name_map  # noqa: E402
 
 
 """
@@ -17,7 +18,8 @@ csv field names
 devices_header = ["Hostname", "ManagementIp", "HwSku", "Type", "Protocol", "Os"]
 links_header = ["StartDevice", "StartPort", "EndDevice", "EndPort", "BandWidth", "VlanID", "VlanMode", "AutoNeg"]
 physical_links_header = ["StartDevice", "StartPort", "EndDevice", "EndPort", "BandWidth", "Cable"]
-console_links_header = ["StartDevice", "StartPort", "EndDevice", "Console_type", "Console_menu_type", "Proxy", "BaudRate"]
+console_links_header = ["StartDevice", "StartPort", "EndDevice", "Console_type",
+                        "Console_menu_type", "Proxy", "BaudRate"]
 
 
 """
@@ -61,7 +63,14 @@ dut_ports_info = {
             ("100000", ["Ethernet{}/1".format(i // 4 * 2 + i % 4 % 2 + i % 4 // 2 * 32 + 1) for i in range(64)]),
             ],
         "Arista-7260CX3-D108C8": [
-            ("50000", ["Ethernet1/1", "Ethernet1/3", "Ethernet2/1", "Ethernet2/3", "Ethernet33/1", "Ethernet33/3", "Ethernet34/1", "Ethernet34/3", "Ethernet3/1", "Ethernet3/3", "Ethernet4/1", "Ethernet4/3", "Ethernet35/1", "Ethernet35/3", "Ethernet36/1", "Ethernet36/3", "Ethernet5/1", "Ethernet5/3", "Ethernet6/1", "Ethernet6/3", "Ethernet37/1", "Ethernet37/3", "Ethernet38/1", "Ethernet38/3", "Ethernet7/1", "Ethernet7/3", "Ethernet8/1", "Ethernet8/3", "Ethernet39/1", "Ethernet39/3", "Ethernet40/1", "Ethernet40/3", "Ethernet9/1", "Ethernet9/3", "Ethernet10/1", "Ethernet10/3", "Ethernet41/1", "Ethernet41/3", "Ethernet42/1", "Ethernet42/3", "Ethernet11/1", "Ethernet11/3", "Ethernet12/1", "Ethernet12/3", "Ethernet43/1", "Ethernet43/3", "Ethernet44/1", "Ethernet44/3"]),
+            ("50000", ["Ethernet1/1", "Ethernet1/3", "Ethernet2/1", "Ethernet2/3", "Ethernet33/1", "Ethernet33/3",
+                       "Ethernet34/1", "Ethernet34/3", "Ethernet3/1", "Ethernet3/3", "Ethernet4/1", "Ethernet4/3",
+                       "Ethernet35/1", "Ethernet35/3", "Ethernet36/1", "Ethernet36/3", "Ethernet5/1", "Ethernet5/3",
+                       "Ethernet6/1", "Ethernet6/3", "Ethernet37/1", "Ethernet37/3", "Ethernet38/1", "Ethernet38/3",
+                       "Ethernet7/1", "Ethernet7/3", "Ethernet8/1", "Ethernet8/3", "Ethernet39/1", "Ethernet39/3",
+                       "Ethernet40/1", "Ethernet40/3", "Ethernet9/1", "Ethernet9/3", "Ethernet10/1", "Ethernet10/3",
+                       "Ethernet41/1", "Ethernet41/3", "Ethernet42/1", "Ethernet42/3", "Ethernet11/1", "Ethernet11/3",
+                       "Ethernet12/1", "Ethernet12/3", "Ethernet43/1", "Ethernet43/3", "Ethernet44/1", "Ethernet44/3"]),
             ("100000", ["Ethernet13/1", "Ethernet14/1"]),
             ("50000", ["Ethernet45/1", "Ethernet45/3", "Ethernet46/1", "Ethernet46/3"]),
             ("100000", ["Ethernet15/1", "Ethernet16/1"]),
@@ -70,11 +79,25 @@ dut_ports_info = {
             ("50000", ["Ethernet49/1", "Ethernet49/3", "Ethernet50/1", "Ethernet50/3"]),
             ("100000", ["Ethernet19/1", "Ethernet20/1"]),
             ("50000", ["Ethernet51/1", "Ethernet51/3", "Ethernet52/1", "Ethernet52/3"]),
-            ("50000", ["Ethernet21/1", "Ethernet21/3", "Ethernet22/1", "Ethernet22/3", "Ethernet53/1", "Ethernet53/3", "Ethernet54/1", "Ethernet54/3", "Ethernet23/1", "Ethernet23/3", "Ethernet24/1", "Ethernet24/3", "Ethernet55/1", "Ethernet55/3", "Ethernet56/1", "Ethernet56/3", "Ethernet25/1", "Ethernet25/3", "Ethernet26/1", "Ethernet26/3", "Ethernet57/1", "Ethernet57/3", "Ethernet58/1", "Ethernet58/3", "Ethernet27/1", "Ethernet27/3", "Ethernet28/1", "Ethernet28/3", "Ethernet59/1", "Ethernet59/3", "Ethernet60/1", "Ethernet60/3", "Ethernet29/1", "Ethernet29/3", "Ethernet30/1", "Ethernet30/3", "Ethernet61/1", "Ethernet61/3", "Ethernet62/1", "Ethernet62/3", "Ethernet31/1", "Ethernet31/3", "Ethernet32/1", "Ethernet32/3", "Ethernet63/1", "Ethernet63/3", "Ethernet64/1", "Ethernet64/3"]),
+            ("50000", ["Ethernet21/1", "Ethernet21/3", "Ethernet22/1", "Ethernet22/3", "Ethernet53/1", "Ethernet53/3",
+                       "Ethernet54/1", "Ethernet54/3", "Ethernet23/1", "Ethernet23/3", "Ethernet24/1", "Ethernet24/3",
+                       "Ethernet55/1", "Ethernet55/3", "Ethernet56/1", "Ethernet56/3", "Ethernet25/1", "Ethernet25/3",
+                       "Ethernet26/1", "Ethernet26/3", "Ethernet57/1", "Ethernet57/3", "Ethernet58/1", "Ethernet58/3",
+                       "Ethernet27/1", "Ethernet27/3", "Ethernet28/1", "Ethernet28/3", "Ethernet59/1", "Ethernet59/3",
+                       "Ethernet60/1", "Ethernet60/3", "Ethernet29/1", "Ethernet29/3", "Ethernet30/1", "Ethernet30/3",
+                       "Ethernet61/1", "Ethernet61/3", "Ethernet62/1", "Ethernet62/3", "Ethernet31/1", "Ethernet31/3",
+                       "Ethernet32/1", "Ethernet32/3", "Ethernet63/1", "Ethernet63/3", "Ethernet64/1", "Ethernet64/3"]),
             ],
         "Arista-7260CX3-D108C10": [
             ("100000", ["Ethernet1/1", "Ethernet2/1"]),
-            ("50000", ["Ethernet33/1", "Ethernet33/3", "Ethernet34/1", "Ethernet34/3", "Ethernet3/1", "Ethernet3/3", "Ethernet4/1", "Ethernet4/3", "Ethernet35/1", "Ethernet35/3", "Ethernet36/1", "Ethernet36/3", "Ethernet5/1", "Ethernet5/3", "Ethernet6/1", "Ethernet6/3", "Ethernet37/1", "Ethernet37/3", "Ethernet38/1", "Ethernet38/3", "Ethernet7/1", "Ethernet7/3", "Ethernet8/1", "Ethernet8/3", "Ethernet39/1", "Ethernet39/3", "Ethernet40/1", "Ethernet40/3", "Ethernet9/1", "Ethernet9/3", "Ethernet10/1", "Ethernet10/3", "Ethernet41/1", "Ethernet41/3", "Ethernet42/1", "Ethernet42/3", "Ethernet11/1", "Ethernet11/3", "Ethernet12/1", "Ethernet12/3", "Ethernet43/1", "Ethernet43/3", "Ethernet44/1", "Ethernet44/3"]),
+            ("50000", ["Ethernet33/1", "Ethernet33/3", "Ethernet34/1", "Ethernet34/3", "Ethernet3/1", "Ethernet3/3",
+                       "Ethernet4/1", "Ethernet4/3", "Ethernet35/1", "Ethernet35/3", "Ethernet36/1", "Ethernet36/3",
+                       "Ethernet5/1", "Ethernet5/3", "Ethernet6/1", "Ethernet6/3", "Ethernet37/1", "Ethernet37/3",
+                       "Ethernet38/1", "Ethernet38/3", "Ethernet7/1", "Ethernet7/3", "Ethernet8/1", "Ethernet8/3",
+                       "Ethernet39/1", "Ethernet39/3", "Ethernet40/1", "Ethernet40/3", "Ethernet9/1", "Ethernet9/3",
+                       "Ethernet10/1", "Ethernet10/3", "Ethernet41/1", "Ethernet41/3", "Ethernet42/1", "Ethernet42/3",
+                       "Ethernet11/1", "Ethernet11/3", "Ethernet12/1", "Ethernet12/3", "Ethernet43/1", "Ethernet43/3",
+                       "Ethernet44/1", "Ethernet44/3"]),
             ("100000", ["Ethernet13/1", "Ethernet14/1"]),
             ("50000", ["Ethernet45/1", "Ethernet45/3", "Ethernet46/1", "Ethernet46/3"]),
             ("100000", ["Ethernet15/1", "Ethernet16/1"]),
@@ -83,7 +106,14 @@ dut_ports_info = {
             ("50000", ["Ethernet49/1", "Ethernet49/3", "Ethernet50/1", "Ethernet50/3"]),
             ("100000", ["Ethernet19/1", "Ethernet20/1"]),
             ("50000", ["Ethernet51/1", "Ethernet51/3", "Ethernet52/1", "Ethernet52/3"]),
-            ("50000", ["Ethernet21/1", "Ethernet21/3", "Ethernet22/1", "Ethernet22/3", "Ethernet53/1", "Ethernet53/3", "Ethernet54/1", "Ethernet54/3", "Ethernet23/1", "Ethernet23/3", "Ethernet24/1", "Ethernet24/3", "Ethernet55/1", "Ethernet55/3", "Ethernet56/1", "Ethernet56/3", "Ethernet25/1", "Ethernet25/3", "Ethernet26/1", "Ethernet26/3", "Ethernet57/1", "Ethernet57/3", "Ethernet58/1", "Ethernet58/3", "Ethernet27/1", "Ethernet27/3", "Ethernet28/1", "Ethernet28/3", "Ethernet59/1", "Ethernet59/3", "Ethernet60/1", "Ethernet60/3", "Ethernet29/1", "Ethernet29/3", "Ethernet30/1", "Ethernet30/3", "Ethernet61/1", "Ethernet61/3", "Ethernet62/1", "Ethernet62/3", "Ethernet31/1", "Ethernet31/3", "Ethernet32/1", "Ethernet32/3", "Ethernet63/1", "Ethernet63/3", "Ethernet64/1", "Ethernet64/3"]),
+            ("50000", ["Ethernet21/1", "Ethernet21/3", "Ethernet22/1", "Ethernet22/3", "Ethernet53/1", "Ethernet53/3",
+                       "Ethernet54/1", "Ethernet54/3", "Ethernet23/1", "Ethernet23/3", "Ethernet24/1", "Ethernet24/3",
+                       "Ethernet55/1", "Ethernet55/3", "Ethernet56/1", "Ethernet56/3", "Ethernet25/1", "Ethernet25/3",
+                       "Ethernet26/1", "Ethernet26/3", "Ethernet57/1", "Ethernet57/3", "Ethernet58/1", "Ethernet58/3",
+                       "Ethernet27/1", "Ethernet27/3", "Ethernet28/1", "Ethernet28/3", "Ethernet59/1", "Ethernet59/3",
+                       "Ethernet60/1", "Ethernet60/3", "Ethernet29/1", "Ethernet29/3", "Ethernet30/1", "Ethernet30/3",
+                       "Ethernet61/1", "Ethernet61/3", "Ethernet62/1", "Ethernet62/3", "Ethernet31/1", "Ethernet31/3",
+                       "Ethernet32/1", "Ethernet32/3", "Ethernet63/1", "Ethernet63/3", "Ethernet64/1", "Ethernet64/3"]),
             ],
         "Cisco-8101-O32": [
             ("400000", ["etp{}".format(i) for i in range(32)]),
@@ -141,8 +171,7 @@ fanout_ports_info = {
             "10000": ["Ethernet33", "Ethernet34"],
             },
         "Arista-7060CX-32S-S128": {
-            "10000": ["Ethernet{}/{}".format(i // 4 + 1, i % 4 + 1) for i in range(128)],
-            "10000": ["Ethernet33", "Ethernet34"],
+            "10000": ["Ethernet{}/{}".format(i // 4 + 1, i % 4 + 1) for i in range(128)] + ["Ethernet33", "Ethernet34"],
             },
         "Nokia-7215": {
             "1000": ["etp{}".format(i + 1) for i in range(48)],
@@ -207,10 +236,10 @@ def get_cable(first_port_speed, second_port_speed=None):
     return cable_map["{}-{}".format(first_port_speed, second_port_speed)]
 
 
-# some fanout has limitations, so we cannot simply use the last 
+# some fanout has limitations, so we cannot simply use the last
 # link of the dut, but need link with specific speed
 special_hwsku_to_shared_fanout_speed = {
-        "Cisco-8101-O8C48" : "400000",
+        "Cisco-8101-O8C48": "400000",
         }
 
 
@@ -225,14 +254,17 @@ special_fanout_to_root_fanout_reduced_speed = {
 # some hwsku are made up and has no relevant reference in function
 # in other package functions, so mark it here
 special_hwsku_to_port_breakout_map = {
-        "Arista-7050CX3-32S-S64" : {"Ethernet{}/1".format(i + 1): ["Ethernet{}/{}".format(i + 1, j + 1) for j in range(4)] for i in range(16)},
-        "Arista-7060CX-32S-S128" : {"Ethernet{}/1".format(i + 1): ["Ethernet{}/{}".format(i + 1, j + 1) for j in range(4)] for i in range(32)},
+        "Arista-7050CX3-32S-S64": {"Ethernet{}/1".format(i + 1):
+                                   ["Ethernet{}/{}".format(i + 1, j + 1) for j in range(4)] for i in range(16)},
+        "Arista-7060CX-32S-S128": {"Ethernet{}/1".format(i + 1):
+                                   ["Ethernet{}/{}".format(i + 1, j + 1) for j in range(4)] for i in range(32)},
         }
 
 
 """
 Helpers
 """
+
 
 def list_to_dict(header, *args):
     if len(header) != len(args):
@@ -259,7 +291,7 @@ def get_port_name_to_alias_map_wrapper(hwsku, convert=False):
     alias_to_name = get_port_alias_to_name_map_wrapper(hwsku, convert)
     name_to_alias = {}
     for key, value in alias_to_name.items():
-        name_to_alias[value]= key
+        name_to_alias[value] = key
     return name_to_alias
 
 
@@ -313,7 +345,7 @@ def get_port_breakout_map_7260(dut_hwsku_list):
             fanout_hwsku = "Arista-7260CX3-D108C10"
         else:
             raise Exception("Other dut hwsku have not been using Arista 7260 as fanout yet: "
-            "dut_hwsku_logical: {}, dut_port_num {}".format(dut_hwsku_logical, dut_port_num))
+                            "dut_hwsku_logical: {}, dut_port_num {}".format(dut_hwsku_logical, dut_port_num))
         port_breakout_map = get_port_breakout_map_generic(fanout_hwsku)
         port_breakout_map["Ethernet65"] = ["Ethernet65"]
         port_breakout_map["Ethernet66"] = ["Ethernet66"]
@@ -322,10 +354,12 @@ def get_port_breakout_map_7260(dut_hwsku_list):
         port_breakout_map = get_port_breakout_map_7060([dut_hwsku_list[0]])
         port_breakout_map.pop("Ethernet33")
         port_breakout_map.pop("Ethernet34")
+
         def add_32_to_port(port):
-            return re.sub("\d+", str(int(re.search("\d+", port).group()) + 32), port, count=1)
+            return re.sub(r"\d+", str(int(re.search(r"\d+", port).group()) + 32), port, count=1)
+
         for key, value in get_port_breakout_map_7060([dut_hwsku_list[1]]).items():
-            port_breakout_map[add_32_to_port(key)] = list(map(lambda port : add_32_to_port(port), value))
+            port_breakout_map[add_32_to_port(key)] = list(map(lambda port: add_32_to_port(port), value))
         return port_breakout_map
     else:
         raise Exception("Currently 1 7260 fanout cannot support all {} duts".format(dut_hwsku_list))
@@ -336,11 +370,11 @@ def get_port_breakout_map_generic(hwsku):
         return dict(special_hwsku_to_port_breakout_map[hwsku])
     ports_physical = get_port_alias_to_name_map_wrapper(hwsku, convert=True)
     ports_logical = get_port_alias_to_name_map_wrapper(hwsku, convert=False)
-    return build_port_breakout_map(sorted(list(ports_physical.keys()), key=lambda port : port_cmp_key(port)), \
-           sorted(list(ports_logical.keys()), key=lambda port : port_cmp_key(port)))
+    return build_port_breakout_map(sorted(list(ports_physical.keys()), key=lambda port: port_cmp_key(port)),
+                                   sorted(list(ports_logical.keys()), key=lambda port: port_cmp_key(port)))
 
 
-# to make request of NUM physical ports with certain speed, we have to 
+# to make request of NUM physical ports with certain speed, we have to
 # convert it to logical ports with certain speed so the correct ports
 # from shared fanout can be allocated
 def physical_ports_to_logical_ports(port_breakout_map, ports_physical):
@@ -378,13 +412,19 @@ def port_cmp_key(port):
         return int(items[0]) + int(items[1]) / 16
 
 
+def device_cmp_key(device_name):
+    ret = device_name.rsplit("-", 1)
+    ret[1] = int(ret[1])
+    return ret
+
+
 # vlan ids are assumed to be increasing
 # if not, should sort first
 def gen_trunk_vlan(links, fanout_name):
     start_vlan = -1
     curr_vlan = -1
     intervals = []
-    for vlan in map(lambda link : int(link["VlanID"]), filter(lambda link : link["EndDevice"] == fanout_name, links)):
+    for vlan in map(lambda link: int(link["VlanID"]), filter(lambda link: link["EndDevice"] == fanout_name, links)):
         if vlan - curr_vlan > 1:
             if start_vlan == curr_vlan:
                 intervals.append("{}".format(curr_vlan))
@@ -408,7 +448,7 @@ def combine_trunk_vlan(trunk_vlans):
         trunk_vlan = trunk_vlan.strip("\"")
         if trunk_vlan:
             intervals.extend(trunk_vlan.split(","))
-    intervals = sorted(intervals, key=lambda interval : int(interval.split("-")[0]))
+    intervals = sorted(intervals, key=lambda interval: int(interval.split("-")[0]))
     start_vlan = -1
     curr_vlan = -1
     combined_intervals = []
@@ -456,7 +496,7 @@ class BreakoutPorts(ABC):
     # but for fix speed hwsku, speed is not
     # so we check for speed if it is provided, but it is also fine if
     # it is not
-    # since remove_port is only for filtering out occupied ports and 
+    # since remove_port is only for filtering out occupied ports and
     # links.csv only records logical ports and links, remove_port
     # accepts only logical ports
     @abstractmethod
@@ -491,8 +531,8 @@ class BreakoutPortsEmpty(BreakoutPorts):
     def pop_port(self, speed, num, extra_vars={}):
         if "speed_physical" in extra_vars and "num_physical" in extra_vars:
             return extra_vars["speed_physical"], speed, \
-                   {"Empty{}".format(i): ["Empty{}{}".format(i, chr(ord("a") + j)) \
-                                          for j in range(num // extra_vars["num_physical"])] \
+                   {"Empty{}".format(i): ["Empty{}{}".format(i, chr(ord("a") + j))
+                                          for j in range(num // extra_vars["num_physical"])]
                     for i in range(extra_vars["num_physical"])}
         else:
             return speed, speed, {"Empty{}".format(i): ["Empty{}".format(i)] for i in range(num)}
@@ -508,12 +548,12 @@ class BreakoutPortsBasic(BreakoutPorts):
 
     def __init__(self, hwsku=None):
         self.hwsku = hwsku
-        if hwsku != None:
+        if hwsku is not None:
             self.ports = {k: v[:] for k, v in fanout_ports_info[hwsku].items()}
             self.name_to_alias_map = get_port_name_to_alias_map_wrapper(hwsku)
 
     def remove_port(self, port, speed=None):
-        if self.hwsku == None:
+        if self.hwsku is None:
             raise Exception("Empty BreakoutPorts object should not be called")
         port = self.name_to_alias_map.get(port, port)
         if speed:
@@ -528,7 +568,7 @@ class BreakoutPortsBasic(BreakoutPorts):
             raise Exception("Port {} does not exist or has already been removed".format(port))
 
     def pop_port(self, speed, num, extra_vars={}):
-        if self.hwsku == None:
+        if self.hwsku is None:
             raise Exception("Empty BreakoutPorts object should not be called")
         if speed not in self.ports:
             raise Exception("{} does not have {} port with speed {}".format(self.hwsku, num, speed))
@@ -559,7 +599,7 @@ class BreakoutPortsGeneric(BreakoutPorts):
             for port_physical, ports_logical in self.port_breakout_map.items():
                 if port in ports_logical:
                     self.breakout_ports_physical.remove_port(port_physical, None)
-        except:
+        except:  # noqa E722
             pass
 
     def pop_port(self, speed, num, extra_vars={}):
@@ -651,7 +691,8 @@ class BreakoutPortsArista(BreakoutPorts):
                 self.ports["10000*"] = self.ports["10000*"][num_low_pri:]
             # first pick out all 100G ports
             num_100G = min(len(self.ports["100000"]), num // 4)
-            ret_ports.extend([port[:-1] + "{}".format(i + 1) for i in range(4) for port in self.ports["100000"][:num_100G]])
+            ret_ports.extend([port[:-1] + "{}".format(i + 1) for i in range(4)
+                              for port in self.ports["100000"][:num_100G]])
             self.ports["100000"] = self.ports["100000"][num_100G:]
             num_10G = num - num_100G * 4
             if num_10G > len(self.ports["10000"]):
@@ -669,7 +710,7 @@ class BreakoutPortsArista(BreakoutPorts):
     def alias_to_name_map(self):
         return get_port_alias_to_name_map_wrapper(self.hwsku, accept_special=True)
 
-    # Arista ports can be breakout to 4, and EthernetN/1 can be either 1 of 4 or 
+    # Arista ports can be breakout to 4, and EthernetN/1 can be either 1 of 4 or
     # the whole port. This is a problem with current links recording system. We
     # assume for now EthernetN/1 is 1 of 4 to save resource. However for the purpose
     # of less confusion, this method should not be valid
@@ -703,7 +744,7 @@ class BreakoutPortsArista7060CX(BreakoutPortsArista):
 
 
 def get_breakout_ports(hwsku=None):
-    if hwsku == None:
+    if hwsku is None:
         return BreakoutPortsBasic(None)
     if hwsku == "empty":
         return BreakoutPortsEmpty()
@@ -721,7 +762,7 @@ def get_breakout_ports(hwsku=None):
 
 def get_physical_ports_from_generator(generator, speed, num):
     speed_physical, _, port_breakout_map = generator(speed, num)
-    return speed_physical, sorted(port_breakout_map.keys(), key=lambda port : port_cmp_key(port))
+    return speed_physical, sorted(port_breakout_map.keys(), key=lambda port: port_cmp_key(port))
 
 
 def get_logical_ports_from_generator(generator, speed, num):
@@ -729,7 +770,7 @@ def get_logical_ports_from_generator(generator, speed, num):
     list_sum = []
     for ports_logical in port_breakout_map.values():
         list_sum.extend(ports_logical)
-    return speed_logical, sorted(list_sum, key=lambda port : port_cmp_key(port))
+    return speed_logical, sorted(list_sum, key=lambda port: port_cmp_key(port))
 
 
 """
@@ -740,6 +781,7 @@ also match. It is not guaranteed to be true. It in fact is a problem with
 shared fanout port allocation because for shared fanouts, physical ports and
 speed can match but logical ports and speed are not.
 """
+
 
 class Device:
     def __init__(self, name, hwsku):
@@ -752,14 +794,15 @@ class Device:
         self.ports_physical = dut_ports_info[self.hwsku_physical]
         self.port_breakout_map = get_port_breakout_map_generic(self.hwsku)
         self.alias_to_name_map = get_port_alias_to_name_map_wrapper(self.hwsku, convert=False, accept_special=False)
-        self.alias_to_name_map_physical = get_port_alias_to_name_map_wrapper(self.hwsku, convert=True, accept_special=False)
+        self.alias_to_name_map_physical = get_port_alias_to_name_map_wrapper(self.hwsku, convert=True,
+                                                                             accept_special=False)
 
     def init_fanout(self, dut_hwsku_list=None):
         hwsku = "Arista-7260CX3-dual-dut" if self.hwsku == "Arista-7260CX3" and len(dut_hwsku_list) == 2 else self.hwsku
         hwsku_physical = hwsku_logical_to_physical.get(hwsku, hwsku)
         self.ports_logical = fanout_ports_info[hwsku]
         self.ports_physical = fanout_ports_info[hwsku_physical]
-        # for most hwsku, fanout hwsku decides what its port mapping looks like, 
+        # for most hwsku, fanout hwsku decides what its port mapping looks like,
         # but for Arista 7260, it's port breakout depends on the dut
         if self.hwsku in ["Arista-7260CX3", "Arista-7260CX3-64", "Arista-7260CX3-dual-dut"]:
             self.port_breakout_map = get_port_breakout_map_7260(dut_hwsku_list)
@@ -768,7 +811,8 @@ class Device:
         else:
             self.port_breakout_map = get_port_breakout_map_generic(self.hwsku)
         self.alias_to_name_map = get_port_alias_to_name_map_wrapper(self.hwsku, convert=False, accept_special=True)
-        self.alias_to_name_map_physical = get_port_alias_to_name_map_wrapper(self.hwsku, convert=True, accept_special=True)
+        self.alias_to_name_map_physical = get_port_alias_to_name_map_wrapper(self.hwsku, convert=True,
+                                                                             accept_special=True)
 
     def num_speed(self, physical=False):
         return len(self.ports_physical) if physical else len(self.ports_logical)
@@ -777,13 +821,13 @@ class Device:
         ports = self.ports_physical if physical else self.ports_logical
         if isinstance(ports, dict):
             ports = ports.items()
-        return map(lambda item : item[0], ports)
+        return map(lambda item: item[0], ports)
 
     def port_list(self, speed, physical=False):
         ports = self.ports_physical if physical else self.ports_logical
         if isinstance(ports, dict):
             ports = ports.items()
-        return filter(lambda item : item[0] == speed, ports).__next__()[1]
+        return filter(lambda item: item[0] == speed, ports).__next__()[1]
 
     def port_speed(self, port, physical=False):
         ports = self.ports_physical if physical else self.ports_logical
@@ -813,10 +857,10 @@ class GenLink:
         self.__shared_fanout_port_breakout_map = {}
 
     def contains_dut(self, dut_name):
-        return any(map(lambda dut : dut.name == dut_name, self.__duts))
+        return any(map(lambda dut: dut.name == dut_name, self.__duts))
 
     def contains_fanout(self, fanout_name):
-        return any(map(lambda fanout : fanout.name == fanout_name, self.__fanouts))
+        return any(map(lambda fanout: fanout.name == fanout_name, self.__fanouts))
 
     def add_dut(self, dut_name, dut_hwsku):
         if not self.contains_dut(dut_name):
@@ -824,7 +868,7 @@ class GenLink:
             self.__duts.append(dut)
 
     def __dut_hwsku(self):
-        return map(lambda dut : dut.hwsku, self.__duts)
+        return map(lambda dut: dut.hwsku, self.__duts)
 
     def add_fanout(self, fanout_name, fanout_hwsku):
         if not self.contains_fanout(fanout_name):
@@ -838,7 +882,7 @@ class GenLink:
             fanout.init_fanout(list(self.__dut_hwsku()))
 
     def __find_device(self, device_name, devices):
-        return filter(lambda device : device.name == device_name, devices).__next__()
+        return filter(lambda device: device.name == device_name, devices).__next__()
 
     def find_dut(self, dut_name):
         return self.__find_device(dut_name, self.__duts)
@@ -853,36 +897,40 @@ class GenLink:
     def __match_logical_shared_fanout_speed(self, dut, dut_port_physical):
         if dut.hwsku in special_hwsku_to_shared_fanout_speed:
             required_speed_by_shared_fanout = special_hwsku_to_shared_fanout_speed[dut.hwsku]
-            qualified_ports_logical = filter(lambda item : item[0] == required_speed_by_shared_fanout, dut.ports_logical).__next__()[1]
-            return all(map(lambda port_logical : port_logical in qualified_ports_logical, dut.port_breakout_map[dut_port_physical]))
+            qualified_ports_logical = filter(lambda item: item[0] == required_speed_by_shared_fanout,
+                                             dut.ports_logical).__next__()[1]
+            return all(map(lambda port_logical: port_logical in qualified_ports_logical,
+                           dut.port_breakout_map[dut_port_physical]))
         else:
             return True
 
     def __get_shared_fanout_port_list_physical(self, dut, dut_port_list_for_shared_fanout_physical,
                                                shared_fanout_port_generator, extra_vars={}):
-        dut_port_list_for_shared_fanout_logical = physical_ports_to_logical_ports(dut.port_breakout_map,
-                                                                                  dut_port_list_for_shared_fanout_physical)
+        dut_port_list_for_shared_fanout_logical = physical_ports_to_logical_ports(
+                dut.port_breakout_map,
+                dut_port_list_for_shared_fanout_physical)
         dut_speed_logical = dut.port_speed(dut_port_list_for_shared_fanout_logical[0])
-        if not all(map(lambda port : dut.port_speed(port) == dut_speed_logical,
+        if not all(map(lambda port: dut.port_speed(port) == dut_speed_logical,
                        dut_port_list_for_shared_fanout_logical)):
-            raise Exception("Logical ports {} do not have the same speed".format(dut_port_list_for_shared_fanout_logical))
+            raise Exception("Logical ports {} do not have the same speed".
+                            format(dut_port_list_for_shared_fanout_logical))
         shared_fanout_speed_physical, shared_fanout_speed_logical, shared_fanout_port_breakout_map = \
-                shared_fanout_port_generator(dut_speed_logical, len(dut_port_list_for_shared_fanout_logical),
-                                             {"num_physical": len(dut_port_list_for_shared_fanout_physical),
-                                              **extra_vars})
+            shared_fanout_port_generator(dut_speed_logical, len(dut_port_list_for_shared_fanout_logical),
+                                         {"num_physical": len(dut_port_list_for_shared_fanout_physical),
+                                          **extra_vars})
         self.__shared_fanout_port_breakout_map.update(shared_fanout_port_breakout_map)
         shared_fanout_port_list_physical = []
         for port_physical, ports_logical in shared_fanout_port_breakout_map.items():
             shared_fanout_port_list_physical.append(port_physical)
         return shared_fanout_speed_physical, sorted(shared_fanout_port_list_physical,
-                                                    key=lambda port : port_cmp_key(port))
+                                                    key=lambda port: port_cmp_key(port))
 
     def __gen_physical_link_no_fanout(self, dut, root_fanout_name, root_fanout_port_generator,
                                       shared_fanout_name, shared_fanout_port_generator):
         speed = dut.speed(physical=True).__next__()
         dut_port_list = dut.port_list(speed, physical=True)
         shared_fanout_port_speed, shared_fanout_port_list = \
-                self.__get_shared_fanout_port_list_physical(dut, dut_port_list, shared_fanout_port_generator)
+            self.__get_shared_fanout_port_list_physical(dut, dut_port_list, shared_fanout_port_generator)
         for i in range(len(dut_port_list)):
             self.__physical_links.append(list_to_dict(physical_links_header,
                                                       dut.name, dut_port_list[i], shared_fanout_name,
@@ -918,14 +966,14 @@ class GenLink:
                                                           dut.name, dut_port_list[i], fanout.name, fanout_port_list[i],
                                                           speed, get_cable(speed)))
             shared_fanout_port_speed, shared_fanout_port_list = \
-                    self.__get_shared_fanout_port_list_physical(dut, dut_port_list[-1:],
-                                                                shared_fanout_port_generator)
+                self.__get_shared_fanout_port_list_physical(dut, dut_port_list[-1:],
+                                                            shared_fanout_port_generator)
             self.__physical_links.append(list_to_dict(physical_links_header,
                                                       dut.name, dut_port_list[dut_port_num - 1],
                                                       shared_fanout_name, shared_fanout_port_list[0], speed,
                                                       get_cable(speed, shared_fanout_port_speed)))
             root_fanout_port_speed, root_fanout_port_list = \
-                    get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+                get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
             self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                                  root_fanout_name, root_fanout_port_list[0],
                                                                  fanout.name, fanout_port_list[dut_port_num - 1],
@@ -941,7 +989,7 @@ class GenLink:
                                                           shared_fanout_port_list[i], speed,
                                                           get_cable(speed, shared_fanout_port_speed)))
             root_fanout_port_speed, root_fanout_port_list = \
-                    get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+                get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
             self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                                  root_fanout_name, root_fanout_port_list[0],
                                                                  fanout.name, fanout_port_list[0], reduced_speed,
@@ -966,7 +1014,7 @@ class GenLink:
                                                           dut.name, dut_port_list[i], fanout.name,
                                                           fanout_port_list[i], speed, get_cable(speed)))
             root_fanout_port_speed, root_fanout_port_list = \
-                    get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+                get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
             self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                                  root_fanout_name, root_fanout_port_list[0],
                                                                  fanout.name, fanout_port_list[dut_port_num],
@@ -981,13 +1029,13 @@ class GenLink:
             qualified_port_list = dut_port_list
             if dut.hwsku in special_hwsku_to_shared_fanout_speed:
                 dut_port_list_to_shared_fanout = []
-                qualified_port_list = list(filter(lambda port : self.__match_logical_shared_fanout_speed(dut, port),
+                qualified_port_list = list(filter(lambda port: self.__match_logical_shared_fanout_speed(dut, port),
                                                   dut_port_list))
             dut_port_list_to_shared_fanout = qualified_port_list[-to_shared_fanout_link_num:]
             shared_fanout_port_speed, shared_fanout_port_list = \
-                    self.__get_shared_fanout_port_list_physical(dut, dut_port_list_to_shared_fanout,
-                                                                shared_fanout_port_generator,
-                                                                extra_vars={"speed_physical": speed})
+                self.__get_shared_fanout_port_list_physical(dut, dut_port_list_to_shared_fanout,
+                                                            shared_fanout_port_generator,
+                                                            extra_vars={"speed_physical": speed})
             shared_fanout_port_index = 0
             last_unused_fanout_port = None
             for i in range(dut_port_num):
@@ -1004,12 +1052,13 @@ class GenLink:
                                                               dut.name, dut_port, fanout.name, fanout_port_list[i],
                                                               speed, get_cable(speed)))
             root_fanout_port_speed, root_fanout_port_list = \
-                    get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+                get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
             if last_unused_fanout_port:
                 self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                                      root_fanout_name, root_fanout_port_list[0],
-                                                                     fanout.name, last_unused_fanout_port, reduced_speed,
-                                                                     get_cable(root_fanout_port_speed, reduced_speed)))
+                                                                     fanout.name, last_unused_fanout_port,
+                                                                     reduced_speed, get_cable(root_fanout_port_speed,
+                                                                                              reduced_speed)))
             else:
                 self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                                      root_fanout_name, root_fanout_port_list[0],
@@ -1025,16 +1074,17 @@ class GenLink:
         fanout_port_list = fanout.port_list(speed, physical=True)
         fanout_port_num = len(fanout_port_list)
         if fanout_port_num < dut_port_num:
-            raise Exception("Fanout should have no less same speed ports than dut: {} {}".format(fanout_port_num, dut_port_num))
+            raise Exception("Fanout should have no less same speed ports than dut: {} {}".
+                            format(fanout_port_num, dut_port_num))
         for i in range(dut_port_num):
             self.__physical_links.append(list_to_dict(physical_links_header,
                                                       dut.name, dut_port_list[i], fanout.name,
                                                       fanout_port_list[i], speed, get_cable(speed)))
-        second_speed = filter(lambda item : item != speed, fanout.speed()).__next__()
+        second_speed = filter(lambda item: item != speed, fanout.speed()).__next__()
         fanout_port_list = fanout.port_list(second_speed, physical=True)
         reduced_speed = self.__reduce_speed_for_root_fanout(fanout, second_speed)
         root_fanout_port_speed, root_fanout_port_list = \
-                get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+            get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
         self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                              root_fanout_name, root_fanout_port_list[0],
                                                              fanout.name, fanout_port_list[0], reduced_speed,
@@ -1043,8 +1093,8 @@ class GenLink:
     def __gen_physical_link_dual_dut_dual_speed_fanout(self, duts, fanout, root_fanout_name,
                                                        root_fanout_port_generator):
         speed = duts[0].speed(physical=True).__next__()
-        dut_port_lists = list(map(lambda dut : dut.port_list(speed, physical=True), duts))
-        dut_port_nums = list(map(lambda l : len(l), dut_port_lists))
+        dut_port_lists = list(map(lambda dut: dut.port_list(speed, physical=True), duts))
+        dut_port_nums = list(map(lambda item: len(item), dut_port_lists))
         fanout_port_list = fanout.port_list(speed, physical=True)
         fanout_port_num = len(fanout_port_list)
         if fanout_port_num < sum(dut_port_nums):
@@ -1056,11 +1106,11 @@ class GenLink:
                                                           duts[i].name, dut_port, fanout.name,
                                                           fanout_port_list[sum(dut_port_nums[:i]) + j],
                                                           speed, get_cable(speed)))
-        second_speed = filter(lambda item : item != speed, fanout.speed()).__next__()
+        second_speed = filter(lambda item: item != speed, fanout.speed()).__next__()
         fanout_port_list = fanout.port_list(second_speed, physical=True)
         reduced_speed = self.__reduce_speed_for_root_fanout(fanout, second_speed)
         root_fanout_port_speed, root_fanout_port_list = \
-                get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
+            get_physical_ports_from_generator(root_fanout_port_generator, reduced_speed, 1)
         self.__root_fanout_link_physical.append(list_to_dict(physical_links_header,
                                                              root_fanout_name, root_fanout_port_list[0],
                                                              fanout.name, fanout_port_list[0], reduced_speed,
@@ -1086,7 +1136,7 @@ class GenLink:
             else:
                 raise Exception("Does not support dut and fanout like this: {}, {}".format(dut.name, fanout.name))
         elif len(self.__duts) == 2 and len(self.__fanouts) == 1:
-            if not all(map(lambda dut : dut.num_speed(physical=True) == 1, self.__duts)):
+            if not all(map(lambda dut: dut.num_speed(physical=True) == 1, self.__duts)):
                 raise Exception("If there are multiple duts to 1 fanout, duts can only have 1 speed")
             fanout = self.__fanouts[0]
             if fanout.num_speed(physical=True) == 1:
@@ -1099,7 +1149,7 @@ class GenLink:
         elif len(self.__duts) == 1 and len(self.__fanouts) == 0:
             dut = self.__duts[0]
             if dut.num_speed(physical=True) == 1:
-                self.__gen_physical_link_no_fanout(dut, root_fanout_name, root_fanout_port_generator, \
+                self.__gen_physical_link_no_fanout(dut, root_fanout_name, root_fanout_port_generator,
                                                    shared_fanout_name, shared_fanout_port_generator)
             else:
                 raise Exception("If no fanout is provided, dut cannot have more than 1 speed")
@@ -1107,13 +1157,12 @@ class GenLink:
             raise Exception("Combo of {} duts and {} fanouts is not supported"
                             .format(len(self.__duts), len(self.__fanouts)))
         self.__physical_links = sorted(self.__physical_links,
-                                       key=lambda link : (link["StartDevice"], port_cmp_key(link["StartPort"])))
+                                       key=lambda link: (device_cmp_key(link["StartDevice"]),
+                                                         port_cmp_key(link["StartPort"])))
 
     def gen_logical_link(self, starting_vlan):
         if not self.__physical_links:
             raise Exception("Physical link should be generated before logical link")
-        index = 0
-        breakout_ports = []
         logical_links = []
         for physical_link in self.__physical_links:
             logical_link = dict(physical_link)
@@ -1132,7 +1181,8 @@ class GenLink:
                 logical_link["EndPort"] = fanout_ports_logical[i]
                 logical_link["BandWidth"] = dut.port_speed(dut_port_logical)
                 logical_links.append(dict(logical_link))
-        logical_links = sorted(logical_links, key=lambda link : (link["StartDevice"], port_cmp_key(link["StartPort"])))
+        logical_links = sorted(logical_links, key=lambda link: (device_cmp_key(link["StartDevice"]),
+                                                                port_cmp_key(link["StartPort"])))
         vlan = starting_vlan
         for link in logical_links:
             link["VlanID"] = str(vlan)
@@ -1160,7 +1210,6 @@ class GenLink:
                                     console_name, console_port.pop(),
                                     fanout.name, "ssh", "sonic_config", "sonicadmin", "9600"))
         return ret
-
 
     def get_shared_fanout_vlan(self, shared_fanout_name):
         return gen_trunk_vlan(self.__logical_links, shared_fanout_name)
@@ -1206,7 +1255,7 @@ class GenLink:
     def __print_link(self, physical=True, alias=True, shared_fanout_alias_to_name_map=None):
         csv_file = csv.DictWriter(sys.stdout, physical_links_header if physical else links_header, lineterminator="\n")
         links = self.__get_link(physical, alias, shared_fanout_alias_to_name_map)
-        links = filter(lambda link : link["EndDevice"] != "empty", links)
+        links = filter(lambda link: link["EndDevice"] != "empty", links)
         csv_file.writerows(links)
 
 
@@ -1228,7 +1277,7 @@ class GenLinks:
         console_port.reverse()
         with open("../files/sonic_{}_console_links.csv".format(self.inv)) as f:
             csv_file = csv.DictReader(f)
-            console_lines = filter(lambda line : line["StartDevice"] == console_name, csv_file)
+            console_lines = filter(lambda line: line["StartDevice"] == console_name, csv_file)
             for line in console_lines:
                 port = line["StartPort"]
                 if port in console_port:
@@ -1241,7 +1290,7 @@ class GenLinks:
     def prepare_root_fanout_info(self):
         with open("../files/sonic_{}_devices.csv".format(self.inv)) as f:
             csv_file = csv.DictReader(f)
-            root_fanout_lines = list(filter(lambda line : line["Type"] == "FanoutRoot", csv_file))
+            root_fanout_lines = list(filter(lambda line: line["Type"] == "FanoutRoot", csv_file))
         if len(root_fanout_lines) != 1:
             raise Exception("Inv {} does not have exactly 1 root fanout".format(self.inv))
         root_fanout_line = root_fanout_lines[0]
@@ -1249,7 +1298,7 @@ class GenLinks:
         root_fanout_port = get_breakout_ports(root_fanout_line["HwSku"])
         with open("../files/sonic_{}_links.csv".format(self.inv)) as f:
             csv_file = csv.DictReader(f)
-            for line in filter(lambda line : line["StartDevice"] == self.root_fanout_name, csv_file):
+            for line in filter(lambda line: line["StartDevice"] == self.root_fanout_name, csv_file):
                 port = line["StartPort"]
                 speed = line["BandWidth"]
                 root_fanout_port.remove_port(port, speed)
@@ -1271,7 +1320,7 @@ class GenLinks:
     def __prepare_shared_fanout_info_generic(self):
         with open("../files/sonic_{}_devices.csv".format(self.inv)) as f:
             csv_file = csv.DictReader(f)
-            shared_fanout_lines = list(filter(lambda line : line["Hostname"] == self.shared_fanout_name,
+            shared_fanout_lines = list(filter(lambda line: line["Hostname"] == self.shared_fanout_name,
                                               csv_file))
         if len(shared_fanout_lines) != 1:
             raise Exception("Inv {} does not have exactly 1 shared fanout {}"
@@ -1282,7 +1331,7 @@ class GenLinks:
         to_root_fanout_link_exist = False
         with open("../files/sonic_{}_links.csv".format(self.inv)) as f:
             csv_file = csv.DictReader(f)
-            for line in filter(lambda line : line["EndDevice"] == self.shared_fanout_name, csv_file):
+            for line in filter(lambda line: line["EndDevice"] == self.shared_fanout_name, csv_file):
                 if line["StartDevice"] == self.root_fanout_name:
                     self.__shared_fanout_link = line
                     to_root_fanout_link_exist = True
@@ -1313,7 +1362,7 @@ class GenLinks:
            any([fanout_name and fanout_name not in device_hwsku_map for fanout_name in fanout_names]):
             raise Exception("Please enter device into in devices.csv before using this script")
         if override_hwsku:
-            device_hwsku_map = dict(map(lambda item : (item[0], override_hwsku.get(item[1], item[1])),
+            device_hwsku_map = dict(map(lambda item: (item[0], override_hwsku.get(item[1], item[1])),
                                     device_hwsku_map.items()))
         for i in range(len(dut_names)):
             dut_name = dut_names[i]
@@ -1323,8 +1372,8 @@ class GenLinks:
                 new_obj.add_dut(dut_name, device_hwsku_map[dut_name])
                 self.__genlinks.append(new_obj)
             elif not self.__genlinks or \
-                 (not self.__genlinks[-1].contains_dut(dut_name) and \
-                  not self.__genlinks[-1].contains_fanout(fanout_name)):
+                (not self.__genlinks[-1].contains_dut(dut_name) and
+                 not self.__genlinks[-1].contains_fanout(fanout_name)):
                 new_obj = GenLink()
                 new_obj.add_dut(dut_name, device_hwsku_map[dut_name])
                 new_obj.add_fanout(fanout_name, device_hwsku_map[fanout_name])
@@ -1338,7 +1387,8 @@ class GenLinks:
     def gen_physical_links(self, m0_pattern="2"):
         for item in self.__genlinks:
             item.gen_physical_link(self.root_fanout_name, self.__root_fanout_port.pop_port, self.shared_fanout_name,
-                                   None if self.shared_fanout_name is None else self.__shared_fanout_port.pop_port, m0_pattern)
+                                   None if self.shared_fanout_name is None else self.__shared_fanout_port.pop_port,
+                                   m0_pattern)
 
     def gen_logical_links(self, vlan):
         starting_vlan = vlan
@@ -1346,8 +1396,8 @@ class GenLinks:
             with open("../files/sonic_{}_links.csv".format(self.inv)) as f:
                 csv_file = csv.DictReader(f)
                 for line in csv_file:
-                    access_lines = filter(lambda line : line["VlanMode"] == "Access", csv_file)
-                    all_vlans = list(map(lambda line : int(line["VlanID"]), access_lines))
+                    access_lines = filter(lambda line: line["VlanMode"] == "Access", csv_file)
+                    all_vlans = list(map(lambda line: int(line["VlanID"]), access_lines))
             if all_vlans:
                 starting_vlan = max(all_vlans) + 1
             else:
@@ -1375,7 +1425,7 @@ class GenLinks:
             shared_fanout_link["VlanID"] = combine_trunk_vlan([shared_fanout_link["VlanID"]] +
                                                               [item.get_shared_fanout_vlan(self.shared_fanout_name)
                                                                for item in self.__genlinks])
-        logical_links = list(filter(lambda link : link["EndDevice"] != "empty", logical_links))
+        logical_links = list(filter(lambda link: link["EndDevice"] != "empty", logical_links))
         if update_to_file:
             with open("../files/sonic_{}_links.csv".format(self.inv)) as f:
                 logical_links.extend(csv.DictReader(f))
@@ -1383,6 +1433,7 @@ class GenLinks:
                 for link in logical_links:
                     if link["StartDevice"] == self.root_fanout_name and link["EndDevice"] == self.shared_fanout_name:
                         link["VlanID"] = shared_fanout_link["VlanID"]
+
             def logical_link_cmp(link1, link2):
                 if link1["VlanMode"] == "Access" and link2["VlanMode"] == "Trunk":
                     return -1
@@ -1396,6 +1447,7 @@ class GenLinks:
                     return 1
                 else:
                     return port_cmp_key(link1["StartPort"]) - port_cmp_key(link2["StartPort"])
+
             logical_links = sorted(logical_links, key=cmp_to_key(logical_link_cmp))
             with open("../files/sonic_{}_links.csv".format(self.inv), "w") as f:
                 csv_file = csv.DictWriter(f, links_header, lineterminator="\n")
@@ -1413,6 +1465,7 @@ class GenLinks:
             with open("../files/sonic_{}_console_links.csv".format(self.inv)) as f:
                 console_links = list(csv.DictReader(f))
             console_links.extend(self.__console_links)
+
             def console_link_cmp(link1, link2):
                 if link1["StartDevice"] < link2["StartDevice"]:
                     return -1
@@ -1420,6 +1473,7 @@ class GenLinks:
                     return 1
                 else:
                     return int(link1["StartPort"]) - int(link2["StartPort"])
+
             console_links = sorted(console_links, key=cmp_to_key(console_link_cmp))
             with open("../files/sonic_{}_console_links.csv".format(self.inv), "w") as f:
                 csv_file = csv.DictWriter(f, console_links_header, lineterminator="\n")
@@ -1453,14 +1507,19 @@ if __name__ == "__main__":
                                                  # and 1 to shared fanout, pattern 2 connects all 4 to 1 7260 breakout
                                                  # port, pattern 3 connects all 4 to 4 7260 ports
     """
-    parser = argparse.ArgumentParser(description=description, epilog=epilog, formatter_class=argparse.RawTextHelpFormatter)
+    parser = argparse.ArgumentParser(description=description, epilog=epilog,
+                                     formatter_class=argparse.RawTextHelpFormatter)
     parser.add_argument("--inv", "-i", required=True, help="inventory")
     parser.add_argument("--dut", "-d", required=False, help="list of duts separated by comma")
-    parser.add_argument("--fanout", "-f", required=False, help="list of fanouts separated by comma, fanout can be empty string")
-    parser.add_argument("--override-hwsku", "-o", required=False, help="override recorded hwsku with another, format ORIG_HWSKU=NEW_HWSKU, work on both dut and fanout")
+    parser.add_argument("--fanout", "-f", required=False, help="list of fanouts separated by comma, item can be empty")
+    parser.add_argument("--override-hwsku", "-o", required=False,
+                        help="override recorded hwsku with another, "
+                             "format ORIG_HWSKU=NEW_HWSKU, work on both dut and fanout")
     parser.add_argument("--console", "-c", required=False, help="console device for all the devices")
-    parser.add_argument("--shared-fanout", "-b", required=False, help="shared fanout name for case where one fanout is not enough")
-    parser.add_argument("--vlan", "-v", required=False, type=int, help="If starting vlan is not provided, will pick the largest vlan + 1 from inventory")
+    parser.add_argument("--shared-fanout", "-b", required=False,
+                        help="shared fanout name for case where one fanout is not enough")
+    parser.add_argument("--vlan", "-v", required=False, type=int,
+                        help="If starting vlan is not provided, will pick the largest vlan + 1 from inventory")
     parser.add_argument("--sonic-name", "-s", action="store_true", help="print port as sonic name and not alias")
     parser.add_argument("--m0-pattern", "-m", default="2", choices=["1", "2", "3"], help="m0/mx connection pattern")
     parser.add_argument("--update-to-file", "-u", action="store_true", help="directly update the info to links.csv")
@@ -1469,7 +1528,7 @@ if __name__ == "__main__":
     if args.console:
         gen_links.prepare_console_info(args.console)
     if args.override_hwsku:
-        override_hwsku = dict(map(lambda item : item.split("="), args.override_hwsku.split(",")))
+        override_hwsku = dict(map(lambda item: item.split("="), args.override_hwsku.split(",")))
     else:
         override_hwsku = None
     gen_links.add_devices(args.dut.split(",") if args.dut else [],
