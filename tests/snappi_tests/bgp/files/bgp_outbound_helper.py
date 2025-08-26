@@ -9,6 +9,7 @@ from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 from tabulate import tabulate
 from statistics import mean
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import create_ip_list  # noqa: F401
@@ -60,7 +61,7 @@ def run_bgp_outbound_uplink_blackout_test(api,
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -110,7 +111,7 @@ def run_bgp_outbound_tsa_tsb_test(api,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -160,7 +161,7 @@ def run_bgp_outbound_ungraceful_restart(api,
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     """
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -212,7 +213,7 @@ def run_bgp_outbound_process_restart_test(api,
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -263,7 +264,7 @@ def run_bgp_outbound_link_flap_test(api,
     """
 
     if snappi_extra_params is None:
-        snappi_extra_params = SnappiTestParams()  # noqa F821
+        snappi_extra_params = SnappiTestParams()  # noqa: F821
 
     duthost1 = snappi_extra_params.multi_dut_params.duthost1
     duthost2 = snappi_extra_params.multi_dut_params.duthost2
@@ -350,7 +351,6 @@ def __snappi_bgp_config(api,
         for port in t2_variable_ports:
             if snappi_port['peer_device'] == duthosts[0].hostname and snappi_port['peer_port'] == port:
                 snappi_t2_ports.append(snappi_port)
-
     # Adding Ports
     for index, snappi_test_port in enumerate(snappi_t1_ports):
         if index == 0:
@@ -371,7 +371,6 @@ def __snappi_bgp_config(api,
                     else:
                         continue
                 po = po + 1
-
     config.options.port_options.location_preemption = True
     layer1 = config.layer1.layer1()[-1]
     layer1.name = 'port settings'
@@ -400,7 +399,7 @@ def __snappi_bgp_config(api,
 
         device = config.devices.device(name="T3 Device {}".format(lag_count))[-1]
         eth = device.ethernets.add()
-        eth.port_name = lag.name
+        eth.connection.port_name = lag.name
         eth.name = 'T3_Ethernet_%d' % lag_count
         eth.mac = "00:00:00:00:00:%s" % m
 
@@ -486,7 +485,7 @@ def __snappi_bgp_config(api,
         if index == 0:
             device = config.devices.device(name="T0 Device {}".format(index))[-1]
             eth = device.ethernets.add()
-            eth.port_name = port['name']
+            eth.connection.port_name = port['name']
             eth.name = 'T0_Ethernet_%d' % index
             eth.mac = "00:10:00:00:00:%s" % m
             ipv4 = eth.ipv4_addresses.add()
@@ -504,7 +503,7 @@ def __snappi_bgp_config(api,
         else:
             device = config.devices.device(name="Backup T2 Device {}".format(index))[-1]
             eth = device.ethernets.add()
-            eth.port_name = port['name']
+            eth.connection.port_name = port['name']
             eth.name = 'Backup_T2_Ethernet_%d' % index
             eth.mac = "00:10:00:00:00:%s" % m
             ipv4 = eth.ipv4_addresses.add()
@@ -614,6 +613,7 @@ def __snappi_bgp_config(api,
             total_routes = total_routes+route[2]
         for route in route_range['IPv6']:
             total_routes = total_routes+route[2]
+
         createTrafficItem("IPv4_Traffic", [ipv4_src[0]], ipv4_dest)
         createTrafficItem("IPv6_Traffic", [ipv6_src[0]], ipv6_dest)
     elif 'IPv6' in traffic_type and 'IPv4' not in traffic_type:
@@ -648,7 +648,7 @@ def get_port_stats(api):
 
 def flap_dut_port(creds, dut_ip, dut_port, state):
     """
-    Flaps the specified DUT port by bringing it up or down.
+    Flaps the specified T1 DUT port by bringing it up or down.
 
     Args:
         creds (dict): DUT credentials'.
@@ -737,22 +737,23 @@ def get_convergence_for_link_flap(duthosts,
         logger.info(
             '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
         logger.info("Starting all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.START
-        api.set_protocol_state(ps)
+        cs = api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        api.set_control_state(cs)
+
         wait(SNAPPI_TRIGGER, "For Protocols To start")
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
         logger.info('Starting Traffic')
-        ts = api.transmit_state()
-        ts.state = ts.START
-        api.set_transmit_state(ts)
+
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        api.set_control_state(cs)
+
         wait(SNAPPI_TRIGGER, "For Traffic To start")
 
         flow_stats = get_flow_stats(api)
         port_stats = get_port_stats(api)
-
         logger.info('\n')
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
         for port_stat in port_stats:
@@ -845,22 +846,28 @@ def get_convergence_for_link_flap(duthosts,
         logger.info('PACKET LOSS DURATION After Link Up (ms): {}'.format(pkt_loss_duration))
         avg_pld2.append(pkt_loss_duration)
         logger.info('Stopping Traffic')
-        ts = api.transmit_state()
-        ts.state = ts.STOP
-        api.set_transmit_state(ts)
+
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+        api.set_control_state(cs)
 
         logger.info("Stopping all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.STOP
-        api.set_protocol_state(ps)
+        cs = api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        api.set_control_state(cs)
+
         logger.info('\n')
 
     columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
                'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
-                                  total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
-                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
-                                  tablefmt="psql"))
+
+    convergence_result = tabulate([
+        [f"{test_name} (Link DOWN)", iteration, traffic_type,
+         portchannel_count, total_routes, mean(avg_pld)],
+        [f"{test_name} (Link UP)", iteration, traffic_type,
+         portchannel_count, total_routes, mean(avg_pld2)]
+    ], headers=columns, tablefmt="psql")
+
+    logger.info("\n%s" % convergence_result)
 
 
 def kill_process_inside_container(duthost, container_name, process_id, creds):
@@ -1003,17 +1010,18 @@ def get_convergence_for_process_flap(duthosts,
                             '|---------------------------{} Iteration : {} --------------\
                             ---------|'.format(container, i+1))
                         logger.info("Starting all protocols ...")
-                        ps = api.protocol_state()
-                        ps.state = ps.START
-                        api.set_protocol_state(ps)
+                        cs = api.control_state()
+                        cs.protocol.all.state = cs.protocol.all.START
+                        api.set_control_state(cs)
+
                         wait(SNAPPI_TRIGGER, "For Protocols To start")
                         logger.info('Verifying protocol sessions state')
                         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
                         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
                         logger.info('Starting Traffic')
-                        ts = api.transmit_state()
-                        ts.state = ts.START
-                        api.set_transmit_state(ts)
+                        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+                        api.set_control_state(cs)
                         wait(SNAPPI_TRIGGER, "For Traffic To start")
 
                         flow_stats = get_flow_stats(api)
@@ -1059,21 +1067,20 @@ def get_convergence_for_process_flap(duthosts,
                         delta_frames = 0
                         for i in range(0, len(traffic_type)):
                             delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
-                        pkt_loss_duration = 1000*(delta_frames/sum_t2_rx_frame_rate)
+                        pkt_loss_duration = 1000 * (delta_frames/sum_t2_rx_frame_rate)
                         logger.info('Delta Frames : {}'.format(delta_frames))
                         logger.info('PACKET LOSS DURATION (ms): {}'.format(pkt_loss_duration))
                         avg_pld.append(pkt_loss_duration)
 
                         logger.info('Stopping Traffic')
-                        ts = api.transmit_state()
-                        ts.state = ts.STOP
-                        api.set_transmit_state(ts)
+                        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+                        api.set_control_state(cs)
                         wait(SNAPPI_TRIGGER, "For Traffic To stop")
 
                         logger.info("Stopping all protocols ...")
-                        ps = api.protocol_state()
-                        ps.state = ps.STOP
-                        api.set_protocol_state(ps)
+                        cs = api.control_state()
+                        cs.protocol.all.state = cs.protocol.all.STOP
+                        api.set_control_state(cs)
                         wait(SNAPPI_TRIGGER, "For Protocols To stop")
                         logger.info('\n')
                     row.append(test_name)
@@ -1142,17 +1149,17 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info(
                 '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
             logger.info("Starting all protocols ...")
-            ps = api.protocol_state()
-            ps.state = ps.START
-            api.set_protocol_state(ps)
+            cs = api.control_state()
+            cs.protocol.all.state = cs.protocol.all.START
+            api.set_control_state(cs)
+
             wait(SNAPPI_TRIGGER, "For Protocols To start")
             logger.info('Verifying protocol sessions state')
             protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
             protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
             logger.info('Starting Traffic')
-            ts = api.transmit_state()
-            ts.state = ts.START
-            api.set_transmit_state(ts)
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+            api.set_control_state(cs)
             wait(SNAPPI_TRIGGER, "For Traffic To start")
             flow_stats = get_flow_stats(api)
             port_stats = get_port_stats(api)
@@ -1221,14 +1228,15 @@ def get_convergence_for_tsa_tsb(duthosts,
             logger.info('PACKET LOSS DURATION After TSB (ms): {}'.format(pkt_loss_duration))
             avg_pld2.append(pkt_loss_duration)
             logger.info('Stopping Traffic')
-            ts = api.transmit_state()
-            ts.state = ts.STOP
-            api.set_transmit_state(ts)
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+            api.set_control_state(cs)
 
             logger.info("Stopping all protocols ...")
-            ps = api.protocol_state()
-            ps.state = ps.STOP
-            api.set_protocol_state(ps)
+
+            cs = api.control_state()
+            cs.protocol.all.state = cs.protocol.all.STOP
+            api.set_control_state(cs)
+
             logger.info('\n')
 
         columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
@@ -1237,6 +1245,7 @@ def get_convergence_for_tsa_tsb(duthosts,
                                       total_routes, mean(avg_pld)], [test_name+' (TSB)', iteration,
                                       traffic_type, portchannel_count, total_routes, mean(avg_pld2)]],
                                       headers=columns, tablefmt="psql"))
+
     except Exception as e:
         logger.info(e)
         logger.info('Since an exception occurred, Issuing TSB, to ensure DUT to be in proper state')
@@ -1319,17 +1328,17 @@ def get_convergence_for_blackout(duthosts,
         logger.info(
             '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
         logger.info("Starting all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.START
-        api.set_protocol_state(ps)
+        cs = api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        api.set_control_state(cs)
         wait(SNAPPI_TRIGGER, "For Protocols To start")
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
-        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+        protocolsSummary.CheckCondition(
+            'Sessions Down', StatViewAssistant.EQUAL, 0)
         logger.info('Starting Traffic')
-        ts = api.transmit_state()
-        ts.state = ts.START
-        api.set_transmit_state(ts)
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        api.set_control_state(cs)
         wait(SNAPPI_TRIGGER, "For Traffic To start")
 
         flow_stats = get_flow_stats(api)
@@ -1383,7 +1392,8 @@ def get_convergence_for_blackout(duthosts,
             for uplink_port in uplink_ports:
                 for port_mapping in fanout_info['port_mapping']:
                     if uplink_port == port_mapping['uplink_port']:
-                        add_value_to_key(required_fanout_mapping, fanout_ip, port_mapping['fanout_port'])
+                        add_value_to_key(required_fanout_mapping,
+                                         fanout_ip, port_mapping['fanout_port'])
             flap_fanout_ports(required_fanout_mapping, creds, state='down')
             wait(DUT_TRIGGER, "For links to shutdown")
 
@@ -1434,14 +1444,13 @@ def get_convergence_for_blackout(duthosts,
         logger.info('PACKET LOSS DURATION After Link Up (ms): {}'.format(pkt_loss_duration))
         avg_pld2.append(pkt_loss_duration)
         logger.info('Stopping Traffic')
-        ts = api.transmit_state()
-        ts.state = ts.STOP
-        api.set_transmit_state(ts)
-
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+        api.set_control_state(cs)
         logger.info("Stopping all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.STOP
-        api.set_protocol_state(ps)
+
+        cs = api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        api.set_control_state(cs)
         logger.info('\n')
 
     columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
@@ -1473,7 +1482,8 @@ def ping_device(duthost, timeout):
             break
         logger.info('Polling for {} to come UP.....'.format(duthost.hostname))
         elapsed_time = time.time() - start_time
-        pytest_assert(elapsed_time < timeout, "Unable to ping for {}".format(timeout))
+        pytest_assert(elapsed_time < timeout,
+                      "Unable to ping for {}".format(timeout))
         time.sleep(1)
 
 
@@ -1510,8 +1520,10 @@ def get_convergence_for_ungraceful_restart(duthosts,
     ixnetwork = session.Ixnetwork
     for index, topology in enumerate(ixnetwork.Topology.find()):
         try:
-            topology.DeviceGroup.find()[0].RouterData.find().RouterId.Single(router_ids[index])
-            logger.info('Setting Router id {} for {}'.format(router_ids[index], topology.DeviceGroup.find()[0].Name))
+            topology.DeviceGroup.find()[0].RouterData.find(
+            ).RouterId.Single(router_ids[index])
+            logger.info('Setting Router id {} for {}'.format(
+                router_ids[index], topology.DeviceGroup.find()[0].Name))
         except Exception:
             logger.info('Skipping Router id for {}, Since bgp is not configured'.
                         format(topology.DeviceGroup.find()[0].Name))
@@ -1523,17 +1535,19 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info(
             '|--------------------------- Iteration : {} -----------------------|'.format(i+1))
         logger.info("Starting all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.START
-        api.set_protocol_state(ps)
         wait(SNAPPI_TRIGGER, "For Protocols To start")
+
+        cs = api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        api.set_control_state(cs)
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
-        protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+        protocolsSummary.CheckCondition(
+            'Sessions Down', StatViewAssistant.EQUAL, 0)
         logger.info('Starting Traffic')
-        ts = api.transmit_state()
-        ts.state = ts.START
-        api.set_transmit_state(ts)
+
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        api.set_control_state(cs)
         wait(SNAPPI_TRIGGER, "For Traffic To start")
 
         flow_stats = get_flow_stats(api)
@@ -1542,18 +1556,23 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Rx Snappi Port Name : Rx Frame Rate')
         for port_stat in port_stats:
             if 'Snappi_Tx_Port' not in port_stat.name:
-                logger.info('{} : {}'.format(port_stat.name, port_stat.frames_rx_rate))
-                pytest_assert(port_stat.frames_rx_rate > 0, '{} is not receiving any packet'.format(port_stat.name))
+                logger.info('{} : {}'.format(
+                    port_stat.name, port_stat.frames_rx_rate))
+                pytest_assert(port_stat.frames_rx_rate > 0,
+                              '{} is not receiving any packet'.format(port_stat.name))
         logger.info('\n')
         for i in range(0, len(traffic_type)):
-            logger.info('{} Loss %: {}'.format(flow_stats[i].name, int(flow_stats[i].loss)))
-            pytest_assert(int(flow_stats[i].loss) == 0, f'Loss Observed in {flow_stats[i].name}')
+            logger.info('{} Loss %: {}'.format(
+                flow_stats[i].name, int(flow_stats[i].loss)))
+            pytest_assert(int(flow_stats[i].loss) == 0,
+                          f'Loss Observed in {flow_stats[i].name}')
 
         # Getting rx rate on uplink ports
         sum_t2_rx_frame_rate = 0
         for port_stat in port_stats:
             if 'Snappi_Uplink' in port_stat.name:
-                sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + int(port_stat.frames_rx_rate)
+                sum_t2_rx_frame_rate = sum_t2_rx_frame_rate + \
+                    int(port_stat.frames_rx_rate)
         logger.info('Issuing Ungraceful restart')
         for duthost in duthosts:
             if duthost.hostname == device_name:
@@ -1563,14 +1582,17 @@ def get_convergence_for_ungraceful_restart(duthosts,
             pytest_assert(float((int(flow_stats[i].frames_tx_rate) - int(flow_stats[i].frames_rx_rate)) /
                           int(flow_stats[i].frames_tx_rate)) < 0.005,
                           'Traffic has not converged after issuing kernel panic')
-        logger.info('Traffic has converged after issuing kernel panic command in {}'.format(device_name))
+        logger.info(
+            'Traffic has converged after issuing kernel panic command in {}'.format(device_name))
         flow_stats = get_flow_stats(api)
         delta_frames = 0
         for i in range(0, len(traffic_type)):
-            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+            delta_frames = delta_frames + \
+                flow_stats[i].frames_tx - flow_stats[i].frames_rx
         pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
         logger.info('Delta Frames : {}'.format(delta_frames))
-        logger.info('PACKET LOSS DURATION  After Device is DOWN (ms): {}'.format(pkt_loss_duration))
+        logger.info('PACKET LOSS DURATION  After Device is DOWN (ms): {}'.format(
+            pkt_loss_duration))
         avg_pld.append(pkt_loss_duration)
 
         logger.info('Clearing Stats')
@@ -1582,25 +1604,26 @@ def get_convergence_for_ungraceful_restart(duthosts,
         flow_stats = get_flow_stats(api)
         delta_frames = 0
         for i in range(0, len(traffic_type)):
-            delta_frames = delta_frames + flow_stats[i].frames_tx - flow_stats[i].frames_rx
+            delta_frames = delta_frames + \
+                flow_stats[i].frames_tx - flow_stats[i].frames_rx
         pkt_loss_duration = 1000 * (delta_frames / sum_t2_rx_frame_rate)
         logger.info('Delta Frames : {}'.format(delta_frames))
-        logger.info('PACKET LOSS DURATION  After device is UP (ms): {}'.format(pkt_loss_duration))
+        logger.info('PACKET LOSS DURATION  After device is UP (ms): {}'.format(
+            pkt_loss_duration))
         avg_pld2.append(pkt_loss_duration)
 
         for duthost in duthosts:
-            # For Sup ungraceful restart, all LCs will also reboot, and hence need TSB to stop startup_tsa_tsb service
             logger.info('Issuing TSB on {}'.format(duthost.hostname))
             duthost.command("sudo TSB")
+
         logger.info('Stopping Traffic')
-        ts = api.transmit_state()
-        ts.state = ts.STOP
-        api.set_transmit_state(ts)
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+        api.set_control_state(cs)
 
         logger.info("Stopping all protocols ...")
-        ps = api.protocol_state()
-        ps.state = ps.STOP
-        api.set_protocol_state(ps)
+        cs = api.control_state()
+        cs.protocol.all.state = cs.protocol.all.STOP
+        api.set_control_state(cs)
         logger.info('\n')
 
     columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',

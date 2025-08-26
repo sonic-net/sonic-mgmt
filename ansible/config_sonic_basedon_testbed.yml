@@ -111,8 +111,16 @@
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
+  - name: override group_file for route-conv
+    set_fact:
+      conn_graph_group: "{{ testbed_facts['inv_name'] }}"
+    when: is_ixia_testbed
+
   - name: get connection graph if defined for dut (ignore any errors)
-    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    conn_graph_facts:
+      host: "{{ inventory_hostname }}"
+      group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
+      ignore_errors: true
     delegate_to: localhost
     ignore_errors: true
 
@@ -291,7 +299,7 @@
 
   - name: find all interface indexes connecting to VM
     set_fact:
-      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) + item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
     when: "'cable' not in topo"
 
@@ -608,10 +616,10 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
-      - name: Preload minigraph to flush config_db for Virtual Chassis
+      - name: Preload minigraph to flush config_db for Virtual Chassis and Multi-ASIC platforms
         shell: config load_minigraph -y && config save -y
         become: true
-        when: "'t2' in topo and type == 'kvm'"
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
 
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
@@ -624,7 +632,7 @@
               dest=/tmp/smartswitch.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -636,6 +644,7 @@
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
+          vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -745,6 +754,17 @@
             service: name=ntp state=restarted enabled=true
         when: chrony_service.status.LoadState == "not-found"
 
+      - name: Remove specific PortChannel IPs from running CONFIG_DB
+        become: true
+        shell: |
+          for pc in PortChannel1 PortChannel3 PortChannel4 PortChannel6; do
+            for ip in $(redis-cli -n 4 keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
+              echo "Removing $pc $ip"
+              config interface ip remove $pc $ip || true
+            done
+          done
+        when: topo == "t1-filterleaf-lag"
+
       - name: Sync DUT system time with NTP server with chrony
         block:
           - name: Wait for chrony.service restart after reload minigraph
@@ -803,7 +823,7 @@
               dest=/tmp/dpu_extra.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
@@ -812,7 +832,7 @@
           host_passwords: "{{ sonic_default_passwords }}"
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Configure TACACS
         become: true
@@ -949,5 +969,12 @@
       - name: Reset sshd timeout
         become: True
         shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
+
+      - name: enable IPv6 on device
+        become: true
+        ansible.builtin.sysctl:
+          name: net.ipv6.conf.all.disable_ipv6
+          value: 0
+          sysctl_set: true
 
     when: deploy is defined and deploy|bool == true

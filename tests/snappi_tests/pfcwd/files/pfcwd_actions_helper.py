@@ -3,20 +3,21 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa F401
+    fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
     get_lossless_buffer_size, get_pg_dropped_packets,\
     stop_pfcwd, disable_packet_aging, sec_to_nanosec,\
     get_pfc_frame_count, packet_capture, config_capture_pkt,\
     start_pfcwd, enable_packet_aging, start_pfcwd_fwd, \
-    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa F401
-from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa F401
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa F401
+    traffic_flow_mode, calc_pfc_pause_flow_rate      # noqa: F401
+from tests.common.snappi_tests.port import select_ports, select_tx_port  # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp  # noqa: F401
 from tests.common.snappi_tests.traffic_generation import verify_pause_flow, \
     verify_basic_test_flow, verify_background_flow, verify_pause_frame_count_dut, \
     run_traffic_and_collect_stats, multi_base_traffic_config, verify_egress_queue_frame_count, \
     generate_test_flows, generate_background_flows, generate_pause_flows
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.files.helper import get_number_of_streams
 
 
 logger = logging.getLogger(__name__)
@@ -100,22 +101,24 @@ def run_pfc_test(api,
 
     pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
 
+    rx_port_asic_value = rx_port['asic_value'] if egress_duthost.is_multi_asic else None
+    tx_port_asic_value = tx_port['asic_value'] if ingress_duthost.is_multi_asic else None
     if (test_def['enable_pfcwd_drop']):
-        start_pfcwd(egress_duthost)
-        start_pfcwd(ingress_duthost)
+        start_pfcwd(egress_duthost, rx_port_asic_value)
+        start_pfcwd(ingress_duthost, tx_port_asic_value)
     elif (test_def['enable_pfcwd_fwd']):
-        start_pfcwd_fwd(egress_duthost)
-        start_pfcwd_fwd(ingress_duthost)
+        start_pfcwd_fwd(egress_duthost, rx_port_asic_value)
+        start_pfcwd_fwd(ingress_duthost, tx_port_asic_value)
     else:
-        stop_pfcwd(egress_duthost)
-        stop_pfcwd(ingress_duthost)
+        stop_pfcwd(egress_duthost, rx_port_asic_value)
+        stop_pfcwd(ingress_duthost, tx_port_asic_value)
 
     if (test_def['enable_credit_wd']):
-        enable_packet_aging(egress_duthost, rx_port['asic_value'])
-        enable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        enable_packet_aging(egress_duthost, rx_port_asic_value)
+        enable_packet_aging(ingress_duthost, tx_port_asic_value)
     else:
-        disable_packet_aging(egress_duthost, rx_port['asic_value'])
-        disable_packet_aging(ingress_duthost, tx_port['asic_value'])
+        disable_packet_aging(egress_duthost, rx_port_asic_value)
+        disable_packet_aging(ingress_duthost, tx_port_asic_value)
 
     rx_port_id = 0
 
@@ -246,6 +249,7 @@ def run_pfc_test(api,
                             test_flow_prio_list=test_prio_list,
                             prio_dscp_map=prio_dscp_map,
                             snappi_extra_params=snappi_extra_params,
+                            number_of_streams=get_number_of_streams(ingress_duthost, tx_port, rx_port),
                             flow_index=m)
 
     if (test_def['background_traffic']):
@@ -256,6 +260,7 @@ def run_pfc_test(api,
                                           bg_flow_prio_list=bg_prio_list,
                                           prio_dscp_map=prio_dscp_map,
                                           snappi_extra_params=snappi_extra_params,
+                                          number_of_streams=get_number_of_streams(ingress_duthost, tx_port, rx_port),
                                           flow_index=m)
 
     # Generate pause storm config
@@ -293,6 +298,7 @@ def run_pfc_test(api,
                                       all_flow_names=all_flow_names,
                                       exp_dur_sec=exp_dur_sec,
                                       port_map=test_def['port_map'],
+                                      enable_pfcwd_drop=test_def['enable_pfcwd_drop'],
                                       fname=fname,
                                       stats_interval=test_def['stats_interval'],
                                       imix=test_def['imix'],

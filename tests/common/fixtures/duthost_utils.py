@@ -184,8 +184,13 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     config_port_channel_members = [list(port_channel.keys()) for port_channel in list(config_portchannels.values())]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
-    ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
-             config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
+    ports = [
+        port for port in config_ports
+        if port in config_port_indices
+        and config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
+        and port not in config_port_channel_member_ports
+    ]
     return ports
 
 
@@ -231,13 +236,16 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # increase timeout for check_orch_cpu_utilization to 120sec for chassis
     # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
     duthost = duthosts[rand_one_dut_hostname]
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    orch_cpu_timeout = 120 if is_chassis else 60
+    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
         v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
         v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
+        v4_routes_count = v4ebgps[duthost.hostname]
+        v6_routes_count = v6ebgps[duthost.hostname]
+        if v4_routes_count > 10000 or v6_routes_count > 10000:
+            orch_cpu_timeout = 120
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
@@ -843,3 +851,42 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
             pt_assert(addr not in cmd_output,
                       f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+
+
+def is_sai_profile_multi_binding_enabled(duthost):
+    """
+    Check if SAI_ACL_MULTI_BINDING_ENABLED is enabled in syncd docker's sai.profile
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in sai.profile, False otherwise
+    """
+    try:
+        # Check if sai.profile exists in syncd docker
+        result = duthost.shell(
+            "docker exec syncd ls /tmp/sai.profile", module_ignore_errors=True)
+        if result['rc'] != 0:
+            return False
+
+        # Check if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in the file
+        result = duthost.shell(
+            "docker exec syncd grep 'SAI_ACL_MULTI_BINDING_ENABLED=1' /tmp/sai.profile", module_ignore_errors=True)
+        return result['rc'] == 0
+    except Exception as e:
+        logger.error("Failed to check sai.profile: %s", str(e))
+        return False
+
+
+@pytest.fixture(scope="module")
+def is_multi_binding_acl_enabled(duthosts, tbinfo):
+    """
+    Check if multi-binding ACL is enabled on the DUT
+    """
+    for duthost in duthosts:
+        if not is_sai_profile_multi_binding_enabled(duthost):
+            if is_mellanox_device(duthost) and 'dualtor' in tbinfo['topo']['name']:
+                pytest.fail(
+                    "No multi-binding ACL supported on this platform, please check the sai.profile")
+            pytest.skip("No multi-binding ACL supported on this platform")

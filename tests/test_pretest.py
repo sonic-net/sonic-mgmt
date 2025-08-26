@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -10,6 +11,7 @@ from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
+from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
@@ -219,8 +221,13 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     """
     Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
     """
-    pytest_require(("tgen" in (request.config.getoption("--topology") or "")),
+    is_ixia_testbed = "tgen" in (request.config.getoption("--topology") or "") \
+        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"] \
+        or "nut" in tbinfo["topo"]["name"]
+
+    pytest_require(is_ixia_testbed,
                    "Skip snappi metadata generation for non-tgen testbed")
+
     metadata = {}
     tbname = tbinfo['conf-name']
     pytest_require(tbname, "skip test due to lack of testbed name.")
@@ -370,15 +377,82 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_update_saithrift_ptf(request, ptfhost):
+def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
     '''
     py_saithrift_url = request.config.getoption("--py_saithrift_url")
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
+
+    duthost = duthosts[enum_dut_hostname]
+    output = duthost.shell("show version", module_ignore_errors=True)['stdout']
+    version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
+    asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
+    # sample value: SONiC.20240510.33, SONiC.20250505.07, SONiC.internal.129741107-8524154c2d,
+    # SONiC.master.882522-695c23859
+    version = version_reg.findall(output)[0] if version_reg.search(output) else ""
+    # only broadcom, cisco-8000, mellanox support qos sai tests
+    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else ""
+
+    if "master" in version:
+        branch_name = "master"
+    elif "internal" in version:
+        branch_name = "internal"
+    else:
+        # Extract year/month from version string to determine branch
+        date_match = re.search(r'(\d{4})(\d{2})', version)
+        if date_match:
+            year, month = date_match.groups()
+            branch_name = f"internal-{year}{month}"
+        else:
+            pytest.fail("Unable to parse or recognize version format: {}".format(version))
+
+    # Apply special codename overrides for specific internal branches
+    if branch_name == "internal-202411" and asic != "mellanox":
+        # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
+        debian_codename = "bullseye"
+    elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+        # For internal branches older than 202405, use the original URL without modification
+        # No need to get debian_codename as URL won't be modified
+        debian_codename = None
+    else:
+        # Get debian codename from syncd container (not host OS)
+        # This applies to: master branch and internal branches >= 202405 (except 202411)
+        try:
+            # Try to get codename from syncd container
+            if duthost.is_multi_asic:
+                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
+                                      f"grep VERSION_CODENAME /etc/os-release | "
+                                      f"cut -d= -f2 | tr -d '\"'")
+            else:
+                syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
+                                      "cut -d= -f2 | tr -d '\"'")
+            syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
+            if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
+                debian_codename = syncd_codename_result['stdout'].strip()
+            else:
+                pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
+                    syncd_codename_result['rc'], syncd_codename_result['stdout']))
+        except Exception as e:
+            pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
+
     pkg_name = py_saithrift_url.split("/")[-1]
+    ip_addr = py_saithrift_url.split("/")[2]
     ptfhost.shell("rm -f {}".format(pkg_name))
+
+    if branch_name.startswith("internal-") and branch_name < "internal-202405":
+        # For internal branches older than 202405, use the original URL without modification
+        pass
+    elif branch_name == "master":
+        py_saithrift_url = (f"http://{ip_addr}/mssonic-public-pipelines/"
+                            f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
+                            f"latest/target/debs/{debian_codename}/{pkg_name}")
+    else:
+        # For internal branches newer than 202405 and other branches
+        py_saithrift_url = (f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/"
+                            f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+
     # Retry download of saithrift library
     retry_count = 5
     while retry_count > 0:
@@ -389,7 +463,7 @@ def test_update_saithrift_ptf(request, ptfhost):
         retry_count -= 1
 
     if result["failed"] or "OK" not in result["msg"]:
-        pytest.skip("Download failed/error while installing python saithrift package")
+        pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
     # We need to move it out to the correct location
@@ -461,7 +535,7 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
                 dut.shell("sudo mv {} {}".format(startup_tsa_tsb_file_path, backup_tsa_tsb_file_path))
                 output = dut.shell("TSB", module_ignore_errors=True)
                 pytest_assert(not output['rc'], "Failed TSB")
-                duthost.shell("sudo config save -y")
+                dut.shell("sudo config save -y")
         else:
             logger.info("{} file does not exist in the specified path on dut {}".
                         format(startup_tsa_tsb_file_path, dut.hostname))
@@ -511,3 +585,27 @@ def test_generate_running_golden_config(duthosts):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
             executor.submit(generate_running_golden_config, duthost)
+
+
+def test_clean_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
+    """
+    Clean mux/nic simulator logs from /tmp/ on the server before test run.
+    """
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+
+    log_name = None
+    if active_standby_ports:
+        server = tbinfo['server']
+        tbname = tbinfo['conf-name']
+        inv_files = utilities.get_inventory_files(request)
+        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
+        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
+    elif active_active_ports:
+        vm_set = tbinfo['group-name']
+        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
+
+    if log_name:
+        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
+        for log_file in log_files:
+            vmhost.shell("rm -f {}".format(log_file))

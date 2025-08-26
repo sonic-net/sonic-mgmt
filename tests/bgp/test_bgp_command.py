@@ -6,7 +6,7 @@ from tests.common.helpers.assertions import pytest_assert
 
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1"),
     pytest.mark.device_type('vs')
 ]
 
@@ -25,14 +25,23 @@ def parse_routes_and_paths(output):
 
 @pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
 def test_bgp_network_command(
-    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ip_version
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ip_version, tbinfo
 ):
     """
     @summary: This test case is to verify the output of "show ip bgp network" command
     if it matches the output of "docker exec -i bgp vtysh -c show bgp ipv4 all" command
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Determine if we are on IPv6 only topology
+    ipv6_only_topo = (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
+
     if ip_version == "ipv4":
+        if ipv6_only_topo:
+            pytest.skip("Skipping IPv4 BGP network command test in IPv6 only topology")
         bgp_network_cmd = "show ip bgp network"
         bgp_docker_cmd = 'docker exec -i bgp vtysh -c "show bgp ipv4 all"'
     elif ip_version == "ipv6":
@@ -48,7 +57,7 @@ def test_bgp_network_command(
         ),
     )
     pytest_assert(
-        "*=" in bgp_network_output,
+        "*=" in bgp_network_output or "*>" in bgp_network_output,
         "Failed to run '{}' command, output={}".format(
             bgp_network_cmd, bgp_network_output
         ),
@@ -61,7 +70,7 @@ def test_bgp_network_command(
         "{} return value is not 0, output:{}".format(bgp_docker_cmd, bgp_docker_output),
     )
     pytest_assert(
-        "*=" in bgp_docker_output,
+        "*=" in bgp_docker_output or "*>" in bgp_docker_output,
         "Failed to run '{}' command, output={}".format(
             bgp_docker_cmd, bgp_docker_output
         ),

@@ -317,7 +317,7 @@ def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
     return port_list
 
 
-def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
+def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
     """
     Config vrf based configuration
     """
@@ -343,6 +343,10 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     vm_list = nbrhosts.keys()
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     port_channel_list = mg_facts['minigraph_portchannels'].keys()
+    if len(port_channel_list) == 0:
+        upstream_port_list = get_port_connected_with_vm(duthost, nbrhosts, vm_type="T2")
+        port_list.extend(upstream_port_list)
+
     extra_vars = {'cfg_t1': cfg_t1, 'port_list': port_list, 'vm_list': vm_list, 'pc_list': port_channel_list}
 
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
@@ -350,11 +354,11 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.template(src="bgp/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
     wait_until(120, 10, 0, check_interface_status, duthost)
 
 
-def setup_vrf(duthost, nbrhosts, tbinfo):
+def setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer):
     """
     Prepare vrf based environment
     """
@@ -362,7 +366,7 @@ def setup_vrf(duthost, nbrhosts, tbinfo):
     duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     cfg_t1 = get_cfg_facts(duthost)
-    setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo)
+    setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo, loganalyzer)
 
 
 def install_route_from_exabgp(operation, ptfip, route_list, port):
@@ -373,12 +377,18 @@ def install_route_from_exabgp(operation, ptfip, route_list, port):
     url = "http://{}:{}".format(ptfip, port)
     for route in route_list:
         route_data.append(route)
-    command = "{} attribute next-hop self nlri {}".format(operation, ' '.join(route_data))
+    command = "{} attributes next-hop self nlri {}".format(operation, ' '.join(route_data))
     data = {"command": command}
     logger.info("url: {}".format(url))
     logger.info("command: {}".format(data))
     r = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
-    assert r.status_code == 200
+    assert r.status_code == 200, (
+        "HTTP request to ExaBGP API failed with status code {}. URL: {}. Data: {}"
+    ).format(
+        r.status_code,
+        url,
+        data
+    )
 
 
 def announce_route(ptfip, route_list, port, action=ANNOUNCE):
@@ -475,9 +485,12 @@ def check_pkt_forward_state(captured_packets, ip_ver_list, send_packet_list, exp
         else:
             logger.info("Packet is not captured:\n{}".format(str(send_packet_list[i].summary)))
 
-    assert act_forward_count == exp_forward_count, \
-        "Captured forward traffic number: {}, expect forward traffic number: {}".format(act_forward_count,
-                                                                                        exp_forward_count)
+    assert act_forward_count == exp_forward_count, (
+        "Mismatch in captured forward traffic packets. Captured: {}, expected: {}."
+    ).format(
+        act_forward_count,
+        exp_forward_count
+    )
 
 
 def update_time_stamp(time_stamp_dict, prefix, timestamp):
@@ -557,10 +570,36 @@ def validate_route_process_perf(pcap_file, ipv4_route_list, ipv6_route_list):
     logger.info("Middle time usage of withdraw {} route : {} s".format(route_num, withdraw_middle_time))
     logger.info("Average time usage of withdraw {} route : {} s".format(route_num, withdraw_average_time))
     logger.info("------------------------------------------------------------------------------------\n")
-    assert announce_middle_time < UPDATE_WITHDRAW_THRESHOLD
-    assert announce_average_time < UPDATE_WITHDRAW_THRESHOLD
-    assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD
-    assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD
+    assert announce_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
+        "Route announcement middle time exceeded threshold. "
+        "Expected announce_middle_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        announce_middle_time
+    )
+    assert announce_average_time < UPDATE_WITHDRAW_THRESHOLD, (
+        "Route announcement average time exceeded threshold. "
+        "Expected announce_average_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        announce_average_time
+    )
+
+    assert withdraw_middle_time < UPDATE_WITHDRAW_THRESHOLD, (
+       "Route withdraw middle time exceeded threshold. "
+       "Expected withdraw_middle_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        withdraw_middle_time
+    )
+
+    assert withdraw_average_time < UPDATE_WITHDRAW_THRESHOLD, (
+       "Route withdraw average time exceeded threshold: "
+       "Expected withdraw_average_time < {}, but got {}."
+    ).format(
+        UPDATE_WITHDRAW_THRESHOLD,
+        withdraw_average_time
+    )
 
 
 def prepare_traffic(traffic_data, router_mac, ptf_interfaces, recv_port):
@@ -631,7 +670,13 @@ def config_bgp_suppress_fib(duthost, enable=True, validate_result=False):
     duthost.shell(cmd)
     if validate_result:
         res = duthost.shell('show suppress-fib-pending')
-        assert enable is (res['stdout'] == 'Enabled')
+        assert enable is (res['stdout'] == 'Enabled'), (
+            "BGP suppress-fib-pending configuration state mismatch. "
+            "Expected suppress-fib-pending to be '{}' but got '{}'."
+        ).format(
+            "Enabled" if enable else "Disabled",
+            res['stdout']
+        )
 
 
 def do_and_wait_reboot(duthost, localhost, reboot_type):
@@ -641,13 +686,22 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
     with allure.step("Do {}".format(reboot_type)):
         reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True, check_intf_up_ports=True,
                wait_for_bgp=True, wait_warmboot_finalizer=True)
-        pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
-                      "All critical services should be fully started!")
-        pytest_assert(wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
-                      "Not all ports that are admin up on are operationally up")
+        pytest_assert(
+            wait_until(300, 20, 0, duthost.critical_services_fully_started),
+            (
+                "Not all critical services started within the allotted time after reboot or config reload. "
+            )
+        )
+
+        pytest_assert(
+            wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
+            (
+                "Not all admin-up ports are operationally up after reboot or config reload.\n"
+            )
+        )
 
 
-def param_reboot(request, duthost, localhost):
+def param_reboot(request, duthost, localhost, loganalyzer):
     """
     Read reboot_type from option bgp_suppress_fib_reboot_type
     If reboot_type is reload, do config reload
@@ -661,7 +715,7 @@ def param_reboot(request, duthost, localhost):
         logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
 
     if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
         wait_until(120, 10, 0, check_interface_status, duthost)
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
@@ -754,11 +808,15 @@ def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port
 @pytest.mark.parametrize("vrf_type", VRF_TYPES)
 def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
-                                 request):
+                                 request, loganalyzer):
+    asic_name = duthost.get_asic_name()
+    if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
+        pytest.xfail("vrf testing not supported on TH5")
+
     try:
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Configure user defined vrf"):
-                setup_vrf(duthost, nbrhosts, tbinfo)
+                setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer)
 
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
@@ -780,7 +838,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
                             format(continous_boot_index+1))
 
             with allure.step("Do reload"):
-                param_reboot(request, duthost, localhost)
+                param_reboot(request, duthost, localhost, loganalyzer)
 
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
                 try:
@@ -834,7 +892,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-                config_reload(duthost, safe_reload=True)
+                config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
                 wait_until(120, 10, 0, check_interface_status, duthost)
 
 
@@ -980,7 +1038,7 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
     for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
         try:
             with allure.step("Disable bgp suppress-fib-pending function"):
-                config_bgp_suppress_fib(duthost, False)
+                config_bgp_suppress_fib(duthost, False, validate_result=True)
 
             with allure.step(
                     "Validate traffic is forwarded back to T2 VM and routes in HW table are removed by orchagent"):
@@ -1007,7 +1065,10 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
                 config_bgp_suppress_fib(duthost, validate_result=True)
 
             with allure.step("Restore orchagent process"):
-                assert is_orchagent_stopped(duthost), "orchagent shall in stop state"
+                assert is_orchagent_stopped(duthost), (
+                    "Orchagent process is not in the expected 'stop' state on DUT "
+                )
+
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are in {} state".format(OFFLOADED)):
@@ -1067,7 +1128,10 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
                 config_bgp_suppress_fib(duthost, validate_result=True)
 
             with allure.step("Restore orchagent process"):
-                assert is_orchagent_stopped(duthost), "orchagent shall in stop state"
+                assert is_orchagent_stopped(duthost), (
+                    "Orchagent process is not in the expected 'stop' state on DUT ."
+                )
+
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 
             with allure.step("Validate announced BGP ipv4 and ipv6 routes are installed into fib"):

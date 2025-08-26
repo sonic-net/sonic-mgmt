@@ -746,7 +746,7 @@ configuration:
         ipv6: fc00::8e/126
     bp_interface:
       ipv4: 10.10.246.36/24
-      ipv6: fc0a::49/64
+      ipv6: fc0a::47/64
 
   ARISTA21T0:
     properties:
@@ -761,13 +761,13 @@ configuration:
         - FC00::91
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.36/32
-        ipv6: 2064:100::21/128
+        ipv4: 100.1.0.37/32
+        ipv6: 2064:100::25/128
       Ethernet1:
         ipv4: 10.0.0.73/31
         ipv6: fc00::92/126
     bp_interface:
-      ipv4: 10.10.246.36/24
+      ipv4: 10.10.246.37/24
       ipv6: fc0a::49/64
 
   ARISTA22T0:
@@ -783,13 +783,13 @@ configuration:
         - FC00::95
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.37/32
-        ipv6: 2064:100::22/128
+        ipv4: 100.1.0.38/32
+        ipv6: 2064:100::26/128
       Ethernet1:
         ipv4: 10.0.0.75/31
         ipv6: fc00::96/126
     bp_interface:
-      ipv4: 10.10.246.37/24
+      ipv4: 10.10.246.38/24
       ipv6: fc0a::50/64
 
   ARISTA23T0:
@@ -805,13 +805,13 @@ configuration:
         - FC00::99
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.38/32
-        ipv6: 2064:100::23/128
+        ipv4: 100.1.0.39/32
+        ipv6: 2064:100::27/128
       Ethernet1:
         ipv4: 10.0.0.77/31
         ipv6: fc00::9a/126
     bp_interface:
-      ipv4: 10.10.246.38/24
+      ipv4: 10.10.246.39/24
       ipv6: fc0a::51/64
 
   ARISTA24T0:
@@ -827,13 +827,13 @@ configuration:
         - FC00::9d
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.39/32
-        ipv6: 2064:100::24/128
+        ipv4: 100.1.0.40/32
+        ipv6: 2064:100::28/128
       Ethernet1:
         ipv4: 10.0.0.79/31
         ipv6: fc00::9e/126
     bp_interface:
-      ipv4: 10.10.246.39/24
+      ipv4: 10.10.246.40/24
       ipv6: fc0a::52/64
 
   ARISTA25T0:
@@ -849,13 +849,13 @@ configuration:
         - FC00::a1
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.40/32
-        ipv6: 2064:100::25/128
+        ipv4: 100.1.0.41/32
+        ipv6: 2064:100::29/128
       Ethernet1:
         ipv4: 10.0.0.81/31
         ipv6: fc00::a2/126
     bp_interface:
-      ipv4: 10.10.246.40/24
+      ipv4: 10.10.246.41/24
       ipv6: fc0a::53/64
 
   ARISTA26T0:
@@ -871,13 +871,13 @@ configuration:
         - FC00::a5
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.41/32
-        ipv6: 2064:100::26/128
+        ipv4: 100.1.0.42/32
+        ipv6: 2064:100::27/128
       Ethernet1:
         ipv4: 10.0.0.83/31
         ipv6: fc00::a6/126
     bp_interface:
-      ipv4: 10.10.246.41/24
+      ipv4: 10.10.246.42/24
       ipv6: fc0a::54/64
 
   ARISTA27T0:
@@ -893,13 +893,13 @@ configuration:
         - FC00::a9
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.42/32
-        ipv6: 2064:100::27/128
+        ipv4: 100.1.0.43/32
+        ipv6: 2064:100::28/128
       Ethernet1:
         ipv4: 10.0.0.85/31
         ipv6: fc00::aa/126
     bp_interface:
-      ipv4: 10.10.246.42/24
+      ipv4: 10.10.246.43/24
       ipv6: fc0a::55/64
 
   ARISTA28T0:
@@ -915,13 +915,13 @@ configuration:
         - FC00::ad
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.43/32
-        ipv6: 2064:100::28/128
+        ipv4: 100.1.0.44/32
+        ipv6: 2064:100::29/128
       Ethernet1:
         ipv4: 10.0.0.87/31
         ipv6: fc00::ae/126
     bp_interface:
-      ipv4: 10.10.246.43/24
+      ipv4: 10.10.246.44/24
       ipv6: fc0a::56/64
 
   ARISTA29T0:
@@ -937,13 +937,13 @@ configuration:
         - FC00::b1
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.44/32
-        ipv6: 2064:100::29/128
+        ipv4: 100.1.0.45/32
+        ipv6: 2064:100::30/128
       Ethernet1:
         ipv4: 10.0.0.89/31
         ipv6: fc00::b2/126
     bp_interface:
-      ipv4: 10.10.246.44/24
+      ipv4: 10.10.246.45/24
       ipv6: fc0a::57/64
 
   ARISTA30T0:
@@ -959,13 +959,13 @@ configuration:
         - FC00::b5
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.45/32
-        ipv6: 2064:100::30/128
+        ipv4: 100.1.0.46/32
+        ipv6: 2064:100::31/128
       Ethernet1:
         ipv4: 10.0.0.91/31
         ipv6: fc00::b6/126
     bp_interface:
-      ipv4: 10.10.246.45/24
+      ipv4: 10.10.246.46/24
       ipv6: fc0a::58/64
 
   ARISTA31T0:
@@ -981,13 +981,13 @@ configuration:
         - FC00::b9
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.46/32
-        ipv6: 2064:100::31/128
+        ipv4: 100.1.0.47/32
+        ipv6: 2064:100::32/128
       Ethernet1:
         ipv4: 10.0.0.93/31
         ipv6: fc00::ba/126
     bp_interface:
-      ipv4: 10.10.246.46/24
+      ipv4: 10.10.246.47/24
       ipv6: fc0a::59/64
 
   ARISTA32T0:
@@ -1003,13 +1003,13 @@ configuration:
         - FC00::bd
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.47/32
-        ipv6: 2064:100::32/128
+        ipv4: 100.1.0.48/32
+        ipv6: 2064:100::33/128
       Ethernet1:
         ipv4: 10.0.0.95/31
         ipv6: fc00::be/126
     bp_interface:
-      ipv4: 10.10.246.47/24
+      ipv4: 10.10.246.48/24
       ipv6: fc0a::60/64
 
   ARISTA33T0:
@@ -1025,13 +1025,13 @@ configuration:
         - FC00::c1
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.48/32
-        ipv6: 2064:100::33/128
+        ipv4: 100.1.0.49/32
+        ipv6: 2064:100::34/128
       Ethernet1:
         ipv4: 10.0.0.97/31
         ipv6: fc00::c2/126
     bp_interface:
-      ipv4: 10.10.246.48/24
+      ipv4: 10.10.246.49/24
       ipv6: fc0a::61/64
 
   ARISTA34T0:
@@ -1047,13 +1047,13 @@ configuration:
         - FC00::c5
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.49/32
-        ipv6: 2064:100::34/128
+        ipv4: 100.1.0.50/32
+        ipv6: 2064:100::35/128
       Ethernet1:
         ipv4: 10.0.0.99/31
         ipv6: fc00::c6/126
     bp_interface:
-      ipv4: 10.10.246.49/24
+      ipv4: 10.10.246.50/24
       ipv6: fc0a::62/64
 
   ARISTA35T0:
@@ -1069,13 +1069,13 @@ configuration:
         - FC00::c9
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.50/32
-        ipv6: 2064:100::35/128
+        ipv4: 100.1.0.51/32
+        ipv6: 2064:100::36/128
       Ethernet1:
         ipv4: 10.0.0.101/31
         ipv6: fc00::ca/126
     bp_interface:
-      ipv4: 10.10.246.50/24
+      ipv4: 10.10.246.51/24
       ipv6: fc0a::63/64
 
   ARISTA36T0:
@@ -1091,13 +1091,13 @@ configuration:
         - FC00::cd
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.51/32
-        ipv6: 2064:100::36/128
+        ipv4: 100.1.0.52/32
+        ipv6: 2064:100::37/128
       Ethernet1:
         ipv4: 10.0.0.103/31
         ipv6: fc00::ce/126
     bp_interface:
-      ipv4: 10.10.246.51/24
+      ipv4: 10.10.246.52/24
       ipv6: fc0a::64/64
 
   ARISTA37T0:
@@ -1113,13 +1113,13 @@ configuration:
         - FC00::d1
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.52/32
-        ipv6: 2064:100::37/128
+        ipv4: 100.1.0.53/32
+        ipv6: 2064:100::38/128
       Ethernet1:
         ipv4: 10.0.0.105/31
         ipv6: fc00::d2/126
     bp_interface:
-      ipv4: 10.10.246.52/24
+      ipv4: 10.10.246.53/24
       ipv6: fc0a::65/64
 
   ARISTA38T0:
@@ -1135,13 +1135,13 @@ configuration:
         - FC00::d5
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.53/32
-        ipv6: 2064:100::38/128
+        ipv4: 100.1.0.54/32
+        ipv6: 2064:100::39/128
       Ethernet1:
         ipv4: 10.0.0.107/31
         ipv6: fc00::d6/126
     bp_interface:
-      ipv4: 10.10.246.53/24
+      ipv4: 10.10.246.54/24
       ipv6: fc0a::66/64
 
   ARISTA39T0:
@@ -1157,13 +1157,13 @@ configuration:
         - FC00::d9
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.54/32
-        ipv6: 2064:100::39/128
+        ipv4: 100.1.0.55/32
+        ipv6: 2064:100::40/128
       Ethernet1:
         ipv4: 10.0.0.109/31
         ipv6: fc00::da/126
     bp_interface:
-      ipv4: 10.10.246.54/24
+      ipv4: 10.10.246.55/24
       ipv6: fc0a::67/64
 
   ARISTA40T0:
@@ -1179,11 +1179,11 @@ configuration:
         - FC00::dd
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.55/32
-        ipv6: 2064:100::40/128
+        ipv4: 100.1.0.56/32
+        ipv6: 2064:100::41/128
       Ethernet1:
         ipv4: 10.0.0.111/31
         ipv6: fc00::de/126
     bp_interface:
-      ipv4: 10.10.246.55/24
+      ipv4: 10.10.246.56/24
       ipv6: fc0a::68/64

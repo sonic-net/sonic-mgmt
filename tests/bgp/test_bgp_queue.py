@@ -67,7 +67,12 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
             if ("INTERNAL" in v["peer group"] or 'VOQ_CHASSIS' in v["peer group"]):
                 # Skip iBGP neighbors since we only want to verify eBGP
                 continue
-            assert (k in arp_dict.keys() or k in ndp_dict.keys())
+            assert (k in arp_dict.keys() or k in ndp_dict.keys()), (
+                "BGP neighbor IP '{}' not found in either ARP or NDP tables.\n"
+                "- ARP table: {}\n"
+                "- NDP table: {}"
+            ).format(k, arp_dict, ndp_dict)
+
             if k in arp_dict:
                 ifname = arp_dict[k].split('.', 1)[0]
             else:
@@ -78,9 +83,18 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
                 for port in mg_facts['minigraph_portchannels'][ifname]['members']:
                     logger.info("PortChannel '{}' : port {}".format(ifname, port))
                     for q in range(0, 7):
-                        assert (get_queue_counters(asichost, port, q) == 0)
+                        assert (get_queue_counters(asichost, port, q) == 0), (
+                            (
+                                "Queue counter for port '{}' queue {} is not zero after clearing queue counters. "
+                                "Counter value: {}"
+                            ).format(port, q, get_queue_counters(asichost, port, q))
+                        )
             else:
                 logger.info(ifname)
                 for q in range(0, 7):
-                    assert (get_queue_counters(asichost, ifname, q) == 0)
+                    assert (get_queue_counters(asichost, ifname, q) == 0), (
+                        "Queue counter for interface '{}' queue {} is not zero after clearing queue counters. "
+                        "Counter value: {}"
+                    ).format(ifname, q, get_queue_counters(asichost, ifname, q))
+
             processed_intfs.add(ifname)

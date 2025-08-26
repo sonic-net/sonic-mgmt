@@ -22,7 +22,7 @@ from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t1', 't2', 'm1')
 ]
 
 logger = logging.getLogger(__name__)
@@ -327,7 +327,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
 
 def validate_asic_route(duthost, route, exist=True):
     logger.info(f"Checking ip route: {route}")
-    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"',
+    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
                               module_ignore_errors=True)["stdout"]
     if route in asic_info:
         logger.info(f"Matched ASIC route: {asic_info}")
@@ -808,7 +808,8 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                                               "th5": th_asic_flow_map,
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
-                                              "spc4": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
+                                              "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
+                                              "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -911,10 +912,16 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
         # Add external sleep to make sure route is in hardware
-        if duthost.get_facts().get("modular_chassis"):
-            time.sleep(180)
-        else:
-            time.sleep(20)
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+
+        sleep_seconds = 180 if (v4_routes_count > 10000 or v6_routes_count > 10000) else 20
+        logger.info(
+            "Route scale v4_ebgp=%s v6_ebgp=%s -> sleeping %ss before verification",
+            v4_routes_count, v6_routes_count, sleep_seconds
+        )
+        time.sleep(sleep_seconds)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)

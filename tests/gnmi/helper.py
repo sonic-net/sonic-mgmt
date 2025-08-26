@@ -3,7 +3,9 @@ import logging
 import pytest
 import json
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
+                                            dump_gnmi_log, dump_system_status
+from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
 from tests.common.helpers.ntp_helper import NtpDaemon, get_ntp_daemon_in_use   # noqa: F401
 
 
@@ -13,67 +15,6 @@ GNMI_PROGRAM_NAME = ''
 GNMI_PORT = 0
 # Wait 15 seconds after starting GNMI server
 GNMI_SERVER_START_WAIT_TIME = 15
-
-
-def gnmi_container(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    return env.gnmi_container
-
-
-def create_ca_conf(crl, filename):
-    text = '''
-[ req_ext ]
-crlDistributionPoints=URI:%s
-''' % crl
-    with open(filename, 'w') as file:
-        file.write(text)
-    return
-
-
-def create_ext_conf(ip, filename):
-    text = '''
-[ req_ext ]
-subjectAltName = @alt_names
-[alt_names]
-DNS.1   = hostname.com
-IP      = %s
-''' % ip
-    with open(filename, 'w') as file:
-        file.write(text)
-    return
-
-
-def dump_gnmi_log(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s cat /root/gnmi.log" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("GNMI log: " + res['stdout'])
-    return res['stdout']
-
-
-def dump_system_status(duthost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    dut_command = "docker exec %s ps -efwww" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("GNMI process: " + res['stdout'])
-    dut_command = "docker exec %s date" % (env.gnmi_container)
-    res = duthost.shell(dut_command, module_ignore_errors=True)
-    logger.info("System time: " + res['stdout'] + res['stderr'])
-
-
-def verify_tcp_port(localhost, ip, port):
-    command = "ssh  -o ConnectTimeout=3 -v -p %s %s" % (port, ip)
-    res = localhost.shell(command, module_ignore_errors=True)
-    logger.info("TCP: " + res['stdout'] + res['stderr'])
-
-
-def add_gnmi_client_common_name(duthost, cname, role="gnmi_readwrite"):
-    command = 'sudo sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|{}" "role@" "{}"'.format(cname, role)
-    duthost.shell(command, module_ignore_errors=True)
-
-
-def del_gnmi_client_common_name(duthost, cname):
-    duthost.shell('sudo sonic-db-cli CONFIG_DB del "GNMI_CLIENT_CERT|{}"'.format(cname), module_ignore_errors=True)
 
 
 def apply_cert_config(duthost):
@@ -126,6 +67,16 @@ def apply_cert_config(duthost):
         pytest.fail("Failed to start gnmi server")
 
 
+def check_gnmi_process(duthost):
+    """
+    Make sure there's no GNMI process running.
+    """
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    dut_command = "docker exec %s pgrep -f %s" % (env.gnmi_container, env.gnmi_process)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    return output['stdout'].strip() == ""
+
+
 def check_gnmi_status(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     dut_command = "docker exec %s supervisorctl status %s" % (env.gnmi_container, env.gnmi_program)
@@ -135,15 +86,32 @@ def check_gnmi_status(duthost):
 
 def recover_cert_config(duthost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    # Kill the GNMI process
     dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
     duthost.shell(dut_command, module_ignore_errors=True)
-    dut_command = "docker exec %s supervisorctl reload" % (env.gnmi_container)
-    duthost.shell(dut_command, module_ignore_errors=True)
+    wait_until(60, 1, 0, check_gnmi_process, duthost)
+    # Recover all stopped program
+    dut_command = "docker exec %s supervisorctl status" % (env.gnmi_container)
+    output = duthost.shell(dut_command, module_ignore_errors=True)
+    for line in output['stdout_lines']:
+        res = line.split()
+        if len(res) < 3:
+            continue
+        program = res[0]
+        status = res[1]
+        if status == "STOPPED":
+            dut_command = "docker exec %s supervisorctl start %s" % (env.gnmi_container, program)
+            duthost.shell(dut_command, module_ignore_errors=True)
 
     # Remove gnmi client cert common name
     del_gnmi_client_common_name(duthost, "test.client.gnmi.sonic")
     del_gnmi_client_common_name(duthost, "test.client.revoked.gnmi.sonic")
-    assert wait_until(300, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
+    ret = wait_until(300, 3, 0, check_gnmi_status, duthost)
+    if not ret:
+        dut_command = "tail /var/log/gnmi.log"
+        output = duthost.shell(dut_command, module_ignore_errors=True)
+        logger.error("GNMI service failed to start. GNMI log: {}".format(output['stdout']))
+        pytest.fail("Failed to recover GNMI client cert configuration.")
 
 
 def check_ntp_sync_status(duthost):
@@ -195,26 +163,6 @@ def check_system_time_sync(duthost):
     else:
         logger.error("DUT %s: NTP synchronization failed. Please check manually.", duthost)
         return False
-
-
-def gnmi_capabilities(duthost, localhost):
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
-    port = env.gnmi_port
-    # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
-    cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
-    cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
-    cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
-    cmd += "-logtostderr -capabilities"
-    output = duthost.shell(cmd, module_ignore_errors=True)
-    if output['stderr']:
-        dump_gnmi_log(duthost)
-        dump_system_status(duthost)
-        verify_tcp_port(localhost, ip, port)
-        return -1, output['stderr']
-    else:
-        return 0, output['stdout']
 
 
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None):
@@ -274,6 +222,9 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     cmd += '--xpath ' + xpath
     cmd += ' '
     cmd += '--value ' + xvalue
+    # There is a chance that the network connection lost between PTF and switch due to table entry timeout
+    # It would lead to execution failure of py_gnmicli.py. The ping action would trigger arp and mac table refresh.
+    ptfhost.shell(f"ping {ip} -c 3", module_ignore_errors=True)
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
@@ -431,7 +382,7 @@ def gnmi_subscribe_streaming_onchange(duthost, ptfhost, path_list, count):
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
-    cmd += '--timeout 30 '
+    cmd += '--timeout 120 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/gnmiCA.pem '
