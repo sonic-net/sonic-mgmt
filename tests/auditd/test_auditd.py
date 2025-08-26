@@ -76,11 +76,11 @@ def test_auditd_functionality(duthosts,
                               verify_auditd_containers_running,
                               check_auditd):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hwsku = duthost.facts["hwsku"]
-    if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "b70e0ec6b71b70c2282585685fbe53f5d00f1cd0"
-    else:
-        rule_checksum = "99aa7d071a15eb1f2b9d5f1cce75a37cf6a2483d"
+    output = duthost.command("file -L /bin/sh")["stdout"]
+    if "32-bit" in output:
+        rule_checksum = "ac45b13d45de02f08e12918e38b4122206859555"
+    elif "64-bit" in output:
+        rule_checksum = "1c532e73fdd3f7366d9c516eb712102d3063bd5a"
 
     cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
     output = duthost.command(cmd)["stdout"]
@@ -143,8 +143,8 @@ def test_modules_changes(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds,
                          verify_auditd_containers_running,
-                         check_auditd):
-                         # reset_auditd_rate_limit):
+                         check_auditd,
+                         reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -171,8 +171,8 @@ def test_directory_based_keys(localhost,
                               enum_rand_one_per_hwsku_hostname,
                               creds,
                               verify_auditd_containers_running,
-                              check_auditd):
-                              # reset_auditd_rate_limit):
+                              check_auditd,
+                              reset_auditd_rate_limit):
     """
     Test directory-based rules (triggered by creating files in watched directories)
     """
@@ -232,8 +232,8 @@ def test_file_based_keys(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds,
                          verify_auditd_containers_running,
-                         check_auditd):
-                         # reset_auditd_rate_limit):
+                         check_auditd,
+                         reset_auditd_rate_limit):
     """
     Test file-based auditd rules using 'sudo chown root:root <file>'
     """
@@ -282,8 +282,8 @@ def test_docker_config(localhost,
                        enum_rand_one_per_hwsku_hostname,
                        creds,
                        verify_auditd_containers_running,
-                       check_auditd):
-                       # reset_auditd_rate_limit):
+                       check_auditd,
+                       reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     key_file_mapping = {
@@ -327,8 +327,8 @@ def test_docker_commands(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds,
                          verify_auditd_containers_running,
-                         check_auditd):
-                         # reset_auditd_rate_limit):
+                         check_auditd,
+                         reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -352,8 +352,8 @@ def test_auditd_host_failure(localhost,
                              duthosts,
                              enum_rand_one_per_hwsku_hostname,
                              verify_auditd_containers_running,
-                             check_auditd_failure):
-                             # reset_auditd_rate_limit):
+                             check_auditd_failure,
+                             reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
@@ -381,8 +381,8 @@ def test_32bit_failure(duthosts,
                        enum_rand_one_per_hwsku_hostname,
                        verify_auditd_containers_running,
                        check_auditd_failure_32bit,
-                       check_auditd):
-                       # reset_auditd_rate_limit):
+                       check_auditd,
+                       reset_auditd_rate_limit):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     hwsku = duthost.facts["hwsku"]
