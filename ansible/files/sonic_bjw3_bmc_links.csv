@@ -4,3 +4,6 @@ bjw3-can-720dt-mc0-2,etp4,192.168.239.2/23,bjw3-can-serv-2,iDRAC
 bjw3-can-720dt-mc0-2,etp6,192.168.239.3/23,bjw3-can-serv-3,iDRAC
 bjw3-can-720dt-mc0-2,etp8,192.168.239.4/23,bjw3-can-serv-4,iDRAC
 bjw3-can-720dt-mc0-2,etp10,192.168.239.5/23,bjw3-can-serv-5,iDRAC
+bjw3-can-720dt-mc0-2,etp18,192.168.239.6/23,bjw3-can-serv-6,iDRAC
+bjw3-can-720dt-mc0-2,etp20,192.168.239.7/23,bjw3-can-serv-7,iDRAC
+bjw3-can-720dt-mc0-2,etp22,192.168.239.8/23,bjw3-can-serv-8,iDRAC
