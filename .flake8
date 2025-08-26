@@ -5,6 +5,8 @@ per-file-ignores =
     tests/dash/*.py: F405
     tests/snappi_tests/dataplane/imports.py: F401
     tests/snappi_tests/dataplane/files/helper.py: F405
+    tests/snappi_tests/dataplane/*.py: F405
+    tests/snappi_tests/dataplane/*.py: F401
 
 exclude =
     # Generated proto code
