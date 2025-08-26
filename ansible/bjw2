@@ -925,16 +925,40 @@ sonic_nokia_7215a1:
       ansible_host: 10.150.23.251
       ansible_hostv6: 2404:f801:10:2200::a96:17fb
       model: 3HE18723AARA01
-      serial:
-      base_mac:
+      serial: 1241300018
+      base_mac: E0:CB:19:74:54:70
       syseeprom_info:
+        "0x21": "7215 IXS-A1"
+        "0x22": "3HE18723AARA01"
+        "0x23": "1241300018"
+        "0x24": "E0:CB:19:74:54:70"
+        "0x25": "04/25/2024 13:37:35"
+        "0x28": "arm64-nokia_ixs7215_52xb-r0"
+        "0x29": "2023.02-42-g56361a00-V01"
+        "0x2A": "256"
+        "0x2D": "NOKIA"
+        "0x2F": "CSMAR00ERA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC4"
+        "0xFE": "0x4C74BCD0"
     bjw2-can-7215a1-4:
       ansible_host: 10.150.23.253
       ansible_hostv6: 2404:f801:10:2200::a96:17fd
       model: 3HE18723AARA01
-      serial:
-      base_mac:
+      serial: 1241300054
+      base_mac: E0:CB:19:74:55:70
       syseeprom_info:
+        "0x21": "7215 IXS-A1"
+        "0x22": "3HE18723AARA01"
+        "0x23": "1241300054"
+        "0x24": "E0:CB:19:74:55:70"
+        "0x25": "04/25/2024 13:37:35"
+        "0x28": "arm64-nokia_ixs7215_52xb-r0"
+        "0x29": "2023.02-42-g56361a00-V01"
+        "0x2A": "256"
+        "0x2D": "NOKIA"
+        "0x2F": "CSMAR00ERA"
+        "0xFD": "0x00 0x00 0x19 0x7F 0x01 0x01 0xC4"
+        "0xFE": "0xB0BE390C"
 
 
 sonic_cisco_8102:
