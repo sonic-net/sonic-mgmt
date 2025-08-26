@@ -206,11 +206,16 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
 
     logger.info("Setting up ptf for testing")
     ptfhost.shell("ifconfig eth{} {}".format(dst_ports['port'], dst_ports[4]))
+    # Send ping packet to get neigh learnt
+    rand_selected_dut.shell("ping -c1 -W1 {}; true".format(dst_ports[4].split('/')[0]))
     ptfhost.shell("ifconfig eth{} inet6 add {}".format(dst_ports['port'], dst_ports[6]))
+    # Send ping packet to get neigh learnt
+    rand_selected_dut.shell("ping -c1 -W1 {}; true".format(dst_ports[6].split('/')[0]))
 
     yield dst_ports
     ptfhost.shell("ifconfig eth{} 0.0.0.0".format(dst_ports['port']))
     ptfhost.shell("ifconfig eth{} inet6 del {}".format(dst_ports['port'], dst_ports[6]))
+    rand_selected_dut.shell("sonic-clear arp")
 
 
 def generate_packet(src_ip, dst_ip, dst_mac):
