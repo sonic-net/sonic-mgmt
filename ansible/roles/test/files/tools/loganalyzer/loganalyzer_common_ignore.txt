@@ -402,4 +402,3 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*DOM-INFO-UPDATE: Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
-
