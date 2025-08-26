@@ -985,6 +985,19 @@ def get_all_downstream_neigh_type(topo_type, is_upper=True):
     return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
+def is_ipv6_only_topology(tbinfo):
+    """
+    @summary: Check if the current topology is IPv6-only based on testbed info.
+    @param tbinfo: Testbed information dictionary
+    @return: bool - True if topology is IPv6-only, False otherwise
+    """
+    return (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
+
+
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
     """
     @summary: Execute function until condition or retry number met.
