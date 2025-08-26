@@ -1351,3 +1351,12 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+#######################################
+#####   test_platform_dpu.py   #####
+#######################################
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    reason: "Test case is skipped on Nvidia smartswitch due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/19675"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/19675 and 'sn4280' in platform"
