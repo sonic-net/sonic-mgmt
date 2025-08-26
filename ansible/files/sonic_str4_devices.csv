@@ -6,6 +6,7 @@ str4-acs-serv-72,10.64.246.93/23,TestServ,Server,,
 str4-acs-serv-73,10.64.246.94/23,TestServ,Server,,
 str4-acs-serv-74,10.64.246.124/23,TestServ,Server,,
 str4-acs-serv-75,10.64.246.100/23,TestServ,Server,,
+str4-acs-serv-76,10.3.155.80/26,TestServ,Server,,
 str4-acs-serv-13,10.64.247.246/23,TestServ,Server,,
 str4-7050cx3-c28s4-1,10.64.247.113/23,Arista-7050CX3-32S-C28S4,DevSonic,,sonic
 str4-7050cx3-fan-1,10.64.247.114/23,Arista-7050CX3-32S-C28S4,FanoutLeafSonic,,sonic
@@ -14,6 +15,7 @@ str4-7060x6-64pe-fan-2,10.64.246.4/23,Arista-7060X6-64PE-O128S2,FanoutLeafSonic,
 str4-7060x6-64pe-fan-3,10.3.146.216/24,Arista-7060X6-64PE-C224O8,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-share-1,10.64.247.239/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-13,10.64.247.105/23,Arista-7060X6-64PE-P32O64,FanoutLeafSonic,,sonic
+str4-7060x6-64pe-fan-14,10.3.155.79/26,Arista-7060X6-64PE-P32O64,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-4,10.64.247.111/23,Arista-7060X6-64PE,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-9,10.64.247.107/23,Arista-7060X6-64PE-O128S2,DevSonic,,sonic
 str4-7060x6-64pe-fan-9,10.64.247.108/23,Arista-7060X6-64PE-O128S2,FanoutLeafSonic,,sonic
@@ -24,6 +26,7 @@ str4-7060x6-64pe-fan-11,10.3.146.139/24,Arista-7060X6-64PE-C256S2,FanoutLeafSoni
 str4-7060x6-512-2,10.64.247.124/23,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
 str4-7060x6-512-fan-2,10.64.247.125/23,Arista-7060X6-64PE-B-C448O16,FanoutLeafSonic,,sonic
 str4-7060x6-512-8,10.64.247.180/23,Arista-7060X6-64PE-P32O64,DevSonic,,sonic
+str4-7060x6-512-9,10.3.155.78/26,Arista-7060X6-64PE-P32O64,DevSonic,,sonic
 str4-7060x6-512-4,10.64.247.163/23,Arista-7060X6-64PE-P64,DevSonic,,sonic
 str4-7060x6-64pe-fan-5,10.64.247.106/23,Arista-7060X6-64PE-P64,FanoutLeafSonic,,sonic
 str4-sn5600-1,10.64.246.46/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
@@ -100,6 +103,7 @@ console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
 console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
+console-241,10.3.150.241,Cisco,ConsoleServer,ssh,
 console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 STR43-7060x6-512-C17-U08,10.64.246.198/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 STR43-7060x6-512-C17-U10,10.64.246.199/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic

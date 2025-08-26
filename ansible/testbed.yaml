@@ -3969,6 +3969,21 @@
   auto_recover: 'True'
   comment: MattSoulsby
 
+- conf-name: vms76-lt2-7060x6-9
+  group-name: vms76-1
+  topo: lt2-p32o64
+  ptf_image_name: docker-ptf
+  ptf: vms76-1
+  ptf_ip: 10.3.155.90/26
+  ptf_ipv6: 2a01:111:e210:8a::a03:9b5a/64
+  server: server_str4_76
+  vm_base: VM476000
+  dut:
+  - str4-7060x6-512-9
+  inv_name: str4
+  auto_recover: 'True'
+  comment: MattSoulsby
+
 - conf-name: vms73-ft2-7060x6-4
   group-name: vms73-8
   topo: ft2-64
@@ -3983,6 +3998,7 @@
   inv_name: str4
   auto_recover: 'True'
   comment: MattSoulsby
+
 - conf-name: ptp-sn5640-1
   group-name:
   topo: ptp-512
