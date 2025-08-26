@@ -301,21 +301,30 @@ def lookup_operstatus(int_operstatus):
         return ""
 
 
-def _is_ipv6_address(ip_address):
-    """Check if ip address is ipv6."""
-    try:
-        ipaddress.IPv6Address(ip_address)
-        return True
-    except (ipaddress.AddressValueError, ValueError):
-        return False
-
-
 def _create_transport_target(host, port=161, timeout=20):
     """Create appropriate transport target based on address family."""
-    if _is_ipv6_address(host):
-        return cmdgen.Udp6TransportTarget((host, port), timeout=timeout)
-    else:
-        return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
+    try:
+        # Try to resolve the hostname and determine if it's IPv4 or IPv6
+        addr_info = ipaddress.ip_address(host)
+        if addr_info.version == 6:
+            return cmdgen.Udp6TransportTarget((host, port), timeout=timeout)
+        else:
+            return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
+    except ValueError:
+        # If host is not a direct IP, try to resolve it
+        import socket
+        try:
+            # Try IPv4 first
+            socket.inet_pton(socket.AF_INET, socket.gethostbyname(host))
+            return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
+        except (socket.error, socket.gaierror):
+            try:
+                # Try IPv6
+                socket.inet_pton(socket.AF_INET6, socket.getaddrinfo(host, None, socket.AF_INET6)[0][4][0])
+                return cmdgen.Udp6TransportTarget((host, port), timeout=timeout)
+            except (socket.error, socket.gaierror):
+                # Default to IPv4 if resolution fails
+                return cmdgen.UdpTransportTarget((host, port), timeout=timeout)
 
 
 def decode_type(module, current_oid, val):
