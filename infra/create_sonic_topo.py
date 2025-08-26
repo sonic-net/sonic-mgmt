@@ -66,6 +66,7 @@ with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
 
 # SIM workaround command files for Sonic master bringup.
 wa_file_map = { "sfd": "sfd_wa_cmd_list",
+                "sfd_202505": "sfd_202505_wa_cmd_list",
                 "churchill-mono": "cmono_wa_cmd_list"
               }
 
@@ -1105,7 +1106,10 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
         #sleep sometime to let deploy-mg load_minigraph complete
         logging.info("********** run_sim_workaround ***********")
         time.sleep(180)
-        run_sim_workaround(data, wa_file_map[device_type])
+        if device_type == "sfd" and "golden_code_202505" in data["tar_ball"]: #apply 202505 sfd specific patches
+            run_sim_workaround(data, wa_file_map["sfd_202505"])
+        else:
+            run_sim_workaround(data, wa_file_map[device_type])
         run_config_reload(data)
         logging.info("********** run_sim_workaround is finished ***********")
 

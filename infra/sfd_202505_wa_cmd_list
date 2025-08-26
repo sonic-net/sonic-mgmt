@@ -1,0 +1,20 @@
+set -x
+
+systemctl list-unit-files --state=enabled --type=service | awk '{print $1}' | while read service; do
+  # Skip header lines or empty lines
+  [[ "$service" == UNIT* || -z "$service" ]] && continue
+
+  # Check if service is not active
+  if ! systemctl is-active --quiet "$service"; then
+    # Check if Restart policy is 'always'
+    restart_policy=$(systemctl show "$service" -p Restart --value)
+    if [[ "$restart_policy" == "always" ]]; then
+      echo "Starting $service (Restart=$restart_policy)..."
+      sudo systemctl start "$service"
+    else
+      echo "Skipping $service (Restart=$restart_policy)"
+    fi
+  else
+    echo "$service is already running."
+  fi
+done

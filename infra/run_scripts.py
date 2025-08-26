@@ -278,7 +278,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,ts
     delta1 = datetime.datetime.now()
 
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
+    cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
     os.system("bash -c '{}'".format(cmd))
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     if not int(passed):
@@ -286,7 +286,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,ts
         current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
         current_result_file.flush()
         time.sleep(60)
-        cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
+        cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
         os.system("bash -c '{}'".format(cmd))
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
         if not int(passed):
@@ -294,7 +294,7 @@ def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,ts
             current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
             current_result_file.flush()
             time.sleep(60)
-            cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
+            cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
             os.system("bash -c '{}'".format(cmd))
 
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
@@ -507,7 +507,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     delta1 = datetime.datetime.now()
 
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
+    cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
     os.system("bash -c '{}'".format(cmd))
     passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
     if not int(passed):
@@ -515,7 +515,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
         current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
         current_result_file.flush()
         time.sleep(60)
-        cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
+        cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
         os.system("bash -c '{}'".format(cmd))
         passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
         if not int(passed):
@@ -523,7 +523,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
             current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
             current_result_file.flush()
             time.sleep(60)
-            cmd = "./run_tests.sh -n {} {} -O -u -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
+            cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
             os.system("bash -c '{}'".format(cmd))
 
     total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
