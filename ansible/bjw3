@@ -154,6 +154,15 @@ server:
     bjw3-can-serv-5:
       ansible_host: 10.150.238.20
       ansible_hostv6: 2404:f801:10:16::a96:ee14
+    bjw3-can-serv-6:
+      ansible_host: 10.150.238.21
+      ansible_hostv6: 2404:f801:10:16::a96:ee15
+    bjw3-can-serv-7:
+      ansible_host: 10.150.238.22
+      ansible_hostv6: 2404:f801:10:16::a96:ee16
+    bjw3-can-serv-8:
+      ansible_host: 10.150.238.23
+      ansible_hostv6: 2404:f801:10:16::a96:ee17
 
 sonic_arista_7050_S128:
   vars:
@@ -354,15 +363,15 @@ sonic_nokia_7215a1d:
     bjw3-can-7215a1d-1:
       ansible_host: 10.150.238.78
       ansible_hostv6: 2404:f801:10:16::a96:ee4e
-      model: 
-      serial: 
+      model:
+      serial:
       base_mac:
       syseeprom_info:
     bjw3-can-7215a1d-2:
       ansible_host: 10.150.238.80
       ansible_hostv6: 2404:f801:10:16::a96:ee50
-      model: 
-      serial: 
+      model:
+      serial:
       base_mac:
       syseeprom_info:
         "0x21": "7215 IXS-A1"

@@ -53,6 +53,7 @@ bjw2-can-7260-leaf-30,10.150.22.91/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-31,10.150.22.94/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-32,10.150.22.97/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-33,10.150.22.215/23,Arista-7260CX3,FanoutLeaf,,
+bjw2-can-7260-leaf-38,10.150.22.218/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-8101-leaf-1,10.150.22.56/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-2,10.150.22.58/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
 bjw2-can-8101-leaf-4,10.150.22.61/23,Cisco-8101-O32,FanoutLeafSonic,,sonic
@@ -117,6 +118,8 @@ bjw2-can-7060-5,10.150.22.84/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw2-can-7060-6,10.150.22.86/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw2-can-7060-7,10.150.22.87/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw2-can-7060-8,10.150.22.89/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw2-can-7060-9,10.150.22.217/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw2-can-7060-10,10.150.22.219/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw2-can-7050-1,10.150.22.90/23,Arista-7050CX3-32S-C32,devsonic,,sonic
 bjw2-can-7050-2,10.150.22.92/23,Arista-7050CX3-32S-C32,devsonic,,sonic
 bjw2-can-7050-3,10.150.22.93/23,Arista-7050CX3-32S-C32,devsonic,,sonic
