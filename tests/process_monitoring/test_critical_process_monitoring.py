@@ -522,7 +522,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def get_skip_containers(tbinfo, skip_vendor_specific_container):
+def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
     skip_containers.append("database")
     skip_containers.append("gbsyncd")
@@ -532,6 +532,8 @@ def get_skip_containers(tbinfo, skip_vendor_specific_container):
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
+    if "202412" in duthost.os_version:
+        skip_containers.append("gnmi")
     skip_containers = skip_containers + skip_vendor_specific_container
     return skip_containers
 
@@ -540,7 +542,7 @@ def get_skip_containers(tbinfo, skip_vendor_specific_container):
 def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
-    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container)
+    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
     yield
@@ -581,7 +583,7 @@ def test_monitoring_critical_processes(
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
 
-    skip_containers = get_skip_containers(tbinfo, skip_vendor_specific_container)
+    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
