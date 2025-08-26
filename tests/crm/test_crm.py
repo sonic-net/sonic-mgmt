@@ -495,12 +495,22 @@ def get_nh_ip(duthost, asichost, crm_interface, ip_ver):
                                                                 "{} -6 route del 2001:{}::/126 via {}")],
                          ids=["ipv4", "ipv6"])
 def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                   crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+                   crm_interface, ip_ver, route_add_cmd, route_del_cmd, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
+
+    # will be changed to use is_ipv6_only_topology from tests.common.utilities
+    # once PR #19639 is merged
+    is_ipv6_only_topology = (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
+    if is_ipv6_only_topology and ip_ver == "4":
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
     # Template used to speedup execution of many similar commands on DUT
     del_template = """
