@@ -23,7 +23,7 @@ def test_uN_config(duthosts, enum_frontend_dut_hostname, enum_rand_one_asic_inde
     vtysh_shell = "vtysh" + cli_options
 
     # add a locator configuration entry
-    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1::")
+    duthost.command(sonic_db_cli + " CONFIG_DB HSET SRV6_MY_LOCATORS\\|loc1 prefix fcbb:bbbb:1:: func_len 0")
     time.sleep(WAIT_TIME)
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
