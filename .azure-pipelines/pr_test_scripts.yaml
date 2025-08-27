@@ -636,6 +636,92 @@ t1-lag:
   - zmq/test_gnmi_zmq.py
 
 
+t1-lag-vpp:
+  - arp/test_neighbor_mac_noptf.py
+  - arp/test_arpall.py
+  - arp/test_arp_update.py
+  - arp/test_unknown_mac.py
+  - arp/test_arp_extended.py
+  - arp/test_tagged_arp.py
+  - arp/test_neighbor_mac.py
+  - arp/test_wr_arp.py
+  - arp/test_arp_dualtor.py
+  - arp/test_stress_arp.py
+  - bgp/test_bgp_speaker.py
+  - bgp/test_bgp_stress_link_flap.py
+  - bgp/test_bgp_sentinel.py
+  - bgp/test_traffic_shift.py
+  - bgp/test_ping_bgp_neighbor.py
+  - bgp/test_bgp_session.py
+  - bgp/test_bgp_operation_in_ro.py
+  - bgp/test_bgp_queue.py
+  - bgp/test_bgp_session_flap.py
+  - bgp/test_ipv6_nlri_over_ipv4.py
+  - bgp/test_bgp_allow_list.py
+  - bgp/test_bgpmon.py
+  - bgp/test_bgp_multipath_relax.py
+  - bgp/test_passive_peering.py
+  - bgp/test_bgp_bbr.py
+  - bgp/reliable_tsa/test_reliable_tsa_flaky.py
+  - bgp/reliable_tsa/test_reliable_tsa_stable.py
+  - bgp/test_seq_idf_isolation.py
+  - bgp/test_ipv6_bgp_scale.py
+  - bgp/test_bgp_suppress_fib.py
+  - bgp/test_bgp_bounce.py
+  - bgp/test_bgp_command.py
+  - bgp/test_startup_tsa_tsb_service.py
+  - bgp/test_bgp_route_neigh_learning.py
+  - bgp/test_bgp_slb.py
+  - bgp/test_bgp_update_replication.py
+  - bgp/test_bgp_dual_asn.py
+  - bgp/test_bgp_update_timer.py
+  - bgp/test_bgp_azng_migration.py
+  - bgp/test_bgp_peer_shutdown.py
+  - bgp/test_bgp_authentication.py
+  - bgp/test_bgp_bbr_default_state.py
+  - bgp/test_bgp_fact.py
+  - bgp/test_bgp_router_id.py
+  - bgp/test_bgp_port_disable.py
+  - bgp/test_bgp_gr_helper.py
+  - bgp/test_bgp_vnet.py
+  - bgp/test_bgpmon_v6.py
+  - bgp/test_traffic_shift_sup.py
+  - fib/test_fib.py
+  - test_interfaces.py
+  - ip/test_ip_packet.py
+  - ip/test_mgmt_ipv6_only.py
+  - ipfwd/test_dir_bcast.py
+  - ipfwd/test_nhop_group.py
+  - ipfwd/test_mtu.py
+  - ipfwd/test_dip_sip.py
+  - pc/test_po_voq.py
+  - pc/test_lag_member.py
+  - pc/test_po_update.py
+  - pc/test_po_cleanup.py
+  - pc/test_lag_member_forwarding.py
+  - pc/test_lag_2.py
+  - pc/test_retry_count.py
+  - route/test_default_route.py
+  - route/test_static_route.py
+  - route/test_forced_mgmt_route.py
+  - route/test_route_flow_counter.py
+  - route/test_duplicate_route.py
+  - route/test_route_consistency.py
+  - route/test_route_flap.py
+  - route/test_route_perf.py
+  - route/test_route_bgp_ecmp.py
+  - vxlan/test_vxlan_bfd_tsa.py
+  - vxlan/test_vxlan_ecmp.py
+  - vxlan/test_vxlan_decap.py
+  - vxlan/test_vnet_decap.py
+  - vxlan/test_vnet_bgp_route_precedence.py
+  - vxlan/test_vxlan_ecmp_switchover.py
+  - vxlan/test_vnet_vxlan.py
+  - vxlan/test_vxlan_route_advertisement.py
+  - vxlan/test_vnet_route_leak.py
+  - vxlan/test_vxlan_crm.py
+
+
 multi-asic-t1-lag:
   - bgp/test_bgp_bbr.py
   - bgp/test_bgp_fact.py
