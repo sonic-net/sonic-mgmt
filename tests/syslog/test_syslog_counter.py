@@ -1,6 +1,5 @@
 import logging
 import pytest
-import time
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
