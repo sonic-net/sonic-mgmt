@@ -6,12 +6,12 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_single_dut, get_snappi_ports_multi_dut, get_snappi_ports_for_rdma, \
     snappi_dut_base_config  # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts  # noqa: F401
+    fanout_graph_facts, fanout_graph_facts_multidut  # noqa: F401
 from tests.common.helpers.assertions import pytest_require
 from tests.snappi_tests.ecn.files.ecnhelper import run_ecn_test_cisco8000
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list  # noqa: F401
 from tests.common.cisco_data import is_cisco_device
-from tests.snappi_tests.files.helper import setup_ports_and_dut, multidut_port_info  # noqa: F401
+from tests.snappi_tests.files.helper import setup_ports_and_dut   # noqa: F401
 
 
 logger = logging.getLogger(__name__)
