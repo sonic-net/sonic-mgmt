@@ -128,8 +128,8 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
     test_param = {
         'block_queue': block_queue,
         'trim_buffer_profiles': {
-            'uplink': f"queue{block_queue}_uplink_lossy_profile",
-            'downlink': f"queue{block_queue}_downlink_lossy_profile",
+            'uplink': f"QUEUE{block_queue}_UPLINK_LOSSY_PROFILE",
+            'downlink': f"QUEUE{block_queue}_DOWNLINK_LOSSY_PROFILE",
         },
         'ingress_port': {
             'name': ingress_port_name,
