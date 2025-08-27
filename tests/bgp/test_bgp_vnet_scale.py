@@ -2,7 +2,6 @@ import json
 import time
 import logging
 import pytest
-from tests.common.devices.sonic import SonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +113,11 @@ def configure_neighbor(nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn, cou
         nbr_bgp_configs = {nbr: {"BGP_NEIGHBOR": {}} for nbr in nbrhosts}
     else:
         for nbr in nbrhosts:
-            nbrhosts[nbr].shell("iptables -nL BGPSACL || iptables -N BGPSACL; iptables -C BGP -s 10.1.0.0/16 -j BGPSACL || iptables -I BGP 1 -s 10.1.0.0/16 -j BGPSACL")
+            nbrhosts[nbr].shell(
+                "iptables -nL BGPSACL || iptables -N BGPSACL; "
+                "iptables -C BGP -s 10.1.0.0/16 -j BGPSACL || "
+                "iptables -I BGP 1 -s 10.1.0.0/16 -j BGPSACL"
+            )
 
     for vnet_id in range(1, count + 1):
         vlan_id = base_vlan + vnet_id
@@ -156,7 +159,7 @@ def configure_neighbor(nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn, cou
                 ]
                 nbrhosts[nbr_name].config(intf_cmds, module_ignore_errors=True)
                 dut_ip, _, _ = generate_ip_pair(vnet_id, idx)
-                bgp_cmds =[
+                bgp_cmds = [
                     f"neighbor {dut_ip} remote-as {dut_asn}"
                 ]
                 nbrhosts[nbr_name].config(bgp_cmds, parents=f"router bgp {peer_asn}", module_ignore_errors=True)
@@ -222,10 +225,14 @@ def test_vnet_bulk_configure(duthost, nbrhosts, vnet_count, request):
     # Corresponding interfaces on DUT for these neighbors
     interfaces = ["Po1", "Po1"]
 
-    configure_neighbor(selected_nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn, count=vnet_count, base_vlan=BASE_VLAN_ID, iface_list=interfaces)
+    configure_neighbor(
+        selected_nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn,
+        count=vnet_count, base_vlan=BASE_VLAN_ID, iface_list=interfaces
+    )
 
     time.sleep(60)
 
     validate_bgp_summary(duthost, vnet_count)
 
+    # cleanup
     duthost.shell("config reload -y", module_ignore_errors=True)
