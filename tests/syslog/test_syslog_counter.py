@@ -4,6 +4,7 @@ import time
 
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -31,6 +32,11 @@ def enable_syslog_counter(rand_selected_dut):
     config_reload(rand_selected_dut, safe_reload=True)
 
 
+def check_syslog_counter_updated(rand_selected_dut, old_value):
+    new_value = rand_selected_dut.command("sonic-db-cli COUNTERS_DB hgetall SYSLOG_COUNTER")['stdout']
+    return new_value != old_value
+
+
 def test_syslog_counter(rand_selected_dut, enable_syslog_counter):
     """Test case for syslog counter
 
@@ -41,8 +47,5 @@ def test_syslog_counter(rand_selected_dut, enable_syslog_counter):
 
     rand_selected_dut.command('logger "test log"')
 
-    # wait for syslog counter update
-    time.sleep(60)
-
-    new_value = rand_selected_dut.command("sonic-db-cli COUNTERS_DB hgetall SYSLOG_COUNTER")['stdout']
-    pytest_assert(new_value != old_value, 'syslog counter not update: {}'.format(new_value))
+    pytest_assert(wait_until(120, 5, 0, check_syslog_counter_updated, rand_selected_dut, old_value),
+                  "Syslog counter not update")
