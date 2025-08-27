@@ -17,7 +17,7 @@ def enable_syslog_counter(rand_selected_dut):
     # Older version image may not support syslog counter feature
     yang = rand_selected_dut.command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")['stdout']
     if "syslog_counter" not in yang:
-        yield
+        pytest.skip("syslog_counter feature is not supported in this image.")
         return
 
     rand_selected_dut.command('sudo sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" "syslog_counter" "true"')
