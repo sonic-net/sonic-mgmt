@@ -153,6 +153,8 @@ def determine_delta_values(ecn_data, fields):
 
     min_threshold = int(ecn_data["green_min_threshold"])
     max_threshold = int(ecn_data["green_max_threshold"])
+    assert 0 <= min_threshold <= max_threshold, \
+        f"Invalid thresholds: green_min_threshold={min_threshold}, green_max_threshold={max_threshold}"
     if "green_min_threshold" in fields and "green_max_threshold" in fields:
         # Both fields are being updated.
         if min_threshold > 0:
@@ -186,12 +188,11 @@ def determine_delta_values(ecn_data, fields):
 
     if "green_drop_probability" in fields:
         probability = int(ecn_data["green_drop_probability"])
+        assert 0 <= probability <= 100, f"Invalid green_drop_probability value: {probability}"
         if 0 <= probability <= 99:
             delta["green_drop_probability"] = 1
-        elif probability == 100:
+        else:  # probability == 100
             delta["green_drop_probability"] = -1
-        else:
-            raise ValueError("Invalid probability value: {}".format(probability))
     return delta
 
 
