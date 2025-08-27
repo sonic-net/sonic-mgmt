@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+GNMI_CERT_NAME = "test.client.gnmi.sonic"
+TELEMETRY_CONTAINER = "telemetry"
+
+
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
     TELEMETRY_MODE = 0
@@ -50,10 +54,10 @@ class GNMIEnvironment(object):
     def generate_telemetry_config(self, duthost):
         cmd = "docker images | grep -w sonic-telemetry"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemetry"
+            cmd = "docker ps | grep -w {}".format(TELEMETRY_CONTAINER)
             if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
                 self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = "telemetry"
+                self.gnmi_container = TELEMETRY_CONTAINER
                 # GNMI program is telemetry or gnmi-native
                 res = duthost.shell("docker exec %s supervisorctl status" % self.gnmi_container,
                                     module_ignore_errors=True)
@@ -231,8 +235,8 @@ def create_gnmi_certs(duthost, localhost, ptfhost):
     local_command = "openssl req \
                         -new \
                         -key gnmiclient.key \
-                        -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr"
+                        -subj '/CN={}' \
+                        -out gnmiclient.csr".format(GNMI_CERT_NAME)
     localhost.shell(local_command)
 
     # Sign client certificate
