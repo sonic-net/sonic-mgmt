@@ -82,6 +82,7 @@ validators:
       - str4-acs-serv-13          # conflicts with str-acs-serv-13
       - str4-acs-serv-65          # conflicts with ptf1-3
       - str5-acs-serv-65          # conflicts with ptf1-3
+      - str43-0101-0400-07c0      # conflicts with console-241 (first is in str, second is in str4 - both are the same console server)
       # E2004 inconsistent IP devices
       - str2-8800-lc2-2           # inconsistent IPs between sources
       - str2-8800-lc1-3           # inconsistent IPs between sources
@@ -281,6 +282,10 @@ validators:
       - vms18-4                   # IPv4/IPv6 mismatch
       - vms66-8                   # IPv4/IPv6 mismatch
       - vms76-2                   # IPv4/IPv6 mismatch
+      - str4-acs-serv-76          # IPv4/IPv6 mismatch
+      - str4-7060x6-64pe-fan-14   # IPv4/IPv6 mismatch
+      - str4-7060x6-512-9         # IPv4/IPv6 mismatch
+
 - name: vlan
   enabled: true
   config:
