@@ -1145,15 +1145,6 @@ platform_tests/test_kdump.py:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
 
 #######################################
-########   test_link_down.py   ########
-#######################################
-platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
-  skip:
-    reason: "Skip for non T2"
-    conditions:
-      - "topo_type not in ['t2']"
-
-#######################################
 ####  test_memory_exhaustion.py   #####
 #######################################
 platform_tests/test_memory_exhaustion.py:
