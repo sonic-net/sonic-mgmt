@@ -150,7 +150,7 @@ def test_modules_changes(localhost,
 
     kernel_version = duthost.command("uname -r")["stdout"].strip()
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                   "sudo cat /lib/modules/6.1.0-29-2-amd64/kernel/drivers/net/dummy.ko > /dev/null")
+                   f"sudo cat /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko > /dev/null")
 
     # Search SYSCALL & PATH logs
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
