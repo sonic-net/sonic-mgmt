@@ -119,7 +119,7 @@ class KustoChecker(object):
             | where BranchName in (IncludeBranchList)
             | project-away CancelledTasks,FailedTasks,ReportId,SuccessTasks,JenkinsId
             | extend PipelineName = tostring(split(TrackingId, '#')[0])
-            | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result
+            | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result)
             | summarize CasesRun = count(), Successes = countif(ResultExpectation == "expected") by BuildId,OSVersion,RunDate,BranchName,HardwareSku,TopologyType,AsicType,PipelineName
             | extend SuccessRate = case(Successes == 0 or CasesRun == 0,round(0),round(todouble((Successes)* 100) /todouble(CasesRun),2))
             | extend Vendor = case(HardwareSku startswith "Arista", "arista",
