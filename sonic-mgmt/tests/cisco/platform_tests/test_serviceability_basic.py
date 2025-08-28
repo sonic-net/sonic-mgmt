@@ -34,7 +34,7 @@ npu_cli_dict_general = {
         "trap": " ",
         "script": [f"-s {SCRIPT_FILE} -t 60"],
         "acl" : ["summary"],
-        "udf-hash" : " ",
+        "hash" : " ",
         "bfd" : ["summary"]
         #"ars": ["info","flows"]
 }
