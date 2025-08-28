@@ -14,7 +14,8 @@
           <MultiPortsInterface>false</MultiPortsInterface>
           <PortName>0</PortName>
           <Priority>0</Priority>
-{% if subtype is defined and subtype == 'SmartSwitch' and index > 27 %}
+{% set intf = port_alias[index] %}
+{% if subtype is defined and subtype == 'SmartSwitch' and intf[8:]|int >= 224 %}
           <role>Dpc</role>
 {% endif %}
 {% if port_speed[port_alias[index]] is defined %}
