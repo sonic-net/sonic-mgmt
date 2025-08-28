@@ -55,8 +55,9 @@ Before starting tests, verify the following system conditions:
 
 ## Attributes
 
-A `system.json` file is used to define the attributes for the system tests for the various types of transceivers the system supports.  
-Following table summarizes the key attributes:
+A `system.json` file is used to define the attributes for the system tests for the various types of transceivers the system supports.
+
+The following table summarizes the key attributes used in system testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
@@ -94,6 +95,7 @@ Following table summarizes the key attributes:
 | frequency_values | list | [] | ✗ | transceivers | List of frequency values for C-CMIS transceivers. First value is the default frequency, followed by test frequencies (min/max supported). Test runs if list is non-empty. |
 | tx_power_values | list | [] | ✗ | transceivers | List of tx power values in dBm for C-CMIS transceivers. First value is the default tx power, followed by test power levels (min/max supported). Test runs if list is non-empty. |
 | expected_application_code | integer | - | ✗ | platform_hwsku_overrides | Expected application code value for the specific transceiver type, platform, and hwsku combination. When defined, the test will verify that the actual application code read from the transceiver matches this expected value. |
+| link_stability_monitor_sec | integer | 300 | ✗ | transceivers or platform_hwsku_overrides | Duration in seconds to monitor link stability without link flaps during steady state monitoring test |
 
 For information about attribute override hierarchy and precedence, please refer to the [Transceiver Onboarding Test Plan](../transceiver_onboarding_test_plan.md#test-cases) documentation.
 
@@ -241,6 +243,7 @@ The following tests aim to validate the link status and stability of transceiver
 | 1 | Port startup/shutdown stress test | 1. Execute **State Preservation and Restoration** (capture phase).<br>2. In a loop, for `port_toggle_iterations` iterations (default 100 times) for 1 random port:<br>   a. Issue `config interface shutdown <port>` and wait for `port_shutdown_wait_sec`.<br>   b. Issue `config interface startup <port>` and wait for `port_startup_wait_sec`.<br>   c. Use `port_toggle_delay_sec` delay between cycles.<br>   d. Monitor system stability and link status validation.<br>3. Execute **Standard Port Recovery and Verification Procedure**.<br>4. Execute **State Preservation and Restoration** (restoration phase). | Ensure link status toggles to up/down appropriately with each startup/shutdown command. System should remain stable throughout stress testing and all comprehensive verification checks should pass. |
 | 2 | Port range stress test | 1. Use ports from `port_range_test_ports` if specified, otherwise use all available transceiver ports.<br>2. Execute **State Preservation and Restoration** (capture phase).<br>3. Perform range shut and no-shut operations on the selected ports for `port_range_toggle_iterations` iterations.<br>4. Wait `port_range_startup_wait_sec` after each startup cycle.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all tested ports.<br>6. Execute **State Preservation and Restoration** (restoration phase). | System should handle concurrent port operations without instability and all comprehensive verification checks should pass for all tested ports. |
 | 3 | Cold reboot stress test | 1. Execute **State Preservation and Restoration** (capture phase).<br>2. In a loop, execute cold reboot for `cold_reboot_iterations` consecutive times (default 5, can be configured to 100).<br>3. Wait `cold_reboot_settle_sec` after each reboot.<br>4. After each reboot iteration, execute **Standard Port Recovery and Verification Procedure**.<br>5. Execute **State Preservation and Restoration** (restoration phase). | Confirm the expected ports link up again post-reboot, with all comprehensive verification checks passing for all iterations. System should remain stable throughout multiple reboots. |
+| 4 | Link stability monitoring test | 1. Verify all transceivers are in operational state with links up.<br>2. Record initial `last_up_time` and `flap_count` for each port from interface status.<br>3. Start monitoring for `link_stability_monitor_sec` duration:<br>   a. Continuously check link status every 10 seconds.<br>   b. Log any link state changes (up to down or down to up).<br>4. After monitoring period completion, verify that `last_up_time` and `flap_count` remain unchanged for all ports.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | All transceivers maintain stable link status throughout the entire monitoring period with no unexpected link flaps. The `last_up_time` and `flap_count` values must remain unchanged, confirming no link instability occurred. This test validates long-term stability under steady-state conditions. |
 
 ## Cleanup and Post-Test Verification
 

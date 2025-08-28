@@ -31,8 +31,9 @@ Before executing the EEPROM tests, ensure the following pre-requisites are met:
 
 ## Attributes
 
-A `eeprom.json` file is used to define the attributes for the EEPROM tests for the various types of transceivers the system supports.  
-Following table summarizes the key attributes:
+A `eeprom.json` file is used to define the attributes for the EEPROM tests for the various types of transceivers the system supports.
+
+The following table summarizes the key attributes used in EEPROM testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
 
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
@@ -81,6 +82,6 @@ After test completion:
 
 1. Verify all transceivers are in original operational state
 2. Check system logs for any unexpected errors or kernel messages
-3. Verify xcvrd daemon uptime has not changed (no crashes/restarts)
+3. Verify xcvrd daemon `pid` has not changed (no crashes/restarts)
 4. Check for new core files that may indicate crashes
 5. Document any failed tests with detailed error information and system state
