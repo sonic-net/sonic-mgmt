@@ -5,6 +5,13 @@ from typing import Final
 from enum import Enum, unique
 
 # allowed metric labels
+METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
+METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
+METRIC_LABEL_TG_TRAFFIC_RATE: Final[str] = "tg.traffic_rate"
+METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
+METRIC_LABEL_TG_FRAME_SIZE: Final[str] = "tg.frame_size"
+METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"
+#
 METRIC_LABEL_TESTBED: Final[str] = "test.testbed"                    # testbed name/ID
 METRIC_LABEL_TEST_BUILD: Final[str] = "test.os.version"              # Software/build version
 METRIC_LABEL_TEST_CASE: Final[str] = "test.testcase"                 # test case name/ID
@@ -71,6 +78,9 @@ METRIC_NAME_NO_LOSS_MAX_RATE: Final[str] = "no_loss_max_rate"     # Measured as 
 METRIC_NAME_BGP_CONVERGENCE_TIME_PORT_RESTART: Final[str] = "bgp.convergence_time.port_restart"
 METRIC_NAME_BGP_CONVERGENCE_TIME_CONTAINER_RESTART: Final[str] = "bgp.convergence_time.container_restart"
 METRIC_NAME_BGP_CONVERGENCE_TIME_NEXTHOP_CHANGE: Final[str] = "bgp.convergence_time.nexthop_change"
+
+METRIC_NAME_BGP_CONVERGENCE_ROUTE_TIME_MS: Final[str] = "bgp.convergence.route.time.ms"
+METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS: Final[str] = "bgp.convergence.dataplane.time.ms"
 
 METRIC_NAME_ROUTE_RECOVERY_PORT_RESTART: Final[str] = "route.recovery.port_restart"
 METRIC_NAME_ROUTE_RECOVERY_CONTAINER_RESTART: Final[str] = "route.recovery.container_restart"
