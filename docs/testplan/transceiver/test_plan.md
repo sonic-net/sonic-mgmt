@@ -127,7 +127,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_date": "vendor_date_code",
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
-          "hardware_rev": "hardware_revision_number"
+          "hardware_rev": "hardware_revision_number",
+          "transceiver_type": "STRAIGHT_400G_CABLE"
         },
         "Ethernet4:7": {
           "vendor_name": "ACME Corp.",
@@ -136,21 +137,25 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_date": "vendor_date_code",
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
-          "hardware_rev": "hardware_revision_number"
+          "hardware_rev": "hardware_revision_number",
+          "transceiver_type": "AOC_4X100G_BREAKOUT"
         },
         "Ethernet16,Ethernet20,Ethernet24": {
           "vendor_name": "Example & Co",
           "vendor_pn": "SFP-1000BASE-LX",
+          "transceiver_type": "SFP_1G_OPTICS"
         },
         "Ethernet28:33,Ethernet36,Ethernet40:45": {
           "vendor_name": "Vendor/Inc",
-          "vendor_pn": "QSFP-100G-AOC-10M"
+          "vendor_pn": "QSFP-100G-AOC-10M",
+          "transceiver_type": "AOC_2X100G_BREAKOUT"
         }
       },
       "dut_name_2": {
         "Ethernet0:97:4": {
           "vendor_name": "ACME Corp.",
           "vendor_pn": "QSFP-100G-AOC-15M",
+          "transceiver_type": "STRAIGHT_400G_CABLE"
         }
       }
     }
@@ -194,9 +199,11 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings` section to get the corresponding normalized values.
     - **Default normalization**: If no mapping is found in `normalization_mappings`, the normalized value defaults to the original value (with basic cleanup applied).
     - **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.part_numbers` following the cable length normalization rules.
+    - **Transceiver type validation**: The `transceiver_type` field must correspond to a valid type defined in the `transceiver_types` section of the per-category attribute files. This ensures that the specified type has defined attributes and behavior.
     - **Port expansion processing**: Range and list specifications are expanded to individual ports before attribute processing.
 
     **Optional Fields:**
+    - `transceiver_type`: The functional type classification that determines how the transceiver is used on this specific port (e.g., "AOC_2X100G_BREAKOUT", "STRAIGHT_400G_CABLE", "DR8_400G_OPTICS"). If not specified, only vendor/part number specific attributes and defaults will be applied.
     - `vendor_sn`: The vendor serial number.
     - `vendor_date`: The vendor date code.
     - `vendor_oui`: The vendor OUI.
@@ -228,7 +235,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
+                "hardware_rev": "hardware_revision_number",
+                "transceiver_type": "STRAIGHT_400G_CABLE"
             },
             "Ethernet4": {
                 "vendor_name": "ACME Corp.",
@@ -239,7 +247,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
+                "hardware_rev": "hardware_revision_number",
+                "transceiver_type": "AOC_4X100G_BREAKOUT"
             },
             "Ethernet5": {
                 "vendor_name": "ACME Corp.",
@@ -250,7 +259,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
+                "hardware_rev": "hardware_revision_number",
+                "transceiver_type": "AOC_4X100G_BREAKOUT"
             },
             "Ethernet6": {
                 "vendor_name": "ACME Corp.",
@@ -261,19 +271,22 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
+                "hardware_rev": "hardware_revision_number",
+                "transceiver_type": "AOC_4X100G_BREAKOUT"
             },
             "Ethernet16": {
                 "vendor_name": "Example & Co",
                 "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings
                 "vendor_pn": "SFP-1000BASE-LX",
                 "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings (same value)
+                "transceiver_type": "SFP_1G_OPTICS"
             },
             "Ethernet20": {
                 "vendor_name": "Example & Co",
                 "normalized_vendor_name": "EXAMPLE_CO",
                 "vendor_pn": "SFP-1000BASE-LX",
                 "normalized_vendor_pn": "SFP-1000BASE-LX",
+                "transceiver_type": "SFP_1G_OPTICS"
             }
             # Additional ports expanded from ranges and lists...
         }
@@ -325,17 +338,28 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         }
       },
       "transceivers": {
-        "NORMALIZED_VENDOR_NAME": {
-          "defaults": {
-            "field_6": "vendor_default_value"
-          },
-          "NORMALIZED_VENDOR_PN": {
-            "field_1": "specific_value_1",
-            "field_2": "specific_value_2",
-            "field_3": "specific_value_3",
-            "platform_hwsku_overrides": {
-              "PLATFORM_NAME+HWSKU_NAME": {
-                "field_1": "highest_priority_value"
+        "transceiver_types": {
+          "TYPE_NAME": {
+            "field_2": "type_specific_value_2",
+            "field_6": "type_override_value"
+          }
+        },
+        "vendors": {
+          "NORMALIZED_VENDOR_NAME": {
+            "defaults": {
+              "field_6": "vendor_default_value"
+            },
+            "part_numbers": {
+              "NORMALIZED_VENDOR_PN": {
+                "field_1": "specific_value_1",
+                "field_2": "specific_value_2",
+                "field_3": "specific_value_3",
+                "transceiver_type": "TYPE_NAME",
+                "platform_hwsku_overrides": {
+                  "PLATFORM_NAME+HWSKU_NAME": {
+                    "field_1": "highest_priority_value"
+                  }
+                }
               }
             }
           }
@@ -350,6 +374,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections. This creates logical inconsistency because a field cannot simultaneously require explicit specification (mandatory) and have a fallback value (default). The framework would be unable to determine whether to enforce validation or apply defaults when the field is missing.
     - **Validation Order**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
     - **Normalization Integration**: The normalized vendor name and part number are automatically derived from the `normalization_mappings` using the raw vendor name and part number as keys. If no mapping exists, the original value is used with basic cleanup applied.
+    - **Transceiver Type Classification**: Transceivers can be grouped by functional characteristics (cable type, speed, breakout configuration) using `transceiver_types` to reduce attribute duplication across similar transceivers from different vendors.
     - **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
     - **Backward Compatibility**: Missing optional sections (platform, hwsku, etc.) are silently ignored to support gradual adoption and legacy configurations.
 
@@ -359,19 +384,46 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - `platform`: Platform-specific overrides (optional)
     - `hwsku`: HWSKU-specific overrides (optional)
     - `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory based hostname of the DUT
-    - `transceivers`: Normalized vendor name and part number specific configurations. Also contains transceiver specific attributes (mandatory)
-        - `platform_hwsku_overrides`: Overrides for specific platform+HWSKU combinations within each transceiver configuration (optional)
+    - `transceivers`: Contains vendor and transceiver-specific configurations organized in a hierarchical structure (mandatory)
+        - `transceiver_types`: Functional type-based attribute definitions (e.g., AOC_2X100G_BREAKOUT, STRAIGHT_400G_CABLE) (optional)
+        - `vendors`: Vendor-specific configurations organized by normalized vendor name (optional)
+            - `<NORMALIZED_VENDOR_NAME>`: Individual vendor section containing defaults and part number configurations
+                - `defaults`: Vendor-level default values (optional)
+                - `part_numbers`: Part number-specific configurations organized by normalized part number (optional)
+                    - `<NORMALIZED_VENDOR_PN>`: Individual part number section with specific attributes and overrides
+                        - `platform_hwsku_overrides`: Overrides for specific platform+HWSKU combinations (optional)
     > Note: Each sub-section can contain its own `defaults` fields.
+
+    **Transceiver Type Classification Benefits:**
+
+    The `transceiver_types` feature addresses the common challenge of attribute duplication across similar transceivers from different vendors. Instead of defining the same attributes repeatedly for each vendor's 2x100G AOC cables, you define them once in a type and reference it.
+
+    **Key Advantages:**
+    - **Eliminates Duplication**: Define common attributes once per functional type (e.g., `AOC_2X100G_BREAKOUT`) instead of repeating across vendors
+    - **Logical Organization**: Groups transceivers by functional characteristics (cable type, speed, breakout configuration) rather than just vendor lineage
+    - **Flexible Overrides**: Vendors can still override type defaults when their specific implementations require different values
+    - **Clear Semantics**: Type names immediately convey transceiver characteristics (`DR8_400G_OPTICS`, `DAC_200G_STRAIGHT`)
+    - **Scalable Design**: Adding new transceiver categories requires only one type definition rather than updates across multiple vendor sections
+    - **Centralized Maintenance**: Changes to common attributes for a functional type only need updates in one location
+
+    **Naming Convention:**
+    - **Format**: `{CABLE_TYPE}_{SPEED}_{FORM_FACTOR}` or `{CABLE_TYPE}_{SPEED}_{CHARACTERISTICS}`
+    - **Examples**:
+      - `AOC_2X100G_BREAKOUT` - Active Optical Cable, 2x100G breakout
+      - `DAC_400G_STRAIGHT` - Direct Attach Cable, 400G straight-through
+      - `DR8_400G_OPTICS` - DR8 specification, 400G optics
+      - `LR4_100G_OPTICS` - LR4 specification, 100G optics
 
     **Priority-based attribute resolution (highest to lowest):**
 
     1. **DUT-specific**: `dut.<DUT_NAME>`
-    2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
-    3. **Normalized Vendor Name + PN**: `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>`
-    4. **Normalized Vendor Name (defaults)**: `transceivers.<NORMALIZED_VENDOR_NAME>.defaults`
-    5. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
-    6. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
-    7. **Global defaults**: `defaults`
+    2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
+    3. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
+    4. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
+    5. **Transceiver Type**: `transceivers.transceiver_types.<TYPE_NAME>` (resolved via `transceiver_type` field from `transceiver_dut_info.json`)
+    6. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
+    7. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
+    8. **Global defaults**: `defaults`
 
     > **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
 
@@ -392,72 +444,54 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         "sfputil_eeprom_dump_sec": 2
       },
       "transceivers": {
-        "NORMALIZED_VENDOR_A": {
-          "defaults": {
-            "vdm_supported": false,
-            "cdb_backgroundmode_supported": false
-          },
-          "NORMALIZED_VENDOR_PN_ABC": {
-            "vendor_name": "Vendor A",
-            "normalized_vendor_name": "VENDOR_ABC",
-            "vendor_pn": "ABC-1234", 
-            "normalized_vendor_pn": "NORMALIZED_VENDOR_PN_ABC",
-            "dual_bank_supported": true,
+        "transceiver_types": {
+          "AOC_2X100G_BREAKOUT": {
+            "cable_type": "AOC",
+            "speed_gbps": 200,
+            "breakout_ports": 2,
+            "max_power_watts": 3.5,
             "vdm_supported": true,
-            "cdb_backgroundmode_supported": true,
-            "platform_hwsku_overrides": {
-              "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
-                "sfputil_eeprom_dump_time": 5
-              }
-            }
+            "dual_bank_supported": true,
+            "cdb_backgroundmode_supported": true
+          },
+          "STRAIGHT_400G_CABLE": {
+            "cable_type": "DAC",
+            "speed_gbps": 400,
+            "breakout_ports": 1,
+            "max_power_watts": 2.5,
+            "vdm_supported": false,
+            "dual_bank_supported": false
+          },
+          "DR8_400G_OPTICS": {
+            "cable_type": "OPTICS",
+            "speed_gbps": 400,
+            "breakout_ports": 8,
+            "max_power_watts": 12.0,
+            "vdm_supported": true,
+            "dual_bank_supported": true,
+            "frequency_tunable": true
           }
-        }
-      }
-    }
-    ```
-
-    **Example structure for a system tests category file (`attributes/system.json`):**
-
-    ```json
-    {
-      "mandatory": [
-        "max_allowed_failures",
-        "port_toggle_stress_iterations"
-      ],
-      "defaults": {
-        "verify_lldp_on_link_up": true,
-        "port_wait_time_after_shutdown_sec": 2,
-        "port_wait_time_after_startup_sec": 2,
-        "port_toggle_cycle_delay_sec": 1,
-        "port_range_toggle_stress_iterations": 50,
-        "port_range_toggle_wait_time_after_startup_sec": 2,
-        "transceiver_operation_scaling_time": 5,
-        "xcvrd_restart_settle_time": 10,
-        "pmon_restart_settle_time": 10,
-        "swss_restart_settle_time": 10,
-        "expect_pmon_restart": true,
-        "syncd_restart_settle_time": 10,
-        "config_reload_settle_time": 15,
-        "cold_reboot_settle_time": 60,
-        "cold_reboot_stress_iterations": 10,
-        "warm_reboot_settle_time": 45,
-        "fast_reboot_settle_time": 30
-      },
-      "dut": {
-        "DUT_NAME": {
-          "ports_to_be_stressed": ["Ethernet0", "Ethernet1"]
-        }
-      },
-      "transceivers": {
-        "NORMALIZED_VENDOR_A": {
-          "NORMALIZED_VENDOR_PN_ABC": {
-            "max_allowed_failures": 1,
-            "port_toggle_stress_iterations": 50,
-            "cold_reboot_stress_iterations": 5,
-            "platform_hwsku_overrides": {
-              "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
-                "port_toggle_cycle_delay_sec": 2,
-                "expect_pmon_restart": false
+        },
+        "vendors": {
+          "NORMALIZED_VENDOR_A": {
+            "defaults": {
+              "vdm_supported": false,
+              "cdb_backgroundmode_supported": false
+            },
+            "part_numbers": {
+              "NORMALIZED_VENDOR_PN_ABC": {
+                "vendor_name": "Vendor A",
+                "normalized_vendor_name": "VENDOR_ABC",
+                "vendor_pn": "ABC-1234", 
+                "normalized_vendor_pn": "NORMALIZED_VENDOR_PN_ABC",
+                "dual_bank_supported": true,
+                "vdm_supported": true,
+                "cdb_backgroundmode_supported": true,
+                "platform_hwsku_overrides": {
+                  "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
+                    "sfputil_eeprom_dump_time": 5
+                  }
+                }
               }
             }
           }
@@ -501,7 +535,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_sn": "serial_number",
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number"
+                "vendor_rev": "revision_number",
+                "transceiver_type": "TRANSCEIVER_TYPE"  # optional, may be None if not specified
             },
             # Category-specific attributes with merged overrides applied
             "EEPROM_ATTRIBUTES": {
@@ -528,10 +563,11 @@ These tests do not require traffic and are standalone, designed to run on a Devi
        - **Step 2a**: Start with global `defaults` section as the base layer
        - **Step 2b**: Apply `platform.<PLATFORM>` overrides (if present and applicable)
        - **Step 2c**: Apply `hwsku.<HWSKU>` overrides (if present and applicable)
-       - **Step 2d**: Apply `transceivers.<NORMALIZED_VENDOR_NAME>.defaults` vendor-level defaults (if present)
-       - **Step 2e**: Apply `transceivers.<NORMALIZED_VENDOR_NAME>.<NORMALIZED_PN>` specific attributes
-       - **Step 2f**: Apply `platform_hwsku_overrides.<PLATFORM>+<HWSKU>` overrides (if present)
-       - **Step 2g**: Apply `dut.<DUT_NAME>` overrides (if present)
+       - **Step 2d**: Apply `transceivers.transceiver_types.<TYPE_NAME>` attributes (if `transceiver_type` field is specified in `transceiver_dut_info.json` for the current port)
+       - **Step 2e**: Apply `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults` vendor-level defaults (if present)
+       - **Step 2f**: Apply `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>` specific attributes
+       - **Step 2g**: Apply `platform_hwsku_overrides.<PLATFORM>+<HWSKU>` overrides (if present)
+       - **Step 2h**: Apply `dut.<DUT_NAME>` overrides (if present)
     3. **Validate mandatory fields** for the current category using the `mandatory` array - ensure all required fields are resolved
     4. **Store merged category attributes** under the appropriate category key with the key being the filename stem in uppercase appended with `_ATTRIBUTES` (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
     5. **Add categorized attributes** to the `port_attributes_dict` for the current port
@@ -540,6 +576,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     **Merging Behavior:**
     - **Dictionary merging**: Higher priority fields completely override earlier values for the same key
     - **Missing sections**: If any priority level section is missing, it is silently skipped without error
+    - **Missing transceiver_type**: If `transceiver_type` is not specified in `transceiver_dut_info.json`, step 2d is skipped and no transceiver type attributes are applied
     - **Key conflicts**: Higher priority levels always win - no merge conflict resolution needed
 
     **Implementation Requirements:**
