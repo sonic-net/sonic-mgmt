@@ -4155,6 +4155,10 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox']"
       - "release in ['202411']"
+  xfail:
+    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23824"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
 
 vxlan/test_vnet_route_leak.py:
   skip:
