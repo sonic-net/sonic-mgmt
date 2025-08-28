@@ -2,9 +2,11 @@ import pytest
 import random
 import logging
 import json
+import time
 import ipaddress
 import yaml
 from tests.common.helpers.assertions import pytest_assert, pytest_require
+from tests.common.helpers.parallel import parallel_run
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -82,16 +84,9 @@ def verify_prefix_in_table(duthost, prefix, table="bgp"):
         return verify_prefix_in_fib_table(duthost, prefix)
 
 
-def verify_prefix_received_sonic(nbr_host, prefix, expected_community, unexpected_community):
-    cmd = "show ipv6 bgp net {} json".format(prefix)
-    output = nbr_host["host"].shell(cmd, module_ignore_errors=True)['stdout'].strip()
+def check_route_receive(prefix, expected_community, unexpected_community, node=None, results=None):
     result = False
-    try:
-        output_json = json.loads(output)
-    except Exception as e:
-        logger.error("Failed to parse JSON output from neighbor: {}".format(e))
-        return False
-
+    output_json = node["host"].get_route(prefix)
     if "paths" in output_json:
         for path in output_json["paths"]:
             if not ("community" in path and "list" in path["community"]):
@@ -102,21 +97,15 @@ def verify_prefix_received_sonic(nbr_host, prefix, expected_community, unexpecte
             ):
                 result = True
                 break
-    return result
+
+    results[node["host"].hostname] = result
 
 
-def verify_prefix_received(neighbor_type, nbr_host, prefix, expected_community, unexpected_community):
-    if neighbor_type == "sonic":
-        return verify_prefix_received_sonic(nbr_host, prefix, expected_community, unexpected_community)
-
-
-def verify_prefix_announce_to_neighbor(neighbor_list, prefix, neighbor_type, expected_community, unexpected_community):
-    for nbr_host in neighbor_list:
-        if not verify_prefix_received(neighbor_type, nbr_host, prefix, expected_community, unexpected_community):
-            logger.warning("Expected prefix {} to be received by neighbor {}, but it was not found"
-                           .format(prefix, nbr_host))
-            return False
-    return True
+def verify_prefix_received_in_neighbor(neighbor_list, prefix, expected_community, unexpected_community):
+    result = parallel_run(check_route_receive, (prefix, expected_community, unexpected_community), {},
+                          neighbor_list, timeout=60)
+    logger.info("Prefix received result: {}".format(result))
+    return all(item is True for item in result.values())
 
 
 @pytest.fixture(scope="module")
@@ -179,7 +168,9 @@ def common_setup_and_teardown(localhost, nbrhosts, tbinfo, ptfhost, rand_one_upl
         op_anchor_prefix_with_cmd(rand_one_uplink_duthost, PREFIX_TYPE, prefix, "remove", ignore_error=True)
 
 
-def verify(neighbor_list, neighbor_type, community, rand_one_uplink_duthost):
+def verify(neighbor_list, community, rand_one_uplink_duthost):
+    # Wait for changes be applied
+    time.sleep(10)
     result = {"prefix_in_db": set(), "prefix_in_bgp_table": set(), "prefix_in_fib_table": set(),
               "prefix_announcing": set()}
     for prefix in ANCHOR_PREFIXES:
@@ -189,13 +180,13 @@ def verify(neighbor_list, neighbor_type, community, rand_one_uplink_duthost):
             result["prefix_in_bgp_table"].add(prefix)
         if verify_prefix_in_table(rand_one_uplink_duthost, prefix, "fib"):
             result["prefix_in_fib_table"].add(prefix)
-        if verify_prefix_announce_to_neighbor(neighbor_list, prefix, neighbor_type,
+        if verify_prefix_received_in_neighbor(neighbor_list, prefix,
                                               [community["anchor_community"]],
                                               [community["anchor_contributing_community"],
                                                community["local_anchor_community"]]):
             result["prefix_announcing"].add(prefix)
     for prefix in ROUTES_TO_ADVERTISE:
-        if verify_prefix_announce_to_neighbor(neighbor_list, prefix, neighbor_type,
+        if verify_prefix_received_in_neighbor(neighbor_list, prefix,
                                               [community["anchor_contributing_community"]],
                                               [community["anchor_community"],
                                                community["local_anchor_community"]]):
@@ -205,12 +196,11 @@ def verify(neighbor_list, neighbor_type, community, rand_one_uplink_duthost):
 
 
 def test_prefix_list_tsa(rand_one_uplink_duthost, request, common_setup_and_teardown):
-    neighbor_type = request.config.getoption("neighbor_type")
     upstream_nbrs, community = common_setup_and_teardown
     upstream_nbr_hosts = [nbrhost for nbrhost in upstream_nbrs.values()]
     for prefix in ANCHOR_PREFIXES:
         op_anchor_prefix_with_cmd(rand_one_uplink_duthost, PREFIX_TYPE, prefix, "add")
-    result = verify(upstream_nbr_hosts, neighbor_type, community, rand_one_uplink_duthost)
+    result = verify(upstream_nbr_hosts, community, rand_one_uplink_duthost)
     # After adding Anchor prefix, we need below verication:
     # 1) Anchor prefixes are existing in DB
     # 2) Anchor prefixes are existing in BGP table in DUT
@@ -225,7 +215,7 @@ def test_prefix_list_tsa(rand_one_uplink_duthost, request, common_setup_and_tear
     pytest_assert(len(result["prefix_announcing"]) == len(ANCHOR_PREFIXES) + len(ROUTES_TO_ADVERTISE),
                   "Prefix announcing is unexpected: {}".format(result["prefix_announcing"]))
     rand_one_uplink_duthost.shell("sudo TSA")
-    result = verify(upstream_nbr_hosts, neighbor_type, community, rand_one_uplink_duthost)
+    result = verify(upstream_nbr_hosts, community, rand_one_uplink_duthost)
     # After TSA, only 4) prefix announcing changed: Anchor prefixes and contributing routes are NOT announcing to
     # the neighbors
     pytest_assert(len(result["prefix_in_db"]) == len(ANCHOR_PREFIXES),
@@ -237,8 +227,8 @@ def test_prefix_list_tsa(rand_one_uplink_duthost, request, common_setup_and_tear
     pytest_assert(len(result["prefix_announcing"]) == 0,
                   "Prefix announcing is unexpected: {}".format(result["prefix_announcing"]))
     rand_one_uplink_duthost.shell("sudo TSB")
-    result = verify(upstream_nbr_hosts, neighbor_type, community, rand_one_uplink_duthost)
-    # After TSA, only 4) prefix announcing changed: Anchor prefixes and contributing routes are announcing to
+    result = verify(upstream_nbr_hosts, community, rand_one_uplink_duthost)
+    # After TSB, only 4) prefix announcing changed: Anchor prefixes and contributing routes are announcing to
     # the neighbors with correct communities
     pytest_assert(len(result["prefix_in_db"]) == len(ANCHOR_PREFIXES),
                   "Prefix in db is unexpected: {}".format(result["prefix_in_db"]))
