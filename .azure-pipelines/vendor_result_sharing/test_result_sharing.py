@@ -83,13 +83,17 @@ class KustoChecker(object):
         Query the highest pass rate test dualtor result for each HardwareSku, Branch for past 7 days
         return: list[{Vendor,BuildId,HardwareSku,BranchName,RunDate,RunWeek,OSVersion,SuccessRate,CasesRun}]
         """
-        hardwaresku_q = '| where HardwareSku contains "{}"'.format(HardwareSku) if HardwareSku else ''
-        BranchName_q = '| where BranchName contains "{}"'.format(BranchName) if BranchName else ''
-        BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
-        Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
+        hardwaresku_q = '| where HardwareSku contains "{}"'.format(
+            HardwareSku) if HardwareSku else ''
+        BranchName_q = '| where BranchName contains "{}"'.format(
+            BranchName) if BranchName else ''
+        BuildId_q = '| where BuildId contains "{}"'.format(
+            BuildId) if BuildId else ''
+        Vendor_q = '| where Vendor contains "{}"'.format(
+            Vendor) if Vendor else ''
         query_str = '''
             let ExcludeTestbedList = dynamic(['ixia', 't2', '3132', '7280', 'slx', '3164', 'azd']);
-            let IncludeBranchList = dynamic(['20240510', '20241110', '20241211', '20250505']);
+            let IncludeBranchList = dynamic(['20240510', '20241110', '20241211', '20250510']);
             let IncludeTopoList = dynamic(['dualtor']);
             let ExcludeAsicList = dynamic(['barefoot']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
@@ -115,7 +119,7 @@ class KustoChecker(object):
             | where BranchName in (IncludeBranchList)
             | project-away CancelledTasks,FailedTasks,ReportId,SuccessTasks,JenkinsId
             | extend PipelineName = tostring(split(TrackingId, '#')[0])
-            | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result)
+            | extend ResultExpectation = case(Result in ("success", "xfail_expected", "xfail_forgive","xfail_skipped"), "expected", Result in ("xfail_unexpected"), "unexpected", Result
             | summarize CasesRun = count(), Successes = countif(ResultExpectation == "expected") by BuildId,OSVersion,RunDate,BranchName,HardwareSku,TopologyType,AsicType,PipelineName
             | extend SuccessRate = case(Successes == 0 or CasesRun == 0,round(0),round(todouble((Successes)* 100) /todouble(CasesRun),2))
             | extend Vendor = case(HardwareSku startswith "Arista", "arista",
@@ -126,26 +130,49 @@ class KustoChecker(object):
             | extend RunWeek = week_of_year(RunDate)
             | summarize arg_max(SuccessRate, *) by OSVersion, BranchName, HardwareSku, PipelineName, RunWeek
             {} {} {} {}
-            '''.format(hardwaresku_q, BranchName_q, BuildId_q, Vendor_q)
-        logger.info('Query highest pass rate for dualtor from past 7 days:{}'.format(query_str))
+            '''.format(hardwaresku_q, BranchName_q, BuildId_q, Vendor_q)  # noqa: E501
+        logger.info(
+            'Query highest pass rate for dualtor from past 7 days:{}'.format(query_str))
 
         result = self.query(query_str)
         highest_pass_rate_dualtor = result.primary_results[0].to_dict()['data']
-        logger.info('Highest pass rate dualtor test result for each HardwareSku, Topology and Branch for past 7 days:{}'.format(highest_pass_rate_dualtor))
+        logger.info(
+            'Highest pass rate dualtor test result for each HardwareSku,'
+            ' Topology and Branch for past 7 days:{}'.format(
+                highest_pass_rate_dualtor))
         return highest_pass_rate_dualtor
 
     def query_highest_pass_rate(self, HardwareSku=None, TopologyType=None, BranchName=None, BuildId=None, Vendor=None):
         """
-        Query the highest pass rate for each HardwareSku, Topology, Branch for past 7 days
-        return: list[{Vendor,BuildId,HardwareSku,TopologyType,BranchName,RunDate,RunWeek,OSVersion,SuccessRate,CasesRun}]
+        Query the highest pass rate for each HardwareSku, Topology, Branch for past 7 days.
+        Return:
+            list[
+                {
+                    Vendor,
+                    BuildId,
+                    HardwareSku,
+                    TopologyType,
+                    BranchName,
+                    RunDate,
+                    RunWeek,
+                    OSVersion,
+                    SuccessRate,
+                    CasesRun
+                }
+            ]
         """
-        hardwaresku_q = '| where HardwareSku contains "{}"'.format(HardwareSku) if HardwareSku else ''
-        TopologyType_q = '| where TopologyType contains "{}"'.format(TopologyType) if TopologyType else ''
-        BranchName_q = '| where BranchName contains "{}"'.format(BranchName) if BranchName else ''
-        BuildId_q = '| where BuildId contains "{}"'.format(BuildId) if BuildId else ''
-        Vendor_q = '| where Vendor contains "{}"'.format(Vendor) if Vendor else ''
+        hardwaresku_q = '| where HardwareSku contains "{}"'.format(
+            HardwareSku) if HardwareSku else ''
+        TopologyType_q = '| where TopologyType contains "{}"'.format(
+            TopologyType) if TopologyType else ''
+        BranchName_q = '| where BranchName contains "{}"'.format(
+            BranchName) if BranchName else ''
+        BuildId_q = '| where BuildId contains "{}"'.format(
+            BuildId) if BuildId else ''
+        Vendor_q = '| where Vendor contains "{}"'.format(
+            Vendor) if Vendor else ''
         query_str = '''
-            let IncludeBranchList = dynamic(['20240510', '20241110', '20241211', '20250505']);
+            let IncludeBranchList = dynamic(['20240510', '20241110', '20241211', '20250510']);
             let BroadcomList = dynamic(['s6100','dx010','s6000','e1031','3164']);
             let CiscoList = dynamic(["8102","8101","8111"]);
             let MellanoxList = dynamic(["3800", "2700", "4700","4600c"]);
@@ -188,12 +215,14 @@ class KustoChecker(object):
             | where Vendor in (VendorList)
             | project Vendor,BuildId,HardwareSku,TopologyType,BranchName,RunDate,RunWeek,OSVersion,SuccessRate,CasesRun
             {}
-        '''.format(hardwaresku_q, TopologyType_q, BranchName_q, BuildId_q, Vendor_q)
-        logger.info('Query highest pass rate for each HardwareSku, Topology and Branch for past 7 days:{}'.format(query_str))
+        '''.format(hardwaresku_q, TopologyType_q, BranchName_q, BuildId_q, Vendor_q)  # noqa: E501
+        logger.info(
+            'Query highest pass rate for each HardwareSku, Topology and Branch for past 7 days:{}'.format(query_str))
 
         result = self.query(query_str)
         highest_pass_rate = result.primary_results[0].to_dict()['data']
-        logger.info('Highest pass rate for each HardwareSku, Topology and Branch for past 7 days:{}'.format(highest_pass_rate))
+        logger.info('Highest pass rate for each HardwareSku, Topology and Branch for past 7 days:{}'.format(
+            highest_pass_rate))
         return highest_pass_rate
 
     def upload_data(self, report_data):
@@ -218,7 +247,8 @@ class KustoChecker(object):
 
             if self.ingest_client:
                 logger.info("Ingest to backup cluster...")
-                self.ingest_client.ingest_from_file(temp.name, ingestion_properties=props)
+                self.ingest_client.ingest_from_file(
+                    temp.name, ingestion_properties=props)
         return
 
 
@@ -228,20 +258,24 @@ class AzureDevOpsConnecter(object):
         if personal_access_token:
             self.personal_access_token = personal_access_token
         else:
-            raise RuntimeError('Could not load Azure DevOps credentials from environment')
+            raise RuntimeError(
+                'Could not load Azure DevOps credentials from environment')
 
         self.organization_url = organization_url
         self.project_name = project_name
         self.http_logger = logging.getLogger('azure.devops.connection')
         self.http_logger.setLevel(logging.WARNING)
 
-        self.connection = Connection(base_url=self.organization_url, creds=BasicAuthentication("", self.personal_access_token))
-        logger.info("Connected to Azure DevOps {} successfully".format(self.organization_url))
+        self.connection = Connection(base_url=self.organization_url, creds=BasicAuthentication(
+            "", self.personal_access_token))
+        logger.info("Connected to Azure DevOps {} successfully".format(
+            self.organization_url))
 
     def download_artifacts(self, build_id, file_name):
         # Use self.connection to interact with Azure DevOps APIs
         build_client = self.connection.clients_v7_0.get_build_client()
-        build_artifacts = build_client.get_artifacts(self.project_name, build_id)
+        build_artifacts = build_client.get_artifacts(
+            self.project_name, build_id)
 
         # Check if build exists
         if not build_artifacts:
@@ -250,14 +284,18 @@ class AzureDevOpsConnecter(object):
 
         for artifact in build_artifacts:
             download_url = artifact.resource.download_url
-            logger.info("Downloading artifacts from build {} with download url: {}".format(build_id, download_url))
-            response = requests.get(download_url, auth=("", self.personal_access_token))
+            logger.info("Downloading artifacts from build {} with download url: {}".format(
+                build_id, download_url))
+            response = requests.get(download_url, auth=(
+                "", self.personal_access_token))
             if response.status_code == 200:
                 with open(file_name + '.zip', 'wb') as f:
                     f.write(response.content)
-                logger.info("File {} downloaded successfully!".format(file_name))
+                logger.info(
+                    "File {} downloaded successfully!".format(file_name))
             else:
-                logger.error("Failed to download file {}. Response status code: {}".format(file_name, response.status_code))
+                logger.error("Failed to download file {}. Response status code: {}".format(
+                    file_name, response.status_code))
 
 
 class AccessTokenCredential:
@@ -282,17 +320,22 @@ class AzureBlobConnecter(object):
         if token:
             self.token = token
         else:
-            raise RuntimeError('Could not load Storage credentials from environment')
+            raise RuntimeError(
+                'Could not load Storage credentials from environment')
 
-        self.http_logger = logging.getLogger('azure.core.pipeline.policies.http_logging_policy')
+        self.http_logger = logging.getLogger(
+            'azure.core.pipeline.policies.http_logging_policy')
         self.http_logger.setLevel(logging.WARNING)
 
-        self.blob_service_client = BlobServiceClient(account_url=self.account_url, credential=self.token)
+        self.blob_service_client = BlobServiceClient(
+            account_url=self.account_url, credential=self.token)
 
-        logger.info("Connected to Azure Blob Storage {} successfully".format(self.account_url))
+        logger.info(
+            "Connected to Azure Blob Storage {} successfully".format(self.account_url))
 
     def connect_to_container(self, container_name):
-        container = self.blob_service_client.get_container_client(container=container_name)
+        container = self.blob_service_client.get_container_client(
+            container=container_name)
         container_list = container.list_blobs()
         for blob in container_list:
             logger.info(blob.name + '\n')
@@ -300,51 +343,64 @@ class AzureBlobConnecter(object):
         return container
 
     def get_buildid_from_container(self, container_name):
-        container = self.blob_service_client.get_container_client(container=container_name)
+        container = self.blob_service_client.get_container_client(
+            container=container_name)
         buildid = []
         container_list = container.list_blobs(name_starts_with="2025")
         for blob in container_list:
             buildid.append(blob.name.split('/')[1].split('_')[0])
-        logger.info("Buildid list: {} in container {}".format(buildid, container_name))
+        logger.info("Buildid list: {} in container {}".format(
+            buildid, container_name))
 
         return buildid
 
     def upload_artifacts_to_container_with_tag(self, container_name, artifact, tag):
         try:
             # Create a ContainerClient
-            container_client = self.blob_service_client.get_container_client(container_name)
+            container_client = self.blob_service_client.get_container_client(
+                container_name)
 
             # upload artifact
             with open(file=artifact, mode="rb") as data:
-                blob_client = container_client.upload_blob(name=artifact, data=data, tags=tag)
+                _ = container_client.upload_blob(
+                    name=artifact, data=data, tags=tag)
 
-            logger.info("upload artifact {} to {} with tag:{}".format(artifact, container_name, tag))
+            logger.info("upload artifact {} to {} with tag:{}".format(
+                artifact, container_name, tag))
 
         except ResourceExistsError as ex:
-            logger.error("The artifact {} already exists. Error: {}".format(artifact, ex))
+            logger.error(
+                "The artifact {} already exists. Error: {}".format(artifact, ex))
 
         except Exception as ex:
-            logger.error("Error {} occurred when uploading {} to container {}".format(ex, artifact, container_name))
+            logger.error("Error {} occurred when uploading {} to container {}".format(
+                ex, artifact, container_name))
 
     def upload_artifacts_to_container(self, container_name, artifact, blob_name):
-        logger.debug("Tyr to upload artifacts to container {} with blob name {} from local file {}".format(container_name, blob_name, artifact))
+        logger.debug("Tyr to upload artifacts to container {} with blob name {} from local file {}".format(
+            container_name, blob_name, artifact))
         try:
             # Create a BlobClient for the artifact
-            blob_client = self.blob_service_client.get_blob_client(container=container_name, blob=blob_name)
+            blob_client = self.blob_service_client.get_blob_client(
+                container=container_name, blob=blob_name)
 
             # upload artifact
             with open(artifact, "rb") as data:
                 blob_client.upload_blob(data=data, overwrite=True)
 
-            logger.info("uploaded artifact {} to {}".format(artifact, blob_name))
+            logger.info("uploaded artifact {} to {}".format(
+                artifact, blob_name))
 
         except ResourceExistsError as ex:
-            logger.error("The artifact {} already exists. Error: {}".format(artifact, ex))
+            logger.error(
+                "The artifact {} already exists. Error: {}".format(artifact, ex))
 
         except Exception as ex:
-            logger.error("Error {} occurred when uploading {} to container {}".format(ex, artifact, container_name))
+            logger.error("Error {} occurred when uploading {} to container {}".format(
+                ex, artifact, container_name))
 
-        logger.debug("Upload artifacts to container {} with blob name {} from local file {} DONE".format(container_name, blob_name, artifact))
+        logger.debug("Upload artifacts to container {} with blob name {} from local file {} DONE".format(
+            container_name, blob_name, artifact))
 
     def download_artifacts_from_container(self, container_name, blob_name, local_file_path):
         try:
@@ -360,35 +416,46 @@ class AzureBlobConnecter(object):
             with open(local_file_path, "wb") as download_file:
                 download_file.write(blob_client.download_blob().readall())
 
-            logger.info("download artifact {} to {}".format(blob_name, local_file_path))
+            logger.info("download artifact {} to {}".format(
+                blob_name, local_file_path))
 
         except ResourceNotFoundError as ex:
-            logger.error("The artifact {} or container {} does not exist. Error: {}".format(blob_name, container_name, ex))
+            logger.error("The artifact {} or container {} does not exist. Error: {}".format(
+                blob_name, container_name, ex))
 
         except Exception as ex:
-            logger.error("Error {} occurred when downloading {} from container {}".format(ex, blob_name, container_name))
+            logger.error("Error {} occurred when downloading {} from container {}".format(
+                ex, blob_name, container_name))
 
     def download_artifacts_from_container_recursively(self, container_name, folder_name, local_path):
-        logger.debug("Download artifacts from container {} with folder {} to local path {}".format(container_name, folder_name, local_path))
+        logger.debug("Download artifacts from container {} with folder {} to local path {}".format(
+            container_name, folder_name, local_path))
         os.makedirs(local_path, exist_ok=True)
 
-        container_client = self.blob_service_client.get_container_client(container=container_name)
+        container_client = self.blob_service_client.get_container_client(
+            container=container_name)
         for blob in container_client.list_blobs(name_starts_with=folder_name):
             blob_name = blob.name
             if "/" in blob_name:
                 head, tail = os.path.split(blob_name)
                 logger.info("head: {}, tail: {}".format(head, tail))
                 if (os.path.isdir(local_path + "/" + head)):
-                    logger.info("Directory {} exists, skip creating".format(local_path + "/" + head))
-                    self.download_artifacts_from_container(container_name, blob_name, local_path + "/" + head + "/" + tail)
+                    logger.info("Directory {} exists, skip creating".format(
+                        local_path + "/" + head))
+                    self.download_artifacts_from_container(
+                        container_name, blob_name, local_path + "/" + head + "/" + tail)
                 else:
-                    logger.info("Creating directory {}".format(local_path + "/" + head))
+                    logger.info("Creating directory {}".format(
+                        local_path + "/" + head))
                     os.makedirs(local_path + "/" + head, exist_ok=True)
-                    self.download_artifacts_from_container(container_name, blob_name, local_path + "/" + head + "/" + tail)
+                    self.download_artifacts_from_container(
+                        container_name, blob_name, local_path + "/" + head + "/" + tail)
             else:
-                self.download_artifacts_from_container(container_name, blob_name, local_path + "/" + blob_name)
+                self.download_artifacts_from_container(
+                    container_name, blob_name, local_path + "/" + blob_name)
 
-        logger.debug("Download artifacts from container {} with folder {} to local path {} DONE".format(container_name, folder_name, local_path))
+        logger.debug("Download artifacts from container {} with folder {} to local path {} DONE".format(
+            container_name, folder_name, local_path))
 
 
 def create_kusto_checker():
@@ -416,22 +483,29 @@ def main(args):
 
     # Connect to sonicvendorresult storage
     vendor_sharing_storage_token = os.getenv("VENDOR_SHARING_TOKEN")
-    vendor_sharing_token_credentials = AccessTokenCredential(vendor_sharing_storage_token)
-    vendor_sharing_storage_connecter = AzureBlobConnecter(VENDOR_ACCOUNT_URL, vendor_sharing_token_credentials)
+    vendor_sharing_token_credentials = AccessTokenCredential(
+        vendor_sharing_storage_token)
+    vendor_sharing_storage_connecter = AzureBlobConnecter(
+        VENDOR_ACCOUNT_URL, vendor_sharing_token_credentials)
 
     # Connect to nightly test storage
     nightly_test_storage_token = os.getenv("NIGHTLY_TEST_TOKEN")
-    nightly_test_storage_credentials = AccessTokenCredential(nightly_test_storage_token)
-    nightly_test_storage_connecter = AzureBlobConnecter(NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_credentials)
+    nightly_test_storage_credentials = AccessTokenCredential(
+        nightly_test_storage_token)
+    nightly_test_storage_connecter = AzureBlobConnecter(
+        NIGHTLY_TEST_ACCOUNT_URL, nightly_test_storage_credentials)
 
     # Connect to azure devops
     pat_for_dualtor_result = os.getenv("AZURE_DEVOPS_PAT_FOR_DUALTOR_RESULT")
-    azure_devops_connecter = AzureDevOpsConnecter(ORGANIZATION_URL, PROJECT_NAME, pat_for_dualtor_result)
+    azure_devops_connecter = AzureDevOpsConnecter(
+        ORGANIZATION_URL, PROJECT_NAME, pat_for_dualtor_result)
 
     if pipeline_type == "PipelineTest":
-        result = kustochecker.query_highest_pass_rate_for_dualtor(HardwareSku=hardwaresku, BranchName=branch, BuildId=buildid, Vendor=vendor)
+        result = kustochecker.query_highest_pass_rate_for_dualtor(
+            HardwareSku=hardwaresku, BranchName=branch, BuildId=buildid, Vendor=vendor)
     else:
-        result = kustochecker.query_highest_pass_rate(HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid, Vendor=vendor)
+        result = kustochecker.query_highest_pass_rate(
+            HardwareSku=hardwaresku, TopologyType=topology, BranchName=branch, BuildId=buildid, Vendor=vendor)
     total_count = len(result)
     logger.info('Total count of test result: {}'.format(total_count))
 
@@ -439,7 +513,8 @@ def main(args):
     ingested_time = str(datetime.now())
 
     base_path = os.getcwd()
-    logger.info('Current working directory: {}, current date:{}'.format(base_path, upload_date))
+    logger.info('Current working directory: {}, current date:{}'.format(
+        base_path, upload_date))
 
     counter_map = dict()
     if vendor:
@@ -454,14 +529,17 @@ def main(args):
 
     buildid_list = dict()
     if vendor:
-        buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(vendor + 'testresult')
+        buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(
+            vendor + 'testresult')
     else:
         for vendor in VENDOR_CONTAINER:
-            buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(vendor + 'testresult')
+            buildid_list[vendor] = vendor_sharing_storage_connecter.get_buildid_from_container(
+                vendor + 'testresult')
 
     for res in result:
         temp_json = dict()
-        temp_json.update({'upload_date': ingested_time, 'upload_status': 'False'})
+        temp_json.update(
+            {'upload_date': ingested_time, 'upload_status': 'False'})
 
         buildid = res['BuildId']
         hardwaresku = res['HardwareSku']
@@ -472,33 +550,54 @@ def main(args):
         os_version = res['OSVersion']
         cases_run = int(res['CasesRun'])
         success_rate = res['SuccessRate']
-        logger.info('BuildId: {}, HardwareSku: {}, TopologyType: {}, BranchName: {}, Vendor: {}, RunDate: {}, OSVersion: {}, CasesRun: {}, SuccessRate: {}'.format(buildid, hardwaresku, topology, branch, vendor, run_date, os_version, cases_run, success_rate))
+        logger.info(
+            'BuildId: {}, HardwareSku: {}, TopologyType: {}, BranchName: {}, Vendor: {}, '
+            'RunDate: {}, OSVersion: {}, CasesRun: {}, SuccessRate: {}'.format(
+                buildid, hardwaresku, topology, branch, vendor,
+                run_date, os_version, cases_run, success_rate
+            )
+        )
 
-        temp_json.update({'buildid': buildid, 'hardwaresku': hardwaresku, 'topology': topology, 'branch': branch, 'vendor': vendor, 'run_date': str(run_date), 'os_version': os_version, 'cases_run': cases_run, 'success_rate': success_rate})
+        temp_json.update({
+            'buildid': buildid,
+            'hardwaresku': hardwaresku,
+            'topology': topology,
+            'branch': branch,
+            'vendor': vendor,
+            'run_date': str(run_date),
+            'os_version': os_version,
+            'cases_run': cases_run,
+            'success_rate': success_rate
+        })
         logger.info("current temp_json: {}".format(temp_json))
 
         if vendor not in VENDOR_CONTAINER:
-            logger.info('Vendor {} is not in the vendor list, ignore'.format(vendor))
+            logger.info(
+                'Vendor {} is not in the vendor list, ignore'.format(vendor))
             report_json.append(temp_json)
             continue
 
         if buildid in buildid_list[vendor]:
-            logger.info('BuildId: {} already exists in container {}, ignore'.format(buildid, vendor + 'testresult'))
+            logger.info('BuildId: {} already exists in container {}, ignore'.format(
+                buildid, vendor + 'testresult'))
             report_json.append(temp_json)
             continue
 
         if cases_run < CASE_THRESHOLD and hardwaresku != 'Cisco-8111-O32' and topology != 'dualtor':
-            logger.info('Total CassesRun of build {}: {} is less than 800, may be not a full run, ingore'.format(buildid, str(cases_run)))
+            logger.info('Total CassesRun of build {}: {} is less than 800, may be not a full run, ingore'.format(
+                buildid, str(cases_run)))
             report_json.append(temp_json)
             continue
 
-        if  float(success_rate) < PASSRATE_THRESHOLD and branch != '20241210':
-            logger.info('SuccessRate of build {}: {} is less than 90%, do not upload this, ingore'.format(buildid, str(success_rate)))
+        if float(success_rate) < PASSRATE_THRESHOLD and branch != '20241210':
+            logger.info('SuccessRate of build {}: {} is less than 90%, do not upload this, ingore'.format(
+                buildid, str(success_rate)))
             report_json.append(temp_json)
             continue
 
         if pipeline_type == "ElasticTest":
-            nightly_test_storage_connecter.download_artifacts_from_container_recursively(NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
+            nightly_test_storage_connecter.download_artifacts_from_container_recursively(
+                NIGHTLY_TEST_CONTAINER_NAME, buildid, base_path)
             archive_path = os.path.join(base_path, buildid)
             if not os.path.exists(archive_path):
                 # if path no exist, maybe test results not uploaded to storage, just skip
@@ -513,10 +612,13 @@ def main(args):
 
         vendor_container_name = vendor + 'testresult'
 
-        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + topology + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
+        remote_file_path = upload_date + '/' + buildid + '_' + hardwaresku + '_' + \
+            topology + '_' + str(os_version) + '_' + str(success_rate) + '.zip'
 
-        logger.debug('Starting upload artifact {} to container {} with blob name:{}'.format(local_artifact_path, vendor_container_name, remote_file_path))
-        vendor_sharing_storage_connecter.upload_artifacts_to_container(container_name=vendor_container_name, artifact=local_artifact_path, blob_name=remote_file_path)
+        logger.debug('Starting upload artifact {} to container {} with blob name:{}'.format(
+            local_artifact_path, vendor_container_name, remote_file_path))
+        vendor_sharing_storage_connecter.upload_artifacts_to_container(
+            container_name=vendor_container_name, artifact=local_artifact_path, blob_name=remote_file_path)
 
         # update counter and log data
         counter_map[vendor] += 1
@@ -527,7 +629,8 @@ def main(args):
             shutil.rmtree(base_path + '/' + buildid)
         os.remove(local_artifact_path)
 
-    logger.info('Actual upload to azure storage counter summary: {}'.format(counter_map))
+    logger.info(
+        'Actual upload to azure storage counter summary: {}'.format(counter_map))
     logger.info('Ingested {} records to kusto'.format(len(report_json)))
     logger.info('Detailed summary: {}'.format(report_json))
 
@@ -552,8 +655,9 @@ if __name__ == '__main__':
                         type=str,
                         dest='branch',
                         default="All",
-                        choices=['20240510', '20241110', '20241211', '20250505', 'All'],
-                        help='Branch name, 20240510, 20241110, 20241211, or 20250505, default is all'
+                        choices=['20240510', '20241110',
+                                 '20241211', '20250510', 'All'],
+                        help='Branch name, 20240510, 20241110, 20241211, or 20250510, default is all'
                         )
 
     parser.add_argument('-s', '--sku',
