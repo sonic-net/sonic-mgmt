@@ -98,7 +98,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 **Pre-requisites for the Below Tests:**
 
-1. A file `transceiver_dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to corresponding ports of each DUT. This file serves as the foundational source of truth for transceiver identification and contains data that is unique to each physical transceiver and its corresponding port configuration.
+1. **DUT Info File:** A file `transceiver_dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to corresponding ports of each DUT. This file serves as the foundational source of truth for transceiver identification and contains data that is unique to each physical transceiver and its corresponding port configuration.
 
     The file supports multiple port specification formats for flexibility and efficiency:
 
@@ -161,12 +161,6 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     **Global Normalization Mappings:**
     - `normalization_mappings.vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
     - `normalization_mappings.part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-
-    **Port Configuration Keys:**
-    - **Individual Ports**: Standard SONiC port names (e.g., `"Ethernet0"`, `"Ethernet4"`)
-    - **Port Ranges**: Range notation (e.g., `"Ethernet4:13"`, `"Ethernet0:97:4"`)
-    - **Port Lists**: Comma-separated lists (e.g., `"Ethernet16,Ethernet20,Ethernet24"`)
-    - **Mixed Specifications**: Combined ranges and lists (e.g., `"Ethernet28:33,Ethernet36,Ethernet40:45"`)
 
     **Port Specification Formats:**
 
@@ -286,7 +280,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     }
     ```
 
-2. Multiple JSON files based on test category should be present to define the metadata and test-specific attributes required for each type of transceiver. Each JSON file should include a `defaults` section containing default values of the attributes if not overridden and a `transceivers` section for overriding the default values based on specific requirements.
+2. **Test Category Attribute Files:** Multiple JSON files based on test category should be present to define the metadata and test-specific attributes required for each type of transceiver. Each JSON file should include a `defaults` section containing default values of the attributes if not overridden and a `transceivers` section for overriding the default values based on specific requirements.
 
     **Recommended JSON files and grouping:**
 
@@ -551,7 +545,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     **Implementation Requirements:**
 
     - **Error Handling**: Framework must gracefully handle missing files, invalid JSON, missing mandatory fields, and malformed data structures with descriptive error messages
-    - **Logging**: Detailed logging of attribute resolution process for debugging and troubleshooting
+    - **Logging**: Detailed logging of attribute resolution process for debugging and troubleshooting. Specifically, entire `port_attributes_dict` should be logged after it is constructed to assist with identifying any issues.
 
     **How to Use:**
 
