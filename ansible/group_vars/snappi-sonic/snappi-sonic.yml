@@ -43,8 +43,9 @@ snmp_location: testlab
 # bgp slb passive range
 bgp_slb_passive_range: 10.255.0.0/25
 
-#For Arista fanout switch deployment only
+# For Arista fanout switch deployment only
 fanout_admin_user: "fanoutadminuser"
 fanout_admin_password: "fanoutadminpassword"
 
 snappi_api_server: {user: admin, password: admin, rest_port: 443, session_id: "None"}
+chassis_chain_primary: "10.36.84.31"
