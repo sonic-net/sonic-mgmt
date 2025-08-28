@@ -9,11 +9,12 @@ from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
     ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
-    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
+    NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
-from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost # noqa F401
+from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.common import config_reload
 
 logger = logging.getLogger(__name__)
@@ -138,7 +139,7 @@ def use_underlay_route(request):
 
 
 @pytest.fixture(scope="module")
-def dash_pl_config(duthost, config_facts, minigraph_facts):
+def dash_pl_config(duthost, dpuhosts, dpu_index, config_facts, minigraph_facts):
     dash_info = {
         DUT_MAC: config_facts["DEVICE_METADATA"]["localhost"]["mac"],
         LOCAL_CA_IP: "10.2.2.2",
@@ -162,6 +163,14 @@ def dash_pl_config(duthost, config_facts, minigraph_facts):
 
             if REMOTE_PTF_INTF in dash_info and LOCAL_PTF_INTF in dash_info:
                 break
+    dpuhost = dpuhosts[dpu_index]
+    dash_info[DPU_DATAPLANE_PORT] = dpuhost.dpu_dataplane_port
+    dash_info[DPU_DATAPLANE_IP] = dpuhost.dpu_data_port_ip
+    dash_info[DPU_DATAPLANE_MAC] = dpuhost.dpu_dataplane_mac
+
+    dash_info[NPU_DATAPLANE_PORT] = dpuhost.npu_dataplane_port
+    dash_info[NPU_DATAPLANE_IP] = dpuhost.npu_data_port_ip
+    dash_info[NPU_DATAPLANE_MAC] = dpuhost.npu_dataplane_mac
 
     return dash_info
 
@@ -478,3 +487,8 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
 @pytest.fixture(scope="module")
 def dpu_index(request):
     return request.config.getoption("--dpu_index")
+
+
+@pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
+def single_endpoint(request):
+    return request.param

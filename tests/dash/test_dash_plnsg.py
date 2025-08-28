@@ -1,0 +1,106 @@
+import logging
+import configs.privatelink_config as pl
+import ptf.testutils as testutils
+from tests.common.config_reload import config_reload
+import pytest
+from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
+from gnmi_utils import apply_messages
+from packets import inbound_pl_packets, plnsg_packets
+from route_setup import add_npu_static_routes, dpu_setup  # noqa: F401
+from test_fnic import verify_tunnel_packets
+
+logger = logging.getLogger(__name__)
+
+
+@pytest.fixture(autouse=True)
+def config_setup_teardown(
+    localhost,
+    duthost,
+    ptfhost,
+    dpu_index,
+    skip_config,
+    dpuhosts,
+    single_endpoint,
+    add_npu_static_routes  # noqa :F811
+):
+    if not single_endpoint:
+        pytest.skip("Multiple tunnel endpoints not yet supported for PL NSG")
+
+    if skip_config:
+        yield
+        return
+    dpuhost = dpuhosts[dpu_index]
+    logger.info(pl.ROUTING_TYPE_PL_CONFIG)
+
+    if single_endpoint:
+        tunnel_config = pl.TUNNEL3_CONFIG
+    else:
+        tunnel_config = pl.TUNNEL4_CONFIG
+
+    base_config_messages = {
+        **pl.APPLIANCE_CONFIG,
+        **pl.ROUTING_TYPE_PL_CONFIG,
+        **pl.ROUTING_TYPE_VNET_CONFIG,
+        **pl.VNET_CONFIG,
+        **pl.VNET2_CONFIG,
+        **pl.ROUTE_GROUP1_CONFIG,
+        **pl.METER_POLICY_V4_CONFIG,
+        **tunnel_config,
+    }
+    logger.info(base_config_messages)
+
+    apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
+
+    if single_endpoint:
+        vnet_mapping_config = pl.PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG
+    else:
+        vnet_mapping_config = pl.PE_PLNSG_MULTI_ENDPOINT_VNET_MAPPING_CONFIG
+    route_and_mapping_messages = {
+        **vnet_mapping_config,
+        **pl.PE_SUBNET_ROUTE_CONFIG,
+        **pl.VM_SUBNET_ROUTE_CONFIG,
+        **pl.VM_VNI_ROUTE_RULE_CONFIG,
+        **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
+    }
+    logger.info(route_and_mapping_messages)
+    apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+    meter_rule_messages = {
+        **pl.METER_RULE1_V4_CONFIG,
+        **pl.METER_RULE2_V4_CONFIG,
+    }
+    logger.info(meter_rule_messages)
+    apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index)
+
+    logger.info(pl.ENI_CONFIG)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_CONFIG, dpuhost.dpu_index)
+
+    logger.info(pl.ENI_ROUTE_GROUP1_CONFIG)
+    apply_messages(localhost, duthost, ptfhost, pl.ENI_ROUTE_GROUP1_CONFIG, dpuhost.dpu_index)
+
+    yield
+
+    # Route rule removal is broken so config reload to cleanup for now
+    # https://github.com/sonic-net/sonic-buildimage/issues/23590
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+
+def test_privatelink_nsg(
+    ptfadapter,
+    dash_pl_config,
+    single_endpoint
+):
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = plnsg_packets(dash_pl_config)
+    pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)
+
+    exp_dpu_to_pe_pkt = ptfadapter.update_payload(exp_dpu_to_pe_pkt)
+
+    ptfadapter.dataplane.flush()
+    if single_endpoint:
+        tunnel_endpoint_counts = {ip: 0 for ip in pl.TUNNEL3_ENDPOINT_IPS}
+    else:
+        tunnel_endpoint_counts = {ip: 0 for ip in pl.TUNNEL4_ENDPOINT_IPS}
+    testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+    verify_tunnel_packets(ptfadapter, dash_pl_config[REMOTE_PTF_RECV_INTF], exp_dpu_to_pe_pkt, tunnel_endpoint_counts)
+    testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
+    testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])

@@ -24,8 +24,9 @@ PL_OVERLAY_DIP_MASK = "ffff:ffff:ffff:ffff:ffff:ffff:ffff:ffff"
 
 APPLIANCE_ID = "100"
 LOCAL_REGION_ID = "100"
-VM_VNI = "4321"
+VM_VNI = 4321
 ENCAP_VNI = 100
+NSG_OUTBOUND_VNI = 101
 VNET1 = "Vnet1"
 VNET2 = "Vnet2"
 VNET1_VNI = "2001"
@@ -49,6 +50,10 @@ TUNNEL1_ENDPOINT_IP = "40.40.40.40"
 TUNNEL2 = "Tunnel2"
 TUNNEL1_ENDPOINT_IPS = [TUNNEL1_ENDPOINT_IP]
 TUNNEL2_ENDPOINT_IPS = ["60.60.60.60", "70.70.70.70"]
+TUNNEL3 = "Tunnel3"
+TUNNEL3_ENDPOINT_IPS = ["80.80.80.80"]
+TUNNEL4 = "Tunnel4"
+TUNNEL4_ENDPOINT_IPS = ["90.90.90.90", "10.10.10.10"]
 ENI_TRUSTED_VNI = "800"
 METER_POLICY_V4 = "MeterPolicyV4"
 METER_RULE_V4_PREFIX1 = "48.10.5.0/24"
@@ -59,7 +64,7 @@ APPLIANCE_CONFIG = {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
         "local_region_id": LOCAL_REGION_ID,
-        "trusted_vnis": ENCAP_VNI
+        "trusted_vnis": [ENCAP_VNI, NSG_OUTBOUND_VNI],
     }
 }
 
@@ -70,20 +75,6 @@ APPLIANCE_FNIC_CONFIG = {
         "outbound_direction_lookup": OUTBOUND_DIR_LOOKUP,
         "local_region_id": LOCAL_REGION_ID,
         "trusted_vnis": ENCAP_VNI
-    }
-}
-
-ENI_FNIC_CONFIG = {
-    f"DASH_ENI_TABLE:{ENI_ID}": {
-        "vnet": VNET1,
-        "underlay_ip": VM1_PA,
-        "mac_address": ENI_MAC,
-        "eni_id": ENI_ID2,
-        "admin_state": State.STATE_ENABLED,
-        "pl_underlay_sip": APPLIANCE_VIP,
-        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
-        "eni_mode": EniMode.MODE_FNIC,
-        "trusted_vnis": ENI_TRUSTED_VNI
     }
 }
 
@@ -98,6 +89,20 @@ VNET2_CONFIG = {
     f"DASH_VNET_TABLE:{VNET2}": {
         "vni": VM_VNI,
         "guid": VNET2_GUID
+    }
+}
+
+ENI_FNIC_CONFIG = {
+    f"DASH_ENI_TABLE:{ENI_ID}": {
+        "vnet": VNET1,
+        "underlay_ip": VM1_PA,
+        "mac_address": ENI_MAC,
+        "eni_id": ENI_ID2,
+        "admin_state": State.STATE_ENABLED,
+        "pl_underlay_sip": APPLIANCE_VIP,
+        "pl_sip_encoding": f"{PL_ENCODING_IP}/{PL_ENCODING_MASK}",
+        "eni_mode": EniMode.MODE_FNIC,
+        "trusted_vnis": ENI_TRUSTED_VNI,
     }
 }
 
@@ -125,6 +130,28 @@ PE_VNET_MAPPING_CONFIG = {
     }
 }
 
+PE_PLNSG_SINGLE_ENDPOINT_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
+        "tunnel": TUNNEL3,
+    }
+}
+
+PE_PLNSG_MULTI_ENDPOINT_VNET_MAPPING_CONFIG = {
+    f"DASH_VNET_MAPPING_TABLE:{VNET1}:{PE_CA}": {
+        "routing_type": RoutingType.ROUTING_TYPE_PRIVATELINK,
+        "underlay_ip": PE_PA,
+        "overlay_sip_prefix": f"{PL_OVERLAY_SIP}/{PL_OVERLAY_SIP_MASK}",
+        "overlay_dip_prefix": f"{PL_OVERLAY_DIP}/{PL_OVERLAY_DIP_MASK}",
+        "metering_class_or": "1586",
+        "tunnel": TUNNEL4,
+    }
+}
+
 TUNNEL1_CONFIG = {
     f"DASH_TUNNEL_TABLE:{TUNNEL1}": {
         "endpoints": TUNNEL1_ENDPOINT_IPS,
@@ -138,6 +165,22 @@ TUNNEL2_CONFIG = {
         "endpoints": TUNNEL2_ENDPOINT_IPS,
         "encap_type": EncapType.ENCAP_TYPE_VXLAN,
         "vni": ENCAP_VNI,
+    }
+}
+
+TUNNEL3_CONFIG = {
+    f"DASH_TUNNEL_TABLE:{TUNNEL3}": {
+        "endpoints": TUNNEL3_ENDPOINT_IPS,
+        "vni": NSG_OUTBOUND_VNI,
+        "encap_type": EncapType.ENCAP_TYPE_VXLAN,
+    }
+}
+
+TUNNEL4_CONFIG = {
+    f"DASH_TUNNEL_TABLE:{TUNNEL4}": {
+        "endpoints": TUNNEL4_ENDPOINT_IPS,
+        "vni": NSG_OUTBOUND_VNI,
+        "encap_type": EncapType.ENCAP_TYPE_VXLAN,
     }
 }
 

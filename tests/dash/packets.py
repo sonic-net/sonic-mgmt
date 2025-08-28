@@ -10,7 +10,7 @@ import scapy.utils as scapy_utils
 from configs import privatelink_config as pl
 from constants import *  # noqa: F403
 from ptf.dataplane import match_exp_pkt
-from ptf.mask import Mask
+from ptf.mask import Mask, MaskException
 from six import StringIO
 
 from tests.common.helpers.assertions import pytest_assert
@@ -84,6 +84,40 @@ def rand_udp_port_packets(config, floating_nic=True, outbound_vni=None):
     return vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt
 
 
+def set_do_not_care_layer(mask, layer, field_name, n=1):
+    """
+    Zeroes out the mask for 'field' in the nth occurrence of the specified layer.
+    """
+    header_offset = mask.size - len(mask.exp_pkt.getlayer(layer, n))
+
+    try:
+        fields_desc = [
+            field
+            for field in layer.fields_desc
+            if field.name in mask.exp_pkt[layer].__class__(bytes(mask.exp_pkt[layer])).fields.keys()
+        ]  # build & parse packet to be sure all fields are correctly filled
+    except Exception:  # noqa
+        raise MaskException("Can not build or decode Packet")
+
+    if field_name not in [x.name for x in fields_desc]:
+        raise MaskException("Field %s does not exist in frame" % field_name)
+
+    field_offset = 0
+    bitwidth = 0
+    for f in fields_desc:
+        try:
+            bits = f.size
+        except Exception:  # noqa
+            bits = 8 * f.sz
+        if f.name == field_name:
+            bitwidth = bits
+            break
+        else:
+            field_offset += bits
+
+    mask.set_do_not_care(header_offset * 8 + field_offset, bitwidth)
+
+
 def inbound_pl_packets(
     config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789
 ):
@@ -151,6 +185,32 @@ def inbound_pl_packets(
         masked_exp_packet.set_do_not_care(400, 48)  # Inner dst MAC
 
     return gre_packet, masked_exp_packet
+
+
+def plnsg_packets(config):
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(config, "vxlan")
+    inner_pkt = exp_dpu_to_pe_pkt.exp_pkt
+    inner_pkt[scapy.Ether].src = config[DPU_DATAPLANE_MAC]
+    inner_pkt[scapy.Ether].dst = config[NPU_DATAPLANE_MAC]
+    exp_outer_pkt = testutils.simple_vxlan_packet(
+        eth_src=config[DUT_MAC],
+        eth_dst=config[REMOTE_PTF_MAC],
+        ip_src=pl.APPLIANCE_VIP,
+        ip_id=0,
+        udp_dport=4789,
+        udp_sport=1234,
+        with_udp_chksum=False,
+        vxlan_vni=pl.NSG_OUTBOUND_VNI,
+        inner_frame=inner_pkt,
+    )
+    masked_outer_pkt = Mask(exp_outer_pkt)
+    masked_outer_pkt.set_do_not_care_packet(scapy.UDP, "sport")
+    masked_outer_pkt.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_outer_pkt.set_do_not_care_packet(scapy.IP, "dst")
+    masked_outer_pkt.set_do_not_care_packet(scapy.IP, "ttl")
+    set_do_not_care_layer(masked_outer_pkt, scapy.IP, "ttl", 2)
+    set_do_not_care_layer(masked_outer_pkt, scapy.IP, "chksum", 2)
+    return vm_to_dpu_pkt, masked_outer_pkt
 
 
 def outbound_pl_packets(
