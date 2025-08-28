@@ -1161,6 +1161,14 @@ platform_tests/test_link_down.py:
     conditions:
       - "asic_type in ['vpp']"
 
+platform_tests/test_link_down_sup.py:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
 platform_tests/test_memory_exhaustion.py:
   skip:
     reason: >
