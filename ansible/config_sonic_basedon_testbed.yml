@@ -666,7 +666,7 @@
               - name: Get highest appl_param_active_links_thr_high value
                 set_fact:
                   high_active_links: "{{ high_active_links_grep.stdout_lines | map('int') | max }}"
-              
+
               - name: Set new appl_param_active_links_thr_high value
                 set_fact:
                   new_active_links: "{{ ((2/3)*(hostvars[sup_dut]['fabric_links'] | int)) | int }}"
