@@ -9,6 +9,8 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, \
      setup_base_traffic_config          # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_number_of_streams
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
@@ -91,9 +93,7 @@ def run_m2o_fluctuating_lossless_test(api,
         stop_pfcwd(duthost, asic)
         disable_packet_aging(duthost)
 
-    no_of_bg_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_bg_streams = 10
+    no_of_bg_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
     port_id = 0
     # Generate base traffic config
     snappi_extra_params.base_flow_config = setup_base_traffic_config(testbed_config=testbed_config,
@@ -354,11 +354,10 @@ def __gen_data_flow(testbed_config,
         elif 'Test Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = flow_prio[1]
     else:
-        if 'Background Flow' in flow.name:
-            eth.pfc_queue.value = pfcQueueValueDict[1]
-        elif 'Test Flow 1 -> 0' in flow.name:
+        # Adding queue values based on flow_priorities for both test and background flows.
+        if 'Flow 1 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
-        elif 'Test Flow 2 -> 0' in flow.name:
+        elif 'Flow 2 -> 0' in flow.name:
             eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
     global UDP_PORT_START
@@ -369,33 +368,21 @@ def __gen_data_flow(testbed_config,
     udp.src_port.increment.count = no_of_streams
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
 
     if '1 Background Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS2,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
     elif '2 Background Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.DEFAULT,
-        ]
-        ipv4.priority.dscp.phb.value = 5
-    elif '3 Background Flow 1 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS6,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
+    if '3 Background Flow 1 -> 0' in flow.name:
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[2]]
     elif '4 Background Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS1,
-        ]
+        ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[3]]
     elif 'Test Flow 1 -> 0' in flow.name:
         ipv4.priority.dscp.phb.values = [flow_prio[0]]
     elif 'Test Flow 2 -> 0' in flow.name:
-        ipv4.priority.dscp.phb.values = [
-            ipv4.priority.dscp.phb.CS1,
-        ]
-        ipv4.priority.dscp.phb.value = flow_prio[1]
+        ipv4.priority.dscp.phb.values = [flow_prio[1]]
 
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
     flow.size.fixed = data_pkt_size

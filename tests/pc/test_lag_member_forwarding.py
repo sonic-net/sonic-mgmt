@@ -69,12 +69,15 @@ def build_pkt(dest_mac, ip_addr, ttl):
     return pkt, exp_packet
 
 
-def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter):
+def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, ptfadapter,
+                                       loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     lag_facts = duthost.lag_facts(host=duthost.hostname)['ansible_facts']['lag_facts']
     if not len(lag_facts['lags'].keys()):
         pytest.skip("No Lag found in this topology")
+    if len(lag_facts['lags'].keys()) == 1:
+        pytest.skip("Only one Lag found in this topology, skipping test")
     portchannel_name = list(lag_facts['lags'].keys())[0]
     portchannel_dest_name = None
     recv_port = []
@@ -203,4 +206,4 @@ def test_lag_member_forwarding_packets(duthosts, enum_rand_one_per_hwsku_fronten
                 pytest.fail("BGP is still enable on lag disable member for neighbor {}", ip)
     finally:
         duthost.shell('rm -f {}'.format(lag_member_file_dir))
-        config_reload(duthost, config_source='config_db')
+        config_reload(duthost, config_source='config_db', ignore_loganalyzer=loganalyzer)

@@ -14,7 +14,7 @@ from tests.common.utilities import wait_until
 from tests.common.fixtures.ptfhost_utils import skip_traffic_test  # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "t1", "m0", "mx", "m1"),
     pytest.mark.device_type('vs')
 ]
 
@@ -186,14 +186,18 @@ def prepare_test_port(rand_selected_dut, tbinfo):
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
     topo = tbinfo["topo"]["type"]
+    topo_name = tbinfo["topo"]["name"]
     # Get the list of upstream ports
     upstream_ports = defaultdict(list)
     upstream_port_ids = []
     upstream_port_neighbor_ips = {}
     for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
         port_id = mg_facts["minigraph_ptf_indices"][interface]
-        if (topo == "t1" and "T2" in neighbor["name"]) or (topo == "t0" and "T1" in neighbor["name"]) or \
-                (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]):
+        if (topo == "t1" and "T2" in neighbor["name"]) or \
+                (topo == "t0" and ("T1" in neighbor["name"] or "PT0" in neighbor["name"])) or \
+                (topo == "m0" and "M1" in neighbor["name"]) or (topo == "mx" and "M0" in neighbor["name"]) or \
+                (topo == "m1" and ("MA" in neighbor["name"] or "MB" in neighbor["name"])) or \
+                (topo_name in ("t1-isolated-d32", "t1-isolated-d128") and "T0" in neighbor["name"]):
             upstream_ports[neighbor['namespace']].append(interface)
             upstream_port_ids.append(port_id)
             ipv4_addr = [bgp_neighbor['addr'] for bgp_neighbor in mg_facts['minigraph_bgp']
@@ -202,7 +206,8 @@ def prepare_test_port(rand_selected_dut, tbinfo):
             upstream_port_neighbor_ips[interface] = ipv4_addr
 
     dst_ip_addr = None
-    if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u16"]:
+    if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u15-lag",
+                                  "t1-isolated-d56u1-lag"]:
         dst_ip_addr = random.choices(list(upstream_port_neighbor_ips.values()))
     return ptf_src_port, upstream_port_ids, dut_port, dst_ip_addr
 

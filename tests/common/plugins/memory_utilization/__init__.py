@@ -5,6 +5,9 @@ from tests.common.plugins.memory_utilization.memory_utilization import MemoryMon
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
 
+# Add this to store memory errors per test
+_memory_errors_by_test = {}
+
 
 def pytest_addoption(parser):
     parser.addoption(
@@ -63,6 +66,10 @@ def pytest_runtest_setup(item):
 
 @pytest.hookimpl(tryfirst=True)
 def pytest_runtest_teardown(item, nextitem):
+    if not hasattr(item, "rep_setup") or item.rep_setup.skipped or \
+            not hasattr(item, "rep_call") or item.rep_call.skipped:
+        return
+    logger.debug("pytest_runtest_teardown early for test {}".format(item.name))
     if "request" in item.fixturenames:
         request = item.funcargs.get("request", None)
         if request:
@@ -78,6 +85,7 @@ def pytest_runtest_teardown(item, nextitem):
         return
 
     memory_monitors, memory_values = memory_utilization
+    memory_errors = []
 
     for duthost in duthosts:
         if duthost.topo_type == 't2':
@@ -97,11 +105,21 @@ def pytest_runtest_teardown(item, nextitem):
             try:
                 memory_monitors[duthost.hostname].check_memory_thresholds(
                     memory_values["after_test"][duthost.hostname], memory_values["before_test"][duthost.hostname])
+
+                # Check if any memory errors were detected
+                if memory_monitors[duthost.hostname].has_memory_errors():
+                    memory_errors.extend(memory_monitors[duthost.hostname].get_memory_errors())
+                    memory_monitors[duthost.hostname].clear_memory_errors()
+
             except Exception as e:
                 logger.error("Error checking memory thresholds: {}".format(str(e)))
-                # Don't fail the test for threshold checking errors
         else:
             logger.warning("Skipping memory threshold check for {} due to missing data".format(duthost.hostname))
+
+        # Store any detected errors for this test
+        if memory_errors:
+            _memory_errors_by_test[item.nodeid] = memory_errors
+            logger.error("Memory errors detected: {}".format("\n".join(memory_errors)))
 
     logger.info("After test: collected memory_values {}".format(memory_values))
 
@@ -128,5 +146,13 @@ def memory_utilization(duthosts, request):
         memory_monitors[duthost.hostname] = memory_monitor
 
     yield memory_monitors, memory_values
+
+    # Check if we stored any memory errors for this test
+    if request.node.nodeid in _memory_errors_by_test:
+        errors = _memory_errors_by_test.pop(request.node.nodeid)
+        if errors:
+            failure_message = "\n".join(errors)
+            logger.error(f"Memory errors detected in fixture teardown: {failure_message}")
+            pytest.fail(failure_message)
 
     logger.debug("Memory utilization fixture cleanup")

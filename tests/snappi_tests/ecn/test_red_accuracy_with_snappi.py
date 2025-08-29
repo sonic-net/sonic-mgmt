@@ -2,7 +2,7 @@ import pytest
 import collections
 import random
 import logging
-from tabulate import tabulate # noqa F401
+from tabulate import tabulate  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require    # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut     # noqa: F401
@@ -11,12 +11,12 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_multi_dut, is_snappi_multidut, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list   # noqa F401
+    lossless_prio_list   # noqa: F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.files.helper import skip_ecn_tests
 from tests.common.snappi_tests.read_pcap import is_ecn_marked
 from tests.snappi_tests.ecn.files.helper import run_ecn_test
-from tests.common.snappi_tests.common_helpers import packet_capture # noqa F401
+from tests.common.snappi_tests.common_helpers import packet_capture  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology('multidut-tgen', 'tgen')]

@@ -21,6 +21,7 @@ stages:
 - stage: TestCasesCollection
   jobs:
     - job: TestCasesCollection
+      timeoutInMinutes: 600
       variables:
         - group: KUSTO_SECRETS
         - name: DisableDockerDetector
@@ -63,6 +64,7 @@ stages:
 
         - task: AzureCLI@2
           displayName: Collect history data for sonic-mgmt-int
+          timeoutInMinutes: 300
           inputs:
             azureSubscription: "SONiC-Automation"
             scriptType: 'bash'
@@ -78,20 +80,30 @@ stages:
               accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
               export ACCESS_TOKEN=$accessToken
 
-              git log --since=$(START_DATE) --pretty=format:"%h %cd" --date=short | awk '!seen[$2]++' | while read commit date;do
-                echo "Checking commit $commit on $date"
-                git checkout -f $commit --quiet
+              start_date=$(date -d $(START_DATE) +%Y-%m-%d)
+              end_date=$(date +%Y-%m-%d)
+              current_date="$end_date"
 
-                cp "$TMP_TESTCASES_COLLECTION_SCRIPT_PATH" "$TESTCASES_COLLECTION_SCRIPT_PATH"
-                cp "$TMP_TESTCASES_UPLOAD_SCRIPT_PATH" "$TESTCASES_UPLOAD_SCRIPT_PATH"
+              while [ "$(date -d "$current_date" +%s)" -ge "$(date -d "$start_date" +%s)" ]; do
+                commit=$(git rev-list -1 --before="$current_date 23:59:59" HEAD)
 
-                sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName) --scan_time $date
+                if [ -n "$commit" ]; then
+                  echo "Checking commit $commit on $date"
+              	  git checkout -f "$commit" --quiet
+
+                  cp "$TMP_TESTCASES_COLLECTION_SCRIPT_PATH" "$TESTCASES_COLLECTION_SCRIPT_PATH"
+                  cp "$TMP_TESTCASES_UPLOAD_SCRIPT_PATH" "$TESTCASES_UPLOAD_SCRIPT_PATH"
+
+                  sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt-int/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_INT_URL) --branch $(Build.SourceBranchName) --scan_time $current_date
+                fi
+                current_date=$(date -I -d "$current_date - 1 day")
               done
-            env:
-              TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
 
         - task: AzureCLI@2
-          displayName: Collect history data for sonic-mgmt-int for sonic-mgmt
+          displayName: Collect history data for sonic-mgmt
+          timeoutInMinutes: 300
           inputs:
             azureSubscription: "SONiC-Automation"
             scriptType: 'bash'
@@ -107,14 +119,23 @@ stages:
               accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
               export ACCESS_TOKEN=$accessToken
 
-              git log --since=$(START_DATE) --pretty=format:"%h %cd" --date=short | awk '!seen[$2]++' | while read commit date;do
-                echo "Checking commit $commit on $date"
-                git checkout -f $commit --quiet
+              start_date=$(date -d $(START_DATE) +%Y-%m-%d)
+              end_date=$(date +%Y-%m-%d)
+              current_date="$end_date"
 
-                cp "$TMP_TESTCASES_COLLECTION_SCRIPT_PATH" "$TESTCASES_COLLECTION_SCRIPT_PATH"
-                cp "$TMP_TESTCASES_UPLOAD_SCRIPT_PATH" "$TESTCASES_UPLOAD_SCRIPT_PATH"
+              while [ "$(date -d "$current_date" +%s)" -ge "$(date -d "$start_date" +%s)" ]; do
+                commit=$(git rev-list -1 --before="$current_date 23:59:59" HEAD)
 
-                sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch master --scan_time $date
+                if [ -n "$commit" ]; then
+                  echo "Checking commit $commit on $date"
+                    git checkout -f "$commit" --quiet
+
+                  cp "$TMP_TESTCASES_COLLECTION_SCRIPT_PATH" "$TESTCASES_COLLECTION_SCRIPT_PATH"
+                  cp "$TMP_TESTCASES_UPLOAD_SCRIPT_PATH" "$TESTCASES_UPLOAD_SCRIPT_PATH"
+
+                  sudo docker exec -e ACCESS_TOKEN=$accessToken -e TEST_REPORT_INGEST_KUSTO_CLUSTER_URL=$TEST_REPORT_INGEST_KUSTO_CLUSTER_URL -t -w /var/src/sonic-mgmt/tests sonic-mgmt-collect python ../.azure-pipelines/testcases_collection/collect_testcases.py --location . --db_name SonicTestData --db_table $(TESTCASES_TABLE) --db_table_mapping $(TESTCASES_TABLE_MAPPING) --repo_url $(SONIC_MGMT_URL) --branch master --scan_time $current_date
+                fi
+                current_date=$(date -I -d "$current_date - 1 day")
               done
-            env:
-              TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+          env:
+            TEST_REPORT_INGEST_KUSTO_CLUSTER_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)

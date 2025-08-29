@@ -1,0 +1,4 @@
+{%- for feature in features %}
+{ "op": "add", "path": "/FEATURE/{{ feature.name }}/auto_restart", "value": "{{ feature.auto_restart }}" },
+{ "op": "add", "path": "/FEATURE/{{ feature.name }}/state", "value": "{{ feature.state }}" },
+{% endfor %}

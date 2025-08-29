@@ -1,11 +1,11 @@
 {%- set ns = namespace(link_metadata_defined=False) -%}
 
-{%- if 'dualtor' in topo or (macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo) or ("ixia" in topo) -%}
+{%- if 'dualtor' in topo or (macsec_card is defined and enable_macsec is defined and macsec_card == True and 't2' in topo) or ('ixia' in topo) -%}
     {% set ns.link_metadata_defined = True %}
 {%- endif -%}
 
 {%- if device_conn is defined and inventory_hostname in device_conn and
-      device_conn[inventory_hostname].values() | selectattr('autoneg', 'defined') | selectattr('autoneg', 'equalto', 'on') | list | length > 0 -%}
+      device_conn[inventory_hostname].values() | selectattr('autoneg', 'defined') | selectattr('autoneg', 'in', ['on', 'off']) | list | length > 0 -%}
     {% set ns.link_metadata_defined = True %}
 {%- endif -%}
 {% if ns.link_metadata_defined %}
@@ -43,7 +43,7 @@
 {% set vm_intfs=vm_topo_config['vm'][vms[index]]['intfs'][dut_index|int]|sort %}
 {% set dut_intfs=vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int]|sort %}
 {% for if_index in range(vm_intfs | length) %}
-{% if 'IB' not in port_alias[dut_intfs[if_index]] %}
+{% if 'IB' not in port_alias[dut_intfs[if_index]]  and vms[index].endswith('T3') %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
             <a:Properties>
@@ -61,13 +61,17 @@
 {% if device_conn is defined and inventory_hostname in device_conn %}
 {% for iface_name in device_conn[inventory_hostname].keys() %}
 {% if iface_name in device_conn[inventory_hostname] and 'autoneg' in device_conn[inventory_hostname][iface_name] %}
-{% if 'on' in device_conn[inventory_hostname][iface_name]['autoneg'] %}
+{% if device_conn[inventory_hostname][iface_name]['autoneg'] in ['on', 'off'] %}
         <a:LinkMetadata>
             <a:Name i:nil="true"/>
             <a:Properties>
                 <a:DeviceProperty>
                     <a:Name>AutoNegotiation</a:Name>
+{% if device_conn[inventory_hostname][iface_name]['autoneg'] in ['on'] %}
                     <a:Value>True</a:Value>
+{% else %}
+                    <a:Value>False</a:Value>
+{% endif %}
                     </a:DeviceProperty>
 {% if msft_an_enabled is defined %}
                  <a:DeviceProperty>

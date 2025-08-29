@@ -886,6 +886,25 @@ platform_tests/broadcom/test_ser.py:
       - "platform in ['x86_64-arista_720dt_48s']"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
       - "https://github.com/sonic-net/sonic-mgmt/issues/17459 and hwsku in ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-O128S2', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-16PE-384C-O128S2-COPPER', 'Arista-7060X6-16PE-384C-O128S2']"
+  xfail:
+    reason: "Testcase consistently fails, CSP raised to follow up"
+    conditions:
+      - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
+
+##############################################
+#####  cli/test_show_chassis_module.py  #####
+##############################################
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -936,7 +955,7 @@ platform_tests/counterpoll/test_counterpoll_watermark.py::test_counterpoll_queue
   skip:
     reason: "Unsupported topology"
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3']"
+      - "topo_type in ['m0', 'mx', 'm1']"
 
 #######################################
 #####           daemon            #####
@@ -977,6 +996,15 @@ platform_tests/fwutil/test_fwutil.py:
 platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
   skip:
     reason: "Command not yet merged into sonic-utilites"
+
+############################################
+##### link_flap/test_cont_link_flap.py #####
+############################################
+platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_link_flap:
+  xfail:
+    reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
 
 #######################################
 #####           mellanox          #####
@@ -1044,23 +1072,31 @@ platform_tests/test_advanced_reboot.py:
       - "asic_type in ['vs']"
       - "release in ['202412']"
 
+platform_tests/test_advanced_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Skip for smartswitch topology"
+    conditions:
+      - "is_smartswitch==True"
+
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
     reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform / Warm reboot is not required for 202412"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/6794"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "release in ['202412']"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
       - "release in ['202412']"
+      - "is_smartswitch==True"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
   skip:
@@ -1072,11 +1108,12 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
       - "release in ['202412']"
+      - "is_smartswitch==True"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
@@ -1106,15 +1143,6 @@ platform_tests/test_kdump.py:
     reason: "Not supported on Nokia-7215 platform"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
-
-#######################################
-########   test_link_down.py   ########
-#######################################
-platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
-  skip:
-    reason: "Skip for non T2"
-    conditions:
-      - "topo_type not in ['t2']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -1202,12 +1230,13 @@ platform_tests/test_reboot.py::test_cold_reboot:
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
-    reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now."
+    reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "release in ['202412']"
+      - "is_smartswitch==True"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1218,7 +1247,7 @@ platform_tests/test_reboot.py::test_soft_reboot:
   skip:
     reason: "Skip test_soft_reboot for M* and test is supported only on S6100 hwsku"
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3'] or hwsku not in ['Force10-S6100']"
+      - "topo_type in ['m0', 'mx', 'm1'] or hwsku not in ['Force10-S6100']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1230,7 +1259,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
     reason: "Skip test_warm_reboot for M*/t1/t2 / Warm reboot is broken on dualtor topology. Skipping for now."
     conditions_logical_operator: or
     conditions:
-      - "topo_type in ['m0', 'mx', 'm1', 'm2', 'm3', 't1', 't2']"
+      - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
   xfail:
@@ -1244,7 +1273,7 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     reason: "Skip watchdog reboot test for Wistron / Nokia 7215 / cisco platform x86_64-8102_64h_o-r0"
     conditions_logical_operator: or
     conditions:
-      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0']"
+      - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
@@ -1300,9 +1329,9 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    reason: "Skipped on mellanox and nvidia asic from 202411 and later"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+      - "asic_type in ['mellanox', 'nvidia']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
@@ -1313,3 +1342,12 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+#######################################
+#####   test_platform_dpu.py   #####
+#######################################
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    reason: "Test case is skipped on Nvidia smartswitch due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/19675"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/19675 and 'sn4280' in platform"
