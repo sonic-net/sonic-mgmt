@@ -327,7 +327,7 @@
   server: server_61
   vm_base: VM61080
   dut:
-  - str3-8101-03
+  - str3-8101-04
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni
@@ -347,9 +347,9 @@
   auto_recover: 'True'
   comment: yawenni
 
-- conf-name: vms21-t1-8111-06
+- conf-name: vms21-t1-8101-06
   group-name: vms21-5
-  topo: t1-lag
+  topo: t1-56-lag
   ptf_image_name: docker-ptf
   ptf: vms21-5
   ptf_ip: 10.64.246.149/23
@@ -357,7 +357,7 @@
   server: server_21
   vm_base: VM21056
   dut:
-  - str2-8111-06
+  - str2-8101c1-09
   inv_name: str2
   auto_recover: 'True'
   comment: v-saidia
@@ -377,21 +377,6 @@
   auto_recover: 'True'
   comment: jcai
 
-- conf-name: vms68-t1-8111-02
-  group-name: vms68-1
-  topo: t1-64-lag
-  ptf_image_name: docker-ptf
-  ptf: vms68-1
-  ptf_ip: 10.64.247.51/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f733/64
-  server: server_68
-  vm_base: VM68000
-  dut:
-  - str3-8111-02
-  inv_name: str3
-  auto_recover: 'True'
-  comment: jcai
-
 - conf-name: vms63-t0-8111-04
   group-name: vms63-9
   topo: t0-64
@@ -403,21 +388,6 @@
   vm_base: VM63056
   dut:
   - str3-8111-04
-  inv_name: str3
-  auto_recover: 'True'
-  comment: jcai
-
-- conf-name: vms63-t0-8111-05
-  group-name: vms63-10
-  topo: t0-64
-  ptf_image_name: docker-ptf
-  ptf: vms63-10
-  ptf_ip: 10.64.247.58/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f73a/64
-  server: server_63
-  vm_base: VM63228
-  dut:
-  - str3-8111-05
   inv_name: str3
   auto_recover: 'True'
   comment: jcai
@@ -3876,6 +3846,23 @@
   dut:
   - str3-8101c1-05
   - str3-8101c1-06
+  inv_name: str3
+  auto_recover: 'True'
+  comment: yawenni
+
+- conf-name: vms68-dual-t0-8101c1-04
+  group-name: vms68-1
+  topo: dualtor-aa
+  ptf_image_name: docker-ptf
+  ptf: vms68-1
+  ptf_ip: 10.64.247.51/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f733/64
+  netns_mgmt_ip: 10.64.247.58/23
+  server: server_68
+  vm_base: VM68000
+  dut:
+  - str3-8101c1-07
+  - str3-8101c1-08
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni

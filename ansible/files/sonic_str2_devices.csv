@@ -71,6 +71,7 @@ str2-8101c1-01,10.3.146.250/24,Cisco-8101-V64,DevSonic,,sonic
 str2-8101c1-02,10.3.146.234/24,Cisco-8101-V64,DevSonic,,sonic
 str2-8101c1-03,10.3.146.231/24,Cisco-8101C01-C32,DevSonic,,sonic
 str2-8101c1-04,10.3.146.220/24,Cisco-8101C01-C32,DevSonic,,sonic
+str2-8101c1-09,10.64.247.57/23,Cisco-8101-O8C48,DevSonic,,sonic
 str2-8101-05,10.3.146.167/24,Cisco-8101-O8C48,DevSonic,,sonic
 str2-8101-06,10.3.146.184/24,Cisco-8101-O8C48,DevSonic,,sonic
 str2-8101-fanout-13,10.64.246.174/23,32x400Gb,FanoutLeafSonic,,sonic
@@ -88,7 +89,6 @@ str2-8102-03,10.3.146.102/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-04,10.3.146.171/24,Cisco-8102-C64,DevSonic,,sonic
 str2-8102-smartswitch-03,10.64.246.173/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
 str2-8102-smartswitch-04,10.64.246.175/23,Cisco-8102-28FH-DPU-O,DevSonic,,sonic
-str2-8111-06,10.3.146.179/24,Cisco-8111-O32,DevSonic,,sonic
 str2-7215-acs-1,10.3.146.59/24,Nokia-M0-7215,DevSonic,,sonic
 str2-7804-sup-1,10.3.146.249/24,Arista-7808R3A-FM,DevSonic,,sonic
 str2-7804-lc3-1,10.3.146.42/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic
