@@ -255,7 +255,23 @@ INFRA:
         - test_nbr_health.py
         - portstat/test_portstat.py
 
-MGMT: #Anukul Verma
+MGMT: #Anukul Verma / Gourav Sharma
+
+  t0:
+    churchill-mono:
+      hw:
+        - snmp/test_snmp_cpu.py
+        - snmp/test_snmp_memory.py
+        - snmp/test_snmp_queue.py
+        - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_lldp.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_link_local.py
+        - dut_console/test_escape_character.py
+        - dut_console/test_idle_timeout.py
+        - ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
+
   t0-64:
     mth64:
       sim:
