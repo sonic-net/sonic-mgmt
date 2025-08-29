@@ -7,10 +7,11 @@ from tests.common.utilities import wait_until, configure_packet_aging
 from tests.common.mellanox_data import is_mellanox_device
 from tests.packet_trimming.constants import (
     TRIM_SIZE, DEFAULT_PACKET_SIZE, DEFAULT_DSCP, MIN_PACKET_SIZE, TRIM_SIZE_MAX, CONFIG_TOGGLE_COUNT,
-    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT)
+    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, COUNTER_DSCP, TRIM_QUEUE)
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_action, configure_trimming_acl, verify_srv6_packet_with_trimming, cleanup_trimming_acl,
-    verify_trimmed_packet, reboot_dut, check_connected_route_ready)
+    verify_trimmed_packet, reboot_dut, check_connected_route_ready, get_switch_trim_counters_json,
+    get_port_trim_counters_json, get_queue_trim_counters_json, disable_egress_data_plane, enable_egress_data_plane)
 
 logger = logging.getLogger(__name__)
 
@@ -38,6 +39,26 @@ class BasePacketTrimming:
             expect_packets=True
         )
         base_kwargs.update(self.get_extra_trimmed_packet_kwargs())
+        logger.info(f"Base kwargs: {base_kwargs}")
+        return base_kwargs
+
+    def get_verify_trimmed_counter_packet_kwargs(self, trim_counter_params):
+        """
+        Get kwargs for verify_trimmed_packet
+        """
+        base_kwargs = dict(
+            duthost=trim_counter_params.get('duthost'),
+            ptfadapter=trim_counter_params.get('ptfadapter'),
+            ingress_port=trim_counter_params['ingress_port'],
+            egress_ports=trim_counter_params['egress_ports'],
+            block_queue=trim_counter_params['block_queue'],
+            send_pkt_size=DEFAULT_PACKET_SIZE,
+            send_pkt_dscp=COUNTER_DSCP,
+            recv_pkt_size=TRIM_SIZE,
+            expect_packets=True
+        )
+        base_kwargs.update(self.get_extra_trimmed_packet_kwargs())
+        logger.info(f"Base kwargs: {base_kwargs}")
         return base_kwargs
 
     def get_extra_trimmed_packet_kwargs(self):
@@ -270,6 +291,20 @@ class BasePacketTrimming:
             kwargs.update({'duthost': duthost, 'ptfadapter': ptfadapter})
             verify_trimmed_packet(**kwargs)
 
+        with allure.step("Verify packet trimming counter"):
+            # Get the trimming packet counter of queue1 on egress port1
+            port = test_params['egress_ports'][0]['name']
+            first_queue_key = f'UC{test_params["block_queue"]}'
+            queue1_trim_value = get_queue_trim_counters_json(duthost, port)[first_queue_key]['trimpacket']
+
+            # Get the trimming packet counter on egress port1
+            port_trim_value = get_port_trim_counters_json(duthost, port)['TRIM_PKTS']
+            logger.info(f"queue1_trim_value: {queue1_trim_value}, port_trim_value: {port_trim_value}")
+
+            # Verify the counter on queue1 is equal to the counter on egress port1
+            pytest_assert(queue1_trim_value == port_trim_value,
+                          f"queue_trim_value({queue1_trim_value}) != port_trim_value({port_trim_value})")
+
     def test_trimming_with_reload_and_reboot(self, duthost, ptfadapter, test_params, localhost, request):
         """
         Test Case: Verify Trimming Persistence After Reload and Reboot
@@ -319,3 +354,94 @@ class BasePacketTrimming:
             kwargs = self.get_verify_trimmed_packet_kwargs({**test_params})
             kwargs.update({'duthost': duthost, 'ptfadapter': ptfadapter})
             verify_trimmed_packet(**kwargs)
+
+        with allure.step("Verify packet trimming counter"):
+            # Get the trimming packet counter of queue1 on egress port1
+            port = test_params['egress_ports'][0]['name']
+            first_queue_key = f'UC{test_params["block_queue"]}'
+            queue1_trim_value = get_queue_trim_counters_json(duthost, port)[first_queue_key]['trimpacket']
+
+            # Get the trimming packet counter on egress port1
+            port_trim_value = get_port_trim_counters_json(duthost, port)['TRIM_PKTS']
+            logger.info(f"queue1_trim_value: {queue1_trim_value}, port_trim_value: {port_trim_value}")
+
+            # Verify the counter on queue1 is equal to the counter on egress port1
+            pytest_assert(queue1_trim_value == port_trim_value,
+                          f"queue_trim_value({queue1_trim_value}) != port_trim_value({port_trim_value})")
+
+    def test_trimming_counters(self, duthost, ptfadapter, test_params, trim_counter_params):
+        """
+        Test Case: Verify PacketTrimming Counters
+        """
+        with allure.step(f"Configure packet trimming in global level for {self.trimming_mode} mode"):
+            self.configure_trimming_global_by_mode(duthost)
+
+        with allure.step("Enable trimming in buffer profile"):
+            for buffer_profile in test_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, test_params['trim_buffer_profiles'][buffer_profile], "on")
+            for buffer_profile in trim_counter_params['trim_buffer_profiles']:
+                configure_trimming_action(duthost, trim_counter_params['trim_buffer_profiles'][buffer_profile], "on")
+
+        # Packets are trimmed on one queue, verify trimming counters in queue and port level
+        with allure.step("Verify trimming counters on one queue"):
+            # Trigger trimmed packets on queue1
+            kwargs = self.get_verify_trimmed_packet_kwargs({**test_params})
+            kwargs.update({'duthost': duthost, 'ptfadapter': ptfadapter})
+            verify_trimmed_packet(**kwargs)
+
+            # Get the trimming packet counter of queue1 on egress port1
+            port = test_params['egress_ports'][0]['name']
+            first_queue_key = f'UC{test_params["block_queue"]}'
+            queue1_trim_value = get_queue_trim_counters_json(duthost, port)[first_queue_key]['trimpacket']
+
+            # Get the trimming packet counter on egress port1
+            port_trim_value = get_port_trim_counters_json(duthost, port)['TRIM_PKTS']
+            logger.info(f"queue1_trim_value: {queue1_trim_value}, port_trim_value: {port_trim_value}")
+
+            # Verify the counter on queue1 is equal to the counter on egress port1
+            pytest_assert(queue1_trim_value == port_trim_value,
+                          f"queue_trim_value({queue1_trim_value}) != port_trim_value({port_trim_value})")
+
+        # Packets are trimmed on two queues, verify trimming counters in queue and port level
+        with allure.step("Verify trimming counters on two queues"):
+            # Trigger trimmed packets on queue0
+            counter_kwargs = self.get_verify_trimmed_counter_packet_kwargs({**trim_counter_params})
+            counter_kwargs.update({'duthost': duthost, 'ptfadapter': ptfadapter})
+            verify_trimmed_packet(**counter_kwargs)
+
+            # Get the trimming packet counter of queue0 and queue1 on egress port1
+            second_queue_key = f'UC{trim_counter_params["block_queue"]}'
+            queue0_trim_value = get_queue_trim_counters_json(duthost, port)[second_queue_key]['trimpacket']
+            queue1_trim_value = get_queue_trim_counters_json(duthost, port)[first_queue_key]['trimpacket']
+
+            # Get the trimming packet counter on egress port1
+            port_trim_value = get_port_trim_counters_json(duthost, port)['TRIM_PKTS']
+            logger.info(f"queue0_trim_value: {queue0_trim_value}, queue1_trim_value: {queue1_trim_value}, "
+                        f"port_trim_value: {port_trim_value}")
+
+            # Verify the trim counters in queue 0 + queue 1 are equal to the port level counter
+            pytest_assert(queue0_trim_value + queue1_trim_value == port_trim_value,
+                          f"queue_trim_value({queue0_trim_value + queue1_trim_value}) != port_trim_value"
+                          f"({port_trim_value})")
+
+        with allure.step("Verify TrimDrop counters on switch level"):
+            original_schedulers = {}
+            try:
+                # Block the trimmed queue
+                for port in trim_counter_params['egress_ports']:
+                    original_scheduler = disable_egress_data_plane(duthost, port['name'], TRIM_QUEUE)
+                    original_schedulers[port['name']] = original_scheduler
+
+                # Trigger trimmed packets on queue6
+                counter_kwargs = self.get_verify_trimmed_counter_packet_kwargs({**trim_counter_params})
+                counter_kwargs.update({'duthost': duthost, 'ptfadapter': ptfadapter, 'expect_packets': False})
+                verify_trimmed_packet(**counter_kwargs)
+
+                # Get the TrimDrop counters on switch level and verify it
+                trim_drop_pkts = get_switch_trim_counters_json(duthost)['trim_drop']
+                pytest_assert(trim_drop_pkts > 0, "TrimDrop counters is 0")
+            finally:
+                # Enable the trimmed queue with original scheduler
+                for port in trim_counter_params['egress_ports']:
+                    original_scheduler = original_schedulers.get(port['name'])
+                    enable_egress_data_plane(duthost, port['name'], TRIM_QUEUE, original_scheduler)
