@@ -31,10 +31,10 @@ pfc_tc_table = [\
 tc_to_dscp_map = {}
 # Build a mapping from traffic class (TC) to DSCP value using device output
 # This is used to set the correct DSCP for each traffic class in test streams
-def get_tc_to_dscp_map(dut, asic_str):
+def get_tc_to_dscp_map(dut, asic_str=''):
 
     if dut in tc_to_dscp_map:
-        return
+        return tc_to_dscp_map[dut]
 
     tc_to_dscp_map[dut] = {}
 
@@ -56,6 +56,7 @@ def get_tc_to_dscp_map(dut, asic_str):
                 break
     if len(tc_to_dscp_map[dut]) < 8:
         st.warn("Some traffic classes are unavailable in DSCP_TO_TC_MAP")
+    return tc_to_dscp_map[dut]
 
 # Check if a stream_id corresponds to a PFC stream
 def is_pfc_stream(stream_id):

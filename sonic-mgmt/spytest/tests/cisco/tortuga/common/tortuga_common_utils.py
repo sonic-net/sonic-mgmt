@@ -704,3 +704,18 @@ def show_cmd_to_dict(dut, cmd):
     # meter-type but 'show schedule -j' returns meter_type
     out_str = out_str[:idx + 1].replace('meter_type', 'meter-type')
     return json.loads(out_str)
+
+def get_if_mac(dut, if_name):
+    mac_str = st.config(dut,\
+                  "ifconfig {} | grep ether | awk '{{print $2}}'".format(if_name),\
+                  skip_tmpl = True)
+
+    i = 0
+    ctr = 0
+    for c in mac_str:
+        if c == ':':
+            ctr += 1
+            if ctr == 5:
+                return mac_str[:i + 3]
+        i += 1
+    return None
