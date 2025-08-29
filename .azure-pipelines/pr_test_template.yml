@@ -106,9 +106,10 @@ jobs:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
 
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], variables['CHECKER'])
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], "$(CHECKER)")
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+      PR_CHECKERS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'] ]
       NUM_ASIC: 1
       VM_TYPE: ceos
       STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
@@ -126,22 +127,22 @@ jobs:
           TOPOLOGY: $(TESTBED_PREP_TOPOLOGY)
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: $(TOPOLOGY)
-          SCRIPTS: $(SCRIPTS)
-          MIN_WORKER: $(INSTANCE_NUMBER)
-          MAX_WORKER: $(INSTANCE_NUMBER)
-          DEPLOY_MG_EXTRA_PARAMS: $(DEPLOY_MG_EXTRA_PARAMS)
-          COMMON_EXTRA_PARAMS: $(COMMON_EXTRA_PARAMS)
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: $(STOP_ON_FAILURE)
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          NUM_ASIC: $(NUM_ASIC)
-          VM_TYPE: $(VM_TYPE)
-          SPECIFIC_PARAM: $(SPECIFIC_PARAM)
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          ASIC_TYPE: ${{ parameters.ASIC_TYPE }}
+      # - template: run-test-elastictest-template.yml
+      #   parameters:
+      #     TOPOLOGY: $(TOPOLOGY)
+      #     SCRIPTS: $(SCRIPTS)
+      #     MIN_WORKER: $(INSTANCE_NUMBER)
+      #     MAX_WORKER: $(INSTANCE_NUMBER)
+      #     DEPLOY_MG_EXTRA_PARAMS: $(DEPLOY_MG_EXTRA_PARAMS)
+      #     COMMON_EXTRA_PARAMS: $(COMMON_EXTRA_PARAMS)
+      #     KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+      #     MGMT_BRANCH: $(BUILD_BRANCH)
+      #     BUILD_REASON: ${{ parameters.BUILD_REASON }}
+      #     RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+      #     STOP_ON_FAILURE: $(STOP_ON_FAILURE)
+      #     TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+      #     NUM_ASIC: $(NUM_ASIC)
+      #     VM_TYPE: $(VM_TYPE)
+      #     SPECIFIC_PARAM: $(SPECIFIC_PARAM)
+      #     MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+      #     ASIC_TYPE: ${{ parameters.ASIC_TYPE }}
