@@ -1,9 +1,9 @@
 StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
 str5-7260cx3-acs-root,Ethernet1/1,str5-7060x6-512-fan-3,Ethernet496,100000,"100-595,604-613",Trunk,off
-str5-7260cx3-acs-root,Ethernet2/1,str5-7060x6-512-fan-4,Ethernet496,100000,"614-1061,1070-1077",Trunk,off
+str5-7260cx3-acs-root,Ethernet2/1,str5-7060x6-512-fan-4,Ethernet496,100000,"614-737,740-1061,1070-1077",Trunk,off
 str5-7260cx3-acs-root,Ethernet3/1,str5-7060x6-512-fan-5,Ethernet496,100000,"1722-2217,2226-2235",Trunk,off
-str5-7260cx3-acs-root,Ethernet6/1,str5-7060x6-512-fan-6,Ethernet496,100000,"1080-1207",Trunk,off
-str5-7260cx3-acs-root,Ethernet7/1,str5-7060x6-512-fan-7,Ethernet496,100000,"3022-3077,3079-3086",Trunk,off
+str5-7260cx3-acs-root,Ethernet6/1,str5-7060x6-512-fan-6,Ethernet496,100000,"1080-1203,1206,1207",Trunk,off
+str5-7260cx3-acs-root,Ethernet7/1,str5-7060x6-512-fan-7,Ethernet496,100000,"3022-3077,3079",Trunk,off
 str5-7260cx3-acs-root,Ethernet27/1,str5-7060x6-512-fan-8,Ethernet496,100000,"",Trunk,off
 str5-7260cx3-acs-root,Ethernet15/1,str5-sn5640-fan-2,Ethernet504,100000,"2800-2862,2864-2865",Trunk,off
 str5-7260cx3-acs-root,Ethernet18/1,str5-sn5640-fan-3,Ethernet496,100000,"2870-2931,2933",Trunk,on
@@ -12,7 +12,7 @@ str5-7260cx3-acs-root,Ethernet22/1,str5-sn5640-fan-5,Ethernet496,100000,"2950-30
 str5-7260cx3-acs-root,Ethernet9/1,str5-sn5640-fan-6,Ethernet496,100000,"2450-2511,2513-2515",Trunk,on
 str5-7260cx3-acs-root,Ethernet10/1,str5-7060x6-64pe-shared-fan-1,Ethernet496,100000,"596-603,738-739,1062-1069,1204-1205,1712-1719,2218-2225,2310,2342-2343,2512,2546-2547,2676-2677,2863,2932,3078,3456-3463",Trunk,off
 str5-7260cx3-acs-root,Ethernet13/1,str5-sn5640-fan-1,Ethernet504,100000,"1208-1711,1720-1721",Trunk,off
-str5-7260cx3-acs-root,Ethernet21/1,str5-7060x6-moby-512-fan-1,Ethernet120,100000,"2312-2441",Trunk,
+str5-7260cx3-acs-root,Ethernet21/1,str5-7060x6-moby-512-fan-1,Ethernet120,100000,"2312-2341,2344-2441",Trunk,
 str5-7260cx3-acs-root,Ethernet23/1,str5-7060x6-moby-512-fan-2,Ethernet120,100000,"2516-2545,2548-2645",Trunk,
 str5-7260cx3-acs-root,Ethernet25/1,str5-7060x6-moby-512-fan-3,Ethernet120,100000,"2646-2675,2678-2775",Trunk,
 str5-7260cx3-acs-root,Ethernet56/1,str5-acs-serv-91,ens4f1,100000,"100-613,2240-2311,2450-2511,2513-2515",Trunk,off
