@@ -428,6 +428,19 @@ def get_debian_codename_from_syncd(duthost):
         pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
 
 
+def is_msft_url(url):
+    """
+    Check if the URL is a MSFT URL that should be reconstructed.
+    MSFT URLs contain specific patterns that indicate they are from MSFT build system.
+    Vendor URLs (like Arista) have completely different structure and should not be modified.
+    """
+    msft_patterns = [
+        "/mssonic-public-pipelines/",
+        "/pipelines/Networking-acs-buildimage-Official/"
+    ]
+    return any(pattern in url for pattern in msft_patterns)
+
+
 def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
@@ -437,36 +450,42 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         pytest.skip("No URL specified for python saithrift package")
 
     duthost = duthosts[enum_dut_hostname]
-
-    asic, branch_name = get_asic_and_branch_name(duthost)
-
-    # Apply special codename overrides for specific internal branches
-    if branch_name == "internal-202411" and asic != "mellanox":
-        # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
-        debian_codename = "bullseye"
-    elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
-        # For internal branches older than 202405, use the original URL without modification
-        # No need to get debian_codename as URL won't be modified
-        debian_codename = None
-    else:
-        debian_codename = get_debian_codename_from_syncd(duthost)
-
-
+    
     pkg_name = py_saithrift_url.split("/")[-1]
-    host_addr = py_saithrift_url.split("/")[2]  # can be IP or hostname
     ptfhost.shell("rm -f {}".format(pkg_name))
 
-    if branch_name.startswith("internal-") and branch_name < "internal-202405":
-        # For internal branches older than 202405, use the original URL without modification
-        pass
-    elif branch_name == "master":
-        py_saithrift_url = (f"http://{host_addr}/mssonic-public-pipelines/"
-                            f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
-                            f"latest/target/debs/{debian_codename}/{pkg_name}")
-    else:
-        # For internal branches newer than 202405 and other branches
-        py_saithrift_url = (f"http://{host_addr}/pipelines/Networking-acs-buildimage-Official/"
-                            f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+    # Check if this is a MSFT URL that should be reconstructed
+    # Vendor URLs (like Arista) have different structure and should not be modified
+    if is_msft_url(py_saithrift_url):
+        # This is a MSFT URL - proceed with reconstruction logic
+        asic, branch_name = get_asic_and_branch_name(duthost)
+
+        # Apply special codename overrides for specific internal branches
+        if branch_name == "internal-202411" and asic != "mellanox":
+            # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
+            debian_codename = "bullseye"
+        elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+            # For internal branches older than 202405, use the original URL without modification
+            # No need to get debian_codename as URL won't be modified
+            debian_codename = None
+        else:
+            debian_codename = get_debian_codename_from_syncd(duthost)
+
+        host_addr = py_saithrift_url.split("/")[2]  # can be IP or hostname
+
+        # Reconstruct MSFT URL based on branch
+        if branch_name.startswith("internal-") and branch_name < "internal-202405":
+            # For internal branches older than 202405, use the original URL without modification
+            pass
+        elif branch_name == "master":
+            py_saithrift_url = (f"http://{host_addr}/mssonic-public-pipelines/"
+                                f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
+                                f"latest/target/debs/{debian_codename}/{pkg_name}")
+        else:
+            # For internal branches newer than 202405 and other branches
+            py_saithrift_url = (f"http://{host_addr}/pipelines/Networking-acs-buildimage-Official/"
+                                f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+    # If not MSFT URL (vendor URL), use it as-is without any reconstruction
 
     # Retry download of saithrift library
     retry_count = 5
