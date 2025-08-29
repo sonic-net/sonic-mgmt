@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "record_count": 1,
+    "reporter_type": "db",
+    "test_context": {
+      "test.file": "test_histogram_metrics.py",
+      "test.job.id": "unknown",
+      "test.os.version": "unknown",
+      "test.testbed": "vlab-testbed-01",
+      "test.testcase": "test_db_reporter"
+    },
+    "timestamp": "2009-02-13T23:31:30"
+  },
+  "records": [
+    {
+      "data": {
+        "bucket_counts": [
+          1,
+          3,
+          8,
+          0,
+          0
+        ],
+        "buckets": [
+          1.0,
+          2.0,
+          5.0,
+          10.0
+        ],
+        "max": null,
+        "min": null,
+        "sum": null,
+        "total_count": 12
+      },
+      "description": "API response time distribution",
+      "labels": {
+        "endpoint": "/api/v1/data"
+      },
+      "metric_name": "test.histogram.response_time",
+      "metric_type": "histogram",
+      "timestamp": 1234567890000000000,
+      "timestamp_iso": "2009-02-13T23:31:30",
+      "unit": "milliseconds"
+    }
+  ]
+}
