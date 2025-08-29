@@ -19670,6 +19670,8 @@ vms_95:
       ansible_host: 172.16.179.253
     VM95489:
       ansible_host: 172.16.179.254
+    # Server-94 is reserved for vms95-t1-sn5640-3 (t1-isolated-d448u15-lag)
+    # Please don't deploy other testbed on this server.
 
 vms_96:
   hosts:

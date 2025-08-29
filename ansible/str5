@@ -45,9 +45,6 @@ all:
         vms93-3:
           ansible_host: 10.64.247.168
           ansible_hostv6: 2a01:111:e210:b000::a40:f7a8
-        vms93-4:
-          ansible_host: 10.64.247.171
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7ab
         vms93-5:
           ansible_host: 10.64.247.141
           ansible_hostv6: 2a01:111:e210:b000::a40:f78d
@@ -63,6 +60,9 @@ all:
         vms94-2-b:
           ansible_host: 10.64.247.167
           ansible_hostv6: 2a01:111:e210:b000::a40:f7a7
+        vms95-1:
+          ansible_host: 10.64.247.171
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7ab
 
     pdu:
       hosts:
