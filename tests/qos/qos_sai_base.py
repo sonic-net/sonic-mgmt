@@ -3207,6 +3207,7 @@ def set_queue_pir(interface, queue, rate):
         logging.info(f"sai_profile_content: {sai_profile_content}")
         return "SAI_KEY_DISABLE_PORT_ALPHA=1" not in sai_profile_content
 
+    @pytest.fixture(scope='class', autouse=True)
     def ecnLosslessProfile(
             self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811
     ):
