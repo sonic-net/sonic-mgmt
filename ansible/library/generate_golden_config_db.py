@@ -545,6 +545,10 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
 
+        # Set buffer_model to traditional to prevent regression:
+        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
         return json.dumps(golden_config_db, indent=4)
 
     def update_zmq_config(self, config):
@@ -553,10 +557,6 @@ class GenerateGoldenConfigDBModule(object):
             ori_config_db["DEVICE_METADATA"] = {}
         if "localhost" not in ori_config_db["DEVICE_METADATA"]:
             ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-
-        # Set buffer_model to traditional to prevent regression:
-        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
-        ori_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         # Older version image may not support ZMQ feature flag
         rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
