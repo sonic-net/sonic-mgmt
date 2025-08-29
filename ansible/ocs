@@ -1,0 +1,33 @@
+all:
+  children:
+    ocs:
+      children:
+        sonic:
+          children:
+            sonic_ocs:
+        servers:
+          children:
+            vm_host:
+    ptf:
+      vars:
+        ansible_user: root
+        ansible_password: 123456
+      hosts:
+        ptf_1:
+          ansible_host: 10.193.213.178
+
+sonic_ocs:
+  vars:
+    hwsku: 
+  hosts:
+    ocs-1:
+      ansible_host: 10.193.213.142
+      ansible_ssh_user: admin
+      ansible_ssh_pass: Changeit@123
+
+vm_host:
+  hosts:
+    ocs-station:
+      ansible_host: 10.193.213.78
+      ansible_ssh_user: svt_ocs
+      ansible_ssh_pass: ocs_in_sh_123456
