@@ -243,8 +243,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
             bgp_neighbors = filtered_bgp_neighbors
 
+        wait_time = wait + 300 if modular_chassis and sonic_host.get_facts()['asic_type'] == 'vs' else wait + 120
         pytest_assert(
-            wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
+            wait_until(wait_time, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),
             "Not all bgp sessions are established after config reload",
         )
 
