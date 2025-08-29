@@ -1524,6 +1524,12 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
 
+generic_config_updater/test_monitor_config.py::test_monitor_config_tc1_suite:
+  skip:
+    reason: "This test is not run on this asic type or version currently / ERSPAN meter is not supported for Cisco Platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 generic_config_updater/test_multiasic_addcluster.py:
   skip:
     reason: "Only supported on multi-asic system."
