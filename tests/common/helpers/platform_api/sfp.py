@@ -157,5 +157,6 @@ def get_all_thermals(conn, index):
 def get_thermal(conn, index, thermal_index):
     return sfp_api(conn, index, 'get_thermal', [thermal_index])
 
+
 def is_coherent_module(conn, index):
     return sfp_api(conn, index, 'is_coherent_module')
