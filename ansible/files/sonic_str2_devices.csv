@@ -97,11 +97,11 @@ str2-7804-lc6-1,10.3.146.45/24,Arista-7800R3-48CQ2-C48,DevSonic,,sonic
 str2-7804-lc7-1,10.3.146.38/24,Arista-7800R3A-36DM2-C36,DevSonic,,sonic
 str2-8800-sup-2,10.3.146.198/24,Cisco-8800-RP,DevSonic,,sonic
 str2-8800-lc1-2,10.3.146.199/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
-str2-8800-lc2-2,10.3.146.200/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
+str2-8800-lc2-2,10.3.146.214/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 str2-8800-sup-3,10.3.146.198/24,Cisco-8800-RP,DevSonic,,sonic
-str2-8800-lc1-3,10.3.146.201/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
-str2-8800-lc2-3,10.3.146.205/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
-str2-8800-lc3-3,10.3.146.214/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
+str2-8800-lc1-3,10.3.146.205/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
+str2-8800-lc2-3,10.3.146.200/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
+str2-8800-lc3-3,10.3.146.201/24,Cisco-8800-LC-48H-C48-O,DevSonic,,sonic
 str2-8800-lc1-4,10.3.146.244/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 str2-8800-lc2-4,10.3.146.245/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
 str2-8800-lc3-4,10.3.146.253/24,Cisco-88-LC0-36FH-M-O36,DevSonic,,sonic
