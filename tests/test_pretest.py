@@ -451,20 +451,21 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     else:
         debian_codename = get_debian_codename_from_syncd(duthost)
 
+
     pkg_name = py_saithrift_url.split("/")[-1]
-    ip_addr = py_saithrift_url.split("/")[2]
+    host_addr = py_saithrift_url.split("/")[2]  # can be IP or hostname
     ptfhost.shell("rm -f {}".format(pkg_name))
 
     if branch_name.startswith("internal-") and branch_name < "internal-202405":
         # For internal branches older than 202405, use the original URL without modification
         pass
     elif branch_name == "master":
-        py_saithrift_url = (f"http://{ip_addr}/mssonic-public-pipelines/"
+        py_saithrift_url = (f"http://{host_addr}/mssonic-public-pipelines/"
                             f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
                             f"latest/target/debs/{debian_codename}/{pkg_name}")
     else:
         # For internal branches newer than 202405 and other branches
-        py_saithrift_url = (f"http://{ip_addr}/pipelines/Networking-acs-buildimage-Official/"
+        py_saithrift_url = (f"http://{host_addr}/pipelines/Networking-acs-buildimage-Official/"
                             f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
 
     # Retry download of saithrift library
