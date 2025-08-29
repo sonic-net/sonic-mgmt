@@ -25,7 +25,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 

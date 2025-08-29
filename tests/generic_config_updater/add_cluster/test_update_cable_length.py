@@ -3,10 +3,9 @@ import logging
 import pytest
 from tests.common.gu_utils import apply_patch, delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.helpers.assertions import pytest_assert
-from tests.qos.test_buffer_traditional import load_lossless_info_from_pg_profile_lookup
+from tests.common.buffer_utils import load_lossless_info_from_pg_profile_lookup
 from tests.generic_config_updater.add_cluster.helpers import change_interface_admin_state_for_namespace, \
     get_active_interfaces, get_cfg_info_from_dut, select_random_active_interface
-
 
 pytestmark = [
         pytest.mark.topology("t2")
