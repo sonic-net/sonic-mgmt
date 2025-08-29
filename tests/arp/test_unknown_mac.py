@@ -14,7 +14,7 @@ import ptf.packet as packet
 from tests.common import constants
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py   # noqa: F401
-from tests.common.fixtures.ptfhost_utils import disable_ipv6
+from tests.common.fixtures.ptfhost_utils import iptables_drop_ipv6_tx   # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
@@ -177,8 +177,8 @@ def flushArpFdb(duthosts, rand_one_dut_hostname, dut_disable_arp_update):
 @pytest.fixture(autouse=True)
 def populateArp(unknownMacSetup, flushArpFdb, ptfhost, duthosts, rand_one_dut_hostname,
                 toggle_all_simulator_ports_to_rand_selected_tor_m,              # noqa: F811
-                setup_standby_ports_on_rand_unselected_tor_unconditionally,     #noqa: F811
-                disable_ipv6):
+                setup_standby_ports_on_rand_unselected_tor_unconditionally,     # noqa: F811
+                iptables_drop_ipv6_tx):                                         # noqa: F811
     """
     Fixture to populate ARP entry on the DUT for the traffic destination
 
