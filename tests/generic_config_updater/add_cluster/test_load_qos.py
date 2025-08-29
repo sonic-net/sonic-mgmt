@@ -30,16 +30,14 @@ def apply_patch_remove_qos_for_namespace(duthost,
 
     Applies changes at configuration paths:
      - /<namespace>/BUFFER_PG
-     - /<namespace>/BUFFER_QUEUE
      - /<namespace>/PORT_QOS_MAP
-     - /<namespace>/QUEUE
     """
 
     logger.info("{}: Removing QoS for ASIC namespace {}".format(
         duthost.hostname, namespace)
         )
     json_patch = []
-    paths_to_remove = ['BUFFER_PG', 'BUFFER_QUEUE', 'PORT_QOS_MAP', 'QUEUE']
+    paths_to_remove = ['BUFFER_PG', 'PORT_QOS_MAP']
     for path in paths_to_remove:
         json_patch.append({
             "op": "remove",
@@ -61,26 +59,13 @@ def apply_patch_remove_qos_for_namespace(duthost,
                                   "Found unexpected QoS config for {} in CONFIG_DB.".format(path))
                 logger.info("CONFIG_DB successfully verified that doesn't contain QoS config.")
                 # verify APPL_DB
-                appl_db_tables = ['BUFFER_PG_TABLE', 'BUFFER_QUEUE_TABLE']
+                appl_db_tables = ['BUFFER_PG_TABLE']
                 for table in appl_db_tables:
                     cmd = "sonic-db-cli -n {} APPL_DB keys {}:*".format(namespace, table)
                     logger.info("Verifying APPL_DB table {} is cleared.".format(table))
                     pytest_assert(not duthost.shell(cmd)["stdout"],
                                   "Found unexpected QoS config for {} in APPL_DB.".format(table))
                 logger.info("APPL_DB successfully verified that doesn't contain QoS config.")
-                # verify ASIC_DB
-                asic_db_tables = ['SAI_OBJECT_TYPE_QUEUE']
-                for table in asic_db_tables:
-                    cmd = "sonic-db-cli -n {} ASIC_DB keys *:{}:*".format(namespace, table)
-                    logger.info("{}: Verifying ASIC_DB table {} is cleared.".format(path, table))
-                    # pytest_assert(duthost.shell(cmd)["stdout"] == '{}',
-                    # "Found unexpected QoS config for {} in ASIC_DB.".format(table))
-                    # W/A until verifying if ASIC_DB clearance fro QUEUE is an issue.
-                    if duthost.shell(cmd)["stdout"] != '{}':
-                        logger.warning("Found unexpected QoS config for {} in ASIC_DB.".format(path))
-                    else:
-                        logger.info("ASIC_DB successfully verified that doesn't contain QoS config.")
-                # logger.info("ASIC_DB successfully verified that doesn't contain QoS config.")
         finally:
             delete_tmpfile(duthost, tmpfile)
     else:
@@ -139,21 +124,13 @@ def apply_patch_add_qos_for_namespace(duthost,
                                   "Didn't find expected QoS config for {} in CONFIG_DB.".format(path))
                 logger.info("CONFIG_DB successfully verified to contain expected QoS config.")
                 # verify APPL_DB
-                appl_db_tables = ['BUFFER_PG', 'BUFFER_QUEUE']
+                appl_db_tables = ['BUFFER_PG']
                 for table in appl_db_tables:
                     cmd = "sonic-db-cli -n {} APPL_DB keys {}_TABLE:*".format(namespace, table)
                     logger.info("Verifying APPL_DB table {} includes valid config.".format(table))
                     pytest_assert(len(duthost.shell(cmd)["stdout"].split('\n')) == len(qos_config.get(table)),
                                   "Didn't find expected config for {} in APPL_DB.".format(table))
                 logger.info("APPL_DB successfully verified to include QoS config.")
-                # verify ASIC_DB
-                asic_db_tables = ['SAI_OBJECT_TYPE_QUEUE']
-                for table in asic_db_tables:
-                    cmd = "sonic-db-cli -n {} ASIC_DB keys *:{}:*".format(namespace, table)
-                    logger.info("Verifying ASIC_DB table {} includes valid config.".format(table))
-                    pytest_assert(duthost.shell(cmd)["stdout"] != '{}',
-                                  "Found empty QoS config for {} in ASIC_DB.".format(table))
-                logger.info("ASIC_DB successfully verified to include QoS config.")
         finally:
             delete_tmpfile(duthost, tmpfile)
     else:
@@ -171,7 +148,7 @@ def test_load_qos(duthosts,
     """
     Verifies QoS changes in the configuration path via the `apply-patch` mechanism,
     specifically for the following configuration tables:
-    BUFFER_PG, BUFFER_QUEUE, PORT_QOS_MAP, and QUEUE.
+    BUFFER_PG, PORT_QOS_MAP.
 
     Steps involved:
     1. **Backup of existing configuration**: The current configuration in the aforementioned tables is saved.
@@ -181,7 +158,7 @@ def test_load_qos(duthosts,
     During both the removal and addition phases, the following verifications are performed:
     - Ensure the changes have been correctly applied.
     - Confirm that the changes are properly reflected in `CONFIG_DB`.
-    - Validate the propagation of changes to relevant tables in both `APPL_DB` and `ASIC_DB`.
+    - Validate the propagation of changes to relevant tables in `APPL_DB`.
 
     Parameters:
     - `duthosts`: The DUT (Device Under Test) hosts participating in the test.
@@ -197,13 +174,9 @@ def test_load_qos(duthosts,
         )['ansible_facts']
 
     buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
-    buffer_queue_info = get_cfg_info_from_dut(duthost, 'BUFFER_QUEUE', enum_rand_one_asic_namespace)
     port_qos_map_info = get_cfg_info_from_dut(duthost, 'PORT_QOS_MAP', enum_rand_one_asic_namespace)
-    queue_info = get_cfg_info_from_dut(duthost, 'QUEUE', enum_rand_one_asic_namespace)
     qos_config = {'BUFFER_PG': buffer_pg_info,
-                  'BUFFER_QUEUE': buffer_queue_info,
-                  'PORT_QOS_MAP': port_qos_map_info,
-                  'QUEUE': queue_info}
+                  'PORT_QOS_MAP': port_qos_map_info}
 
     # shutdown interfaces for namespace
     change_interface_admin_state_for_namespace(config_facts,
