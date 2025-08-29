@@ -1175,10 +1175,16 @@ class VxlanHashTest(HashTest):
         # Use dummy IPv4 address for outer_src_ip and outer_dst_ip
         # We don't care the actually value as long as the outer_dst_ip is routed by default routed
         # The outer_src_ip and outer_dst_ip are fixed
-        outer_src_ip = '80.1.0.31'
-        outer_dst_ip = '80.1.0.32'
+        outer_src_ipv4 = '80.1.0.31'
+        outer_dst_ipv4 = '80.1.0.32'
         outer_src_ipv6 = '80::31'
         outer_dst_ipv6 = '80::32'
+        if self.ipver == 'ipv4-ipv4' or self.ipver == 'ipv4-ipv6':
+            outer_src_ip = outer_src_ipv4
+            outer_dst_ip = outer_dst_ipv4
+        else:
+            outer_src_ip = outer_src_ipv6
+            outer_dst_ip = outer_dst_ipv6
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             outer_dst_ip)
         if self.switch_type == "chassis-packet":
@@ -1197,7 +1203,7 @@ class VxlanHashTest(HashTest):
             logging.info('Checking hash key {}, src_port={}, exp_ports={}, outer_src_ip={}, outer_dst_ip={}'
                          .format(hash_key, src_port, exp_port_lists, outer_src_ip, outer_dst_ip))
             (matched_index, _) = self.check_ip_route(hash_key,
-                                                     src_port, exp_port_lists, outer_src_ip, outer_dst_ip,
+                                                     src_port, exp_port_lists, outer_src_ipv4, outer_dst_ipv4,
                                                      outer_src_ipv6, outer_dst_ipv6)
             hit_count_map[matched_index] = hit_count_map.get(
                 matched_index, 0) + 1
