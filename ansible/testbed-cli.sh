@@ -609,6 +609,12 @@ function deploy_minigraph
   testbed_name=$1
   inventory=$2
   passfile=$3
+  if [ -n "$4" ]; then
+    is_light_mode=$(to_bool "$4")
+    shift
+  else
+    is_light_mode=true
+  fi
   shift
   shift
   shift
@@ -617,7 +623,7 @@ function deploy_minigraph
 
   read_file $testbed_name
 
-  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e deploy=true -e save=true $@
+  ansible-playbook -i "$inventory" config_sonic_basedon_testbed.yml --vault-password-file="$passfile" -l "$duts" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e vm_file=$vmfile -e is_light_mode=$is_light_mode -e deploy=true -e save=true $@
 
   echo Done
 }
@@ -801,6 +807,22 @@ function install_image
   ansible-playbook upgrade_sonic.yml -i "$inventory" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e upgrade_type=sonic -e image_url="$image_url"
 
   echo Done
+}
+
+function to_bool
+{
+  local value="$1"
+  case "$value" in
+    [Tt]rue|[Yy]es|1|[Tt]|[Yy])
+      echo "true"
+      ;;
+    [Ff]alse|[Nn]o|0|[Ff]|[Nn])
+      echo "false"
+      ;;
+    *)
+      echo "true"  # default to true
+      ;;
+  esac
 }
 
 function collect_show_tech
