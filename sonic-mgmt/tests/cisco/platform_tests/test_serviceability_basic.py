@@ -35,8 +35,9 @@ npu_cli_dict_general = {
         "script": [f"-s {SCRIPT_FILE} -t 60"],
         "acl" : ["summary"],
         "hash" : " ",
-        "bfd" : ["summary"]
+        "bfd" : ["summary"],
         #"ars": ["info","flows"]
+        "l3-table" : " "
 }
 
 npu_cli_dict_t2 = {
