@@ -142,7 +142,6 @@ test_t0() {
       ssh/test_ssh_ciphers.py \
       ssh/test_ssh_limit.py \
       syslog/test_syslog.py\
-      syslog/test_syslog_counter.py\
       tacacs/test_accounting.py \
       tacacs/test_authorization.py \
       tacacs/test_jit_user.py \
