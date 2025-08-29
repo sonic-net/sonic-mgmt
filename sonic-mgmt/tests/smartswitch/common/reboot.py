@@ -23,7 +23,7 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
     hostname = duthost.hostname
 
     if reboot_type == REBOOT_TYPE_COLD:
-        if duthost.facts['is_smartswitch']:
+        if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
             if dpu_name is None:
                 logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
                 sync_reboot_history_queue_with_dut(duthost)

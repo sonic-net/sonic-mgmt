@@ -64,6 +64,18 @@ ondatra_test(
     ],
 )
 
+# Gnoi Factory Reset tests
+ondatra_test(
+    name = "gnoi_factory_reset_test",
+    srcs = ["gnoi_factory_reset_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnoi//factory_reset:factory_reset_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+    ],
+)
+
 #lacp time-out test
 ondatra_test(
     name = "lacp_timeout_test",
