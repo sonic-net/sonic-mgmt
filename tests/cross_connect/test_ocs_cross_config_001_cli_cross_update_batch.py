@@ -55,7 +55,6 @@ def check_cross_connect_config(duthost, expected_pairs=None):
     if expected_pairs:
         if not isinstance(expected_pairs, list):
             expected_pairs = [expected_pairs]
-        # 只检查每个条目是否存在，不检查数量
         for pair in expected_pairs:
             assert pair in current_pairs, f"Expected pair {pair} not found in configuration"
     else:
@@ -64,7 +63,7 @@ def check_cross_connect_config(duthost, expected_pairs=None):
 def get_available_ports(duthost):
     """Retrieve available ports excluding fixed ranges (24-27, 34-37)"""
     fixed_ranges = set(range(24,28)) | set(range(34,38))
-    config = send_and_verify_command(duthost, 'show ocs cross-connect config', printout=0)
+    config = send_and_verify_command(duthost, 'show ocs cross-connect config')
     used_ports = {int(pair.split('-')[0][:-1]) for pair in pick_ocs_cross(config)}
     return [p for p in range(1, 65) if p not in used_ports and p not in fixed_ranges]
 

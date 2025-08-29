@@ -10,24 +10,24 @@ all:
             vm_host:
     ptf:
       vars:
-        ansible_user: root
-        ansible_password: 123456
+        ansible_user: yourusername
+        ansible_password: yourpassword
       hosts:
-        ptf_1:
-          ansible_host: 10.193.213.178
+        ptf:
+          ansible_host: 10.10.12.1
 
 sonic_ocs:
   vars:
     hwsku: 
   hosts:
-    ocs-1:
-      ansible_host: 10.193.213.142
-      ansible_ssh_user: admin
-      ansible_ssh_pass: Changeit@123
+    device_name:
+      ansible_host: 10.11.12.13
+      ansible_ssh_user: yourusername
+      ansible_ssh_pass: yourpassword
 
 vm_host:
   hosts:
-    ocs-station:
-      ansible_host: 10.193.213.78
-      ansible_ssh_user: svt_ocs
-      ansible_ssh_pass: ocs_in_sh_123456
+    test_station:
+      ansible_host: 10.12.13.14
+      ansible_ssh_user: yourusername
+      ansible_ssh_pass: yourpassword

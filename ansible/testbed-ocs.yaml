@@ -271,12 +271,12 @@
   group-name: ocs_topo
   topo: t0
   ptf_image_name: docker-ptf
-  ptf: ptf_1
-  ptf_ip: 10.193.213.178/24
+  ptf: ptf
+  ptf_ip: 10.11.12.15
   ptf_ipv6:
   server: vm_host
   dut:
-    - ocs-1
+    - device_ocs
   inv_name: ocs
   comment: For building up ocs testbed on sonic-mgmt
 
