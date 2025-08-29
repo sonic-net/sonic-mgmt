@@ -377,14 +377,11 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
-    '''
-    Install the correct python saithrift package on the ptf
-    '''
-    py_saithrift_url = request.config.getoption("--py_saithrift_url")
-    if not py_saithrift_url:
-        pytest.skip("No URL specified for python saithrift package")
-
+def get_asic_and_branch_name(duthosts, enum_dut_hostname):
+    """
+    Extract asic and branch_name from duthost.
+    Returns (asic, branch_name), or fails if not found.
+    """
     duthost = duthosts[enum_dut_hostname]
     output = duthost.shell("show version", module_ignore_errors=True)['stdout']
     version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
@@ -406,7 +403,19 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
             year, month = date_match.groups()
             branch_name = f"internal-{year}{month}"
         else:
-            pytest.fail("Unable to parse or recognize version format: {}".format(version))
+            pytest.fail(f"Unable to parse or recognize version format: {version}")
+    return asic, branch_name
+
+
+def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
+    '''
+    Install the correct python saithrift package on the ptf
+    '''
+    py_saithrift_url = request.config.getoption("--py_saithrift_url")
+    if not py_saithrift_url:
+        pytest.skip("No URL specified for python saithrift package")
+
+    asic, branch_name = get_asic_and_branch_name(duthosts, enum_dut_hostname)
 
     # Apply special codename overrides for specific internal branches
     if branch_name == "internal-202411" and asic != "mellanox":
