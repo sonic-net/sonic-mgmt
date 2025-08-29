@@ -259,26 +259,25 @@ MGMT: #Anukul Verma
   t0-64:
     mth64:
       sim:
-        - snmp/test_snmp_interfaces.py
-        - snmp/test_snmp_lldp.py
         - dns/static_dns/test_static_dns.py
         - dns/test_dns_resolv_conf.py
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
         - memory_checker/test_memory_checker.py
-        #- ssh/test_ssh_ciphers.py
-        - ssh/test_ssh_limit.py
         - snmp/test_snmp_cpu.py
         - snmp/test_snmp_memory.py
         - snmp/test_snmp_queue.py
         - snmp/test_snmp_v2mib.py
         - snmp/test_snmp_loopback.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
         #- snmp/test_snmp_queue_counters.py
-        - snmp/test_snmp_default_route.py
+        #- snmp/test_snmp_default_route.py
         #- snmp/test_snmp_psu.py
         #- snmp/test_snmp_pfc_counters.py
         #- snmp/test_snmp_phy_entity.py
+        #- snmp/test_snmp_link_local.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
@@ -287,7 +286,6 @@ MGMT: #Anukul Verma
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        #- snmp/test_snmp_link_local.py
         #- tacacs/test_authorization.py
         #- tacacs/test_ro_disk.py
         - restapi/test_restapi.py
@@ -299,6 +297,8 @@ MGMT: #Anukul Verma
         - console/test_console_udevrule.py
         - http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
+        #- ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
 
@@ -355,20 +355,19 @@ MGMT: #Anukul Verma
   t1-64-lag:
     mth64:
       sim:
-        - snmp/test_snmp_interfaces.py
-        - snmp/test_snmp_lldp.py
         - dns/static_dns/test_static_dns.py
         - dns/test_dns_resolv_conf.py
         - generic_config_updater/test_aaa.py
         - generic_config_updater/test_ip_bgp.py
         - generic_config_updater/test_ntp.py
         - memory_checker/test_memory_checker.py
-        #- ssh/test_ssh_ciphers.py
-        - ssh/test_ssh_limit.py
         - snmp/test_snmp_cpu.py
         - snmp/test_snmp_memory.py
         - snmp/test_snmp_queue.py
         - snmp/test_snmp_v2mib.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        #- snmp/test_snmp_link_local.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
@@ -377,7 +376,6 @@ MGMT: #Anukul Verma
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        #- snmp/test_snmp_link_local.py
         #- tacacs/test_authorization.py
         #- tacacs/test_ro_disk.py
         - restapi/test_restapi.py
@@ -389,6 +387,8 @@ MGMT: #Anukul Verma
         - console/test_console_udevrule.py
         - http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
+        #- ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
 
