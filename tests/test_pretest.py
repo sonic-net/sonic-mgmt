@@ -377,12 +377,11 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def get_asic_and_branch_name(duthosts, enum_dut_hostname):
+def get_asic_and_branch_name(duthost):
     """
     Extract asic and branch_name from duthost.
     Returns (asic, branch_name), or fails if not found.
     """
-    duthost = duthosts[enum_dut_hostname]
     output = duthost.shell("show version", module_ignore_errors=True)['stdout']
     version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
     asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
@@ -407,6 +406,28 @@ def get_asic_and_branch_name(duthosts, enum_dut_hostname):
     return asic, branch_name
 
 
+def get_debian_codename_from_syncd(duthost):
+    # Get debian codename from syncd container (not host OS)
+    # This applies to: master branch and internal branches >= 202405 (except 202411)
+    try:
+        # Try to get codename from syncd container
+        if duthost.is_multi_asic:
+            syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
+                                    f"grep VERSION_CODENAME /etc/os-release | "
+                                    f"cut -d= -f2 | tr -d '\"'")
+        else:
+            syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
+                                    "cut -d= -f2 | tr -d '\"'")
+        syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
+        if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
+            return syncd_codename_result['stdout'].strip()
+        else:
+            pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
+                syncd_codename_result['rc'], syncd_codename_result['stdout']))
+    except Exception as e:
+        pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
+
+
 def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
@@ -415,7 +436,9 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
 
-    asic, branch_name = get_asic_and_branch_name(duthosts, enum_dut_hostname)
+    duthost = duthosts[enum_dut_hostname]
+
+    asic, branch_name = get_asic_and_branch_name(duthost)
 
     # Apply special codename overrides for specific internal branches
     if branch_name == "internal-202411" and asic != "mellanox":
@@ -426,25 +449,7 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
         # No need to get debian_codename as URL won't be modified
         debian_codename = None
     else:
-        # Get debian codename from syncd container (not host OS)
-        # This applies to: master branch and internal branches >= 202405 (except 202411)
-        try:
-            # Try to get codename from syncd container
-            if duthost.is_multi_asic:
-                syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
-                                      f"grep VERSION_CODENAME /etc/os-release | "
-                                      f"cut -d= -f2 | tr -d '\"'")
-            else:
-                syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
-                                      "cut -d= -f2 | tr -d '\"'")
-            syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
-            if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
-                debian_codename = syncd_codename_result['stdout'].strip()
-            else:
-                pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
-                    syncd_codename_result['rc'], syncd_codename_result['stdout']))
-        except Exception as e:
-            pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
+        debian_codename = get_debian_codename_from_syncd(duthost)
 
     pkg_name = py_saithrift_url.split("/")[-1]
     ip_addr = py_saithrift_url.split("/")[2]
