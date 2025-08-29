@@ -33,7 +33,7 @@ def enable_syslog_counter(rand_selected_dut):
 
 def check_syslog_counter_updated(rand_selected_dut, old_value):
     new_value = rand_selected_dut.command("sonic-db-cli COUNTERS_DB hgetall SYSLOG_COUNTER")['stdout']
-    return new_value != old_value
+    return new_value > old_value
 
 
 def test_syslog_counter(rand_selected_dut, enable_syslog_counter):
