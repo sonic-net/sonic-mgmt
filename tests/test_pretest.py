@@ -449,14 +449,14 @@ def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
 
-    duthost = duthosts[enum_dut_hostname]
-    
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
 
     # Check if this is a MSFT URL that should be reconstructed
     # Vendor URLs (like Arista) have different structure and should not be modified
     if is_msft_url(py_saithrift_url):
+        duthost = duthosts[enum_dut_hostname]
+
         # This is a MSFT URL - proceed with reconstruction logic
         asic, branch_name = get_asic_and_branch_name(duthost)
 
