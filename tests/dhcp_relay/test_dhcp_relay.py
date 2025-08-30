@@ -36,6 +36,7 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
+CLIENT_SENT_PACKET_COUNT = 7
 
 logger = logging.getLogger(__name__)
 
@@ -293,7 +294,8 @@ def verify_acl_drop_on_standby_tor(rand_unselected_dut, dut_dhcp_relay_data, tes
     if testing_mode == DUAL_TOR_MODE and "dualtor-aa" not in tbinfo["topo"]["name"]:
         for client_interface_name, item in pre_client_dhcp_acl_counts.items():
             after_count = get_acl_count_by_mark(rand_unselected_dut, item["mark"])
-            pytest_assert(after_count == item["count"] + 3, "Drop count of {} {} is unexpected, pre: {}, after: {}"
+            pytest_assert(after_count == item["count"] + CLIENT_SENT_PACKET_COUNT,
+                          "Drop count of {} {} is unexpected, pre: {}, after: {}"
                           .format(client_interface_name, item["mark"], item["count"], after_count))
 
 
