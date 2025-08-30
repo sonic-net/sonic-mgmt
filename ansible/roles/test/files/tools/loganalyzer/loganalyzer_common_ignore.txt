@@ -240,6 +240,7 @@ r, ".*kdump-tools\[[0-9]+\]: no crashkernel= parameter in the kernel cmdline.*"
 
 # https://msazure.visualstudio.com/One/_workitems/edit/25833053
 r, ".* ERR dualtor_neighbor_check.py: .*"
+r, ".$ ERR monit\[ \d{4} \]: 'dualtorNeighborCheck' status failed \(1\) -- no output.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/17683
 r, ".*ERR kernel: \[.*\] ccp.*firmware: failed to load amd\/amd_sev_.*.sbin .*"
