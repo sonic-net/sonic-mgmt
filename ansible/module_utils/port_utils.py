@@ -606,6 +606,28 @@ def get_port_alias_to_name_map(hwsku, asic_name=None):
                        "Cisco-8102-28FH-DPU-O12C16"]:
             for i in range(0, 36):
                 port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % (i * 8)
+        elif hwsku in ["Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-O8V40"]:
+            idx = 0
+            # Range 1: etp0a, etp0b ... etp11a, etp11b
+            for i in range(0, 12):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % idx
+                idx += 4
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % idx
+                idx += 4
+            # Range 2: etp12 to etp19
+            for i in range(12, 20):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
+                idx += 8
+            # Range 3: etp20a, etp20b ... etp27a, etp27b
+            for i in range(20, 28):
+                port_alias_to_name_map["etp%da" % i] = "Ethernet%d" % idx
+                idx += 4
+                port_alias_to_name_map["etp%db" % i] = "Ethernet%d" % idx
+                idx += 4
+            # Range 4: etp28 to etp35
+            for i in range(28, 36):
+                port_alias_to_name_map["etp%d" % i] = "Ethernet%d" % idx
+                idx += 8
         else:
             if "Arista-7800" in hwsku:
                 assert False, "Please add port_alias_to_name_map for new modular SKU %s." % hwsku
