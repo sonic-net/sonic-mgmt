@@ -43,6 +43,11 @@ bgp/test_bgp_gr_helper.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+bgp/test_bgp_peer_shutdown.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 bgp/test_bgp_port_disable.py:
   skip:
     conditions:
@@ -198,6 +203,11 @@ generic_config_updater/test_mgmt_interface.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+generic_config_updater/test_monitor_config.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 generic_config_updater/test_multiasic_addcluster.py:
   skip:
     conditions:
@@ -218,6 +228,21 @@ generic_config_updater/test_static_route.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_fr.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnmi.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnmi_appldb.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_gnmi_configdb.py:
   skip:
     conditions:
@@ -233,7 +258,42 @@ gnmi/test_gnmi_smartswitch.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnoi_file.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnoi_fr.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_gnoi_killprocess.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnoi_os.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnoi_system.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnoi_system_grpc.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_gnoi_system_reboot.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/test_mimic_hwproxy_cert_rotation.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -329,6 +389,11 @@ override_config_table/test_override_config_table.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 pc/test_lag_2.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+pc/test_po_cleanup.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -553,7 +618,17 @@ platform_tests/test_link_down.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+platform_tests/test_link_down_sup.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/test_platform_info.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+platform_tests/test_port_toggle.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -584,6 +659,11 @@ platform_tests/test_secure_upgrade.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 platform_tests/test_sensors.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+process_monitoring/test_critical_process_monitoring.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -658,6 +738,11 @@ show_techsupport/test_techsupport_no_secret.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+snmp/test_snmp_interfaces.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 snmp/test_snmp_link_local.py:
   skip:
     conditions:
@@ -684,6 +769,11 @@ ssh/test_ssh_default_password.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 ssh/test_ssh_stress.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+stress/test_stress_routes.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
@@ -769,6 +859,11 @@ voq/test_voq_fabric_status_all.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 voq/test_voq_init.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+voq/test_voq_intfs.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name

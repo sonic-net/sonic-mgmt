@@ -361,11 +361,13 @@ def trigger_join_and_check(duthost, vmhost):
     logger.info("Start to join duthost to k8s cluster and check the status")
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
-    time.sleep(60)
-    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
-    pytest_assert(duthost.hostname in nodes["stdout"], "Failed to join duthost to k8s cluster")
-    pytest_assert("NotReady" not in nodes["stdout"], "The status of duthost in k8s cluster is not ready")
-    logger.info(f"Successfully joined duthost {duthost.hostname} to k8s cluster")
+    for _ in range(12):
+        time.sleep(10)
+        nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
+        if duthost.hostname in nodes["stdout"] and "NotReady" not in nodes["stdout"]:
+            logger.info("Duthost is successfully joined to k8s cluster")
+            return
+    pytest_assert(False, "Failed to join duthost to k8s cluster")
 
 
 def trigger_disjoin_and_check(duthost, vmhost):
