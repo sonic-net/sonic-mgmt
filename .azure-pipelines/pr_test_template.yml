@@ -43,7 +43,7 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
+      - template: impacted_area_testing/get-impacted-area.yml
         parameters:
           BUILD_BRANCH: $(BUILD_BRANCH)
 
@@ -58,12 +58,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t0
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
@@ -85,12 +85,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t0-2vlans
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
@@ -113,12 +113,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
@@ -140,12 +140,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: dualtor
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: dualtor
           SCRIPTS: $(SCRIPTS)
@@ -167,12 +167,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t1-multi-asic
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
           SCRIPTS: $(SCRIPTS)
@@ -195,12 +195,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t0-sonic
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t0-64-32
           SCRIPTS: $(SCRIPTS)
@@ -227,12 +227,12 @@ jobs:
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: dpu
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: dpu
           SCRIPTS: $(SCRIPTS)
@@ -258,12 +258,12 @@ jobs:
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t1
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
           STOP_ON_FAILURE: "False"
@@ -287,12 +287,12 @@ jobs:
     continueOnError: true
     pool: sonic-ubuntu-1c
     steps:
-      - template: .azure-pipelines/impacted_area_testing/calculate-instance-numbers.yml
+      - template: impacted_area_testing/calculate-instance-numbers.yml
         parameters:
           TOPOLOGY: t2
           BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: .azure-pipelines/run-test-elastictest-template.yml
+      - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t2
           STOP_ON_FAILURE: "False"
