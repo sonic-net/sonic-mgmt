@@ -8,6 +8,7 @@ from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
+from tests.common.mellanox_data import is_mellanox_device
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
@@ -105,13 +106,14 @@ def test_pcie_link(duthosts, dpuhosts,
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
-    pytest_assert(output_pcie_info[-1] ==
-                  'PCIe Device Checking All Test ----------->>> PASSED',
-                  "PCIe Link test failed'{}'".format(duthost.hostname))
-
-    for index in range(len(dpu_on_list)):
-        duthost.shell("sudo config chassis modules \
-                       startup %s" % (dpu_on_list[index]))
+    try:
+        pytest_assert(output_pcie_info[-1] ==
+                      'PCIe Device Checking All Test ----------->>> PASSED',
+                      "PCIe Link test failed'{}'".format(duthost.hostname))
+    finally:
+        for index in range(len(dpu_on_list)):
+            duthost.shell("sudo config chassis modules \
+                           startup %s" % (dpu_on_list[index]))
 
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
@@ -123,7 +125,7 @@ def test_pcie_link(duthosts, dpuhosts,
                   "PCIe Link test failed'{}'".format(duthost.hostname))
 
 
-def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
+def test_restart_pmon(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: Verify `DPU status and pcie Link after restart pmon`
@@ -131,19 +133,14 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ip_address_list = []
 
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
+
     logging.info("Checking pmon status")
     pmon_status = check_pmon_status(duthost)
     pytest_assert(pmon_status == 1, "PMON status is Not UP")
-
-    for index in range(num_dpu_modules):
-        dpu_name = module.get_name(platform_api_conn, index)
-        rc = check_dpu_module_status(duthost, "on", dpu_name)
-        if rc:
-            ip_address_list.append(
-                          module.get_midplane_ip(platform_api_conn, index))
-
-    ping_status = check_dpu_ping_status(duthost, ip_address_list)
-    pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
     logging.info("Restarting pmon....")
     duthost.shell("systemctl restart pmon")
@@ -154,6 +151,8 @@ def test_restart_pmon(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Checking pmon status")
     pmon_status = check_pmon_status(duthost)
     pytest_assert(pmon_status == 1, "PMON status is Not UP")
+
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
 
 def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
@@ -170,9 +169,14 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Offline', 'down')
+    try:
+        for index in range(len(dpu_on_list)):
+            check_dpu_health_status(duthost, dpu_on_list[index],
+                                    'Offline', 'down')
+    finally:
+        for index in range(len(dpu_on_list)):
+            duthost.shell("sudo config chassis modules \
+                           startup %s" % (dpu_on_list[index]))
 
     logging.info("Starting UP the DPUs in parallel")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
@@ -195,15 +199,29 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
         if rc:
             continue
 
-        command = ('sudo python -c "import pexpect; '
-                   'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
-                   'child.expect(r\' \'); '
-                   'child.sendline(\'\\r\\r\'); '
-                   'child.expect(r\' \'); '
-                   'child.sendline(\'exit\\rexit\\r\'); '
-                   'child.expect(r\'sonic login: \'); '
-                   'print(child.after.decode()); child.close()"'
-                   % (index))
+        # Check if it's a Mellanox ASIC
+        if is_mellanox_device(duthost):
+            command = ('sudo python -c "import pexpect; '
+                       'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'\\r\\r\'); '
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'exit\\rexit\\r\'); '
+                       'child.expect(r\'Terminal\'); '
+                       'child.sendline(\'\'); '
+                       'child.expect(r\'sonic login: \'); '
+                       'print(child.after.decode()); child.close()"'
+                       % (index))
+        else:
+            command = ('sudo python -c "import pexpect; '
+                       'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'\\r\\r\'); '
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'exit\\rexit\\r\'); '
+                       'child.expect(r\'sonic login: \'); '
+                       'print(child.after.decode()); child.close()"'
+                       % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
@@ -318,6 +336,33 @@ def test_system_health_summary(duthosts, dpuhosts,
         pytest_assert(result,
                       "{} health status is not ok"
                       .format(dpu_name))
+
+
+def test_data_control_mid_plane_sync(duthosts,
+                                     enum_rand_one_per_hwsku_hostname,
+                                     platform_api_conn, num_dpu_modules):  # noqa: F811
+    """
+    @summary: To verify data, control and mid planes are in sync
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre-test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost, platform_api_conn, num_dpu_modules)
+
+    logging.info("Bringing DOWN DPUs midplane")
+    duthost.shell("sudo ip link set bridge-midplane down")
+
+    for index in range(len(dpu_on_list)):
+        check_dpu_health_status(duthost, dpu_on_list[index],
+                                'Offline', 'down')
+
+    logging.info("Bringing UP DPUs midplane")
+    duthost.shell("sudo ip link set bridge-midplane up")
+
+    for index in range(len(dpu_on_list)):
+        check_dpu_health_status(duthost, dpu_on_list[index],
+                                'Online', 'up')
 
 
 def test_watchdog_status_check(duthosts, dpuhosts,

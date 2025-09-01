@@ -186,6 +186,8 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
         wait_until(180, 20, 0, node.critical_services_fully_started)
         wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
         wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
+        if node.facts.get('asic_type') == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(node, False)
 
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
@@ -431,12 +433,12 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
 
 
 @pytest.fixture(params=['warm', 'cold', 'fast'])
-def reboot_duts_and_disable_wd(setup_ports_and_dut, localhost, request):
+def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
     '''
     Purpose of the function is to have reboot_duts and disable watchdogs.
     '''
     reboot_type = request.param
-    _, _, snappi_ports = setup_ports_and_dut
+    _, _, snappi_ports = tgen_port_info
     skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
     skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
 

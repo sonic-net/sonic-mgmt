@@ -13,7 +13,7 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_reload
@@ -535,7 +535,8 @@ class Test_VxLAN_BFD_TSA():
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
-        wait_until(20, 2, 0, is_vnet_route_configured_on_asic, duthost, dest)
+        pytest_assert(wait_until(40, 2, 0, is_vnet_route_configured_on_asic, duthost, dest),
+                      "Vnet route not configured on ASIC")
 
         self.dump_self_info_and_run_ptf("test4b", encap_type, True, [])
 

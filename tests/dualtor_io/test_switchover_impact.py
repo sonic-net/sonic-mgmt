@@ -11,14 +11,15 @@ from tests.common.dualtor.data_plane_utils import send_t1_to_server_with_action,
 from tests.common.dualtor.dual_tor_common import cable_type                                                 # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host                              # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses               # noqa: F401
+                                                change_mac_addresses               # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 
 import logging
 
 
 @pytest.mark.parametrize("switchover", ["planned"])
-def test_tor_switchover_impact(upper_tor_host, lower_tor_host,                             # noqa: F811
+def test_tor_switchover_impact(request,                                                    # noqa: F811
+                               upper_tor_host, lower_tor_host,                             # noqa: F811
                                send_t1_to_server_with_action,                              # noqa: F811
                                cable_type,                                                 # noqa: F811
                                select_test_mux_ports,                                      # noqa: F811
@@ -29,6 +30,7 @@ def test_tor_switchover_impact(upper_tor_host, lower_tor_host,                  
                                iterations=100):                                            # noqa: F811
     """
     Measure impact when active-standby ToR is going through switchover.
+    must run with --enable_switchover_impact_test to enable.
 
     Steps:
         1. sets upper tor to active on all ports.
@@ -189,6 +191,13 @@ def test_tor_switchover_impact(upper_tor_host, lower_tor_host,                  
                 failures[ipv4]["Failed test cases"]["Multiple disruptions detected for single switchover"] = True
 
         return results, failures
+
+    """Test Start"""
+
+    if not request.config.getoption('--enable_switchover_impact_test'):
+        logging.info("Switchover impact test disabled. \
+                     To enable the test, run with '--enable_switchover_impact_test'")
+        return
 
     logs = {}
     logs["results"] = {}

@@ -10,7 +10,7 @@ from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, 
 from tests.common.dualtor.dual_tor_utils import check_simulator_flap_counter                        # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder, run_garp_service, \
-                                                copy_ptftests_directory, change_mac_addresses       # noqa: F401
+                                                change_mac_addresses       # noqa: F401
 from tests.common.dualtor.constants import MUX_SIM_ALLOWED_DISRUPTION_SEC
 from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
 from tests.common.dualtor.dual_tor_common import mux_config                                         # noqa: F401
@@ -421,7 +421,7 @@ def test_active_link_admin_down_config_reload_downstream(
             config_interface_admin_status(upper_tor_host, active_active_ports, "down")
 
             upper_tor_host.shell("config save -y")
-            config_reload(upper_tor_host, wait=60)
+            config_reload(upper_tor_host, safe_reload=True, wait_for_bgp=True)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,
@@ -433,7 +433,7 @@ def test_active_link_admin_down_config_reload_downstream(
 
             send_t1_to_server_with_action(
                 upper_tor_host, verify=True,
-                stop_after=180,
+                stop_after=60,
                 allowed_disruption=0,
                 allow_disruption_before_traffic=True
             )
@@ -467,7 +467,7 @@ def test_active_link_admin_down_config_reload_link_up_upstream(
             )
 
             upper_tor_host.shell("config save -y")
-            config_reload(upper_tor_host, wait=60)
+            config_reload(upper_tor_host, safe_reload=True, wait_for_bgp=True)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,
@@ -521,7 +521,7 @@ def test_active_link_admin_down_config_reload_link_up_downstream_standby(
             )
 
             upper_tor_host.shell("config save -y")
-            config_reload(upper_tor_host, wait=60)
+            config_reload(upper_tor_host, safe_reload=True, wait_for_bgp=True)
 
             verify_tor_states(
                 expected_active_host=lower_tor_host,

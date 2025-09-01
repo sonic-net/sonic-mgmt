@@ -1,0 +1,12 @@
+{%- for port_a, port_b in l1_existing_cross_connects.items() %}
+{ "op": "add", "path": "/OCS_PORT/{{ port_a }}/label", "value": "" },
+{ "op": "add", "path": "/OCS_PORT/{{ port_b }}/label", "value": "" },
+{% endfor %}
+{%- for port, link in l1_links.items() %}
+{ "op": "add", "path": "/OCS_PORT/{{ port }}A/label", "value": {} },
+{ "op": "add", "path": "/OCS_PORT/{{ port }}A/label", "value": "Link to {{ link.peerdevice }} {{ link.peerport }} RX" },
+{ "op": "add", "path": "/OCS_PORT/{{ port }}A/state", "value": "normal" },
+{ "op": "add", "path": "/OCS_PORT/{{ port }}B/label", "value": {} },
+{ "op": "add", "path": "/OCS_PORT/{{ port }}B/label", "value": "Link to {{ link.peerdevice }} {{ link.peerport }} TX" },
+{ "op": "add", "path": "/OCS_PORT/{{ port }}B/state", "value": "normal" },
+{% endfor %}
