@@ -91,7 +91,8 @@ def lossless_prio_list(duthosts, rand_one_dut_front_end_hostname):
 
     """ Here we assume all the ports have the same lossless priorities """
     intf = list(port_qos_map.keys())[0]
-    if 'pfc_enable' not in port_qos_map[intf]:
+    pfc_enable = port_qos_map[intf].get('pfc_enable')
+    if not pfc_enable:
         return None
 
     result = [int(x) for x in port_qos_map[intf]['pfc_enable'].split(',')]
