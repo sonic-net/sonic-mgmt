@@ -22,7 +22,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.disable_loganalyzer,
-    pytest.mark.disable_memory_utilization
+    pytest.mark.disable_memory_utilization,
+    pytest.mark.dualtor_skip_setup_mux_ports
 ]
 
 CONTAINER_CHECK_INTERVAL_SECS = 1
