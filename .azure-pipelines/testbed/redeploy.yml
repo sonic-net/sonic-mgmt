@@ -173,7 +173,7 @@ stages:
                 fi
 
                 cd ansible
-                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} stop-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -vv
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} -k ${{ parameters.CURRENT_VM_TYPE }} stop-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -vv
 
           - task: Bash@3
             displayName: Run start-topo-vms
@@ -188,7 +188,7 @@ stages:
                 fi
 
                 cd ansible
-                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} start-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -vv
+                ./testbed-cli.sh -t ${{ parameters.TESTBED_FILE }} -k ${{ parameters.TARGET_VM_TYPE }} start-topo-vms ${{ parameters.TESTBED_NAME }} password.txt -vv
 
           - task: Bash@3
             displayName: Run add-topo
