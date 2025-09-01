@@ -543,54 +543,6 @@ gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
 #######################################
 #####          GNMI               #####
 #######################################
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
     reason: >
@@ -624,6 +576,54 @@ gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
       - "asic_type in ['vpp']"
 
 gnmi/test_gnoi_killprocess.py::test_gnoi_killprocess_then_restart:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
+  skip:
+    reason: >
+            Failed/Errored: To be included
+    conditions_logical_operator: or
+    conditions:
+      - "asic_type in ['vpp']"
+
+gnmi/vrf_aware_tests/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
   skip:
     reason: >
             Failed/Errored: To be included
