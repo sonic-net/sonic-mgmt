@@ -2096,15 +2096,15 @@
   auto_recover: 'True'
   comment: janetcui
 
-- conf-name: vms91-t0-sn5640-5
-  group-name: vms91-3
-  topo: t0-isolated-d32u32s2
+- conf-name: vms92-t0-sn5640-5
+  group-name: vms92-4
+  topo: t0-isolated-d256u256s2 #258VM
   ptf_image_name: docker-ptf
-  ptf: vms91-3
+  ptf: vms92-4
   ptf_ip: 10.64.247.156/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f79c/64
-  server: server_91
-  vm_base: VM91094
+  server: server_92
+  vm_base: VM92224
   dut:
   - str5-sn5640-6
   inv_name: str5
