@@ -99,4 +99,4 @@ stages:
       value: $(Build.SourceBranchName)
 
   jobs:
-  - template: .azure-pipelines/pr_test_template.yml
+    - template: .azure-pipelines/pr_test_template.yml
