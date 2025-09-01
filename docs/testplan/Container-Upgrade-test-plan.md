@@ -112,9 +112,9 @@ We will have a source testcase file container_upgrade/testcases.json that will h
     snmp/test_snmp_loopback.py
     gnmi/test_gnmi.py
     gnmi/test_gnmi_appIdb.py
-    gnmi/test_gnmi_configdb.py
     gnmi/test_gnmi_countersdb.py
     gnmi/test_gnoi_killprocess.py
+    gnmi/vrf_aware_tests/test_gnmi_configdb.py
 ]
 ```
 
