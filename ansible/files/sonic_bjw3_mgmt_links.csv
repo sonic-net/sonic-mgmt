@@ -1,9 +1,9 @@
 StartDevice,StartPort,EndDevice,EndPort
-bjw3-can-720dt-mc0-1,etp1,bjw3-can-7050-9,eth0
+bjw3-can-720dt-mc0-1,etp1,bjw3-can-7050c-5,eth0
 bjw3-can-720dt-mc0-1,etp2,bjw3-can-7050-leaf-1,eth0
-bjw3-can-720dt-mc0-1,etp3,bjw3-can-7050-10,eth0
+bjw3-can-720dt-mc0-1,etp3,bjw3-can-7050c-6,eth0
 bjw3-can-720dt-mc0-1,etp4,bjw3-can-7050-leaf-2,eth0
-bjw3-can-720dt-mc0-1,etp5,bjw3-can-7050-11,eth0
+bjw3-can-720dt-mc0-1,etp5,bjw3-can-7050c-7,eth0
 bjw3-can-720dt-mc0-1,etp6,bjw3-can-7050-leaf-3,eth0
 bjw3-can-720dt-mc0-2,etp1,bjw3-can-serv-1,eno1
 bjw3-can-720dt-mc0-2,etp3,bjw3-can-serv-2,eno1
