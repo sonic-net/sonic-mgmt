@@ -1,0 +1,39 @@
+# Template to install Azure CLI
+# This template provides a single task to install Azure CLI on the agent
+
+steps:
+- task: Bash@3
+  displayName: 'Install Azure CLI'
+  inputs:
+    targetType: 'inline'
+    script: |
+      # Wait for apt lock to be released (common issue on Ubuntu agents)
+      echo "Waiting for apt lock to be released..."
+      timeout_seconds=600  # 10 minutes
+      elapsed=0
+
+      while sudo fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1 || \
+            sudo fuser /var/lib/apt/lists/lock >/dev/null 2>&1 || \
+            sudo fuser /var/cache/apt/archives/lock >/dev/null 2>&1 || \
+            sudo fuser /var/lib/dpkg/lock >/dev/null 2>&1; do
+
+        if [ $elapsed -ge $timeout_seconds ]; then
+          echo "ERROR: Failed to acquire apt lock after 10 minutes. Failing the task."
+          exit 1
+        fi
+
+        echo "Waiting for other apt processes to complete... ($elapsed/${timeout_seconds}s)"
+        sleep 5
+        elapsed=$((elapsed + 5))
+      done
+
+      # Azure CLI is typically pre-installed on Microsoft-hosted agents
+      # This step ensures it's available and up to date
+      if ! command -v az &> /dev/null; then
+        echo "Azure CLI not found, installing..."
+        curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        az version
+      else
+        echo "Azure CLI is already installed"
+        az version
+      fi

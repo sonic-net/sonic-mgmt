@@ -14,7 +14,6 @@ stages:
         timeoutInMinutes: 240
         variables:
           - group: SONiC-Elastictest
-          - group: sonicbld
           - name: inventory
             value: veos_vtb
           - name: testbed_file
@@ -31,9 +30,25 @@ stages:
           - checkout: self
             persistCredentials: true
 
-          - script: |
-              curl "https://msazure.visualstudio.com/b32aa71e-8ed2-41b2-9d77-5bc261222004/_apis/git/repositories/e0e89aeb-dc78-414c-8a74-521a56431141/items?path=/src/data/Network/ServiceConfigurations/AAA/CommandSetConfig.json&versionDescriptor%5BversionOptions%5D=0&versionDescriptor%5BversionType%5D=0&versionDescriptor%5Bversion%5D=master&resolveLfs=true&%24format=octetStream&api-version=5.0&download=true" -H "Authorization:Bearer $(MSAZURE-TOKEN)" -H "Content-Type:application/json" -o NetAAACommandSetConfig.json -D - -s
-            displayName: Download Networking-AAA serice command set config
+          - template: ./templates/install-azure-cli.yml
+
+          - task: AzureCLI@2
+            displayName: Download Networking-AAA service command set config
+            inputs:
+              azureSubscription: 'SONiC-Automation'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                set -x
+
+                # Get access token for Azure DevOps
+                MSAZURE_ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv)
+
+                # Download the config file using Bearer authentication with the access token
+                curl "https://msazure.visualstudio.com/b32aa71e-8ed2-41b2-9d77-5bc261222004/_apis/git/repositories/e0e89aeb-dc78-414c-8a74-521a56431141/items?path=/src/data/Network/ServiceConfigurations/AAA/CommandSetConfig.json&versionDescriptor%5BversionOptions%5D=0&versionDescriptor%5BversionType%5D=0&versionDescriptor%5Bversion%5D=master&resolveLfs=true&%24format=octetStream&api-version=5.0&download=true" \
+                  -H "Authorization: Bearer $MSAZURE_ACCESS_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -o NetAAACommandSetConfig.json -D - -s
 
           - script: |
               sudo apt install jq -y
@@ -54,12 +69,27 @@ stages:
               git push origin $(syncBranchName)
             displayName: Create sync branch
 
-          - script: |
-              curl "https://dev.azure.com/msazure/one/_apis/build/builds?definitions=372481&branchName=refs/heads/internal&resultFilter=partiallySucceeded&statusFilter=completed&api-version=6.0" -H "Authorization:Bearer $(NET_AAA_ACCESS_TOKEN)" -H "Content-Type:application/json" -o BuildResult.json -D - -s
-              cat ./BuildResult.json
-              tmp_buildid=$(jq 'first(.value[]).id'  ./BuildResult.json)
-              echo "##vso[task.setvariable variable=build_id]$tmp_buildid"
+          - task: AzureCLI@2
             displayName: Get latest build ID
+            inputs:
+              azureSubscription: 'SONiC-Automation'
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                set -x
+
+                # Get access token for Azure DevOps
+                MSAZURE_ACCESS_TOKEN=$(az account get-access-token --resource 499b84ac-1321-427f-aa17-267ca6975798 --query accessToken --output tsv)
+
+                # Get the latest build ID using Bearer authentication with the access token
+                curl "https://dev.azure.com/msazure/one/_apis/build/builds?definitions=372481&branchName=refs/heads/internal&resultFilter=partiallySucceeded&statusFilter=completed&api-version=6.0" \
+                  -H "Authorization: Bearer $MSAZURE_ACCESS_TOKEN" \
+                  -H "Content-Type: application/json" \
+                  -o BuildResult.json -D - -s
+
+                cat ./BuildResult.json
+                tmp_buildid=$(jq 'first(.value[]).id'  ./BuildResult.json)
+                echo "##vso[task.setvariable variable=build_id]$tmp_buildid"
 
           - template: ./run-test-elastictest-template.yml
             parameters:
@@ -79,5 +109,3 @@ stages:
               git push origin --delete $(syncBranchName)
             displayName: Delete target branch
             condition: always()
-
-
