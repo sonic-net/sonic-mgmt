@@ -71,12 +71,16 @@ class ParallelCoordinator:
     _instance = None
     _lock = Lock()
 
-    def __new__(cls, num_followers: int, state_file: str, mode: str) -> 'ParallelCoordinator':
+    def __new__(cls, par_ctx: 'ParallelRunContext') -> 'ParallelCoordinator':
         if not cls._instance:
             with cls._lock:
                 if not cls._instance:
                     cls._instance = super(ParallelCoordinator, cls).__new__(cls)
-                    cls._instance._initialize(num_followers, state_file, mode)
+                    cls._instance._initialize(
+                        par_ctx.par_followers,
+                        par_ctx.par_state_file,
+                        par_ctx.par_mode,
+                    )
 
         return cls._instance
 
@@ -280,90 +284,93 @@ class ParallelCoordinator:
         return status_value
 
 
-def synchronized_config_reload(func):
-    """Decorator that adds parallel-run feature around config_reload."""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        logger.info("Running config_reload via synchronized_config_reload decorator")
-        # Expect callers to pass parallel_run_context as a kwarg.
-        parallel_run_context = kwargs.pop("parallel_run_context", (False, "", False, -1, "", ""))
-        if not parallel_run_context:
-            logger.info("Running original config_reload as parallel_run_context is falsy")
-            return func(*args, **kwargs)
+class ParallelRunContext(object):
+    __slots__ = ('is_par_run', 'target_hostname', 'is_par_leader', 'par_followers', 'par_state_file', 'par_mode')
 
-        is_par_run, target_hostname, is_par_leader, par_followers, par_state_file, par_mode = parallel_run_context
-        if par_followers == -1:
-            logger.info("Running original config_reload as par_followers is -1")
-            return func(*args, **kwargs)
+    def __init__(self, is_par_run: bool, target_hostname: str, is_par_leader: bool, par_followers: int,
+                 par_state_file: str, par_mode: str):
+        self.is_par_run = is_par_run
+        self.target_hostname = target_hostname
+        self.is_par_leader = is_par_leader
+        self.par_followers = par_followers
+        self.par_state_file = par_state_file
+        self.par_mode = par_mode
 
-        if not is_par_run:
-            logger.info("Running original config_reload as is_par_run is False")
-            return func(*args, **kwargs)
-
-        logger.info("Running config_reload in parallel")
-        parallel_coordinator = ParallelCoordinator(par_followers, par_state_file, par_mode)
-        parallel_coordinator.mark_and_wait_for_status(
-            ParallelStatus.CONFIG_RELOAD_READY,
-            target_hostname,
-            is_par_leader,
+    def __repr__(self):
+        return (
+            "ParallelRunContext(is_par_run={}, target_hostname={}, is_par_leader={}, par_followers={}, "
+            "par_state_file={}, par_mode={})"
+        ).format(
+            self.is_par_run,
+            self.target_hostname,
+            self.is_par_leader,
+            self.par_followers,
+            self.par_state_file,
+            self.par_mode,
         )
 
-        try:
-            logger.info("Starting config reload in parallel for host: {}".format(target_hostname))
-            result = func(*args, **kwargs)
-            logger.info("Config reload in parallel completed successfully for host: {}".format(target_hostname))
-        except BaseException:
-            logger.error("Config reload in parallel failed for host: {}".format(target_hostname))
-            raise
-        finally:
-            parallel_coordinator.mark_and_wait_for_status(
-                ParallelStatus.CONFIG_RELOAD_COMPLETED,
-                target_hostname,
-                is_par_leader,
-            )
 
-        return result
-
-    return wrapper
+DEFAULT_PARALLEL_RUN_CONTEXT = ParallelRunContext(False, "", False, -1, "", "")
 
 
-def synchronized_reboot(func):
-    """Decorator that adds parallel-run feature around reboot."""
-    @wraps(func)
-    def wrapper(*args, **kwargs):
-        logger.info("Running reboot via synchronized_reboot decorator")
-        # Expect callers to pass parallel_run_context as a kwarg.
-        parallel_run_context = kwargs.pop("parallel_run_context", (False, "", False, -1, "", ""))
-        if not parallel_run_context:
-            logger.info("Running original reboot as parallel_run_context is falsy")
-            return func(*args, **kwargs)
+def make_synchronized(action_name, ready_status, completed_status):
+    """
+    Decorator factory to add parallel run synchronization around an operation.
 
-        is_par_run, target_hostname, is_par_leader, par_followers, par_state_file, par_mode = parallel_run_context
-        if par_followers == -1:
-            logger.info("Running original reboot as par_followers is -1")
-            return func(*args, **kwargs)
+    The wrapped function may be called with kwarg `parallel_run_context`:
+      (is_par_run, target_hostname, is_par_leader, par_followers, par_state_file, par_mode)
+    """
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            logger.info("Running {} via synchronized decorator".format(action_name))
+            parallel_run_context = kwargs.pop("parallel_run_context", DEFAULT_PARALLEL_RUN_CONTEXT)
+            if not parallel_run_context:
+                logger.info("Running original {} as parallel_run_context is falsy".format(action_name))
+                return func(*args, **kwargs)
 
-        if not is_par_run:
-            logger.info("Running original reboot as is_par_run is False")
-            return func(*args, **kwargs)
+            par_ctx = parallel_run_context
+            if par_ctx.par_followers == -1 or not par_ctx.is_par_run:
+                reason = "par_followers is -1" if par_ctx.par_followers == -1 else "is_par_run is False"
+                logger.info("Running original {} as {}".format(action_name, reason))
+                return func(*args, **kwargs)
 
-        logger.info("Running reboot in parallel")
-        parallel_coordinator = ParallelCoordinator(par_followers, par_state_file, par_mode)
-        parallel_coordinator.mark_and_wait_for_status(ParallelStatus.REBOOT_READY, target_hostname, is_par_leader)
-        try:
-            logger.info("Starting reboot in parallel for host: {}".format(target_hostname))
-            result = func(*args, **kwargs)
-            logger.info("Reboot in parallel completed successfully for host: {}".format(target_hostname))
-        except BaseException:
-            logger.error("Reboot in parallel failed for host: {}".format(target_hostname))
-            raise
-        finally:
-            parallel_coordinator.mark_and_wait_for_status(
-                ParallelStatus.REBOOT_COMPLETED,
-                target_hostname,
-                is_par_leader,
-            )
+            logger.info("Running {} in parallel".format(action_name))
+            parallel_coordinator = ParallelCoordinator(par_ctx)
+            parallel_coordinator.mark_and_wait_for_status(ready_status, par_ctx.target_hostname, par_ctx.is_par_leader)
+            try:
+                logger.info("Starting {} in parallel for host: {}".format(action_name, par_ctx.target_hostname))
+                result = func(*args, **kwargs)
+                logger.info("{} in parallel completed successfully for host: {}".format(
+                    action_name,
+                    par_ctx.target_hostname,
+                ))
 
-        return result
+                return result
+            except BaseException:
+                logger.error("{} in parallel failed for host: {}".format(action_name, par_ctx.target_hostname))
+                raise
+            finally:
+                parallel_coordinator.mark_and_wait_for_status(
+                    completed_status,
+                    par_ctx.target_hostname,
+                    par_ctx.is_par_leader,
+                )
 
-    return wrapper
+        return wrapper
+
+    return decorator
+
+
+synchronized_config_reload = make_synchronized(
+    "config_reload",
+    ParallelStatus.CONFIG_RELOAD_READY,
+    ParallelStatus.CONFIG_RELOAD_COMPLETED,
+)
+
+
+synchronized_reboot = make_synchronized(
+    "reboot",
+    ParallelStatus.REBOOT_READY,
+    ParallelStatus.REBOOT_COMPLETED,
+)

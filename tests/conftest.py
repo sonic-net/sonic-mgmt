@@ -51,7 +51,7 @@ from tests.common.helpers.constants import (
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
-from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus
+from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
@@ -427,7 +427,7 @@ def tbinfo(request):
 
 @pytest.fixture(scope="session")
 def parallel_run_context(request):
-    return (
+    return ParallelRunContext(
         is_parallel_run(request),
         get_target_hostname(request),
         is_parallel_leader(request),
@@ -2697,7 +2697,7 @@ def compare_running_config(pre_running_config, cur_running_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, tbinfo, request,
+def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                                # make sure the tear down of sanity_check happened after core_dump_and_config_check
                                sanity_check):
     '''
@@ -2705,17 +2705,9 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
     If so, we will reload the running config after test case running.
     '''
 
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file, par_mode = (
-        is_parallel_run(request),
-        get_target_hostname(request),
-        is_parallel_leader(request),
-        get_parallel_followers(request),
-        get_parallel_state_file(request),
-        get_parallel_mode(request),
-    )
-
-    parallel_coordinator = ParallelCoordinator(par_followers, par_state_file, par_mode) if is_par_run else None
-    if is_par_run and not is_par_leader:
+    par_ctx = parallel_run_context
+    parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+    if par_ctx.is_par_run and not par_ctx.is_par_leader:
         logger.info(
             "Fixture core_dump_and_config_check setup for non-leader nodes in parallel run is skipped. "
             "Please refer to the leader node log for core dump and config check status."
@@ -2723,8 +2715,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
 
         parallel_coordinator.wait_and_ack_status_for_followers(
             ParallelStatus.SETUP_COMPLETED,
-            is_par_leader,
-            target_hostname,
+            par_ctx.is_par_leader,
+            par_ctx.target_hostname,
         )
 
         parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.SETUP_COMPLETED)
@@ -2733,8 +2725,8 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
 
         parallel_coordinator.mark_and_wait_for_status(
             ParallelStatus.TESTS_COMPLETED,
-            target_hostname,
-            is_par_leader,
+            par_ctx.target_hostname,
+            par_ctx.is_par_leader,
         )
 
         logger.info(
@@ -2799,20 +2791,29 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 for duthost in duthosts:
                     executor.submit(collect_before_test, duthost)
 
-        if is_par_run and is_par_leader:
-            parallel_coordinator.set_new_status(ParallelStatus.SETUP_COMPLETED, is_par_leader, target_hostname)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_COMPLETED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
+
             parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.SETUP_COMPLETED)
 
         yield duts_data
 
-        if is_par_run and is_par_leader:
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
             parallel_coordinator.mark_and_wait_for_status(
                 ParallelStatus.TESTS_COMPLETED,
-                target_hostname,
-                is_par_leader,
+                par_ctx.target_hostname,
+                par_ctx.is_par_leader,
             )
 
-            parallel_coordinator.set_new_status(ParallelStatus.TEARDOWN_STARTED, is_par_leader, target_hostname)
+            parallel_coordinator.set_new_status(
+                ParallelStatus.TEARDOWN_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
         inconsistent_config = {}
         pre_only_config = {}
