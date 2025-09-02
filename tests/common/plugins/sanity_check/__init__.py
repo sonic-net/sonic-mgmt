@@ -158,12 +158,16 @@ def do_checks(request, check_items, *args, **kwargs):
 
 @pytest.fixture(scope="module")
 def prepare_parallel_run(request, parallel_run_context):
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file, par_mode = parallel_run_context
+    par_ctx = parallel_run_context
     should_skip_sanity = False
-    if is_par_run:
-        parallel_coordinator = ParallelCoordinator(par_followers, par_state_file, par_mode) if is_par_run else None
-        if is_par_leader:
-            parallel_coordinator.set_new_status(ParallelStatus.SETUP_STARTED, is_par_leader, target_hostname)
+    if par_ctx.is_par_run:
+        parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+        if par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
             yield should_skip_sanity
 
@@ -171,14 +175,14 @@ def prepare_parallel_run(request, parallel_run_context):
                     request.config.cache.get("post_sanity_check_failed", None)):
                 parallel_coordinator.set_failed_status(
                     ParallelStatus.SANITY_CHECK_FAILED,
-                    is_par_leader,
-                    target_hostname,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
             else:
                 parallel_coordinator.set_new_status(
                     ParallelStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
 
                 parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
@@ -198,8 +202,8 @@ def prepare_parallel_run(request, parallel_run_context):
 
             parallel_coordinator.wait_and_ack_status_for_followers(
                 ParallelStatus.TEARDOWN_COMPLETED,
-                is_par_leader,
-                target_hostname,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
             )
 
             parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
@@ -425,34 +429,38 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
 
 def _sanity_check(request, parallel_run_context):
 
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file, par_mode = parallel_run_context
-    parallel_coordinator = ParallelCoordinator(par_followers, par_state_file, par_mode) if is_par_run else None
-    if is_par_run:
+    par_ctx = parallel_run_context
+    parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+    if par_ctx.is_par_run:
         parallel_coordinator.mark_and_wait_for_status(
             ParallelStatus.SETUP_READY,
-            target_hostname,
-            is_par_leader,
+            par_ctx.target_hostname,
+            par_ctx.is_par_leader,
         )
 
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
-        if is_par_run and is_par_leader:
-            parallel_coordinator.set_new_status(ParallelStatus.SETUP_STARTED, is_par_leader, target_hostname)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
         yield
 
-        if is_par_run:
-            if is_par_leader:
+        if par_ctx.is_par_run:
+            if par_ctx.is_par_leader:
                 parallel_coordinator.set_new_status(
                     ParallelStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
             else:
                 parallel_coordinator.wait_and_ack_status_for_followers(
                     ParallelStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
 
             parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
