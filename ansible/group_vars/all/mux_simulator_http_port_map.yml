@@ -60,6 +60,7 @@ mux_simulator_http_port:
     vms66-dual-t0-8101c1-03: 8080
 
     vms68-dual-t0-4700-8: 8080
+    vms68-dual-t0-8101c1-04: 8082
 
     # On bjw server 13
     bjw-can-dual-t0-7260-1: 8080

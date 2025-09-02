@@ -27,11 +27,11 @@ str3-8101-fanout-02,10.3.146.193/24,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-03,10.3.146.192/24,Cisco-8101-O8C48,FanoutLeaf,,
 str3-8101-fanout-04,10.3.146.219/24,Cisco-8101-C32,FanoutLeaf,,
 str3-8101-fanout-05,10.3.146.177/24,Cisco-8101-C64,FanoutLeaf,,
-str3-8101-fanout-06,10.3.146.178/24,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-06,10.3.146.178/24,Cisco-8101-O32,FanoutLeaf,,
 str3-8101-fanout-07,10.3.146.186/23,32x400Gb,FanoutLeaf,,
 str3-8101-fanout-08,10.3.146.208/24,32x400Gb,FanoutLeaf,,
-str3-8101-fanout-10,10.64.247.59/23,Cisco-8101-C64,FanoutLeaf,,
-str3-8101-fanout-11,10.64.247.60/23,Cisco-8101-C64,FanoutLeaf,,
+str3-8101-fanout-10,10.64.247.59/23,Cisco-8101-O32,FanoutLeaf,,
+str3-8101-fanout-11,10.64.247.60/23,Cisco-8101-O32,FanoutLeaf,,
 str3-8101-fanout-12,10.64.247.61/23,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-22,10.3.146.151/24,Cisco-8101-C64,FanoutLeaf,,
 str3-8101-fanout-23,10.3.146.14/24,Cisco-8101-C64,FanoutLeaf,,
@@ -51,10 +51,10 @@ str3-8101-03,10.3.146.121/24,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8101-04,10.3.146.35/24,Cisco-8101-O8V48,DevSonic,,sonic
 str3-8101c1-05,10.3.146.160/24,Cisco-8101-V64,DevSonic,,sonic
 str3-8101c1-06,10.64.247.90/23,Cisco-8101-V64,DevSonic,,sonic
+str3-8101c1-07,10.3.146.238/24,Cisco-8101C01-C32,DevSonic,,sonic
+str3-8101c1-08,10.3.146.179/24,Cisco-8101C01-C32,DevSonic,,sonic
 str3-8111-01,10.3.146.237/24,Cisco-8111-O64,DevSonic,,sonic
-str3-8111-02,10.3.146.238/24,Cisco-8111-O64,DevSonic,,sonic
 str3-8111-04,10.64.247.55/23,Cisco-8111-O64,DevSonic,,sonic
-str3-8111-05,10.64.247.57/23,Cisco-8111-O64,DevSonic,,sonic
 str3-8122-03,10.3.146.76/24,Cisco-8122-O64S2,DevSonic,,sonic
 str3-8800-sup-1,10.3.146.97/24,Cisco-8800-RP,DevSonic,,sonic
 str3-8800-sup-2,10.3.146.97/24,Cisco-8800-RP,DevSonic,,sonic
