@@ -4,7 +4,7 @@
 ################################################################################################
 # The following block creates and configures user azure
 - name: Set init credential
-  set_fact: 
+  set_fact:
     ansible_user: "{{ init_user }}"
     ansible_password: "{{ init_password }}"
     ansible_sudo_pass: "{{ init_sudo_pass }}"
@@ -29,6 +29,11 @@
   set_fact:
     ansible_user: "{{ server_user }}"
     ansible_password: "{{ server_password }}"
+
+- name: Set home directory mode
+  file:
+    path: "/home/{{ server_user }}"
+    mode: "0755"
 
 # The following block does some basic prep
 
@@ -462,4 +467,3 @@
     - name: Print switched to using cgroupv1 successfully
       debug:
         msg: "Switched to using cgroupv1 successfully"
-
