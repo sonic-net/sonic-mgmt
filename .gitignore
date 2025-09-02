@@ -18,6 +18,7 @@ ansible/*_tmp
 # Dev tools
 .vscode/
 .idea/
+**/.venv/
 
 .python-version
 
