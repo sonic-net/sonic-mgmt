@@ -395,3 +395,8 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*DOM-INFO-UPDATE: Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
+
+# Ignore PIE port error log on set pfc mode
+r, ".* ERR syncd#syncd: :- sendApiResponse: api SAI_COMMON_API_SET failed in syncd mode: SAI_STATUS_NOT_SUPPORTED.*"
+r, ".* ERR syncd#syncd: :- processQuadEvent: VID: oid:0x.*"
+r, ".* ERR syncd#syncd: :- processQuadEvent: attr: SAI_PORT_ATTR_PRIORITY_FLOW_CONTROL_MODE: SAI_PORT_PRIORITY_FLOW_CONTROL_MODE_COMBINED.*"
