@@ -102,6 +102,12 @@ parameters:
     type: string
     default: "platform_tests/test_advanced_reboot.py,platform_tests/link_flap/test_cont_link_flap.py,platform_tests/test_reboot.py,qos/test_qos_sai.py,bgp/test_bgp_stress_link_flap.py,platform_tests/test_power_off_reboot.py,platform_tests/link_flap/test_link_flap.py"
 
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "upgrade_path", "param": "--upgrade_type=warm --base_image_list=http://10.150.22.222/pipelines/Networking-acs-buildimage-Official/mellanox/internal-202411/tagged/sonic-mellanox.bin --target_image_list=http://10.150.22.222/pipelines/Networking-acs-buildimage-Official/mellanox/internal-202505/tagged/sonic-mellanox.bin -k \"not test_double_upgrade_path and not test_warm_upgrade_sad_path\""}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
 
 stages:
 - stage: Test
