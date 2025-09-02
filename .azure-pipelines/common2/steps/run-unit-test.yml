@@ -6,7 +6,7 @@ steps:
       # Ensure make is available (most Ubuntu agents have it, but just in case)
       if ! command -v make &> /dev/null; then
         echo "Installing make..."
-        sudo apt-get update && sudo apt-get install -y make
+        sudo apt-get -o DPkg::Lock::Timeout=180 update && sudo apt-get -o DPkg::Lock::Timeout=180 install -y make
       fi
 
       # Source the shared script to get changed Python files
