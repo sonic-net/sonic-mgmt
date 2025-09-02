@@ -138,6 +138,12 @@ container_upgrade/test_container_upgrade.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+crm/test_crm.py:
+  xfail:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    - https://github.com/sonic-net/sonic-mgmt/issues/20256
+    reason: This test case is flaky on virtual chassis
 decap/test_decap.py:
   skip:
     conditions:
@@ -193,6 +199,12 @@ everflow/test_everflow_per_interface.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+everflow/test_everflow_testbed.py:
+  xfail:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    - https://github.com/sonic-net/sonic-mgmt/issues/20257
+    reason: This test case is flaky on virtual chassis
 generic_config_updater/test_bgp_prefix.py:
   skip:
     conditions:
