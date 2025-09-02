@@ -101,3 +101,26 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
     logging.info("Starting to analyse on all DUTs")
     parallel_run(analyze_logs, [analyzers, markers], {'fail_test': fail_test, 'store_la_logs': store_la_logs},
                  duthosts, timeout=240)
+
+
+@pytest.fixture(autouse=True)
+def ignore_pkt_trim_errors(duthosts, loganalyzer):
+    ASIC_LIST = ["th5"]
+    if loganalyzer:
+        for duthost in duthosts:
+            platform_asic = duthost.facts["platform_asic"].lower()
+            asic_name = duthost.get_asic_name().lower()
+            if platform_asic == "broadcom" and asic_name not in ASIC_LIST:
+                # We should cleanup this code once CSP12420291 is fixed.
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        (r".*ERR syncd#syncd: .* SAI_API_SWITCH:_brcm_sai_xgs_pkt_trim_get_mapped_counter:"
+                         r"[\d]+ Packet trim feature is not supported.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_QUEUE:_brcm_sai_xgs_queue_pkt_trim_get_clear_ctr:"
+                         r"[\d]+ Get Trim mapped counter failed with error -2.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_QUEUE:_brcm_sai_cosq_stat_get:"
+                         r"[\d]+ Get Trim stats packets failed with error -2.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_switch_attribute_enum_values_capability:"
+                         r"[\d]+ packet trim Enum Capability values get for [\d]+ failed with error -2.*")
+                    ]
+                )
