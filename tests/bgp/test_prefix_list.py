@@ -129,8 +129,6 @@ def rand_one_uplink_duthost(duthosts, tbinfo):
     """
     Pick one uplink linecard duthost randomly
     """
-    if tbinfo['topo']['type'] != 't2':
-        return []
     uplink_dut_list = []
     for duthost in duthosts:
         if duthost.is_supervisor_node():
