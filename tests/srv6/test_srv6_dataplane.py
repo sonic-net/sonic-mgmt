@@ -367,6 +367,10 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
         "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB after config reload"
 
     pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
+
+    pytest_assert(wait_until(60, 5, 0, get_neighbor_mac, duthost, neighbor_ip),
+                  "IP table not updating MAC for neighbour")
+
     # verify the forwarding works after config reload
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 

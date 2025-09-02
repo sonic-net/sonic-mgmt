@@ -121,7 +121,7 @@ hw_port_cfg = {
                              'skip_ports': [13, 16, 17, 44, 45, 48, 49],
                              "panel_port_step": 1},
     'o128lt2':          {"ds_breakout": 2, "us_breakout": 2, "ds_link_step": 1, "us_link_step": 1,
-                         'uplink_ports': PortList(LagPort(45), 46, 47, 48, LagPort(49), 50, 51, 52),
+                         'uplink_ports': PortList(45, 46, 47, 48, 49, 50, 51, 52),
                          'peer_ports': [],
                          'skip_ports': PortList(63),
                          "panel_port_step": 1},
@@ -504,6 +504,7 @@ def main(role: str, keyword: str, template: str, port_count: int, uplinks: str, 
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8'
     - ./generate_topo.py -r t1 -k isolated -t t1-isolated -c 64 -u 12,16,44,48 -l 'c224o8-sparse' -s 16,44,48
     - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -u 25,26,27,28,29,30,31,32 -l 'o128'
+    - ./generate_topo.py -r t0 -k isolated -t t0-isolated -c 64 -l 'o128t0'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -l 'c256-sparse'
     - ./generate_topo.py -r t0 -k isolated-v6 -t t0-isolated-v6 -c 64 -p 64 -l 'c256-sparse'

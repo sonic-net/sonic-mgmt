@@ -1751,7 +1751,25 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
-        max_allowed_lacp_session_wait = 150
+
+        # Initialize max_allowed_lacp_session_wait
+        LACP_SLOW_PERIOD_SEC = 30
+
+        if self.test_params['neighbor_type'] == "eos":
+            if 'ceos_neighbor_lacp_multiplier' in self.test_params \
+                    and self.test_params['ceos_neighbor_lacp_multiplier']:
+                lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
+            else:
+                lacp_multiplier = 3
+        elif self.test_params['neighbor_type'] == "sonic":
+            lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
+        else:
+            lacp_multiplier = 3
+
+        max_allowed_lacp_session_wait = lacp_multiplier * LACP_SLOW_PERIOD_SEC
+        self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
+            max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
+
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -2062,7 +2080,7 @@ class ReloadTest(BaseTest):
                     sent_payload = int(bytes(packet[scapyall.TCP].payload))
                     if sent_payload in sent_packets:
                         flooded_pkts.append(sent_payload)
-                    sent_packets[sent_payload] = packet.time
+                    sent_packets[sent_payload] = float(packet.time)
                     sent_counter += 1
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
@@ -2134,9 +2152,9 @@ class ReloadTest(BaseTest):
                         self.log("")
                         if not self.disruption_start:
                             self.disruption_start = datetime.datetime.fromtimestamp(
-                                prev_time)
+                               float(prev_time))
                         self.disruption_stop = datetime.datetime.fromtimestamp(
-                            received_time)
+                            float(received_time))
                 prev_payload = received_payload
                 prev_time = received_time
             self.log(

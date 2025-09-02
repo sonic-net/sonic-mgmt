@@ -96,32 +96,14 @@
 
   when: ceos_docker_image_stat.images | length == 0
 
-- name: Create VMs network in parallel
+- name: Create VMs network
   become: yes
   vm_topology:
     cmd:          'create'
-    vm_names:     "{{ vm_name }}"
+    vm_names:     "{{ VM_targets  }}"
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
     topo: "{{ topology }}"
-  async: 3600
-  poll: 0
-  loop: "{{ VM_targets|flatten(levels=1) }}"
-  loop_control:
-    loop_var: vm_name
-  register: async_create_vm_network_results
-
-- name: Wait for create tasks to complete
-  become: yes
-  async_status:
-    jid: "{{ async_create_vm_network_result_item.ansible_job_id }}"
-  loop: "{{ async_create_vm_network_results.results }}"
-  loop_control:
-    loop_var: async_create_vm_network_result_item
-  register: async_create_vm_network_poll_results
-  until: async_create_vm_network_poll_results.finished
-  retries: 30
-  delay: 60
 
 - name: Create net base containers
   become: yes
@@ -158,7 +140,7 @@
   retries: 10
   delay: 30
 
-- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }} in parallel
+- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }}
   become: yes
   ceos_network:
     name: net_{{ vm_set_name }}_{{ vm_name }}
@@ -169,18 +151,3 @@
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
-  async: 3600
-  poll: 0
-  register: async_create_ceos_network_results
-
-- name: Wait for network tasks to complete
-  become: yes
-  async_status:
-    jid: "{{ async_create_ceos_network_result_item.ansible_job_id }}"
-  loop: "{{ async_create_ceos_network_results.results }}"
-  loop_control:
-    loop_var: async_create_ceos_network_result_item
-  register: async_create_ceos_network_poll_results
-  until: async_create_ceos_network_poll_results.finished
-  retries: 30
-  delay: 60
