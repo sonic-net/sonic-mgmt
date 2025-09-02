@@ -100,13 +100,7 @@ class DutHosts(object):
             self._nodes_for_parallel_initial_checks if self.is_parallel_leader else self._nodes_for_parallel_tests
         )
 
-        self._supervisor_nodes = self._Nodes([
-            node for node in self._nodes_for_parallel if node.is_supervisor_node()
-        ])
-
-        self._frontend_nodes = self._Nodes([
-            node for node in self._nodes_for_parallel if node.is_frontend_node()
-        ])
+        self.__assign_groups(self._nodes_for_parallel)
 
     def __initialize_nodes(self):
         self._nodes = self._Nodes([
@@ -118,8 +112,7 @@ class DutHosts(object):
             ) for hostname in self.tbinfo["duts"] if hostname in self.duts
         ])
 
-        self._supervisor_nodes = self._Nodes([node for node in self._nodes if node.is_supervisor_node()])
-        self._frontend_nodes = self._Nodes([node for node in self._nodes if node.is_frontend_node()])
+        self.__assign_groups(self._nodes)
 
     def __should_reinit_when_parallel(self):
         return (
@@ -137,8 +130,17 @@ class DutHosts(object):
             self.parallel_run_stage = NON_INITIAL_CHECKS_STAGE
             self._nodes_for_parallel = self._nodes_for_parallel_tests
 
-        self._supervisor_nodes = self._Nodes([node for node in self._nodes_for_parallel if node.is_supervisor_node()])
-        self._frontend_nodes = self._Nodes([node for node in self._nodes_for_parallel if node.is_frontend_node()])
+        self.__assign_groups(self._nodes_for_parallel)
+
+    def __assign_groups(self, nodes):
+        """Assign supervisor_nodes and frontend_nodes based on provided nodes list.
+        For non-chassis (no supervisors), frontend_nodes is an empty list.
+        """
+        self._supervisor_nodes = self._Nodes([node for node in nodes if node.is_supervisor_node()])
+        if any(node.is_supervisor_node() for node in nodes):
+            self._frontend_nodes = self._Nodes([node for node in nodes if node.is_frontend_node()])
+        else:
+            self._frontend_nodes = self._Nodes([])
 
     @property
     def nodes(self):

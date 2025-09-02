@@ -316,17 +316,19 @@ def test_dut_tsa_with_conf_reload_when_sup_on_tsa_dut_on_tsb_init(duthosts, loca
                 executor.submit(verify_line_card_after_sup_tsa, linecard)
 
         # Verify dut config_reload scenario for one of the line card to make sure tsa config is in sync
-        first_linecard = duthosts.frontend_nodes[0]
-        first_linecard.shell('sudo config save -y')
-        config_reload(first_linecard, safe_reload=True, check_intf_up_ports=True)
+        # Skip this test for non-chassis systems (no linecards)
+        if duthosts.frontend_nodes:
+            first_linecard = duthosts.frontend_nodes[0]
+            first_linecard.shell('sudo config save -y')
+            config_reload(first_linecard, safe_reload=True, check_intf_up_ports=True)
 
-        # Verify DUT is in maintenance state.
-        pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
-                      "DUT is not in maintenance state after config reload")
-        assert_only_loopback_routes_announced_to_neighs(duthosts, first_linecard,
-                                                        dut_nbrhosts[first_linecard],
-                                                        traffic_shift_community,
-                                                        "Failed to verify routes on nbr in TSA")
+            # Verify DUT is in maintenance state.
+            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(first_linecard, cmd='TSC no-stats'),
+                          "DUT is not in maintenance state after config reload")
+            assert_only_loopback_routes_announced_to_neighs(duthosts, first_linecard,
+                                                            dut_nbrhosts[first_linecard],
+                                                            traffic_shift_community,
+                                                            "Failed to verify routes on nbr in TSA")
 
         # Verify supervisor still has tsa_enabled 'true' config
         pytest_assert('true' == get_tsa_chassisdb_config(suphost),
@@ -682,6 +684,10 @@ def test_sup_tsb_when_startup_tsa_tsb_service_running(duthosts, localhost, enum_
             orig_v6_routes[linecard] = parse_routes_on_neighbors(linecard, dut_nbrhosts[linecard], 6)
 
         # Verify dut reboot scenario for one of the line card to make sure tsa config is in sync
+        # Skip this test for non-chassis systems (no linecards)
+        if not duthosts.frontend_nodes:
+            pytest.skip("No linecards to test on")
+
         first_linecard = duthosts.frontend_nodes[0]
         logger.info("Cold reboot on node: %s", first_linecard.hostname)
         reboot(first_linecard, localhost, wait=240)
