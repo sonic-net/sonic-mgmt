@@ -82,6 +82,12 @@ all:
         bjw3-pdu-126-75:  # R408S
           ansible_host: 10.150.126.75
           protocol: snmp
+        bjw3-pdu-126-78:  # R40AM
+          ansible_host: 10.150.126.78
+          protocol: snmp
+        bjw3-pdu-126-79:  # R40AS
+          ansible_host: 10.150.126.79
+          protocol: snmp
 
 fanout:
   hosts:
