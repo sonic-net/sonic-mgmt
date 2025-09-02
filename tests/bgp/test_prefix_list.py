@@ -189,7 +189,7 @@ def common_setup_and_teardown(localhost, nbrhosts, tbinfo, ptfhost, rand_one_upl
     rh_neighbors = [nbr_host for nbr_name, nbr_host in nbrhosts.items() if nbr_name in rh_neighbor_name]
     ah_neighbors = [nbr_host for nbr_name, nbr_host in nbrhosts.items() if nbr_name in ah_neighbor_name]
 
-    yield community, rh_neighbors, ah_neighbors, downstream_nbr_names, ip_version
+    yield community, rh_neighbors + ah_neighbors, [], downstream_nbr_names, ip_version
 
     announce_routes(localhost, tbinfo, ptfhost, ROUTES_TO_ADVERTISE[ip_version], downstream_nbr_names, ip_version,
                     "withdraw")
