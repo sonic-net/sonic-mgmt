@@ -1224,6 +1224,11 @@ class VMTopology(object):
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ipv6,in_port=%s,nw_proto=89,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            #added ovs rules for HA 
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=999,udp,in_port=%s,action=output:%s" %
+                        (br_name, dut_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=999,tcp,in_port=%s,action=output:%s" %
+                        (br_name, dut_iface_id, injected_iface_id))
 
         # Add flow for BFD Control packets (UDP port 3784)
             bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
