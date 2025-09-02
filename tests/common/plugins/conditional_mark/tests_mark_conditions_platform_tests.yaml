@@ -1064,9 +1064,11 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Skip on unsupported platforms, PR testing, or platforms without warm reboot support"
     conditions_logical_operator: or
     conditions:
+      - "all(x not in hwsku for x in ['2700', '7050CX3', '7260', '7060']) or '7060X6' in hwsku"
+      - "'msn2700a1' in platform and release in ['201811', '201911', '202012', '202205', '202211', '202305']"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "asic_type in ['vs']"
