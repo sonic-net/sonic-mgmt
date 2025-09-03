@@ -55,14 +55,18 @@ def setup_base_traffic_config(testbed_config,
                 rx_port_id (int or list): ID(s) of ixia RX port(s) ex. 2 or [2, 3]
                 tx_port_config (SnappiPortConfig or list): port config obj(s) for ixia TX port(s)
                 rx_port_config (SnappiPortConfig or list): port config obj(s) for ixia RX port(s)
-                tx_mac (str or list): MAC address(es) of ixia TX port(s) ex. '00:00:fa:ce:fa:ce' or ['00:00:fa:ce:fa:ce', '00:00:fa:ce:fa:ce']
-                rx_mac (str or list): MAC address(es) of ixia RX port(s) ex. '00:00:fa:ce:fa:ce' or ['00:00:fa:ce:fa:ce', '00:00:fa:ce:fa:ce']
+                tx_mac (str or list): MAC address(es) of ixia TX port(s) ex. '00:00:fa:ce:fa:ce' or
+                                    ['00:00:fa:ce:fa:ce', '00:00:fa:ce:fa:ce']
+                rx_mac (str or list): MAC address(es) of ixia RX port(s) ex. '00:00:fa:ce:fa:ce' or
+                                    ['00:00:fa:ce:fa:ce', '00:00:fa:ce:fa:ce']
                 tx_port_name (str or list): name(s) of ixia TX port(s) ex. 'Port 1' or ['Port 1', 'Port 2']
                 rx_port_name (str or list): name(s) of ixia RX port(s) ex. 'Port 2' or ['Port 2', 'Port 3']
                 dut_port_config (dict): a dictionary with "Tx" and "Rx" keys, each containing a list of dictionaries
-                                        of tx and rx ports on the peer (switch) side, and the associated test priorities
-                                        ex. {"Tx": [{'Ethernet4':[3, 4]}], "Rx": [{'Ethernet8':[3, 4]}]} for single port
-                                        or {"Tx": [{'Ethernet4':[3, 4]}, {'Ethernet12':[3, 4]}], "Rx": [{'Ethernet8':[3, 4]}]} for multiple ports
+                                        of tx and rx ports on the peer (switch) side, and the associated test
+                                        priorities ex. {"Tx": [{'Ethernet4':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]} for single port
+                                        or {"Tx": [{'Ethernet4':[3, 4]}, {'Ethernet12':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]} for multiple ports
                 test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
                 test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
@@ -1083,7 +1087,8 @@ def run_traffic_and_collect_stats(rx_duthost,
         else:
             dutport_list.append([snappi_extra_params.multi_dut_params.duthost2, m['peer_port']])
 
-    switch_tx_lossless_prios = sum(snappi_extra_params.base_flow_config_list[0]["dut_port_config"]["Rx"][0].values(), [])
+    rx_port_config_values = snappi_extra_params.base_flow_config_list[0]["dut_port_config"]["Rx"][0].values()
+    switch_tx_lossless_prios = sum(rx_port_config_values, [])
     # Generating list with lossless priorities starting with keyword 'prio_'
     prio_list = ['prio_{}'.format(num) for num in switch_tx_lossless_prios]
 
