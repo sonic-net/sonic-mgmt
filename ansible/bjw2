@@ -68,18 +68,12 @@ all:
         bjw2-5-3:
           ansible_host: 10.150.23.109
           ansible_hostv6: 2404:f801:10:2200::a96:176d
-        bjw2-5-4:
-          ansible_host: 10.150.23.110
-          ansible_hostv6: 2404:f801:10:2200::a96:176e
         bjw2-5-5:
           ansible_host: 10.150.23.111
           ansible_hostv6: 2404:f801:10:2200::a96:176f
         bjw2-5-6:
           ansible_host: 10.150.23.112
           ansible_hostv6: 2404:f801:10:2200::a96:1770
-        bjw2-5-7:
-          ansible_host: 10.150.23.115
-          ansible_hostv6: 2404:f801:10:2200::a96:1773
         bjw2-2-a:
           ansible_host: 10.150.23.126
           ansible_hostv6: 2404:f801:10:2200::a96:177e
@@ -192,7 +186,12 @@ all:
         bjw2-9-3:
           ansible_host: 10.150.23.137
           ansible_hostv6: 2404:f801:10:2200::a96:1789
-
+        bjw2-1-3:
+          ansible_host: 10.150.23.138
+          ansible_hostv6: 2404:f801:10:2200::a96:178a
+        bjw2-1-4:
+          ansible_host: 10.150.23.139
+          ansible_hostv6: 2404:f801:10:2200::a96:178b
     pdu:
       vars:
         pdu_ro_snmp_version: v3
