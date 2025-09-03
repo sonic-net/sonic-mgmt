@@ -11,7 +11,7 @@
     "snappi": {
         "tx_pn_choice": "fixed_pn",
         "key_derivation_function": "aes_cmac_256",
-        "actor_priority": "0x00",
+        "actor_priority": "0x16",
         "cak_name": "0x112233445566778899AABBCCDD",
         "cak_value": "0x112233445566778899AABBCCDDEEFF00",
         "mka_rekey_mode_choice": "timer_based",
