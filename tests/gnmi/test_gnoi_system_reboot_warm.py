@@ -4,7 +4,7 @@ import json
 
 from .helper import gnoi_request
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.reboot import wait_for_startup, wait_for_shutdown
+from tests.common.reboot import wait_for_startup, SONIC_SSH_PORT, SONIC_SSH_REGEX
 
 
 pytestmark = [
@@ -50,7 +50,17 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
     # Wait for the device to go down first
-    wait_for_shutdown(duthost, localhost, delay=10, timeout=300, reboot_res=None)
+    logging.info('waiting for ssh to drop on {}'.format(duthost.hostname))
+    res = localhost.wait_for(host=duthost.mgmt_ip,
+                             port=SONIC_SSH_PORT,
+                             state='absent',
+                             search_regex=SONIC_SSH_REGEX,
+                             delay=10,
+                             timeout=300,
+                             module_ignore_errors=True)
+    
+    if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
+        raise Exception('DUT {} did not shutdown'.format(duthost.hostname))
     logging.info("Device has gone down for reboot")
 
     # Wait until the system is back up
