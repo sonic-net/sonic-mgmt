@@ -548,6 +548,7 @@ ROUTING: #Sridhar Santhanam
         - bgp/test_bgpmon.py
         - bgp/test_bgp_dual_asn.py
         - bgp/test_bgp_speaker.py
+        - bgp/test_bgp_route_neigh_learning.py
         - bgp/test_bgp_session_flap.py
         - route/test_route_consistency.py
         - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
