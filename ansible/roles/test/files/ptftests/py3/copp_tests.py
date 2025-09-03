@@ -362,7 +362,7 @@ class DHCPTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -411,7 +411,7 @@ class DHCP6Test(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -479,7 +479,7 @@ class LLDPTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -515,7 +515,7 @@ class UDLDTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
