@@ -67,21 +67,24 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 
 **Attributes for  the below tests**
 
-Following test attributes under `transceiver_firmware_upgrade` attribute category are applicable:
+A `cdb_fw_upgrade.json` file is used to define the attributes for the CDB firmware upgrade tests for the various types of transceivers the system supports.
 
-| Attribute Name | Type | Default | Mandatory | Description |
-|-----------|------|---------|------------|-------------|
-| port_under_test | List | All | No | A list under `dut_specific.dut_name` containing the ports to be tested for cmis fw upgrade test only.<br>This attribute must exist only under `dut_specific` field. |
-| firmware_versions | List | None | Yes | A list containing firmware versions to be tested as its values. |
-| firmware_download_timeout_minutes | Int | 30 | No | Firmware download timeout value in minutes as the integer value |
-| restore_initial_firmwares | Bool | False | No | A flag indicating whether to restore the initial active and inactive firmware versions after testing is completed |
-| firmware_download_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware download process |
-| firmware_activation_stress_iterations | Int | 5 | No | The number of iterations to stress test the firmware activation process |
-| firmware_download_abort_method | String | "sfputil_reset" | No | The method to abort the firmware download process. It can be one of the following strings: "ctrl_c", "sfputil_reset", "optic_reinsert" |
-| firmware_download_abort_percentage | List | `[10, 50, 90]` | No | The percentage of download progress at which the firmware download should be aborted. | 
-| sleep_after_dom_disable_sec | Int | 5 | No | The number of seconds to sleep after disabling DOM monitoring before proceeding with the test. |
-| monitor_kernel_errors | Bool | False | No | A flag indicating whether to monitor kernel errors during the test. |
-| thermalctld_disabling_required | Bool | False | No | A flag indicating whether to disable the thermalctld during the test. |
+The following table summarizes the key attributes used in CDB firmware upgrade testing. This table serves as the authoritative reference for all attributes and must be updated whenever new attributes are introduced:
+
+| Attribute Name | Type | Default | Mandatory | Override Levels | Description |
+|-----------|------|---------|------------|-------------|-------------|
+| port_under_test | List | All | No | None | A list under `dut.dut_name` containing the ports to be tested for cmis fw upgrade test only.<br>This attribute must exist only under `dut` field. |
+| firmware_versions | List | None | Yes | transceivers | A list containing firmware versions to be tested as its values. |
+| firmware_download_timeout_minutes | Int | 30 | No | transceivers |Firmware download timeout value in minutes as the integer value |
+| restore_initial_firmwares | Bool | False | No | dut |A flag indicating whether to restore the initial active and inactive firmware versions after testing is completed |
+| firmware_download_stress_iterations | Int | 5 | No | dut | The number of iterations to stress test the firmware download process |
+| firmware_activation_stress_iterations | Int | 5 | No | dut | The number of iterations to stress test the firmware activation process |
+| firmware_read_stress_iterations | Int | 5 | No | dut | The number of iterations to stress test the firmware read process |
+| firmware_download_abort_method | String | "sfputil_reset" | No | transceivers | The method to abort the firmware download process. It can be one of the following strings: "ctrl_c", "sfputil_reset", "optic_reinsert" |
+| firmware_download_abort_percentage | List | `[10, 50, 90]` | No | transceivers | The percentage of download progress at which the firmware download should be aborted. |
+| sleep_after_dom_disable_sec | Int | 5 | No | transceivers | The number of seconds to sleep after disabling DOM monitoring before proceeding with the test. |
+| monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
+| thermalctld_disabling_required | Bool | False | No | transceivers | A flag indicating whether to disable the thermalctld during the test. |
 
 
 #### 1.1 CMIS CDB Firmware Upgrade Testing
@@ -274,15 +277,17 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Firmware download validation | 1. Download the next firmware specified in `firmware_versions` using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within `firmware_download_timeout_minutes` minutes and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the downloaded firmware version<br> 4. No link flap should be seen<br>5. The kernel has no error messages in syslog if `monitor_kernel_errors` flag is set<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-| 2 | Firmware activation validation | 1. Shut down all the interfaces part of the physical ports<br>2. Execute firmware run<br>3. Execute firmware commit<br>4. Reset the transceiver and wait for 5 seconds<br>5. Startup all the interfaces in Step 1 | 1. The return code on step 2 and 3 is 0 (Return code 0 indicates success)<br>2. Active firmware version should now match the previous inactive firmware version<br>3. Inactive firmware version should now match the previous active firmware version<br>4. Link should be up within `port_wait_time_after_startup_sec` seconds.<br>5. `sfputil show fwversion` CLI should now show the “Committed Image” to the current active bank<br>6. Previous active firmware should show up in the inactive bank<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-|3 | Firmware download validation with invalid firmware binary | Download an invalid firmware binary (any file not released by the vendor) | 1. The active firmware version does not change<br>2. The inactive firmware version remains unchanged or is set to `0.0.0` or `N/A`<br> 3.  No change in "Committed Image"<br>4. No link flap should be seen<br>5. The kernel has no error messages in syslog if `monitor_kernel_errors` flag is set<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-|4 | Firmware download abort | 1. Start the firmware download and abort at the percentages specified by `firmware_download_abort_percentage`<br>2. Use the method specified in `firmware_download_abort_method` to abort the process:<br>"ctrl_c": Use CTRL+C or kill the download process<br> "sfputil_reset": reset the optics using sfputil reset<br>"optic_reinsert": remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-|5 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
-|6 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
-|7 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
-|8 | Firmware download stress test | 1. Perform steps in TC #1 `firmware_download_stress_iterations` number of times. | 1. All the expectations of TC #1 must be met |
-|9 | Firmware activation stress test | 1. Perform steps in TC #2 `firmware_activation_stress_iterations` number of times. | 1. All the expectations of TC #2 must be met |
+| 1 | Firmware download validation | 1. Download the next firmware specified in `firmware_versions` using the sfputil CLI<br>2. Wait until CLI execution completes | 1. CLI execution should finish within `firmware_download_timeout_minutes` minutes and return 0 <br>2. Active FW version should remain unchanged<br>3. Inactive FW version should reflect the downloaded firmware version<br>4. Running image bank, inactive image bank and committed image bank remain the same<br>5. Inactive image bank should show the downloaded fw version<br>6. No link flap should be seen<br>7. The kernel has no error messages in syslog if `monitor_kernel_errors` flag is set<br>8. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 2 | Firmware run validation | 1. Shut down all the interfaces part of the physical ports<br>2. Execute firmware run<br><br>3. Reset the transceiver and wait for 5 seconds<br>4. Startup all the interfaces in Step 1 | 1. The return code on step 2 is 0 (Return code 0 indicates success)<br>2. Active firmware version should now match the previous inactive firmware version<br>3. Inactive firmware version should now match the previous active firmware version<br>4. Link should be up within `port_wait_time_after_startup_sec` seconds.<br>5. `sfputil show fwversion` CLI should now show the “Running Image” to the current active bank<br>6. Previous active firmware should show up in the inactive bank<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 3 | Firmware commit validation | 1. Execute firmware commit for an interface| 1. The return code on step 1 is 0 <br>2. Active firmware version and inactive firmware version remain unchanged<br>3. Committed image bank is updated to active image bank<br>4. No link flap is seen<br>5. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 4 | Firmware download validation with invalid firmware binary | Download an invalid firmware binary (any file not released by the vendor) | 1. The active firmware version does not change<br>2. The inactive firmware version remains unchanged or is set to `0.0.0` or `N/A`<br> 3.  No change in "Committed Image"<br>4. No link flap should be seen<br>5. The kernel has no error messages in syslog if `monitor_kernel_errors` flag is set<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 5 | Firmware download abort | 1. Start the firmware download and abort at the percentages specified by `firmware_download_abort_percentage`<br>2. Use the method specified in `firmware_download_abort_method` to abort the process:<br>"ctrl_c": Use CTRL+C or kill the download process<br> "sfputil_reset": reset the optics using sfputil reset<br>"optic_reinsert": remove the optics and re-insert | 1. Active firmware version remains unchanged<br>2. Inactive firmware version is invalid i.e. N/A or 0.0.0<br>3. No change in "Committed Image"<br>4. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 6 | Successful firmware download after aborting | 1. Perform steps in TC #4 followed by TC #1 | All the expectation of test case #4 and case #1 must be met |
+| 7 | Firmware download validation post reset | 1. Perform steps in TC #1<br>2. Execute `sfputil reset PORT` and wait for it to finish | All the expectation of test case #1 must be met |
+| 8 | Ensure static fields of EEPROM remain unchanged | 1. Perform steps in TC #1<br>2. Perform steps in TC #2 | 1. All the expectations of TC #1 and #2 must be met<br>2. Ensure after each step 1 and 2 that the static fields of EEPROM (e.g., vendor name, part number, serial number, vendor date code, OUI, and hardware revision) remain unchanged |
+| 9 | Firmware download stress test | 1. Perform steps in TC #1 `firmware_download_stress_iterations` number of times. | 1. All the expectations of TC #1 must be met |
+| 10 | Firmware activation stress test | 1. Perform steps in TC #2 and #3 `firmware_activation_stress_iterations` number of times. | 1. All the expectations of TC #2 and #3 must be met |
+| 11 | Firmware read stress test | 1. Perform fw read operation `firmware_read_stress_iterations` number of times. | 1. The return code is 0.<br>2. All the fields remain unchanged across iterations<br>3. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 
 
 #### CLI commands
