@@ -14,21 +14,36 @@ class SnappiPortConfig:
     """
     Snappi port configuration information
     """
-    def __init__(self, id, ip, mac, gw, gw_mac, prefix_len, port_type, peer_port):
+    def __init__(self,
+                 id,
+                 ip,
+                 mac,
+                 gw,
+                 gw_mac,
+                 prefix_len,
+                 port_type,
+                 peer_port,
+                 ipv6=None,
+                 gw_ipv6=None,
+                 prefix_len_v6=None
+                 ):
         self.id = id
         self.ip = ip
+        self.ipv6 = ipv6
         self.mac = mac
         self.gateway = gw
+        self.gateway_ipv6 = gw_ipv6
         self.gateway_mac = gw_mac
         self.prefix_len = prefix_len
+        self.prefix_len_v6 = prefix_len_v6
         self.type = port_type
         self.peer_port = peer_port
 
     def __str__(self):
-        return "<SnappiPortConfig id: {}, ip: {}, mac: {}, gw: {}, gw_mac: {}, \
-                prefix_len: {}, type: {}, peer_port: {}>".format(
-                self.id, self.ip, self.mac, self.gateway, self.gateway_mac,
-                self.prefix_len, self.type, self.peer_port)
+        return "<SnappiPortConfig id: {}, ip: {}, ipv6: {}, mac: {}, gw: {}, gw_ipv6: {}, gw_mac: {}, \
+                prefix_len: {}, prefix_len_v6: {}, type: {}, peer_port: {}>".format(
+                self.id, self.ip, self.ipv6, self.mac, self.gateway, self.gateway_ipv6,
+                self.gateway_mac, self.prefix_len, self.prefix_len_v6, self.type, self.peer_port)
 
     def __repr__(self):
         return self.__str__()
