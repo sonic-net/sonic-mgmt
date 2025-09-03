@@ -13,6 +13,8 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
     """compare the interfaces between observed states and target state"""
 
     duthost = duthosts[enum_frontend_dut_hostname]
+    p_duthost = duthosts[enum_frontend_dut_hostname]
+    p1_duthost = duthosts[enum_frontend_dut_hostname
     asic_host = duthost.asic_instance(enum_asic_index)
     host_facts = asic_host.interface_facts()['ansible_facts']['ansible_interface_facts']
     mg_facts = asic_host.get_extended_minigraph_facts(tbinfo)
