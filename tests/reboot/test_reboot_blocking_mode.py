@@ -26,7 +26,9 @@ def mock_systemctl_reboot(duthost):
     execute_command_ignore_error(duthost, "sudo /usr/local/bin/watchdogutil disarm")
 
     # Disable watch dog to avoid reboot too early.
-    execute_command(duthost, "sudo sed -i 's#/usr/local/bin/watchdogutil#/usr/local/bin/disabled_watchdogutil#g' /usr/local/bin/reboot")
+    execute_command(
+        duthost,
+        "sudo sed -i 's#/usr/local/bin/watchdogutil#/usr/local/bin/disabled_watchdogutil#g' /usr/local/bin/reboot")
 
 
 def restore_systemctl_reboot_and_reboot(duthost):
@@ -34,7 +36,9 @@ def restore_systemctl_reboot_and_reboot(duthost):
         return
     execute_command(duthost, "sudo rm /sbin/reboot")
     execute_command(duthost, "sudo mv /sbin/reboot.bak /sbin/reboot")
-    execute_command(duthost, "sudo sed -i 's#/usr/local/bin/disabled_watchdogutil#/usr/local/bin/watchdogutil#g' /usr/local/bin/reboot")
+    execute_command(
+        duthost,
+        "sudo sed -i 's#/usr/local/bin/disabled_watchdogutil#/usr/local/bin/watchdogutil#g' /usr/local/bin/reboot")
     execute_command(duthost, "sudo reboot")
     wait_critical_processes(duthost)
 
