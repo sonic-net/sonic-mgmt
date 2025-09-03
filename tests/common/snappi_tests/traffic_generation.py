@@ -816,6 +816,7 @@ def verify_macsec_stats(
     final_port_list = [ingress_port] + [egress_port]
     for item in final_port_list:
         macsec_stats.update(flatten_dict(get_dict_macsec_counters(item['duthost'], item['peer_port'])))
+    logger.info("Macsec stats: {}".format(macsec_stats))
     # TODO: Need to add code to use macsec_stats(dictionary) and compare with flow metrics
 
 
