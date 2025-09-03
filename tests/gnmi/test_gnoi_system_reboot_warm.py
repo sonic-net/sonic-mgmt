@@ -57,7 +57,7 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
             return True
         except Exception:
             return False
-    
+
     logging.info("Waiting for warm reboot to complete...")
     wait_until(300, 10, 0, check_system_responsive)
     logging.info("Warm reboot completed - system is responsive")

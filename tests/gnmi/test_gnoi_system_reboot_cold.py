@@ -60,7 +60,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
                              delay=10,
                              timeout=300,
                              module_ignore_errors=True)
-    
+
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
         raise Exception('DUT {} did not shutdown'.format(duthost.hostname))
     logging.info("Device has gone down for reboot")
