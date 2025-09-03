@@ -17,7 +17,7 @@ from tests.common.snappi_tests.traffic_generation import setup_base_traffic_conf
     verify_background_flow, verify_pause_frame_count_dut, verify_egress_queue_frame_count, \
     verify_in_flight_buffer_pkts, verify_unset_cev_pause_frame_count, verify_tx_frame_count_dut, \
     verify_rx_frame_count_dut, verify_test_flow_stats_for_macsec, verify_background_flow_stats_for_macsec, \
-    verify_pause_flow_for_macsec   # noqa: F401
+    verify_pause_flow_for_macsec, verify_macsec_stats   # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.read_pcap import validate_pfc_frame, validate_pfc_frame_cisco
 
@@ -284,6 +284,14 @@ def run_pfc_test(api,
                                test_flow_pause=test_traffic_pause,
                                snappi_extra_params=snappi_extra_params)
     else:
+        # Verify macsec stats
+        verify_macsec_stats(flow_metrics=tgen_flow_stats,
+                            ingress_duthost=ingress_duthost,
+                            egress_duthost=egress_duthost,
+                            ingress_port=tx_port,
+                            egress_port=rx_port,
+                            api=api,
+                            snappi_extra_params=snappi_extra_params)
         # Verify PFC pause frames
         verify_pause_flow_for_macsec(flow_metrics=tgen_flow_stats,
                                      pause_flow_tx_port_name=snappi_extra_params.base_flow_config["rx_port_name"])

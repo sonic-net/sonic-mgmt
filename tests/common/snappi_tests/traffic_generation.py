@@ -23,7 +23,7 @@ from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
-from tests.common.macsec.macsec_helper import get_macsec_counters, clear_macsec_counters
+from tests.common.macsec.macsec_helper import get_macsec_counters, clear_macsec_counters, get_dict_macsec_counters
 # Imported to support rest_py in ixnetwork
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 
@@ -505,6 +505,7 @@ def run_traffic(duthost,
                 et.SignatureValue = ' '.join(final_bytes)
                 et.SignatureOffset = 2
 
+    clear_macsec_counters(duthost)
     """ Starting Protocols """
     logger.info("Starting all protocols ...")
     cs = api.control_state()
@@ -665,19 +666,6 @@ def run_traffic(duthost,
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
-def get_dict_macsec_counters(duthost, port):
-    '''
-    Queries get_macsec_counter and returns flattened dictionary.
-    '''
-    egr_counter, ing_counter = get_macsec_counters(duthost, port)
-    new_stats = {}
-    new_stats[duthost.hostname] = {}
-    new_stats[duthost.hostname][port] = egr_counter
-    new_stats[duthost.hostname][port].update(ing_counter)
-
-    return (new_stats)
-
-
 def verify_pause_flow_for_macsec(flow_metrics,
                                  pause_flow_tx_port_name):
     """
@@ -801,6 +789,34 @@ def verify_pause_flow(flow_metrics,
 
     pytest_assert(pause_flow_tx_frames > 0 and pause_flow_rx_frames == 0,
                   "All the pause frames should be dropped")
+
+
+def verify_macsec_stats(
+                        flow_metrics,
+                        ingress_duthost,
+                        egress_duthost,
+                        ingress_port,
+                        egress_port,
+                        api,
+                        snappi_extra_params):
+    """
+    Verify macsec statistics
+
+    Args:
+        flow_metrics (list): per-flow statistics
+        ingress_duthost (obj): ingress DUT host object
+        egress_duthost (obj): egress DUT host object
+        ingress_port (list): list of ingress ports
+        egress_port (list): list of egress ports
+        api (obj): snappi session
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+    """
+    macsec_stats = {}
+    final_port_list = [ingress_port] + [egress_port]
+    for item in final_port_list:
+        macsec_stats.update(flatten_dict(get_dict_macsec_counters(item['duthost'], item['peer_port'])))
+    # TODO: Need to add code to use macsec_stats(dictionary) and compare with flow metrics
 
 
 def verify_background_flow(flow_metrics,
