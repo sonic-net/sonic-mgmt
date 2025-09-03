@@ -125,12 +125,12 @@ all:
         vms25-3:
           ansible_host: 10.64.246.181
           ansible_hostv6: 2a01:111:e210:b000::a40:f6b5
-        vms25-4:
-          ansible_host: 10.64.247.71
-          ansible_hostv6: 2a01:111:e210:b000::a40:f747
         vms26-1:
           ansible_host: 10.64.246.230
           ansible_hostv6: 2a01:111:e210:b000::a40:f6e6
+        vms26-2:
+          ansible_host: 10.64.247.71
+          ansible_hostv6: 2a01:111:e210:b000::a40:f747
         vms27-1:
           ansible_host: 10.64.246.234
           ansible_hostv6: 2a01:111:e210:b000::a40:f6ea

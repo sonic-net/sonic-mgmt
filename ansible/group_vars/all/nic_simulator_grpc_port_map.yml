@@ -9,7 +9,7 @@ nic_simulator_grpc_port:
   vms20-dual-t0-4700-7: 50075
   vms28-dual-t0-8102: 50075
   vms18-dual-t0-8101c1-01: 50075
-  vms25-dual-t0-8101c1-02: 50075
+  vms26-dual-t0-8101c1-02: 50075
   vms66-dual-t0-8101c1-03: 50075
   vms68-dual-t0-4700-8: 50075
   vms68-dual-t0-8101c1-04: 50075

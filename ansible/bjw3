@@ -179,26 +179,71 @@ sonic_arista_7050C_S128:
       ansible_host: 10.150.238.64
       ansible_hostv6: 2404:f801:10:16::a96:ee40
       mgmt_subnet_mask_length: 23
-      model: DCS-7050CX3-32C-SSD
-      serial:
-      base_mac:
+      model: DCS-7050CX3-32C
+      serial: HBG243500A8
+      base_mac: 54:0f:2c:41:9d:30
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402C0"
+        "0x23": "HBG243500A8"
+        "0x24": "54:0f:2c:41:9d:30"
+        "0x25": "2024/09/06 20:16:15"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.10-38648278"
+        "0x2F": "HBG243500A8"
+        "0xFE": "0xdeadbeef"
     bjw3-can-7050c-6:
       ansible_host: 10.150.238.66
       ansible_hostv6: 2404:f801:10:16::a96:ee42
       mgmt_subnet_mask_length: 23
-      model: DCS-7050CX3-32C-SSD
-      serial:
-      base_mac:
+      model: DCS-7050CX3-32C
+      serial: HBG243204UV
+      base_mac: 68:bf:6c:a4:31:bc
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402C0"
+        "0x23": "HBG243204UV"
+        "0x24": "68:bf:6c:a4:31:bc"
+        "0x25": "2024/08/20 14:30:16"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.10-38648278"
+        "0x2F": "HBG243204UV"
+        "0xFE": "0xdeadbeef"
     bjw3-can-7050c-7:
       ansible_host: 10.150.238.68
       ansible_hostv6: 2404:f801:10:16::a96:ee44
       mgmt_subnet_mask_length: 23
-      model: DCS-7050CX3-32C-SSD
-      serial:
-      base_mac:
+      model: DCS-7050CX3-32C
+      serial: HBG24350097
+      base_mac: 54:0f:2c:40:f8:30
       syseeprom_info:
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402C0"
+        "0x23": "HBG24350097"
+        "0x24": "54:0f:2c:40:f8:30"
+        "0x25": "2024/09/06 20:16:20"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.10-38648278"
+        "0x2F": "HBG24350097"
+        "0xFE": "0xdeadbeef"
 
 sonic_arista_7050_C6S104:
   vars:
