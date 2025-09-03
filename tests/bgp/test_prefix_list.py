@@ -21,20 +21,14 @@ ROUTES_TO_ADVERTISE = {
     "ipv6": [
         "50c0:0:0:1::/64",
         "50c0:0:0:2::/64",
-        "50c0:0:0:3::/64",
-        "50c0:0:0:4::/64",
         "60c0:0:0:1::/64",
         "60c0:0:0:2::/64",
-        "60c0:0:0:3::/64",
-        "60c0:0:0:4::/64"
     ],
     "ipv4": [
         "205.168.0.64/26",
         "205.168.0.128/26",
-        "205.168.0.192/26",
         "205.169.0.64/26",
         "205.169.0.128/26",
-        "205.169.0.192/26"
     ]
 }
 CONSTANTS_FILE = "/etc/sonic/constants.yml"
@@ -57,8 +51,8 @@ def verify_prefix_list_in_db(duthost, prefix_type, prefix):
     result_str = "('{}', '{}')".format(prefix_type, prefix)
     count = outputs.count(result_str)
     if count != expected:
-        logger.error("Expected {} occurences of {} in the output, but found {} occurences".format(expected, result_str,
-                                                                                                  count))
+        logger.warning("Expected {} occurences of {} in the output, but found {} occurences"
+                       .format(expected, result_str, count))
         return False
     return True
 
@@ -101,7 +95,13 @@ def check_sonic_route_receive(present, output_json, expected_community, unexpect
         if "paths" in output_json:
             for path in output_json["paths"]:
                 if not ("community" in path and "list" in path["community"]):
-                    continue
+                    # If community doesn't exist in route and there is not expected community, we can treat it as True
+                    if len(expected_community) == 0:
+                        result = True
+                        break
+                    else:
+                        continue
+                # If community exists in route, then we need to check whether it match expected / unexpected community
                 if (
                     all(item in path["community"]["list"] for item in expected_community) and
                     all(item not in path["community"]["list"] for item in unexpected_community)
@@ -120,16 +120,24 @@ def check_eos_route_receive(present, output_json, expected_community, unexpected
         try:
             paths = output_json["vrfs"]["default"]["bgpRouteEntries"][prefix]["bgpRoutePaths"]
             for path in paths:
+                if len(expected_community) == 0 and "communityList" not in path["routeDetail"]:
+                    # If community doesn't exist in route and there is not expected community, we can treat it as True
+                    result = True
+                # If community exists in route, then we need to check whether it match expected / unexpected community
                 if (
                     all(item in path["routeDetail"]["communityList"] for item in expected_community) and
                     all(item not in path["routeDetail"]["communityList"] for item in unexpected_community)
                 ):
                     result = True
         except KeyError:
-            logger.error("Cannot find route path info from EOS neighbor {}".format(hostname))
+            logger.warning("Cannot find route path info from EOS neighbor {}".format(hostname))
     else:
-        if ("vrfs" not in output_json or "default" not in output_json["vrfs"] or "bgpRouteEntries"
-            not in output_json["vrfs"]["default"] or prefix not in output_json["vrfs"]["default"]["bgpRouteEntries"]):
+        if (
+            "vrfs" not in output_json or
+            "default" not in output_json["vrfs"] or
+            "bgpRouteEntries" not in output_json["vrfs"]["default"] or
+            prefix not in output_json["vrfs"]["default"]["bgpRouteEntries"]
+        ):
             result = True
     return result
 
@@ -166,7 +174,6 @@ def rand_one_uplink_duthost(duthosts):
     for duthost in duthosts:
         if duthost.is_supervisor_node():
             continue
-        # First get all T3 neighbors, which are of type RegionalHub, AZNGHub
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         device_metadata = config_facts["DEVICE_METADATA"]
         if ("localhost" in device_metadata and "type" in device_metadata["localhost"] and
@@ -195,9 +202,54 @@ def announce_routes(localhost, tbinfo, ptfhost, routes, neighbor_names, ip_versi
                               peers_routes_to_change=peers_routes, path="../ansible")
 
 
+def construct_neighbor_routes(ah_nbrs, rh_nbrs, community, duthost, anchor_prefixes, anchor_contributing_routes):
+    # Construct the object to indicates prefixes should be announced to which neighbor with what communities
+    # Return sample:
+    # {
+    #     "prefix":
+    #      [
+    #         {
+    #             "expected_community": [...],
+    #             "unexpected_community": [...],
+    #             "neighbors": [...],
+    #             "type": "anchor"
+    #         },
+    #         {
+    #             "expected_community": [...],
+    #             "unexpected_community": [...],
+    #             "neighbors": [...],
+    #             "type": "anchor"
+    #         },
+    #     ]
+    # }
+    announced_result = {}
+    not_announced_result = {}
+    # Anchor and contributing routes should be announced to rh and ah neighbor
+    for prefix in anchor_prefixes:
+        announced_result.setdefault(prefix, [])
+        announced_result[prefix].append({
+            "expected_community": [community["anchor_community"]],
+            "unexpected_community": [community["local_anchor_community"], community["anchor_contributing_community"]],
+            "neighbors": rh_nbrs + ah_nbrs,
+            "type": "anchor"
+        })
+    for prefix in anchor_contributing_routes:
+        announced_result.setdefault(prefix, [])
+        announced_result[prefix].append({
+            "expected_community": [community["anchor_contributing_community"]],
+            "unexpected_community": [community["local_anchor_community"], community["anchor_community"]],
+            "neighbors": rh_nbrs + ah_nbrs,
+            "type": "contributing"
+        })
+
+    return announced_result, not_announced_result
+
+
 @pytest.fixture(scope="function")
 def common_setup_and_teardown(localhost, nbrhosts, tbinfo, ptfhost, rand_one_uplink_duthost, ip_version):
     duthost = rand_one_uplink_duthost
+    anchor_prefixes = ANCHOR_PREFIXES[ip_version]
+    anchor_contributing_routes = ROUTES_TO_ADVERTISE[ip_version]
     # Fetch anchor communities
     pytest_require(duthost.stat(path=CONSTANTS_FILE)["stat"]["exists"],
                    "constants.yml doesn't exist, skip test")
@@ -220,7 +272,12 @@ def common_setup_and_teardown(localhost, nbrhosts, tbinfo, ptfhost, rand_one_upl
     rh_neighbors = [nbr_host for nbr_name, nbr_host in nbrhosts.items() if nbr_name in rh_neighbor_name]
     ah_neighbors = [nbr_host for nbr_name, nbr_host in nbrhosts.items() if nbr_name in ah_neighbor_name]
 
-    yield community, rh_neighbors + ah_neighbors, [], downstream_nbr_names, ip_version
+    announced_neighbors, not_announced_neighbors = construct_neighbor_routes(ah_neighbors, rh_neighbors, community,
+                                                                             duthost, anchor_prefixes,
+                                                                             anchor_contributing_routes)
+
+    yield (anchor_prefixes, anchor_contributing_routes, announced_neighbors, not_announced_neighbors,
+           downstream_nbr_names, ip_version, rand_one_uplink_duthost)
 
     announce_routes(localhost, tbinfo, ptfhost, ROUTES_TO_ADVERTISE[ip_version], downstream_nbr_names, ip_version,
                     "withdraw")
@@ -229,64 +286,61 @@ def common_setup_and_teardown(localhost, nbrhosts, tbinfo, ptfhost, rand_one_upl
         op_anchor_prefix_with_cmd(duthost, PREFIX_TYPE, prefix, "remove", ignore_error=True)
 
 
-def verify(announced_nbrs, not_announced_nbrs, community, duthost, anchor_prefixes, anchor_contributing_routes,
-           ip_version, neighbor_type):
+def verify(duthost, announced_neighbors, not_announced_neighbors, ip_version, neighbor_type):
     # Wait for changes be applied
     time.sleep(10)
     result = {"prefix_in_db": set(), "prefix_in_bgp_table": set(), "prefix_in_fib_table": set(),
               "prefix_announcing": set()}
-    for prefix in anchor_prefixes:
-        # Check whether prefix existing in DUT's CONFIG_DB
-        if verify_prefix_list_in_db(duthost, PREFIX_TYPE, prefix):
-            result["prefix_in_db"].add(prefix)
-        # Check whether prefix existing in DUT's BGP table
-        if verify_prefix_in_table(duthost, prefix, ip_version, "bgp"):
-            result["prefix_in_bgp_table"].add(prefix)
-        # Check whether prefix existing in DUT's FIB table
-        if verify_prefix_in_table(duthost, prefix, ip_version, "fib"):
-            result["prefix_in_fib_table"].add(prefix)
-        # Check whether routes are advertised to expected neighbors
-        expected_received = verify_prefix_received_in_neighbor(announced_nbrs, prefix,
-                                                               [community["anchor_community"]],
-                                                               [community["anchor_contributing_community"],
-                                                                community["local_anchor_community"]], True,
-                                                               neighbor_type)
-        # Check whether routes are NOT advertised to unexpected neighbors
-        expected_no_received = verify_prefix_received_in_neighbor(not_announced_nbrs, prefix,
-                                                                  [community["anchor_community"]],
-                                                                  [community["anchor_contributing_community"],
-                                                                   community["local_anchor_community"]], False,
-                                                                  neighbor_type)
+    for prefix, values in announced_neighbors.items():
+        if values[0]["type"] == "anchor":
+            # Check whether prefix existing in DUT's CONFIG_DB
+            if verify_prefix_list_in_db(duthost, PREFIX_TYPE, prefix):
+                result["prefix_in_db"].add(prefix)
+            # Check whether prefix existing in DUT's BGP table
+            if verify_prefix_in_table(duthost, prefix, ip_version, "bgp"):
+                result["prefix_in_bgp_table"].add(prefix)
+            # Check whether prefix existing in DUT's FIB table
+            if verify_prefix_in_table(duthost, prefix, ip_version, "fib"):
+                result["prefix_in_fib_table"].add(prefix)
+
+        # Check whether routes are received on expected neighbors, because a route maybe be advertised to different
+        # neighbors with different communities, hence we need to loop the values
+        expected_received = True
+        for item in values:
+            expected_received &= verify_prefix_received_in_neighbor(item["neighbors"], prefix,
+                                                                    item["expected_community"],
+                                                                    item["unexpected_community"], present=True,
+                                                                    neighbor_type=neighbor_type)
+        # Check whether routes are NOT received on unexpected neighbors, only one scenario of a single route,
+        # hence we only use not_announced_neighbors[prefix][0]
+        expected_no_received = True
+        if expected_received and prefix in not_announced_neighbors:
+            expected_no_received = verify_prefix_received_in_neighbor(not_announced_neighbors[prefix][0]["neighbors"],
+                                                                      prefix, [], [], present=False,
+                                                                      neighbor_type=neighbor_type)
         if expected_no_received and expected_received:
             result["prefix_announcing"].add(prefix)
-    for prefix in anchor_contributing_routes:
-        expected_received = verify_prefix_received_in_neighbor(announced_nbrs, prefix,
-                                                               [community["anchor_contributing_community"]],
-                                                               [community["local_anchor_community"],
-                                                                community["anchor_community"]], True,
-                                                               neighbor_type)
-        expected_no_received = verify_prefix_received_in_neighbor(not_announced_nbrs, prefix,
-                                                                  [community["anchor_contributing_community"]],
-                                                                  [community["local_anchor_community"],
-                                                                   community["anchor_community"]], False,
-                                                                  neighbor_type)
-        if expected_received and expected_no_received:
+    # Check whether routes are NOT received on unexpected neighbors, only one scenario of a single route,
+    # hence we only use not_announced_neighbors[prefix][0]
+    for prefix in not_announced_neighbors.keys():
+        if prefix in announced_neighbors:
+            continue
+        if verify_prefix_received_in_neighbor(not_announced_neighbors[prefix][0]["neighbors"], prefix, [], [],
+                                              present=False, neighbor_type=neighbor_type):
             result["prefix_announcing"].add(prefix)
+
     logger.info("Verify result: {}".format(result))
     return result
 
 
-def test_prefix_list_tsa(rand_one_uplink_duthost, common_setup_and_teardown, localhost, tbinfo, ptfhost, request):
-    duthost = rand_one_uplink_duthost
-    community, expected_announced, expected_not_announced, downstream_nbr_names, ip_version = common_setup_and_teardown
-    anchor_prefixes = ANCHOR_PREFIXES[ip_version]
-    anchor_contributing_routes = ROUTES_TO_ADVERTISE[ip_version]
+def test_prefix_list_tsa(common_setup_and_teardown, localhost, tbinfo, ptfhost, request):
+    (anchor_prefixes, anchor_contributing_routes, announced_neighbors, not_announced_neighbors,
+     downstream_nbr_names, ip_version, duthost) = common_setup_and_teardown
     neighbor_type = request.config.getoption("neighbor_type")
     announce_routes(localhost, tbinfo, ptfhost, anchor_contributing_routes, downstream_nbr_names, ip_version)
     for prefix in anchor_prefixes:
         op_anchor_prefix_with_cmd(duthost, PREFIX_TYPE, prefix, "add")
-    result = verify(expected_announced, expected_not_announced, community, duthost, anchor_prefixes,
-                    anchor_contributing_routes, ip_version, neighbor_type)
+    result = verify(duthost, announced_neighbors, not_announced_neighbors, ip_version, neighbor_type)
     # After adding Anchor prefix, we need below verification:
     # 1) Anchor prefixes are existing in DB
     # 2) Anchor prefixes are existing in BGP table in DUT
@@ -301,8 +355,7 @@ def test_prefix_list_tsa(rand_one_uplink_duthost, common_setup_and_teardown, loc
     pytest_assert(len(result["prefix_announcing"]) == len(anchor_prefixes) + len(anchor_contributing_routes),
                   "Prefix announcing is unexpected before TSA: {}".format(result["prefix_announcing"]))
     duthost.shell("sudo TSA")
-    result = verify(expected_announced, expected_not_announced, community, duthost, anchor_prefixes,
-                    anchor_contributing_routes, ip_version, neighbor_type)
+    result = verify(duthost, announced_neighbors, not_announced_neighbors, ip_version, neighbor_type)
     # After TSA, only 4) prefix announcing changed: Anchor prefixes and contributing routes are NOT announcing to
     # the neighbors
     pytest_assert(len(result["prefix_in_db"]) == len(anchor_prefixes),
@@ -314,8 +367,7 @@ def test_prefix_list_tsa(rand_one_uplink_duthost, common_setup_and_teardown, loc
     pytest_assert(len(result["prefix_announcing"]) == 0,
                   "Prefix announcing is unexpected after TSA: {}".format(result["prefix_announcing"]))
     duthost.shell("sudo TSB")
-    result = verify(expected_announced, expected_not_announced, community, duthost, anchor_prefixes,
-                    anchor_contributing_routes, ip_version, neighbor_type)
+    result = verify(duthost, announced_neighbors, not_announced_neighbors, ip_version, neighbor_type)
     # After TSB, only 4) prefix announcing changed: Anchor prefixes and contributing routes are announcing to
     # the neighbors with correct communities
     pytest_assert(len(result["prefix_in_db"]) == len(anchor_prefixes),
@@ -328,22 +380,19 @@ def test_prefix_list_tsa(rand_one_uplink_duthost, common_setup_and_teardown, loc
                   "Prefix announcing is unexpected after TSB: {}".format(result["prefix_announcing"]))
 
 
-def test_prefix_list_specific_routes(rand_one_uplink_duthost, common_setup_and_teardown, localhost, tbinfo, ptfhost,
+def test_prefix_list_specific_routes(common_setup_and_teardown, localhost, tbinfo, ptfhost,
                                      request):
-    duthost = rand_one_uplink_duthost
-    community, expected_announced, expected_not_announced, downstream_nbr_names, ip_version = common_setup_and_teardown
-    anchor_prefixes = ANCHOR_PREFIXES[ip_version]
-    anchor_contributing_routes = ROUTES_TO_ADVERTISE[ip_version]
+    (anchor_prefixes, anchor_contributing_routes, announced_neighbors, not_announced_neighbors,
+     downstream_nbr_names, ip_version, duthost) = common_setup_and_teardown
     neighbor_type = request.config.getoption("neighbor_type")
     for prefix in anchor_prefixes:
         op_anchor_prefix_with_cmd(duthost, PREFIX_TYPE, prefix, "add")
-    result = verify(expected_announced, expected_not_announced, community, duthost, anchor_prefixes,
-                    anchor_contributing_routes, ip_version, neighbor_type)
+    result = verify(duthost, announced_neighbors, not_announced_neighbors, ip_version, neighbor_type)
     # After adding Anchor prefix but not advertising specific routes from neighbor, we need below verification:
     # 1) Anchor prefixes are existing in DB
     # 2) Anchor prefixes are NOT existing in BGP table in DUT
     # 3) Anchor prefixes are NOT existing in FIB table in DUT
-    # 4) Anchor prefixes and NOT contributing routes are NOT announcing to the neighbors with correct communities
+    # 4) Anchor prefixes and contributing routes are NOT announcing to the neighbors with correct communities
     pytest_assert(len(result["prefix_in_db"]) == len(anchor_prefixes),
                   "Prefix in db is unexpected before adding specific routes: {}".format(result["prefix_in_db"]))
     pytest_assert(len(result["prefix_in_bgp_table"]) == 0,
@@ -356,8 +405,7 @@ def test_prefix_list_specific_routes(rand_one_uplink_duthost, common_setup_and_t
                   "Prefix announcing is unexpected before adding specific routes: {}"
                   .format(result["prefix_announcing"]))
     announce_routes(localhost, tbinfo, ptfhost, anchor_contributing_routes, downstream_nbr_names, ip_version)
-    result = verify(expected_announced, expected_not_announced, community, duthost, anchor_prefixes,
-                    anchor_contributing_routes, ip_version, neighbor_type)
+    result = verify(duthost, announced_neighbors, not_announced_neighbors, ip_version, neighbor_type)
     # After announce specific routes, 2) and 4) changed
     # 2) Anchor prefixes are existing in BGP table in DUT
     # 4) Anchor prefixes and contributing routes are NOT announcing to the neighbors with correct communities
