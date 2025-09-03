@@ -420,12 +420,12 @@ layer1/test_port_error.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-log_fidelity/test_bgp_shutdown.py:
+lldp/test_lldp_syncd.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-lldp/test_lldp_syncd.py:
+log_fidelity/test_bgp_shutdown.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
