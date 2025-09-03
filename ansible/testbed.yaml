@@ -3691,16 +3691,16 @@
   auto_recover: 'True'
   comment: yawenni
 
-- conf-name: vms25-dual-t0-8101c1-02
-  group-name: vms25-4
+- conf-name: vms26-dual-t0-8101c1-02
+  group-name: vms26-2
   topo: dualtor-aa
   ptf_image_name: docker-ptf
-  ptf: vms25-4
+  ptf: vms26-2
   ptf_ip: 10.64.247.71/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f747/64
   netns_mgmt_ip: 10.64.247.49/23
-  server: server_25
-  vm_base: VM25016
+  server: server_26
+  vm_base: VM26072
   dut:
   - str2-8101c1-03
   - str2-8101c1-04
