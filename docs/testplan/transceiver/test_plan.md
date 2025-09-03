@@ -128,7 +128,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
           "hardware_rev": "hardware_revision_number",
-          "transceiver_type": "STRAIGHT_400G_CABLE"
+          "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
         },
         "Ethernet4:7": {
           "vendor_name": "ACME Corp.",
@@ -138,24 +138,24 @@ These tests do not require traffic and are standalone, designed to run on a Devi
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
           "hardware_rev": "hardware_revision_number",
-          "transceiver_type": "AOC_4X100G_BREAKOUT"
+          "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
         },
         "Ethernet16,Ethernet20,Ethernet24": {
           "vendor_name": "Example & Co",
           "vendor_pn": "SFP-1000BASE-LX",
-          "transceiver_type": "SFP_1G_OPTICS"
+          "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"
         },
         "Ethernet28:33,Ethernet36,Ethernet40:45": {
           "vendor_name": "Vendor/Inc",
           "vendor_pn": "QSFP-100G-AOC-10M",
-          "transceiver_type": "AOC_2X100G_BREAKOUT"
+          "transceiver_configuration": "AOC-100-QSFP-100G_STRAIGHT-0x0F-0x0F"
         }
       },
       "dut_name_2": {
         "Ethernet0:97:4": {
           "vendor_name": "ACME Corp.",
           "vendor_pn": "QSFP-100G-AOC-15M",
-          "transceiver_type": "STRAIGHT_400G_CABLE"
+          "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
         }
       }
     }
@@ -172,7 +172,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     The framework supports multiple flexible port specification formats to reduce configuration overhead:
 
     1. **Individual Port**: `"Ethernet0"` - Single port specification
-    2. **Range**: `"Ethernet4:13"` - Continuous range from Ethernet4 to Ethernet12 (inclusive)
+    2. **Range**: `"Ethernet4:13"` - Continuous range from Ethernet4 to Ethernet12 (exclusive of 13, following Python slice convention)
     3. **Range with Step**: `"Ethernet0:97:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
     4. **List**: `"Ethernet16,Ethernet20,Ethernet24"` - Comma-separated list of specific ports
     5. **Mixed**: `"Ethernet28:33,Ethernet36,Ethernet40:45"` - Combination of ranges and individual ports
@@ -194,16 +194,15 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     **Mandatory Fields:**
     - `vendor_name`: The name of the vendor as specified in the transceiver's EEPROM.
     - `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
+    - `transceiver_configuration`: The transceiver configuration name following the mandatory naming format `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}` (e.g., `AOC-200-QSFPDD-2x100G-0xFF-0xFF`). The DEPLOYMENT part of this field is used to reference a deployment configuration in the per-category attribute files and must correspond to a valid deployment defined in the `deployment_configurations` section.
 
     **Field Handling Rules:**
     - **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings` section to get the corresponding normalized values.
     - **Default normalization**: If no mapping is found in `normalization_mappings`, the normalized value defaults to the original value (with basic cleanup applied).
     - **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.part_numbers` following the cable length normalization rules.
-    - **Transceiver type validation**: The `transceiver_type` field must correspond to a valid type defined in the `transceiver_types` section of the per-category attribute files. This ensures that the specified type has defined attributes and behavior.
     - **Port expansion processing**: Range and list specifications are expanded to individual ports before attribute processing.
 
     **Optional Fields:**
-    - `transceiver_type`: The functional type classification that determines how the transceiver is used on this specific port (e.g., "AOC_2X100G_BREAKOUT", "STRAIGHT_400G_CABLE", "DR8_400G_OPTICS"). If not specified, only vendor/part number specific attributes and defaults will be applied.
     - `vendor_sn`: The vendor serial number.
     - `vendor_date`: The vendor date code.
     - `vendor_oui`: The vendor OUI.
@@ -231,62 +230,62 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "normalized_vendor_name": "ACME_CORP",  # looked up from normalization_mappings
                 "vendor_pn": "QSFP-100G-AOC-15M",
                 "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",  # looked up from normalization_mappings
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
                 "vendor_sn": "serial_number_001",
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number",
-                "transceiver_type": "STRAIGHT_400G_CABLE"
+                "hardware_rev": "hardware_revision_number"
             },
             "Ethernet4": {
                 "vendor_name": "ACME Corp.",
                 "normalized_vendor_name": "ACME_CORP",
                 "vendor_pn": "QSFP-100G-AOC-15M",
                 "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
                 "vendor_sn": "serial_number_range",  # same value for all ports in range
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
                 "hardware_rev": "hardware_revision_number",
-                "transceiver_type": "AOC_4X100G_BREAKOUT"
             },
             "Ethernet5": {
                 "vendor_name": "ACME Corp.",
                 "normalized_vendor_name": "ACME_CORP",
                 "vendor_pn": "QSFP-100G-AOC-15M",
                 "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
                 "vendor_sn": "serial_number_range",  # same value for all ports in range
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number",
-                "transceiver_type": "AOC_4X100G_BREAKOUT"
+                "hardware_rev": "hardware_revision_number"
             },
             "Ethernet6": {
                 "vendor_name": "ACME Corp.",
                 "normalized_vendor_name": "ACME_CORP",
                 "vendor_pn": "QSFP-100G-AOC-15M",
                 "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
                 "vendor_sn": "serial_number_range",  # same value for all ports in range
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number",
-                "transceiver_type": "AOC_4X100G_BREAKOUT"
+                "hardware_rev": "hardware_revision_number"
             },
             "Ethernet16": {
                 "vendor_name": "Example & Co",
                 "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings
                 "vendor_pn": "SFP-1000BASE-LX",
                 "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings (same value)
-                "transceiver_type": "SFP_1G_OPTICS"
+                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"  # single string configuration
             },
             "Ethernet20": {
                 "vendor_name": "Example & Co",
                 "normalized_vendor_name": "EXAMPLE_CO",
                 "vendor_pn": "SFP-1000BASE-LX",
                 "normalized_vendor_pn": "SFP-1000BASE-LX",
-                "transceiver_type": "SFP_1G_OPTICS"
+                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"  # single string configuration
             }
             # Additional ports expanded from ranges and lists...
         }
@@ -338,10 +337,10 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         }
       },
       "transceivers": {
-        "transceiver_types": {
-          "TYPE_NAME": {
-            "field_2": "type_specific_value_2",
-            "field_6": "type_override_value"
+        "deployment_configurations": {
+          "DEPLOYMENT_NAME": {
+            "field_2": "deployment_specific_value_2",
+            "field_6": "deployment_override_value"
           }
         },
         "vendors": {
@@ -354,7 +353,6 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "field_1": "specific_value_1",
                 "field_2": "specific_value_2",
                 "field_3": "specific_value_3",
-                "transceiver_type": "TYPE_NAME",
                 "platform_hwsku_overrides": {
                   "PLATFORM_NAME+HWSKU_NAME": {
                     "field_1": "highest_priority_value"
@@ -374,7 +372,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections. This creates logical inconsistency because a field cannot simultaneously require explicit specification (mandatory) and have a fallback value (default). The framework would be unable to determine whether to enforce validation or apply defaults when the field is missing.
     - **Validation Order**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
     - **Normalization Integration**: The normalized vendor name and part number are automatically derived from the `normalization_mappings` using the raw vendor name and part number as keys. If no mapping exists, the original value is used with basic cleanup applied.
-    - **Transceiver Type Classification**: Transceivers can be grouped by functional characteristics (cable type, speed, breakout configuration) using `transceiver_types` to reduce attribute duplication across similar transceivers from different vendors.
+    - **Deployment Pattern Grouping**: Transceivers with identical deployment patterns (like 2x100G, 4x200G, etc.) can share common attributes through the `deployment_configurations` section, eliminating the need to repeat the same attributes across different vendors.
     - **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
     - **Backward Compatibility**: Missing optional sections (platform, hwsku, etc.) are silently ignored to support gradual adoption and legacy configurations.
 
@@ -384,35 +382,51 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     - `platform`: Platform-specific overrides (optional)
     - `hwsku`: HWSKU-specific overrides (optional)
     - `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory based hostname of the DUT
-    - `transceivers`: Contains vendor and transceiver-specific configurations organized in a hierarchical structure (mandatory)
-        - `transceiver_types`: Functional type-based attribute definitions (e.g., AOC_2X100G_BREAKOUT, STRAIGHT_400G_CABLE) (optional)
+    - `transceivers`: Contains vendor and deployment-specific configurations organized in a hierarchical structure (mandatory)
+        - `deployment_configurations`: Deployment-based attribute definitions using the mandatory naming format (e.g., AOC-200-QSFPDD-2x100G-0xFF-0xFF, DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F) (optional)
         - `vendors`: Vendor-specific configurations organized by normalized vendor name (optional)
             - `<NORMALIZED_VENDOR_NAME>`: Individual vendor section containing defaults and part number configurations
                 - `defaults`: Vendor-level default values (optional)
                 - `part_numbers`: Part number-specific configurations organized by normalized part number (optional)
                     - `<NORMALIZED_VENDOR_PN>`: Individual part number section with specific attributes and overrides
                         - `platform_hwsku_overrides`: Overrides for specific platform+HWSKU combinations (optional)
+
     > Note: Each sub-section can contain its own `defaults` fields.
 
-    **Transceiver Type Classification Benefits:**
+    **Deployment Configuration Classification Benefits:**
 
-    The `transceiver_types` feature addresses the common challenge of attribute duplication across similar transceivers from different vendors. Instead of defining the same attributes repeatedly for each vendor's 2x100G AOC cables, you define them once in a type and reference it.
+    The `deployment_configurations` feature addresses the common challenge of attribute duplication across similar deployment patterns from different vendors. Instead of defining the same attributes repeatedly for each vendor's 2x100G deployment, you define them once in a deployment configuration. The framework automatically references these configurations by extracting the DEPLOYMENT component from the `transceiver_configuration` field in `transceiver_dut_info.json`.
 
     **Key Advantages:**
-    - **Eliminates Duplication**: Define common attributes once per functional type (e.g., `AOC_2X100G_BREAKOUT`) instead of repeating across vendors
-    - **Logical Organization**: Groups transceivers by functional characteristics (cable type, speed, breakout configuration) rather than just vendor lineage
-    - **Flexible Overrides**: Vendors can still override type defaults when their specific implementations require different values
-    - **Clear Semantics**: Type names immediately convey transceiver characteristics (`DR8_400G_OPTICS`, `DAC_200G_STRAIGHT`)
-    - **Scalable Design**: Adding new transceiver categories requires only one type definition rather than updates across multiple vendor sections
-    - **Centralized Maintenance**: Changes to common attributes for a functional type only need updates in one location
+    - **Eliminates Duplication**: Define common attributes once per deployment type (e.g., `AOC-200-QSFPDD-2x100G-0xFF-0xFF`) instead of repeating across vendors
+    - **Logical Organization**: Groups transceivers by deployment characteristics (cable type, speed, form factor, deployment pattern, lane configuration) rather than just vendor lineage
+    - **Flexible Overrides**: Vendors can still override deployment defaults when their specific implementations require different values
+    - **Clear Semantics**: Configuration names immediately convey deployment characteristics (`DR-800-OSFP-400G_STRAIGHT-0xFF-0xFF`, `DAC-400-OSFP-4x100G-0x0F-0x0F`)
+    - **Scalable Design**: Adding new deployment configurations requires only one definition rather than updates across multiple vendor sections
+    - **Centralized Maintenance**: Changes to common attributes for a deployment only need updates in one location
 
     **Naming Convention:**
-    - **Format**: `{CABLE_TYPE}_{SPEED}_{FORM_FACTOR}` or `{CABLE_TYPE}_{SPEED}_{CHARACTERISTICS}`
+    - **Format (Mandatory)**: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
+    - **Type**: Cable/optics type - AOC, AEC, LPO, LRO, TRO, CPO, DAC, DR, FR, LR, ZR
+    - **Speed**: Total aggregate speed in Gbps (e.g., 100, 200, 400, 800)
+    - **Form Factor**: Physical form factor - CPO, OSFP, QSFPDD, QSFP, SFP
+    - **Deployment**: Traffic deployment pattern describing how the speed is distributed across breakout ports or straight through ports
+      - `2x100G` - 200G total split into 2x100G breakout ports
+      - `4x100G` - 400G total split into 4x100G breakout ports  
+      - `2x200G` - 400G total split into 2x200G breakout ports
+      - `4x200G` - 800G total split into 4x200G breakout ports
+      - `8x100G` - 800G total split into 8x100G breakout ports
+      - `400G_STRAIGHT` - 400G total as single port (no breakout)
+      - `800G_STRAIGHT` - 800G total as single port (no breakout)
+    - **Media Lane Mask**: Hexadecimal bitmask indicating which media/optical lanes are used for the logical port (e.g., 0x01, 0x0F, 0xFF)
+    - **Host Lane Mask**: Hexadecimal bitmask indicating which host/electrical lanes are used for the logical port (e.g., 0x01, 0x0F, 0xFF)
     - **Examples**:
-      - `AOC_2X100G_BREAKOUT` - Active Optical Cable, 2x100G breakout
-      - `DAC_400G_STRAIGHT` - Direct Attach Cable, 400G straight-through
-      - `DR8_400G_OPTICS` - DR8 specification, 400G optics
-      - `LR4_100G_OPTICS` - LR4 specification, 100G optics
+      - `AOC-200-QSFPDD-2x100G-0xFF-0xFF` - Active Optical Cable, 200G total, QSFP-DD form factor, 2x100G deployment, 8 media lanes (all), 8 host lanes (all)
+      - `DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F` - Direct Attach Cable, 400G total, OSFP form factor, straight deployment, 4 media lanes (0-3), 4 host lanes (0-3)
+      - `DR-800-OSFP-4x200G-0xFF-0xFF` - DR specification, 800G total, OSFP form factor, 4x200G deployment, 8 media lanes (all), 8 host lanes (all)
+      - `LR-400-QSFPDD-400G_STRAIGHT-0x01-0xFF` - LR specification, 400G total, QSFP-DD form factor, straight deployment, 1 media lane (lane 0), 8 host lanes (all)
+      - `CPO-1600-CPO-8x200G-0xFF-0xFF` - Co-Packaged Optics, 1.6T total, CPO form factor, 8x200G deployment, 16 media lanes (all), 16 host lanes (all)
+      - `ZR-400-QSFPDD-400G_STRAIGHT-0x01-0x0F` - ZR specification, 400G total, QSFP-DD form factor, straight deployment, 1 media lane (lane 0), 4 host lanes (0-3)
 
     **Priority-based attribute resolution (highest to lowest):**
 
@@ -420,7 +434,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
     3. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
     4. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
-    5. **Transceiver Type**: `transceivers.transceiver_types.<TYPE_NAME>` (resolved via `transceiver_type` field from `transceiver_dut_info.json`)
+    5. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved by extracting DEPLOYMENT from the `transceiver_configuration` field in `transceiver_dut_info.json`)
     6. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
     7. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
     8. **Global defaults**: `defaults`
@@ -444,32 +458,11 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         "sfputil_eeprom_dump_sec": 2
       },
       "transceivers": {
-        "transceiver_types": {
-          "AOC_2X100G_BREAKOUT": {
-            "cable_type": "AOC",
-            "speed_gbps": 200,
-            "breakout_ports": 2,
-            "max_power_watts": 3.5,
+        "deployment_configurations": {
+          "AOC-200-QSFPDD-2x100G-0xFF-0xFF": {
             "vdm_supported": true,
             "dual_bank_supported": true,
             "cdb_backgroundmode_supported": true
-          },
-          "STRAIGHT_400G_CABLE": {
-            "cable_type": "DAC",
-            "speed_gbps": 400,
-            "breakout_ports": 1,
-            "max_power_watts": 2.5,
-            "vdm_supported": false,
-            "dual_bank_supported": false
-          },
-          "DR8_400G_OPTICS": {
-            "cable_type": "OPTICS",
-            "speed_gbps": 400,
-            "breakout_ports": 8,
-            "max_power_watts": 12.0,
-            "vdm_supported": true,
-            "dual_bank_supported": true,
-            "frequency_tunable": true
           }
         },
         "vendors": {
@@ -536,7 +529,16 @@ These tests do not require traffic and are standalone, designed to run on a Devi
                 "vendor_date": "vendor_date_code",
                 "vendor_oui": "vendor_oui",
                 "vendor_rev": "revision_number",
-                "transceiver_type": "TRANSCEIVER_TYPE"  # optional, may be None if not specified
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # original configuration string
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 200,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G",                 # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lanes": 8,                       # derived from media_lane_mask
+                "host_lanes": 8                         # derived from host_lane_mask
             },
             # Category-specific attributes with merged overrides applied
             "EEPROM_ATTRIBUTES": {
@@ -558,12 +560,12 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
     The `port_attributes_dict` should be built using the following systematic process:
 
-    1. **Initialize port dictionary** from `transceiver_dut_info.json` base attributes for each port
+    1. **Initialize port dictionary** from `transceiver_dut_info.json` base attributes for each port, including parsing the `transceiver_configuration` string into individual components stored in `BASE_ATTRIBUTES`
     2. **For each category file** (EEPROM, System, DOM, VDM, PM, etc.), perform priority-based attribute merging:
        - **Step 2a**: Start with global `defaults` section as the base layer
        - **Step 2b**: Apply `platform.<PLATFORM>` overrides (if present and applicable)
        - **Step 2c**: Apply `hwsku.<HWSKU>` overrides (if present and applicable)
-       - **Step 2d**: Apply `transceivers.transceiver_types.<TYPE_NAME>` attributes (if `transceiver_type` field is specified in `transceiver_dut_info.json` for the current port)
+       - **Step 2d**: Apply `transceivers.deployment_configurations.<DEPLOYMENT>` attributes as individual keys (using the DEPLOYMENT component already parsed in `BASE_ATTRIBUTES`). The framework uses the pre-parsed deployment value to apply the corresponding deployment configuration attributes from the category file.
        - **Step 2e**: Apply `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults` vendor-level defaults (if present)
        - **Step 2f**: Apply `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>` specific attributes
        - **Step 2g**: Apply `platform_hwsku_overrides.<PLATFORM>+<HWSKU>` overrides (if present)
@@ -573,10 +575,65 @@ These tests do not require traffic and are standalone, designed to run on a Devi
     5. **Add categorized attributes** to the `port_attributes_dict` for the current port
     6. **Attach the complete `port_attributes_dict`** to the DUT host object for the selected `enum_rand_one_per_hwsku_hostname`
 
+    **Transceiver Configuration String Parsing:**
+
+    The framework should implement parsing logic to extract all components from the `transceiver_configuration` string during the base attributes initialization phase. The parsing follows the mandatory naming format `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`, and all parsed components are stored in `BASE_ATTRIBUTES` for easy access by all test categories.
+
+    **Example Parsing Implementation:**
+
+    ```python
+    def parse_transceiver_configuration(config_string):
+        """
+        Parse transceiver configuration string into individual components.
+        Format: {TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}
+        Example: "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
+        Returns: dictionary with all parsed components
+        """
+        if not config_string:
+            return {}
+        
+        parts = config_string.split('-')
+        if len(parts) != 6:
+            raise ValueError(f"Invalid transceiver configuration format: {config_string}")
+        
+        type_name, speed, form_factor, deployment, media_mask, host_mask = parts
+        
+        # Parse lane counts from hexadecimal masks
+        media_lanes = bin(int(media_mask, 16)).count('1')
+        host_lanes = bin(int(host_mask, 16)).count('1')
+        
+        return {
+            'cable_type': type_name,
+            'speed_gbps': int(speed),
+            'form_factor': form_factor,
+            'deployment': deployment,
+            'media_lane_mask': media_mask,
+            'host_lane_mask': host_mask,
+            'media_lanes': media_lanes,
+            'host_lanes': host_lanes
+        }
+    ```
+
+    **Base Attributes Population:**
+
+    ```python
+    # Configuration: "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
+    # Parse all components and store in BASE_ATTRIBUTES:
+    # base_attrs["transceiver_configuration"] = "AOC-200-QSFPDD-2x100G-0xFF-0xFF"  # original string
+    # base_attrs["cable_type"] = "AOC"                 # parsed from TYPE
+    # base_attrs["speed_gbps"] = 200                   # parsed from SPEED
+    # base_attrs["form_factor"] = "QSFPDD"             # parsed from FORM_FACTOR
+    # base_attrs["deployment"] = "2x100G"              # parsed from DEPLOYMENT
+    # base_attrs["media_lane_mask"] = "0xFF"           # parsed from MEDIA_LANE_MASK
+    # base_attrs["host_lane_mask"] = "0xFF"            # parsed from HOST_LANE_MASK
+    # base_attrs["media_lanes"] = 8                    # derived from media_lane_mask
+    # base_attrs["host_lanes"] = 8                     # derived from host_lane_mask
+    ```
+
     **Merging Behavior:**
     - **Dictionary merging**: Higher priority fields completely override earlier values for the same key
     - **Missing sections**: If any priority level section is missing, it is silently skipped without error
-    - **Missing transceiver_type**: If `transceiver_type` is not specified in `transceiver_dut_info.json`, step 2d is skipped and no transceiver type attributes are applied
+    - **Missing deployment_configuration**: If the DEPLOYMENT part of the `transceiver_configuration` is not specified in vendor part number specification, step 2d is skipped and no deployment configuration attributes are applied
     - **Key conflicts**: Higher priority levels always win - no merge conflict resolution needed
 
     **Implementation Requirements:**
@@ -594,6 +651,7 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
       ```python
       port_attributes_dict = duthost.get_port_attributes()
+      
       # Access EEPROM attributes for a specific port
       eeprom_attrs = port_attributes_dict["Ethernet0"]["EEPROM_ATTRIBUTES"]
       dual_bank_supported = eeprom_attrs["dual_bank_supported"]
@@ -601,6 +659,21 @@ These tests do not require traffic and are standalone, designed to run on a Devi
       # Access system test attributes
       system_attrs = port_attributes_dict["Ethernet0"]["SYSTEM_ATTRIBUTES"]
       max_failures = system_attrs["max_allowed_failures"]
+      
+      # Access base transceiver configuration details (parsed from transceiver_configuration)
+      base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
+      cable_type = base_attrs["cable_type"]                # parsed from transceiver_configuration
+      speed_gbps = base_attrs["speed_gbps"]                # parsed from transceiver_configuration
+      form_factor = base_attrs["form_factor"]              # parsed from transceiver_configuration
+      deployment = base_attrs["deployment"]                # parsed from transceiver_configuration
+      media_lane_mask = base_attrs["media_lane_mask"]      # parsed from transceiver_configuration
+      host_lane_mask = base_attrs["host_lane_mask"]        # parsed from transceiver_configuration
+      media_lanes = base_attrs["media_lanes"]              # derived from media_lane_mask
+      host_lanes = base_attrs["host_lanes"]                # derived from host_lane_mask
+      
+      # All attributes are accessible at the same level, regardless of their source
+      vendor_specific_attr = eeprom_attrs["vendor_specific_attribute"]  # from vendor section
+      platform_override = eeprom_attrs["platform_specific_setting"]    # from platform override
       ```
 
     **Benefits:**
