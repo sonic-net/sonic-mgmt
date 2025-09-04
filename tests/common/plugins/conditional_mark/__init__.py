@@ -20,6 +20,16 @@ logger = logging.getLogger(__name__)
 
 DEFAULT_CONDITIONS_FILE = 'common/plugins/conditional_mark/tests_mark_conditions*.yaml'
 ASIC_NAME_PATH = '/../../../../ansible/group_vars/sonic/variables'
+MARK_CONDITIONS_CONSTANTS = {
+    "QOS_SAI_TOPO": ['t0', 't0-64', 't0-116', 't0-118', 't0-35', 't0-56', 't0-80',
+                     't0-standalone-32', 't0-standalone-64', 't0-standalone-128', 't0-standalone-256',
+                     'dualtor-56', 'dualtor-120', 'dualtor', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout',
+                     't0-backend', 't0-d18u8s4', 't0-isolated-d96u32s2',
+                     't1-lag', 't1-28-lag', 't1-48-lag', 't1-64-lag', 't1-56-lag',
+                     't1-backend', 't1-isolated-d128', 't1-isolated-d32',
+                     't2', 't2_2lc_36p-masic', 't2_2lc_min_ports-masic',
+                     'lt2-p32o64', 'lt2-o128', 'ft2-64']
+}
 
 
 def pytest_addoption(parser):
@@ -645,6 +655,7 @@ def pytest_collection_modifyitems(session, config, items):
     logger.info('Available basic facts that can be used in conditional skip:\n{}'.format(
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
+    basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
     for item in items:
         all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
