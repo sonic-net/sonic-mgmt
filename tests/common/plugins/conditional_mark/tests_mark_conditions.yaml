@@ -102,7 +102,7 @@ arp/test_wr_arp.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
 
 #######################################
 #####            bfd              #####
