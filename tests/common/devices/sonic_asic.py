@@ -755,3 +755,10 @@ class SonicAsic(object):
 
     def show_and_parse(self, show_cmd, **kwargs):
         return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)
+
+    def get_vtysh_cmd_for_namespace(self, cmd):
+        if not self.sonichost.is_multi_asic:
+            return cmd
+
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(self.asic_index))
+        return ns_cmd
