@@ -1172,8 +1172,8 @@ def fib_m1(topo, ptf_ip, action="announce", topo_routes={}):
             pass
 
         topo_routes[k] = {}
-        topo_routes[k][IPV4] = [(str(route[0]), str(route[1]), route[2]) for route in routes_v4]
-        topo_routes[k][IPV6] = [(str(route[0]), str(route[1]), route[2]) for route in routes_v6]
+        topo_routes[k][IPV4] = routes_v4
+        topo_routes[k][IPV6] = routes_v6
         if action != GENERATE_WITHOUT_APPLY:
             # routes_v4 = generate_m1_routes(nhipv4)
             change_routes(action, ptf_ip, port, routes_v4)
@@ -1617,6 +1617,12 @@ def filterout_subnet(aggregate_routes, candidate_routes):
     return list(set(candidate_routes) - set(subnets))
 
 
+def convert_routes_to_str(topo_routes):
+    for vm in topo_routes:
+        for ip_version in topo_routes[vm]:
+            topo_routes[vm][ip_version] = [(str(r[0]), str(r[1]), str(r[2])) for r in topo_routes[vm][ip_version]]
+
+
 def main():
     module = AnsibleModule(
         argument_spec=dict(
@@ -1668,37 +1674,37 @@ def main():
         elif topo_type == "t0":
             fib_t0(topo, ptf_ip, no_default_route=is_storage_backend, action=action,
                    upstream_neighbor_groups=upstream_neighbor_groups, topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "t1" or topo_type == "smartswitch-t1":
             fib_t1_lag(
                 topo, ptf_ip, topo_name, no_default_route=is_storage_backend, action=action,
                 tor_default_route=tor_default_route, downstream_neighbor_groups=downstream_neighbor_groups,
                 topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "t2":
             fib_t2_lag(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "t0-mclag":
             fib_t0_mclag(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "m1":
             fib_m1(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "m0":
             fib_m0(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "mx":
             fib_mx(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(changed=True, topo_routes=topo_routes)
+            module.exit_json(changed=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "dpu":
             fib_dpu(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(change=True, topo_routes=topo_routes)
+            module.exit_json(change=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "lt2":
             fib_lt2_routes(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(change=True, topo_routes=topo_routes)
+            module.exit_json(change=True, topo_routes=convert_routes_to_str(topo_routes))
         elif topo_type == "ft2":
             fib_ft2_routes(topo, ptf_ip, action=action, topo_routes=topo_routes)
-            module.exit_json(change=True, topo_routes=topo_routes)
+            module.exit_json(change=True, topo_routes=convert_routes_to_str(topo_routes))
         else:
             module.exit_json(
                 msg='Unsupported topology "{}" - skipping announcing routes'.format(topo_name))
