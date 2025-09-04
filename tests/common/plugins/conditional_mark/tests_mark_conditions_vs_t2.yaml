@@ -8,6 +8,11 @@ auditd/test_auditd.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+autorestart/test_container_autorestart:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case takes too long on virtual chassis
 bfd/test_bfd_static_route.py:
   skip:
     conditions:
@@ -199,6 +204,11 @@ drop_packets/test_configurable_drop_counters.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+drop_packets/test_drop_counters.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case takes too long on virtual chassis
 dut_console/test_console_baud_rate.py:
   skip:
     conditions:
