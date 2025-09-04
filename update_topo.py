@@ -5,9 +5,11 @@ import json
 import sys
 import os
 import time
+import re
 
 TOPO_PLATFORM_FILE_MAP = 'topo_and_platform_to_filename_map.json'
 DEFAULT_SONIC_IMAGE_PATH = '../../sonic-cisco-8000.bin'
+DOCKER_PTF_QCOW_IMAGE_PATH_TEMPLATE = '/auto/vxr1/sonic/cicd/docker_ptf_qcow_images/ptf_docker_{SONIC_TEST_VERSION}.qcow2'
 
 platform_set = set()
 
@@ -21,8 +23,9 @@ parser = argparse.ArgumentParser()
 parser.add_argument("-t", "--topology", help = "name of the topology ", nargs='?', const='', default = '', required=False, choices=TOPO_PLATFORM_FILE_DICT.keys())
 parser.add_argument("-p", "--platform", help = "type of the dut platform ", nargs='?', const='', default = '', required=False, choices=platform_set)
 parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file', required=False,default=None)
-parser.add_argument("--dut-username", help = "username for the dut ", nargs='?', const='', default = 'cisco', required=False)
-parser.add_argument("--dut-password", help = "password for the dut ", nargs='?', const='', default = 'cisco123', required=False)
+parser.add_argument('-g', '--goldencode', type=str, help='goldencode url', required=False,default=None)
+parser.add_argument("--dut-username", help = "username for the dut ", nargs='?', const='', default = 'admin', required=False)
+parser.add_argument("--dut-password", help = "password for the dut ", nargs='?', const='', default = 'password', required=False)
 parser.add_argument("--onie-install", help = "path to use for onie install image", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-path", help = "npl path", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-suite-ver", help = "npl suite version", nargs='?', const='', default = '', required=False)
@@ -48,6 +51,21 @@ if not topology_file:
 if not topology_file:
     sys.exit(1)
 
+def extract_branch_from_goldencode_url(goldencode_url):
+    """
+    Extract sonic-test branch from a GOLDENCODE URL.
+    Returns None if no match found.
+    """
+    filename = goldencode_url.split("/")[-1]
+
+    # Look for 6 digits starting with 20 (i.e., 20YYMM)
+    match = re.search(r'20\d{4}', filename)
+    if match:
+        return match.group(0)
+
+    print(f"ERROR! Could not find sonic-test branch from goldencode url: {goldencode_url}")
+    return None
+
 print(f"using topology file: '{topology_file}'")
 
 with open(topology_file, "r") as fd:
@@ -55,12 +73,15 @@ with open(topology_file, "r") as fd:
     build_id = os.getenv('BUILD_ID') or f"non_cicd_sanity_{str(time.time())}"
     job_base_name = os.getenv('JOB_BASE_NAME') or ""
     sonic_cicd_id = f"{job_base_name}_{build_id}"
-    goldencode = os.getenv('GOLDENCODE') or ""
+    goldencode = args.goldencode
     image_url = os.getenv('IMAGE_NAME') or ""
+    
+    sonic_test_branch = "unknown"
     if goldencode:
         sonic_test_branch = goldencode.split('golden_code_')[1].split('.tar')[0]
-    else:
-        sonic_test_branch = "unknown"
+    
+    #extract upstream sonic test branch from goldencode, e.g. golden_code_202405.tar.gz --> 202405. None if not found
+    sonic_test_version = extract_branch_from_goldencode_url(goldencode)
 
     topo["simulation"]["telemetry"] = {
         "sonic_cicd_id": sonic_cicd_id,
@@ -74,6 +95,20 @@ with open(topology_file, "r") as fd:
 
 
     for device in topo["devices"]:
+        # handle docker_ptf related modifications
+        if device == "docker_ptf":
+            if not sonic_test_version:
+                print("could not determine sonic-test version from golencode! Will not modify the docker ptf version")
+            else:
+                docker_ptf_image = DOCKER_PTF_QCOW_IMAGE_PATH_TEMPLATE.format(SONIC_TEST_VERSION=sonic_test_version)
+                if not os.path.isfile(docker_ptf_image):
+                    print(f"WARNING: docker_ptf_image file '{docker_ptf_image}' does not exist! Will not modify the docker ptf version")
+                    continue
+                print(f"Set docker ptf image to: {docker_ptf_image}")
+                topo["devices"][device]["image"] = docker_ptf_image
+            continue
+
+        # handle DUT related modifications
         if "onie-install" not in topo["devices"][device]:
             continue
             
