@@ -163,6 +163,11 @@ console/test_console_udevrule.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+container_checker/test_container_checker:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case took too long to execute on virtual chassis
 container_upgrade/test_container_upgrade.py:
   skip:
     conditions:
@@ -261,6 +266,11 @@ generic_config_updater/test_bgpl.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 generic_config_updater/test_cacl.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+generic_config_updater/test_eth_interface.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
