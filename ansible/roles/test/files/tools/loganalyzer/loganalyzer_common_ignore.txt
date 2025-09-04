@@ -384,7 +384,6 @@ r, ".* ERR libnetwork-setkey: tac_connect_single: connection to .* failed: Netwo
 r, ".* ERR libnetwork-setkey: nss_tacplus: failed to connect TACACS\+ server .* Network is unreachable.*"
 r, ".* ERR dockerd: nss_tacplus: failed to connect TACACS\+ server.* Transport endpoint is not connected.*"
 
-
 # https://github.com/sonic-net/sonic-buildimage/issues/23199
 r, ".* ERR dhcp_relay#supervisor-proc-exit-listener: Exception.*len.*trace: Traceback \(most recent call last\).*File .*\/usr\/bin\/supervisor-proc-exit-listener.*line.*in \<module\>.*main\(sys.argv.*File .*\/usr\/bin\/supe.*"
 r, ".* ERR dhcp_relay\#supervisor-proc-exit-listener: Exception:.*len.*trace: Traceback \(most recent call last.*File .*\/usr\/bin\/supervisor-proc-exit-listener.* line.*in .*main\(sys.* File.*\/usr\/bin\/supervisor-proc-exit-listener.* line.* in main.*payload.* sys.stdin.read.*KeyError:.*len.*"
@@ -395,3 +394,8 @@ r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
 r, ".*ERR pmon.*DOM-INFO-UPDATE: Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
+
+# https://github.com/sonic-net/sonic-mgmt/issues/19347
+r, ".* ERR auditd.*: queue to plugins is full - dropping event"
+r, ".* ERR auditd.*: message repeated .*: \[ queue to plugins is full - dropping event\]"
+r, ".* ERR auditd.*: auditd queue full reporting limit reached - ending dropped event notifications"
