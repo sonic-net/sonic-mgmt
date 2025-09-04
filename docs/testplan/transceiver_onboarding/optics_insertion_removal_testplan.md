@@ -1,4 +1,4 @@
-# CMIS CDB Firmware Upgrade Test Plan
+# Optics Insertion and Removal Test Plan
 
 ## Scope
 
