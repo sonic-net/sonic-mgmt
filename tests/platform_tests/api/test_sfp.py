@@ -118,11 +118,7 @@ class TestSfpApi(PlatformApiTestBase):
     EXPECTED_XCVR_NEW_CMIS_INFO_KEYS = ['host_lane_count',
                                         'media_lane_count',
                                         'cmis_rev',
-                                        'host_lane_assignment_option',
                                         'media_interface_technology',
-                                        'media_interface_code',
-                                        'host_electrical_interface',
-                                        'media_lane_assignment_option',
                                         'vdm_supported']
 
     EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
@@ -287,8 +283,7 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         # For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X" \
-                or xcvr_info_dict["type_abbrv_name"] == "QSFP+C":
+        if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
             if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
                     xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
                 return False
@@ -371,6 +366,27 @@ class TestSfpApi(PlatformApiTestBase):
                 interfaces_to_flap.append(intf)
         return interfaces_to_flap
 
+    def _shutdown_and_no_shutdown_ports(self, duthost, intf_list):
+        intf_to_flap_joined = ",".join(intf_list)
+        try:
+            if duthost.is_multi_asic:
+                for intf in intf_list:
+                    duthost.shutdown_interface(intf)
+            else:
+                duthost.shutdown_interface(intf_to_flap_joined)
+        except Exception as e:
+            logger.error("Failed to shutdown interfaces: {}".format(e))
+
+        shutdown_wait_scale_factor = max(1, len(intf_list)*0.01)
+        time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN*shutdown_wait_scale_factor)
+        try:
+            if duthost.is_multi_asic:
+                for intf in intf_list:
+                    duthost.no_shutdown_interface(intf)
+            else:
+                duthost.no_shutdown_interface(intf_to_flap_joined)
+        except Exception as e:
+            logger.error("Failed to startup interfaces: {}".format(e))
     #
     # Functions to test methods inherited from DeviceBase class
     #
@@ -456,7 +472,7 @@ class TestSfpApi(PlatformApiTestBase):
                                 if self.expect(isinstance(firmware_info_dict, dict),
                                                "Transceiver {} firmware info appears incorrect".format(i)):
                                     actual_keys.extend(list(firmware_info_dict.keys()))
-                            if 'ZR' in info_dict['media_interface_code']:
+                            if sfp.is_coherent_module(platform_api_conn, i):
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                         else:
@@ -532,7 +548,7 @@ class TestSfpApi(PlatformApiTestBase):
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
                     if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-                        if 'ZR' in info_dict["media_interface_code"]:
+                        if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
@@ -744,18 +760,8 @@ class TestSfpApi(PlatformApiTestBase):
         time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
         intf_list = self.get_interfaces_to_flap_after_sfp_reset(port_index_to_info_dict, duthost)
         if intf_list:
-            intf_to_flap_joined = ",".join(intf_list)
-            logger.info("Flapping interfaces: {}".format(intf_to_flap_joined))
-            try:
-                duthost.shutdown_interface(intf_to_flap_joined)
-            except Exception as e:
-                logger.error("Failed to shutdown interfaces: {}".format(e))
-            shutdown_wait_scale_factor = max(1, len(intf_list)*0.01)
-            time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN*shutdown_wait_scale_factor)
-            try:
-                duthost.no_shutdown_interface(intf_to_flap_joined)
-            except Exception as e:
-                logger.error("Failed to startup interfaces: {}".format(e))
+            logger.info("Flapping interfaces: {}".format(intf_list))
+            self._shutdown_and_no_shutdown_ports(duthost, intf_list)
             _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intf_list))
             if not wait_until(port_up_wait_time, 10, 0,
                               check_interface_status_of_up_ports, duthost):
