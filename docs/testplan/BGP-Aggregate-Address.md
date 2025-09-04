@@ -13,6 +13,9 @@
   - [Test BBR Features State Change](#Test-BBR-Features-State-Change)
   - [Test BGP Container Restart](#Test-BGP-Container-Restart)
   - [Test Config Reload](#Test-Config-Reload)
+  - [Capacity Test](#Capacity-Test)
+  - [Stress Test](#Stress-Test)
+  - [Link Flapping Test](#Link-Flapping-Test)
 
 ## Overview
 
@@ -56,3 +59,13 @@ Validate when bgp container restarted, the aggregate address in bgpd configurati
 
 ### Test Config Reload
 Validate when config was reload, aggregate address in config db will be syncd to bgpd running config and state db.
+
+### Capacity Test
+Add as many aggregate addresses as possible on 202505 image to get a baseline capacity.
+Write test to add an equal number of aggregate addresses as baseline capactiy and validate there is no any error log and down container.
+
+### Stress Test
+After capacity test, start ptf traffic thread to validate dataplane works fine and query dut resources to validate managment plane works fine.
+
+### Link Flapping Test
+Add some aggregate addresses, randomly select a interface contains sub-address of aggregate as object, shutdown the interface, verify dataplane and management plane work fine, starup the interface, verify dataplen and management plane work fine.
