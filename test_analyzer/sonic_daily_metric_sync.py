@@ -23,9 +23,14 @@ SONIC_CLUSTER = SONIC_INGEST_CLUSTER.replace("ingest-", "")
 ACCESS_TOKEN = os.environ.get("ACCESS_TOKEN", None)
 SONIC_TEST_DATA_DB = "SonicTestData"
 ICM_DB = "IcMDataWarehouse"
-METRIC_TABLE = "SonicDailyMetric"
+METRIC_TABLE = "SonicDailyMetricV2"
 METRIC_ROLE = "SonicDailyMetricSyncPipeline"
-
+ICM_ID = "IcmId"
+ICM_SEV_AT_CREATION = "IcmSeverityAtCreation"
+ICM_TITLE = "IcmTitle"
+ICM_CREATE_DATE = "IcmCreateDate"
+ICM_OCCURRING_DEVICE_NAME = "IcmOccurringDeviceName"
+ICM_OWNING_TEAM_NAME = "IcmOwningTeamName"
 MAX_RETRIES = 3
 RETRY_DELAY = 120
 
@@ -54,7 +59,7 @@ def execute_kusto_query_with_retry(kusto_client, database, query, operation_name
             logger.error("Unexpected error during {}: {}".format(operation_name, e))
             raise
 
-    return None # Should not reach here if retries are implemented correctly
+    return None  # Should not reach here if retries are implemented correctly
 
 
 def get_device_incidents_df(azphynet_kusto_client, device_names, start_datetime):
@@ -62,12 +67,22 @@ def get_device_incidents_df(azphynet_kusto_client, device_names, start_datetime)
     start_time = time.time()
 
     query = """
-    IncidentsSnapshotV2()
+    Incidents
     | where OccurringDeviceName in~ ({})
     | where OwningTeamName !contains "Test"
     | where CreateDate > datetime({})
-    | project IncidentId, Severity, Status, CreateDate, OccurringDeviceName
-    """.format(device_names, start_datetime)
+    | summarize arg_min(ModifiedDate, *) by IncidentId
+    | project {}=IncidentId, {}=Severity, {}=Title, {}=CreateDate, {}=OccurringDeviceName, {}=OwningTeamName
+    """.format(
+        device_names,
+        start_datetime,
+        ICM_ID,
+        ICM_SEV_AT_CREATION,
+        ICM_TITLE,
+        ICM_CREATE_DATE,
+        ICM_OCCURRING_DEVICE_NAME,
+        ICM_OWNING_TEAM_NAME,
+    )
 
     op_name = "Device Incidents Query"
     query_result = execute_kusto_query_with_retry(azphynet_kusto_client, ICM_DB, query, op_name)
@@ -87,7 +102,7 @@ def get_most_recent_metric_df(sonic_kusto_client, hw_sku_name):
     {}
     | where HwSKU == "{}"
     | summarize MaxTimestamp = max(MetricTimestamp)
-    | join kind=inner ( 
+    | join kind=inner (
         {}
     ) on $left.MaxTimestamp == $right.MetricTimestamp
     """.format(METRIC_TABLE, hw_sku_name, METRIC_TABLE)
@@ -170,7 +185,7 @@ def process_os_version_data(os_version, metric_timestamp, sonic_modules_df, vend
         os_version_data["DeviceCountSnapshot"] = sonic_device_count_snapshot
         sonic_device_names = set(sonic_version_df["DeviceName"].str.casefold())
         filtered_incidents_df = incidents_df[
-            incidents_df["OccurringDeviceName"].str.casefold().isin(sonic_device_names)
+            incidents_df[ICM_OCCURRING_DEVICE_NAME].str.casefold().isin(sonic_device_names)
         ]
     else:
         os_version_data["DeviceType"] = VENDOR_DEVICE_TYPE
@@ -180,23 +195,26 @@ def process_os_version_data(os_version, metric_timestamp, sonic_modules_df, vend
         os_version_data["DeviceCountSnapshot"] = vendor_device_count_snapshot
         vendor_device_names = set(vendor_version_df["DeviceName"].str.casefold())
         filtered_incidents_df = incidents_df[
-            incidents_df["OccurringDeviceName"].str.casefold().isin(vendor_device_names)
+            incidents_df[ICM_OCCURRING_DEVICE_NAME].str.casefold().isin(vendor_device_names)
         ]
 
-    os_version_data["TotalIncidentCountSincePrevious"] = len(filtered_incidents_df)
-    severities = [2, 25, 3, 4]
     if not filtered_incidents_df.empty:
-        os_version_data["NonSev2CountSincePrevious"] = len(filtered_incidents_df[filtered_incidents_df["Severity"] != 2])
-        for sev in severities:
-            sev_col = "Sev{}CountSincePrevious".format(sev)
-            os_version_data[sev_col] = len(filtered_incidents_df[filtered_incidents_df["Severity"] == sev])
-    else:
-        os_version_data["NonSev2CountSincePrevious"] = 0
-        for sev in severities:
-            sev_col = "Sev{}CountSincePrevious".format(sev)
-            os_version_data[sev_col] = 0
+        result_rows = []
+        for _, incident in filtered_incidents_df.iterrows():
+            row_data = os_version_data.copy()
+            row_data.update(incident.to_dict())
+            result_rows.append(row_data)
 
-    return os_version_data
+        return pd.DataFrame(result_rows)
+    else:
+        base_df = pd.DataFrame([os_version_data])
+        base_df[ICM_ID] = -1
+        base_df[ICM_SEV_AT_CREATION] = -1
+        base_df[ICM_TITLE] = "NO INCIDENTS FOUND SINCE LAST METRIC"
+        base_df[ICM_CREATE_DATE] = metric_timestamp
+        base_df[ICM_OCCURRING_DEVICE_NAME] = "N/A"
+        base_df[ICM_OWNING_TEAM_NAME] = "N/A"
+        return base_df
 
 
 def create_daily_metric_df(azphynet_kusto_client, sonic_kusto_client, hw_sku_name):
@@ -234,11 +252,11 @@ def create_daily_metric_df(azphynet_kusto_client, sonic_kusto_client, hw_sku_nam
 
         results.append(os_version_data)
 
-    daily_metric_df = pd.DataFrame(results)
-    total_sonic_device_count = hw_sku_strategy.get_sonic_device_count(sonic_modules_df)
-    daily_metric_df["TotalSonicDeviceSnapshot"] = total_sonic_device_count
-    daily_metric_df["SonicDeviceCountSincePrevious"] = total_sonic_device_count - prev_sonic_device_count
+    if not results:
+        logger.warning("No OS versions found. Returning empty DataFrame.")
+        return pd.DataFrame()
 
+    daily_metric_df = pd.concat(results, ignore_index=True, sort=False)
     exec_time = time.time() - start_time
     logger.info("Daily metric creation completed in {:.2f}s".format(exec_time))
     return daily_metric_df
