@@ -14,13 +14,13 @@ devices:
     data_port_attributes:
       transport: e1000
     linux_username: vxr
-    linux_password: password
+    linux_password: cisco123
     linux_prompt: vxr@ubuntu22:~\$
     disks:
       - hda_ref:
           file: /nobackup/images/ubuntu22.qcow2
           type: reference
-    memory: 2GB
+    memory: 3GB
     platform: linux
     vcpu: 2
     xr_port_redir:
@@ -58,8 +58,9 @@ devices:
         # Sometimes, dsim crashes when the packets are sent before it is initialized.
         ConfigS1EgressSeen: 'true'
         ConfigS1DelayAfterEgressSeen: '60'
-    linux_password: password
-    linux_username: admin
+        ConfigEnableNgdp: 'true'
+    linux_password: cisco123
+    linux_username: cisco
     onie-install: /nobackup/images/sonic-cisco-8000.bin
     os_type: sonic
     memory: 28GB

@@ -38,21 +38,24 @@ PYVXR_VRFS=""
 PYVXR_STPS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:30709
 START_TIME=$(date +%s)
-TEST_TAGS="ipv4,ipv6,loopback"
+TEST_TAGS="ipv4,ipv6"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
 STP=true
 DHCP=vlan
 LAG=true
-BGP=true
 BREAKOUT="breakout"
 LOADTEST="*"
 TIMEOUT="15m"
-BULK_MODE=true
-DSCP="no-dscp"
-SUBINFS=2
-VLANS=5
+BULK_MODE=true   # Enable bulk config load.
+BULK_PATCH=false # Enable bulk config patch.
+LLDP_CHECK=false # Check and assert for LLDP system description.
+DSCP="no-dscp"   # Enable DSCP/QoS tests.
+VLANS=10         # Number of host Vlans to be added.
+VNIS=10          # Number of VNIs to be added for scale testing.
+SUBINFS=2        # Number of host/switch routed sub-interfaces.
+ROUTES=10        # Number of FRR routes (Loopback IP + Static routes).
 
 # Test ports.
 STP_PORT1="Ethernet1_16"
@@ -98,9 +101,6 @@ do
   -prod)
     TEST_TAGS="${TEST_TAGS},no-ssh"
     shift;;
-  -sag-ping)
-    TEST_TAGS="${TEST_TAGS},sag-ping"
-    shift;;
   -arp-ping)
     TEST_TAGS="${TEST_TAGS},arp-ping"
     shift;;
@@ -110,7 +110,10 @@ do
   -dhcp)
     DHCP="${2}"
     shift; shift;;
-  -dscp)
+  -vnis)
+    VNIS="${2}"
+    shift; shift;;
+   -dscp)
     DSCP="dscp"
     shift;;
   -no-stp)
@@ -118,9 +121,6 @@ do
     shift;;
   -no-lag)
     LAG=false
-    shift;;
-  -no-bgp)
-    BGP=false
     shift;;
   -vrfs)
     PYVXR_VRFS="${2}"
@@ -131,16 +131,21 @@ do
   -vlans)
     VLANS="${2}"
     shift; shift;;
+  -routes)
+    ROUTES="${2}"
+    shift; shift;;
   -no-breakout)
     BREAKOUT="no-breakout"
     shift;;
   -no-bulk-mode)
     BULK_MODE=false
+    BULK_PATCH=false
     shift;;
-  -loadtest)
-    CGEN_TEST=loadtest
-    LOADTEST="250#10#20"
-    TIMEOUT="1h"
+  -bulk-patch)
+    BULK_PATCH=true
+    shift;;
+  -lldp-check)
+    LLDP_CHECK=true
     shift;;
   -t|-tags)
     TEST_TAGS="${TEST_TAGS},${2}"
@@ -160,6 +165,14 @@ LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 if [[ "${BULK_MODE}" == true ]]; then
   TEST_TAGS="${TEST_TAGS},bulk-config"
 fi
+if [[ "${BULK_PATCH}" == true ]]; then
+  TEST_TAGS="${TEST_TAGS},bulk-patch"
+fi
+
+# Enable LLDP system description check.
+if [[ "${LLDP_CHECK}" == true ]]; then
+  TEST_TAGS="${TEST_TAGS},lldp-check"
+fi
 
 # Add sub-interfaces on hosts connected to the ports specified in SUBINF_PORT.
 PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#${SUBINFS}|lo"
@@ -172,31 +185,33 @@ if [[ ${LENGTH} -eq 0 ]]; then
 fi
 
 # Add a routed port on leaf0 with point-to-point network.
-PYVXR_PORTS="leaf0|${ROUTED_PORT1}#41.230.10.1/31#Vrf40000,leaf0|${ROUTED_PORT2}#41.240.10.1/31#Vrf12000000"
+PYVXR_PORTS="leaf0|${ROUTED_PORT1}#41.230.10.1/31#Vrf40000,leaf0|${ROUTED_PORT2}#41.240.10.1/28#Vrf12000000"
 
-# Add static routes -- one blackhole, one using point-to-point IP and one a normal route.
-PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.240.10.0"
+# Add static routes -- one blackhole, one using point-to-point IP and two ECMP routes.
+PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.240.10.2|10.10.10.0/24#41.240.10.3"
 
 # Add BGP peers and BGP policies.
 # Northbound BGP peer is on a routed port using point-to-point connection. Northbound peer uses
 # custom policies. Custom export policy re-writes next-hop to leaf0's Loopback IPs. By default,
 # FRR assigns connected port's IP as next-hop, and that would create traffic failures. Following
 # scripts add IP 41.230.10.0/31 on eth2 of host3.
-PYVXR_POLICIES="export-nb#true#41.220.200.200#fc00:dead:face::200:200|false#*#9999:99|false#*#GREEN|true#*#64510:*|false#*#0.0.0.0/0#0.0.0.0/0@GE@32|true#*"
+PYVXR_POLICIES="export-nb#true#41.220.200.200#fc00:dead:face::200:200|false#*#9999:99|false#*#GREEN|true#*#8888:88|false#*#0.0.0.0/0#41.220.0.0/16@GE@16|true#*"
 PYVXR_POLICIES="${PYVXR_POLICIES},import-nb#false#*|true#9999:99"
 PYVXR_BGPPEERS="Vrf40000|northbound#4000#*#host3@41.230.10.0/31@eth2#leaf0|41.230.10.0#2000|leaf0#${ROUTED_PORT1}|export-nb#import-nb"
 
-# Southbound BGP peer is on leaf0 and leaf1, and uses default policies.
-PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1|41.216.1.0/28#10000#4|leaf0#Loopback10"
-if [[ ${LENGTH} -gt 1 ]]; then
+# Southbound BGP peer is on leaf0 and leaf1, and uses custom policies.
+# Annotations are used by config-gen to configure FRR on hosts.
+SB_ANNOTATIONS="host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1#host8@41.216.1.4#leaf2"
+PYVXR_POLICIES="${PYVXR_POLICIES},export-sb#true#*|true#*#9999:99#8888:88|false#*#BLACK|false#*#0.0.0.0/0|true#*"
+PYVXR_POLICIES="${PYVXR_POLICIES},import-sb#false#*|true#8888:88"
+PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#${SB_ANNOTATIONS}|41.216.1.0/28#10000#20|leaf0#Loopback10"
+if [[ ${LENGTH} -gt 0 ]]; then
   PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#leaf1#Loopback10"
 fi
-
-# Clear BGP config if not needed.
-if [[ "${BGP}" == false ]]; then
-  PYVXR_POLICIES="*"
-  PYVXR_BGPPEERS="*"
+if [[ ${LENGTH} -gt 1 ]]; then
+  PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#leaf2#Loopback10"
 fi
+PYVXR_BGPPEERS="${PYVXR_BGPPEERS}|export-sb#import-sb"
 
 # Add static routes for Vrf400000
 PYVXR_IPS="7.7.7.1"
@@ -312,6 +327,8 @@ function run_pyvxr() {
     --vlanStp "${PYVXR_STPS}" \
     --timeout "${TIMEOUT}" \
     --input "${LOADTEST}" \
+    --frrRoutes "${ROUTES}" \
+    --scaleVnis "${VNIS}" \
     --tags "${TEST_TAGS}"
 }
 

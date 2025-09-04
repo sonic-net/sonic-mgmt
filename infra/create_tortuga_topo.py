@@ -500,8 +500,8 @@ def export_sim_cfg_to_file(data, topo_name, device_type, docker_mgmt_container):
         dur_ssh_port = "{}_SSH_PORT".format(dut_name.upper().replace(" ", "_"))
 
         sim_cfg[dut_host] = device['HostAgent']
-        sim_cfg[dut_username] = "admin"
-        sim_cfg[dut_pass] = "password"
+        sim_cfg[dut_username] = "cisco"
+        sim_cfg[dut_pass] = "cisco123"
         sim_cfg[dur_ssh_port] = device['xr_redir22']
 
     sim_cfg["SONIC_MGMT_HOST"] = data['sonic_mgmt']['HostAgent']
@@ -551,7 +551,7 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
 def collect_showtechsupport(data, dut_ports):
     files_downloaded = []
     for port in dut_ports:
-        tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"admin","password",["show techsupport"])
+        tar_file_output = run_exec_cmds(data['L0']['HostAgent'], port ,"cisco","cisco123",["show techsupport"])
         print(tar_file_output)
         tar_file = [j for j in tar_file_output.split('\n') if j != ''][-1]
         ret = get_showtechsupport(data, port, tar_file)
@@ -582,7 +582,7 @@ def get_showtechsupport(data, port, tar_file):
     try:
         ssh = paramiko.SSHClient()
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        ssh.connect(data['L0']['HostAgent'], port,"admin","password")
+        ssh.connect(data['L0']['HostAgent'], port,"cisco","cisco123")
         ftp_client=ssh.open_sftp()
         ftp_client.get(tar_file,os.path.basename(tar_file))
     except Exception as e:
