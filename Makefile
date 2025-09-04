@@ -83,7 +83,7 @@ run_sanity:
 run_tortuga_controller_sanity:
 	echo "run spytest sanity..."
 	bash -c " \
-		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM}; \
+		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}; \
 		cd infra; \
 		source pyats/bin/activate; \
 		python3.8 ./create_tortuga_topo.py \
@@ -97,7 +97,7 @@ run_tortuga_controller_sanity:
 run_spytest:
 	echo "run spytest sanity..."
 	bash -c " \
-		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM}; \
+		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}; \
 		cd infra; \
 		source pyats/bin/activate; \
 		python3.8 -u run_spytest.py  \

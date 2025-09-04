@@ -59,9 +59,12 @@ def extract_branch_from_goldencode_url(goldencode_url):
     filename = goldencode_url.split("/")[-1]
 
     # Look for 6 digits starting with 20 (i.e., 20YYMM)
-    match = re.search(r'20\d{4}', filename)
-    if match:
-        return match.group(0)
+    if 'master' in filename:
+        return 'master'
+    else:
+        match = re.search(r'20\d{4}', filename)
+        if match:
+            return match.group(0)
 
     print(f"ERROR! Could not find sonic-test branch from goldencode url: {goldencode_url}")
     return None
@@ -77,11 +80,12 @@ with open(topology_file, "r") as fd:
     image_url = os.getenv('IMAGE_NAME') or ""
     
     sonic_test_branch = "unknown"
+    sonic_test_version = None
+
     if goldencode:
         sonic_test_branch = goldencode.split('golden_code_')[1].split('.tar')[0]
-    
-    #extract upstream sonic test branch from goldencode, e.g. golden_code_202405.tar.gz --> 202405. None if not found
-    sonic_test_version = extract_branch_from_goldencode_url(goldencode)
+        #extract upstream sonic test branch from goldencode, e.g. golden_code_202405.tar.gz --> 202405. None if not found
+        sonic_test_version = extract_branch_from_goldencode_url(goldencode)
 
     topo["simulation"]["telemetry"] = {
         "sonic_cicd_id": sonic_cicd_id,
