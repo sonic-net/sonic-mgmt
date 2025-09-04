@@ -5,6 +5,7 @@ import json
 from .helper import gnoi_request
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup, SONIC_SSH_PORT, SONIC_SSH_REGEX
+from tests.common.utilities import wait_until
 
 
 pytestmark = [
@@ -68,6 +69,17 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
     logging.info("System is back up after reboot")
+
+    # Wait for database services to be ready
+    def check_database_ready():
+        try:
+            result = duthost.command("test -f /var/run/redis/sonic-db/database_config.json", module_ignore_errors=True)
+            return not result.is_failed
+        except Exception:
+            return False
+    
+    wait_until(180, 10, 0, check_database_ready)
+    logging.info("Database services are ready")
 
     # Check device is actually rebooted by comparing uptime
     uptime_after = duthost.get_up_time(utc_timezone=True)

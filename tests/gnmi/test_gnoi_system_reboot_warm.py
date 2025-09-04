@@ -61,3 +61,14 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     logging.info("Waiting for warm reboot to complete...")
     wait_until(300, 10, 0, check_system_responsive)
     logging.info("Warm reboot completed - system is responsive")
+
+    # Wait for database services to be ready
+    def check_database_ready():
+        try:
+            result = duthost.command("test -f /var/run/redis/sonic-db/database_config.json", module_ignore_errors=True)
+            return not result.is_failed
+        except Exception:
+            return False
+    
+    wait_until(180, 10, 0, check_database_ready)
+    logging.info("Database services are ready")
