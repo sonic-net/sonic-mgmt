@@ -3683,12 +3683,6 @@ snmp/test_snmp_phy_entity.py:
     conditions:
       - "asic_type in ['vs']"
 
-snmp/test_snmp_phy_entity.py::test_transceiver_info:
-  xfail:
-    reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/22213"
-    conditions:
-    - "https://github.com/sonic-net/sonic-buildimage/issues/22213"
-
 snmp/test_snmp_queue.py:
   skip:
     reason: "Interfaces not present on supervisor node or M* topo does not support test_snmp_queue or unsupported platform"
