@@ -57,25 +57,24 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
     """
     per_host = duthosts[enum_frontend_dut_hostname]
     asic = per_host.asics[enum_asic_index if enum_asic_index is not None else 0]
-
     cfg_facts = all_cfg_facts[per_host.hostname][asic.asic_index]['ansible_facts']
-
     logger.info("Checking system ports on host: %s, asic: %s", per_host.hostname, asic.asic_index)
-
-    port_cfg_facts = dict()
-    interface_list = get_port_map(per_host, asic.asic_index)
-    for dut_asic in per_host.asics:
-        port_cfg_facts.update(all_cfg_facts[per_host.hostname][dut_asic.asic_index]['ansible_facts']['PORT'])
 
     dev_ports = get_device_system_ports(cfg_facts)
     asicdb = AsicDbCli(asic)
     sys_port_table = asicdb.dump(asicdb.ASIC_SYSPORT_TABLE)
     keylist = list(sys_port_table.keys())
-    pytest_assert(len(keylist) == len(list(dev_ports.keys())),
-                  "Found %d system port keys, %d entries in cfg_facts, not matching" % (
-                      len(keylist), len(list(dev_ports.keys()))))
-    logger.info("Found %d system port keys, %d entries in cfg_facts, checking each.",
-                len(keylist), len(list(dev_ports.keys())))
+
+    pytest_assert(
+        len(keylist) == len(list(dev_ports.keys())),
+        "Found %d system port keys, %d entries in cfg_facts, not matching"
+        % (len(keylist), len(list(dev_ports.keys())))
+    )
+    logger.info(
+        "Found %d system port keys, %d entries in cfg_facts, checking each.",
+        len(keylist), len(list(dev_ports.keys()))
+    )
+
     for portkey in keylist:
         try:
             port_config_info = sys_port_table[portkey]['value']['SAI_SYSTEM_PORT_ATTR_CONFIG_INFO']
@@ -87,29 +86,47 @@ def test_voq_system_port_create(duthosts, enum_frontend_dut_hostname, enum_asic_
         port_data = json.loads(port_config_info)
         for cfg_port in dev_ports:
             if dev_ports[cfg_port]['system_port_id'] == port_data['port_id']:
-                #             "switch_id": "0",
-                #             "core_index": "1",
-                #             "core_port_index": "6",
-                #             "speed": "400000"
-                pytest_assert(dev_ports[cfg_port]['switch_id'] == port_data[
-                    'attached_switch_id'], "switch IDs do not match for port: %s" % portkey)
-                pytest_assert(dev_ports[cfg_port]['core_index'] == port_data[
-                    'attached_core_index'], "Core Index do not match for port: %s" % portkey)
-                pytest_assert(dev_ports[cfg_port]['core_port_index'] == port_data[
-                    'attached_core_port_index'], "Core port index do not match for port: %s" % portkey)
+                pytest_assert(
+                    dev_ports[cfg_port]['switch_id'] == port_data['attached_switch_id'],
+                    "switch IDs do not match for port: %s" % portkey
+                )
+                pytest_assert(
+                    dev_ports[cfg_port]['core_index'] == port_data['attached_core_index'],
+                    "Core Index do not match for port: %s" % portkey
+                )
+                pytest_assert(
+                    dev_ports[cfg_port]['core_port_index'] == port_data['attached_core_port_index'],
+                    "Core port index do not match for port: %s" % portkey
+                )
+
                 if "Cpu" in cfg_port:
-                    pytest_assert(dev_ports[cfg_port]['speed'] == port_data[
-                        'speed'], "Speed do not match for port: %s" % portkey)
+                    pytest_assert(
+                        dev_ports[cfg_port]['speed'] == port_data['speed'],
+                        "Speed do not match for system CPU port: %s" % portkey
+                    )
+                else:
+                    host_name, asic_str, portname = cfg_port.split("|")
+                    asic_idx = int(asic_str.replace("asic", ""))
+
+                    if host_name == per_host.hostname and asic_idx == asic.asic_index:
+                        port_table = all_cfg_facts[host_name][asic_idx]['ansible_facts']['PORT']
+                        pytest_assert(
+                            str(port_table[portname]['speed']) == port_data['speed'],
+                            "Speed do not match for port {} ({}|asic{}): {}".format(
+                                portname, host_name, asic_idx, portkey
+                            )
+                        )
+                    else:
+                        pytest_assert(
+                            dev_ports[cfg_port]['speed'] == port_data['speed'],
+                            "Remote speed mismatch for {} ({}|asic{}): {}".format(
+                                portname, host_name, asic_idx, portkey
+                            )
+                        )
+
                 break
         else:
             logger.error("Could not find config entry for portkey: %s" % portkey)
-
-        for port in port_cfg_facts:
-            if port == cfg_port.split("|")[2] and port in interface_list.keys():
-                if port_cfg_facts[port]['core_port_id'] == port_data['attached_core_port_index']:
-                    pytest_assert(port_cfg_facts[port]['speed'] == port_data[
-                            'speed'], "Speed do not match for port {}: {}".format(port, portkey))
-                    break
 
     logger.info("Host: %s, Asic: %s all ports match all parameters", per_host.hostname, asic.asic_index)
 
