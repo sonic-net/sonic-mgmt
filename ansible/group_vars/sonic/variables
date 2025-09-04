@@ -10,7 +10,8 @@ sonic_version: "v2"
 broadcom_hwskus: [ 'ACS-S6000', 'ACS-S6000-Q24S32', 'ACS-N3132', 'Force10-S6000', 'Force10-S6000-Q24S32', 'Nexus-3132-GE-Q32', 'Nexus-3132-GX-Q32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Force10-S6100', 'Accton-AS7712-32X', 'Arista-7260CX3-D108C8',  'Arista-7260CX3-C64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', 'Celestica-E1031-T48S4', "Seastone-DX010", 'Arista-7260CX3-Q64' ]
 
 broadcom_td2_hwskus: ['Force10-S6000', 'Force10-S6000-Q24S32', 'Arista-7050-QX32', 'Arista-7050-QX-32S', 'Nexus-3164', 'Arista-7050QX32S-Q32']
-broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-S128', 'Arista-7050CX3-32S-C6S104', 'Arista-7050CX3-32S-C28S16', 'Arista-7050CX3-32C-C32']
+broadcom_td3_hwskus: ['Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-D48C8', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-S128', 'Arista-7050CX3-32S-C6S104', 'Arista-7050CX3-32S-C28S16',
+                      'Arista-7050CX3-32C-C32', 'Arista-7050CX3-32C-D48C8', 'Arista-7050CX3-32C-C28S4', 'Arista-7050CX3-32C-S128', 'Arista-7050CX3-32C-C6S104', 'Arista-7050CX3-32C-C28S16']
 broadcom_td4_hwskus: ['Nokia-IXR7220-D4-36D']
 broadcom_th_hwskus: ['Force10-S6100', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-D48C8', 'Celestica-DX010-C32', "Seastone-DX010" ]
 broadcom_th2_hwskus: ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-C64', 'Arista-7260CX3-Q64']
@@ -37,8 +38,8 @@ barefoot_hwskus: [ "montara", "mavericks", "Arista-7170-64C", "newport", "Arista
 marvell_hwskus: [ "et6448m", "Nokia-7215" ]
 innovium_tl7_hwskus: ["Wistron_sw_to3200k_32x100" , "Wistron_sw_to3200k"]
 
-cisco_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8111-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8111-C32", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8800-LC-48H-C48", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "cisco-8101-p4-32x100-vs"]
-cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8111-C32", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "Cisco-8102-28FH-DPU-O", "Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-C28", "Cisco-8102-28FH-DPU-O8V40", "Cisco-8102-28FH-DPU-O8C20", "Cisco-8102-28FH-DPU-O12C16"]
+cisco_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8111-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8101C01-C32", "Cisco-8101C01-C28S4", "Cisco-8111-C32", "Cisco-8111-O32", "Cisco-8111-O64", "Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128", "Cisco-8800-LC-48H-C48", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "cisco-8101-p4-32x100-vs", "Cisco-8102-28FH-DPU-O"]
+cisco-8000_gb_hwskus: ["Cisco-8102-C64", "Cisco-8101-T32", "Cisco-8101-O32", "Cisco-8101-C64", "Cisco-8101-V64", "Cisco-8101-C48T8", "Cisco-8101-O8V48", "Cisco-8101-O8C48", "Cisco-8101C01-C32", "Cisco-8101C01-C28S4", "Cisco-8111-C32", "Cisco-88-LC0-36FH-M-O36", "Cisco-88-LC0-36FH-O36", "Cisco-8102-28FH-DPU-O", "Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-C28", "Cisco-8102-28FH-DPU-O8V40", "Cisco-8102-28FH-DPU-O8C20", "Cisco-8102-28FH-DPU-O12C16"]
 cisco-8000_gr_hwskus: ["Cisco-8111-O32", "Cisco-8111-O64"]
 cisco-8000_gr2_hwskus: ["Cisco-8122-O64", "Cisco-8122-O64S2", "Cisco-8122-O128"]
 cisco-8000_pac_hwskus: ["Cisco-8800-LC-48H-C48"]
