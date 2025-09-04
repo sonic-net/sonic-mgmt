@@ -73,14 +73,14 @@ def setup_base_traffic_config(testbed_config,
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
     """
     base_flow_config = {}
-    
+
     if num_rx_ports == 1:
         rx_port_id = port_id
         rx_port_id_list = [rx_port_id]
     else:
         rx_port_id = port_id
         rx_port_id_list = [rx_port_id]
-    
+
     if num_tx_ports == 1:
         tx_port_id_list, _ = select_ports(port_config_list=port_config_list,
                                           pattern="many to one",
@@ -94,39 +94,39 @@ def setup_base_traffic_config(testbed_config,
         tx_port_id_list, _ = select_ports(port_config_list=port_config_list,
                                           pattern="many to one",
                                           rx_port_id=rx_port_id)
-        pytest_assert(len(tx_port_id_list) >= num_tx_ports, 
+        pytest_assert(len(tx_port_id_list) >= num_tx_ports,
                       f"Cannot find enough TX ports. Need {num_tx_ports}, found {len(tx_port_id_list)}")
         tx_port_id_list = select_tx_port(tx_port_id_list=tx_port_id_list,
                                          rx_port_id=rx_port_id,
                                          num_tx_ports=num_tx_ports)
         pytest_assert(tx_port_id_list is not None, "Cannot find suitable TX ports")
-    
+
     base_flow_config["rx_port_id"] = rx_port_id_list if num_rx_ports > 1 else rx_port_id
     base_flow_config["tx_port_id"] = tx_port_id_list if num_tx_ports > 1 else tx_port_id_list[0]
-    
+
     tx_port_configs = [next((x for x in port_config_list if x.id == tx_id), None) for tx_id in tx_port_id_list]
     rx_port_configs = [next((x for x in port_config_list if x.id == rx_id), None) for rx_id in rx_port_id_list]
-    
+
     base_flow_config["tx_port_config"] = tx_port_configs if num_tx_ports > 1 else tx_port_configs[0]
     base_flow_config["rx_port_config"] = rx_port_configs if num_rx_ports > 1 else rx_port_configs[0]
-    
+
     dut_port_config = {"Tx": [], "Rx": []}
-    
+
     for tx_config in tx_port_configs:
         tx_dict = {str(tx_config.peer_port): []}
         dut_port_config["Tx"].append(tx_dict)
-    
+
     for rx_config in rx_port_configs:
         rx_dict = {str(rx_config.peer_port): []}
         dut_port_config["Rx"].append(rx_dict)
-    
+
     base_flow_config["dut_port_config"] = dut_port_config
-    
+
     if num_tx_ports == 1:
         base_flow_config["tx_mac"] = tx_port_configs[0].mac
     else:
         base_flow_config["tx_mac"] = [config.mac for config in tx_port_configs]
-    
+
     if num_rx_ports == 1:
         if tx_port_configs[0].gateway == rx_port_configs[0].gateway and \
            tx_port_configs[0].prefix_len == rx_port_configs[0].prefix_len:
@@ -142,17 +142,17 @@ def setup_base_traffic_config(testbed_config,
             else:
                 rx_macs.append(tx_port_configs[0].gateway_mac)
         base_flow_config["rx_mac"] = rx_macs
-    
+
     if num_tx_ports == 1:
         base_flow_config["tx_port_name"] = testbed_config.ports[tx_port_id_list[0]].name
     else:
         base_flow_config["tx_port_name"] = [testbed_config.ports[tx_id].name for tx_id in tx_port_id_list]
-    
+
     if num_rx_ports == 1:
         base_flow_config["rx_port_name"] = testbed_config.ports[rx_port_id].name
     else:
         base_flow_config["rx_port_name"] = [testbed_config.ports[rx_id].name for rx_id in rx_port_id_list]
-    
+
     return base_flow_config
 
 
@@ -242,21 +242,21 @@ def generate_test_flows(testbed_config,
 
         """ Set flow port config values """
         dut_port_config = base_flow_config["dut_port_config"]
-        
+
         # Find the TX port config entry and append priority
         tx_peer_port = str(base_flow_config["tx_port_config"].peer_port)
         for tx_port_dict in dut_port_config["Tx"]:
             if tx_peer_port in tx_port_dict:
                 tx_port_dict[tx_peer_port].append(int(prio))
                 break
-        
+
         # Find the RX port config entry and append priority
         rx_peer_port = str(base_flow_config["rx_port_config"].peer_port)
         for rx_port_dict in dut_port_config["Rx"]:
             if rx_peer_port in rx_port_dict:
                 rx_port_dict[rx_peer_port].append(int(prio))
                 break
-        
+
         base_flow_config["dut_port_config"] = dut_port_config
 
         # Save flow name to TX and RX port mapping for DUT
