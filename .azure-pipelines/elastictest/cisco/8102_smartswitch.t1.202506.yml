@@ -29,6 +29,16 @@ parameters:
     default: "vms66-t1-8102-7"
     displayName: "Testbed Name"
 
+  - name: DUT_NAME
+    type: string
+    default: "str3-8102-07"
+    displayName: "DUT Name"
+
+  - name: DPU_NAME
+    type: string
+    default: "str3-8102-07-dpu-0, str3-8102-07-dpu-1, str3-8102-07-dpu-2, str3-8102-07-dpu-3, str3-8102-07-dpu-4, str3-8102-07-dpu-5, str3-8102-07-dpu-6, str3-8102-07-dpu-7"
+    displayName: "DPU Name"
+
   - name: MIN_WORKER
     type: string
     default: "1"
