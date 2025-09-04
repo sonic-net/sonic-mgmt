@@ -3871,19 +3871,11 @@
   group-name: vms94-1
   topo: t0-isolated-d2u510s2
   ptf_image_name: docker-ptf
-  servers:
-    server_94:
-      ptf: vms94-1-a
-      ptf_ip: 10.64.247.148/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f794/64
-      vm_base: VM94000
-      dut_interfaces: 0-256
-    server_96:
-      ptf: vms94-1-b
-      ptf_ip: 10.64.247.153/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f799/64
-      vm_base: VM96000
-      dut_interfaces: 257-513
+  ptf: vms94-1-a
+  ptf_ip: 10.64.247.148/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f794/64
+  server: server_94
+  vm_base: VM94000
   dut:
   - str5-sn5640-1
   inv_name: str5
@@ -3893,19 +3885,11 @@
   group-name: vms94-2
   topo: t0-isolated-d2u510s2
   ptf_image_name: docker-ptf
-  servers:
-    server_94:
-      ptf: vms94-2-a
-      ptf_ip: 10.64.247.149/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f795/64
-      vm_base: VM94255
-      dut_interfaces: 0-256
-    server_96:
-      ptf: vms94-2-b
-      ptf_ip: 10.64.247.167/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f7a7/64
-      vm_base: VM96257
-      dut_interfaces: 257-513
+  ptf: vms94-2-a
+  ptf_ip: 10.64.247.149/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f795/64
+  server: server_96
+  vm_base: VM96000
   dut:
   - str5-7060x6-512-5
   inv_name: str5
