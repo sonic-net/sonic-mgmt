@@ -384,7 +384,7 @@ def get_asic_and_branch_name(duthost):
 
     Supported image version patterns:
     1. Master: SONiC Software Version: SONiC.master.921927-18199d73f
-    2. Internal: SONiC Software Version: SONiC.internal.135691748-dbb8d29985  
+    2. Internal: SONiC Software Version: SONiC.internal.135691748-dbb8d29985
     3. Official feature branch: SONiC Software Version: SONiC.20250510.14
     4. Private image: SONiC Software Version: SONiC.20250902_202505_counters.135706687-5bc1f6cba6
 
@@ -404,7 +404,7 @@ def get_asic_and_branch_name(duthost):
     master_pattern = re.compile(r'^SONiC\.master\.\d+-[a-f0-9]+$', re.IGNORECASE)
     if master_pattern.match(version):
         branch_name = "master"
-    # Pattern 2: Internal - SONiC.internal.XXXXXXXXX-XXXXXXXXXX  
+    # Pattern 2: Internal - SONiC.internal.XXXXXXXXX-XXXXXXXXXX
     elif re.match(r'^SONiC\.internal\.\d+-[a-f0-9]+$', version, re.IGNORECASE):
         branch_name = "internal"
     # Pattern 3: Official feature branch - SONiC.YYYYMMDD.XX
