@@ -69,6 +69,6 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
             return not result.is_failed
         except Exception:
             return False
-    
+
     wait_until(180, 10, 0, check_database_ready)
     logging.info("Database services are ready")
