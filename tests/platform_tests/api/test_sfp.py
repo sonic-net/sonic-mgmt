@@ -118,11 +118,7 @@ class TestSfpApi(PlatformApiTestBase):
     EXPECTED_XCVR_NEW_CMIS_INFO_KEYS = ['host_lane_count',
                                         'media_lane_count',
                                         'cmis_rev',
-                                        'host_lane_assignment_option',
                                         'media_interface_technology',
-                                        'media_interface_code',
-                                        'host_electrical_interface',
-                                        'media_lane_assignment_option',
                                         'vdm_supported']
 
     EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
@@ -476,7 +472,7 @@ class TestSfpApi(PlatformApiTestBase):
                                 if self.expect(isinstance(firmware_info_dict, dict),
                                                "Transceiver {} firmware info appears incorrect".format(i)):
                                     actual_keys.extend(list(firmware_info_dict.keys()))
-                            if 'ZR' in info_dict['media_interface_code']:
+                            if sfp.is_coherent_module(platform_api_conn, i):
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                         else:
@@ -552,7 +548,7 @@ class TestSfpApi(PlatformApiTestBase):
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
                     if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-                        if 'ZR' in info_dict["media_interface_code"]:
+                        if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
