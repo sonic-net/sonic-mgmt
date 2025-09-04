@@ -1172,8 +1172,8 @@ def fib_m1(topo, ptf_ip, action="announce", topo_routes={}):
             pass
 
         topo_routes[k] = {}
-        topo_routes[k][IPV4] = routes_v4
-        topo_routes[k][IPV6] = routes_v6
+        topo_routes[k][IPV4] = [(route[0], str(route[1]), route[2]) for route in routes_v4]
+        topo_routes[k][IPV6] = [(route[0], str(route[1]), route[2]) for route in routes_v6]
         if action != GENERATE_WITHOUT_APPLY:
             # routes_v4 = generate_m1_routes(nhipv4)
             change_routes(action, ptf_ip, port, routes_v4)
