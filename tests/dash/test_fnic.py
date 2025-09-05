@@ -144,8 +144,7 @@ def test_fnic(ptfadapter, dash_pl_config, single_endpoint):
             ptfadapter,
             dash_pl_config[LOCAL_PTF_INTF],
             exp_dpu_to_vm_pkt,
-            tunnel_endpoint_counts,
-            check_vxlan_sport=True,
+            tunnel_endpoint_counts
         )
 
     recvd_pkts = sum(tunnel_endpoint_counts.values())

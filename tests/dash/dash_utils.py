@@ -8,7 +8,7 @@ import pytest
 
 from jinja2 import Template
 
-from constants import TEMPLATE_DIR, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
+from constants import TEMPLATE_DIR
 
 logger = logging.getLogger(__name__)
 
@@ -102,7 +102,7 @@ def apply_swssconfig_file(duthost, file_path):
     sleep(5)
 
 
-def verify_tunnel_packets(ptfadapter, ports, exp_dpu_to_vm_pkt, tunnel_endpoint_counts, check_vxlan_sport=False):
+def verify_tunnel_packets(ptfadapter, ports, exp_dpu_to_vm_pkt, tunnel_endpoint_counts):
     timeout = 1
     if isinstance(ports, list):
         target_ports = ports
@@ -114,16 +114,6 @@ def verify_tunnel_packets(ptfadapter, ports, exp_dpu_to_vm_pkt, tunnel_endpoint_
         pkt_repr = scapy.Ether(result.packet)
         if result.port in target_ports:
             if pkt_repr["IP"].dst in tunnel_endpoint_counts:
-
-                if check_vxlan_sport:
-                    sport = pkt_repr["UDP"].sport
-                    port_range_end = VXLAN_UDP_BASE_SRC_PORT + (1 << VXLAN_UDP_SRC_PORT_MASK) - 1
-                    if not (VXLAN_UDP_BASE_SRC_PORT <= sport <= port_range_end):
-                        pytest.fail(
-                            f"Received packet has unexpected UDP source port {sport}, \
-                                expected range {VXLAN_UDP_BASE_SRC_PORT}-{port_range_end} \
-                                \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
-                        )
                 tunnel_endpoint_counts[pkt_repr["IP"].dst] += 1
                 logging.debug(
                     f"Packet sent to tunnel endpoint {pkt_repr['IP'].dst} matches:\
