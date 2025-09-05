@@ -14,6 +14,7 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+
 def enable_serviceability_cli(duthost, show_cmd):
 
     output = duthost.command(show_cmd)['stdout']
@@ -97,6 +98,7 @@ def verify_command_result(result, cmd):
     traceback_found = "Traceback" in result["stdout"]
     # Raise an AssertionError if "Traceback" is found
     assert not traceback_found, "Traceback found in {}".format(cmd)
+
 
 @pytest.mark.disable_loganalyzer
 def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
@@ -249,10 +251,11 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
                                      '''.format(port, pg_to_test, g_idx, voq_idx,
                                                 age_idx, expected_value, actual_value)
 
-def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                       enum_rand_one_frontend_asic_index, lossless_prio_list):
-    #Verify the ecn config utility CLI's
 
+def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            enum_rand_one_frontend_asic_index, lossless_prio_list):
+
+    # Verify the ecn config utility CLI's
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic_index = enum_rand_one_frontend_asic_index
 
@@ -276,7 +279,7 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                 ecn_list[key.strip()] = value.strip()
     logging.info("ecn config : {}".format(ecn_list))
 
-    #Verify ecnconfig status on lossless queue
+    # Verify ecnconfig status on lossless queue
     test_prio_list = lossless_prio_list
     for prio in test_prio_list:
         cmd = 'sudo ecnconfig {} -q {}'.format(asic, prio)
@@ -294,7 +297,7 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
             result = duthost.command(cmd)
         except Exception as e:
             logging.info("Error on setting ecn queue : {}".format(e))
-        assert result['rc'] == 0 ,'Set wred_profile command failed '
+        assert result['rc'] == 0, 'Set wred_profile command failed '
 
     # revert the changes
     for prio in test_prio_list:
@@ -306,13 +309,10 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         else:
             cmd = 'sudo ecnconfig {} -q {} off'.format(asic, prio)
         result = duthost.command(cmd)
-        assert result['rc'] == 0 ,'Set wred_profile command failed '
+        assert result['rc'] == 0, 'Set wred_profile command failed '
 
-    #Verify counterpoll CLI for enabling and disabling ecn statistics polling
+    # Verify counterpoll CLI for enabling and disabling ecn statistics polling
     cmd = 'sudo counterpoll show {}'.format(asic)
     result = duthost.command(cmd)
     assert 'WRED_ECN_QUEUE_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"
     assert 'WRED_ECN_PORT_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"
-
-
-        

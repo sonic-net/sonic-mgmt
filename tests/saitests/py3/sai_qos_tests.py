@@ -4240,11 +4240,8 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         src_port_ip = self.test_params['src_port_ip']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         num_of_pkts = self.test_params['num_of_pkts']
-        cell_size = self.test_params['cell_size']
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         src_port_vlan = self.test_params['src_port_vlan']
-        limit = self.test_params['limit']
-        min_limit = self.test_params['min_limit']
         exp_ip_id = 100
         platform_asic = self.test_params['platform_asic']
         ecn_queue_status = self.test_params['ecn_queue_status']
@@ -4278,7 +4275,6 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
         try:
             tos = dscp << 2
             tos |= ecn
-            ttl = 64
 
             pkt = construct_ip_pkt(default_packet_length,
                                    pkt_dst_mac,
@@ -4351,7 +4347,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                                                                 self.test_params['dut_password'],
                                                                 'show queue wredcounters -n asic{}| grep {}| grep UC{}'
                                                                 .format(self.dst_asic_index, dut_port, dscp))
-                if stdErr and retValue !=0:
+                if stdErr and retValue != 0:
                     raise RuntimeError("Command might have failed in the DUT.Error:{}".format(stdErr))
                 else:
                     print("----Queue WredCounters on DUT----")
