@@ -59,30 +59,30 @@ def test_gnmi_latency_01(duthosts, rand_one_dut_hostname, ptfhost):
         file.write(text)
     ptfhost.copy(src=down_file, dest='/root')
     ptfhost.copy(src=up_file, dest='/root')
-    
+
     # Initialize latency tracking
     total_latencies = []
-    
+
     for i in range(test_loop):
         logger.info(f"Starting iteration {i+1}/{test_loop}")
-        
+
         # Measure total latency for both operations
         start_time = time.time()
-        
+
         # Update description
         gnmi_set(duthost, ptfhost, [], down_list, [])
         # Update description
         gnmi_set(duthost, ptfhost, [], up_list, [])
-        
+
         total_latency = (time.time() - start_time) / 2 * 1000  # Convert to milliseconds
         total_latencies.append(total_latency)
         logger.info(f"Total iteration latency: {total_latency:.2f} ms")
-    
+
     # Calculate and log statistics
     avg_total = sum(total_latencies) / len(total_latencies)
     min_total = min(total_latencies)
     max_total = max(total_latencies)
-    
+
     logger.info("=== GNMI SET LATENCY STATISTICS ===")
     logger.info(f"Total per iteration - Avg: {avg_total:.2f}ms, Min: {min_total:.2f}ms, Max: {max_total:.2f}ms")
     logger.info(f"Test completed: {test_loop} iterations on interface {interface}")
