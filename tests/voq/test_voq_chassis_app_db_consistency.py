@@ -145,7 +145,7 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv6'][0]['address'] == pc_ipv6)
         add_tmp_pc_ipv6 = True
 
-        time.sleep(30)
+        time.sleep(60)
         int_facts = asichost.interface_facts()['ansible_facts']
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
         post_change_db_dump = get_db_dump(duthosts, duthost)
