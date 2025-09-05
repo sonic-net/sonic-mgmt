@@ -19,9 +19,12 @@ from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.port import SnappiPortConfig
 
 # Imported to support rest_py in ixnetwork
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
+from random import getrandbits
 
 
 logger = logging.getLogger(__name__)
@@ -361,6 +364,83 @@ def generate_pause_flows(testbed_config,
 
     pause_flow.metrics.enable = True
     pause_flow.metrics.loss = True
+
+
+def _rand_ipv6():
+    # 2007:db8::/32 is documentation range
+    return "2007:db8:%x:%x:%x:%x:%x:%x" % tuple(getrandbits(16) for _ in range(6))
+
+
+def generate_srv6_encap_flow(testbed_config,
+                             snappi_test_params: SnappiTestParams):
+    """
+    Create a single or multiple SRv6 (IPv6-in-IPv6) encapsulated flow based
+    on the snappi_test_params passed in.
+    Outer IPv6 header encapsulates an inner IPv6 packet.
+
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        snappi_test_params (SnappiTestParams obj): additional parameters for Snappi
+                                                    traffic
+    """
+
+    base_flow_config = snappi_test_params.base_flow_config
+    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    data_flow_config = snappi_test_params.traffic_flow_config.data_flow_config
+    pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
+
+    # Split flow rate equally amongst each dscp stream
+    per_dscp_stream_flow_rate = data_flow_config['flow_rate_percent'] // len(snappi_test_params.tx_dscp_values)
+
+    if isinstance(base_flow_config["tx_port_id"], int):
+        # If tx_port_id is an int, force a list type for easier access
+        base_flow_config["tx_port_id"] = [base_flow_config["tx_port_id"]]
+    if isinstance(base_flow_config["tx_port_config"], SnappiPortConfig):
+        base_flow_config["tx_port_config"] = [base_flow_config["tx_port_config"]]
+    
+    for tx_config_idx in range(len(base_flow_config["tx_port_config"])):
+        for tx_dscp in snappi_test_params.tx_dscp_values:
+            tx_port_config = base_flow_config["tx_port_config"][tx_config_idx]
+            flow_name = f"{tx_port_config.peer_port} SRv6 Flow DSCP {tx_dscp}"
+            flow = testbed_config.flows.flow(name=flow_name)[-1]
+            flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"][tx_config_idx]
+            flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"][tx_config_idx]
+
+            eth, outer_ipv6, inner_ipv6 = flow.packet.ethernet().ipv6().ipv6()
+
+            # Ethernet addressing (reuse existing base flow macs)
+            eth.src.value = base_flow_config["tx_mac"] if isinstance(base_flow_config["tx_mac"], str) else \
+                base_flow_config["tx_mac"][tx_config_idx]
+            eth.dst.value = base_flow_config["rx_mac"] if isinstance(base_flow_config["rx_mac"], str) else \
+                base_flow_config["rx_mac"][tx_config_idx]
+
+            # Outer IPv6 (SRv6 transport)
+            outer_ipv6.src.value = tx_port_config.ipv6
+            pytest_assert(outer_ipv6.src.value is not None, "Outer IPv6 source address is None")
+            outer_ipv6.dst.value = base_flow_config["rx_port_config"].ipv6
+            pytest_assert(outer_ipv6.dst.value is not None, "Outer IPv6 destination address is None")
+            ecn = 1 # ECN ECT(1)=1 ECN-capable
+            outer_ipv6.traffic_class.value = (tx_dscp << 2) | ecn
+            outer_ipv6.flow_label.value = getrandbits(20)
+
+            # Inner IPv6
+            inner_ipv6.src.value = _rand_ipv6()
+            inner_ipv6.dst.value = _rand_ipv6()
+            inner_ipv6.traffic_class.value = 0
+            inner_ipv6.flow_label.value = getrandbits(20)
+
+            flow.size.fixed = data_flow_config["flow_pkt_size"]
+            flow.rate.percentage = per_dscp_stream_flow_rate
+            if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+                flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
+                flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
+                                                                        (data_flow_config["flow_delay_sec"]))
+            elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
+                flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
+                flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
+                                                                        (data_flow_config["flow_delay_sec"]))
+            flow.metrics.enable = True
+            flow.metrics.loss = True
 
 
 def clear_dut_interface_counters(duthost):
