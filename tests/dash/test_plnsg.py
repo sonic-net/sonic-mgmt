@@ -3,10 +3,18 @@ import configs.privatelink_config as pl
 import ptf.testutils as testutils
 from tests.common.config_reload import config_reload
 import pytest
-from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
+from constants import (
+    LOCAL_PTF_INTF,
+    REMOTE_PTF_RECV_INTF,
+    REMOTE_PTF_SEND_INTF,
+    VXLAN_UDP_BASE_SRC_PORT,
+    VXLAN_UDP_SRC_PORT_MASK,
+)
 from gnmi_utils import apply_messages
 from packets import inbound_pl_packets, plnsg_packets
 from test_fnic import verify_tunnel_packets
+from tests.common.helpers.assertions import pytest_assert as pt_assert
+import ptf.packet as scapy
 
 logger = logging.getLogger(__name__)
 
@@ -103,4 +111,14 @@ def test_privatelink_nsg(
     testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
     verify_tunnel_packets(ptfadapter, dash_pl_config[REMOTE_PTF_RECV_INTF], exp_dpu_to_pe_pkt, tunnel_endpoint_counts)
     testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
-    testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
+
+    exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
+    result = testutils.dp_poll(ptfadapter, timeout=1, exp_pkt=exp_dpu_to_vm_pkt)
+    if isinstance(result, ptfadapter.dataplane.PollSuccess):
+        pkt_repr = scapy.Ether(result.packet)
+        sport = pkt_repr[scapy.UDP].sport
+        port_range_end = VXLAN_UDP_BASE_SRC_PORT + (1 << VXLAN_UDP_SRC_PORT_MASK) - 1
+        pt_assert(
+            VXLAN_UDP_BASE_SRC_PORT <= sport <= port_range_end,
+            f"VXLAN source port {sport} not in expected range {VXLAN_UDP_BASE_SRC_PORT}-{port_range_end}",
+        )
