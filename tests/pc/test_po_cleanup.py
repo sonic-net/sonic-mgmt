@@ -7,7 +7,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 pytestmark = [
     pytest.mark.disable_route_check,
     pytest.mark.topology('any'),
-    pytest.mark.parametrize("teamd_mode", ["unified", "multi_process"])
+    pytest.mark.parametrize("teamd_mode", ["multi_process", "unified"]),
 ]
 
 LOG_EXPECT_PO_CLEANUP_RE = "cleanTeamProcesses: Sent SIGTERM to port channel.*{}.*"
@@ -90,11 +90,11 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
     # Add start marker to the DUT syslog
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='port_channel_cleanup')
     loganalyzer.expect_regex = []
-    if teamd_mode == "multi_process":
+    if teamd_mode == "unified":
+            loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format("teamd-unified"))
+    else:
         for pc in port_channel_intfs:
             loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format(pc))
-    else:
-        loganalyzer.expect_regex.append(LOG_EXPECT_PO_CLEANUP_RE.format("teamd-unified"))
 
     try:
         # Make CPU high

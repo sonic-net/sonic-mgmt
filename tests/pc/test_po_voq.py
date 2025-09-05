@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t2'),
-    pytest.mark.parametrize("teamd_mode", ["unified", "multi_process"])
+    pytest.mark.parametrize("teamd_mode", ["multi_process", "unified"]),
 ]
 
 

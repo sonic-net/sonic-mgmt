@@ -21,7 +21,7 @@ from tests.common.helpers.voq_helpers import verify_no_routes_from_nexthop
 pytestmark = [
     pytest.mark.topology('any'),
     pytest.mark.device_type('vs'),
-    pytest.mark.parametrize("teamd_mode", ["unified", "multi_process"])
+    pytest.mark.parametrize("teamd_mode", ["multi_process", "unified"])
 ]
 
 

@@ -3373,11 +3373,11 @@ def gnmi_connection(request, setup_connection):
     yield connection
 
 
-def config_and_delete_multip_process(host, config_mode):
+def config_and_delete_unified_process(host, config_mode):
     if config_mode:
-        host.shell('sonic-db-cli CONFIG_DB hset "TEAMD|GLOBAL" "mode" "multi-process"', module_ignore_errors=True)
+        host.shell('sonic-db-cli CONFIG_DB hset "TEAMD|GLOBAL" "mode" "unified-process"', module_ignore_errors=True)
     else:
-        host.shell('sonic-db-cli CONFIG_DB hdel "TEAMD|GLOBAL" "mode"', module_ignore_errors=True)
+        host.shell('sonic-db-cli CONFIG_DB hset "TEAMD|GLOBAL" "mode" "multi-process"', module_ignore_errors=True)
     try:
         host.restart_service("swss")
     except TypeError:
@@ -3404,9 +3404,9 @@ def teamd_mode_config_unconfig(request, teamd_mode):
     if duthost is None:
         pytest.fail("DUT host not found")
 
-    if teamd_mode == "multi_process":
-        config_and_delete_multip_process(duthost, True)
+    if teamd_mode == "unified":
+        config_and_delete_unified_process(duthost, True)
 
     yield "teamd-mode"
-    if teamd_mode == "multi_process":
-        config_and_delete_multip_process(duthost, False)
+    if teamd_mode == "unified":
+        config_and_delete_unified_process(duthost, False)
