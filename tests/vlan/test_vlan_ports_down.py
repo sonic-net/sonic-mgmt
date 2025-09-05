@@ -65,6 +65,9 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
     vlan_subnet_ipv6 = str(IPNetwork(vlan_info_ipv6["ipv6 address/mask"], flags=NOHOST))
     nbrcount = 0
     for nbrname, nbrhost in nbrhosts.items():
+        if 'PT0' in nbrname:
+            # Skip PT0 neighbors as only specific routes are being advertised to them.
+            continue
         nbrhost = nbrhost["host"]
         # check IPv4 routes on nbrhost
         logger.info(f"Checking IPv4 routes on {nbrname}...")
