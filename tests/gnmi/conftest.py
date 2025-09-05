@@ -1,5 +1,4 @@
 import pytest
-import shutil
 import logging
 import os
 import glob
