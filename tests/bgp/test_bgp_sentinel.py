@@ -346,7 +346,9 @@ def get_target_routes(duthost):
     bgp_v6_routes = json.loads(duthost.shell(
         "vtysh -c \'show bgp ipv6 neighbors {} received-routes json\'".format(v6_peer))['stdout'])
 
-    target_v6_routes = [route for route in bgp_v6_routes['receivedRoutes'].keys() if '/128' not in route and not route.startswith('dc4a')]  # Exclude /128 route and dc4a route, dc4a routes are not advertised to peers
+    # Exclude /128 route and dc4a route, dc4a routes are not advertised to peers
+    target_v6_routes = [route for route in bgp_v6_routes['receivedRoutes'].keys()
+                        if '/128' not in route and not route.startswith('dc4a')]
     return list(bgp_v4_routes['receivedRoutes'].keys()), target_v6_routes
 
 
