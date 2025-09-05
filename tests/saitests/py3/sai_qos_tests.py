@@ -4320,7 +4320,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                             dst_port_id, total_recv_cnt, result.format()))
                     recv_pkt = scapy.Ether(result.packet)
                     try:
-                        if(recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip):
+                        if (recv_pkt.payload.src == src_port_ip) and (recv_pkt.payload.dst == dst_port_ip):
                             total_recv_cnt += 1
                             pkts.append(recv_pkt)
                     except AttributeError:
@@ -4331,9 +4331,9 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 print("Total packet recieved: " + str(total_recv_cnt))
                 for pkt_to_inspect in pkts:
                     # Count marked and not marked amount of packets
-                    if((pkt_to_inspect.payload.tos & 0x03) == 1) or ((pkt_to_inspect.payload.tos & 0x03) == 2):
+                    if ((pkt_to_inspect.payload.tos & 0x03) == 1) or ((pkt_to_inspect.payload.tos & 0x03) == 2):
                         not_marked_cnt += 1
-                    elif((pkt_to_inspect.payload.tos & 0x03) == 3):
+                    elif ((pkt_to_inspect.payload.tos & 0x03) == 3):
                         marked_cnt += 1
 
                 print("    ECN non-marked pkts: " + str(not_marked_cnt))
@@ -4359,7 +4359,7 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 assert (int(stdOut[0].split()[4]) == marked_cnt)
 
             assert (port_counters[TRANSMITTED_PKTS] - port_counters_base[TRANSMITTED_PKTS] >= num_of_pkts)
-            if(ecn == 0):
+            if (ecn == 0):
                 assert (marked_cnt == 0)
             else:
                 assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
