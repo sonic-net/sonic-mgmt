@@ -1,8 +1,5 @@
-import json
 import logging
-import multiprocessing
 import pytest
-import re
 import time
 
 from .helper import gnmi_set
