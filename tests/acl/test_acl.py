@@ -1036,9 +1036,9 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 logger.info("No byte counters for this hwsku\n")
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
-    def direction(self, request, tbinfo):
+    def direction(self, request, tbinfo, ip_version):
         """Parametrize test based on direction of traffic."""
-        if tbinfo['topo']['name'] in ["t0-d18u8s4"] and request.param == "uplink->downlink":
+        if tbinfo['topo']['name'] in ["t0-d18u8s4"] and request.param == "uplink->downlink" and ip_version == "ipv6":
             pytest.skip("Not applicable for t0-d18u8s4 topology")
         if is_multi_binding_acl() and request.param == "downlink->uplink":
             pytest.skip("Not applicable for multi binding ACL")
