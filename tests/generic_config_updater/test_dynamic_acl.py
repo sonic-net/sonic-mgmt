@@ -338,6 +338,8 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     is_storage_backend = 'backend' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
+        # Use ports only in VLAN
+        ports = list(list(config_facts['VLAN_MEMBER'].values())[0].keys())
         if is_storage_backend:
             vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
             intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
