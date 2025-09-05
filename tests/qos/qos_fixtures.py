@@ -61,6 +61,7 @@ def leaf_fanouts(conn_graph_facts):         # noqa: F811
 
     return leaf_fanouts
 
+
 @pytest.fixture(scope="module")
 def lossless_prio_list(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_one_frontend_asic_index):
     """
