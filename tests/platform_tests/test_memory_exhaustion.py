@@ -72,7 +72,10 @@ class TestMemoryExhaustion:
         # Verify DUT triggered OOM reboot.
         self.wait_until_reboot(duthost, datetime_before_reboot)
         # Wait until all critical processes are healthy.
-        wait_critical_processes(duthost)
+        timeout = 300
+        if duthost.sonichost.is_multi_asic:
+            timeout = 400
+        wait_critical_processes(duthost, timeout)
         self.wait_lc_healthy_if_sup(duthost, duthosts, localhost)
 
     def wait_until_reboot(self, duthost, datetime_before_reboot, timeout=600):
