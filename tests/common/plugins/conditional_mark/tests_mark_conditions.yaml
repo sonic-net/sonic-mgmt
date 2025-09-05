@@ -3660,7 +3660,7 @@ snmp/test_snmp_link_local.py:
       - "release in ['202205', '202211', '202305', '202311']"
   xfail:
     reason: "Test script has issues on kvm testbed."
-    condition:
+    conditions:
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15081"
 
