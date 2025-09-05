@@ -176,6 +176,7 @@ def inbound_pl_packets(
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    # masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "ttl")
     if floating_nic:
         # As destination IP is not fixed in case of return path ECMP,
@@ -219,7 +220,7 @@ def outbound_pl_packets(
     floating_nic=False,
     inner_packet_type="udp",
     vxlan_udp_dport=4789,
-    vxlan_udp_sport=1234,
+    vxlan_udp_sport=VXLAN_UDP_BASE_SRC_PORT,
     inner_sport=6789,
     inner_dport=4567,
     vni=None
