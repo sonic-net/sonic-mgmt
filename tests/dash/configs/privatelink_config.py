@@ -50,7 +50,8 @@ APPLIANCE_CONFIG = {
     f"DASH_APPLIANCE_TABLE:{APPLIANCE_ID}": {
         "sip": APPLIANCE_VIP,
         "vm_vni": VM_VNI,
-        "local_region_id": LOCAL_REGION_ID
+        "local_region_id": LOCAL_REGION_ID,
+        "trusted_vnis": ENCAP_VNI
     }
 }
 
@@ -133,6 +134,7 @@ VM1_VNET_MAPPING_CONFIG_FNIC = {
         "routing_type": RoutingType.ROUTING_TYPE_VNET,
         "underlay_ip": VM1_PA,
         "mac_address": VM_MAC,
+        "metering_class_or": "2",
     }
 }
 

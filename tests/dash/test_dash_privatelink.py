@@ -49,7 +49,7 @@ def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dp
         duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts,
                           set_vxlan_udp_sport_range):
     if skip_config:
@@ -96,7 +96,7 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, skip_config, d
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture()
 def common_setup_teardown_fnic(localhost, duthost, ptfhost, dpu_index, skip_config, dpuhosts,
                                set_vxlan_udp_sport_range):
     if skip_config:
