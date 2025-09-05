@@ -4147,8 +4147,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
-        lossless_weight = int(self.test_params.get('lossless_weight', 1))
-        lossy_weight = int(self.test_params.get('lossy_weight', 1))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
         prio_list = self.test_params.get('dscp_list', [])
@@ -4243,15 +4241,15 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                     n_prio[i] += 1
                 for n, prio in zip(n_prio, prio_list):
                     pkt = construct_ip_pkt(64,
-                        pkt_dst_mac,
-                        src_port_mac,
-                        src_port_ip,
-                        dst_port_ip,
-                        prio,
-                        src_port_vlan,
-                        ip_id=exp_ip_id + 1,
-                        ecn=ecn,
-                        ttl=64)
+                                           pkt_dst_mac,
+                                           src_port_mac,
+                                           src_port_ip,
+                                           dst_port_ip,
+                                           prio,
+                                           src_port_vlan,
+                                           ip_id=exp_ip_id + 1,
+                                           ecn=ecn,
+                                           ttl=64)
                     send_packet(self, src_port_id, pkt, n)
 
             # Get a snapshot of counter values
