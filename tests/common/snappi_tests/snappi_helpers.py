@@ -7,6 +7,7 @@ chassis instead of reading it from fanout_graph_facts fixture.
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
+from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
 import time
 
 
@@ -343,5 +344,22 @@ def fetch_snappi_flow_metrics(api, flow_names):
     request = api.metrics_request()
     request.flow.flow_names = flow_names
     flow_metrics = api.get_metrics(request).flow_metrics
+
+    return flow_metrics
+
+
+def fetch_flow_metrics_for_macsec(api):
+    """
+    Fetches the flow metrics from the corresponding snappi session using the api
+
+    Args:
+    api: snappi api
+    flow_names: list of flow names
+
+    Returns:
+    flow_metrics (obj): list of metrics
+    """
+    ixnet = api._ixnetwork
+    flow_metrics = StatViewAssistant(ixnet, 'Flow Statistics')
 
     return flow_metrics
