@@ -379,19 +379,39 @@ class TestQosSai(QosSaiBase):
                     startPos += 1
         logger.debug('updateTestPortIdIp dutConfig["testPorts"]: {}'.format(dutConfig["testPorts"]))
 
-    def check_ecn_status(self, duthost, qosConfig):
-        ecn_queue_status = []
+    def check_and_set_ecn_status(self, duthost, qosConfig, expected_status='on'):
+        ecn_status = ''
         if duthost.sonichost.is_multi_asic:
-            ecn_status = ""
+            status = []
             for asic in duthost.asics:
                 cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
                     asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
                 if cmd_output['rc'] != 0:
-                    pytest.skip("ecnconfig on/off not supported")
+                    pytest.skip("command failed for ecnconfig on/off status")
                 else:
-                    ecn_queue_status.append(cmd_output['stdout_lines'][1].split(':')[1].strip())
-            ecn_status = 'on' if all("on" in status for status in ecn_queue_status) else 'off'
+                    ecn_status = cmd_output['stdout_lines'][1].split(':')[1].strip()
+                    if ecn_status != expected_status:
+                        duthost.shell("sudo ecnconfig -n asic{} -q {} {}".format(
+                            asic.asic_index, qosConfig["dscp"], expected_status), module_ignore_errors=True)
+                cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {}".format(
+                    asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
+                status.append(cmd_output['stdout_lines'][1].split(':')[1].strip())
+            ecn_status = 'on' if all("on" in status for status in status) else 'off'
+
+        else:
+            cmd_output = duthost.shell("sudo ecnconfig -q {}".format(qosConfig["dscp"]), module_ignore_errors=True)
+            if cmd_output['rc'] != 0:
+                pytest.skip("command failed for ecnconfig on/off status")
+            else:
+                ecn_status = cmd_output['stdout_lines'][1].split(':')[1].strip()
+                if ecn_status != expected_status:
+                    duthost.shell("sudo ecnconfig -q {} {}".format(qosConfig["dscp"], expected_status),
+                                  module_ignore_errors=True)
+                cmd_output = duthost.shell("sudo ecnconfig -q {}".format(qosConfig["dscp"]), module_ignore_errors=True)
+            ecn_status = 'on' if "on" in cmd_output['stdout_lines'][1].split(':')[1].strip() else 'off'
+
         return ecn_status
+
 
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
@@ -2685,10 +2705,10 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.XonHysteresisTest",
             testParams=test_params)
 
-    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4"])
+    @pytest.mark.parametrize("ecn", ["ecn_1", "ecn_2", "ecn_3", "ecn_4", "ecn_5"])
     def testQosSaiDscpEcn(
         self, ecn, duthosts, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, dutQosConfig,ecnLosslessProfile, enable_ecn,
+        ptfhost, dutTestParams, dutConfig, dutQosConfig, ecnLosslessProfile,
         change_lag_lacp_timer
     ):
         """
@@ -2739,31 +2759,18 @@ class TestQosSai(QosSaiBase):
 
         if "platform_asic" in dutTestParams["basicParams"]:
             testParams["platform_asic"] = dutTestParams["basicParams"]["platform_asic"]
+            testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig)
         else:
             testParams["platform_asic"] = None
-
-
-        testParams.update({"ecn_queue_status": self.check_ecn_status(duthost, qosConfig)})
-        #enable ecnconfig for queue 0
-        if ecn == "ecn_4":
-            if duthost.sonichost.is_multi_asic:
-                for asic in duthost.asics:
-                    cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {} on".format(
-                        asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
-                    if cmd_output['rc'] != 0:
-                        pytest.skip("ecnconfig on/off not supported")
         self.runPtfTest(
             ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
         )
-
+        # Run ecn_3 scenario with ecn_status off
         if ecn == "ecn_3":
-            if duthost.sonichost.is_multi_asic:
-                for asic in duthost.asics:
-                    cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {} off".format(
-                        asic.asic_index, qosConfig["dscp"]), module_ignore_errors=True)
-                    if cmd_output['rc'] != 0:
-                        pytest.skip("ecnconfig on/off not supported")
-            testParams["ecn_queue_status"] = self.check_ecn_status(duthost, qosConfig)
+            testParams["ecn_queue_status"] = self.check_and_set_ecn_status(duthost, qosConfig, 'off')
             self.runPtfTest(
                 ptfhost, testCase="sai_qos_tests.DscpEcnSend", testParams=testParams
             )
+            self.check_and_set_ecn_status(duthost, qosConfig, 'on')
+        elif ecn == "ecn_5":
+            self.check_and_set_ecn_status(duthost, qosConfig, 'off')
