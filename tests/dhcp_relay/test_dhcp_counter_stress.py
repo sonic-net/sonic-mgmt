@@ -106,7 +106,8 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             duthost=duthost, interface='any',
             pkts_filter="udp dst port %s or udp dst port %s" % (DEFAULT_DHCP_SERVER_PORT,
                                                                 DEFAULT_DHCP_CLIENT_PORT),
-            pkts_validator=_verify_packets
+            pkts_validator=_verify_packets,
+            wait_time=2
         ):
             ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPStress{}Test".format(dhcp_type.capitalize()),
                        platform_dir="ptftests", params=params,

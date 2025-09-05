@@ -1255,6 +1255,7 @@ def capture_and_check_packet_on_dut(
                   "Failed to start tcpdump on DUT")
     logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s"
                  % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+    time.sleep(wait_time)
     try:
         yield
         time.sleep(wait_time)
