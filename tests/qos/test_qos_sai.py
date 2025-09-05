@@ -412,7 +412,6 @@ class TestQosSai(QosSaiBase):
 
         return ecn_status
 
-
     def testParameter(
         self, duthosts, get_src_dst_asic_and_duts, dutConfig, dutQosConfig, ingressLosslessProfile,
         ingressLossyProfile, egressLosslessProfile, dualtor_ports_for_duts
