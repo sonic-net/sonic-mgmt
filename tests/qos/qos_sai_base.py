@@ -3199,24 +3199,3 @@ def set_queue_pir(interface, queue, rate):
             "QUEUE",
             dstport
         )
-
-    @pytest.fixture(scope="function", autouse=False)
-    def enable_ecn(self, get_src_dst_asic_and_duts, dutConfig, dutTestParams):
-        duthost = dutConfig["dstDutInstance"]
-        if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            if duthost.sonichost.is_multi_asic:
-                for asic in duthost.asics:
-                    cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {} on".format(
-                        asic.asic_index, self.TARGET_QUEUE_WRED), module_ignore_errors=True)
-                    if cmd_output['rc'] != 0:
-                        pytest.skip("Command failed for ecn on/off on queue")
-        yield
-        if ('platform_asic' in dutTestParams["basicParams"] and
-                dutTestParams["basicParams"]["platform_asic"] == "broadcom-dnx"):
-            if duthost.sonichost.is_multi_asic:
-                for asic in duthost.asics:
-                    cmd_output = duthost.shell("sudo ecnconfig -n asic{} -q {} off".format(
-                        asic.asic_index, self.TARGET_QUEUE_WRED), module_ignore_errors=True)
-                    if cmd_output['rc'] != 0:
-                        pytest.skip("Command failed for ecn on/off on queue")

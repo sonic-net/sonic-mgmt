@@ -4291,12 +4291,6 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                                    ecn=ecn,
                                    ttl=64)
             send_packet(self, src_port_id, pkt, num_of_pkts)
-            '''
-            leaking_pkt_number = 0
-            for (rcv_port_number, pkt_str, pkt_time) in self.dataplane.packets(0, 1):
-                leaking_pkt_number += 1
-            print("leaking packet %d" % leaking_pkt_number)
-            '''
 
             # Set receiving socket buffers to some big value
             for p in list(self.dataplane.ports.values()):
@@ -4373,16 +4367,11 @@ class DscpEcnSend(sai_base_test.ThriftInterfaceDataPlane):
                 assert (marked_cnt == 0)
             else:
                 assert (marked_cnt >= (num_of_pkts - not_marked_cnt))
-                '''
-                for cntr in egress_counters:
-                    assert (port_counters[cntr] == 0)
-                '''
+
                 for cntr in ingress_counters:
                     assert (port_counters[cntr] == port_counters_base[cntr])
-
         finally:
             # RELEASE PORT
-
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
             print("END OF TEST")
 
