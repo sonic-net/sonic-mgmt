@@ -594,14 +594,14 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         
         parts = config_string.split('-')
         if len(parts) != 6:
-            raise ValueError(f"Invalid transceiver configuration format: {config_string}")
-        
+            raise ValueError("Invalid transceiver configuration format: {}".format(config_string))
+
         type_name, speed, form_factor, deployment, media_mask, host_mask = parts
-        
+
         # Parse lane counts from hexadecimal masks
         media_lanes = bin(int(media_mask, 16)).count('1')
         host_lanes = bin(int(host_mask, 16)).count('1')
-        
+
         return {
             'cable_type': type_name,
             'speed_gbps': int(speed),
