@@ -71,13 +71,20 @@ def common_setup_teardown(
     route_and_mapping_messages = {
         **pl.PE_VNET_MAPPING_CONFIG,
         **pl.PE_SUBNET_ROUTE_CONFIG,
-        **vm_subnet_route_config,
-        **pl.VM_VNI_ROUTE_RULE_CONFIG,
-        **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
-        **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
+        **vm_subnet_route_config
     }
     logger.info(route_and_mapping_messages)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+    # inbound routing not implemented in Pensando SAI yet, so skip route rule programming
+    if 'pensando' not in dpuhost.facts['asic_type']:
+        route_rule_messages = {
+            **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+            **pl.TRUSTED_VNI_ROUTE_RULE_CONFIG
+        }
+        logger.info(route_rule_messages)
+        apply_messages(localhost, duthost, ptfhost, route_rule_messages, dpuhost.dpu_index)
 
     meter_rule_messages = {
         **pl.METER_RULE1_V4_CONFIG,
@@ -133,7 +140,13 @@ def test_fnic(ptfadapter, dash_pl_config, single_endpoint):
         testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
         testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
         testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
-        verify_tunnel_packets(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], exp_dpu_to_vm_pkt, tunnel_endpoint_counts)
+        verify_tunnel_packets(
+            ptfadapter,
+            dash_pl_config[LOCAL_PTF_INTF],
+            exp_dpu_to_vm_pkt,
+            tunnel_endpoint_counts,
+            check_vxlan_sport=True,
+        )
 
     recvd_pkts = sum(tunnel_endpoint_counts.values())
     logger.info(f"Received packets: {recvd_pkts}, Tunnel endpoint counts: {tunnel_endpoint_counts}")
