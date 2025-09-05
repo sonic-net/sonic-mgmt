@@ -1038,6 +1038,8 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
     def direction(self, request, tbinfo):
         """Parametrize test based on direction of traffic."""
+        if tbinfo['topo']['name'] in ["t0-d18u8s4"] and request.param == "uplink->downlink":
+            pytest.skip("Not applicable for t0-d18u8s4 topology")
         if is_multi_binding_acl() and request.param == "downlink->uplink":
             pytest.skip("Not applicable for multi binding ACL")
 
