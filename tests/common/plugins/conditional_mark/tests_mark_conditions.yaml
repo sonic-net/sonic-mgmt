@@ -4113,6 +4113,13 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiXonHysteresis:
     conditions:
       - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0']"
       - "asic_type not in ['cisco-8000']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiDscpEcn:
+  skip:
+    reason: "Unsupported testbed type."
+    conditions:
+      - "asic_type not in ['broadcom'] and asic_subtype not in ['broadcom-dnx']"
+
 qos/test_tunnel_qos_remap.py:
   skip:
     reason: "Tunnel qos remap test needs some SAI attributes, which are not supported on KVM."
