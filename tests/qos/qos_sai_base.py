@@ -3184,8 +3184,9 @@ def set_queue_pir(interface, queue, rate):
                    Args:
                        request (Fixture): pytest request object
                        duthost (AnsibleHost): Device Under Test (DUT)
-                       dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
-                           and test ports
+                       dutConfig (Fixture, dict): Map of DUT config containing dut interfaces,
+                       test port IDs, test port IPs,
+                       and test ports
 
                    Returns:
                        ecnLosslessProfile (dict): Map of ecn marking for lossless queue
