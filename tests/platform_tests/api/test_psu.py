@@ -8,6 +8,7 @@ from tests.platform_tests.cli.util import get_skip_mod_list
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform, wait_until
 from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.platform_tests.api.conftest import skip_absent_psu
 
 
 ###################################################
@@ -82,13 +83,6 @@ class TestPsuApi(PlatformApiTestBase):
 
         return def_value
 
-    def skip_absent_psu(self, psu_num, platform_api_conn):    # noqa F811
-        name = psu.get_name(platform_api_conn, psu_num)
-        if name in self.psu_skip_list:
-            logger.info("Skipping PSU {} since it is part of psu_skip_list".format(name))
-            return True
-        return False
-
     def get_psu_parameter(self, psu_info, psu_parameter, get_data, message):
         data = None
         is_supported = self.get_psu_facts(psu_info["duthost"], psu_info["psu_id"], True, psu_parameter)
@@ -106,7 +100,7 @@ class TestPsuApi(PlatformApiTestBase):
     def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_psus):
-            if self.skip_absent_psu(i, platform_api_conn):
+            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
             name = psu.get_name(platform_api_conn, i)
             if self.expect(name is not None, "Unable to retrieve PSU {} name".format(i)):
@@ -129,7 +123,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
         for i in range(self.num_psus):
-            if self.skip_absent_psu(i, platform_api_conn):
+            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
             model = psu.get_model(platform_api_conn, i)
             if self.expect(model is not None, "Unable to retrieve PSU {} model".format(i)):
@@ -138,7 +132,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_psus):
-            if self.skip_absent_psu(i, platform_api_conn):
+            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
             serial = psu.get_serial(platform_api_conn, i)
             if self.expect(serial is not None, "Unable to retrieve PSU {} serial number".format(i)):
@@ -149,7 +143,7 @@ class TestPsuApi(PlatformApiTestBase):
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
-            if self.skip_absent_psu(i, platform_api_conn):
+            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
             revision = psu.get_revision(platform_api_conn, i)
             if self.expect(revision is not None, "Unable to retrieve PSU {} serial number".format(i)):
@@ -158,7 +152,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
         for i in range(self.num_psus):
-            if self.skip_absent_psu(i, platform_api_conn):
+            if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
             status = psu.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve PSU {} status".format(i)):
@@ -167,7 +161,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_get_position_in_parent(self, platform_api_conn):     # noqa F811
         for psu_id in range(self.num_psus):
-            if self.skip_absent_psu(psu_id, platform_api_conn):
+            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
             position = psu.get_position_in_parent(platform_api_conn, psu_id)
             if self.expect(position is not None,
@@ -178,7 +172,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_is_replaceable(self, platform_api_conn):     # noqa F811
         for psu_id in range(self.num_psus):
-            if self.skip_absent_psu(psu_id, platform_api_conn):
+            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
             replaceable = psu.is_replaceable(platform_api_conn, psu_id)
             if self.expect(replaceable is not None,
@@ -338,7 +332,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         psus_skipped = 0
         for psu_id in range(self.num_psus):
-            if self.skip_absent_psu(psu_id, platform_api_conn):
+            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
             name = psu.get_name(platform_api_conn, psu_id)
             led_support = duthost.facts.get("chassis").get("psus")[psu_id].get("led")
@@ -399,7 +393,7 @@ class TestPsuApi(PlatformApiTestBase):
 
     def test_thermals(self, platform_api_conn):   # noqa F811
         for psu_id in range(self.num_psus):
-            if self.skip_absent_psu(psu_id, platform_api_conn):
+            if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
             try:
                 num_thermals = int(psu.get_num_thermals(platform_api_conn, psu_id))
