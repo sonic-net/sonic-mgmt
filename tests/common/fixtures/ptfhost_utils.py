@@ -35,6 +35,7 @@ GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 PROBER_INTERVAL_MS = 3000
+PTFHOST_UNREACHABLE_RC = 16
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -299,11 +300,17 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
     yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
 
 
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.cache.get("ptfhost_unreachable", None):
+        session.config.cache.set("ptfhost_unreachable", None)
+        session.exitstatus = PTFHOST_UNREACHABLE_RC
+
+
 icmp_responder_session_started = False
 
 
 @pytest.fixture(scope="session", autouse=True)
-def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
+def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
@@ -319,7 +326,12 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     duthost = duthosts[0]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    try:
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    except BaseException as e:
+        logger.error("Failed to copy files to ptfhost.")
+        request.config.cache.set("ptfhost_unreachable", True)
+        pt_assert(False, "!!! ptfhost unreachable !!! Exception: {}".format(repr(e)))
 
     logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
