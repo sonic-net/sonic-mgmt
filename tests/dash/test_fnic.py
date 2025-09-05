@@ -9,7 +9,6 @@ from packets import rand_udp_port_packets
 from tests.common.helpers.assertions import pytest_assert
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
 from tests.common import config_reload
-from route_setup import dpu_setup, add_npu_static_routes  # noqa: F401
 from tests.dash.dash_utils import verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
@@ -36,8 +35,8 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     set_vxlan_udp_sport_range,
-    # manually invoke add_npu_static_routes to ensure routes are added before DASH configs are programmed
-    add_npu_static_routes,  # noqa: F811
+    # manually invoke setup_npu_dpu to ensure routes are added before DASH configs are programmed
+    setup_npu_dpu,  # noqa: F811
     single_endpoint,
 ):
     if skip_config:

@@ -16,6 +16,8 @@ from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, a
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
 from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.common import config_reload
+import configs.privatelink_config as pl
+from tests.common.helpers.assertions import pytest_require as pt_require
 
 logger = logging.getLogger(__name__)
 
@@ -438,7 +440,7 @@ def vxlan_udp_dport(request, duthost):
     config_vxlan_udp_dport(duthost, 4789)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     """
     Configure VXLAN UDP source port range in dpu configuration.
@@ -455,6 +457,7 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         }
     ]
 
+    logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
     dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
     apply_swssconfig_file(dpuhost, config_path)
@@ -492,3 +495,67 @@ def dpu_index(request):
 @pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
 def single_endpoint(request):
     return request.param
+
+
+@pytest.fixture(scope="function")
+def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
+    if skip_config:
+
+        return
+    dpuhost = dpuhosts[dpu_index]
+    # explicitly add mgmt IP route so the default route doesn't disrupt SSH access
+    dpuhost.shell(f'ip route replace {duthost.mgmt_ip}/32 via 169.254.200.254')
+    intfs = dpuhost.shell("show ip int")["stdout"]
+    dpu_cmds = list()
+    if "Loopback0" not in intfs:
+        dpu_cmds.append("config loopback add Loopback0")
+        dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
+
+    pt_require(dpuhost.npu_data_port_ip, "DPU data port IP is not set")
+    dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
+    dpuhost.shell_cmds(cmds=dpu_cmds)
+
+
+@pytest.fixture(scope="function")
+def add_npu_static_routes(
+    duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
+):
+    dpuhost = dpuhosts[dpu_index]
+    if not skip_config:
+        cmds = []
+        vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
+        pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+
+        pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
+        pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
+
+        cmds.append(f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
+        cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+
+        return_tunnel_endpoints = pl.TUNNEL1_ENDPOINT_IPS + pl.TUNNEL2_ENDPOINT_IPS
+        for tunnel_ip in return_tunnel_endpoints:
+            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
+        nsg_tunnel_endpoints = pl.TUNNEL3_ENDPOINT_IPS + pl.TUNNEL4_ENDPOINT_IPS
+        for tunnel_ip in nsg_tunnel_endpoints:
+            cmds.append(f"ip route replace {tunnel_ip}/32 via {pe_nexthop_ip}")
+
+        cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        logger.info(f"Adding static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
+
+    yield
+
+    if not skip_config and not skip_cleanup:
+        cmds = []
+        cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
+        cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+        for tunnel_ip in return_tunnel_endpoints:
+            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
+        cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        logger.info(f"Removing static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope="function")
+def setup_npu_dpu(dpu_setup, add_npu_static_routes):
+    yield

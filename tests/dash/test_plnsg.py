@@ -6,7 +6,6 @@ import pytest
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import inbound_pl_packets, plnsg_packets
-from route_setup import add_npu_static_routes, dpu_setup  # noqa: F401
 from test_fnic import verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
@@ -21,7 +20,8 @@ def config_setup_teardown(
     skip_config,
     dpuhosts,
     single_endpoint,
-    add_npu_static_routes  # noqa :F811
+    set_vxlan_udp_sport_range,
+    setup_npu_dpu  # noqa :F811
 ):
     if not single_endpoint:
         pytest.skip("Multiple tunnel endpoints not yet supported for PL NSG")

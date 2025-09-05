@@ -6,7 +6,6 @@ import pytest
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
-from tests.dash.route_setup import add_npu_static_routes, dpu_setup  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -42,7 +41,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     set_vxlan_udp_sport_range,
-    add_npu_static_routes,  # noqa: F811
+    setup_npu_dpu,  # noqa: F811
 ):
     if skip_config:
         return
