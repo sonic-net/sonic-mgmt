@@ -274,6 +274,29 @@ class TestSfpApi(PlatformApiTestBase):
         {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
     ]
 
+    # Keys supported for Amphenol 800G Backplane catridge.
+    EXPECTED_AMPH_BACKPLANE_KEYS = [
+        "type",
+        "type_abbrv_name",
+        "hardware_rev",
+        "serial",
+        "cable_length",
+        "manufacturer",
+        "model",
+        "vendor_date",
+        "vendor_oui",
+        "vendor_rev",
+        "application_advertisement",
+        "host_electrical_interface",
+        "host_lane_count",
+        "host_lane_assignment_option",
+        "cable_type",
+        "cmis_rev",
+        "specification_compliance",
+        "vdm_supported",
+        "slot_id",
+    ]
+
     chassis_facts = None
     duthost_vars = None
 
@@ -303,6 +326,10 @@ class TestSfpApi(PlatformApiTestBase):
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
+        # Amphenol 800G Backplane catridge is not resettable.
+        if xcvr_info_dict["type"] == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
+            return False
+
         not_resettable_xcvr_type = request.config.getoption("--unresettable_xcvr_types")
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
@@ -322,6 +349,10 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
+        # Amphenol 800G Backplane catridge does not support lpmode.
+        if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
+            return False
+
         ext_identifier = xcvr_info_dict["ext_identifier"]
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
@@ -458,6 +489,8 @@ class TestSfpApi(PlatformApiTestBase):
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = [
                             key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
+                    elif info_dict["type"] == "Backplane Cartridge" and info_dict['manufacturer'].rstrip() == "Amphenol":
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
                         if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
