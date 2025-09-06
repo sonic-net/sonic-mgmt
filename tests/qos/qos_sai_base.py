@@ -460,6 +460,11 @@ class QosSaiBase(QosBase):
             Returns:
                 wredProfile (dict): Map of ECN/WRED attributes
         """
+        if table == "QUEUE" and dut_asic.sonichost.facts['switch_type'] == 'voq':
+            # For VoQ chassis, the buffer queues config is based on system port
+            if dut_asic.sonichost.is_multi_asic:
+                port = "{}|{}|{}".format(
+                    dut_asic.sonichost.hostname, dut_asic.namespace, port)
         if check_qos_db_fv_reference_with_table(dut_asic):
             out = dut_asic.run_redis_cmd(
                 argv=[
@@ -1690,7 +1695,7 @@ class QosSaiBase(QosBase):
         self, duthosts, get_src_dst_asic_and_duts,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
-        tbinfo, lower_tor_host  # noqa: F811
+        tbinfo, lower_tor_host, ecnLosslessProfile  # noqa: F811
     ):
         """
             Prepares DUT host QoS configuration
@@ -3144,3 +3149,29 @@ def set_queue_pir(interface, queue, rate):
         sai_profile_content = duthost.shell(get_sai_profile_cmd)['stdout']
         logging.info(f"sai_profile_content: {sai_profile_content}")
         return "SAI_KEY_DISABLE_PORT_ALPHA=1" not in sai_profile_content
+
+    def ecnLosslessProfile(
+            self, request, duthosts, get_src_dst_asic_and_duts, dutConfig, tbinfo, lower_tor_host  # noqa F811
+    ):
+        """
+                   Retreives ecn lossless profile
+
+                   Args:
+                       request (Fixture): pytest request object
+                       duthost (AnsibleHost): Device Under Test (DUT)
+                       dutConfig (Fixture, dict): Map of DUT config containing dut interfaces,
+                       test port IDs, test port IPs,
+                       and test ports
+
+                   Returns:
+                       ecnLosslessProfile (dict): Map of ecn marking for lossless queue
+               """
+
+        dut_asic = get_src_dst_asic_and_duts['dst_asic']
+        dstport = dutConfig["dutInterfaces"][dutConfig["testPorts"]["dst_port_id"]]
+
+        yield self.__getEcnWredParam(
+            dut_asic,
+            "QUEUE",
+            dstport
+        )
