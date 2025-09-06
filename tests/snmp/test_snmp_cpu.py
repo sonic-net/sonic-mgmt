@@ -2,7 +2,7 @@ import pytest
 import time
 import logging
 
-from tests.common.helpers.snmp_helpers import get_snmp_facts
+from tests.common.helpers.snmp_helpers import get_snmp_facts, SNMP_DEFAULT_TIMEOUT, SNMP_QUERY_LONG_TIMEOUT
 
 logger = logging.getLogger(__name__)
 
@@ -52,9 +52,13 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
         time.sleep(40)
 
         # Gather facts with SNMP version 2
+        snmp_timeout = SNMP_DEFAULT_TIMEOUT
+        if duthost.facts['switch_type'] == "chassis-packet":
+            snmp_timeout = SNMP_QUERY_LONG_TIMEOUT
         snmp_facts = get_snmp_facts(
             duthost, localhost, host=hostip, version="v2c",
-            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True)['ansible_facts']
+            community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], is_dell=True, wait=True,
+            snmp_timeout=snmp_timeout)['ansible_facts']
 
         # Pull CPU utilization via shell
         # Explanation: Run top command with 2 iterations, 5sec delay.
