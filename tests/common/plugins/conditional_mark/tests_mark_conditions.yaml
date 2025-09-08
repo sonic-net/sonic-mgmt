@@ -492,6 +492,13 @@ crm/test_crm.py::test_crm_fdb_entry:
     conditions:
       - "'t0' not in topo_name and topo_type not in ['m0', 'mx']"
 
+crm/test_crm.py::test_crm_nexthop_group:
+  xfail:
+    reason: "xfail test on Nvidia dualtor aa setup due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/20563"
+    conditions:
+      - "'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20563"
+
 crm/test_crm_available.py:
   xfail:
     reason: "There is a known issue with broadcom dualtor (https://github.com/sonic-net/sonic-mgmt/issues/18873) or xfail for IPv6-only topologies, as it try to excute ipv4 command"
