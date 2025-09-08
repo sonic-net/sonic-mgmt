@@ -7,7 +7,7 @@ import logging
 import time
 import pytest
 import json
-from tests.qos.qos_fixtures import lossless_prio_list
+from tests.qos.qos_fixtures import lossless_prio_list  # noqa F401
 
 
 pytestmark = [
