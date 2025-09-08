@@ -327,7 +327,7 @@
   server: server_61
   vm_base: VM61080
   dut:
-  - str3-8101-04
+  - str3-8101-03
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni
