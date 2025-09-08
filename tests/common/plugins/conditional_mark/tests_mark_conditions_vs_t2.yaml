@@ -855,6 +855,11 @@ show_techsupport/test_techsupport_no_secret.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+snmp/test_snmp_cpu.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case sometimes took too long to finish on virtual chassis
 snmp/test_snmp_interfaces.py:
   skip:
     conditions:
