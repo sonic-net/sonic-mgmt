@@ -1253,9 +1253,9 @@ def capture_and_check_packet_on_dut(
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
     pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
                   "Failed to start tcpdump on DUT")
-    time.sleep(wait_time)
     logging.info("Start to capture packet on DUT, tcpdump pid: %s, pcap save path: %s, with command: %s"
                  % (tcpdump_pid, pcap_save_path, cmd_capture_pkts))
+    time.sleep(wait_time)
     try:
         yield
         time.sleep(wait_time)
