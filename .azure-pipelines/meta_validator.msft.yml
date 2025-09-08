@@ -321,7 +321,7 @@ validators:
       # E3007 invalid console server devices - all strtk5 devices pointing to non-existent servers
       - strtk5-.*                 # all strtk5 devices have invalid console servers
       # Exclude smartswitch devices because DPUs share the same console server as the NPU
-      - str3-8102-07-dpu-*            # conflicts with str3-8102-07
+      - .*-dpu-.*                 # SmartSwitch DPUs. The all share the same console as the NPU
 - name: pdu
   enabled: true
   config:
@@ -376,7 +376,7 @@ validators:
       - bjw3-can-7215a1d-2        # conflicts with bjw3-can-7215a1d-leaf-2
       - str2-7260cx3-d10-u42      # conflicts with str2-7260cx3-d10-u42
       # Exclude smartswitch devices because DPUs share the same PDU IP as the NPU
-      - str3-8102-07-dpu-*            # conflicts with str3-8102-07
+      - .*-dpu-.*                 # SmartSwitch DPUs. The all share the same IP as the NPU
 issue_severities:
   E2005: error   # Enable IPv4 IPv6 conflict issue
   E3002: info    # Ignore missing console issue
