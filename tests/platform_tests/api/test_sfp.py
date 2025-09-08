@@ -274,7 +274,7 @@ class TestSfpApi(PlatformApiTestBase):
         {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
     ]
 
-    # Keys supported for Amphenol 800G Backplane catridge.
+    # Keys supported for Amphenol 800G Backplane cartridge.
     EXPECTED_AMPH_BACKPLANE_KEYS = [
         "type",
         "type_abbrv_name",
@@ -326,7 +326,7 @@ class TestSfpApi(PlatformApiTestBase):
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
-        # Amphenol 800G Backplane catridge is not resettable.
+        # Amphenol 800G Backplane cartridge is not resettable.
         if xcvr_info_dict["type"] == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
             return False
 
@@ -349,7 +349,7 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
-        # Amphenol 800G Backplane catridge does not support lpmode.
+        # Amphenol 800G Backplane cartridge does not support lpmode.
         if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
             return False
 
@@ -489,7 +489,8 @@ class TestSfpApi(PlatformApiTestBase):
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = [
                             key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
-                    elif info_dict["type"] == "Backplane Cartridge" and info_dict['manufacturer'].rstrip() == "Amphenol":
+                    elif info_dict["type"] == "Backplane Cartridge" and \
+                        info_dict['manufacturer'].rstrip() == "Amphenol":
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
