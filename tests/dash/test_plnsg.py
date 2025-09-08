@@ -67,11 +67,17 @@ def config_setup_teardown(
         **vnet_mapping_config,
         **pl.PE_SUBNET_ROUTE_CONFIG,
         **pl.VM_SUBNET_ROUTE_CONFIG,
-        **pl.VM_VNI_ROUTE_RULE_CONFIG,
-        **pl.INBOUND_VNI_ROUTE_RULE_CONFIG
     }
     logger.info(route_and_mapping_messages)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index)
+
+    if 'pensando' not in dpuhost.facts['asic_type']:
+        route_rule_messages = {
+            **pl.VM_VNI_ROUTE_RULE_CONFIG,
+            **pl.INBOUND_VNI_ROUTE_RULE_CONFIG,
+        }
+        logger.info(route_rule_messages)
+        apply_messages(localhost, duthost, ptfhost, route_rule_messages, dpuhost.dpu_index)
 
     meter_rule_messages = {
         **pl.METER_RULE1_V4_CONFIG,
