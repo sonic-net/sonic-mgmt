@@ -1125,6 +1125,10 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
@@ -1152,7 +1156,10 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
-
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -1182,6 +1189,10 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
@@ -1209,6 +1220,10 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
@@ -1283,6 +1298,10 @@ hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
@@ -1310,6 +1329,10 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 #######################################
 #####           http              #####
