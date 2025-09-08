@@ -1,0 +1,40 @@
+NETWORK: 192.168.0.0/16
+IPV6NETWORK: 67fe:1:1::/119
+D1T1P1: 192.168.10.1
+D1D2P1: 20.20.20.1
+D2D1P1: 20.20.20.2
+T1D2P1: 30.30.30.1
+D2T1P1: 30.30.30.2
+ipv4_mask: 16
+v6D1D2P1: 1093:3:1::2
+v6D2D1P1: 1093:3:1::1
+v6T1D2P1: 1093:1:1::2
+v6D2T1P1: 1093:1:1::1
+v6D1T1P1: 1093:2:1::1
+v6T1D1P1: 1093:2:1::2
+ipv6_mask: 64
+
+max_v4_ssh_acls: 10
+max_v6_ssh_acls: 100
+max_v4_snmp_acls: 150
+max_v6_snmp_acls: 150
+max_simul_ssh: 10 
+max_seq_ssh: 20 
+max_portChannels: 80              
+max_aces: 200     
+max_bgp_ipv4_peer: 200000
+max_bgp_ipv6_peer: 200000
+
+max_bgp_ipv4_prefix:  
+    '8101': 250000
+    '8102': 250000 
+    '8201': 250000  
+    '8122': 300000 
+
+max_bgp_ipv6_prefix: 
+    '8101': 250000
+    '8102': 250000 
+    '8122': 300000
+    '8201': 250000  
+
+

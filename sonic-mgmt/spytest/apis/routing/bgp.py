@@ -450,6 +450,7 @@ def config_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, con
             'on_start_med': ['MaxMedVal', kwargs.get('on_start_med', None)],
             'on_start_time': ['Time', kwargs.get('on_start_time', None)],
             'administrative_med': ['MaxMedAdministrative', bool(kwargs['administrative_med']) if 'administrative_med' in kwargs else None],
+            'enforce_first_as': ['EnforceFirstAs', kwargs.get('enforce_first_as',None)], 
             'max_dyn_nbr': ['MaxDynamicNeighbors', int(kwargs['max_dyn_nbr']) if 'max_dyn_nbr' in kwargs else None],
         }
 
@@ -514,6 +515,7 @@ def config_bgp_router(dut, local_asn, router_id='', keep_alive=60, hold=180, con
             command += "\n no timers bgp\n"
         if config == 'no' and router_id:
             command += "\n no bgp router-id {}".format(router_id)
+            
     elif cli_type == 'klish':
         if config == 'yes':
             if router_id:
@@ -632,14 +634,6 @@ def create_bgp_neighbor(dut, local_asn, neighbor_ip, remote_asn, keep_alive=60, 
     :return:
     """
     cli_type = get_cfg_cli_type(dut, cli_type=cli_type)
-
-    if family == "ipv6":
-            allcommands = list()
-            allcommands.append("route-map set-next-hop-global-v6 permit 10")
-            allcommands.append("set ipv6 next-hop prefer-global")
-            allcommands.append("exit")
-            allcommands.append("exit")
-            st.config(dut, allcommands, type=cli_type,**kwargs)
 
     st.log("Creating BGP neighbor ..")
     if cli_type in get_supported_ui_type_list():
@@ -911,6 +905,7 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
     """
     st.log("Configuring the BGP neighbor properties ..")
     st.log('config_bgp_neighbor_properties: kwargs: {}'.format(kwargs))
+
     properties = kwargs
     peergroup = properties.get('peergroup', None)
     cli_type = get_cfg_cli_type(dut, **kwargs)
@@ -1130,6 +1125,10 @@ def config_bgp_neighbor_properties(dut, local_asn, neighbor_ip, family=None, mod
         if "neighbor_shutdown" in properties:
             command = "{} neighbor {} shutdown".format(no_form, neighbor_ip)
             st.config(dut, command, type=cli_type)
+        if "enforce_first_as" in properties:
+            command = "{} neighbor {} enforce-first-as ".format(no_form, neighbor_ip)
+            st.config(dut, command, type=cli_type)
+
         if family and mode:
             command = "address-family {} {}".format(family, mode)
             st.config(dut, command, type=cli_type)
@@ -4680,7 +4679,8 @@ def config_bgp(dut, **kwargs):
         if default_originate:
             nbr_kwargs['default_originate'] = True
         if 'allowas_in' in nbr_kwargs:
-            st.log('TBD: Not used in scripts so far')
+            #st.log('TBD: Not used in scripts so far')
+            nbr_kwargs['allowas_in']=nbr_kwargs.pop('allowas_in') 
         if 'neigh_local_as' in nbr_kwargs:
             nbr_kwargs['local_as'] = nbr_kwargs.pop('neigh_local_as')
         if 'no_prepend' in nbr_kwargs:
@@ -4814,6 +4814,10 @@ def config_bgp(dut, **kwargs):
             elif type1 == 'routeMap':
                 my_cmd += 'address-family {} unicast\n'.format(addr_family)
                 my_cmd += '{} neighbor {} route-map {} {}\n'.format(config_cmd, neighbor, routeMap, diRection)
+                my_cmd += 'exit\n'
+            elif type1 == 'allowas_in':
+                my_cmd += 'address-family {} unicast\n'.format(addr_family)
+                my_cmd += '{} neighbor {} allowas-in {}\n'.format(config_cmd, neighbor, allowas_in)
                 my_cmd += 'exit\n'
             elif type1 == 'distribute_list':
                 my_cmd += 'address-family {} unicast\n'.format(addr_family)

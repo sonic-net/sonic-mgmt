@@ -84,6 +84,15 @@ class RPS(object):
             self.disc_delay = 10
             self.off_delay = 30
             self.on_delay = 120
+        elif self.model == "PX2":
+            self.login_prompt = "Welcome to PX2 CLI"
+            self.password_prompt = "Password:"
+            self.base_prompt = "#"
+            self.fail_msg = "Login failed."
+            self.disc_delay = 10
+            self.off_delay = 30
+            self.on_delay = 120
+
         elif self.model == "APCMIB":
             pass
         elif self.model == "ServerTech":
@@ -427,22 +436,28 @@ class RPS(object):
                 return False
 
         retval = True
-        if self.model == "Raritan":
-            retval = self.off_on(False, 0, off_delay, outlet)
-        elif self.model == "PX3":
-            self._write("power outlets {} cycle /y".format(outlet), self.base_prompt)
-        elif self.model == "APCMIB":
-            self.snmp_set(outlet, 3)
-        elif self.model == "ServerTech":
-            self._write("reboot {}".format(outlet), self.base_prompt)
-            # retval = self.off_on(False, 0, off_delay, outlet)
-        elif self.model == "Avocent" or self.model == "AvocentRoot":
-            retval = self.off_on(False, 0, off_delay, outlet)
-        elif self.model in ["vsh", "svsh", "lxc", "virsh"]:
-            retval = self.off_on(False, 0, off_delay, outlet)
+        if type(outlet)!=list:
+            outlets=[outlet] 
         else:
-            msg = "TODO: off {}".format(self.model)
-            self.logmsg(msg, lvl=logging.WARNING)
+            outlets=outlet 
+
+        for _outlet in outlets: 
+            if self.model == "Raritan":
+                retval = self.off_on(False, 0, off_delay, _outlet)
+            elif self.model in ["PX2","PX3"]:
+                self._write("power outlets {} cycle /y".format(_outlet), self.base_prompt)
+            elif self.model == "APCMIB":
+                self.snmp_set(outlet, 3)
+            elif self.model == "ServerTech":
+                self._write("reboot {}".format(_outlet), self.base_prompt)
+                # retval = self.off_on(False, 0, off_delay, outlet)
+            elif self.model == "Avocent" or self.model == "AvocentRoot":
+                retval = self.off_on(False, 0, off_delay, _outlet)
+            elif self.model in ["vsh", "svsh", "lxc", "virsh"]:
+                retval = self.off_on(False, 0, off_delay, _outlet)
+            else:
+                msg = "TODO: off {}".format(self.model)
+                self.logmsg(msg, lvl=logging.WARNING)
 
         # wait for on delay
         if retval and on_delay > 0:
@@ -471,49 +486,55 @@ class RPS(object):
                 return False
 
         retval = True
-        if self.model == "Raritan":
-            cmd = "set /system1/outlet{} powerstate=off".format(outlet)
-            self._write(cmd, self.base_prompt)
-        elif self.model == "PX3":
-            self._write("power outlets {} off /y".format(outlet), self.base_prompt)
-        elif self.model == "APCMIB":
-            self.snmp_set(outlet, 2)
-        elif self.model == "ServerTech":
-            self._write("off {}".format(outlet), self.base_prompt)
-        elif self.model == "Avocent" or self.model == "AvocentRoot":
-            if not self.pdu_id:
-                self.logmsg("PDU_ID must be set for Avocent", lvl=logging.ERROR)
-            else:
-                self._cmd_avocent("off", disc, outlet)
-        elif self.model == 'pConnect':
-            res = self._rest_send(params={'action': 'off'})
-            retval = bool('exit code: 0' in res.text)
-        elif self.model in ["vsh"]:
-            cmd = "vsh-rps off {}".format(outlet)
-            self._write("", self.base_prompt.replace("\\", ""))
-            self._write(cmd, "The device is powered off successfully", timeout=300)
-            self._write("", self.base_prompt.replace("\\", ""))
-        elif self.model in ["svsh"]:
-            cmd = "vsh-rps off {}".format(outlet)
-            expected = ["The device is powered off successfully"]
-            expected.append("The device is not on")
-            self._write("", self.base_prompt.replace("\\", ""))
-            retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
-        elif self.model in ["lxc"]:
-            cmd = "lxc-rps off {}".format(outlet)
-            expected = ["The device is powered off successfully"]
-            expected.append("The device is not on")
-            self._write("", self.base_prompt.replace("\\", ""))
-            retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
-        elif self.model in ["virsh"]:
-            cmd = "virsh-rps off {}".format(outlet)
-            expected = ["The device is powered off successfully"]
-            expected.append("The device is not on")
-            self._write("", self.base_prompt.replace("\\", ""))
-            retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
+        if type(outlet)!=list: 
+            outlets=[outlet] 
         else:
-            msg = "TODO: off {}".format(self.model)
-            self.logmsg(msg, lvl=logging.WARNING)
+            outlets=outlet 
+
+        for _outlet in outlets: 
+            if self.model == "Raritan":
+                cmd = "set /system1/outlet{} powerstate=off".format(_outlet)
+                self._write(cmd, self.base_prompt)
+            elif self.model in ["PX2","PX3"]:
+                self._write("power outlets {} off /y".format(_outlet), self.base_prompt)
+            elif self.model == "APCMIB":
+                self.snmp_set(outlet, 2)
+            elif self.model == "ServerTech":
+                self._write("off {}".format(_outlet), self.base_prompt)
+            elif self.model == "Avocent" or self.model == "AvocentRoot":
+                if not self.pdu_id:
+                    self.logmsg("PDU_ID must be set for Avocent", lvl=logging.ERROR)
+                else:
+                    self._cmd_avocent("off", disc, _outlet)
+            elif self.model == 'pConnect':
+                res = self._rest_send(params={'action': 'off'})
+                retval = bool('exit code: 0' in res.text)
+            elif self.model in ["vsh"]:
+                cmd = "vsh-rps off {}".format(_outlet)
+                self._write("", self.base_prompt.replace("\\", ""))
+                self._write(cmd, "The device is powered off successfully", timeout=300)
+                self._write("", self.base_prompt.replace("\\", ""))
+            elif self.model in ["svsh"]:
+                cmd = "vsh-rps off {}".format(_outlet)
+                expected = ["The device is powered off successfully"]
+                expected.append("The device is not on")
+                self._write("", self.base_prompt.replace("\\", ""))
+                retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
+            elif self.model in ["lxc"]:
+                cmd = "lxc-rps off {}".format(_outlet)
+                expected = ["The device is powered off successfully"]
+                expected.append("The device is not on")
+                self._write("", self.base_prompt.replace("\\", ""))
+                retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
+            elif self.model in ["virsh"]:
+                cmd = "virsh-rps off {}".format(_outlet)
+                expected = ["The device is powered off successfully"]
+                expected.append("The device is not on")
+                self._write("", self.base_prompt.replace("\\", ""))
+                retval = self._write(cmd, expected, timeout=300, prompt=self.base_prompt)
+            else:
+                msg = "TODO: off {}".format(self.model)
+                self.logmsg(msg, lvl=logging.WARNING)
 
         # wait for off delay
         if retval and off_delay > 0:
@@ -542,43 +563,49 @@ class RPS(object):
                 return False
 
         retval = True
-        if self.model == "Raritan":
-            cmd = "set /system1/outlet{} powerstate=on".format(outlet)
-            self._write(cmd, self.base_prompt)
-        elif self.model == "PX3":
-            self._write("power outlets {} on /y".format(outlet), self.base_prompt)
-        elif self.model == "APCMIB":
-            self.snmp_set(outlet, 1)
-        elif self.model == "ServerTech":
-            self._write("on {}".format(outlet), self.base_prompt)
-        elif self.model == "Avocent" or self.model == "AvocentRoot":
-            if not self.pdu_id:
-                self.logmsg("PDU_ID must be set for Avocent", lvl=logging.ERROR)
-            else:
-                self._cmd_avocent("on", disc, outlet)
-        elif self.model == 'pConnect':
-            res = self._rest_send(params={'action': 'on'})
-            retval = bool('exit code: 0' in res.text)
-        elif self.model in ["vsh"]:
-            cmd = "vsh-rps on {}".format(outlet)
-            self._write("", self.base_prompt.replace("\\", ""))
-            self._write(cmd, "The device is powered on successfully", timeout=30)
-            self._write("", self.base_prompt.replace("\\", ""))
-        elif self.model in ["svsh"]:
-            cmd = "vsh-rps on {}".format(outlet)
-            self._write("", self.base_prompt.replace("\\", ""))
-            self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
-        elif self.model in ["lxc"]:
-            cmd = "lxc-rps on {}".format(outlet)
-            self._write("", self.base_prompt.replace("\\", ""))
-            self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
-        elif self.model in ["virsh"]:
-            cmd = "virsh-rps on {}".format(outlet)
-            self._write("", self.base_prompt.replace("\\", ""))
-            self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
+        if type(outlet)!=list:
+            outlets=[outlet] 
         else:
-            msg = "TODO: on {}".format(self.model)
-            self.logmsg(msg, lvl=logging.WARNING)
+            outlets=outlet 
+
+        for _outlet in outlets: 
+            if self.model == "Raritan":
+                cmd = "set /system1/outlet{} powerstate=on".format(_outlet)
+                self._write(cmd, self.base_prompt)
+            elif self.model in ["PX2","PX3"]:
+                self._write("power outlets {} on /y".format(_outlet), self.base_prompt)
+            elif self.model == "APCMIB":
+                self.snmp_set(outlet, 1)
+            elif self.model == "ServerTech":
+                self._write("on {}".format(_outlet), self.base_prompt)
+            elif self.model == "Avocent" or self.model == "AvocentRoot":
+                if not self.pdu_id:
+                    self.logmsg("PDU_ID must be set for Avocent", lvl=logging.ERROR)
+                else:
+                    self._cmd_avocent("on", disc, _outlet)
+            elif self.model == 'pConnect':
+                res = self._rest_send(params={'action': 'on'})
+                retval = bool('exit code: 0' in res.text)
+            elif self.model in ["vsh"]:
+                cmd = "vsh-rps on {}".format(_outlet)
+                self._write("", self.base_prompt.replace("\\", ""))
+                self._write(cmd, "The device is powered on successfully", timeout=30)
+                self._write("", self.base_prompt.replace("\\", ""))
+            elif self.model in ["svsh"]:
+                cmd = "vsh-rps on {}".format(_outlet)
+                self._write("", self.base_prompt.replace("\\", ""))
+                self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
+            elif self.model in ["lxc"]:
+                cmd = "lxc-rps on {}".format(_outlet)
+                self._write("", self.base_prompt.replace("\\", ""))
+                self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
+            elif self.model in ["virsh"]:
+                cmd = "virsh-rps on {}".format(_outlet)
+                self._write("", self.base_prompt.replace("\\", ""))
+                self._write(cmd, "The device is powered on successfully", timeout=30, prompt=self.base_prompt)
+            else:
+                msg = "TODO: on {}".format(self.model)
+                self.logmsg(msg, lvl=logging.WARNING)
 
         # wait for on delay
         if retval and on_delay > 0:

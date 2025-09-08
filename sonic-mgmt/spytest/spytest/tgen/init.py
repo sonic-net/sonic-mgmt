@@ -2,11 +2,22 @@ import os
 import sys
 import platform
 
-tgen_path = os.getenv("SCID_TGEN_PATH", "/projects/scid/tgen")
-def_tcl_path = "/projects/scid/tools/ActivTcl/current/bin"
+#tgen_path = os.getenv("SCID_TGEN_PATH", "/projects/scid/tgen")
+tgen_path = '/data/projects/scid/tgen' 
+
+#def_tcl_path = "/projects/scid/tools/ActivTcl/current/bin"
+#def_tcl_path = "/data/projects/scid/tcl/bin"
+def_tcl_path = "/data/projects/scid/tcl/bin/tclsh8.5" 
+
+#tgen_path=os.path.join(cwd_path,"/projects/scid/tgen")   
+print(os.environ) 
+#import pdb; pdb.set_trace() 
+
+#def_tcl_path = os.path.join(cwd_path,"/projects/scid/tools/ActivTcl/current/bin")  
 tcl_custom_pkgdir = os.path.abspath(os.path.dirname(__file__))
 py_version = platform.python_version()
-
+print('tgen_path',tgen_path) 
+print('def_tcl_path',def_tcl_path) 
 
 def tg_stc_load(version, logger, logs_path=None):
 
@@ -24,6 +35,9 @@ def tg_stc_load(version, logger, logs_path=None):
 
     # check if STC root folder is found
     stc_root = os.path.join(tgen_path, "stc")
+    print('stc_root',stc_root) 
+
+    #import pdb; pdb.set_trace() 
     if not os.path.exists(stc_root):
         logger.error("STC: not installed. stc_root", stc_root)
         return None
@@ -69,14 +83,19 @@ def tg_stc_load(version, logger, logs_path=None):
     old_ldpath = os.getenv("LD_LIBRARY_PATH")
     ldpath = [old_ldpath] if old_ldpath else []
     ldpath.append(stc_app_root)
-    os.environ['LD_LIBRARY_PATH'] = ":".join(ldpath)
+    #os.environ['LD_LIBRARY_PATH'] = ":".join(ldpath)
+    os.environ['LD_LIBRARY_PATH'] = '/data/projects/scid/tgen/stc/5.45/Spirent_TestCenter_5.45/Spirent_TestCenter_Application_Linux/' 
 
     os.environ['STC_VERSION'] = version_string
     os.environ['STC_INSTALL_DIR'] = stc_app_root
     os.environ['STC_PRIVATE_INSTALL_DIR'] = stc_app_root
-    os.environ["STC_TCL"] = tclsh
-    os.environ['TCLLIBPATH'] = "{} {} {} /usr/lib".format(stc_hl_src, tcl_custom_pkgdir, tcl_lib_path)
-    os.environ['HLPYAPI_LOG'] = logs_path or os.getenv("SPYTEST_USER_ROOT")
+    #os.environ["STC_TCL"] = tclsh
+    os.environ["STC_TCL"] = '/data/projects/scid/tcl/bin/tclsh8.5' 
+    #os.environ['TCLLIBPATH'] = "{} {} {} /usr/lib".format(stc_hl_src, tcl_custom_pkgdir, tcl_lib_path)
+    os.environ['TCLLIBPATH'] = "/data/stc-5.45/Spirent_TestCenter_5.45/Spirent_TestCenter_Application_Linux" 
+    #os.environ['HLPYAPI_LOG'] = logs_path or os.getenv("SPYTEST_USER_ROOT")
+    os.environ['HLPYAPI_LOG'] = '/data/logs' 
+
     os.environ['HOME'] = logs_path or os.getenv("SPYTEST_USER_ROOT")
 
     sys.path.insert(0, tcl_path)
