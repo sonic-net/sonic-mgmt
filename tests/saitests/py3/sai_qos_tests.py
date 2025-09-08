@@ -15,7 +15,7 @@ import math
 import os
 import macsec  # noqa F401
 import concurrent.futures
-from ptf.testutils import (ptf_ports,
+from ptf.testutils import (ptf_ports,     # noqa F401
                            dp_poll,
                            simple_arp_packet,
                            send_packet,
@@ -27,7 +27,7 @@ from ptf.testutils import (ptf_ports,
                            verify_packet_any_port,
                            port_to_tuple)
 from ptf.mask import Mask
-from switch import (switch_init,
+from switch import (switch_init,          # noqa F401
                     sai_thrift_create_scheduler_profile,
                     sai_thrift_clear_all_counters,
                     sai_thrift_read_port_counters,
@@ -43,9 +43,8 @@ from switch import (switch_init,
                     sai_thrift_read_port_voq_counters,
                     sai_thrift_get_voq_port_id
                     )
-from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
-                                      sai_thrift_attribute_t)
-from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
+from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, sai_thrift_attribute_t)    # noqa F401
+from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID  # noqa F401
 
 
 # Counters
