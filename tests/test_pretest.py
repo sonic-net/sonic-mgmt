@@ -553,6 +553,8 @@ def test_disable_startup_tsa_tsb_service(duthosts, localhost):
     Please add public pretest above this comment and keep internal
     pretests below this comment.
 """
+
+
 def test_conn_graph_valid(localhost):
 
     base_path = os.path.dirname(os.path.realpath(__file__))
@@ -566,8 +568,8 @@ def test_conn_graph_valid(localhost):
     try:
         with open(graph_groups_file) as fd:
             graph_groups = yaml.load(fd, Loader=yaml.FullLoader)
-    except:
-        pytest.fail("Load graph_groups file failed")
+    except Exception as e:
+        pytest.fail("Load graph_groups file failed. Err: {}".format(e))
 
     # if graph_groups file doesn't contain invs_need_test, failed
     for inv_need_test in invs_need_test:
@@ -599,19 +601,20 @@ def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
        2. Update/add ports2cable mapping
     '''
     duthost = duthosts[enum_dut_hostname]
-    pytest_require(not any(vers in duthost.os_version for vers in ["201811", "201911", "202012", "202205"]), "Skip updating templates for {}".format(duthost.os_version))
+    pytest_require(not any(vers in duthost.os_version for vers in ["201811", "201911", "202012", "202205"]),
+                   "Skip updating templates for {}".format(duthost.os_version))
     # Skip updating cable length on mlnx to align with prod
     dut_asic_type = duthost.facts["asic_type"].lower()
     pytest_require(dut_asic_type not in ["mellanox"], "Skip updating templates for {}".format(dut_asic_type))
     dut_hwsku = duthost.facts["hwsku"]
-    pytest_require(dut_hwsku not in ["Arista-7060X6-64PE-256x200G"], "Skip updating templates for {}".format(dut_hwsku))
+    pytest_require("Arista-7060X6" not in dut_hwsku, "Skip updating templates for {}".format(dut_hwsku))
 
     hwsku = duthost.facts["hwsku"]
     platform = duthost.facts["platform"]
     path = os.path.join("/usr/share/sonic/device", "{}/{}".format(platform, hwsku))
-    buffer_files = [ os.path.join(path, "buffers_defaults_t0.j2"),
-                     os.path.join(path, "buffers_defaults_t1.j2")
-                   ]
+    buffer_files = [os.path.join(path, "buffers_defaults_t0.j2"),
+                    os.path.join(path, "buffers_defaults_t1.j2")
+                    ]
     update_results = update_cable_len(duthost, buffer_files)
     buf_temp_changed = False
     for item, result in zip(buffer_files, update_results):
