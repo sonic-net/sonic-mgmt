@@ -1279,13 +1279,13 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
     pytest_require(
         len(rx_snappi_ports) == rx_port_count,
         f"Rx Ports for {testbed} in MULTIDUT_PORT_INFO doesn't match with "
-        "ansible/files/*links.csv: rx_snappi_ports:{rx_snappi_ports}, and "
-        "wanted:{rx_port_count}")
+        f"ansible/files/*links.csv: rx_snappi_ports:{rx_snappi_ports}, and "
+        f"wanted:{rx_port_count}")
     pytest_require(
         len(tx_snappi_ports) == tx_port_count,
         f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn\'t match with "
-        "ansible/files/*links.csv: tx_snappi_ports:{tx_snappi_ports}, and "
-        "wanted:{tx_port_count}")
+        f"ansible/files/*links.csv: tx_snappi_ports:{tx_snappi_ports}, and "
+        f"wanted:{tx_port_count}")
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports
