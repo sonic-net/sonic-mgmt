@@ -253,7 +253,7 @@ def test_verify_ecn_marking_config(duthosts, rand_one_dut_hostname, request):
 
 
 def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            enum_rand_one_frontend_asic_index, lossless_prio_list):
+                            enum_rand_one_frontend_asic_index, lossless_prio_list):  # noqa: F811
 
     # Verify the ecn config utility CLI's
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
