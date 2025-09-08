@@ -26,6 +26,7 @@ from tests.common.fixtures.duthost_utils import dut_qos_maps, \
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_saitests_directory                     # noqa: F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses                        # noqa: F401
+from .qos_helpers import voq_watchdog_enabled, modify_voq_watchdog
 from .qos_sai_base import QosSaiBase
 
 logger = logging.getLogger(__name__)
@@ -55,13 +56,13 @@ class TestVoqWatchdog(QosSaiBase):
     """
     @pytest.fixture(scope="class", autouse=True)
     def check_skip_voq_watchdog_test(self, get_src_dst_asic_and_duts):
-        if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
+        if not voq_watchdog_enabled(get_src_dst_asic_and_duts):
             pytest.skip("Voq watchdog test is skipped since voq watchdog is not enabled.")
 
-    @pytest.mark.parametrize("voq_watchdog_enabled", [True, False])
+    @pytest.mark.parametrize("enable_voq_watchdog", [True, False])
     def testVoqWatchdog(
             self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
-            duthosts, get_src_dst_asic_and_duts, voq_watchdog_enabled
+            duthosts, get_src_dst_asic_and_duts, enable_voq_watchdog
     ):
         """
             Test VOQ watchdog
@@ -71,7 +72,7 @@ class TestVoqWatchdog(QosSaiBase):
                 dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
                     and test ports
                 dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
-                voq_watchdog_enabled (bool): if VOQ watchdog is enabled or not
+                enable_voq_watchdog (bool): Whether to enable or disable VOQ watchdog during the test
             Returns:
                 None
             Raises:
@@ -79,8 +80,8 @@ class TestVoqWatchdog(QosSaiBase):
         """
 
         try:
-            if not voq_watchdog_enabled:
-                self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=False)
+            if not enable_voq_watchdog:
+                modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, enable=False)
 
             testParams = dict()
             testParams.update(dutTestParams["basicParams"])
@@ -94,7 +95,7 @@ class TestVoqWatchdog(QosSaiBase):
                 "src_port_vlan": dutConfig["testPorts"]["src_port_vlan"],
                 "packet_size": 1350,
                 "pkts_num": PKTS_NUM,
-                "voq_watchdog_enabled": voq_watchdog_enabled,
+                "voq_watchdog_enabled": enable_voq_watchdog,
                 "dutInterfaces": dutConfig["dutInterfaces"],
                 "testPorts": dutConfig["testPorts"],
             })
@@ -108,5 +109,5 @@ class TestVoqWatchdog(QosSaiBase):
                 testParams=testParams)
 
         finally:
-            if not voq_watchdog_enabled:
-                self.modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig, enable=True)
+            if not enable_voq_watchdog:
+                modify_voq_watchdog(duthosts, get_src_dst_asic_and_duts, enable=True)
