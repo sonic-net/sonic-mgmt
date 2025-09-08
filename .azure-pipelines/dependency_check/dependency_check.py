@@ -203,6 +203,7 @@ def check_cross_dependency(imports_in_script):
                 # - tests/mx/test_kea_dhcp_server_internal_only.py: tests.dhcp_server.dhcp_server_test_common
                 # - tests/metadata-scripts/test_metadata_upgrade_path.py: tests.platform_tests.verify_dut_health
                 if imported_module_feature_path not in [os.path.join(project_path, "common"),
+                                                        os.path.join(project_path, "common2"),
                                                         os.path.join(project_path, "ptf_runner.py"),
                                                         os.path.join(project_path, "conftest.py"),
                                                         os.path.join(project_path, "dhcp_server"),
