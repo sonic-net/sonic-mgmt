@@ -378,7 +378,7 @@ function run_individual_tests()
 
             # rc 16 means ptfhost is unreachable
             if [ ${ret_code} -eq 16 ]; then
-                echo "=== ptfhost is unreachable for $test_script. Skip rest of the scripts if there is any. ==="
+                echo "=== ptfhost has exception for $test_script. Skip rest of the scripts if there is any. ==="
                 return ${ret_code}
             fi
 
