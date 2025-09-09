@@ -66,8 +66,10 @@ def get_start_and_end_time():
         delt_start_day = 1
         delt_end_day = 1
 
-    start_time = current_datetime.replace(hour=start_hour, minute=0, second=0, microsecond=0) - timedelta(days=delt_start_day)
-    end_time = current_datetime.replace(hour=end_hour, minute=0, second=0, microsecond=0) - timedelta(days=delt_end_day)
+    start_time = current_datetime.replace(
+        hour=start_hour, minute=0, second=0, microsecond=0) - timedelta(days=delt_start_day)
+    end_time = current_datetime.replace(
+        hour=end_hour, minute=0, second=0, microsecond=0) - timedelta(days=delt_end_day)
     return start_time, end_time
 
 
@@ -80,11 +82,7 @@ def get_pr_test_plans(kusto_client, start_time, end_time):
     | where EndTime between (datetime({start_time}) .. datetime({end_time}))
     | join kind=leftouter TestBeds on TestPlanId
     | extend RunDate = todatetime(format_datetime(EndTime, "yyyy-MM-dd"))
-    | extend TestType = case(
-        TestPlanName matches regex "Baseline", "Baseline",
-        "PR"
-    )
-    | distinct TestPlanId, TestType, TestbedName, Topology, TestBranch, RunDate
+    | distinct TestPlanId, TriggerType, TestbedName, Topology, TestBranch, SourceRepo, RunDate
     '''
     query_result = kusto_client.execute_query(DATABASE, query)
     testplans_df = dataframe_from_result_table(query_result.primary_results[0])
@@ -117,7 +115,9 @@ def merge_test_data(testplans_df, testcases_df):
     )
     # Group by the specified keys and count the Result occurrences
     agg_df = (
-        merged_df.groupby(["TestBranch", "TestType", "TestbedName", "FilePath", "ModulePath", "TestCase", "RunDate"])["Result"]
+        merged_df.groupby([
+            "TestBranch", "TriggerType", "SourceRepo", "TestbedName", "FilePath", "ModulePath", "TestCase", "RunDate"
+            ])["Result"]
         .value_counts()
         .unstack(fill_value=0)
         .reset_index()

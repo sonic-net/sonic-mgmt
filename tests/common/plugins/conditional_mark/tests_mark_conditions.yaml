@@ -403,6 +403,12 @@ bgp/test_traffic_shift_sup.py:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "skip test_cacl_application in PR test temporarily"
+    conditions:
+      - "asic_type in ['vs']"
+
 cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
   skip:
     reason: "test_cacl_acl_loader_commands_internal is only supported on t0/t1 testbed"
@@ -410,12 +416,6 @@ cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
     conditions:
       - "topo_type not in ['t1', 't0']"
       - "'dualtor' in topo_name"
-
-cacl/test_cacl_application.py:
-  skip:
-    reason: "skip test_cacl_application in PR test temporarily"
-    conditions:
-      - "asic_type in ['vs']"
 
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
@@ -3533,18 +3533,6 @@ restapi/test_restapi.py::test_create_interface_sad:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
-restapi/test_restapi.py::test_create_interface:
-  xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
-
-restapi/test_restapi.py::test_create_interface_sad:
-  xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
-
 restapi/test_restapi.py::test_create_vrf:
   skip:
     reason: "Only supported on Mellanox T1"
@@ -3654,6 +3642,27 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "https://github.com/sonic-net/sonic-buildimage/issues/4930"
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+
+#######################################
+#####       session monitors      #####
+#######################################
+session_monitor/test_bgp_session_tracker.py:
+  skip:
+    reason: "Skip bgp session tracker test for non-smartswitch t0 devices"
+    conditions_logical_operator: OR
+    conditions:
+      - "hwsku not in ['Cisco-8102-28FH-DPU-C28']"
+      - "release not in ['202505']"
+      - "topo_type not in ['t0']"
+
+session_monitor/test_link_state_tracker.py:
+  skip:
+    reason: "Skip link state tracker test for non-smartswitch t0 devices"
+    conditions_logical_operator: OR
+    conditions:
+      - "hwsku not in ['Cisco-8102-28FH-DPU-C28']"
+      - "release not in ['202505']"
+      - "topo_type not in ['t0']"
 
 #######################################
 #####              sflow          #####
@@ -4403,15 +4412,3 @@ zmq/test_gnmi_zmq.py:
     conditions:
       - "'arista' in platform"
       - "'isolated' in topo_name"
-
-#######################################
-#####       session monitors      #####
-#######################################
-session_monitor/test_bgp_session_tracker.py:
-  skip:
-    reason: "Skip bgp session tracker test for non-smartswitch t0 devices"
-    conditions_logical_operator: OR
-    conditions:
-      - "hwsku not in ['Cisco-8102-28FH-DPU-C28']"
-      - "release not in ['202505']"
-      - "topo_type not in ['t0']"
