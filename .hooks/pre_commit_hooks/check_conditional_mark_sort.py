@@ -22,6 +22,10 @@ def main():
                     print("tests/common/plugins/conditional_mark/tests_mark_conditions*.yaml")
                     print("===========================================================================")
                     return 1
+                else:
+                    print("===========================================================================")
+                    print("test_pretest.py is deleted from the front of ")
+                    print("===========================================================================")
                 sorted_conditions = conditions[:]
                 sorted_conditions.sort()
                 for i in range(len(conditions)):
