@@ -124,8 +124,8 @@ bjw2-can-7050-1,10.150.22.90/23,Arista-7050CX3-32S-C32,devsonic,,sonic
 bjw2-can-7050-2,10.150.22.92/23,Arista-7050CX3-32S-C32,devsonic,,sonic
 bjw2-can-7050-3,10.150.22.93/23,Arista-7050CX3-32S-C32,devsonic,,sonic
 bjw2-can-7050-4,10.150.22.95/23,Arista-7050CX3-32S-C32,devsonic,,sonic
-bjw2-can-7050c-1,10.150.22.96/23,Arista-7050CX3-32C-S128,devsonic,,sonic
-bjw2-can-7050c-2,10.150.22.98/23,Arista-7050CX3-32C-S128,devsonic,,sonic
+bjw2-can-7050c-1,10.150.22.96/23,Arista-7050CX3-32C-C32,devsonic,,sonic
+bjw2-can-7050c-2,10.150.22.98/23,Arista-7050CX3-32C-C32,devsonic,,sonic
 bjw2-can-7050c-3,10.150.22.99/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw2-can-7050c-4,10.150.22.216/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw2-can-8101c1-1,10.150.23.241/23,Cisco-8101C01-C28S4,DevSonic,,sonic

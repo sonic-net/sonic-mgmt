@@ -327,7 +327,7 @@
   server: server_61
   vm_base: VM61080
   dut:
-  - str3-8101-04
+  - str3-8101-03
   inv_name: str3
   auto_recover: 'True'
   comment: yawenni
@@ -421,6 +421,21 @@
   inv_name: str3
   auto_recover: 'True'
   comment: bingwang
+
+- conf-name: testbed-str2-7215-acs-3
+  group-name: vms21-9
+  topo: mx
+  ptf_image_name: docker-ptf
+  ptf: vms21-9
+  ptf_ip: 10.64.246.236/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6ec/64
+  server: server_21
+  vm_base: VM21096
+  dut:
+  - str2-7215-acs-3
+  inv_name: str2
+  auto_recover: 'True'
+  comment: yaqiangzhu
 
 - conf-name: vms21-t1-8102-01
   group-name: vms21-8
@@ -3871,19 +3886,11 @@
   group-name: vms94-1
   topo: t0-isolated-d2u510s2
   ptf_image_name: docker-ptf
-  servers:
-    server_94:
-      ptf: vms94-1-a
-      ptf_ip: 10.64.247.148/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f794/64
-      vm_base: VM94000
-      dut_interfaces: 0-256
-    server_96:
-      ptf: vms94-1-b
-      ptf_ip: 10.64.247.153/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f799/64
-      vm_base: VM96000
-      dut_interfaces: 257-513
+  ptf: vms94-1-a
+  ptf_ip: 10.64.247.148/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f794/64
+  server: server_94
+  vm_base: VM94000
   dut:
   - str5-sn5640-1
   inv_name: str5
@@ -3893,19 +3900,11 @@
   group-name: vms94-2
   topo: t0-isolated-d2u510s2
   ptf_image_name: docker-ptf
-  servers:
-    server_94:
-      ptf: vms94-2-a
-      ptf_ip: 10.64.247.149/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f795/64
-      vm_base: VM94255
-      dut_interfaces: 0-256
-    server_96:
-      ptf: vms94-2-b
-      ptf_ip: 10.64.247.167/23
-      ptf_ipv6: 2a01:111:e210:b000::a40:f7a7/64
-      vm_base: VM96257
-      dut_interfaces: 257-513
+  ptf: vms94-2-a
+  ptf_ip: 10.64.247.149/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f795/64
+  server: server_96
+  vm_base: VM96000
   dut:
   - str5-7060x6-512-5
   inv_name: str5
@@ -4612,39 +4611,56 @@
   ptf_extra_mgmt_ip:
     - 172.16.188.137/17
 
-- conf-name: testbed-bjw2-can-7050c-1
+# - conf-name: testbed-bjw2-can-7050c-1
+#   group-name: bjw2-9-1
+#   topo: m1-48
+#   ptf_image_name: docker-ptf
+#   ptf: bjw2-9-1
+#   ptf_ip: 10.150.23.128/23
+#   ptf_ipv6: 2404:f801:10:2200::a96:1780/52
+#   server: server_bjw2_9
+#   vm_base: VM89155
+#   dut:
+#     - bjw2-can-7050c-1
+#   inv_name: bjw2
+#   auto_recover: 'True'
+#   comment: Beijing Lab
+#   ptf_extra_mgmt_ip:
+#     - 172.16.188.128/17
+
+# - conf-name: testbed-bjw2-can-7050c-2
+#   group-name: bjw2-9-2
+#   topo: m1-48
+#   ptf_image_name: docker-ptf
+#   ptf: bjw2-9-2
+#   ptf_ip: 10.150.23.129/23
+#   ptf_ipv6: 2404:f801:10:2200::a96:1781/52
+#   server: server_bjw2_9
+#   vm_base: VM89203
+#   dut:
+#     - bjw2-can-7050c-2
+#   inv_name: bjw2
+#   auto_recover: 'True'
+#   comment: Beijing Lab
+#   ptf_extra_mgmt_ip:
+#     - 172.16.188.129/17
+
+- conf-name: tb-bjw2-can-dual-t0-7050c-1
   group-name: bjw2-9-1
-  topo: m1-48
+  topo: dualtor
   ptf_image_name: docker-ptf
   ptf: bjw2-9-1
   ptf_ip: 10.150.23.128/23
   ptf_ipv6: 2404:f801:10:2200::a96:1780/52
+  ptf_extra_mgmt_ip: ["172.16.188.128/17"]
   server: server_bjw2_9
   vm_base: VM89155
   dut:
     - bjw2-can-7050c-1
-  inv_name: bjw2
-  auto_recover: 'True'
-  comment: Beijing Lab
-  ptf_extra_mgmt_ip:
-    - 172.16.188.128/17
-
-- conf-name: testbed-bjw2-can-7050c-2
-  group-name: bjw2-9-2
-  topo: m1-48
-  ptf_image_name: docker-ptf
-  ptf: bjw2-9-2
-  ptf_ip: 10.150.23.129/23
-  ptf_ipv6: 2404:f801:10:2200::a96:1781/52
-  server: server_bjw2_9
-  vm_base: VM89203
-  dut:
     - bjw2-can-7050c-2
   inv_name: bjw2
   auto_recover: 'True'
   comment: Beijing Lab
-  ptf_extra_mgmt_ip:
-    - 172.16.188.129/17
 
 - conf-name: testbed-bjw2-can-7050c-3
   group-name: bjw2-4-2
