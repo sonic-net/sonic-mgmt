@@ -399,6 +399,7 @@ def create_testbed_file(data,base_topo_file,vEOS_count, dut_platform, device_typ
         tdata_dut_name = get_tdata_dut_name(vxr_device_name, dut_platform)
         tdata['devices'][tdata_dut_name]['ansible']['ansible_host'] = data[vxr_device_name]['xr_mgmt_ip']
         tdata['devices'][tdata_dut_name]['ansible']['ansible_ssh_user'] = data[vxr_device_name]['uname']
+        tdata['devices'][tdata_dut_name]['ansible']['ansible_ssh_pass'] = data[vxr_device_name]['passwd']
 
     tdata['testbed']['docker-ptf']['ansible']['ansible_host'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
     tdata['testbed']['docker-ptf']['ptf_ip'] = data['docker_ptf']['xr_mgmt_ip'] + '/24'
@@ -435,6 +436,18 @@ def change_dut_passwd(device):
         connect_with_retries(ssh, host, port, user, passwd, timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
     except paramiko.ssh_exception.AuthenticationException:
         connect_with_retries(ssh, host, port, user, new_passwd, timeout=120, banner_timeout=120, look_for_keys=False, allow_agent=False)
+
+    logging.info(f"configured credentials for this device is {user}/{passwd}")
+    if user != 'admin':
+        time.sleep(3)
+        logging.info(f"Admin user not found, creating admin user and setting password to: {new_passwd}")
+        stdout, stderr, status_code = _run_cmd_in_ssh(ssh, "sudo useradd -m -d /home/admin -s /bin/bash admin &&   sudo usermod -aG  admin,sudo,docker,redis admin &&  echo 'admin:password' | sudo chpasswd\n")
+        if status_code != 0:
+            raise Exception(f"Failed to add admin user: stdout: {stdout}, stderr: {stderr}")
+        return
+    
+    logging.info(f"Changing credentials to {user}/{new_passwd}")
+
 
     chan = ssh.invoke_shell()
     buff = ''
@@ -506,20 +519,13 @@ def change_dut_passwd(device):
     time.sleep(3)
     chan.send('sudo cp /etc/sonic/config_db.json /tmp/config_db.json\n')
     time.sleep(1)
-    '''
+
     buff = ''
     while not buff.endswith(':~$ '):
         resp = chan.recv(9999)
         buff += resp.decode("utf-8", errors="replace")
         logging.info(resp.decode("utf-8", errors="replace"))
 
-    if user != 'cisco':
-        time.sleep(3)
-        logging.info("Cisco user not found, adding cisco user")
-        stdout, stderr, status_code = _run_cmd_in_ssh(ssh, "sudo useradd -m -d /home/cisco -s /bin/bash cisco &&   sudo usermod -aG  admin,sudo,docker,redis cisco &&  echo 'cisco:cisco123' | sudo chpasswd\n")
-        if status_code != 0:
-            raise Exception(f"Failed to add cisco user: stdout: {stdout}, stderr: {stderr}")
-    '''
     ssh.close()
 
 
