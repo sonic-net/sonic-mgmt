@@ -1,4 +1,5 @@
 import copy
+from functools import lru_cache
 import ipaddress
 import json
 import logging
@@ -6,6 +7,7 @@ import logging
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
+from tests.common.devices.sonic_docker import SonicDockerManager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 from tests.common.platform.interface_utils import get_dut_interfaces_status
@@ -919,3 +921,7 @@ class MultiAsicSonicHost(object):
                     logger.info(line)
                     return False
         return True
+
+    @lru_cache
+    def containers(self):
+        return SonicDockerManager(self)
