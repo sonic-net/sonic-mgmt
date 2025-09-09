@@ -35,27 +35,28 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 
 2. `physical_oir_attributes.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases). Following attributes are applicable here:
 
-| Attribute | Type | Default | Mandatory | Description |
-|-----------|------|---------|------------|-------------|
-| port_under_test | List | All | No | A list under `dut_specific.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut_specific` field. | 
-| physical_oir_timeout | Int | 30 | No | The timeout value in minutes to wait for the optics to be inserted/removed. |
-| simultaneous_oir | Bool | False | No | A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
-| physical_oir_stress_iteration | Int | 5 | No | The number of iterations to stress test the physical OIR process. |
-| monitor_kernel_errors | Bool | False | No | A flag indicating whether to monitor kernel errors during the test. |
+| Attribute | Type | Default | Mandatory | Override Levels | Description |
+|-----------|------|---------|------------|-------------|-------------|
+| port_under_test | List | All | No | None|  A list under `dut.dut_name` containing the ports to be tested for physical OIR test.<br>This attribute must exist only under `dut` field. |
+| oir_method | String | manual | No | dut | The method used for OIR ("manual" or "automated"). |
+| physical_oir_timeout | Int | 30 | No | dut |  The timeout value in minutes to wait for the optics to be inserted/removed. |
+| simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
+| physical_oir_stress_iteration | Int | 5 | No | dut |  The number of iterations to stress test the physical OIR process. |
+| monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
 
 
 3. `soft_oir_attributes.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the soft OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases).
 
-| Attribute | Type | Default | Mandatory | Description |
-|-----------|------|---------|------------|-------------|
-| port_under_test | List | All | No | A list under `dut_specific.dut_name` containing the ports to be tested for soft OIR test.<br>This attribute must exist only under `dut_specific` field. | 
-| soft_oir_timeout | Int | 10 | No | The timeout value in seconds to wait for the soft OIR process to complete. |
-| soft_oir_stress_iteration | Int | 5 | No | The number of iterations to stress test the soft OIR process. |
-| monitor_kernel_errors | Bool | False | No | A flag indicating whether to monitor kernel errors during the test. |
+| Attribute | Type | Default | Mandatory | Override Levels | Description |
+|-----------|------|---------|------------|-------------|-------------|
+| port_under_test | List | All | No | None | A list under `dut.dut_name` containing the ports to be tested for soft OIR test.<br>This attribute must exist only under `dut` field. | 
+| soft_oir_timeout | Int | 10 | No | transceivers | The timeout value in seconds to wait for the soft OIR process to complete. |
+| soft_oir_stress_iteration | Int | 5 | No | dut | The number of iterations to stress test the soft OIR process. |
+| monitor_kernel_errors | Bool | False | No | transceivers | A flag indicating whether to monitor kernel errors during the test. |
 
 #### 1.1 Optics Insertion and Removal Testing
 
-This section outlines the test cases for validating the insertion and removal of optics in SONiC. The tests cover both physical and simulated OIR scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
+This section outlines the test cases for validating the insertion and removal of optics in SONiC. The state transitions and services' health are to be tested as a result of optics insertion and removal (OIR). The tests cover both physical and simulated OIR scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
@@ -65,6 +66,40 @@ This section outlines the test cases for validating the insertion and removal of
 | 4 | Simulated OIR test| 1. Perform the simulated OIR on the module under test.| 1. Transceiver eeprom command should return correct values with exit code 0.<br>2. Expected DOM values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen.<br>5. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 5 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.|
 | 6 | Simulated OIR stress test| 1. Perform the simulated OIR process `soft_oir_stress_iteration` times.| 1. All the expected results from TC#4 after the last simulated OIR.|
+
+## Physical OIR API
+
+The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to initiate OIR operations, monitor their progress, and retrieve results.
+
+A class named `PhysicalOIR` is defined under `tests.platform_tests.transceiver.utils.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
+
+1. **Constructor Method**
+   - Description: Initializes the PhysicalOIR class.
+   - Parameters:
+     - `duthost` : AnsibleHost object of the dut.
+     - `ports`: List of ports to be tested.
+     - `timeout`: Timeout value in minutes for the OIR process.
+     - `oir_method`: The method used for OIR ("manual" or "automated").
+
+2. **initiate_insertion**
+   - Description: Initiates the insertion process for the specified ports.
+   - Parameters: None
+   - Returns: None
+
+3. **wait_for_insertion_complete**
+    - Description: Waits for the insertion process to complete for the specified ports.
+    - Parameters: None
+    - Returns: True if the insertion process is complete, False otherwise.
+
+4. **initiate_removal**
+    - Description: Initiates the removal process for the specified ports.
+    - Parameters: None
+    - Returns: None
+
+5. **wait_for_removal_complete**
+    - Description: Waits for the removal process to complete for the specified ports.
+    - Parameters: None
+    - Returns: True if the removal process is complete, False otherwise.
 
 
 #### CLI commands
