@@ -528,6 +528,7 @@ sonic:
     sonic_cisco_8101C01_C28S4:
     sonic_cisco_8101_O8C48:
     sonic_arista_7050_C32:
+    sonic_arista_7050C_C32:
     sonic_arista_7050C_S128:
     sonic_arista_7060cx:
 
@@ -1946,10 +1947,10 @@ sonic_arista_7050_C32:
          "0x2F": "HBG244605W2"
          "0xFE": "0xdeadbeef"
 
-sonic_arista_7050C_S128:
+sonic_arista_7050C_C32:
   vars:
-    hwsku: Arista-7050CX3-32C-S128
-    iface_speed: 10000
+    hwsku: Arista-7050CX3-32C-C32
+    iface_speed: 100000
   hosts:
     bjw2-can-7050c-1:
       ansible_host: 10.150.22.96
@@ -1997,6 +1998,12 @@ sonic_arista_7050C_S128:
         "0x2E": "Aboot-norcal11-11.0.10-38648278"
         "0x2F": "HBG24350087"
         "0xFE": "0xdeadbeef"
+
+sonic_arista_7050C_S128:
+  vars:
+    hwsku: Arista-7050CX3-32C-S128
+    iface_speed: 10000
+  hosts:
     bjw2-can-7050c-3:
       ansible_host: 10.150.22.99
       ansible_hostv6: 2404:f801:10:2200::a96:1663
