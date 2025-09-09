@@ -2165,6 +2165,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
+generic_config_updater/test_packet_trimming_config_symmetric:
+  skip:
+    reason: "Packet trim is not supported in 202505 image"
+    conditions:
+      - "release in ['202505']"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -3006,6 +3012,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "asic_type in ['cisco-8000']"
         - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
+        - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:

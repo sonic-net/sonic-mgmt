@@ -38,7 +38,8 @@ def test_bgp_outbound_uplink_po_member_flap(snappi_api,                         
                                             conn_graph_facts,                             # noqa: F811
                                             fanout_graph_facts_multidut,                   # noqa: F811
                                             duthosts,
-                                            creds):
+                                            creds,
+                                            record_property):
     """
     Gets the packet loss duration on flapping portchannel member in uplink side
 
@@ -94,4 +95,5 @@ def test_bgp_outbound_uplink_po_member_flap(snappi_api,                         
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_link_flap_test(api=snappi_api,
                                     creds=creds,
-                                    snappi_extra_params=snappi_extra_params)
+                                    snappi_extra_params=snappi_extra_params,
+                                    record_property=record_property)
