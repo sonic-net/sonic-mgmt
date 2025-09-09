@@ -16,6 +16,8 @@ from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from pytest_ansible.errors import AnsibleConnectionFailure
+
 
 logger = logging.getLogger(__name__)
 
@@ -328,7 +330,7 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
     try:
         ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
-    except BaseException as e:
+    except AnsibleConnectionFailure as e:
         logger.error("Failed to copy files to ptfhost.")
         request.config.cache.set("ptfhost_exception", True)
         pt_assert(False, "!!! ptfhost copy file failed !!! Exception: {}".format(repr(e)))
