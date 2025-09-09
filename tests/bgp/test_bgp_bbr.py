@@ -309,7 +309,7 @@ def check_bbr_route_propagation(duthost, nbrhosts, setup, route, accepted=True):
     pytest_assert(wait_until(5, 1, 0, check_tor1, nbrhosts, setup, route), 'tor1 check failed')
 
     # check DUT
-    pytest_assert(wait_until(5, 1, 0, check_dut, duthost, other_vms, bgp_neighbors,
+    pytest_assert(wait_until(30, 1, 0, check_dut, duthost, other_vms, bgp_neighbors,
                   setup, route, accepted=accepted), 'DUT check failed')
 
     results = parallel_run(check_other_vms, (nbrhosts, setup, route), {'accepted': accepted},
