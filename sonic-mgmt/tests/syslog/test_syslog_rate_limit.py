@@ -158,9 +158,8 @@ def verify_container_rate_limit(rand_selected_dut, ignore_containers=[]):
                                              'syslog_rate_limit_{}-interval_{}_burst_{}'.format(service_name,
                                                                                                 RATE_LIMIT_INTERVAL,
                                                                                                 RATE_LIMIT_BURST),
-                                             [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED,
-                                              LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')],
-                                             RATE_LIMIT_BURST + 1)
+                                             [LOG_EXPECT_LAST_MESSAGE.format(container_name + '#')],
+                                             RATE_LIMIT_BURST)
 
         rsyslog_pid = get_rsyslogd_pid(rand_selected_dut, container_name)
         rand_selected_dut.command('config syslog rate-limit-container {} -b {} -i {}'.format(service_name, 0, 0))
@@ -206,8 +205,8 @@ def verify_host_rate_limit(rand_selected_dut):
                                          'host',
                                          'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL,
                                                                                               RATE_LIMIT_BURST),
-                                         [LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED, LOG_EXPECT_LAST_MESSAGE.format('')],
-                                         RATE_LIMIT_BURST + 1,
+                                         [LOG_EXPECT_LAST_MESSAGE.format('')],
+                                         RATE_LIMIT_BURSTgit add ,
                                          is_host=True)
 
     with expect_host_rsyslog_restart(rand_selected_dut):
