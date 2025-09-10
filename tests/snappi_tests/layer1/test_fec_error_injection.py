@@ -3,10 +3,11 @@ from snappi_tests.dataplane.files.helper import (
     get_duthost_vlan_details,
     create_snappi_config,
     get_snappi_stats,
-    create_snappi_l1config,
+    create_snappi_config,
     get_fanout_port_groups,
     set_primary_chassis,
     create_traffic_items,
+    start_stop,
 )     # noqa: F401
 
 pytestmark = [pytest.mark.topology("tgen")]
@@ -18,6 +19,9 @@ logger = logging.getLogger(__name__)  # noqa: F405
     example:
         For codeWords, laneMarkers, minConsecutiveUncorrectableWithLossOfLink link goes down and there is packet drop
         For maxConsecutiveUncorrectableWithoutLossOfLink link does not go down and there is packet drop
+
+    # Note: Need atleast two front panel ports for this test
+
 """
 ErrorTypes = [
     "codeWords",
@@ -30,9 +34,11 @@ ErrorTypes = [
 # if its 200G then fanout_per_port is 4, if its 100G then fanout_per_port is 8
 
 
-@pytest.mark.parametrize("fanout_per_port", [2])
+@pytest.mark.parametrize("fanout_per_port", [8])
 @pytest.mark.parametrize("error_type", ErrorTypes)
 @pytest.mark.parametrize("subnet_type", ["IPv4"])
+@pytest.mark.parametrize("frame_rate", [20])
+@pytest.mark.parametrize("frame_size", [1024])
 def test_fec_error_injection(
     duthosts,
     snappi_api,
@@ -40,9 +46,11 @@ def test_fec_error_injection(
     fanout_graph_facts_multidut,
     set_primary_chassis,   # noqa: F811
     subnet_type,
-    create_snappi_l1config,  # noqa: F811
+    create_snappi_config,  # noqa: F811
     fanout_per_port,
     error_type,
+    frame_rate,
+    frame_size,
 ):
     """
     Test to check if packets get dropped on injecting fec errors
@@ -74,19 +82,27 @@ def test_fec_error_injection(
         logger.info('Tx Ports: {}'.format([port["peer_port"] for port in Tx_ports]))
         logger.info('Rx Ports: {}'.format([port["peer_port"] for port in Rx_ports]))
         logger.info("\n")
-        snappi_config = create_snappi_l1config
         snappi_extra_params.protocol_config = {
-            "Tx": {"network_group": False, "protocol_type": "vlan", "ports": Tx_ports,
-                   "subnet_type": subnet_type, 'is_rdma': False},
-            "Rx": {"network_group": False, "protocol_type": "vlan",
-                   "ports": Rx_ports, "subnet_type": subnet_type, 'is_rdma': False},
+            "Tx": {
+                "network_group": False,
+                "protocol_type": "vlan",
+                "ports": Tx_ports,
+                "subnet_type": subnet_type,
+                "is_rdma": False,
+            },
+            "Rx": {
+                "network_group": False,
+                "protocol_type": "vlan",
+                "ports": Rx_ports,
+                "subnet_type": subnet_type,
+                "is_rdma": False,
+            },
         }
-
-        snappi_config, snappi_obj_handles = create_snappi_config(snappi_config, snappi_extra_params)
+        snappi_config, snappi_obj_handles = create_snappi_config(snappi_extra_params)
         snappi_extra_params.traffic_flow_config = [
             {
-                "line_rate": 40,
-                "frame_size": 1024,
+                "line_rate": frame_rate,
+                "frame_size": frame_size,
                 "is_rdma": False,
                 "flow_name": "Traffic Flow",
                 "tx_names": snappi_obj_handles["Tx"]["ip"],
@@ -95,10 +111,7 @@ def test_fec_error_injection(
         ]
         snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
         snappi_api.set_config(snappi_config)
-        logger.info("Starting Protocol")
-        cs = snappi_api.control_state()
-        cs.protocol.all.state = cs.protocol.all.START
-        snappi_api.set_control_state(cs)
+        start_stop(snappi_api, operation="start", op_type="protocols")
         ixnet = snappi_api._ixnetwork
         logger.info("Wait for Arp to Resolve ...")
         wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
@@ -119,11 +132,7 @@ def test_fec_error_injection(
                 port.L1Config.FecErrorInsertion.PerCodeword = 16
             port.L1Config.FecErrorInsertion.Continuous = True
         wait(10, "To apply fec setting on the port")
-        logger.info("Starting Traffic ...")
-        ts = snappi_api.control_state()
-        ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.START
-        snappi_api.set_control_state(ts)
-        wait(10, "For traffic to start")
+        start_stop(snappi_api, operation="start", op_type="traffic")
         try:
             logger.info("Starting FEC Error Insertion")
             [port.StartFecErrorInsertion() for port in tx_ports]
@@ -237,11 +246,7 @@ def test_fec_error_injection(
             logger.info(
                 "PASS : Rx Port resumed receiving packets after stopping FEC Error Insertion"
             )
-            logger.info("Stopping Traffic ...")
-            ts = snappi_api.control_state()
-            ts.traffic.flow_transmit.state = ts.traffic.flow_transmit.STOP
-            snappi_api.set_control_state(ts)
-            wait(10, "For traffic to stop")
+            start_stop(snappi_api, operation="stop", op_type="traffic")
         finally:
             logger.info("....Finally Block")
             [port.StopFecErrorInsertion() for port in tx_ports]
