@@ -35,8 +35,8 @@ def main():
                         print("===========================================================================")
                         print("File: {}".format(stage_file))
                         print("===========================================================================")
-                        print("Conditional marks before sort: {}".format(conditions))
-                        print("Conditional marks after sort: {}".format(sorted_conditions))
+                        print("Conditional marks before sort:1 {}".format(conditions))
+                        print("Conditional marks after sort:2 {}".format(sorted_conditions))
                         print("===========================================================================")
                         print("Mismatch item, before sort: {}, after sort: {}".format(conditions[i],
                                                                                       sorted_conditions[i]))
