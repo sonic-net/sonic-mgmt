@@ -93,6 +93,19 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
+        # Stop rsyslogd in the swss container for this test case. This is because in the
+        # shutdown path, there will be a flood of syslogs from orchagent with messages
+        # like "removeLag: Failed to remove ref count 3 LAG PortChannel101". On scale
+        # setups, this can potentially cause some syslogs from other containers to get
+        # missed (because rsyslog is all using UDP, so if the RX buffer on the host's
+        # rsyslogd gets full, messages will get dropped. This test case is looking for
+        # specific logs from the teamd container, and if those logs happen to get dropped,
+        # this test case will incorrectly fail.
+        #
+        # Since we don't care about logs from swss for this test case, stop rsyslogd in
+        # the swss container completely.
+        duthost.command("docker exec swss supervisorctl stop rsyslogd")
+
         with loganalyzer:
             logging.info("Reloading config..")
             config_reload(duthost, wait=240, safe_reload=True, wait_for_bgp=True)
