@@ -1,12 +1,12 @@
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401
+from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403
 from snappi_tests.dataplane.files.helper import (
     get_duthost_vlan_details,
-    get_snappi_stats,
     create_snappi_config,
     get_fanout_port_groups,
     set_primary_chassis,
     create_traffic_items,
     start_stop,
+    get_stats,
 )     # noqa: F401
 
 pytestmark = [pytest.mark.topology("tgen")]
@@ -111,6 +111,7 @@ def test_fec_error_injection(
         snappi_config = create_traffic_items(snappi_config, snappi_extra_params)
         snappi_api.set_config(snappi_config)
         start_stop(snappi_api, operation="start", op_type="protocols")
+        columns = ["frames_tx", "frames_rx", "loss", "frames_tx_rate", "frames_rx_rate"]
         ixnet = snappi_api._ixnetwork
         logger.info("Wait for Arp to Resolve ...")
         wait_for_arp(snappi_api, max_attempts=30, poll_interval_sec=2)
@@ -136,24 +137,7 @@ def test_fec_error_injection(
             logger.info("Starting FEC Error Insertion")
             [port.StartFecErrorInsertion() for port in tx_ports]
             wait(15, "For error insertion to start")
-            logger.info(
-                tabulate(
-                    get_snappi_stats(
-                        ixnet,
-                        "Traffic Item Statistics",
-                        [
-                            'Tx Frames',
-                            'Rx Frames',
-                            'Frames Delta',
-                            'Loss %',
-                            'Tx Frame Rate',
-                            'Rx Frame Rate'
-                        ]
-                    ),
-                    headers="keys",
-                    tablefmt="psql"
-                )
-            )
+            get_stats(snappi_api, "Traffic Item Statistics", columns, 'print')
             for snappi_port in tx_ports:
                 for port in fanout_port_group:
                     if port["location"] == snappi_port.Location:
@@ -187,7 +171,7 @@ def test_fec_error_injection(
                                     port["peer_port"], error_type
                                 )
                             )
-            flow_metrics = fetch_snappi_flow_metrics(snappi_api, ["Traffic Flow"])[0]
+            flow_metrics = get_stats(snappi_api, "Traffic Item Statistics")[0]
             pytest_assert(
                 flow_metrics.frames_tx > 0 and int(flow_metrics.loss) > 0,
                 "FAIL: Rx Port did not drop packets after starting FEC Error Insertion",
@@ -219,25 +203,8 @@ def test_fec_error_injection(
                             )
             ixnet.ClearStats()
             wait(10, "For clear stats operation to complete")
-            logger.info(
-                tabulate(
-                    get_snappi_stats(
-                        ixnet,
-                        "Traffic Item Statistics",
-                        [
-                            'Tx Frames',
-                            'Rx Frames',
-                            'Frames Delta',
-                            'Loss %',
-                            'Tx Frame Rate',
-                            'Rx Frame Rate'
-                        ]
-                    ),
-                    headers="keys",
-                    tablefmt="psql"
-                )
-            )
-            flow_metrics = fetch_snappi_flow_metrics(snappi_api, ["Traffic Flow"])[0]
+            get_stats(snappi_api, "Traffic Item Statistics", columns, 'print')
+            flow_metrics = get_stats(snappi_api, "Traffic Item Statistics")[0]
             pytest_assert(
                 int(flow_metrics.frames_rx_rate) > 0 and int(flow_metrics.loss) == 0,
                 "FAIL: Rx Port did not resume receiving packets after stopping FEC Error Insertion",
