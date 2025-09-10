@@ -169,15 +169,18 @@ class GenerateGoldenConfigDBModule(object):
         rc, out, err = self.module.run_command("show runningconfiguration all")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
-
-        return out
+        config = json.loads(out)
+        # From the running configure, only keep the key "FEATURE"
+        for namespace, ns_data in config.items():
+            config[namespace] = {k: ns_data[k] for k in ns_data if k == "FEATURE"}
+        return config
 
     def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
                                                      state="enabled", feature_data=None):
         full_config = json.loads(config)
         if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
             # need dump running config FEATURE + selected feature
-            gold_config_db = json.loads(self.get_multiasic_feature_config())
+            gold_config_db = self.get_multiasic_feature_config()
         else:
             # need existing config + selected feature
             gold_config_db = full_config
@@ -530,34 +533,6 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
-    def generate_default_init_config_db(self):
-        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
-        if rc != 0:
-            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
-
-        # Generate config table from init_cfg.ini
-        ori_config_db = json.loads(out)
-
-        golden_config_db = {}
-        if "DEVICE_METADATA" in ori_config_db:
-            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
-
-        return json.dumps(golden_config_db, indent=4)
-
-    def update_zmq_config(self, config):
-        ori_config_db = json.loads(config)
-        if "DEVICE_METADATA" not in ori_config_db:
-            ori_config_db["DEVICE_METADATA"] = {}
-        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
-            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
-
-        # Older version image may not support ZMQ feature flag
-        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
-        if "orch_northbond_route_zmq_enabled" in out:
-            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
-
-        return json.dumps(ori_config_db, indent=4)
-
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -600,10 +575,7 @@ class GenerateGoldenConfigDBModule(object):
         elif self.topo_name in ["t1-filterleaf-lag"]:
             config = self.generate_filterleaf_golden_config_db()
         else:
-            config = self.generate_default_init_config_db()
-
-        # update ZMQ config
-        config = self.update_zmq_config(config)
+            config = "{}"
 
         # update dns config
         config = self.update_dns_config(config)
