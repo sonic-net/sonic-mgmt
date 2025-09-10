@@ -136,8 +136,13 @@ def main(args):
 
     logger.info("Check reachability again after possible power cycle")
     hosts_reachability = check_reachability(localhost, sonichosts)
-    if not all(hosts_reachability.values()):
-        logger.error("Some hosts are still unreachable, abort image upgrading: {}".format(hosts_reachability))
+
+    # Filter out DPU hosts from reachability check as they may not be directly reachable
+    non_dpu_reachability = {hostname: reachable for hostname, reachable in hosts_reachability.items()
+                            if "dpu" not in hostname.lower()}
+
+    if not all(non_dpu_reachability.values()):
+        logger.error("Some hosts are still unreachable, abort image upgrading: {}".format(non_dpu_reachability))
         sys.exit(RC_HOSTS_UNREACHABLE)
 
     # Upgrade to prev image

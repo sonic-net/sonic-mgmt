@@ -31,9 +31,22 @@ class SonicHosts(AnsibleHosts):
 
 def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
     try:
+        # Skip upgrade image on DPU hosts
+        target_hosts = []
+        for hostname in sonichosts.hostnames:
+            if "dpu" in hostname.lower():
+                logger.info("Skip upgrade image on DPU hosts: {}".format(hostname))
+            else:
+                target_hosts.append(hostname)
+
+        if len(target_hosts) == 0:
+            logger.info("No hosts to upgrade")
+            return True
+
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
+            target_hosts=target_hosts,
             module_attrs={"become": True}
         )
         if is_chassis(sonichosts):
@@ -46,7 +59,8 @@ def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
             logger.info("Sleep 900s to wait for supervisor card to be ready...")
             time.sleep(900)
         else:
-            sonichosts.shell("reboot", module_attrs={"become": True, "async": 300, "poll": 0})
+            sonichosts.shell("reboot", target_hosts=target_hosts,
+                             module_attrs={"become": True, "async": 300, "poll": 0})
 
         return True
     except RunAnsibleModuleFailed as e:
@@ -95,15 +109,17 @@ def upgrade_by_onie(sonichosts, localhost, image_url, pause_time):
         return False
 
 
-def patch_rsyslog(sonichosts):
+def patch_rsyslog(sonichosts, target_hosts):
+    """Patch rsyslog configuration with DPU filtering support."""
     rsyslog_conf_files = [
         "/usr/share/sonic/templates/rsyslog.conf.j2",
         "/etc/rsyslog.conf"
     ]
 
-    # Get sonic version, use version of the first host
+    # Get sonic version, use version of the first target host
     sonic_build_version = list(sonichosts.shell(
-        "sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version"
+        "sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version",
+        target_hosts=target_hosts
     ).values())[0]["stdout"]
 
     # Patch rsyslog to stop sending syslog to production and use new template for remote syslog
@@ -114,6 +130,7 @@ def patch_rsyslog(sonichosts):
             backrefs=True,
             regexp=r"(^[^#]*@\[10\.20\.6\.16\]:514)",
             line=r"# \g<1>",
+            target_hosts=target_hosts,
             module_attrs={"become": True}
         )
         sonichosts.lineinfile(
@@ -122,6 +139,7 @@ def patch_rsyslog(sonichosts):
             insertafter="# Define a custom template",
             line=r'$template RemoteSONiCFileFormat,"<%PRI%>1 %TIMESTAMP:::date-rfc3339% %HOSTNAME% %APP-NAME% '
                  r'%PROCID% %MSGID% [origin swVersion=\"{}\"] %msg%\n"'.format(sonic_build_version),
+            target_hosts=target_hosts,
             module_attrs={"become": True}
         )
 
@@ -132,6 +150,7 @@ def patch_rsyslog(sonichosts):
         backrefs=True,
         regex=r"(\*\.\* @\[\{\{ server \}\}\]:514)",
         line=r'\g<1>;RemoteSONiCFileFormat',
+        target_hosts=target_hosts,
         module_attrs={"become": True}
     )
 
@@ -139,6 +158,7 @@ def patch_rsyslog(sonichosts):
     sonichosts.shell(
         r"sed -E -i 's/(^[^#]*@\[[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+\]:514).*$/\1;RemoteSONiCFileFormat/g' "
         "/etc/rsyslog.conf",
+        target_hosts=target_hosts,
         module_attrs={"become": True}
     )
 
@@ -146,7 +166,8 @@ def patch_rsyslog(sonichosts):
     # This PR updated the rsyslog.conf to use a new method for sending out syslog. Need to configure the new method
     # to use RemoteSONiCFileFormat too.
     remote_template = list(sonichosts.shell(
-        "echo `grep -c 'template=\".*SONiCFileFormat\"' /usr/share/sonic/templates/rsyslog.conf.j2`"
+        "echo `grep -c 'template=\".*SONiCFileFormat\"' /usr/share/sonic/templates/rsyslog.conf.j2`",
+        target_hosts=target_hosts
     ).values())[0]["stdout"]
     if remote_template == "0":
         for conf_file in rsyslog_conf_files:
@@ -156,6 +177,7 @@ def patch_rsyslog(sonichosts):
                 backrefs=True,
                 regex=r'^(\*\.\* action\(type="omfwd") target=(.*)$',
                 line=r'\g<1> template="RemoteSONiCFileFormat" target=\g<2>',
+                target_hosts=target_hosts,
                 module_attrs={"become": True}
             )
     elif remote_template != "0":
@@ -164,16 +186,34 @@ def patch_rsyslog(sonichosts):
                 dest=conf_file,
                 regexp='template=".*SONiCFileFormat"',
                 replace='template="RemoteSONiCFileFormat"',
+                target_hosts=target_hosts,
                 module_attrs={"become": True}
             )
-    sonichosts.shell("systemctl restart rsyslog", module_attrs={"become": True})
+    sonichosts.shell("systemctl restart rsyslog",
+                     target_hosts=target_hosts,
+                     module_attrs={"become": True})
 
 
 def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
     try:
-        for i in range(len(sonichosts.ips)):
+        # Skip post-upgrade actions on DPU hosts
+        target_hosts = []
+        for hostname in sonichosts.hostnames:
+            if "dpu" in hostname.lower():
+                logger.info("Skip post-upgrade actions on DPU host: {}".format(hostname))
+            else:
+                target_hosts.append(hostname)
+
+        if len(target_hosts) == 0:
+            logger.info("No hosts for post-upgrade actions")
+            return True
+
+        # Calculate target IPs for the filtered hosts
+        target_ips = [sonichosts.ips[sonichosts.hostnames.index(hostname)] for hostname in target_hosts]
+
+        for i in range(len(target_ips)):
             localhost.wait_for(
-                host=sonichosts.ips[i],
+                host=target_ips[i],
                 port=22,
                 state="started",
                 search_regex="OpenSSH",
@@ -189,16 +229,22 @@ def post_upgrade_actions(sonichosts, localhost, disk_used_percent):
         sonichosts.shell(
             'sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config '
             '&& systemctl restart sshd',
+            target_hosts=target_hosts,
             module_attrs={"become": True}
         )
 
-        patch_rsyslog(sonichosts)
+        patch_rsyslog(sonichosts, target_hosts)
 
-        sonichosts.command("config bgp startup all", module_attrs={"become": True})
-        sonichosts.command("config save -y", module_attrs={"become": True})
+        sonichosts.command("config bgp startup all",
+                           target_hosts=target_hosts,
+                           module_attrs={"become": True})
+        sonichosts.command("config save -y",
+                           target_hosts=target_hosts,
+                           module_attrs={"become": True})
         logger.info("Run reduce_and_add_sonic_images to cleanup disk")
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
+            target_hosts=target_hosts,
             module_attrs={"become": True}
         )
         return True

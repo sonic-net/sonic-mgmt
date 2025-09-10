@@ -30,6 +30,11 @@ def get_pdu_managers(sonichosts, conn_graph_facts):
     device_pdu_links = conn_graph_facts['device_pdu_links']
     device_pdu_info = conn_graph_facts['device_pdu_info']
     for hostname in sonichosts.hostnames:
+        # Skip power cycling for DPU hosts
+        if "dpu" in hostname.lower():
+            logger.info("Skipping PDU manager creation for DPU host: {}".format(hostname))
+            continue
+
         pdu_links = device_pdu_links[hostname]
         pdu_info = device_pdu_info[hostname]
         pdu_vars = {}
@@ -46,6 +51,12 @@ def check_reachability(localhost, sonichosts):
     logger.info("Check ICMP ping")
     for hostname, ip in zip(sonichosts.hostnames, sonichosts.ips):
         hosts_reachability[hostname] = True
+
+        # Skip ping and reachability checks for DPU hosts
+        if "dpu" in hostname.lower():
+            logger.info("Skipping ping and reachability check for DPU host: {}".format(hostname))
+            continue
+
         logger.info("Ping {} @{} from localhost".format(hostname, ip))
         ping_failed = localhost.command(
             "timeout 2 ping {} -c 1".format(ip), module_ignore_errors=True
@@ -56,6 +67,11 @@ def check_reachability(localhost, sonichosts):
 
     logger.info("Check if ansible can SSH to sonichosts")
     for hostname, ping_result in sonichosts.ping(module_ignore_errors=True).items():
+        # Skip SSH check for DPU hosts
+        if "dpu" in hostname.lower():
+            logger.info("Skipping SSH check for DPU host: {}".format(hostname))
+            continue
+
         if ping_result["failed"]:
             logger.info("SSH to {} failed.".format(hostname))
             hosts_reachability[hostname] = False
