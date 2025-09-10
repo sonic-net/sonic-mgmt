@@ -15,7 +15,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, delete_running_config
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm1'),
+    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
 ]
 
 TEST_ITERATIONS = 5
