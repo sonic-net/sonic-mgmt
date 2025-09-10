@@ -297,7 +297,6 @@ def pytest_addoption(parser):
                      help="This flag indicates that the test is being run by the container test.")
 
 
-
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
