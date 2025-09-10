@@ -102,7 +102,7 @@ arp/test_wr_arp.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -2115,6 +2115,12 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
 
+generic_config_updater/test_monitor_config.py::test_monitor_config_tc1_suite:
+  skip:
+    reason: "This test is not run on this asic type or version currently / ERSPAN meter is not supported for Cisco Platform"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 generic_config_updater/test_multiasic_addcluster.py:
   skip:
     reason: "Only supported on multi-asic system."
@@ -2133,6 +2139,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     reason: "Only supported on multi-asic system."
     conditions:
       - "(is_multi_asic is False)"
+
+generic_config_updater/test_packet_trimming_config_symmetric:
+  skip:
+    reason: "Packet trim is not supported in 202505 image"
+    conditions:
+      - "release in ['202505']"
 
 generic_config_updater/test_pfcwd_interval.py:
   skip:
@@ -2975,6 +2987,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "asic_type in ['cisco-8000']"
         - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
+        - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:

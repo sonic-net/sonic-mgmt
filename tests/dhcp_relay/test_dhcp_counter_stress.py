@@ -21,7 +21,12 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
+BUFFER_SIZE = 1024 * 1024  # 1MB
 logger = logging.getLogger(__name__)
+PACKET_RATE_PER_SEC_MAP = {
+    "Mellanox-SN2700": 20
+}
+DEFAULT_PACKET_RATE_PER_SEC = 25
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
@@ -31,12 +36,13 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
                                        dhcp_type, clean_processes_after_stress_test,
                                        rand_unselected_dut, request):
     '''
-    Test DHCP relay counters functionality can handle the maximum load within 5% miss.
+    Test DHCP relay counters functionality can handle the maximum load within 0.01% miss.
     '''
     testing_mode, duthost = testing_config
     packets_send_duration = 120
     error_margin = 0.01
-    client_packets_per_sec = 25\
+    dut_hwsku = duthost.facts["hwsku"]
+    client_packets_per_sec = PACKET_RATE_PER_SEC_MAP.get(dut_hwsku, DEFAULT_PACKET_RATE_PER_SEC) \
         if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
     logger.info("Testing mode: {}, client packets per second: {}, error margin: {}".format(
         testing_mode, client_packets_per_sec, error_margin))
@@ -106,7 +112,8 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             duthost=duthost, interface='any',
             pkts_filter="udp dst port %s or udp dst port %s" % (DEFAULT_DHCP_SERVER_PORT,
                                                                 DEFAULT_DHCP_CLIENT_PORT),
-            pkts_validator=_verify_packets
+            pkts_validator=_verify_packets,
+            tcpdump_buffer_size=BUFFER_SIZE
         ):
             ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPStress{}Test".format(dhcp_type.capitalize()),
                        platform_dir="ptftests", params=params,

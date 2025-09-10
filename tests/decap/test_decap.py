@@ -3,7 +3,7 @@ IPinIP Decap configs for different ASICs:
 Table Name in APP_DB: TUNNEL_DECAP_TABLE:IPINIP_TUNNEL
 
 Config          Mellanox <= [202411]        Mellanox >= [202505]        Broadcom <= [201911]        Broadcom >= [202012]     Innovium               # noqa: E501
-dscp_mode       uniform                     uniform                     pipe                        uniform                  pipe                   # noqa: E501
+dscp_mode       uniform                     pipe                        pipe                        uniform                  pipe                   # noqa: E501
 ecn_mode        standard                    copy_from_outer             copy_from_outer             copy_from_outer          copy_from_outer        # noqa: E501
 ttl_mode        pipe                        pipe                        pipe                        pipe                     pipe                   # noqa: E501
 '''

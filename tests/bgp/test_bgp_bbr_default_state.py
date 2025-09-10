@@ -129,6 +129,7 @@ def setup(duthosts, rand_one_dut_hostname, tbinfo, nbrhosts):
     return setup_info
 
 
+@pytest.mark.disable_loganalyzer
 def test_bbr_disabled_constants_yml_default(duthosts, rand_one_dut_hostname, setup, config_bbr_disabled, loganalyzer):
     duthost = duthosts[rand_one_dut_hostname]
     if duthost.sonichost.facts['platform_asic'] == 'broadcom':

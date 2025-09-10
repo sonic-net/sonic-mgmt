@@ -272,8 +272,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 return vlan_intf
         raise ValueError("No Vlan interface defined in current topo")
 
-    def _find_loopback_interface(mg_facts):
-        loopback_intf_name = "Loopback0"
+    def _find_loopback_interface(mg_facts, loopback_intf_name="Loopback0"):
         for loopback in mg_facts["minigraph_lo_interfaces"]:
             if loopback["name"] == loopback_intf_name:
                 return loopback
@@ -284,7 +283,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         try:
             connections = []
             vlan_intf = _find_vlan_intferface(mg_facts)
-            loopback_intf = _find_loopback_interface(mg_facts)
+            loopback_intf = _find_loopback_interface(mg_facts, "Loopback3")
             vlan_intf_addr = vlan_intf["addr"]
             vlan_intf_prefixlen = vlan_intf["prefixlen"]
             loopback_intf_addr = loopback_intf["addr"]

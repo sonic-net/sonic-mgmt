@@ -1719,7 +1719,7 @@ class ReloadTest(BaseTest):
         return stdout, stderr, return_code
 
     def peer_state_check(self, ip, queue):
-        self.log('SSH thread for VM {} started'.format(ip))
+        self.log('SSH thread for VM {} started with queue {}'.format(ip, queue))
         self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
@@ -1751,7 +1751,25 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
-        max_allowed_lacp_session_wait = 150
+
+        # Initialize max_allowed_lacp_session_wait
+        LACP_SLOW_PERIOD_SEC = 30
+
+        if self.test_params['neighbor_type'] == "eos":
+            if 'ceos_neighbor_lacp_multiplier' in self.test_params \
+                    and self.test_params['ceos_neighbor_lacp_multiplier']:
+                lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
+            else:
+                lacp_multiplier = 3
+        elif self.test_params['neighbor_type'] == "sonic":
+            lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
+        else:
+            lacp_multiplier = 3
+
+        max_allowed_lacp_session_wait = lacp_multiplier * LACP_SLOW_PERIOD_SEC
+        self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
+            max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
+
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -1778,7 +1796,9 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_down')
             if self.cpu_state.get() == 'down':
                 for _, q in self.ssh_jobs:
+                    self.log('CPU port is down, sending cpu_down signal to SSH thread queue {}'.format(q))
                     q.put('cpu_down')
+                    self.log('Sent cpu_down signal to SSH thread queue {}'.format(q))
                 break
             time.sleep(self.TIMEOUT)
 
@@ -1788,7 +1808,9 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_up')
             if self.cpu_state.get() == 'up':
                 for _, q in self.ssh_jobs:
+                    self.log('CPU port is up, sending cpu_up signal to SSH thread queue {}'.format(q))
                     q.put('cpu_up')
+                    self.log('Sent cpu_up signal to SSH thread queue {}'.format(q))
                 break
             time.sleep(self.TIMEOUT)
 
