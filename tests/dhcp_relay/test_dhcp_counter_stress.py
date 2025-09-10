@@ -21,7 +21,7 @@ BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
-BUFFER_SIZE = 9 * 1024 * 1024  # 9MB
+BUFFER_SIZE = 1024 * 1024  # 1MB
 logger = logging.getLogger(__name__)
 PACKET_RATE_PER_SEC_MAP = {
     "Mellanox-SN2700": 20
