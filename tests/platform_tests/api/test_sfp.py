@@ -490,7 +490,7 @@ class TestSfpApi(PlatformApiTestBase):
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = [
                             key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
                     elif info_dict["type"] == "Backplane Cartridge" and \
-                        info_dict['manufacturer'].rstrip() == "Amphenol":
+                            info_dict['manufacturer'].rstrip() == "Amphenol":
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
