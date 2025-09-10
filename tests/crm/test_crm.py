@@ -14,9 +14,9 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
-from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
-from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
-from tests.common.utilities import wait_until, get_data_acl
+from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
+from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
+from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
@@ -419,29 +419,22 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
     del_neighbors_template = Template(del_template)
     add_neighbors_template = Template(add_template)
 
+    ip_addr_list = generate_neighbors(amount, ip_ver)
+    ip_addr_list = " ".join([str(item) for item in ip_addr_list])
+
+    # Store CLI command to delete all created neighbors
+    RESTORE_CMDS[test_name].append(del_neighbors_template.render(
+                            neigh_ip_list=ip_addr_list,
+                            iface=interface,
+                            namespace=asichost.namespace))
+
     # Increase default Linux configuration for ARP cache
     increase_arp_cache(asichost, amount, ip_ver, test_name)
 
-    # https://github.com/sonic-net/sonic-mgmt/issues/18624
-    # May need to batch the commands to avoid hitting "Argument list too long" error
-    # IPv4 will consume at most 14 characters: " 2.XXX.XXX.XXX"
-    # IPv6 will consume at most 11 characters: " 2001::XXXX"
-    # Assuming our argument character limit is 128KB (1310072)
-    # Our Max number of neighbors would be: 1310072 / 14 = 9362 (Using 9000 to leave room for other characters)
-    ip_addr_list = generate_neighbors(amount, ip_ver)
-    for ip_addr_batch in [ip_addr_list[i:i + 9000] for i in range(0, len(ip_addr_list), 9000)]:
-        ip_addr_str = " ".join([str(item) for item in ip_addr_batch])
-
-        # Store CLI command to delete all created neighbors
-        RESTORE_CMDS[test_name].append(del_neighbors_template.render(
-                                neigh_ip_list=ip_addr_str,
-                                iface=interface,
-                                namespace=asichost.namespace))
-
-        asichost.shell(add_neighbors_template.render(
-                            neigh_ip_list=ip_addr_str,
-                            iface=interface,
-                            namespace=asichost.namespace))
+    asichost.shell(add_neighbors_template.render(
+                        neigh_ip_list=ip_addr_list,
+                        iface=interface,
+                        namespace=asichost.namespace))
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
@@ -501,14 +494,6 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
-
-    # will be changed to use is_ipv6_only_topology from tests.common.utilities
-    # once PR #19639 is merged
-    is_ipv6_only_topology = (
-        "-v6-" in tbinfo["topo"]["name"]
-        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
-        else False
-    )
     if is_ipv6_only_topology and ip_ver == "4":
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
@@ -665,13 +650,17 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
 def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface):
+                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo):
+    
+    if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] == "marvell":
         if ip_ver == "4":
             ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
             ptfhost.set_dev_up_or_down('eth1', 'is_up')
@@ -722,7 +711,7 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] == "marvell":
         asichost.shell(ip_remove_cmd)
         asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
         ptfhost.remove_ip_addresses()
@@ -755,7 +744,11 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
 def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host):
+                      enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host, tbinfo):
+
+    if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
@@ -835,7 +828,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 @pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
 def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           enum_frontend_asic_index, crm_interface, group_member, network):
+                           enum_frontend_asic_index, crm_interface, group_member, tbinfo, network):
+
+    if  is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
@@ -964,7 +961,7 @@ def test_acl_entry(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_collector = collector[asichost.asic_index]
     try:
-        if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+        if duthost.facts["asic_type"] == "marvell":
             # Remove DATA ACL Table and add it again with ports in same port group
             mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
             tmp_ports = sorted(mg_facts["minigraph_ports"], key=lambda x: int(x[8:]))
@@ -1066,7 +1063,7 @@ def verify_acl_crm_stats(duthost, asichost, enum_rand_one_per_hwsku_frontend_hos
                             .format(db_cli=asichost.sonic_db_cli, acl_tbl_key=acl_tbl_key)
 
     global crm_stats_checker
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] == "marvell":
         crm_stats_checker = wait_until(
             30,
             5,
