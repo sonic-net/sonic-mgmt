@@ -1,11 +1,12 @@
+# TestName
+Upgrade Service via gNOI
+
 - [Overview](#overview)
 - [Background](#background)
 - [Scope](#scope)
 - [Test structure](#test-structure)
 - [Test scenario](#test-scenario)
 - [Test cases](#test-cases)
-# TestName
-Upgrade Service via gNOI
 
 ## Overview
 The goal of this test is to verify that the Upgrade Service, implemented via gNOI, functions correctly across different deployment environments. This includes validating the gRPC-based upgrade workflow and error handling using both the upgrade-agent and gNOI server.
@@ -121,7 +122,8 @@ upgrade-agent version
 # Create test firmware files
 mkdir -p /tmp/firmware-server
 echo "mock-firmware-v1.0" > /tmp/firmware-server/test-firmware.bin
-echo "d41d8cd98f00b204e9800998ecf8427e" > /tmp/firmware-server/test-firmware.bin.sha256
+md5sum /tmp/firmware-server/test-firmware.bin | awk '{print $1}' > /tmp/firmware-server/test-firmware.bin.md5
+
 # Start HTTP server
 cd /tmp/firmware-server
 python3 -m http.server 8080 &
@@ -332,17 +334,6 @@ Run these negative setups per scenario to validate error handling and robustness
 - Expected: download should fail or agent should detect insufficient space and abort cleanly with explicit error.
 - Verify: agent returns ENOSPC-like error; no partial install left behind; logs show clear failure reason.
 
-```sh
-# Simulate low disk
-fallocate -l 4G /tmp/fillfile
-# Disable mgmt interface
-ip link set dev eth0 down
-# Block firmware server
-iptables -A OUTPUT -d ${FW_IP} -j REJECT
-# Corrupt image (serve wrong content)
-# Kill gNOI server during transfer
-pkill -f gnmi-server
-```
 
 2) No management interface (e.g., eth0 down)
 - Setup: administratively disable DUT management interface.
