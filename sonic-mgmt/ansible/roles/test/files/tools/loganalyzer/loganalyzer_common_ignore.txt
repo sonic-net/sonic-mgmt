@@ -358,6 +358,9 @@ r, ".* ERR hostcfgd: \['sonic-kdump-config'[^]]*\] - failed.*"
 # https://github.com/sonic-net/sonic-buildimage/issues/22348
 r, ".* ERR pmon#chassis_db_init: Failed to load chassis due to ModuleNotFoundError.*"
 
+# Errors for config reload
+r, ".* ERR monit.*: 'rsyslog' process with pid .* is a zombie"
+
 # https://msazure.visualstudio.com/One/_workitems/edit/33411748
 r, ".* NOTICE kernel:.*exe=\"/usr/bin/kill\".*"
 
