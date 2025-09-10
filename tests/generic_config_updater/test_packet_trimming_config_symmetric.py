@@ -13,14 +13,14 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 # Default values
-TRIM_SIZE = 256
+TRIM_SIZE = 256  # For Mellanox
 TRIM_DSCP = 48
-TRIM_QUEUE = 6
+TRIM_QUEUE = 6  # For Mellanox
 
 # Update values
-TRIM_SIZE_UPDATE = 4084
+TRIM_SIZE_UPDATE = 4084  # For Mellanox
 TRIM_DSCP_UPDATE = 63
-TRIM_QUEUE_UPDATE = 3
+TRIM_QUEUE_UPDATE = 3  # For Mellanox
 TRIM_TC_UPDATE = 4
 
 # Invalid values
@@ -38,6 +38,12 @@ def setup_env(duthost):
     Args:
         duthost: DUT.
     """
+    global TRIM_SIZE, TRIM_QUEUE, TRIM_SIZE_UPDATE, TRIM_QUEUE_UPDATE
+    if duthost.facts["asic_type"] == "broadcom":
+        TRIM_SIZE = 206
+        TRIM_QUEUE = 7
+        TRIM_SIZE_UPDATE = 206
+        TRIM_QUEUE_UPDATE = 7
     create_checkpoint(duthost)
 
     yield

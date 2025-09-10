@@ -6,6 +6,7 @@ import logging
 import os
 import time
 import paramiko
+from tests.conftest import add_custom_msg
 from tests.snappi_tests.variables import snappi_community_for_t1_drop, t2_uplink_fanout_info, \
     t1_dut_info, fanout_presence    # noqa: F401
 from tests.snappi_tests.bgp.files.bgp_outbound_helper import get_hw_platform    # noqa: F401
@@ -259,6 +260,21 @@ def patch_conn_graph_facts(duthosts, tbinfo):
         shutil.move(link_file + ".bak", link_file)
 
     return Mock(undo=undo, patch=patch)
+
+
+@pytest.fixture(scope="session")
+def record_property(request):
+    from tabulate import tabulate
+
+    def _print_table(arr_dict_value):
+        logger.info(tabulate([
+            d.values() for d in arr_dict_value
+        ], headers=arr_dict_value[0].keys(), tablefmt="psql"))
+
+    def _handler(key, arr_dict_value):
+        add_custom_msg(request, key, arr_dict_value)
+        _print_table(arr_dict_value)
+    return _handler
 
 
 @pytest.fixture(scope="session", autouse=True)
