@@ -583,7 +583,7 @@ def configure_acl_for_route_withdrawl(destination_ip_list, table_name):
     return acl_dict
 
 
-def get_stats(api, stat_name="Traffic Item Statistics"):
+def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
     """
     Args:
         api (pytest fixture): Snappi API
@@ -591,10 +591,60 @@ def get_stats(api, stat_name="Traffic Item Statistics"):
     request = api.metrics_request()
     if stat_name == "Traffic Item Statistics":
         request.flow.flow_names = []
-        return api.get_metrics(request).flow_metrics
+        stat_obj = api.get_metrics(request).flow_metrics
+        column_headers = [
+            "bytes_rx",
+            "bytes_tx",
+            "frames_rx",
+            "frames_rx_rate",
+            "frames_tx",
+            "frames_tx_rate",
+            "loss",
+            "name",
+            "port_rx",
+            "port_tx",
+            "rx_l1_rate_bps",
+            "rx_rate_bps",
+            "rx_rate_bytes",
+            "rx_rate_kbps",
+            "rx_rate_mbps",
+            "transmit",
+            "tx_l1_rate_bps",
+            "tx_rate_bps",
+            "tx_rate_bytes",
+            "tx_rate_kbps",
+            "tx_rate_mbps",
+        ]
     elif stat_name == "Port Statistics":
         request.port.port_names = []
-        return api.get_metrics(request).port_metrics
+        stat_obj = api.get_metrics(request).port_metrics
+        column_headers = [
+            "bytes_rx",
+            "bytes_rx_rate",
+            "bytes_tx",
+            "bytes_tx_rate",
+            "capture",
+            "frames_rx",
+            "frames_rx_rate",
+            "frames_tx",
+            "frames_tx_rate",
+            "link",
+            "location",
+            "name"
+        ]
+    rows = [
+        [getattr(stat, column, None) for column in column_headers]
+        for stat in stat_obj
+    ]
+    tdf = pd.DataFrame(rows, columns=column_headers)
+    selected_columns = columns if columns else column_headers
+    df = tdf[selected_columns]
+    if return_type == 'print':
+        logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
+    elif return_type == 'df':
+        return df
+    else:
+        return stat_obj
 
 
 def start_stop(snappi_api, operation="start", op_type="protocols"):
