@@ -1719,7 +1719,7 @@ class ReloadTest(BaseTest):
         return stdout, stderr, return_code
 
     def peer_state_check(self, ip, queue):
-        self.log('SSH thread for VM {} started'.format(ip))
+        self.log('SSH thread for VM {} started with queue {}'.format(ip, queue))
         self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
@@ -1796,7 +1796,9 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_down')
             if self.cpu_state.get() == 'down':
                 for _, q in self.ssh_jobs:
+                    self.log('CPU port is down, sending cpu_down signal to SSH thread queue {}'.format(q))
                     q.put('cpu_down')
+                    self.log('Sent cpu_down signal to SSH thread queue {}'.format(q))
                 break
             time.sleep(self.TIMEOUT)
 
@@ -1806,7 +1808,9 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_up')
             if self.cpu_state.get() == 'up':
                 for _, q in self.ssh_jobs:
+                    self.log('CPU port is up, sending cpu_up signal to SSH thread queue {}'.format(q))
                     q.put('cpu_up')
+                    self.log('Sent cpu_up signal to SSH thread queue {}'.format(q))
                 break
             time.sleep(self.TIMEOUT)
 
