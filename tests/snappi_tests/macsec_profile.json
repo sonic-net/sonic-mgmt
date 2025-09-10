@@ -17,7 +17,7 @@
         "mka_rekey_mode_choice": "timer_based",
         "mka_rekey_timer_interval": 240,
         "mka_rekey_timer_choice": "continuous",
-        "cipher_suite": "gcm_aes_128",
+        "cipher_suite": "gcm_aes_256",
         "confidentiality_offset": "confidentiality_offset_30_octets"
   }
 }
