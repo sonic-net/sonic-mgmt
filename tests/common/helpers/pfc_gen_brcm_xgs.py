@@ -82,8 +82,7 @@ class FanoutPfcStorm():
 
         for line in output.splitlines():
             mo = re.search(
-                 r'Intf: (?P<intf>Ethernet\S+).{1,50}Port: {1,3}(?P<port>\S+)'
-                 r'.{1,100}P2M\[ {0,3}\d+\]: {1,3}(?P<mmu>\S+)',
+                 r'Intf:\s+(?P<intf>Ethernet[^\s]+)\s+Port:\s+(?P<port>[^\s]+)\s+.*?P2M\[\s*\d+\s*\]:\s+(?P<mmu>\d+)\b',
                  line
             )
             if mo is None:

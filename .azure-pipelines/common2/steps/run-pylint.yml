@@ -1,6 +1,26 @@
 steps:
   - script: |
+      # Update with timeout and retry logic
+      timeout 180s sudo apt-get update -y || {
+        echo "apt-get update failed or timed out"
+        exit 1
+      }
+      # Install aspell and aspell-en non-interactively
+      timeout 180s sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends aspell aspell-en libenchant-2-2 libenchant-2-dev || {
+        echo "Failed to install aspell or aspell-en or libenchant-2-2 or libenchant-2-dev"
+        exit 1
+      }
+      pip install pyenchant
       pip install pylint
-      echo "Running pylint"
-      pylint --rcfile=pylintrc
-    displayName: 'Run pylint'
+
+      # Source the shared script to get changed Python files
+      source .azure-pipelines/common2/scripts/get-changed-python-files.sh
+
+      if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
+        echo "Skipping pylint."
+      else
+        echo "Running pylint on these files..."
+        # Pass the specific files to pylint
+        pylint --rcfile=pylintrc $CHANGED_PYTHON_FILES
+      fi
+    displayName: 'Run pylint (conditional on changed .py files)'

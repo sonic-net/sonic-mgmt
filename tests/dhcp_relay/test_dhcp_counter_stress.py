@@ -1,23 +1,32 @@
-
 import pytest
-import ptf.packet as scapy
 import logging
 import time
+import re
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.common.dhcp_relay_utils import init_dhcpcom_relay_counters, validate_dhcpcom_relay_counters
+from tests.common.dhcp_relay_utils import init_dhcpcom_relay_counters, validate_dhcpcom_relay_counters, \
+                                          validate_counters_and_pkts_consistency
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.dhcp_relay.dhcp_relay_utils import check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert
 from tests.ptf_runner import ptf_runner
 
+pytestmark = [
+    pytest.mark.topology('t0', 'm0'),
+    pytest.mark.device_type('physical')
+]
 
 BROADCAST_MAC = 'ff:ff:ff:ff:ff:ff'
 DEFAULT_DHCP_CLIENT_PORT = 68
 DEFAULT_DHCP_SERVER_PORT = 67
 DUAL_TOR_MODE = 'dual'
+BUFFER_SIZE = 1024 * 1024  # 1MB
 logger = logging.getLogger(__name__)
+PACKET_RATE_PER_SEC_MAP = {
+    "Mellanox-SN2700": 20
+}
+DEFAULT_PACKET_RATE_PER_SEC = 25
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
@@ -27,22 +36,19 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
                                        dhcp_type, clean_processes_after_stress_test,
                                        rand_unselected_dut, request):
     '''
-    Test DHCP relay counters functionality can handle the maximum load within 5% miss.
+    Test DHCP relay counters functionality can handle the maximum load within 0.01% miss.
     '''
     testing_mode, duthost = testing_config
     packets_send_duration = 120
     error_margin = 0.01
-    client_packets_per_sec = 25\
+    dut_hwsku = duthost.facts["hwsku"]
+    client_packets_per_sec = PACKET_RATE_PER_SEC_MAP.get(dut_hwsku, DEFAULT_PACKET_RATE_PER_SEC) \
         if request.config.option.max_packets_per_sec is None else request.config.option.max_packets_per_sec
     logger.info("Testing mode: {}, client packets per second: {}, error margin: {}".format(
         testing_mode, client_packets_per_sec, error_margin))
     for dhcp_relay in dut_dhcp_relay_data:
-        client_port_name = str(dhcp_relay['client_iface']['name'])
         client_port_id = dhcp_relay['client_iface']['port_idx']
-        client_mac = ptfadapter.dataplane.get_mac(0, client_port_id).decode('utf-8')
-        server_port_name = dhcp_relay['uplink_interfaces'][0]
-        server_mac = ptfadapter.dataplane.get_mac(0, dhcp_relay['uplink_port_indices'][0]).decode('utf-8')
-        num_dhcp_servers = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
+
         init_dhcpcom_relay_counters(duthost)
         if testing_mode == DUAL_TOR_MODE:
             standby_duthost = rand_unselected_dut
@@ -75,57 +81,39 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             output = ptfhost.shell(command)
             return not output['rc'] and output['stdout'].strip() == "exists"
 
-        def _verify_server_packets(pkts, dhcp_type):
+        def _verify_packets(pkts):
             # Default DB update timer for dhcpmon is 20s, hence wait for it to write DB
             time.sleep(25)
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0]) * num_dhcp_servers
-            expected_uplink_counter = {
-                "RX": {},
-                "TX": {dhcp_type.capitalize(): actual_count}
-            }
-            expected_downlink_counter = {
-                "RX": {dhcp_type.capitalize(): actual_count / num_dhcp_servers},
-                "TX": {}
-            }
-            validate_dhcpcom_relay_counters(dhcp_relay, duthost,
-                                            expected_uplink_counter,
-                                            expected_downlink_counter, error_margin)
+            validate_counters_and_pkts_consistency(dhcp_relay, duthost, pkts, interface_dict,
+                                                   error_in_percentage=error_margin)
             if testing_mode == DUAL_TOR_MODE:
                 validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
                                                 {}, {}, 0)
 
-        def _verify_client_packets(pkts, dhcp_type):
-            # Default DB update timer for dhcpmon is 20s, hence wait for it to write DB
-            time.sleep(25)
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0])
-            expected_uplink_counter = {
-                "RX": {dhcp_type.capitalize(): actual_count},
-                "TX": {}
-            }
-            expected_downlink_counter = {
-                "RX": {},
-                "TX": {dhcp_type.capitalize(): actual_count}
-            }
-            validate_dhcpcom_relay_counters(dhcp_relay, duthost,
-                                            expected_uplink_counter,
-                                            expected_downlink_counter, error_margin)
-            if testing_mode == DUAL_TOR_MODE:
-                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
-                                                {}, {}, 0)
+        def get_ip_link_result(duthost):
+            # Get the output of 'ip link' command and parse it to a dictionary of index: name
+            cmd_res = duthost.shell('ip link')
+            if cmd_res['rc'] != 0:
+                pytest.fail("Failed to get ip link result: {}".format(cmd_res['stderr']))
 
-        if dhcp_type in ['discover', 'request']:
-            interface = client_port_name
-            eth_src = client_mac
-            pkts_validator = _verify_server_packets
-        else:
-            interface = server_port_name
-            eth_src = server_mac
-            pkts_validator = _verify_client_packets
+            pattern = re.compile(r'^(\d+):\s+([^\s@:]+)')
+            interface_dict = {}
+
+            for line in cmd_res['stdout'].splitlines():
+                match = pattern.match(line)
+                if match:
+                    index = int(match.group(1))
+                    name = match.group(2)
+                    interface_dict[name] = index
+
+            return interface_dict
+
         with capture_and_check_packet_on_dut(
-            duthost=duthost, interface=interface,
-            pkts_filter="ether src %s and udp dst port %s" % (eth_src, DEFAULT_DHCP_SERVER_PORT),
-            pkts_validator=pkts_validator,
-            pkts_validator_args=[dhcp_type]
+            duthost=duthost, interface='any',
+            pkts_filter="udp dst port %s or udp dst port %s" % (DEFAULT_DHCP_SERVER_PORT,
+                                                                DEFAULT_DHCP_CLIENT_PORT),
+            pkts_validator=_verify_packets,
+            tcpdump_buffer_size=BUFFER_SIZE
         ):
             ptf_runner(ptfhost, "ptftests", "dhcp_relay_stress_test.DHCPStress{}Test".format(dhcp_type.capitalize()),
                        platform_dir="ptftests", params=params,
@@ -134,3 +122,4 @@ def test_dhcpcom_relay_counters_stress(ptfhost, ptfadapter, dut_dhcp_relay_data,
             check_dhcp_stress_status(duthost, packets_send_duration)
             pytest_assert(wait_until(600, 2, 0, _check_count_file_exists), "{} is missing".format(count_file))
             ptfhost.shell('rm -f {}'.format(count_file))
+            interface_dict = get_ip_link_result(duthost)

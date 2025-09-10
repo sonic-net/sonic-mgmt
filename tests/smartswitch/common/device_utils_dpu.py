@@ -23,7 +23,8 @@ SWITCH_MAX_DELAY = 100
 SWITCH_MAX_TIMEOUT = 400
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
-DPU_MAX_TIMEOUT = 360
+DPU_MAX_ONLINE_TIMEOUT = 360
+DPU_MAX_PROCESS_UP_TIMEOUT = 400
 DPU_MAX_TIME_INT = 30
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
@@ -43,9 +44,20 @@ def num_dpu_modules(platform_api_conn):   # noqa F811
     return num_modules
 
 
+@pytest.fixture(scope='session', autouse=True)
+def skip_for_non_smartswitch(duthost):
+    """
+    Skip test if not running on a smartswitch testbed
+    """
+    if not duthost.facts.get('is_smartswitch'):
+        pytest.skip("Test is supported only on smartswitch testbeds. "
+                    "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
+
+
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
-                                    platform_api_conn, num_dpu_modules):  # noqa F811
+                                    platform_api_conn, num_dpu_modules,  # noqa F811
+                                    skip_for_non_smartswitch):
     """
     Checks whether given testbed is running
     202405 image or below versions
@@ -56,9 +68,6 @@ def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    if "DPUS" not in duthost.facts:
-        pytest.skip("Test is not supported for this testbed")
 
     darkmode = is_dark_mode_enabled(duthost, platform_api_conn, num_dpu_modules) # noqa F811
 
@@ -444,14 +453,14 @@ def post_test_switch_check(duthost, localhost,
     logging.info("Waiting for ssh connection to switch")
     wait_for_startup(duthost, localhost, SWITCH_MAX_DELAY, SWITCH_MAX_TIMEOUT)
 
+    logging.info("Wait until all critical services are fully started")
+    wait_critical_processes(duthost)
+
     logging.info("Checking for Interface status")
     pytest_assert(wait_until(INTF_MAX_TIMEOUT, INTF_TIME_INT, 0,
                   check_interface_status_of_up_ports, duthost),
                   "Not all ports that are admin up, are operationally UP")
     logging.info("Interfaces are UP")
-
-    logging.info("Wait until all critical services are fully started")
-    wait_critical_processes(duthost)
 
     logging.info("Checking DPU link status and connectivity")
     pytest_assert(wait_until(PING_MAX_TIMEOUT, PING_MAX_TIME_INT, 0,
@@ -476,7 +485,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
 
     logging.info(f"Checking {dpu_name} is UP post test")
     pytest_assert(
-        wait_until(DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+        wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_MAX_TIME_INT, 0,
                    check_dpu_module_status, duthost, "on", dpu_name),
         f"DPU {dpu_name} is not operationally UP post the operation"
     )
@@ -485,7 +494,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
     logging.info(f"Checking critical processes on {dpu_name}")
     pytest_assert(
         wait_until(
-            DPU_MAX_TIMEOUT, DPU_MAX_TIME_INT, 0,
+            DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
         f"Crictical process check for {dpu_name} has been failed"
     )
@@ -545,7 +554,7 @@ def dpus_shutdown_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules shutdown {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "off", dpu_name
             )
 
@@ -569,6 +578,6 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules startup {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
             )
