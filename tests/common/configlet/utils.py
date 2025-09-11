@@ -260,6 +260,7 @@ def get_dump(duthost, db_name, db_info, dir_name, data_dir):
             for skip_val in keys_skip_val:
                 if match_key(skip_val, value):
                     value.pop(skip_val)
+
             db_write[k] = db_read[k]
 
     dst_file = os.path.join(dir_name, "{}.json".format(db_name))
@@ -325,9 +326,16 @@ def cmp_dump(db_name, orig_db_dir, clet_db_dir):
     if clet_data == orig_data:
         log_info("{} compared good orig={} clet={}".format(db_name, orig_db_dir, clet_db_dir))
         return 0, ""
-
-    orig_keys = set(sorted(orig_data.keys()))
-    clet_keys = set(sorted(clet_data.keys()))
+    
+    # exclude keys when its name contains "time"
+    # but only exclude when db_name is state-db
+    orig_keys, clet_keys = set(), set()
+    if db_name == "state-db":
+        orig_data = {k: v for k, v in orig_data.items() if "time" not in k}
+        clet_data = {k: v for k, v in clet_data.items() if "time" not in k}
+    else:
+        orig_keys = set(sorted(orig_data.keys()))
+        clet_keys = set(sorted(clet_data.keys()))
 
     diff = orig_keys - clet_keys
     for k in diff:
