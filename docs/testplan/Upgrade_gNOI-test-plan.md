@@ -121,6 +121,8 @@ graph LR
     TEST -->|"Orchestrates test scenarios"| AGENT
     GNOI -->|"Calls platform operations"| MOCK
 
+```
+
 #### Components:
 
 - **upgrade-agent (Client)**: CLI tool that reads YAML workflows and translates them to gNOI calls
