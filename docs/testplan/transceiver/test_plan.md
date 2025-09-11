@@ -96,15 +96,21 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 - All sides of the breakout cable should be connected to the DUT, and each port should be tested individually starting from subport 1 to subport N. The test should be run in reverse order as well i.e. starting from subport N to subport 1.
 - For link toggling tests on a subport, it's crucial to ensure that the link status of remaining subports of the breakout port group remains unaffected.
 
-**Pre-requisites for the Below Tests:**
+### Test Prerequisites and Configuration Files
 
-1. **DUT Info File:** A file `transceiver_dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to corresponding ports of each DUT. This file serves as the foundational source of truth for transceiver identification and contains data that is unique to each physical transceiver and its corresponding port configuration.
+The following configuration files must be present to enable comprehensive transceiver testing:
 
-    The file supports multiple port specification formats for flexibility and efficiency:
+#### 1. DUT Info File
 
-    **Example of transceiver_dut_info.json**
+> 📊 **Visual Guide**: See the [File Organization Diagram](diagrams/file_organization.md) for a visual overview of the file structure and relationships.
 
-    ```json
+A file `dut_info.json` (located in `ansible/files/transceiver/inventory` directory) should be present to describe the metadata of the transceiver connected to corresponding ports of each DUT. This file serves as the foundational source of truth for transceiver identification and contains data that is unique to each physical transceiver and its corresponding port configuration.
+
+The file supports multiple port specification formats for flexibility and efficiency:
+
+Example of `dut_info.json`:
+
+```json
     {
       "normalization_mappings": {
         "vendor_names": {
@@ -122,23 +128,23 @@ These tests do not require traffic and are standalone, designed to run on a Devi
       "dut_name_1": {
         "Ethernet0": {
           "vendor_name": "ACME Corp.",
-          "vendor_pn": "QSFP-100G-AOC-15M",
+          "vendor_pn": "QSFP-2X100G-AOC-15M",
           "vendor_sn": "serial_number_001",
           "vendor_date": "vendor_date_code",
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
           "hardware_rev": "hardware_revision_number",
-          "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
+          "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF"
         },
         "Ethernet4:7": {
           "vendor_name": "ACME Corp.",
-          "vendor_pn": "QSFP-100G-AOC-15M",
+          "vendor_pn": "QSFP-2X100G-AOC-15M",
           "vendor_sn": "serial_number",
           "vendor_date": "vendor_date_code",
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
           "hardware_rev": "hardware_revision_number",
-          "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
+          "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF"
         },
         "Ethernet16,Ethernet20,Ethernet24": {
           "vendor_name": "Example & Co",
@@ -154,439 +160,143 @@ These tests do not require traffic and are standalone, designed to run on a Devi
       "dut_name_2": {
         "Ethernet0:97:4": {
           "vendor_name": "ACME Corp.",
-          "vendor_pn": "QSFP-100G-AOC-15M",
-          "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
+          "vendor_pn": "QSFP-2X100G-AOC-15M",
+          "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF"
         }
       }
     }
-    ```
+```
 
-    **Field Definitions:**
+##### Field Definitions
 
-    **Global Normalization Mappings:**
-    - `normalization_mappings.vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `normalization_mappings.part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+###### Global Normalization Mappings
 
-    **Port Specification Formats:**
+- `normalization_mappings.vendor_names`: Dictionary mapping raw vendor names to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+- `normalization_mappings.part_numbers`: Dictionary mapping raw part numbers to their normalized forms using the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
 
-    The framework supports multiple flexible port specification formats to reduce configuration overhead:
+###### DUT Organization
 
-    1. **Individual Port**: `"Ethernet0"` - Single port specification
-    2. **Range**: `"Ethernet4:13"` - Continuous range from Ethernet4 to Ethernet12 (exclusive of 13, following Python slice convention)
-    3. **Range with Step**: `"Ethernet0:97:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
-    4. **List**: `"Ethernet16,Ethernet20,Ethernet24"` - Comma-separated list of specific ports
-    5. **Mixed**: `"Ethernet28:33,Ethernet36,Ethernet40:45"` - Combination of ranges and individual ports
+- `<dut_name>`: Top-level keys (e.g., `dut_name_1`, `dut_name_2`) that organize transceiver data by DUT hostname. Each DUT section contains port-specific transceiver configurations for that device.
 
-    **Port Range Parsing Rules:**
+###### Per-Port Fields
 
-    - **Range Format**: `EthernetX:Y` where X is start, Y is stop (exclusive), following Python slice convention
-    - **Step Format**: `EthernetX:Y:Z` where X is start, Y is stop (exclusive), Z is step size (must be > 0)
-    - **List Format**: Comma-separated port names without spaces
-    - **Mixed Format**: Combination of ranges and individual ports separated by commas
-    - **Port Numbering**: Must follow SONiC logical port naming convention (e.g., Ethernet0, Ethernet4, Ethernet8...)
+**Mandatory Fields:**
 
-    **Framework Implementation Requirements:**
+- `vendor_name`: The name of the vendor as specified in the transceiver's EEPROM.
+- `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
+- `transceiver_configuration`: The transceiver configuration name following the format defined in the **Transceiver Configuration Format** section below. The DEPLOYMENT component of this field is used to reference deployment configurations in the per-category attribute files.
 
-    The test framework must implement a port expansion parser to handle various port specification formats and expand them into individual port names.
+**Optional Fields:**
 
-    **Per-Port Fields:**
+- `vendor_sn`: The vendor serial number.
+- `vendor_date`: The vendor date code.
+- `vendor_oui`: The vendor OUI.
+- `vendor_rev`: The vendor revision number.
+- `hardware_rev`: The hardware revision number.
 
-    **Mandatory Fields:**
-    - `vendor_name`: The name of the vendor as specified in the transceiver's EEPROM.
-    - `vendor_pn`: The vendor part number as specified in the transceiver's EEPROM.
-    - `transceiver_configuration`: The transceiver configuration name following the mandatory naming format `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}` (e.g., `AOC-200-QSFPDD-2x100G-0xFF-0xFF`). The DEPLOYMENT part of this field is used to reference a deployment configuration in the per-category attribute files and must correspond to a valid deployment defined in the `deployment_configurations` section.
+##### Field Handling Rules
 
-    **Field Handling Rules:**
-    - **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings` section to get the corresponding normalized values.
-    - **Default normalization**: If no mapping is found in `normalization_mappings`, the normalized value defaults to the original value (with basic cleanup applied).
-    - **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.part_numbers` following the cable length normalization rules.
-    - **Port expansion processing**: Range and list specifications are expanded to individual ports before attribute processing.
+- **Normalized values are derived automatically**: The framework will look up `vendor_name` and `vendor_pn` in the `normalization_mappings` section to get the corresponding normalized values.
+- **Default normalization**: If no mapping is found in `normalization_mappings`, the normalized value defaults to the original value.
+- **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.part_numbers` following the cable length normalization rules.
+- **Port expansion processing**: Range and list specifications are expanded to individual ports before attribute processing.
+- **Transceiver configuration format**: The `transceiver_configuration` field uses a mandatory 6-component naming format to fully describe a transceiver's deployment characteristics:
 
-    **Optional Fields:**
-    - `vendor_sn`: The vendor serial number.
-    - `vendor_date`: The vendor date code.
-    - `vendor_oui`: The vendor OUI.
-    - `vendor_rev`: The vendor revision number.
-    - `hardware_rev`: The hardware revision number.
+    **Format (Mandatory)**: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
 
-    **Port Expansion Processing Rules:**
+    **Note**: The hyphen (`-`) character acts as a delimiter between each component, enabling straightforward parsing by splitting the configuration string on this delimiter.
 
-    The framework processes the enhanced port specifications using the following algorithm:
+    **Component Definitions:**
 
-    1. **Parse Port Specifications**: Identify range, list, and individual port formats
-    2. **Expand to Individual Ports**: Convert all specifications to individual port names
-    3. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
+**Physical Port Based Components** (determined by the physical transceiver module):
 
-    Functionality to parse the above files and store the data in a dictionary should be implemented in the test framework. This dictionary should act as a source of truth for the test cases for a specific DUT.  
-    The `normalized_vendor_name` and `normalized_vendor_pn` from `transceiver_dut_info.json` file should be used to fetch the common attributes of the transceiver from the appropriate per-category JSON file for a given port.
+- **TYPE**: Cable/optics  type - AOC, AEC, LPO, LRO, TRO, CPO, DAC, DR, FR, LR, ZR, Backplane
+- **SPEED**: Total aggregate speed in Gbps (e.g., 1, 10, 25, 100, 200, 400, 800, 1600)
+- **FORM_FACTOR**: Physical form factor - CPO, OSFP, QSFPDD, QSFP, SFP
+- **DEPLOYMENT**: Traffic deployment pattern describing how the speed is distributed (this list is expected to grow in future). This component serves as a means to combine similar attributes for a particular deployment pattern together in test attribute JSON files, grouping required attributes irrespective of the transceiver or platform vendor:
+  - `2x100G_200G_SIDE` - 200G side of a 2x100G breakout cable
+  - `2x100G_100G_SIDE` - 100G side of a 2x100G breakout cable
+  - `4x100G_400G_SIDE` - 400G side of a 4x100G breakout cable
+  - `4x100G_100G_SIDE` - 100G side of a 4x100G breakout cable
+  - `2x200G_400G_SIDE` - 400G side of a 2x200G breakout cable
+  - `2x200G_200G_SIDE` - 200G side of a 2x200G breakout cable
+  - `4x200G_800G_SIDE` - 800G side of a 4x200G breakout cable
+  - `4x200G_200G_SIDE` - 200G side of a 4x200G breakout cable
+  - `8x100G_800G_SIDE` - 800G side of an 8x100G breakout cable
+  - `8x100G_100G_SIDE` - 100G side of an 8x100G breakout cable
+  - `400G_STRAIGHT` - 400G total as single port (no breakout)
+  - `800G_STRAIGHT` - 800G total as single port (no breakout)
+  - `1G_STRAIGHT` - 1G total as single port
 
-    Example of a dictionary created by parsing the above file:
+**Logical Port Based Components** (specific to individual logical interfaces):
 
-    ```python
-    {
-        "dut_name_1": {
-            "Ethernet0": {
-                "vendor_name": "ACME Corp.",
-                "normalized_vendor_name": "ACME_CORP",  # looked up from normalization_mappings
-                "vendor_pn": "QSFP-100G-AOC-15M",
-                "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",  # looked up from normalization_mappings
-                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
-                "vendor_sn": "serial_number_001",
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
-            },
-            "Ethernet4": {
-                "vendor_name": "ACME Corp.",
-                "normalized_vendor_name": "ACME_CORP",
-                "vendor_pn": "QSFP-100G-AOC-15M",
-                "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",
-                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
-                "vendor_sn": "serial_number_range",  # same value for all ports in range
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number",
-            },
-            "Ethernet5": {
-                "vendor_name": "ACME Corp.",
-                "normalized_vendor_name": "ACME_CORP",
-                "vendor_pn": "QSFP-100G-AOC-15M",
-                "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",
-                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
-                "vendor_sn": "serial_number_range",  # same value for all ports in range
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
-            },
-            "Ethernet6": {
-                "vendor_name": "ACME Corp.",
-                "normalized_vendor_name": "ACME_CORP",
-                "vendor_pn": "QSFP-100G-AOC-15M",
-                "normalized_vendor_pn": "QSFP-100G-AOC-GENERIC_2_ENDM",
-                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # single string configuration
-                "vendor_sn": "serial_number_range",  # same value for all ports in range
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "hardware_rev": "hardware_revision_number"
-            },
-            "Ethernet16": {
-                "vendor_name": "Example & Co",
-                "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings
-                "vendor_pn": "SFP-1000BASE-LX",
-                "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings (same value)
-                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"  # single string configuration
-            },
-            "Ethernet20": {
-                "vendor_name": "Example & Co",
-                "normalized_vendor_name": "EXAMPLE_CO",
-                "vendor_pn": "SFP-1000BASE-LX",
-                "normalized_vendor_pn": "SFP-1000BASE-LX",
-                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01"  # single string configuration
-            }
-            # Additional ports expanded from ranges and lists...
-        }
-    }
-    ```
+- **MEDIA_LANE_MASK**: Hexadecimal bitmask indicating which media/optical lanes are used (e.g., 0x01, 0x0F, 0xFF)
+- **HOST_LANE_MASK**: Hexadecimal bitmask indicating which host/electrical lanes are used (e.g., 0x01, 0x0F, 0xFF)
 
-2. **Test Category Attribute Files:** Multiple JSON files based on test category should be present to define the metadata and test-specific attributes required for each type of transceiver. Each JSON file should include a `defaults` section containing default values of the attributes if not overridden and a `transceivers` section for overriding the default values based on specific requirements.
+**Configuration Examples:**
 
-    **Recommended JSON files and grouping:**
+- `AOC-200-QSFPDD-2x100G_200G_SIDE-0xF-0xF` - Active Optical Cable, 200G speed, QSFP-DD form factor, 200G side of 2x100G deployment, 4 media lanes (0-3), 4 host lanes (0-3)
+- `AOC-100-QSFPDD-2x100G_100G_SIDE-0xF-0xF` - Active Optical Cable, 100G speed, QSFP-DD form factor, 100G side of 2x100G deployment, 4 media lanes (0-3), 4 host lanes (0-3)
+- `LR-1-SFP-1G_STRAIGHT-0x01-0x01` - LR specification, 1G total, SFP form factor, straight deployment, 1 media lane, 1 host lane
+- `DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F` - Direct Attach Cable, 400G total, OSFP form factor, straight deployment, 4 media lanes (0-3), 4 host lanes (0-3)
+- `DR-800-OSFP-4x200G_800G_SIDE-0xFF-0xFF` - DR specification, 800G speed, OSFP form factor, 800G side of 4x200G deployment, 8 media lanes (all), 8 host lanes (all)
+- `DR-200-OSFP-4x200G_200G_SIDE-0xFF-0xFF` - DR specification, 200G speed, OSFP form factor, 200G side of 4x200G deployment, 8 media lanes (all), 8 host lanes (all)
 
-    - `eeprom.json`      (EEPROM tests)
-    - `system.json` (System tests)
-    - `physical_oir.json` (Physical OIR)
-    - `soft_oir.json`    (Soft OIR / remote reseat)
-    - `cdb_fw_upgrade.json` (CDB FW Upgrade tests)
-    - `dom.json`         (DOM)
-    - `vdm.json`         (VDM)
-    - `pm.json`          (PM)
+**Purpose**: This standardized format enables:
 
-    Each file should be located in the `ansible/files/transceiver/inventory/attributes/` directory and follow the same JSON schema structure with `mandatory`, `defaults`, `platform`, `hwsku`, `dut`, and `transceivers` sections for consistent attribute management across all test categories.
+- Automatic parsing of transceiver characteristics for test frameworks
+- Deployment pattern grouping for shared attribute configurations
+- Clear identification of lane usage and deployment topology
 
-    **Schema of transceiver attributes JSON files:**
+##### Port Specification Formats
 
-    ```json
-    {
-      "mandatory": [
-        "field_1",
-        "field_2", 
-        "field_3"
-      ],
-      "defaults": {
-        "field_4": "value_4",
-        "field_5": "value_5",
-        "field_6": "value_6"
-      },
-      "platform": {
-        "PLATFORM_NAME": {
-          "field_4": "platform_override_value"
-        }
-      },
-      "hwsku": {
-        "HWSKU_NAME": {
-          "field_5": "hwsku_override_value"
-        }
-      },
-      "dut": {
-        "DUT_NAME": {
-          "field_1": "dut_specific_value_1"
-        }
-      },
-      "transceivers": {
-        "deployment_configurations": {
-          "DEPLOYMENT_NAME": {
-            "field_2": "deployment_specific_value_2",
-            "field_6": "deployment_override_value"
-          }
-        },
-        "vendors": {
-          "NORMALIZED_VENDOR_NAME": {
-            "defaults": {
-              "field_6": "vendor_default_value"
-            },
-            "part_numbers": {
-              "NORMALIZED_VENDOR_PN": {
-                "field_1": "specific_value_1",
-                "field_2": "specific_value_2",
-                "field_3": "specific_value_3",
-                "platform_hwsku_overrides": {
-                  "PLATFORM_NAME+HWSKU_NAME": {
-                    "field_1": "highest_priority_value"
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    ```
+The framework supports multiple flexible port specification formats to reduce configuration overhead:
 
-    **Key Design Principles:**
+1. **Individual Port**: `"Ethernet0"` - Single port specification
+2. **Range**: `"Ethernet4:13"` - Continuous range from Ethernet4 to Ethernet12 (exclusive of 13, following Python slice convention)
+3. **Range with Step**: `"Ethernet0:97:4"` - Range with step size (Ethernet0, Ethernet4, Ethernet8, ..., Ethernet96)
+4. **List**: `"Ethernet16,Ethernet20,Ethernet24"` - Comma-separated list of specific ports without spaces
+5. **Mixed**: `"Ethernet28:33,Ethernet36,Ethernet40:45"` - Combination of ranges and individual ports
 
-    - **Mandatory vs Optional Fields**: Fields listed in `mandatory` must be explicitly provided somewhere in the hierarchy and cannot rely on defaults. Fields in `defaults` are optional and provide fallback values.
-    - **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections. This creates logical inconsistency because a field cannot simultaneously require explicit specification (mandatory) and have a fallback value (default). The framework would be unable to determine whether to enforce validation or apply defaults when the field is missing.
-    - **Validation Order**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
-    - **Normalization Integration**: The normalized vendor name and part number are automatically derived from the `normalization_mappings` using the raw vendor name and part number as keys. If no mapping exists, the original value is used with basic cleanup applied.
-    - **Deployment Pattern Grouping**: Transceivers with identical deployment patterns (like 2x100G, 4x200G, etc.) can share common attributes through the `deployment_configurations` section, eliminating the need to repeat the same attributes across different vendors.
-    - **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
-    - **Backward Compatibility**: Missing optional sections (platform, hwsku, etc.) are silently ignored to support gradual adoption and legacy configurations.
+**Requirements:**
 
-    **Key Structure Components:**
-    - `mandatory`: List of mandatory fields that must be present in the transceiver attributes
-    - `defaults`: Default values for the transceiver or test attributes
-    - `platform`: Platform-specific overrides (optional)
-    - `hwsku`: HWSKU-specific overrides (optional)
-    - `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory based hostname of the DUT
-    - `transceivers`: Contains vendor and deployment-specific configurations organized in a hierarchical structure (mandatory)
-        - `deployment_configurations`: Deployment-based attribute definitions using the mandatory naming format (e.g., AOC-200-QSFPDD-2x100G-0xFF-0xFF, DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F) (optional)
-        - `vendors`: Vendor-specific configurations organized by normalized vendor name (optional)
-            - `<NORMALIZED_VENDOR_NAME>`: Individual vendor section containing defaults and part number configurations
-                - `defaults`: Vendor-level default values (optional)
-                - `part_numbers`: Part number-specific configurations organized by normalized part number (optional)
-                    - `<NORMALIZED_VENDOR_PN>`: Individual part number section with specific attributes and overrides
-                        - `platform_hwsku_overrides`: Overrides for specific platform+HWSKU combinations (optional)
+- Port numbering must follow SONiC logical port naming convention (e.g., Ethernet0, Ethernet4, Ethernet8...)
+- Range format follows Python slice convention (start:stop where stop is exclusive)
+- Step size must be > 0 for range with step format
 
-    > Note: Each sub-section can contain its own `defaults` fields.
+##### Framework Implementation Requirements
 
-    **Deployment Configuration Classification Benefits:**
+The test framework must implement the following core components to process the `dut_info.json` file and create a comprehensive `port_attributes_dict` dictionary. All parsed data is stored in `port_attributes_dict["EthernetXX"]["BASE_ATTRIBUTES"]` as the foundation for test operations.
+More details on the `port_attributes_dict` structure and usage are provided in the Test Category Attribute Files section.
 
-    The `deployment_configurations` feature addresses the common challenge of attribute duplication across similar deployment patterns from different vendors. Instead of defining the same attributes repeatedly for each vendor's 2x100G deployment, you define them once in a deployment configuration. The framework automatically references these configurations by extracting the DEPLOYMENT component from the `transceiver_configuration` field in `transceiver_dut_info.json`.
+###### 1. Port Expansion Processing
 
-    **Key Advantages:**
-    - **Eliminates Duplication**: Define common attributes once per deployment type (e.g., `AOC-200-QSFPDD-2x100G-0xFF-0xFF`) instead of repeating across vendors
-    - **Logical Organization**: Groups transceivers by deployment characteristics (cable type, speed, form factor, deployment pattern, lane configuration) rather than just vendor lineage
-    - **Flexible Overrides**: Vendors can still override deployment defaults when their specific implementations require different values
-    - **Clear Semantics**: Configuration names immediately convey deployment characteristics (`DR-800-OSFP-400G_STRAIGHT-0xFF-0xFF`, `DAC-400-OSFP-4x100G-0x0F-0x0F`)
-    - **Scalable Design**: Adding new deployment configurations requires only one definition rather than updates across multiple vendor sections
-    - **Centralized Maintenance**: Changes to common attributes for a deployment only need updates in one location
+**Purpose**: Handle various port specification formats and expand them into individual port names.
 
-    **Naming Convention:**
-    - **Format (Mandatory)**: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
-    - **Type**: Cable/optics type - AOC, AEC, LPO, LRO, TRO, CPO, DAC, DR, FR, LR, ZR
-    - **Speed**: Total aggregate speed in Gbps (e.g., 100, 200, 400, 800)
-    - **Form Factor**: Physical form factor - CPO, OSFP, QSFPDD, QSFP, SFP
-    - **Deployment**: Traffic deployment pattern describing how the speed is distributed across breakout ports or straight through ports
-      - `2x100G` - 200G total split into 2x100G breakout ports
-      - `4x100G` - 400G total split into 4x100G breakout ports  
-      - `2x200G` - 400G total split into 2x200G breakout ports
-      - `4x200G` - 800G total split into 4x200G breakout ports
-      - `8x100G` - 800G total split into 8x100G breakout ports
-      - `400G_STRAIGHT` - 400G total as single port (no breakout)
-      - `800G_STRAIGHT` - 800G total as single port (no breakout)
-    - **Media Lane Mask**: Hexadecimal bitmask indicating which media/optical lanes are used for the logical port (e.g., 0x01, 0x0F, 0xFF)
-    - **Host Lane Mask**: Hexadecimal bitmask indicating which host/electrical lanes are used for the logical port (e.g., 0x01, 0x0F, 0xFF)
-    - **Examples**:
-      - `AOC-200-QSFPDD-2x100G-0xFF-0xFF` - Active Optical Cable, 200G total, QSFP-DD form factor, 2x100G deployment, 8 media lanes (all), 8 host lanes (all)
-      - `DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F` - Direct Attach Cable, 400G total, OSFP form factor, straight deployment, 4 media lanes (0-3), 4 host lanes (0-3)
-      - `DR-800-OSFP-4x200G-0xFF-0xFF` - DR specification, 800G total, OSFP form factor, 4x200G deployment, 8 media lanes (all), 8 host lanes (all)
-      - `LR-400-QSFPDD-400G_STRAIGHT-0x01-0xFF` - LR specification, 400G total, QSFP-DD form factor, straight deployment, 1 media lane (lane 0), 8 host lanes (all)
-      - `CPO-1600-CPO-8x200G-0xFF-0xFF` - Co-Packaged Optics, 1.6T total, CPO form factor, 8x200G deployment, 16 media lanes (all), 16 host lanes (all)
-      - `ZR-400-QSFPDD-400G_STRAIGHT-0x01-0x0F` - ZR specification, 400G total, QSFP-DD form factor, straight deployment, 1 media lane (lane 0), 4 host lanes (0-3)
+**Processing Algorithm**:
 
-    **Priority-based attribute resolution (highest to lowest):**
+1. **Parse Port Specifications**: Identify range, list, and individual port formats
+2. **Expand to Individual Ports**: Convert all specifications to individual port names  
+3. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
 
-    1. **DUT-specific**: `dut.<DUT_NAME>`
-    2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
-    3. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
-    4. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
-    5. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved by extracting DEPLOYMENT from the `transceiver_configuration` field in `transceiver_dut_info.json`)
-    6. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
-    7. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
-    8. **Global defaults**: `defaults`
+###### 2. Transceiver Configuration String Parsing
 
-    > **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
+**Purpose**: Extract all components from the `transceiver_configuration` string during base attributes initialization phase.
 
-    **Example structure for a category file (e.g., `attributes/eeprom.json`):**
+**Requirements**:
 
-    ```json
-    {
-      "mandatory": [
-        "vendor_name",
-        "normalized_vendor_name",
-        "vendor_pn", 
-        "normalized_vendor_pn",
-        "dual_bank_supported"
-      ],
-      "defaults": {
-        "vdm_supported": false,
-        "cdb_backgroundmode_supported": false,
-        "sfputil_eeprom_dump_sec": 2
-      },
-      "transceivers": {
-        "deployment_configurations": {
-          "AOC-200-QSFPDD-2x100G-0xFF-0xFF": {
-            "vdm_supported": true,
-            "dual_bank_supported": true,
-            "cdb_backgroundmode_supported": true
-          }
-        },
-        "vendors": {
-          "NORMALIZED_VENDOR_A": {
-            "defaults": {
-              "vdm_supported": false,
-              "cdb_backgroundmode_supported": false
-            },
-            "part_numbers": {
-              "NORMALIZED_VENDOR_PN_ABC": {
-                "vendor_name": "Vendor A",
-                "normalized_vendor_name": "VENDOR_ABC",
-                "vendor_pn": "ABC-1234", 
-                "normalized_vendor_pn": "NORMALIZED_VENDOR_PN_ABC",
-                "dual_bank_supported": true,
-                "vdm_supported": true,
-                "cdb_backgroundmode_supported": true,
-                "platform_hwsku_overrides": {
-                  "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
-                    "sfputil_eeprom_dump_time": 5
-                  }
-                }
-              }
-            }
-          }
-        }
-      }
-    }
-    ```
+- Parse the mandatory 6-component format: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
+- Store all parsed components in `BASE_ATTRIBUTES` for easy access by all test categories
+- Handle error cases (invalid format, missing components)
 
-    **Guidance:**
-      Use the same priority-based override and merging logic as described above for all per-category files.
+**Implementation Example**:
 
-    - Only include attributes relevant to the specific test category in each file.
-    - This modular approach allows teams to update, validate, and extend test parameters for each category independently, and enables more targeted schema validation and review.
-
-    **Attribute Management Infrastructure:**
-
-    The test framework should be designed to load and merge attributes from all relevant category files for each transceiver, using the same hierarchical and override rules as described above. This enables category-specific test logic to access only the attributes it needs, while still supporting platform, HWSKU, and vendor/part number overrides.
-
-    **Core Components:**
-
-    1. **AttributeManager Class**: Central class for loading, merging, and providing access to transceiver attributes
-    2. **Category File Loader**: Loads JSON files for each test category
-    3. **Priority Resolver**: Implements the 7-level priority hierarchy for attribute resolution
-    4. **Validator**: Ensures mandatory fields are present
-
-    **Data Structure Design:**
-
-    A dictionary data structure should be used to store the merged attributes for each port, allowing for efficient access.
-    The `transceiver_dut_info.json` file should be used as the source to retrieve the base attributes for each port (such as the basic transceiver information). Using this information, the framework can build a comprehensive view of the transceiver's capabilities and requirements by merging in the attributes from the per-category files on per-port basis for the DUT.
-    The resultant dictionary (`port_attributes_dict`) should be structured as follows keyed by logical port name. Also, this dictionary should only contain data for ports which are present in the `transceiver_dut_info.json` file:
-
-    ```python
-    {
-        "PORT_NAME": {
-            # Base transceiver information from transceiver_dut_info.json
-            "BASE_ATTRIBUTES": {
-                "vendor_name": "vendor_name",
-                "normalized_vendor_name": "NORMALIZED_VENDOR_NAME",
-                "vendor_pn": "vendor_part_number",
-                "normalized_vendor_pn": "NORMALIZED_VENDOR_PN",
-                "vendor_sn": "serial_number",
-                "vendor_date": "vendor_date_code",
-                "vendor_oui": "vendor_oui",
-                "vendor_rev": "revision_number",
-                "transceiver_configuration": "AOC-200-QSFPDD-2x100G-0xFF-0xFF",  # original configuration string
-                # Parsed components from transceiver_configuration
-                "cable_type": "AOC",                    # extracted from TYPE
-                "speed_gbps": 200,                      # extracted from SPEED
-                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
-                "deployment": "2x100G",                 # extracted from DEPLOYMENT
-                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
-                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
-                "media_lanes": 8,                       # derived from media_lane_mask
-                "host_lanes": 8                         # derived from host_lane_mask
-            },
-            # Category-specific attributes with merged overrides applied
-            "EEPROM_ATTRIBUTES": {
-                "attribute_1": "value_1",
-                "attribute_2": "value_2",
-                ...
-            }
-            "SYSTEM_ATTRIBUTES": {
-                "attribute_1": "value_1",
-                "attribute_2": "value_2",
-                ...
-            }
-            ...
-        }
-    }
-    ```
-
-    **Attribute Merging Algorithm:**
-
-    The `port_attributes_dict` should be built using the following systematic process:
-
-    1. **Initialize port dictionary** from `transceiver_dut_info.json` base attributes for each port, including parsing the `transceiver_configuration` string into individual components stored in `BASE_ATTRIBUTES`
-    2. **For each category file** (EEPROM, System, DOM, VDM, PM, etc.), perform priority-based attribute merging:
-       - **Step 2a**: Start with global `defaults` section as the base layer
-       - **Step 2b**: Apply `platform.<PLATFORM>` overrides (if present and applicable)
-       - **Step 2c**: Apply `hwsku.<HWSKU>` overrides (if present and applicable)
-       - **Step 2d**: Apply `transceivers.deployment_configurations.<DEPLOYMENT>` attributes as individual keys (using the DEPLOYMENT component already parsed in `BASE_ATTRIBUTES`). The framework uses the pre-parsed deployment value to apply the corresponding deployment configuration attributes from the category file.
-       - **Step 2e**: Apply `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults` vendor-level defaults (if present)
-       - **Step 2f**: Apply `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>` specific attributes
-       - **Step 2g**: Apply `platform_hwsku_overrides.<PLATFORM>+<HWSKU>` overrides (if present)
-       - **Step 2h**: Apply `dut.<DUT_NAME>` overrides (if present)
-    3. **Validate mandatory fields** for the current category using the `mandatory` array - ensure all required fields are resolved
-    4. **Store merged category attributes** under the appropriate category key with the key being the filename stem in uppercase appended with `_ATTRIBUTES` (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
-    5. **Add categorized attributes** to the `port_attributes_dict` for the current port
-    6. **Attach the complete `port_attributes_dict`** to the DUT host object for the selected `enum_rand_one_per_hwsku_hostname`
-
-    **Transceiver Configuration String Parsing:**
-
-    The framework should implement parsing logic to extract all components from the `transceiver_configuration` string during the base attributes initialization phase. The parsing follows the mandatory naming format `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`, and all parsed components are stored in `BASE_ATTRIBUTES` for easy access by all test categories.
-
-    **Example Parsing Implementation:**
-
-    ```python
+```python
     def parse_transceiver_configuration(config_string):
         """
         Parse transceiver configuration string into individual components.
         Format: {TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}
-        Example: "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
+        Example: "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF"
         Returns: dictionary with all parsed components
         """
         if not config_string:
@@ -599,8 +309,8 @@ These tests do not require traffic and are standalone, designed to run on a Devi
         type_name, speed, form_factor, deployment, media_mask, host_mask = parts
 
         # Parse lane counts from hexadecimal masks
-        media_lanes = bin(int(media_mask, 16)).count('1')
-        host_lanes = bin(int(host_mask, 16)).count('1')
+        media_lane_count = bin(int(media_mask, 16)).count('1')
+        host_lane_count = bin(int(host_mask, 16)).count('1')
 
         return {
             'cable_type': type_name,
@@ -609,119 +319,450 @@ These tests do not require traffic and are standalone, designed to run on a Devi
             'deployment': deployment,
             'media_lane_mask': media_mask,
             'host_lane_mask': host_mask,
-            'media_lanes': media_lanes,
-            'host_lanes': host_lanes
+            'media_lane_count': media_lane_count,
+            'host_lane_count': host_lane_count
         }
-    ```
+```
 
-    **Base Attributes Population:**
+###### 3. Dictionary Management
 
-    ```python
-    # Configuration: "AOC-200-QSFPDD-2x100G-0xFF-0xFF"
-    # Parse all components and store in BASE_ATTRIBUTES:
-    # base_attrs["transceiver_configuration"] = "AOC-200-QSFPDD-2x100G-0xFF-0xFF"  # original string
-    # base_attrs["cable_type"] = "AOC"                 # parsed from TYPE
-    # base_attrs["speed_gbps"] = 200                   # parsed from SPEED
-    # base_attrs["form_factor"] = "QSFPDD"             # parsed from FORM_FACTOR
-    # base_attrs["deployment"] = "2x100G"              # parsed from DEPLOYMENT
-    # base_attrs["media_lane_mask"] = "0xFF"           # parsed from MEDIA_LANE_MASK
-    # base_attrs["host_lane_mask"] = "0xFF"            # parsed from HOST_LANE_MASK
-    # base_attrs["media_lanes"] = 8                    # derived from media_lane_mask
-    # base_attrs["host_lanes"] = 8                     # derived from host_lane_mask
-    ```
+**Purpose**: Create and maintain the comprehensive port attributes dictionary that serves as the source of truth for test cases.
 
-    **Merging Behavior:**
-    - **Dictionary merging**: Higher priority fields completely override earlier values for the same key
-    - **Missing sections**: If any priority level section is missing, it is silently skipped without error
-    - **Missing deployment_configuration**: If the DEPLOYMENT part of the `transceiver_configuration` is not specified in vendor part number specification, step 2d is skipped and no deployment configuration attributes are applied
-    - **Key conflicts**: Higher priority levels always win - no merge conflict resolution needed
+**Requirements**:
 
-    **Implementation Requirements:**
+- Parse `dut_info.json` file and store data in `port_attributes_dict["EthernetXX"]["BASE_ATTRIBUTES"]` for the current DUT
+- Include all mandatory and optional fields, along with normalized values and parsed configuration components
+- Implement proper error handling and validation
 
-    - **Error Handling**: Framework must gracefully handle missing files, invalid JSON, missing mandatory fields, and malformed data structures with descriptive error messages
-    - **Logging**: Detailed logging of attribute resolution process for debugging and troubleshooting. Specifically, entire `port_attributes_dict` should be logged after it is constructed to assist with identifying any issues.
+Example of a dictionary created by parsing the above file:
 
-    **How to Use:**
+```python
+    {
+        "Ethernet0": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",  # looked up from normalization_mappings
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",  # looked up from normalization_mappings
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 200,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_200G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_001",
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet4": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 100,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_100G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_range",  # same value for all ports in range
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet5": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 100,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_100G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_range",  # same value for all ports in range
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet6": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "ACME Corp.",
+                "normalized_vendor_name": "ACME_CORP",
+                "vendor_pn": "QSFP-2X100G-AOC-15M",
+                "normalized_vendor_pn": "QSFP-2X100G-AOC-GENERIC_2_ENDM",
+                "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "AOC",                    # extracted from TYPE
+                "speed_gbps": 200,                      # extracted from SPEED
+                "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+                "deployment": "2x100G_200G_SIDE",       # extracted from DEPLOYMENT
+                "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 8,                  # derived from media_lane_mask
+                "host_lane_count": 8,                   # derived from host_lane_mask
+                "vendor_sn": "serial_number_range",  # same value for all ports in range
+                "vendor_date": "vendor_date_code",
+                "vendor_oui": "vendor_oui",
+                "vendor_rev": "revision_number",
+                "hardware_rev": "hardware_revision_number"
+            }
+        },
+        "Ethernet16": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "Example & Co",
+                "normalized_vendor_name": "EXAMPLE_CO",  # looked up from normalization_mappings
+                "vendor_pn": "SFP-1000BASE-LX",
+                "normalized_vendor_pn": "SFP-1000BASE-LX",  # looked up from normalization_mappings (same value)
+                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "LR",                     # extracted from TYPE
+                "speed_gbps": 1,                        # extracted from SPEED
+                "form_factor": "SFP",                   # extracted from FORM_FACTOR
+                "deployment": "1G_STRAIGHT",            # extracted from DEPLOYMENT
+                "media_lane_mask": "0x01",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0x01",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 1,                  # derived from media_lane_mask
+                "host_lane_count": 1                    # derived from host_lane_mask
+            }
+        },
+        "Ethernet20": {
+            "BASE_ATTRIBUTES": {
+                "vendor_name": "Example & Co",
+                "normalized_vendor_name": "EXAMPLE_CO",
+                "vendor_pn": "SFP-1000BASE-LX",
+                "normalized_vendor_pn": "SFP-1000BASE-LX",
+                "transceiver_configuration": "LR-1-SFP-1G_STRAIGHT-0x01-0x01",  # single string configuration
+                # Parsed components from transceiver_configuration
+                "cable_type": "LR",                     # extracted from TYPE
+                "speed_gbps": 1,                        # extracted from SPEED
+                "form_factor": "SFP",                   # extracted from FORM_FACTOR
+                "deployment": "1G_STRAIGHT",            # extracted from DEPLOYMENT
+                "media_lane_mask": "0x01",              # extracted from MEDIA_LANE_MASK
+                "host_lane_mask": "0x01",               # extracted from HOST_LANE_MASK
+                "media_lane_count": 1,                  # derived from media_lane_mask
+                "host_lane_count": 1                    # derived from host_lane_mask
+            }
+        }
+        # Additional ports expanded from ranges and lists...
+    }
+```
 
-    - **Framework Integration**: The test framework automatically loads all relevant category files during test session initialization
-    - **Attribute Resolution**: For each transceiver, the framework merges attributes using the priority hierarchy described above
-    - **Category-Specific Access**: Each test category accesses only the attributes it needs, with all overrides pre-applied
-    - **Runtime Access Pattern**: Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]` from the duthost for the selected `enum_rand_one_per_hwsku_hostname`
-    - **Example Usage**:
+#### 2. Test Category Attribute Files
 
-      ```python
-      port_attributes_dict = duthost.get_port_attributes()
-      
-      # Access EEPROM attributes for a specific port
-      eeprom_attrs = port_attributes_dict["Ethernet0"]["EEPROM_ATTRIBUTES"]
-      dual_bank_supported = eeprom_attrs["dual_bank_supported"]
-      
-      # Access system test attributes
-      system_attrs = port_attributes_dict["Ethernet0"]["SYSTEM_ATTRIBUTES"]
-      max_failures = system_attrs["max_allowed_failures"]
-      
-      # Access base transceiver configuration details (parsed from transceiver_configuration)
-      base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
-      cable_type = base_attrs["cable_type"]                # parsed from transceiver_configuration
-      speed_gbps = base_attrs["speed_gbps"]                # parsed from transceiver_configuration
-      form_factor = base_attrs["form_factor"]              # parsed from transceiver_configuration
-      deployment = base_attrs["deployment"]                # parsed from transceiver_configuration
-      media_lane_mask = base_attrs["media_lane_mask"]      # parsed from transceiver_configuration
-      host_lane_mask = base_attrs["host_lane_mask"]        # parsed from transceiver_configuration
-      media_lanes = base_attrs["media_lanes"]              # derived from media_lane_mask
-      host_lanes = base_attrs["host_lanes"]                # derived from host_lane_mask
-      
-      # All attributes are accessible at the same level, regardless of their source
-      vendor_specific_attr = eeprom_attrs["vendor_specific_attribute"]  # from vendor section
-      platform_override = eeprom_attrs["platform_specific_setting"]    # from platform override
-      ```
+> 🔄 **Process Flow**: See the [Data Flow Architecture Diagram](diagrams/data_flow.md) for a comprehensive view of how these files are processed and merged.
 
-    **Benefits:**
+Multiple JSON files based on test category define the metadata and test-specific attributes required for each type of transceiver.  
+**Note:** If a test category attribute file is absent, the corresponding test case will be skipped. This allows for selective test execution and gradual framework adoption.
 
-    - **Modular Design**: Maintainable and scalable as new test categories or attributes are added
-    - **Independent Updates**: Enables independent updates and validation for each test category
-    - **Conflict Prevention**: Reduces risk of accidental cross-category changes or conflicts
-    - **Override Flexibility**: Comprehensive priority system supports various deployment scenarios
-    - **Performance Optimized**: Efficient data structure design for fast attribute lookups
+##### File Organization
 
-3. A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
+**Recommended JSON files:**
 
-    ```csv
-    normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
-    <normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
-    # Add more vendor part numbers as needed
-    ```
+- `eeprom.json` (EEPROM tests)
+- `system.json` (System tests)  
+- `physical_oir.json` (Physical OIR)
+- `remote_reseat.json` (remote reseat)
+- `cdb_fw_upgrade.json` (CDB FW Upgrade tests)
+- `dom.json` (DOM)
+- `vdm.json` (VDM)
+- `pm.json` (PM)
 
-    For each firmware binary, the following metadata should be included:
+**Location:** `ansible/files/transceiver/inventory/attributes/` directory
 
-    - `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
-    - `fw_version`: The version of the firmware.
-    - `fw_binary_name`: The filename of the firmware binary.
-    - `md5sum`: The MD5 checksum of the firmware binary.
+##### JSON Schema Structure
 
-4. A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+All files follow a consistent schema with these main sections:
 
-    ```csv
-    inv_name,fw_base_url
-    <inventory_file_name>,<base_url>
-    ```
+```json
+{
+  "mandatory": ["field_1", "field_2", "field_3"],
+  "defaults": {
+    "field_4": "value_4",
+    "field_5": "value_5"
+  },
+  "platform": {
+    "PLATFORM_NAME": {
+      "field_4": "platform_override_value"
+    }
+  },
+  "hwsku": {
+    "HWSKU_NAME": {
+      "field_5": "hwsku_override_value"
+    }
+  },
+  "dut": {
+    "DUT_NAME": {
+      "field_1": "dut_specific_value_1"
+    }
+  },
+  "transceivers": {
+    "deployment_configurations": {
+      "DEPLOYMENT_NAME": {
+        "field_2": "deployment_specific_value_2"
+      }
+    },
+    "vendors": {
+      "NORMALIZED_VENDOR_NAME": {
+        "defaults": {
+          "field_6": "vendor_default_value"
+        },
+        "part_numbers": {
+          "NORMALIZED_VENDOR_PN": {
+            "field_1": "specific_value_1",
+            "platform_hwsku_overrides": {
+              "PLATFORM_NAME+HWSKU_NAME": {
+                "field_1": "highest_priority_value"
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
 
-    - `inv_name`: The name of the inventory file that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file). The `inv_name` allows DUTs to be grouped based on their inventory file, enabling the test framework to fetch the correct base URL for firmware downloads.
-    - `fw_base_url`: The base URL from which the CMIS CDB firmware binaries can be downloaded. This URL should point to the directory where the firmware binaries are stored. e.g., `http://1.2.3.4/cmis_cdb_firmware/`.
+##### Schema Components
 
-    Example of the file:
+**Main Sections:**
 
-    ```csv
-    inv_name,fw_base_url
-    lab,http://1.2.3.4/cmis_cdb_firmware/
-    ```
+- `mandatory`: List of mandatory fields that must be present in the attributes at some level of the hierarchy (cannot be in `defaults`)
+- `defaults`: Default values for the transceiver or test attributes
+- `platform`: Platform-specific overrides (optional)
+- `hwsku`: HWSKU-specific overrides (optional)
+- `dut`: DUT-specific overrides (optional) wherein the `DUT_NAME` is the inventory based hostname of the DUT
+- `transceivers`: Contains vendor and deployment-specific configurations organized in a hierarchical structure (mandatory)
+  - `deployment_configurations`: Deployment-based attribute definitions using the mandatory naming format (e.g., AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF, AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF, DAC-400-OSFP-400G_STRAIGHT-0x0F-0x0F) (optional)
+  - `vendors`: Vendor-specific configurations organized by normalized vendor name (optional)
+    - `<NORMALIZED_VENDOR_NAME>`: Individual vendor section containing defaults and part number configurations
+      - `defaults`: Vendor-level default values (optional)
+      - `part_numbers`: Part number-specific configurations organized by normalized part number (optional)
+        - `<NORMALIZED_VENDOR_PN>`: Individual part number section with specific attributes and overrides
+          - `platform_hwsku_overrides`: Overrides for specific platform+HWSKU combinations (optional)
 
-5. A file (`sonic_{inv_name}_links.csv`) containing the connections of the ports should be present. This file is used to create the topology of the testbed which is required for minigraph generation.
+> Note: Each sub-section can contain its own `defaults` fields.
 
-    - `inv_name` - inventory file name that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file)
+**Key Design Rules:**
+
+- **No Overlap**: A field should **never** appear in both `mandatory` and `defaults` sections. This creates logical inconsistency because a field cannot simultaneously require explicit specification (mandatory) and have a fallback value (default). The framework would be unable to determine whether to enforce validation or apply defaults when the field is missing.
+- **Validation First**: The framework should first validate that all mandatory fields can be resolved through the priority hierarchy, then apply defaults for any missing optional fields.
+- **Category Isolation**: Each file contains only relevant test domain attributes
+- **Deployment Grouping**: Similar deployment patterns share common attributes via `deployment_configurations`
+- **Category Isolation**: Each category file should only contain attributes relevant to its specific test domain to maintain clear separation of concerns.
+- **Backward Compatibility**: Missing optional sections (platform, hwsku, etc.) are silently ignored to support gradual adoption and legacy configurations.
+
+##### Deployment Configurations
+
+The `deployment_configurations` feature eliminates attribute duplication by defining common attributes once per deployment type instead of repeating across vendors. The framework automatically extracts the DEPLOYMENT component from the `BASE_ATTRIBUTES` field in `port_attributes_dict` to determine which deployment configuration to apply.
+
+##### Priority-Based Attribute Resolution
+
+Attributes are resolved using this hierarchy (highest to lowest priority):
+
+1. **DUT-specific**: `dut.<DUT_NAME>`
+2. **Normalized Vendor Name + PN + Platform + HWSKU**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>.platform_hwsku_overrides.<PLATFORM>+<HWSKU>`
+3. **Normalized Vendor Name + PN**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.part_numbers.<NORMALIZED_PN>`
+4. **Normalized Vendor Name (defaults)**: `transceivers.vendors.<NORMALIZED_VENDOR_NAME>.defaults`
+5. **Deployment Configuration**: `transceivers.deployment_configurations.<DEPLOYMENT>` (resolved by extracting DEPLOYMENT from the `transceiver_configuration` field in `dut_info.json`)
+6. **HWSKU-specific**: `hwsku.<HWSKU>` (if present in the file)
+7. **Platform-specific**: `platform.<PLATFORM>` (if present in the file)
+8. **Global defaults**: `defaults`
+
+> **Note:** For platform+HWSKU combinations in `platform_hwsku_overrides`, the key format is `"<PLATFORM_NAME>+<HWSKU_NAME>"` where the platform name and HWSKU name are concatenated with a literal `+` symbol.
+
+##### Example Category File
+
+Example `eeprom.json` file:
+
+```json
+{
+  "mandatory": ["vendor_name", "normalized_vendor_name", "dual_bank_supported"],
+  "defaults": {
+    "vdm_supported": false,
+    "cdb_backgroundmode_supported": false,
+    "sfputil_eeprom_dump_sec": 2
+  },
+  "transceivers": {
+    "deployment_configurations": {
+      "2x100G_200G_SIDE": {
+        "vdm_supported": true,
+        "dual_bank_supported": true
+      }
+    },
+    "vendors": {
+      "NORMALIZED_VENDOR_A": {
+        "defaults": {"vdm_supported": false},
+        "part_numbers": {
+          "NORMALIZED_VENDOR_PN_ABC": {
+            "vendor_name": "Vendor A",
+            "dual_bank_supported": true,
+            "platform_hwsku_overrides": {
+              "PLATFORM_ABC+VENDOR_HWSKU_ABC": {
+                "sfputil_eeprom_dump_time": 5
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+##### Framework Implementation
+
+The test framework loads and merges attributes from all relevant category files for each transceiver, using hierarchical override rules. This enables category-specific test logic to access only needed attributes while supporting platform, HWSKU, and vendor overrides.
+
+**Core Components:**
+
+1. **AttributeManager**: Central class for loading, merging, and accessing transceiver attributes
+2. **Category File Loader**: Loads JSON files for each test category  
+3. **Priority Resolver**: Implements the 8-level priority hierarchy
+4. **Validator**: Ensures mandatory fields are present
+
+**Data Structure:**
+The framework builds a `port_attributes_dict` keyed by logical port name, containing only ports from `dut_info.json`:
+
+```python
+{
+    "PORT_NAME": {
+        # Base transceiver information from dut_info.json
+        "BASE_ATTRIBUTES": {
+            "vendor_name": "vendor_name",
+            "normalized_vendor_name": "NORMALIZED_VENDOR_NAME",
+            "vendor_pn": "vendor_part_number",
+            "normalized_vendor_pn": "NORMALIZED_VENDOR_PN",
+            "vendor_sn": "serial_number",
+            "vendor_date": "vendor_date_code",
+            "vendor_oui": "vendor_oui",
+            "vendor_rev": "revision_number",
+            "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF",  # original configuration string
+            # Parsed components from transceiver_configuration
+            "cable_type": "AOC",                    # extracted from TYPE
+            "speed_gbps": 200,                      # extracted from SPEED
+            "form_factor": "QSFPDD",                # extracted from FORM_FACTOR
+            "deployment": "2x100G_200G_SIDE",       # extracted from DEPLOYMENT
+            "media_lane_mask": "0xFF",              # extracted from MEDIA_LANE_MASK
+            "host_lane_mask": "0xFF",               # extracted from HOST_LANE_MASK
+            "media_lane_count": 8,                  # derived from media_lane_mask
+            "host_lane_count": 8                    # derived from host_lane_mask
+        },
+        # Category-specific attributes with merged overrides applied
+        "EEPROM_ATTRIBUTES": {
+            "attribute_1": "value_1",
+            "attribute_2": "value_2",
+            ...
+        }
+        "SYSTEM_ATTRIBUTES": {
+            "attribute_1": "value_1",
+            "attribute_2": "value_2",
+            ...
+        }
+        ...
+    }
+}
+```
+
+##### Attribute Merging Process
+
+The framework builds `port_attributes_dict` using this systematic process:
+
+1. **Initialize** port dictionary from `dut_info.json` base attributes
+2. **For each category file**, perform priority-based merging using the 8-level hierarchy
+3. **Validate** mandatory fields for the current category
+4. **Store** merged attributes under category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
+5. **Attach** complete dictionary to DUT host object
+
+**Merging Behavior:**
+
+- Higher priority fields completely override earlier values
+- Missing sections are silently skipped
+- Graceful error handling for missing files and invalid JSON
+- The entire `port_attributes_dict` is captured in the log for debugging
+
+##### Usage
+
+Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`  
+The `port_attributes_dict` is attached to the DUT host object for easy access.
+
+**Example:**
+
+```python
+port_attributes_dict = duthost.get_port_attributes()
+
+# Access EEPROM attributes
+eeprom_attrs = port_attributes_dict["Ethernet0"]["EEPROM_ATTRIBUTES"]
+dual_bank_supported = eeprom_attrs["dual_bank_supported"]
+
+# Access base transceiver configuration (parsed from transceiver_configuration)
+base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
+cable_type = base_attrs["cable_type"]
+deployment = base_attrs["deployment"]
+```
+
+**Benefits:** Modular design, independent updates per category, conflict prevention, flexible overrides, and performance optimization.
+
+#### 3. Transceiver Firmware Info File
+
+A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
+
+```csv
+normalized_vendor_name,normalized_vendor_pn,fw_version,fw_binary_name,md5sum
+<normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_1>,<firmware_binary_1>,<md5sum_1>
+<normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_2>,<firmware_binary_2>,<md5sum_2>
+<normalized_vendor_name_1>,<normalized_vendor_pn_1>,<firmware_version_3>,<firmware_binary_3>,<md5sum_3>
+# Add more vendor part numbers as needed
+```
+
+For each firmware binary, the following metadata should be included:
+
+- `normalized_vendor_name`: The normalized vendor name, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+- `normalized_vendor_pn`: The normalized vendor part number, created by applying the normalization rules described in the [CMIS CDB Firmware Binary Management](#141-cmis-cdb-firmware-binary-management) section.
+- `fw_version`: The version of the firmware.
+- `fw_binary_name`: The filename of the firmware binary.
+- `md5sum`: The MD5 checksum of the firmware binary.
+
+#### 4. CMIS CDB Firmware Base URL File
+
+A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
+
+```csv
+inv_name,fw_base_url
+<inventory_file_name>,<base_url>
+```
+
+- `inv_name`: The name of the inventory file that contains the definition of the target DUTs. For further details, please refer to the [Inventory File](https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.new.testbed.Configuration.md#inventory-file). The `inv_name` allows DUTs to be grouped based on their inventory file, enabling the test framework to fetch the correct base URL for firmware downloads.
+- `fw_base_url`: The base URL from which the CMIS CDB firmware binaries can be downloaded. This URL should point to the directory where the firmware binaries are stored. e.g., `http://1.2.3.4/cmis_cdb_firmware/`.
+
+Example of the file:
+
+```csv
+inv_name,fw_base_url
+lab,http://1.2.3.4/cmis_cdb_firmware/
+```
 
 #### 1.1 Link related tests
 
@@ -916,8 +957,6 @@ lab,http://firmware-server.example.com/cmis_cdb_firmware
 production,https://secure-firmware.example.com/cmis_cdb_firmware
 ```
 
-> Note: The `fw_base_url` should not end with a trailing slash (`/`). The test framework will append the necessary path components based on the normalized vendor name and part number.
-
 **Download URL Format:**
 Firmware binaries are accessed using the following URL pattern:
 ```
@@ -938,7 +977,7 @@ This section describes the automated process for copying firmware binaries to th
 To ensure only the necessary firmware binaries are present for each transceiver:
 
 1. **Parse `transceiver_firmware_info.csv`** to obtain the list of available firmware binaries, their versions, and associated vendor and part numbers.
-2. **Parse `transceiver_dut_info.json`** to identify the transceivers present on each DUT.
+2. **Parse `dut_info.json`** to identify the transceivers present on each DUT.
 3. **Parse the appropriate per-category attributes file** to get the gold firmware version for each transceiver type.
 4. **For each unique combination of normalized vendor name and normalized part number on the DUT**, perform version sorting and selection:
    - Parse firmware versions using semantic versioning (X.Y.Z format)
@@ -1341,6 +1380,12 @@ sonic-db-cli -n '<namespace>' STATE_DB hget "TRANSCEIVER_DOM_SENSOR|<port>" "tx_
 
 Modify pmon_daemon_control.json file to skip xcvrd upon device boot-up
 
+```
+platform=$(show version | grep "Platform" | awk -F': ' '{print $2}')
+hwsku=$(show version | grep "HwSKU" | awk -F': ' '{print $2}')
+cp /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json.orig
+#Add "skip_xcvrd": true, to the pmon_daemon_control.json file
+```
 ```
 platform=$(show version | grep "Platform" | awk -F': ' '{print $2}')
 hwsku=$(show version | grep "HwSKU" | awk -F': ' '{print $2}')
