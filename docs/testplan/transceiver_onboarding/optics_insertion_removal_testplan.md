@@ -2,7 +2,7 @@
 
 ## Scope
 
-This test plan outlines a comprehensive framework for testing the optics insertion and removal(OIR) of CMIS compliant transceivers being onboarded to SONiC. It includes both physical OIR (where transceivers are physically inserted and removed) and simulated OIR (where OIR is simulated using on-device command or script). The goal is to automate all tests listed in this document.
+This test plan outlines a comprehensive framework for testing the online insertion and removal (OIR) of CMIS compliant transceivers being onboarded to SONiC. It includes both physical OIR (where transceivers are physically inserted and removed) and remote reseat (where OIR is simulated using on-device command or script). The goal is to automate all tests listed in this document.
 
 **Optics Scope**:
 The test plan includes various optics types, such as:
@@ -12,6 +12,8 @@ The test plan includes various optics types, such as:
 - DR8 optics
 - Direct Attach Cables (DAC)
 - Short Range/Long Range (SR/LR) optics
+- Far Range (FR) optics
+- ZR optics
 - SONiC-supported breakout cables
 
 **Optics Specifications**:
@@ -60,8 +62,8 @@ This section outlines the test cases for validating the insertion and removal of
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Optics removal validation| 1. Physically remove the optical module under test.| 1. Transceiver eeprom command should return "SFP EEPROM not detected" with exit code 0.<br>2. DOM values should not be present for the interface.<br>3. Interface should go oper down.<br>4.Other interfaces on the device should stay up.<br>5. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-| 2 | Optics insertion validation| 1. Insert the optical module under test.| 1. Transceiver eeprom command should return correct values with exit code 0.<br>2. Expected DOM values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen.<br>5. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 1 | Optics removal validation| 1. Physically remove the optical module under test.| 1. Transceiver eeprom command should return "SFP EEPROM not detected" with exit code 0.<br>2. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>3. Transceiver related db tables are not deleted.<br>4. Interface should go oper down.<br>5.Other interfaces on the device should stay up.<br>6. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 2 | Optics insertion validation| 1. Insert the optical module under test.| 1. Transceiver eeprom show command should the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen.<br>5. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 3 | Simultaneous Physical OIR | 1. Physically remove all optical modules under test simultaneously.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
 | 4 | Simulated OIR test| 1. Perform the simulated OIR on the module under test.| 1. Transceiver eeprom command should return correct values with exit code 0.<br>2. Expected DOM values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen.<br>5. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>6. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 5 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.|
