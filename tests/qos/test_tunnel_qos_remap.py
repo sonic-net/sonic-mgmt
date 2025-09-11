@@ -3,36 +3,37 @@ import pytest
 import time
 from ptf.mask import Mask
 import ptf.packet as scapy
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # noqa F401
-from tests.common.fixtures.ptfhost_utils import run_garp_service          # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode  # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # noqa F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_saitests_directory   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_icmp_responder        # noqa: F401
+from tests.common.fixtures.ptfhost_utils import run_garp_service          # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode  # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module   # noqa: F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module       # noqa: F401
 from tests.common.fixtures.duthost_utils import separated_dscp_to_tc_map_on_uplink
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
 from tests.common.snappi_tests.common_helpers import stop_pfcwd
 
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_lower_tor,\
-    toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa F401
-from tests.common.dualtor.nic_simulator_control import active_active_ports                              # noqa F401
+    toggle_all_simulator_ports_to_rand_selected_tor, toggle_all_simulator_ports_to_rand_unselected_tor  # noqa: F401
+from tests.common.dualtor.nic_simulator_control import active_active_ports                              # noqa: F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_info,\
     get_t1_active_ptf_ports, mux_cable_server_ip, is_tunnel_qos_remap_enabled,\
     config_active_active_dualtor_active_standby, validate_active_active_dualtor_setup,\
     toggle_all_aa_ports_to_lower_tor, toggle_all_aa_ports_to_rand_selected_tor,\
-    toggle_all_aa_ports_to_rand_unselected_tor  # noqa F401
+    toggle_all_aa_ports_to_rand_unselected_tor  # noqa: F401
 
 from .tunnel_qos_remap_base import build_testing_packet, check_queue_counter,\
     dut_config, qos_config, tunnel_qos_maps, run_ptf_test, toggle_mux_to_host,\
-    setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa F401
+    setup_module, update_docker_services, swap_syncd, counter_poll_config                               # noqa: F401
 from .tunnel_qos_remap_base import leaf_fanout_peer_info, start_pfc_storm, \
-    stop_pfc_storm, get_queue_counter, get_queue_watermark, disable_packet_aging                        # noqa F401
+    stop_pfc_storm, get_queue_counter, get_queue_watermark, disable_packet_aging, \
+    disable_voq_watchdog_dualtor  # noqa: F401
 from ptf import testutils
 from ptf.testutils import simple_tcp_packet
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.helpers.pfc_storm import PFCStorm
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 
@@ -88,10 +89,10 @@ def _last_port_in_last_lag(lags):
     return lags[last_lag][-1]
 
 
-def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,  # noqa F811
-                            toggle_all_simulator_ports_to_lower_tor,  # noqa F811
-                            toggle_all_aa_ports_to_lower_tor,         # noqa F811
-                            tbinfo, ptfadapter, tunnel_qos_maps):     # noqa F811
+def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,  # noqa: F811
+                            toggle_all_simulator_ports_to_lower_tor,  # noqa: F811
+                            toggle_all_aa_ports_to_lower_tor,         # noqa: F811
+                            tbinfo, ptfadapter, tunnel_qos_maps):     # noqa: F811
     """
     The test is to verify the dscp rewriting of encapped packets.
     Test steps
@@ -153,10 +154,10 @@ def test_encap_dscp_rewrite(ptfhost, upper_tor_host, lower_tor_host,  # noqa F81
     logger.info("Verified {} DSCP inner->outer combinations".format(len(DSCP_COMBINATIONS)))
 
 
-def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host,        # noqa F811
-                                                toggle_all_simulator_ports_to_lower_tor,        # noqa F811
-                                                toggle_all_aa_ports_to_lower_tor,               # noqa F811
-                                                tbinfo, ptfadapter):       # noqa F811
+def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_tor_host,        # noqa: F811
+                                                toggle_all_simulator_ports_to_lower_tor,        # noqa: F811
+                                                toggle_all_aa_ports_to_lower_tor,               # noqa: F811
+                                                tbinfo, ptfadapter):       # noqa: F811
     """
     The test case is to verify the encapped packet is mapped to the correct queue
     Test steps:
@@ -211,9 +212,9 @@ def test_bounced_back_traffic_in_expected_queue(ptfhost, upper_tor_host, lower_t
 
 
 def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_unselected_dut,
-                                            toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                                            toggle_all_aa_ports_to_rand_selected_tor,         # noqa F811
-                                            tbinfo, ptfadapter, tunnel_qos_maps):             # noqa F811
+                                            toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                            toggle_all_aa_ports_to_rand_selected_tor,         # noqa: F811
+                                            tbinfo, ptfadapter, tunnel_qos_maps):             # noqa: F811
     """
     The test case is to verify the decapped packet on active ToR are egressed to server from expected queue.
     Test steps:
@@ -267,7 +268,8 @@ def test_tunnel_decap_dscp_to_queue_mapping(ptfhost, rand_selected_dut, rand_uns
 
 def test_separated_qos_map_on_tor(ptfhost, rand_selected_dut, rand_unselected_dut,
                                   setup_standby_ports_on_rand_unselected_tor,
-        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, dut_qos_maps_module):  # noqa F811
+                                  toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                  tbinfo, ptfadapter, dut_qos_maps_module):  # noqa: F811
     """
     The test case is to verify separated DSCP_TO_TC_MAP/TC_TO_QUEUE_MAP on uplink and downlink ports of dualtor
     Test steps
@@ -363,13 +365,13 @@ def pfc_pause_test(ptfhost, storm_handler, peer_info, prio, ptfadapter, dut, por
             start_pfc_storm(storm_handler, peer_info, prio)
             ptfadapter.dataplane.flush()
             # Record the queue counter before sending test packet
-            base_queue_count = get_queue_counter(dut, port, queue, False)   # noqa F841
+            base_queue_count = get_queue_counter(dut, port, queue, False)   # noqa: F841
             # Send testing packet again
             testutils.send_packet(ptfadapter, src_port, pkt, 1)
             # The packet should be paused
             testutils.verify_no_packet_any(ptfadapter, exp_pkt, dst_ports)
             # Check the queue counter didn't increase
-            queue_count = get_queue_counter(dut, port, queue, False)        # noqa F841
+            queue_count = get_queue_counter(dut, port, queue, False)        # noqa: F841
             # after 10 sec delay in queue counter reading, pfc frames sending might actually had already stopped.
             # so bounce back packet might still send out, and queue counter increased accordingly.
             # and then caused flaky test faiure.
@@ -382,8 +384,9 @@ def pfc_pause_test(ptfhost, storm_handler, peer_info, prio, ptfadapter, dut, por
 
 
 def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                          setup_standby_ports_on_rand_selected_tor, setup_pfc_test,  # noqa F811
-        toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
+                                          setup_standby_ports_on_rand_selected_tor, setup_pfc_test,  # noqa: F811
+                                          toggle_all_simulator_ports_to_rand_unselected_tor, tbinfo,  # noqa: F811
+                                          ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):  # noqa: F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
     Test steps:
@@ -461,8 +464,10 @@ def test_pfc_pause_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_du
 
 
 def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                         setup_standby_ports_on_rand_unselected_tor, setup_pfc_test,  # noqa F811
-        toggle_all_simulator_ports_to_rand_selected_tor, tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config): # noqa F811
+                                         setup_standby_ports_on_rand_unselected_tor, setup_pfc_test,  # noqa: F811
+                                         toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                         tbinfo, ptfadapter,
+                                         conn_graph_facts, fanout_graph_facts, dut_config):  # noqa: F811
     """
     The test case is to verify PFC pause frame can pause extra lossless queues in dualtor deployment.
     Test steps:
@@ -539,9 +544,11 @@ def test_pfc_pause_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut
 
 
 def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                              toggle_all_simulator_ports_to_rand_unselected_tor,  # noqa F811
-                                              toggle_all_aa_ports_to_rand_unselected_tor,         # noqa F811
-                                              tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts, dut_config):  # noqa F811
+                                              toggle_all_simulator_ports_to_rand_unselected_tor,  # noqa: F811
+                                              toggle_all_aa_ports_to_rand_unselected_tor,         # noqa: F811
+                                              tbinfo,
+                                              ptfadapter,
+                                              conn_graph_facts, fanout_graph_facts, dut_config):  # noqa: F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -586,9 +593,10 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
                                             outer_dscp=outer_dscp,
                                             ecn=1)
         # Ingress packet from uplink port
+        ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, src_port, pkt, 1)
         # Get the actual egress port
-        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports)
+        result = testutils.verify_packet_any_port(ptfadapter, exp_pkt, dst_ports, timeout=5)
         actual_port = dst_ports[result[0]]
         # Get the port name from mgfacts
         for port_name, idx in mg_facts['minigraph_ptf_indices'].items():
@@ -643,9 +651,9 @@ def test_pfc_watermark_extra_lossless_standby(ptfhost, fanouthosts, rand_selecte
 
 
 def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected_dut, rand_unselected_dut,
-                                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                                             toggle_all_aa_ports_to_rand_selected_tor,         # noqa F811
-                                             tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):  # noqa F811
+                                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                                             toggle_all_aa_ports_to_rand_selected_tor,         # noqa: F811
+                                             tbinfo, ptfadapter, conn_graph_facts, fanout_graph_facts):  # noqa: F811
     """
     The test case is to verify PFC pause frame can congest extra lossless queues in dualtor deployment.
 
@@ -740,7 +748,8 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
 
 
 @pytest.mark.disable_loganalyzer
-def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config, setup_module, creds, tunnel_qos_maps):     # noqa F811
+def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut,
+                                         ptfhost, dut_config, setup_module, creds, tunnel_qos_maps):  # noqa: F811
     """
     Test steps:
     1. Toggle all ports to active on randomly selected ToR
@@ -793,7 +802,8 @@ def test_tunnel_decap_dscp_to_pg_mapping(rand_selected_dut, ptfhost, dut_config,
 
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize("xoff_profile", ["pcbb_xoff_1", "pcbb_xoff_2", "pcbb_xoff_3", "pcbb_xoff_4"])
-def test_xoff_for_pcbb(rand_selected_dut, ptfhost, dut_config, qos_config, xoff_profile, setup_module, creds):     # noqa F811
+def test_xoff_for_pcbb(rand_selected_dut,
+                       ptfhost, dut_config, qos_config, xoff_profile, setup_module, creds):  # noqa: F811
     """
     The test is to verify xoff threshold for PCBB (Priority Control for Bounced Back traffic)
     Test steps

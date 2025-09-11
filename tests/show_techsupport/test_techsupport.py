@@ -83,21 +83,13 @@ def setup_acl_rules(duthost, acl_setup):
     duthost.command('config acl update full {}'.format(dut_conf_file_path))
 
 
-def check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Check dut is dpu or not. True when dut is dpu, else False
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    return config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
-
-
 @pytest.fixture(scope='module')
 def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     When dut is dpu, skip the case
     """
-    if check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
@@ -136,7 +128,7 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
+def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup, request):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
@@ -147,7 +139,7 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
     pytest_require(ACL_TABLE_NAME in acl_facts, "{} acl table not exists")
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
     loganalyzer.load_common_config()
 
     try:
@@ -221,7 +213,7 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version, request):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
@@ -251,7 +243,7 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     try:
         yield
     finally:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
         loganalyzer.load_common_config()
 
         try:
@@ -514,8 +506,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0',
-                                         'x86_64-arista_720dt_48s']:
+        if duthost.topo_type in ["mx", "m0", "m1"]:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":
@@ -629,7 +620,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     :param duthosts: DUT host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
     since = str(randint(1, 5)) + " minute ago"

@@ -25,15 +25,15 @@ import ptf.testutils as testutils
 
 from ipaddress import ip_network, IPv6Network, IPv4Network
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses     # noqa: F401
 from tests.common.gu_utils import expect_op_success, expect_op_failure
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
 from tests.common.gu_utils import apply_formed_json_patch
 from tests.common.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
 from tests.common.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
-from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
+from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor  # noqa: F401
 from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type, \
     increment_ipv4_addr, increment_ipv6_addr
 
@@ -336,11 +336,18 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
+    is_isolated_topo = 'isolated' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
         if is_storage_backend:
             vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
             intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
+
+            intf1 = ports_for_test[0]
+        elif is_isolated_topo:
+            upstream_intfs = mg_facts['minigraph_interfaces']
+            intfs_to_t1 = [_intf['attachto'] for _intf in upstream_intfs]
             ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
             intf1 = ports_for_test[0]
@@ -1146,7 +1153,7 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
                                    setup,
                                    dynamic_acl_create_table,
                                    prepare_ptf_intf_and_ip,
-                                   toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that we can create a blanket ARP/NDP packet forwarding rule with GCU, and that ARP/NDP packets
     are correctly forwarded while all others are dropped."""
 
@@ -1189,8 +1196,8 @@ def test_gcu_acl_dhcp_rule_creation(rand_selected_dut,
                                     ptfadapter,
                                     setup,
                                     dynamic_acl_create_table,
-                                    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa F811
-                                    setup_standby_ports_on_rand_unselected_tor):        # noqa F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor,    # noqa: F811
+                                    setup_standby_ports_on_rand_unselected_tor):        # noqa: F811
     """Verify that DHCP and DHCPv6 forwarding rules can be created, and that dhcp packets are properly forwarded
     whereas others are dropped"""
 
@@ -1213,7 +1220,7 @@ def test_gcu_acl_drop_rule_creation(rand_selected_dut,
                                     ptfadapter,
                                     setup,
                                     dynamic_acl_create_table,
-                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                    toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that we can create a drop rule via GCU, and that once this drop rule is in place packets
     that match the drop rule are dropped and packets that do not match the drop rule are forwarded"""
 
@@ -1235,7 +1242,7 @@ def test_gcu_acl_drop_rule_removal(rand_selected_dut,
                                    ptfadapter,
                                    setup,
                                    dynamic_acl_create_table,
-                                   toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                   toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that once a drop rule is removed, packets that were previously being dropped are now forwarded"""
 
     dynamic_acl_create_three_drop_rules(rand_selected_dut, setup)
@@ -1253,7 +1260,7 @@ def test_gcu_acl_forward_rule_priority_respected(rand_selected_dut,
                                                  ptfadapter,
                                                  setup,
                                                  dynamic_acl_create_table,
-                                                 toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                                 toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that forward rules and drop rules can be created at the same time, with the forward rules having
     higher priority than drop.  Then, perform a traffic test to confirm that packets that match both the forward
     and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
@@ -1273,7 +1280,7 @@ def test_gcu_acl_forward_rule_same_priority(rand_selected_dut,
                                             ptfadapter,
                                             setup,
                                             dynamic_acl_create_table,
-                                            toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                            toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that forward rules can have the exact same priority and still all be applied correctly
     Then, perform a traffic test to confirm that packets that match both the forward
     and drop rules are correctly forwarded, as the forwarding rules have higher priority"""
@@ -1301,7 +1308,7 @@ def test_gcu_acl_forward_rule_replacement(rand_selected_dut,
                                           ptfadapter,
                                           setup,
                                           dynamic_acl_create_table,
-                                          toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                          toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that forward rules can be created, and then afterwards can have their match pattern updated to a new value.
     Confirm that packets sent that match this new value are correctly forwarded, and that packets that are sent that
     match the old, replaced value are correctly dropped."""
@@ -1326,7 +1333,7 @@ def test_gcu_acl_forward_rule_removal(rand_selected_dut,
                                       setup,
                                       ip_type,
                                       dynamic_acl_create_table,
-                                      toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                                      toggle_all_simulator_ports_to_rand_selected_tor):  # noqa: F811
     """Test that if a forward rule is created, and then removed, that packets associated with that rule are properly
     no longer forwarded, and packets associated with the remaining rule are forwarded"""
 
@@ -1348,7 +1355,7 @@ def test_gcu_acl_forward_rule_removal(rand_selected_dut,
 
 
 def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter, setup, dynamic_acl_create_table,
-                             toggle_all_simulator_ports_to_rand_selected_tor):  # noqa F811
+                             toggle_all_simulator_ports_to_rand_selected_tor):  # noqa:F811
     """Perform a scale test, creating 150 forward rules with top priority,
     and then creating a drop rule for every single VLAN port on our device.
     Select any one of our blocked ports, as well as the ips for two of our forward rules,
@@ -1377,14 +1384,14 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
-                                              toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
+                                              toggle_all_simulator_ports_to_rand_selected_tor,  # noqa:F811
                                               setup):
     """Confirm that replacing a nonexistent rule results in operation failure"""
     dynamic_acl_replace_nonexistent_rule(rand_selected_dut, setup)
 
 
 def test_gcu_acl_nonexistent_table_removal(rand_selected_dut,
-                                           toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
+                                           toggle_all_simulator_ports_to_rand_selected_tor,     # noqa:F811
                                            setup):
     """Confirm that removing a nonexistent table results in operation failure"""
     dynamic_acl_remove_nonexistent_table(rand_selected_dut, setup)

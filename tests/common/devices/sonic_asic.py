@@ -159,6 +159,19 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def show_ipv6_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ipv6_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show ipv6 interfaces command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
+
     def run_sonic_db_cli_cmd(self, sonic_db_cmd):
         cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
@@ -742,3 +755,10 @@ class SonicAsic(object):
 
     def show_and_parse(self, show_cmd, **kwargs):
         return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)
+
+    def get_vtysh_cmd_for_namespace(self, cmd):
+        if not self.sonichost.is_multi_asic:
+            return cmd
+
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(self.asic_index))
+        return ns_cmd

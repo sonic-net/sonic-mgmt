@@ -28,12 +28,16 @@ parameters:
 
   - name: LOCK_WAIT_TIMEOUT_SECONDS
     type: string
-    default: ""
+    default: "0"
 
   - name: NUM_ASIC
     default: 1
 
   - name: TEST_SET
+    type: string
+    default: ""
+
+  - name: SETUP_CONTAINER_PARAMS
     type: string
     default: ""
 
@@ -49,7 +53,15 @@ parameters:
     type: string
     default: ""
 
+  - name: SKIP_RESTART_PTF
+    type: boolean
+    default: false
+
   - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: ""
+
+  - name: ASIC_TYPE
     type: string
     default: ""
 
@@ -121,6 +133,10 @@ parameters:
     type: string
     default: ""
 
+  - name: MGMT_COMMIT_HASH
+    type: string
+    default: ""
+
   - name: MGMT_URL
     type: string
     default: "https://raw.githubusercontent.com/sonic-net/sonic-mgmt"
@@ -162,9 +178,13 @@ parameters:
 
   - name: MAX_RUN_TEST_MINUTES
     type: number
-    default: 480
+    default: 0
 
   - name: KVM_IMAGE_BRANCH
+    type: string
+    default: ""
+
+  - name: KVM_IMAGE_BUILD_PIPELINE_ID
     type: string
     default: ""
 
@@ -263,11 +283,16 @@ steps:
       --test-set ${{ parameters.TEST_SET }} \
       --kvm-build-id $(KVM_BUILD_ID) \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
+      --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
+      --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \
       --skip-remove-add-topo-for-nightly ${{ parameters.SKIP_REMOVE_ADD_TOPO_FOR_NIGHTLY }} \
-      --add-topo-params ${{ parameters.ADD_TOPO_PARAMS }} \
+      --add-topo-params "${{ parameters.ADD_TOPO_PARAMS }}" \
       --deploy-mg-extra-params="${{ parameters.DEPLOY_MG_EXTRA_PARAMS }}" \
+      --skip-restart-ptf ${{ parameters.SKIP_RESTART_PTF }} \
       --common-extra-params="${{ parameters.COMMON_EXTRA_PARAMS }}" \
-      --vm-type ${{ parameters.VM_TYPE }} --num-asic ${{ parameters.NUM_ASIC }} \
+      --asic-type ${{ parameters.ASIC_TYPE }} \
+      --vm-type ${{ parameters.VM_TYPE }} \
+      --num-asic ${{ parameters.NUM_ASIC }} \
       --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
       --image_url ${{ parameters.IMAGE_URL }} \
       --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
@@ -284,6 +309,7 @@ steps:
       --build-reason ${{ parameters.BUILD_REASON }} \
       --repo-name ${{ parameters.REPO_NAME }} \
       --mgmt-branch ${{ parameters.MGMT_BRANCH }} \
+      --mgmt-commit-hash ${{ parameters.MGMT_COMMIT_HASH }} \
       --stop-on-failure ${{ parameters.STOP_ON_FAILURE }} \
       --enable-parallel-run ${{ parameters.ENABLE_PARALLEL_RUN }} \
       --parallel-modes-file ${{ parameters.PARALLEL_MODES_FILE }} \

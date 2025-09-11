@@ -1,5 +1,5 @@
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, enum_fanout_graph_facts     # noqa F401
-from .qos_fixtures import leaf_fanouts      # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, enum_fanout_graph_facts     # noqa: F401
+from .qos_fixtures import leaf_fanouts      # noqa: F401
 from .qos_helpers import eos_to_linux_intf, nxos_to_linux_intf, sonic_to_linux_intf
 import os
 import time
@@ -47,7 +47,7 @@ def enable_flex_port_counter(rand_selected_dut):
     rand_selected_dut.shell(set_cmd.format('disable'))
 
 
-def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
+def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa: F811
     """
     @Summary: Set up the duthost, including clearing counters,
               and copying the PFC generator to the leaf fanout switches.
@@ -68,8 +68,7 @@ def setup_testbed(fanouthosts, duthost, leaf_fanouts):           # noqa F811
         peerdev_ans.host.copy(src=file_src, dest=PFC_GEN_FILE_DEST, force=True)
 
 
-
-def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts,       # noqa F811
+def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts,       # noqa: F811
              is_pfc=True, pause_time=65535, check_continuous_pfc=False):
     """
     @Summary: Run test for Ethernet flow control (FC) or priority-based flow control (PFC)
@@ -162,7 +161,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         if asic_type != 'vs':
             for failure in failures:
                 logger.error("Got {}, expected {}".format(*failure))
-            assert len(failures) == 0, "PFC RX counter increment not matching expected for above logged cases."
+            assert len(failures) == 0, (
+                "PFC RX counter increment not matching expected for above logged cases. "
+                "Number of failures: {}"
+            ).format(len(failures))
 
     else:
         for intf in active_phy_intfs:
@@ -205,17 +207,28 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                     method="get")['ansible_facts']
                 if asic_type != 'vs':
                     """check pfc Rx frame count on particular priority are increased"""
-                    assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT)
+                    assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT), (
+                        "PFC RX counter value mismatch for interface {} and priority {}. "
+                        "Expected value: {}, but got {}."
+                    ).format(intf, priority, PKT_COUNT, pfc_rx[intf]['Rx'][priority])
+
                     """check LHS priorities are 0 count"""
                     for i in range(priority):
-                        assert pfc_rx[intf]['Rx'][i] == '0'
+                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                            "PFC RX counter value is not zero for interface {} and priority {}. "
+                            "Expected value: 0, but got {}."
+                        ).format(intf, i, pfc_rx[intf]['Rx'][i])
+
                     """check RHS priorities are 0 count"""
                     for i in range(priority+1, PRIO_COUNT):
-                        assert pfc_rx[intf]['Rx'][i] == '0'
+                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                            "PFC RX counter value is not zero for interface {} and priority {}. "
+                            "Expected value: 0, but got {}."
+                        ).format(intf, i, pfc_rx[intf]['Rx'][i])
 
 
 def test_pfc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                   conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):          # noqa F811
+                   conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):          # noqa: F811
     """ @Summary: Run PFC pause frame (pause time quanta > 0) tests """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
@@ -223,7 +236,7 @@ def test_pfc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
 
 def test_pfc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):        # noqa F811
+                     conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):        # noqa: F811
     """ @Summary: Run PFC unpause frame (pause time quanta = 0) tests """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
@@ -231,7 +244,7 @@ def test_pfc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hos
 
 
 def test_fc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                  conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):           # noqa F811
+                  conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):           # noqa: F811
     """ @Summary: Run FC pause frame (pause time quanta > 0) tests """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
@@ -239,7 +252,7 @@ def test_fc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostna
 
 
 def test_fc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                    conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):         # noqa F811
+                    conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):         # noqa: F811
     """ @Summary: Run FC pause frame (pause time quanta = 0) tests """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
@@ -247,7 +260,7 @@ def test_fc_unpause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 def test_continous_pfc(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                       conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):     # noqa F811
+                       conn_graph_facts, enum_fanout_graph_facts, leaf_fanouts):     # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     run_test(fanouthosts, duthost, conn_graph_facts,
              enum_fanout_graph_facts, leaf_fanouts, check_continuous_pfc=True)

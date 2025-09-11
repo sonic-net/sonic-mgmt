@@ -12,11 +12,6 @@
     container_type: "IxANVL-CONF-TESTER"
   when: ptf_imagename is defined and ptf_imagename == "docker-ptf-anvl"
 
-- name: set batch_mode for lt2 topo
-  set_fact:
-    batch_mode: True
-  when: "'lt2' in topo"
-
 - block:
 
   - name: Stop mux simulator
@@ -35,14 +30,6 @@
     include_tasks: ptf_portchannel.yml
     vars:
       ptf_portchannel_action: stop
-
-  - name: Kill exabgp and ptf_nn_agent processes in PTF container
-    ptf_control:
-      ctn_name: "ptf_{{ vm_set_name }}"
-      command: kill
-    when:
-      - topo != 'fullmesh'
-      - not 'ptf' in topo
 
   - name: Get duts ports
     include_tasks: get_dut_port.yml
@@ -66,7 +53,6 @@
       max_fp_num: "{{ max_fp_num }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
-      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
@@ -81,7 +67,6 @@
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
-      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
       is_dpu: true
     become: yes
     when: dpu_targets is defined and dpu_targets | length > 0
@@ -153,7 +138,6 @@
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
-      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Remove duts ports
@@ -176,7 +160,6 @@
     cmd: 'destroy'
     vm_names: "{{ VM_targets }}"
   become: yes
-  when: vm_type is defined and vm_type=="ceos"
 
 - name: Destroy DPUs network
   vm_topology:
