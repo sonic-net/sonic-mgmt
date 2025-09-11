@@ -256,7 +256,7 @@ class TestWatchdogApi(PlatformApiTestBase):
             pytest.skip('"too_big_timeout" parameter is required for this test case')
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
         self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds"
-                    .format(self.test_arm_too_big_timeout.__name__, watchdog_timeout))
+                    .format(self.test_arm_too_big_timeout.__name__, actual_timeout))
         self.assert_expectations()
 
     @pytest.mark.dependency(depends=["test_arm_disarm_states"])
@@ -266,5 +266,5 @@ class TestWatchdogApi(PlatformApiTestBase):
         watchdog_timeout = -1
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
         self.expect(actual_timeout == -1, "{}: Watchdog should be disarmed, but returned timeout of {} seconds"
-                    .format(self.test_arm_negative_timeout.__name__, watchdog_timeout))
+                    .format(self.test_arm_negative_timeout.__name__, actual_timeout))
         self.assert_expectations()
