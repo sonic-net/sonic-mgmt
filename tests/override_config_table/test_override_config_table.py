@@ -7,6 +7,8 @@ from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
     NON_USER_CONFIG_TABLES
+from tests.common import mellanox_data
+from tests.common import broadcom_data
 
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -19,10 +21,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
-LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
-                         'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
-                         'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
-                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
 
 @pytest.fixture(scope="module", autouse=True)
