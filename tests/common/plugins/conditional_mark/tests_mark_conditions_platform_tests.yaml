@@ -1047,10 +1047,9 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 ####    test_advanced_reboot      #####
 #######################################
-platform_tests/test_advanced_reboot.py::**:
+platform_tests/test_advanced_reboot.py:
   skip:
     reason: "Skip all advanced reboot tests on 202412 (warm reboot not required for backend ToRs)"
-    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
 
@@ -1349,19 +1348,17 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
 ##############################
 #####   test_wr_arp.py   #####
 ##############################
-tests/arp/test_wr_arp.py::**:
+arp/test_wr_arp.py:
   skip:
     reason: "Skip all ARP warm-reboot tests on 202412"
-    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
 
 ###################################
 #####   test_warm_reboot.py   #####
 ###################################
-tests/snappi_tests/reboot/test_warm_reboot.py::**:
+snappi_tests/reboot/test_warm_reboot.py:
   skip:
     reason: "Skip all Snappi warm-reboot tests on 202412"
-    conditions_logical_operator: or
     conditions:
       - "release in ['202412']"
