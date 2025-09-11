@@ -167,7 +167,7 @@ def inbound_pl_packets(
         ip_id=0,
         udp_dport=vxlan_udp_dport,
         udp_sport=VXLAN_UDP_BASE_SRC_PORT,
-        vxlan_vni=pl.ENCAP_VNI if floating_nic else int(pl.VM_VNI),
+        vxlan_vni=pl.ENCAP_VNI if floating_nic else int(pl.VNET1_VNI),
         inner_frame=exp_inner_packet,
     )
 
@@ -177,10 +177,10 @@ def inbound_pl_packets(
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
     masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "ttl")
+    masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
     if floating_nic:
         # As destination IP is not fixed in case of return path ECMP,
         # we need to mask the checksum and destination IP
-        masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
         masked_exp_packet.set_do_not_care_packet(scapy.IP, "dst")
         masked_exp_packet.set_do_not_care(400, 48)  # Inner dst MAC
 
@@ -244,7 +244,7 @@ def outbound_pl_packets(
             udp_dport=vxlan_udp_dport,
             udp_sport=vxlan_udp_sport,
             with_udp_chksum=False,
-            vxlan_vni=outer_vni,
+            vxlan_vni=outer_vni if floating_nic else int(pl.VNET1_VNI),
             inner_frame=inner_packet,
         )
     elif outer_encap == "gre":
@@ -254,7 +254,7 @@ def outbound_pl_packets(
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=outer_vni << 8,
+            gre_key=(outer_vni << 8) if floating_nic else (int(pl.VNET1_VNI) << 8),
             inner_frame=inner_packet,
         )
     else:
