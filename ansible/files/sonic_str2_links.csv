@@ -27,7 +27,7 @@ str2-7260cx3-acs-root02,Ethernet29/1,str2-7260cx3-acs-fan-17,Ethernet64/1,100000
 str2-7260cx3-acs-root02,Ethernet4/1,str2-7260cx3-acs-fan-36,Ethernet64/1,100000,"2069-2100,2197-2198",Trunk,off
 str2-7260cx3-acs-root02,Ethernet8/1,str2-7215-acs-2,Ethernet48,10000,"3328-3375",Trunk,off
 str2-7260cx3-acs-root02,Ethernet35/1,str2-7260cx3-02,Ethernet64/1,10000,"3380-3411,3412-3439",Trunk,off
-str2-7260cx3-acs-root02,Ethernet36/1,str2-7260cx3-acs-fan-16,Ethernet64/1,10000,"3532-3635",Trunk,off
+str2-7260cx3-acs-root02,Ethernet36/1,str2-7260cx3-acs-fan-16,Ethernet64/1,100000,"3532-3635",Trunk,off
 str2-7260cx3-acs-root02,Ethernet37/1,str2-z9332f-03,etp34,10000,"3644-3667",Trunk,off
 str2-7260cx3-acs-root02,Ethernet66,str2-z9332f-05,etp33,10000,"3668-3675",Trunk,off
 str2-7260cx3-acs-root02,Ethernet39/1,str2-7260cx3-acs-fan-18,Ethernet64/1,100000,"3757-3868",Trunk,off
