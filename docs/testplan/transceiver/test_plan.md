@@ -1446,9 +1446,3 @@ hwsku=$(show version | grep "HwSKU" | awk -F': ' '{print $2}')
 cp /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json.orig
 #Add "skip_xcvrd": true, to the pmon_daemon_control.json file
 ```
-```
-platform=$(show version | grep "Platform" | awk -F': ' '{print $2}')
-hwsku=$(show version | grep "HwSKU" | awk -F': ' '{print $2}')
-cp /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json /usr/share/sonic/device/$platform/$hwsku/pmon_daemon_control.json.orig
-#Add "skip_xcvrd": true, to the pmon_daemon_control.json file
-```
