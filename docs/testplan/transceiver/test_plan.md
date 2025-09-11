@@ -725,7 +725,67 @@ deployment = base_attrs["deployment"]
 
 **Benefits:** Modular design, independent updates per category, conflict prevention, flexible overrides, and performance optimization.
 
-#### 3. Transceiver Firmware Info File
+#### 3. Attribute Completeness Validation
+
+> **Process Flow**: See the [Validation Flow Diagram](diagrams/validation_flow.md) for a visual overview of the validation process and pytest integration.
+
+Optional post-processing validation ensures comprehensive attribute coverage for transceiver qualification by comparing the populated `port_attributes_dict` against deployment-specific templates.
+
+##### Template Structure
+
+**Location:** `ansible/files/transceiver/inventory/templates/deployment_templates.json`
+
+**Schema:** Templates define required and optional attributes by deployment type:
+
+```json
+{
+  "deployment_templates": {
+    "2x100G_200G_SIDE": {
+      "required_attributes": {
+        "BASE_ATTRIBUTES": ["vendor_name", "vendor_pn", "cable_type", "speed_gbps", "deployment"],
+        "EEPROM_ATTRIBUTES": ["dual_bank_supported", "vdm_supported"],
+        "DOM_ATTRIBUTES": ["temperature", "voltage", "tx_power", "alarm_flags"]
+      },
+      "optional_attributes": {
+        "BASE_ATTRIBUTES": ["hardware_rev", "vendor_rev"],
+        "CDB_FW_ATTRIBUTES": ["firmware_upgrade_support"]
+      }
+    }
+  }
+}
+```
+
+##### Template Components
+
+- `deployment_templates`: Root object containing all deployment templates
+  - `<DEPLOYMENT_NAME>`: Individual deployment template (e.g., `2x100G_200G_SIDE`)
+    - `required_attributes`: Lists of attributes that must be present for each category
+    - `optional_attributes`: Lists of attributes that should be present if available
+    - **Note:** Each category (e.g., `BASE_ATTRIBUTES`, `EEPROM_ATTRIBUTES`, `DOM_ATTRIBUTES`) can have its own set of required and optional attributes.
+
+##### Validation Process
+
+1. **Template Selection**: Uses `deployment` field from `BASE_ATTRIBUTES` to select appropriate template
+2. **Attribute Comparison**: Compares actual vs required attributes per category  
+3. **Gap Analysis**: Identifies missing required/optional attributes
+4. **Pytest Integration**: Reports results with standard log levels (INFO/WARNING/ERROR/DEBUG)
+
+##### Console Output
+
+```python
+INFO     PASS: Ethernet0 (2x100G_200G_SIDE) - FULLY_COMPLIANT (19/20 attributes)
+WARNING  PARTIAL: Ethernet4 - Missing optional: VDM_ATTRIBUTES.historical_data
+ERROR    FAIL: Ethernet8 - Missing required: DOM_ATTRIBUTES.alarm_flags
+INFO     Overall Compliance: 87.5% (21/24 ports fully compliant)
+```
+
+##### Execution Control
+
+- **Critical failures**: `pytest.fail()` - stops test execution
+- **Warnings only**: `pytest.warns()` - continues with warnings
+- **Fully compliant**: Normal test execution proceeds
+
+#### 4. Transceiver Firmware Info File
 
 A `transceiver_firmware_info.csv` file (located in `ansible/files/transceiver/inventory` directory) should exist if a transceiver being tested supports CMIS CDB firmware upgrade. This file will capture the firmware binary metadata for the transceiver. Each transceiver should have at least 2 firmware binaries (in addition to the gold firmware binary) so that firmware upgrade can be tested. Following should be the format of the file
 
@@ -745,7 +805,7 @@ For each firmware binary, the following metadata should be included:
 - `fw_binary_name`: The filename of the firmware binary.
 - `md5sum`: The MD5 checksum of the firmware binary.
 
-#### 4. CMIS CDB Firmware Base URL File
+#### 5. CMIS CDB Firmware Base URL File
 
 A `cmis_cdb_firmware_base_url.csv` file (located in `ansible/files/transceiver/inventory` directory) should be present to define the base URL for downloading CMIS CDB firmware binaries. The file should follow this format:
 

@@ -27,6 +27,11 @@ graph TB
         N[Other Category Attributes]
     end
     
+    subgraph "Validation (Optional)"
+        Q[Deployment Templates]
+        R[AttributeCompletenessValidator]
+    end
+    
     subgraph "Test Consumption"
         O[Test Cases]
         P[DUT Host Object]
@@ -52,7 +57,9 @@ graph TB
     M --> J
     N --> J
     
-    J --> P
+    J --> R
+    Q --> R
+    R --> P
     P --> O
     J --> O
     
@@ -73,6 +80,7 @@ sequenceDiagram
     participant CF as Category Files
     participant PR as Priority Resolver
     participant PD as port_attributes_dict
+    participant V as Validator
     participant TC as Test Cases
     
     TC->>AM: Initialize for DUT
@@ -102,12 +110,20 @@ sequenceDiagram
     end
     
     AM->>PD: Attach to DUT host object
+    
+    opt Attribute Completeness Validation
+        PD->>V: Validate against deployment templates
+        V->>V: Compare required vs actual attributes
+        V-->>PD: Validation results (pass/warn/fail)
+    end
+    
     PD-->>TC: Ready for test execution
 ```
 
 ## Data Transformation Examples
 
 ### Step 1: Port Expansion
+
 ```text
 Input (dut_info.json):
 {
@@ -126,6 +142,7 @@ After Port Expansion:
 ```
 
 ### Step 2: Configuration Parsing
+
 ```text
 Input: "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF"
 
@@ -141,6 +158,7 @@ Parsed Components:
 ```
 
 ### Step 3: Attribute Merging
+
 ```text
 For Ethernet4 EEPROM_ATTRIBUTES:
 
@@ -154,6 +172,7 @@ Result: dual_bank_supported = true
 ```
 
 ### Step 4: Final Structure
+
 ```python
 port_attributes_dict = {
     "Ethernet4": {

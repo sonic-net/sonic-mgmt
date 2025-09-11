@@ -16,6 +16,12 @@ This directory contains visual diagrams to help understand the complex concepts 
 - Sequence diagram showing processing steps
 - Examples of data transformation at each stage
 
+### 3. [Validation Flow](validation_flow.md)
+
+- Attribute completeness validation process
+- Template-based validation workflow
+- Pytest integration and execution control
+
 ## How to Use These Diagrams
 
 1. **Start with File Organization** to understand the overall structure
