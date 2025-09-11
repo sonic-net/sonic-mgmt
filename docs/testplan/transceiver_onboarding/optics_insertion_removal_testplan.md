@@ -45,6 +45,7 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 | simultaneous_oir | Bool | False | No | dut |  A flag indicating whether to allow simultaneous OIR operations on multiple ports. |
 | physical_oir_stress_iteration | Int | 5 | No | dut |  The number of iterations to stress test the physical OIR process. |
 | monitor_kernel_errors | Bool | False | No | transceivers |  A flag indicating whether to monitor kernel errors during the test. |
+| link_flap_monitor_timeout | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
 
 3. `soft_oir_attributes.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the soft OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases).
@@ -58,7 +59,7 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 
 #### 1.1 Optics Insertion and Removal Testing
 
-This section outlines the test cases for validating the insertion and removal of optics in SONiC. The state transitions and services' health are to be tested as a result of optics insertion and removal (OIR). The tests cover both physical and simulated OIR scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
+This section outlines the test cases for validating the insertion and removal of optics in SONiC. The state transitions and services' health are to be tested as a result of optics insertion and removal. The tests cover both physical and simulated OIR scenarios, ensuring that the system behaves correctly when optics are inserted or removed.
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
