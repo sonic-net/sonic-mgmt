@@ -105,10 +105,10 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
 
 
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
-def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
-                           setup_standby_ports_on_rand_unselected_tor,
-                           toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
-                           dhcp_type, clean_processes_after_stress_test):
+def test_dhcp_relay_stress_with_xid(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                                    setup_standby_ports_on_rand_unselected_tor,
+                                    toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa F811
+                                    dhcp_type, clean_processes_after_stress_test):
     """Test DHCP relay functionality on T0 topology
        and verify that HCP relay service can handle the maximum load without failure.
     """

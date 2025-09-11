@@ -189,7 +189,7 @@ class DHCPStressRequestTest(DHCPTest):
         # Form and send DHCPREQUEST packet
         dhcp_request = self.create_dhcp_request_packet(dst_mac, src_port)
         end_time = time.time() + self.packets_send_duration
-        xid = 1
+        xid = 0
         while time.time() < end_time:
             # Set a unique transaction ID for each DHCPACK packet for making sure no packet miss
             dhcp_request[scapy.BOOTP].xid = xid
