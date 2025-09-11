@@ -9,7 +9,19 @@ Upgrade Service via gNOI
 - [Test cases](#test-cases)
 
 ## Overview
-The goal of this test is to verify that the Upgrade Service, implemented via gNOI, functions correctly across different deployment environments. This includes validating the gRPC-based upgrade workflow and error handling using both the upgrade-agent and gNOI server.
+The goal of this test is to verify the functionality and reliability of the Upgrade Service, a system designed to perform software upgrades on SONiC devices using the gNOI (gRPC Network Operations Interface) protocol.
+
+### What is the Upgrade Service?
+The Upgrade Service enables automated, remote upgrades of SONiC firmware and packages through a standardized gRPC-based workflow. It ensures that devices can be updated consistently across different environments—local VMs, virtualized SONiC instances (KVM), and physical hardware.
+
+###  End-to-End Function
+The service operates as follows:
+
+- Upgrade-agent (client) reads a YAML-defined workflow and initiates upgrade steps.
+- It communicates with the gNOI server (server-side container or daemon on the DUT) using gRPC.
+- The gNOI server handles upgrade operations like downloading firmware, verifying integrity, applying updates, and reporting status.
+- A firmware server hosts the upgrade images, which are fetched during the process.
+- A test harness coordinates the test execution and validates outcomes.
 
 ## Background
 **Components:**
@@ -18,9 +30,17 @@ The goal of this test is to verify that the Upgrade Service, implemented via gNO
 - **HTTP Firmware Server**: Serves test firmware files for download validation
 - **Test Harness**: Coordinates test scenarios and validates results
 
-## Scope
-This test targets upgrades running in three environments: local Linux VM, KVM-based SONiC, and physical SONiC devices. The purpose is to validate the compatibility and correctness of the upgrade service across these platforms, ensuring consistent behavior and reliability.
+# Upgrade System Components
 
+| Component      | Role & Responsibilities                                                                 | Dependencies & Requirements                                                                 | Potential Failure Points & Expected Behavior                                                                                     |
+|----------------|-----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
+| upgrade-agent  | CLI tool that drives upgrade workflows by translating YAML into gNOI RPCs               | Requires access to gNOI server and firmware server; supports dry-run and live execution modes | - Cannot connect to gNOI server: should timeout and return a clear network error.<br>- YAML parsing failure: should return syntax error and abort. |
+| gNOI Server    | Receives and executes upgrade RPCs on the DUT or mock platform                          | Must expose gRPC port; may run in container or as daemon on SONiC device; needs firmware access | - Server not running or port blocked: agent should timeout and report connection failure.<br>- Server crash mid-upgrade: agent should log error and mark session incomplete. |
+| Firmware Server| Hosts firmware images for remote download and integrity verification                    | Accessible via HTTP/HTTPS; must serve valid files with correct SHA256 checksum                 | - Invalid URL or DNS failure: agent should retry or abort with download error.                                                   |
+
+
+## Scope
+This test targets the validation of the Upgrade Service across three distinct environments: local Linux VM, KVM-based SONiC, and physical SONiC devices. (These environments are selected not because they all support SONiC upgrades directly, but to represent a spectrum of system fidelity and accessibility.)
 
 ### Related APIs
 Server-side (gNOI)
@@ -62,32 +82,54 @@ spec:
         timeout: 30
 ```
 
-## Test structure
-### Setup Configuration
-1. Deploy gNOI server on Linux local host. (sonic-gnmi PR test only)
-2. Build and install upgrade-agent.
-3. Ensure gRPC port is reachable from the agent.
-
-### Configuration scripts
-upgrade-agent – CLI tool for upgrade operations
-
 ## Test scenario
 1. PR testing(sonic-gnmi): This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests.
 2. KVM PR testing(sonic-buildimage) This test runs in the sonic-buildimage repository's pull request pipeline, using a KVM-based SONiC VM. It verifies that gNOI upgrade-related components.
 3. Nightly testing(sonic-mgmt): This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
 
-### Testbed setup & verification
-Provide a reproducible recipe for preparing a testbed, deploying components, and verifying RPCs and post-upgrade state.
+#### Motivation and Purpose
+This test validates gNOI upgrade functionality in a lightweight, reproducible environment during sonic-gnmi pull request development. The Local Linux VM test
+accomplishes several critical objectives:
 
-Testbed components
-- Control host / Test controller (PTF or CI runner) running the workflow engine / `upgrade-agent` and test harness.
-- Firmware server (HTTP/HTTPS) hosting test images.
-- DUT running SONiC with gNOI server available (container or daemon).
+Rapid Development Feedback - Developers can validate gNOI server changes without requiring full SONiC environments
+API Contract Verification - Ensures gRPC service definitions work correctly and return expected responses
+Component Integration - Validates that upgrade-agent can successfully communicate with gNOI server
+Workflow Engine Testing - Confirms YAML workflow parsing and execution logic
+CI/CD Integration - Provides fast, reliable automated testing for every PR
+This test serves as the first validation gate, catching integration issues before they reach more expensive KVM or physical device testing.
+
+**Architecture**
+The Local Linux VM test creates a minimal but complete upgrade ecosystem:
+
+graph LR
+    subgraph "Local Test Environment"
+        subgraph "Test Host (Linux VM/Container)"
+            AGENT["upgrade-agent<br/>(Client)"]
+            HTTP["HTTP Server<br/>(Python/nginx)<br/>Port 8080"]
+            TEST["Test Harness<br/>(pytest/Go test)"]
+        end
+
+        subgraph "gNOI Server Container"
+            GNOI["gNOI Server<br/>Port 50051"]
+            MOCK["Mock Platform APIs<br/>(sonic-installer stub)"]
+        end
+    end
+
+    AGENT -->|"gRPC calls<br/>SetPackage, GetStatus"| GNOI
+    GNOI -->|"Download firmware"| HTTP
+    TEST -->|"Orchestrates test scenarios"| AGENT
+    GNOI -->|"Calls platform operations"| MOCK
+
+#### Components:
+
+- **upgrade-agent (Client)**: CLI tool that reads YAML workflows and translates them to gNOI calls
+- **gNOI Server (Server)**: Containerized gNOI service with mock platform implementations
+- **HTTP Firmware Server**: Serves test firmware files for download validation
+- **Test Harness**: Coordinates test scenarios and validates results
 
 ## Setup Instructions
 
-### 1. Deploy gNOI Server Container (Only for Linux local test - sonic-gnmi PR testing)
-
+### 1. Deploy gNOI Server Container
 ```bash
 # Build and run gNOI server with mock platform support
 docker build -t gnoi-server-test -f Dockerfile.test .
@@ -117,12 +159,11 @@ upgrade-agent version
 ```
 
 ### 3. Setup Test Firmware Server
-
 ```bash
 # Create test firmware files
 mkdir -p /tmp/firmware-server
 echo "mock-firmware-v1.0" > /tmp/firmware-server/test-firmware.bin
-md5sum /tmp/firmware-server/test-firmware.bin | awk '{print $1}' > /tmp/firmware-server/test-firmware.bin.md5
+echo "d41d8cd98f00b204e9800998ecf8427e" > /tmp/firmware-server/test-firmware.bin.sha256
 
 # Start HTTP server
 cd /tmp/firmware-server
@@ -135,36 +176,33 @@ curl -f http://localhost:8080/test-firmware.bin
 ```
 
 ## Test Execution
-
 ### 1. Basic Connectivity Test
-
 ```bash
 # Test gRPC service discovery
 grpcurl -plaintext localhost:50051 list
 ```
 
 Expected output:
-```
+
+```bash
 gnoi.file.File
 gnoi.system.System
 grpc.reflection.v1alpha.ServerReflection
-```
-
-```bash
 # Test specific service methods
 grpcurl -plaintext localhost:50051 list gnoi.system.System
 ```
 
 Expected output:
-```
+
+```bash
 gnoi.system.System.SetPackage
 gnoi.system.System.GetStatus
 ```
+
 ### 2. YAML Workflow Test
 
 Create test workflow file:
-
-```yaml
+```bash
 # test-download-workflow.yml
 apiVersion: sonic.net/v1
 kind: UpgradeWorkflow
@@ -180,6 +218,7 @@ spec:
         sha256: "d41d8cd98f00b204e9800998ecf8427e"
         timeout: 30
 ```
+
 Execute workflow test:
 ```bash
 # Test workflow parsing and execution
@@ -187,7 +226,7 @@ upgrade-agent apply test-download-workflow.yml --target localhost:50051 --dry-ru
 ```
 
 Expected output:
-```
+```bash
 ✓ Workflow parsed successfully
 ✓ Connected to gNOI server at localhost:50051
 ✓ Dry-run: Would execute download step 'download-test-firmware'
@@ -195,14 +234,13 @@ Expected output:
 → Target: /tmp/test-firmware.bin
 → Expected SHA256: d41d8cd98f00b204e9800998ecf8427e
 ```
-
 ```bash
 # Execute actual workflow
 upgrade-agent apply test-download-workflow.yml --target localhost:50051
 ```
 
 Expected output:
-```
+```bash
 ✓ Starting workflow 'test-download'
 ✓ Step 1/1: download-test-firmware
 → Downloading from http://localhost:8080/test-firmware.bin
@@ -213,27 +251,27 @@ Expected output:
 ```
 
 ### 3. Error Condition Testing
-
 ```bash
 # Test invalid URL
 upgrade-agent apply --set url=http://invalid-host/firmware.bin test-download-workflow.yml --target localhost:50051
 ```
 
 Expected output:
-```
+
+```bash
 ✗ Step 1/1: download-test-firmware
 → Error: Failed to download from http://invalid-host/firmware.bin
 → Cause: no such host
 ✗ Workflow failed
 ```
-
 ```bash
 # Test checksum mismatch
 upgrade-agent apply --set sha256=invalid-checksum test-download-workflow.yml --target localhost:50051
 ```
 
 Expected output:
-```
+
+```bash
 ✗ Step 1/1: download-test-firmware
 → Downloaded 15 bytes successfully
 → SHA256 verification: FAILED
@@ -242,18 +280,15 @@ Expected output:
 ✗ Workflow failed
 ```
 
-## Expected Results
+### Expected Results
+#### Success Indicators
+- Service Discovery: grpcurl list returns expected gNOI services
+- Workflow Parsing: YAML files parse without syntax errors
+- Download Success: Files download with correct checksums
+- Status Reporting: Progress updates appear during operations
+- Error Handling: Invalid inputs produce clear error messages
 
-### Success Indicators
-
-1. **Service Discovery**: `grpcurl list` returns expected gNOI services
-2. **Workflow Parsing**: YAML files parse without syntax errors
-3. **Download Success**: Files download with correct checksums
-4. **Status Reporting**: Progress updates appear during operations
-5. **Error Handling**: Invalid inputs produce clear error messages
-
-## Cleanup 
-- Only required for Linux local test (sonic-gnmi PR test)
+### Cleanup
 ```bash
 # Stop and remove containers
 docker stop gnoi-test-server
