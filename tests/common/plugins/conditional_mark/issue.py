@@ -1,7 +1,6 @@
 """For checking issue state based on supplied issue URL.
 """
 import logging
-import multiprocessing
 import os
 import re
 from abc import ABCMeta, abstractmethod
@@ -115,35 +114,18 @@ def issue_checker_factory(url, proxies):
     return None
 
 
-def check_issues(issues, proxies=None):
-    """Check state of the specified issues.
-
-    Because issue state checking may involve sending HTTP request. This function uses parallel run to speed up
-    issue status checking.
+def check_issue(issue, proxies=None):
+    """Check state of the specified issue.
 
     Args:
-        issues (list of str): List of issue URLs.
+        issue (str): Issue URL.
 
     Returns:
         dict: Issue state check result. Key is issue URL, value is either True or False based on issue state.
     """
-    checkers = [c for c in [issue_checker_factory(issue, proxies) for issue in issues] if c is not None]
-    if not checkers:
-        logger.error('No checker created for issues: {}'.format(issues))
+    checker = issue_checker_factory(issue, proxies)
+    if not checker:
+        logger.error('No checker created for issue: {}'.format(issue))
         return {}
 
-    check_results = multiprocessing.Manager().dict()
-    check_procs = []
-
-    def _check_issue(checker, results):
-        results[checker.url] = checker.is_active()
-
-    for checker in checkers:
-        check_procs.append(multiprocessing.Process(target=_check_issue, args=(checker, check_results,)))
-
-    for proc in check_procs:
-        proc.start()
-    for proc in check_procs:
-        proc.join(timeout=60)
-
-    return dict(check_results)
+    return {issue: checker.is_active()}

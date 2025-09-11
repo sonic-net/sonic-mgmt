@@ -13,7 +13,7 @@ import glob
 import pytest
 
 from tests.common.testbed import TestbedInfo
-from .issue import check_issues
+from .issue import check_issue
 from tests.common.utilities import get_duts_from_host_pattern
 
 logger = logging.getLogger(__name__)
@@ -502,48 +502,10 @@ def find_all_matches(nodeid, conditions, session, dynamic_update_skip_reason, ba
     return matches
 
 
-def update_issue_status(condition_str, session):
-    """Replace issue URL with 'True' or 'False' based on its active state.
-
-    If there is an issue URL is found, this function will try to query state of the issue and replace the URL
-    in the condition string with 'True' or 'False' based on its active state.
-
-    The issue URL may be Github, Jira, Redmine, etc.
-
-    Args:
-        condition_str (str): Condition string that may contain issue URLs.
-        session (obj): Pytest session object, for getting cached data.
-
-    Returns:
-        str: New condition string with issue URLs already replaced with 'True' or 'False'.
-    """
-    issues = re.findall('https?://[^ )]+', condition_str)
-    if not issues:
-        logger.debug('No issue specified in condition')
-        return condition_str
-
-    issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
-    proxies = session.config.cache.get('PROXIES', {})
-
-    unknown_issues = [issue_url for issue_url in issues if issue_url not in issue_status_cache]
-    if unknown_issues:
-        results = check_issues(unknown_issues, proxies=proxies)
-        issue_status_cache.update(results)
-        session.config.cache.set('ISSUE_STATUS', issue_status_cache)
-
-    for issue_url in issues:
-        if issue_url in issue_status_cache:
-            replace_str = str(issue_status_cache[issue_url])
-        else:
-            # Consider the issue as active anyway if unable to get issue state
-            replace_str = 'True'
-
-        condition_str = condition_str.replace(issue_url, replace_str)
-    return condition_str
-
-
 def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basic_facts, session):
     """Evaluate a condition string based on supplied basic facts.
+
+    URLs in the condition will be checked only when required for evaluation of the condition.
 
     Args:
         dynamic_update_skip_reason(bool): Dynamically update the skip reason based on the conditions, if it is true,
@@ -561,9 +523,21 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
     if condition is None or condition.strip() == '':
         return True    # Empty condition item will be evaluated as True. Equivalent to be ignored.
 
-    condition_str = update_issue_status(condition, session)
+    # Replace each issue url with a call to _check('url').
+    condition_str = re.sub('https?://[^ )]+', lambda m: "_check(%r)" % m.group(0), condition)
+
+    def _check(issue_url):
+        issue_status_cache = session.config.cache.get('ISSUE_STATUS', {})
+        if issue_url in issue_status_cache:
+            return issue_status_cache[issue_url]
+        proxies = session.config.cache.get('PROXIES', {})
+        result = check_issue(issue_url, proxies=proxies)
+        issue_status_cache.update(result)
+        session.config.cache.set('ISSUE_STATUS', issue_status_cache)
+        return issue_status_cache[issue_url]
+
     try:
-        condition_result = bool(eval(condition_str, basic_facts))
+        condition_result = bool(eval(condition_str, {**basic_facts, '_check': _check}))
         if condition_result and dynamic_update_skip_reason:
             mark_details['reason'].append(condition)
         return condition_result
