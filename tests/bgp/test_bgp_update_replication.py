@@ -25,6 +25,10 @@ ASN_BASE = 61000
 PORT_BASE = 11000
 SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
 
+pytestmark = [
+    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2')
+]
+
 
 '''
     Helper functions
