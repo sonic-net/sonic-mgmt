@@ -32,11 +32,6 @@
   become: yes
   when: docker_registry_username is defined and docker_registry_password is defined
 
-- name: set batch_mode for lt2 topo
-  set_fact:
-    batch_mode: True
-  when: "'lt2' in topo"
-
 - name: Deploy Keysight API Server container
   block:
     - name: Get Keysight API Server container status
@@ -156,7 +151,6 @@
         duts_name: "{{ duts_name.split(',') }}"
         fp_mtu: "{{ fp_mtu_size }}"
         max_fp_num: "{{ max_fp_num }}"
-        batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
       become: yes
 
   when: container_type == "IxANVL-CONF-TESTER"
@@ -247,7 +241,6 @@
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
-      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
     become: yes
 
   - name: Bind topology {{ topo }} to DPUs.
@@ -273,7 +266,6 @@
       fp_mtu: "{{ fp_mtu_size }}"
       max_fp_num: "{{ max_fp_num }}"
       netns_mgmt_ip_addr: "{{ netns_mgmt_ip if netns_mgmt_ip is defined else omit }}"
-      batch_mode: "{{ batch_mode if batch_mode is defined else omit }}"
       is_dpu: true
     become: yes
     when: dpu_targets is defined and dpu_targets | length > 0
