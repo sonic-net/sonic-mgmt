@@ -101,6 +101,7 @@ This test serves as the first validation gate, catching integration issues befor
 **Architecture**
 The Local Linux VM test creates a minimal but complete upgrade ecosystem:
 
+```mermaid
 graph LR
     subgraph "Local Test Environment"
         subgraph "Test Host (Linux VM/Container)"
