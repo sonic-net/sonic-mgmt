@@ -163,7 +163,6 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
         drop_reason (str): The drop reason being tested.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    counter_type = setup_counters([drop_reason])
 
     rx_port = random.choice([port
                              for port in list(testbed_params["physical_port_map"].keys())
@@ -180,6 +179,7 @@ def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_d
                          "SET", "static")
         mock_server["fanout_neighbor"].shutdown(mock_server["fanout_intf"])
         time.sleep(3)
+        counter_type = setup_counters([drop_reason])
         verifyFdbArp(duthost, mock_server['server_dst_addr'],
                      mock_server['server_dst_mac'], mock_server['server_dst_intf'])
         send_dropped_traffic(counter_type, pkt, rx_port)
