@@ -474,7 +474,7 @@ def test_fan_info(duthosts, enum_rand_one_per_hwsku_hostname, snmp_physical_enti
         entity_info = redis_hgetall(duthost, STATE_DB, entity_info_key)
         position = int(entity_info['position_in_parent'])
         parent_name = entity_info['parent_name']
-        if 'PSU' in parent_name:
+        if parent_name and 'psu' in parent_name.lower():
             continue
         elif parent_name == CHASSIS_KEY:
             parent_oid = MODULE_TYPE_FAN_DRAWER + position * MODULE_INDEX_MULTIPLE
