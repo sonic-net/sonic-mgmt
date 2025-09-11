@@ -14,6 +14,14 @@ from snappi_tests.dataplane.files.helper import (
     check_bgp_state
 )  # noqa: F401, F403, F405, E402
 
+METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
+METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
+METRIC_LABEL_TG_TRAFFIC_RATE: Final[str] = "tg.traffic_rate"
+METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
+METRIC_LABEL_TG_FRAME_SIZE: Final[str] = "tg.frame_size"
+METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"
+METRIC_NAME_BGP_CONVERGENCE_ROUTE_TIME_MS: Final[str] = "bgp.convergence.route.time.ms"
+METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS: Final[str] = "bgp.convergence.dataplane.time.ms"
 common_labels = [
     Point("Test_Info")
     .tag("METRIC_LABEL_TESTBED", "TB-XYZ")
@@ -148,7 +156,7 @@ def get_convergence_for_single_session_flap(
             elif subnet_type == "IPv6":
                 check_bgp_state(snappi_api, type="bgpv6")
             start_stop(snappi_api, operation="start", op_type="traffic")
-            flow_stats = get_stats(snappi_api, "Flow Statistics")
+            flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
             pytest_assert(int(flow_stats[0].loss) == 0, f"Loss Observed in {flow_stats[0].name} before link Flap")
             # Add average Tx and Rx Rate check consistent among all ports used in the test
             port_stats = get_stats(snappi_api, "Port Statistics")
@@ -192,7 +200,7 @@ def get_convergence_for_single_session_flap(
             )
             # calculate pld
             wait(20, "For statistics to be collected")
-            flow_stats = get_stats(snappi_api, "Flow Statistics")
+            flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
             pytest_assert(
                 int(flow_stats[0].loss) == 0,
                 "Total Tx Rx Rates are not equal after link flap",
@@ -270,7 +278,7 @@ def get_convergence_for_single_session_flap(
 
             snappi_api._ixnetwork.ClearStats()
             wait(20, "For clear stats")
-            flow_stats = get_stats(snappi_api, "Flow Statistics")
+            flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
             pytest_assert(
                 int(flow_stats[0].loss) == 0,
                 "Tx Rx Rates are not equal after route withdraw",
@@ -280,7 +288,8 @@ def get_convergence_for_single_session_flap(
             logger.info('\n')
             logger.info('--------------------------   Convergence Numbers   ----------------------------------')
             logger.info('Convergence Time for Single Route Withdraw : {} (ms)'.format(pkt_loss_duration))
-            logger.info('Time taken to apply acl and route withdraw on snappi port: {} (s)'.format(end_time - start_time))
+            logger.info('Time taken to apply acl and route withdraw on snappi port: {} (s)'.
+                        format(end_time - start_time))
             logger.info('--------------------------------------------------------------------------------------')
             start_stop(snappi_api, operation="stop", op_type="traffic")
             # Create metrics
