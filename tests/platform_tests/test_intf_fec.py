@@ -150,6 +150,28 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             return True
         return False
 
+    def skip_fec_flr_counters_test(intf_status: dict) -> bool:
+        """
+        Check whether the FEC_FLR Field exists in the
+        "show interfaces counters fec-stats"
+        CLI output
+        """
+        if intf_status.get('fec_flr') is None:
+            pytest.skip("Fec-Flr field is missing on interface. intf_status: {}".format(intf_status))
+            return True
+        return False
+
+    def skip_predicted_flr_counters_test(intf_status: dict) -> bool:
+        """
+        Check whether the FEC_FLR_PREDICTED Field exists in the
+        "show interfaces counters fec-stats"
+        CLI output
+        """
+        if intf_status.get('fec_flr_predicted') is None:
+            pytest.skip("Fec-Flr-Predicted field is missing on interface. intf_status: {}".format(intf_status))
+            return True
+        return False
+
     for intf in intf_status:
         intf_name = intf['iface']
         speed = duthost.get_speed(intf_name)
@@ -184,6 +206,26 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(fec_symbol_err_int, fec_corr_int, intf_name))
+
+        # Test for fec_flr
+        if not skip_fec_flr_counters_test(intf):
+            fec_flr = intf.get('fec_flr', '').lower()
+            try:
+                if fec_flr !="n/a":
+                    float(fec_flr)
+            except ValueError:
+                pytest.fail("fec_flr is not a valid float for interface {}, \
+                            fec_flr: {}".format(intf_name, fec_flr))
+
+        # Test for fec_flr_predicted
+        if not skip_predicted_flr_counters_test(intf):
+            fec_flr_predicted = intf.get('fec_flr_predicted', '').lower()
+            try:
+                if fec_flr_predicted !="n/a":
+                    float(fec_flr_predicted)
+            except ValueError:
+                pytest.fail("fec_flr_predicted is not a valid float for interface {}, \
+                            fec_flr_predicted: {}".format(intf_name, fec_flr_predicted))
 
         if skip_ber_counters_test(intf):
             continue
