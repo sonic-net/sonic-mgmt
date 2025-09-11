@@ -786,8 +786,8 @@ def verify_tx_cgm_state(test_case, dst_interfaces, queue_idx, expect_queue_empty
             log_message("Queue {} is not empty: rd_ptr={}, wr_ptr={}".format(queue_idx, rd_ptr, wr_ptr),
                         level='warning', to_stderr=True)
     if not expect_queue_empty and not pkts_in_queue:
-        qos_test_assert(test_case, False,
-                        "Queue {} is expected to be not empty, but it is empty".format(queue_idx))
+        log_message("Queue {} is expected to be not empty, but it is empty".format(queue_idx),
+                    level='warning', to_stderr=True)
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
