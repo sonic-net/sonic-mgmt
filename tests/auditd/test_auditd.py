@@ -22,6 +22,27 @@ CURL_CMD = "curl http://localhost:50058"    # noqa: W605
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def manage_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Stop auditd before any tests in this module run,
+    and restart auditd after all tests complete.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # --- setup: stop auditd once ---
+    duthost.command("sudo systemctl stop auditd")
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
+    pytest_assert(output != "active", "auditd service is still running when it should be inactive")
+
+    yield  # run the tests
+
+    # --- teardown: restart auditd once ---
+    duthost.command("sudo systemctl restart auditd")
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
+    pytest_assert(output == "active", "auditd service did not restart after tests")
+
+
 def is_log_valid(pattern, logs):
     for log in logs:
         if pattern in log and "ansible-ansible" not in log:
@@ -76,15 +97,14 @@ def test_modules_changes(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
-    duthost.command("sudo auditctl -r 0")
-    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
-    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
     dutip = duthost.mgmt_ip
 
     kernel_version = duthost.command("uname -r")["stdout"].strip()
+    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+    duthost.command("sudo auditctl -r 0")
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
                    f"sudo cat /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko > /dev/null")
+    duthost.command("sudo systemctl stop auditd")
 
     # Search SYSCALL & PATH logs
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
@@ -99,8 +119,6 @@ def test_modules_changes(localhost,
 
     assert is_log_valid("type=SYSCALL", logs), "Auditd modules_changes rule does not contain the SYSCALL logs"
 
-    duthost.command("sudo systemctl stop auditd")
-
 
 def test_directory_based_keys(localhost,
                               duthosts,
@@ -110,10 +128,6 @@ def test_directory_based_keys(localhost,
     Test directory-based rules (triggered by creating files in watched directories)
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
-    duthost.command("sudo auditctl -r 0")
-    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
-    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
     dutip = duthost.mgmt_ip
     random_uuid = str(uuid.uuid4())
     key_file_mapping = {
@@ -137,11 +151,14 @@ def test_directory_based_keys(localhost,
         for path in paths:
             random_file = f"{path}{random_uuid}"
             # Trigger audit event
+            duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+            duthost.command("sudo auditctl -r 0")
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
                            f"sudo touch {random_file}")
 
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
                            f"sudo rm -f  {random_file}")
+            duthost.command("sudo systemctl stop auditd")
 
             cmd = f"sudo zgrep '{random_file}' /var/log/syslog*"
             logs = duthost.shell(cmd)["stdout_lines"]
@@ -163,8 +180,6 @@ def test_directory_based_keys(localhost,
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs"
 
-    duthost.command("sudo systemctl stop auditd")
-
 
 def test_file_based_keys(localhost,
                          duthosts,
@@ -174,10 +189,6 @@ def test_file_based_keys(localhost,
     Test file-based auditd rules using 'sudo chown root:root <file>'
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
-    duthost.command("sudo auditctl -r 0")
-    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
-    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
     dutip = duthost.mgmt_ip
     key_file_mapping = {
         "auth_logs": ["/var/log/auth.log"],
@@ -199,7 +210,10 @@ def test_file_based_keys(localhost,
         for path in paths:
             # Trigger audit event
             chown_cmd = f"sudo chown root:root {path}"
+            duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+            duthost.command("sudo auditctl -r 0")
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], chown_cmd)
+            duthost.command("sudo systemctl stop auditd")
 
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -215,8 +229,6 @@ def test_file_based_keys(localhost,
 
             assert is_log_valid("type=SYSCALL", logs), \
                 f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
-
-    duthost.command("sudo systemctl stop auditd")
 
 
 def test_docker_config(localhost,
@@ -224,10 +236,6 @@ def test_docker_config(localhost,
                        enum_rand_one_per_hwsku_hostname,
                        creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
-    duthost.command("sudo auditctl -r 0")
-    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
-    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
     dutip = duthost.mgmt_ip
     key_file_mapping = {
         "docker_config": ["/etc/docker/daemon.json"],
@@ -235,20 +243,13 @@ def test_docker_config(localhost,
 
     for key, paths in key_file_mapping.items():
         for path in paths:
-            # Check if the file exists
-            check_cmd = f"sudo test -e {path} && echo exists || echo missing"
-            exists = duthost.shell(check_cmd)['stdout_lines']
-
-            if "exists" in exists:
-                # File exists, trigger event using chown
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                               f"sudo chown root:root {path}")
-            elif "missing" in exists:
-                # File doesn't exist, create and delete to trigger event
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                               f"sudo touch {path}")
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                               f"sudo rm -f {path}")
+            duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+            duthost.command("sudo auditctl -r 0")
+            ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                            f"sudo touch {path}")
+            ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                            f"sudo rm -f {path}")
+            duthost.command("sudo systemctl stop auditd")
 
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -264,7 +265,6 @@ def test_docker_config(localhost,
             assert is_log_valid("type=SYSCALL", logs), \
                 f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
 
-    duthost.command("sudo systemctl stop auditd")
 
 
 def test_docker_commands(localhost,
@@ -272,13 +272,12 @@ def test_docker_commands(localhost,
                          enum_rand_one_per_hwsku_hostname,
                          creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
-    duthost.command("sudo auditctl -r 0")
-    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
-    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
     dutip = duthost.mgmt_ip
 
+    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+    duthost.command("sudo auditctl -r 0")
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], "docker ps")
+    duthost.command("sudo systemctl stop auditd")
 
     # Search SYSCALL & PATH logs
     cmd = "sudo zgrep docker_commands /var/log/syslog* | grep /usr/bin/docker"
@@ -292,8 +291,6 @@ def test_docker_commands(localhost,
     logs = duthost.shell(cmd)["stdout_lines"]
 
     assert is_log_valid("type=PATH", logs), "Auditd docker_commands rule does not contain the PATH logs"
-
-    duthost.command("sudo systemctl stop auditd")
 
 
 def test_auditd_functionality(duthosts,

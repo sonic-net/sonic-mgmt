@@ -149,8 +149,6 @@ def pull_run_dockers(duthost, creds, env):
         if duthost.shell(f"docker run -d {parameters} --name {name} {docker_image}",
                          module_ignore_errors=True)['rc'] != 0:
             pytest.fail("Not able to run container using pulled image")
-        if name == "auditd":
-            duthost.command("sudo systemctl stop auditd")
 
 
 def store_results(request, test_results, env):
