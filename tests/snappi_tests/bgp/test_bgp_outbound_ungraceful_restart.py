@@ -1,6 +1,6 @@
 import pytest
 import logging
-from tests.common.helpers.assertions import pytest_require                                          # noqa: F401
+from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts_multidut                                                                     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -32,7 +32,8 @@ def test_bgp_outbound_uplink_ungraceful_restart(snappi_api,                     
                                                 conn_graph_facts,                             # noqa: F811
                                                 fanout_graph_facts_multidut,                  # noqa: F811
                                                 duthosts,
-                                                creds):                                # noqa: F811
+                                                creds,
+                                                record_property):                                # noqa: F811
 
     """
     Gets the packet loss duration on issuing ungraceful restart in uplink
@@ -72,13 +73,16 @@ def test_bgp_outbound_uplink_ungraceful_restart(snappi_api,                     
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][1]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
-    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(
+        multidut_snappi_ports_for_bgp)
+    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(
+        t1_snappi_ports[hw_platform])
 
     run_bgp_outbound_ungraceful_restart(api=snappi_api,
                                         creds=creds,
                                         is_supervisor=False,
-                                        snappi_extra_params=snappi_extra_params)
+                                        snappi_extra_params=snappi_extra_params,
+                                        record_property=record_property)
 
 
 def test_bgp_outbound_downlink_ungraceful_restart(snappi_api,                                     # noqa: F811
@@ -86,7 +90,8 @@ def test_bgp_outbound_downlink_ungraceful_restart(snappi_api,                   
                                                   conn_graph_facts,                             # noqa: F811
                                                   fanout_graph_facts_multidut,                  # noqa: F811
                                                   duthosts,
-                                                  creds):                                # noqa: F811
+                                                  creds,
+                                                  record_property):                                # noqa: F811
 
     """
     Gets the packet loss duration on issuing ungraceful restart in downlink
@@ -127,13 +132,16 @@ def test_bgp_outbound_downlink_ungraceful_restart(snappi_api,                   
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][2]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
-    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(
+        multidut_snappi_ports_for_bgp)
+    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(
+        t1_snappi_ports[hw_platform])
 
     run_bgp_outbound_ungraceful_restart(api=snappi_api,
                                         creds=creds,
                                         is_supervisor=False,
-                                        snappi_extra_params=snappi_extra_params)
+                                        snappi_extra_params=snappi_extra_params,
+                                        record_property=record_property)
 
 
 def test_bgp_outbound_supervisor_ungraceful_restart(snappi_api,                                     # noqa: F811
@@ -141,7 +149,8 @@ def test_bgp_outbound_supervisor_ungraceful_restart(snappi_api,                 
                                                     conn_graph_facts,                             # noqa: F811
                                                     fanout_graph_facts_multidut,                  # noqa: F811
                                                     duthosts,
-                                                    creds):                                # noqa: F811
+                                                    creds,
+                                                    record_property):                                # noqa: F811
 
     """
     Gets the packet loss duration on issuing ungraceful restart in supervisor
@@ -182,10 +191,13 @@ def test_bgp_outbound_supervisor_ungraceful_restart(snappi_api,                 
     snappi_extra_params.multi_dut_params.t1_hostname = t1_t2_device_hostnames[hw_platform][0]
     snappi_extra_params.device_name = t1_t2_device_hostnames[hw_platform][3]
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
-    snappi_extra_params.multi_dut_params.multi_dut_ports = list(multidut_snappi_ports_for_bgp)
-    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(t1_snappi_ports[hw_platform])
+    snappi_extra_params.multi_dut_params.multi_dut_ports = list(
+        multidut_snappi_ports_for_bgp)
+    snappi_extra_params.multi_dut_params.multi_dut_ports.extend(
+        t1_snappi_ports[hw_platform])
 
     run_bgp_outbound_ungraceful_restart(api=snappi_api,
                                         creds=creds,
                                         is_supervisor=True,
-                                        snappi_extra_params=snappi_extra_params)
+                                        snappi_extra_params=snappi_extra_params,
+                                        record_property=record_property)

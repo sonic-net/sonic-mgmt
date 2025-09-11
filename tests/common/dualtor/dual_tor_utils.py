@@ -1669,44 +1669,27 @@ def config_dualtor_arp_responder(tbinfo, duthost, mux_config, ptfhost):     # no
     ptfhost.shell("supervisorctl stop arp_responder", module_ignore_errors=True)
 
 
-@pytest.fixture
-def validate_active_active_dualtor_setup(
-        duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa: F811
-    """Validate that both ToRs are active for active-active mux ports."""
+def run_mux_config_command(tor, cmd, expected_output=None, forbidden_output=None):
+    cmds = []
+    cmds.append(cmd)
+    result = tor.shell_cmds(cmds=cmds)
 
-    def check_active_active_port_status(duthost, ports, status):
-        logging.debug("Check mux status for ports {} is {}".format(ports, status))
-        show_mux_status_ret = show_muxcable_status(duthost)
-        logging.debug("show_mux_status_ret: {}".format(json.dumps(show_mux_status_ret, indent=4)))
-        for port in ports:
-            if port not in show_mux_status_ret:
-                return False
-            elif show_mux_status_ret[port]['status'] != status:
-                return False
-        return True
+    if expected_output is None:
+        expected_output = []
+    if forbidden_output is None:
+        forbidden_output = []
 
-    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
-        return
+    for output in forbidden_output:
+        if output in result['results'][0]['stdout']:
+            logging.error("Unexpected output {} in when running command {}".format(output, cmd))
+            return False
 
-    if all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
-        return
+    for output in expected_output:
+        if output not in result['results'][0]['stdout']:
+            logging.error("Unexpected output {} in when running command {}".format(output, cmd))
+            return False
 
-    restart_nic_simulator()
-    ptfhost.shell("supervisorctl restart icmp_responder")
-
-    # verify icmp_responder is running
-    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
-    pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
-
-    duthosts.shell("systemctl restart mux.service")
-    # verify both ToRs are active
-    for duthost in duthosts:
-        pt_assert(
-            wait_until(30, 5, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
-            "Not all active-active mux ports are active on device %s" % duthost.hostname
-        )
-
-    return
+    return True
 
 
 def check_active_active_port_status(duthost, ports, status):
@@ -1722,6 +1705,44 @@ def check_active_active_port_status(duthost, ports, status):
     return True
 
 
+@pytest.fixture
+def validate_active_active_dualtor_setup(
+        duthosts, active_active_ports, ptfhost, tbinfo, restart_nic_simulator):  # noqa: F811
+    """Validate that both ToRs are active for active-active mux ports."""
+    if not ('dualtor' in tbinfo['topo']['name'] and active_active_ports):
+        return
+
+    if all(check_active_active_port_status(duthost, active_active_ports, "active") for duthost in duthosts):
+        return
+
+    restart_nic_simulator()
+    ptfhost.shell("supervisorctl restart icmp_responder")
+
+    # verify icmp_responder is running
+    icmp_responder_status = ptfhost.shell("supervisorctl status icmp_responder", module_ignore_errors=True)["stdout"]
+    pt_assert("RUNNING" in icmp_responder_status, "icmp_responder not running in ptf")
+
+    for port in active_active_ports:
+        for duthost in duthosts:
+            cmd = "config mux mode active {}".format(port)
+            pt_assert(
+                wait_until(
+                    90, 10, 0, run_mux_config_command, duthost, cmd,
+                    expected_output=["OK"],
+                    forbidden_output=["this is not a valid port present on mux_cable"]
+                ),
+                "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+            )
+    duthosts.shell("systemctl restart mux.service")
+    # verify both ToRs are active
+    for duthost in duthosts:
+        pt_assert(
+            wait_until(90, 20, 0, check_active_active_port_status, duthost, active_active_ports, "active"),
+            "Not all active-active mux ports are active on device %s" % duthost.hostname)
+
+    return
+
+
 def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally=False):
     """Toggle the active-active mux ports via CLI."""
     active_side_commands = []
@@ -1734,13 +1755,28 @@ def config_active_active_dualtor(active_tor, standby_tor, ports, unconditionally
         standby_side_commands.append("config mux mode standby {}".format(port))
 
     if not check_active_active_port_status(active_tor, ports, 'active') or unconditionally:
-        active_tor.shell_cmds(cmds=active_side_commands)
-    standby_tor.shell_cmds(cmds=standby_side_commands)
+        for cmd in active_side_commands:
+            pt_assert(
+                wait_until(
+                    90, 10, 0, run_mux_config_command, active_tor, cmd, expected_output=[],
+                    forbidden_output=["this is not a valid port present on mux_cable"]
+                ),
+                "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+            )
+    for cmd in standby_side_commands:
+        pt_assert(
+            wait_until(
+                90, 10, 0, run_mux_config_command, standby_tor, cmd, expected_output=[],
+                forbidden_output=["this is not a valid port present on mux_cable"]
+            ),
+            "Port was not present on mux cable after 90 seconds - '{}' failed".format(cmd)
+        )
 
     pt_assert(wait_until(30, 5, 0, check_active_active_port_status, active_tor, ports, 'active'),
               "Could not config ports {} to active on {}".format(ports, active_tor.hostname))
     pt_assert(wait_until(30, 5, 0, check_active_active_port_status, standby_tor, ports, 'standby'),
               "Could not config ports {} to standby on {}".format(ports, standby_tor.hostname))
+    time.sleep(90)
 
 
 @pytest.fixture
@@ -1750,7 +1786,15 @@ def config_active_active_dualtor_active_standby(duthosts, active_active_ports, t
         yield
         return
 
+    def check_docker_status(duthost):
+        containers = duthost.get_all_containers()
+        for container in containers:
+            if not duthost.is_service_fully_started(container):
+                return False
+        return True
+
     def _config_active_active_dualtor_active_standby(active_tor, standby_tor, ports, unconditionally=False):
+        wait_until(300, 10, 0, check_docker_status, standby_tor)
         for port in ports:
             if port not in active_active_ports:
                 raise ValueError("Port {} is not in the active-active ports".format(port))

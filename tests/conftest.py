@@ -922,7 +922,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     for server in servers:
         vm_base = int(server['vm_base'][2:])
         vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.parse_topology_vms(
+        vms = MultiServersUtils.get_vms_by_dut_interfaces(
                 tbinfo['topo']['properties']['topology']['VMs'],
                 server['dut_interfaces']
             ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
@@ -1089,6 +1089,31 @@ def pdu():
 @pytest.fixture(scope="session")
 def creds(duthost):
     return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope="session")
+def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+    bgp_routes = {}
+    topo_name = tbinfo['topo']['name']
+    servers_dut_interfaces = None
+    if 'servers' in tbinfo:
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
+    for ptfhost in ptfhosts:
+        ptf_ip = ptfhost.mgmt_ip
+        res = localhost.announce_routes(
+            topo_name=topo_name,
+            ptf_ip=ptf_ip,
+            action='generate',
+            path="../ansible/",
+            log_path="logs",
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+        )
+        if 'topo_routes' not in res:
+            logger.warning("No routes generated.")
+        else:
+            bgp_routes.update(res['topo_routes'])
+    return bgp_routes
 
 
 @pytest.fixture(scope='module')
@@ -2081,13 +2106,11 @@ def parse_override(testbed, field):
     with open(override_file, 'r') as f:
         all_values = yaml.safe_load(f)
         if testbed not in all_values or field not in all_values[testbed]:
-            # When T1-tgen is available, we should do "return False, None"
-            return True, []
+            return False, None
 
         return True, all_values[testbed][field]
 
-    # When T1-tgen is available, we should do "return False, None"
-    return True, []
+    return False, None
 
 
 def generate_skeleton_port_info(request):
@@ -3473,6 +3496,12 @@ def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, requ
         except KeyError:
             continue
     logging.debug("dualtor mux port setup config: %s", dualtor_setup_config)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SKIP_SETUP_MUX_PORTS:
+        logging.info("skip setup dualtor mux cables")
+        yield False
+        return
+
     is_test_func_parametrized = hasattr(request.node, "callspec")
     is_enum = is_test_func_parametrized and \
         any(param.startswith("enum_") for param in request.node.callspec.params.keys())

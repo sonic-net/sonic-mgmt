@@ -88,8 +88,8 @@ def test_link_flap(request, duthosts, rand_one_dut_hostname, tbinfo, fanouthosts
     logger.info("watch orchagent CPU utilization when it goes below %d", orch_cpu_threshold)
     pytest_assert(
         wait_until(900, 20, 0, check_orch_cpu_utilization, duthost, orch_cpu_threshold),
-        "Orch CPU utilization {} > orch cpu threshold {} before link flap. "
-    ).format(
-        duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
-        orch_cpu_threshold
+        "Orch CPU utilization {} > orch cpu threshold {} before link flap. ".format(
+            duthost.shell("show processes cpu | grep orchagent | awk '{print $9}'")["stdout"],
+            orch_cpu_threshold
+        )
     )

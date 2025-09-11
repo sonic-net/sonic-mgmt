@@ -1,6 +1,7 @@
 """
 SONiC Dataplane Qos tests
 """
+import re
 import time
 import logging
 import ptf.packet as scapy
@@ -707,7 +708,7 @@ def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq
             test_case.test_params['dut_username'],
             test_case.test_params['dut_password'],
             check_cmd)
-        log_message("Log for {}: {}".format(egrep_str, stdout))
+        log_message("Log for {}: {}".format(egrep_str, stdout), level='info', to_stderr=True)
         for string in str_to_check:
             if string in "".join(stdout):
                 found_list.append(True)
@@ -715,10 +716,78 @@ def verify_log(test_case, pre_offsets, watchdog_enabled=True, watchdog_type='voq
                 found_list.append(False)
     if watchdog_enabled:
         qos_test_assert(test_case, all(found is True for found in found_list),
-                        "{} watchdog trigger not detected".format(watchdog_type))
+                        "{} watchdog trigger log not detected".format(watchdog_type))
     else:
         qos_test_assert(test_case, all(found is False for found in found_list),
-                        "unexpected {} watchdog trigger".format(watchdog_type))
+                        "unexpected {} watchdog trigger log".format(watchdog_type))
+
+
+def verify_queue_occupancy(test_case, dst_port_id, queue_idx, expect_queue_empty=True, timeout=0):
+    time_elapsed = 0
+    while True:
+        queue_counters = sai_thrift_read_queue_occupancy(test_case.dst_client, "dst", dst_port_id)
+        if expect_queue_empty and queue_counters[queue_idx] == 0:
+            break
+        elif not expect_queue_empty and queue_counters[queue_idx] > 0:
+            break
+        time.sleep(5)
+        time_elapsed += 5
+        if time_elapsed > timeout * 2:
+            break
+
+    if expect_queue_empty:
+        qos_test_assert(test_case, queue_counters[queue_idx] == 0,
+                        "Queue {} is not empty: queue_occupancy={}".format(queue_idx, queue_counters[queue_idx]))
+    elif not queue_counters[queue_idx]:
+        qos_test_assert(test_case, False,
+                        "Queue {} is expected to be not empty, but it is empty".format(queue_idx))
+    log_message("voq occupancy verified after {} seconds".format(time_elapsed), level='info', to_stderr=True)
+    qos_test_assert(test_case, time_elapsed <= timeout * 1.3,
+                    "voq occupancy verification took too long: {} seconds".format(time_elapsed))
+
+
+def get_queue_ptrs(test_case, interface, queue_idx):
+    """
+    Get queue read and write pointers for the given interface.
+    """
+    cmd = "sudo show platform npu tx cgm_state -i {}".format(interface)
+    stdout, err, ret = test_case.exec_cmd_on_dut(
+        test_case.dst_server_ip,
+        test_case.test_params['dut_username'],
+        test_case.test_params['dut_password'],
+        cmd)
+    log_message("{}: {}".format(cmd, stdout), level='info', to_stderr=True)
+    for line in stdout:
+        if "queue {} rd_ptr".format(queue_idx) in line:
+            pattern = r"queue {} rd_ptr (\d+) wr_ptr (\d+)".format(queue_idx)
+            result = re.search(pattern, line)
+            if result:
+                rd_ptr = int(result.group(1))
+                wr_ptr = int(result.group(2))
+                log_message("{} Queue {}: rd_ptr={}, wr_ptr={}".format(interface, queue_idx, rd_ptr, wr_ptr),
+                            level='info', to_stderr=True)
+                return rd_ptr, wr_ptr
+    raise RuntimeError(
+        "Queue {} not found in CGM state for interface {}".format(queue_idx, interface))
+
+
+def verify_tx_cgm_state(test_case, dst_interfaces, queue_idx, expect_queue_empty=True):
+    """
+    Verify TX CGM state for the given interfaces.
+    """
+    pkts_in_queue = False
+    for interface in dst_interfaces:
+        rd_ptr, wr_ptr = get_queue_ptrs(test_case, interface, queue_idx)
+        if expect_queue_empty:
+            qos_test_assert(test_case, rd_ptr == wr_ptr,
+                            "Queue {} is not empty: rd_ptr={}, wr_ptr={}".format(queue_idx, rd_ptr, wr_ptr))
+        elif rd_ptr != wr_ptr:
+            pkts_in_queue = True
+            log_message("Queue {} is not empty: rd_ptr={}, wr_ptr={}".format(queue_idx, rd_ptr, wr_ptr),
+                        level='warning', to_stderr=True)
+    if not expect_queue_empty and not pkts_in_queue:
+        log_message("Queue {} is expected to be not empty, but it is empty".format(queue_idx),
+                    level='warning', to_stderr=True)
 
 
 class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
@@ -752,6 +821,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
         self.dst_dut_index = self.test_params['dst_dut_index']
         self.dst_asic_index = self.test_params.get('dst_asic_index', None)
         self.testbed_type = self.test_params['testbed_type']
+        self.t0_src_uplink_dst_downlink = self.test_params.get('t0_src_uplink_dst_downlink', False)
 
     def tearDown(self):
         sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
@@ -818,7 +888,7 @@ class ARPpopulate(sai_base_test.ThriftInterfaceDataPlane):
                         send_packet(self, dst_port_id, arpreq_pkt)
 
             # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
-            if self.test_port_ips:
+            if self.test_port_ips and not self.t0_src_uplink_dst_downlink:
                 ips = [ip for ip in get_peer_addresses(self.test_port_ips)]
                 if ips:
                     cmd = 'for ip in {}; do ping -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
@@ -1511,8 +1581,20 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
         }
 
         try:
+            # Any watermark value before disabling the tx should be ignored
+            pg_shared_wm_res_before_tx_disable = sai_thrift_read_pg_shared_watermark(
+                    self.src_client, asic_type, port_list['src'][src_port_id])
+            logging.info(f"pg_shared_wm_res_before_tx_disable: {pg_shared_wm_res_before_tx_disable}")
+
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
+
+            if 'cisco-8000' in asic_type:
+                PKT_NUM = 50
+                cntr_wait_time = 1
+            else:
+                PKT_NUM = 100
+                cntr_wait_time = 8
 
             # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
             # Hence we send some packet to fill the leak before testing
@@ -1545,11 +1627,9 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     else:
                         send_packet(self, src_port_id, pkt, 20)
                 assert not leakout_failed, "Failed filling leakout"
-                time.sleep(10)
-            if 'cisco-8000' in asic_type:
-                PKT_NUM = 50
-            else:
-                PKT_NUM = 100
+                time.sleep(cntr_wait_time)
+
+            fails = []
             for inner_dscp, pg in dscp_to_pg_map.items():
                 logging.info("Iteration: inner_dscp:{}, pg: {}".format(inner_dscp, pg))
                 # Build and send packet to active tor.
@@ -1569,19 +1649,36 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 )
                 pg_shared_wm_res_base = sai_thrift_read_pg_shared_watermark(
                     self.src_client, asic_type, port_list['src'][src_port_id])
-                logging.info(pg_shared_wm_res_base)
+                logging.info(f"pg_shared_wm_res_base: {pg_shared_wm_res_base}")
+
+                # Ignore the watermark values before disabling the tx, do this for all the PGs only for the
+                # first iteration.
+                if pg_shared_wm_res_before_tx_disable:
+                    pg_shared_wm_res_base = \
+                        [pg_shared_wm_res_base[pg] - pg_shared_wm_res_before_tx_disable[pg] for pg in range(PG_NUM)]
+                    logging.info(
+                        f"pg_shared_wm_res_base - pg_shared_wm_res_before_tx_disable: {pg_shared_wm_res_base}")
+                    pg_shared_wm_res_before_tx_disable = None
+
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
-                time.sleep(8)
+                time.sleep(cntr_wait_time)
 
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
                                                                        port_list['src'][src_port_id])
+                logging.info(f"pg_shared_wm_res: {pg_shared_wm_res}")
                 pg_wm_inc = pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
+                logging.info(f"pg_wm_inc: {pg_wm_inc}")
                 lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
-                print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
-                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds), file=sys.stderr)
-                assert lower_bounds <= pg_wm_inc <= upper_bounds
+                msg = "DSCP {}, PG {}, expectation: {} <= {} <= {}, base wmk {}, new wmk {}".format(
+                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds,
+                    pg_shared_wm_res_base[pg], pg_shared_wm_res[pg])
+                print(msg, file=sys.stderr)
+                if not (lower_bounds <= pg_wm_inc <= upper_bounds):
+                    print("FAILED CHECK", file=sys.stderr)
+                    fails.append(msg)
+            assert len(fails) == 0, "Some PG watermark checks failed ({}): \n{}".format(len(fails), "\n".join(fails))
 
         finally:
             # Enable tx on dest port
@@ -1830,7 +1927,7 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets short of triggering pfc
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 # send packets short of triggering pfc
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out +
@@ -2434,6 +2531,8 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             hysteresis = 0
         hwsku = self.test_params['hwsku']
         src_dst_asic_diff = self.test_params['src_dst_asic_diff']
+        dut_asic = self.test_params['dut_asic']
+
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id, dst_port_2_id, dst_port_3_id])
 
         # get a snapshot of counter values at recv and transmit ports
@@ -2628,7 +2727,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             if check_leackout_compensation_support(asic_type, hwsku):
                 pkts_num_leak_out = 0
 
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 send_packet(
                     self, src_port_id, pkt,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_trig_pfc -
@@ -2670,7 +2769,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             xmit_2_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_2_id]
             )
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 send_packet(
                     self, src_port_id, pkt2,
                     (pkts_num_egr_mem + pkts_num_leak_out + pkts_num_dismiss_pfc +
@@ -2681,11 +2780,13 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     fill_leakout_plus_one(
                         self, src_port_id, dst_port_2_id,
                         pkt2, int(self.test_params['pg']), asic_type)
-                    send_packet(
-                        self, src_port_id, pkt2,
-                        (pkts_num_leak_out + pkts_num_dismiss_pfc +
-                         hysteresis) // cell_occupancy - margin - 2
-                    )
+                    if dut_asic == 'gr2':
+                        pkt_count = (pkts_num_leak_out + pkts_num_dismiss_pfc +
+                                     hysteresis) // cell_occupancy - margin - 2
+                    else:
+                        pkt_count = (pkts_num_leak_out + pkts_num_dismiss_pfc +
+                                     hysteresis) // cell_occupancy + margin - 2
+                    send_packet(self, src_port_id, pkt2, pkt_count)
                 else:
                     fill_egress_plus_one(
                         self, src_port_id,
@@ -2719,7 +2820,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             log_message('step {}: {}\n'.format(step_id, step_desc), to_stderr=True)
             xmit_3_counters_base, _ = sai_thrift_read_port_counters(
                 self.dst_client, asic_type, port_list['dst'][dst_port_3_id])
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 send_packet(self, src_port_id, pkt3,
                             pkts_num_egr_mem + pkts_num_leak_out + 1)
             elif 'cisco-8000' in asic_type:
@@ -2727,7 +2828,11 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
                     fill_leakout_plus_one(
                         self, src_port_id, dst_port_3_id,
                         pkt3, int(self.test_params['pg']), asic_type)
-                    send_packet(self, src_port_id, pkt3, pkts_num_leak_out + margin * 2)
+                    if dut_asic == 'gr2':
+                        pkt_count = pkts_num_leak_out + margin * 2
+                    else:
+                        pkt_count = pkts_num_leak_out
+                    send_packet(self, src_port_id, pkt3, pkt_count)
                 else:
                     fill_egress_plus_one(
                         self, src_port_id,
@@ -3266,7 +3371,9 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         self.src_port_macs = [self.dataplane.get_mac(
             0, ptid) for ptid in self.src_port_ids]
 
-        if self.testbed_type in ['dualtor', 'dualtor-56', 't0', 't0-28', 't0-64', 't0-116', 't0-118', 't0-120']:
+        if self.testbed_type in [
+                'dualtor', 'dualtor-56', 'dualtor-aa-64-breakout',
+                't0', 't0-28', 't0-64', 't0-116', 't0-118', 't0-120']:
             # populate ARP
             # sender's MAC address is corresponding PTF port's MAC address
             # sender's IP address is caculated in tests/qos/qos_sai_base.py::QosSaiBase::__assignTestPortIps()
@@ -3388,7 +3495,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                                     ip_ttl=64)
 
             hwsku = self.test_params['hwsku']
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 send_packet(
                     self, self.src_port_ids[sidx], pkt, pkts_num_egr_mem + self.pkts_num_leak_out)
             else:
@@ -4050,8 +4157,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         limit = int(self.test_params['limit'])
         pkts_num_leak_out = int(self.test_params['pkts_num_leak_out'])
         pkts_num_egr_mem = int(self.test_params.get('pkts_num_egr_mem', 0))
-        lossless_weight = int(self.test_params.get('lossless_weight', 1))
-        lossy_weight = int(self.test_params.get('lossy_weight', 1))
         topo = self.test_params['topo']
         platform_asic = self.test_params['platform_asic']
         prio_list = self.test_params.get('dscp_list', [])
@@ -4139,19 +4244,12 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                                port_list['dst'][dst_port_id], TRANSMITTED_PKTS,
                                                xmit_counters_base, self, src_port_id, pkt, 10)
 
-            if 'hwsku' in self.test_params and self.test_params['hwsku'] in ('Arista-7060X6-64PE-256x200G'):
+            if 'hwsku' in self.test_params and 'Arista-7060X6' in self.test_params['hwsku']:
 
-                prio_lossless = (3, 4)
-                prio_lossy = tuple(set(prio_list) - set(prio_lossless))
-                pkts_egr_lossless = int(pkts_num_egr_mem * (lossless_weight / (lossless_weight + lossy_weight)))
-                pkts_egr_lossy = int(pkts_num_egr_mem - pkts_egr_lossless)
-                pkts_egr_lossless, mod_lossless = divmod(pkts_egr_lossless, len(prio_lossless))
-                pkts_egr_lossy, mod_lossy = divmod(pkts_egr_lossy, len(prio_lossy))
-                pkts_egr = {prio: pkts_egr_lossless if prio in prio_lossless else pkts_egr_lossy for prio in prio_list}
-                for prio in prio_lossless[:mod_lossless] + prio_lossy[:mod_lossy]:
-                    pkts_egr[prio] += 1
-
-                for prio in prio_list:
+                n_prio = [int(n / sum(q_pkt_cnt) * pkts_num_egr_mem) for n in q_pkt_cnt]
+                for i in range(pkts_num_egr_mem - sum(n_prio)):
+                    n_prio[i] += 1
+                for n, prio in zip(n_prio, prio_list):
                     pkt = construct_ip_pkt(64,
                                            pkt_dst_mac,
                                            src_port_mac,
@@ -4162,7 +4260,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                                            ip_id=exp_ip_id + 1,
                                            ecn=ecn,
                                            ttl=64)
-                    send_packet(self, src_port_id, pkt, pkts_egr[prio])
+                    send_packet(self, src_port_id, pkt, n)
 
             # Get a snapshot of counter values
             port_counters_base, queue_counters_base = sai_thrift_read_port_counters(
@@ -4424,7 +4522,7 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkts_num_leak_out = 0
 
             # send packets short of triggering egress drop
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 # send packets short of triggering egress drop
                 send_packet(self, src_port_id, pkt, pkts_num_egr_mem +
                             pkts_num_leak_out + pkts_num_trig_egr_drp - 1 - margin)
@@ -4889,7 +4987,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pg_min_pkts_num = pkts_num_egr_mem + \
                     pkts_num_leak_out + pkts_num_fill_min + margin
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
-            elif hwsku == 'Arista-7060X6-64PE-256x200G':
+            elif 'Arista-7060X6' in hwsku:
                 pg_min_pkts_num = pkts_num_egr_mem + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, pg_min_pkts_num)
             elif 'cisco-8000' in asic_type:
@@ -4927,7 +5025,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 if platform_asic and platform_asic == "broadcom-dnx":
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min) * (packet_length + internal_hdr_size)))
-                elif hwsku == 'Arista-7060X6-64PE-256x200G':
+                elif 'Arista-7060X6' in hwsku:
                     assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 else:
                     assert (pg_shared_wm_res[pg] == 0)
@@ -5130,7 +5228,7 @@ class PGHeadroomWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 pkts_num_leak_out = 0
 
             # send packets to trigger pfc but not trek into headroom
-            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-M-O16C64', 'DellEMC-Z9332f-O32') or 'Arista-7060X6' in hwsku:
                 send_packet(self, src_port_id, pkt, (pkts_num_egr_mem +
                                                      pkts_num_leak_out + pkts_num_trig_pfc) // cell_occupancy - margin)
             elif 'cisco-8000' in asic_type:
@@ -5514,7 +5612,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             # so if queue min is zero, it will directly trek into shared pool by 1
             # TH2 uses scheduler-based TX enable, this does not require sending packets
             # to leak out
-            if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64', 'Arista-7060X6-64PE-256x200G'):
+            if hwsku in ('DellEMC-Z9332f-O32', 'DellEMC-Z9332f-M-O16C64') or 'Arista-7060X6' in hwsku:
                 que_min_pkts_num = pkts_num_egr_mem + pkts_num_leak_out + pkts_num_fill_min
                 send_packet(self, src_port_id, pkt, que_min_pkts_num)
             else:
@@ -5546,7 +5644,7 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             None, pg_cntrs, None, None, None,
                             None, None, pg_shared_wm_res, pg_headroom_wm_res, q_wm_res)
 
-            if hwsku == 'Arista-7060X6-64PE-256x200G':
+            if 'Arista-7060X6' in hwsku:
                 assert (q_wm_res[queue] <= (margin + 1) * cell_size)
             elif pkts_num_fill_min:
                 assert (q_wm_res[queue] == 0)
@@ -6680,6 +6778,7 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
 
         # Parse input parameters
         dscp = int(self.test_params['dscp'])
+        queue_idx = int(self.test_params['queue_idx'])
         router_mac = self.test_params['router_mac']
         sonic_version = self.test_params['sonic_version']
         dst_port_id = int(self.test_params['dst_port_id'])
@@ -6692,6 +6791,8 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         voq_watchdog_enabled = self.test_params['voq_watchdog_enabled']
         asic_type = self.test_params['sonic_asic_type']
         pkts_num = int(self.test_params['pkts_num'])
+        dutInterfaces = self.test_params['dutInterfaces']
+        testPorts = self.test_params['testPorts']
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -6726,6 +6827,8 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             self, 0, src_port_id, pkt_dst_mac, dst_port_ip, src_port_ip, src_port_vlan
         )
         log_message("actual dst_port_id: {}".format(dst_port_id), to_stderr=True)
+        dst_port_name = dutInterfaces[testPorts["dst_port_id"]]
+        log_message("dst_port_name: {}".format(dst_port_name), to_stderr=True)
 
         self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
         pre_offsets = init_log_check(self)
@@ -6734,10 +6837,15 @@ class VoqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
             # send packets
             send_packet(self, src_port_id, pkt, pkts_num)
 
-            # allow enough time to trigger voq watchdog
-            time.sleep(WATCHDOG_TIMEOUT_SECONDS["voq"] * 1.3)
+            # Verify that voq is not empty
+            verify_queue_occupancy(self, dst_port_id, queue_idx, expect_queue_empty=False)
 
-            # verify voq watchdog is triggered
+            # Verify that voq is empty after watchdog timeout
+            log_message("Waiting for VOQ watchdog to trigger", level='info', to_stderr=True)
+            verify_queue_occupancy(self, dst_port_id, queue_idx, voq_watchdog_enabled,
+                                   timeout=WATCHDOG_TIMEOUT_SECONDS["voq"])
+
+            log_message("Verify log after VOQ watchdog timeout", level='info', to_stderr=True)
             verify_log(self, pre_offsets, voq_watchdog_enabled, "voq")
 
         finally:
@@ -6755,12 +6863,14 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         dst_port_id = int(self.test_params['dst_port_id'])
         dst_port_ip = self.test_params['dst_port_ip']
         dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
+        dst_interfaces = self.test_params.get('dst_interfaces', [])
         src_port_id = int(self.test_params['src_port_id'])
         src_port_ip = self.test_params['src_port_ip']
         src_port_vlan = self.test_params['src_port_vlan']
         src_port_mac = self.dataplane.get_mac(0, src_port_id)
         oq_watchdog_enabled = self.test_params['oq_watchdog_enabled']
         pkts_num = int(self.test_params['pkts_num'])
+        queue_id = int(self.test_params['queue_id'])
 
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         # get counter names to query
@@ -6793,13 +6903,22 @@ class OqWatchdogTest(sai_base_test.ThriftInterfaceDataPlane):
         pre_offsets = init_log_check(self)
 
         try:
+            log_message("Verify OQ is empty before send packets", level='info', to_stderr=True)
+            verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
+
             # send packets
             send_packet(self, src_port_id, pkt, pkts_num)
+
+            log_message("Verify OQ is not empty after send packets", level='info', to_stderr=True)
+            verify_tx_cgm_state(self, dst_interfaces, queue_id, False)
 
             # allow enough time to trigger oq watchdog
             time.sleep(WATCHDOG_TIMEOUT_SECONDS["oq"] * 1.3)
 
-            # verify voq watchdog is triggered
+            log_message("Verify OQ is empty after watchdog timeout", level='info', to_stderr=True)
+            verify_tx_cgm_state(self, dst_interfaces, queue_id, True)
+
+            log_message("Verify log after OQ watchdog timeout", level='info', to_stderr=True)
             verify_log(self, pre_offsets, oq_watchdog_enabled, "oq")
 
         finally:
