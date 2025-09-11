@@ -164,9 +164,11 @@ bgp/test_bgp_allow_list.py:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
   xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style or due to GH issue 23777"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23777 and platform in ['x86_64-mlnx_msn2700-r0']"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -269,9 +271,11 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
 
 bgp/test_bgp_sentinel.py:
   xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style or due to GH issue 23938"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20193 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23938"
 
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
   xfail:
@@ -326,6 +330,12 @@ bgp/test_bgp_suppress_fib.py:
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
+bgp/test_bgp_update_replication.py:
+  xfail:
+    reason: "Testcase is expected to fail due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/20583"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/20583"
 
 bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
   xfail:
