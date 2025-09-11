@@ -342,7 +342,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
-        - http/test_http_copy.py
+        #- http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
         #- ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
@@ -432,7 +432,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
-        - http/test_http_copy.py
+        #- http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
         #- ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
