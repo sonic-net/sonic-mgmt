@@ -1621,6 +1621,12 @@ qos/test_ecn_config.py:
     conditions:
       - "asic_type not in ['cisco-8000']"
 
+qos/test_oq_watchdog.py:
+  skip:
+    reason: "OQ watchdog tests only apply to cisco 8000 platforms."
+    conditions:
+      - "asic_type not in ['cisco-8000']"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
