@@ -3020,6 +3020,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
+  xfail:
+    reason: "Test case ignored due to https://github.com/sonic-net/sonic-mgmt/issues/20597"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/20597"
+
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
