@@ -644,15 +644,6 @@ def test_conn_graph_valid(localhost):
             pytest.fail("build connection graph for {} failed.".format(inv_group))
 
 
-def test_connect_to_internal_nameserver(duthosts, enum_dut_hostname):
-    cmds = [
-        "echo nameserver 10.64.5.5 > /etc/resolv.conf",
-    ]
-
-    duthost = duthosts[enum_dut_hostname]
-    duthost.shell_cmds(cmds=cmds)
-
-
 def test_update_buffer_template(duthosts, enum_dut_hostname, localhost):
     '''
     Update the buffer templates to use internal cable len settings.
