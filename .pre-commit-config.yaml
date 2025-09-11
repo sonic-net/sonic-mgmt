@@ -26,7 +26,7 @@ repos:
         args: ["--max-line-length=120", "--ignore=E1,E2,E3,E5,W1,W2,W3,W5"]
 
 -   repo: https://github.com/sonic-net/sonic-mgmt
-    rev: 1.0.1+pre_commit
+    rev: 1.0.2+pre_commit
     hooks:
     -   id: check-conditional-mark-sort
 
