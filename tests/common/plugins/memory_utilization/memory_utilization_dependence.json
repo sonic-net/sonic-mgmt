@@ -3,7 +3,8 @@
     "Arista-7050QX": ["Arista-7050-QX-32S", "Arista-7050-QX32", "Arista-7050QX-32S-S4Q31", "Arista-7050QX32S-Q32"],
     "Mellanox-SN4600C": ["Mellanox-SN4600C-C64"],
     "Arista-7060X6": ["Arista-7060X6-64PE-B-C512S2", "Arista-7060X6-64PE-B-C448O16", "Arista-7060X6-16PE-384C-B-O128S2", "Arista-7060X6-64PE-B-O128"],
-    "Mellanox-SN5640": ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2"]
+    "Mellanox-SN5640": ["Mellanox-SN5640-C448O16", "Mellanox-SN5640-C512S2"],
+    "Arista-7060CX": ["Arista-7060CX-32S-C32", "Arista-7060CX-32S-D48C8"]
   },
   "COMMON": [
     {
@@ -295,6 +296,25 @@
         }
       },
       "memory_check": "parse_frr_memory_output"
+    }
+  ],
+  "Arista-7060CX": [
+    {
+      "name": "monit",
+      "cmd": "sudo monit validate",
+      "memory_params": {
+        "memory_usage": {
+          "memory_increase_threshold": {
+            "type": "percentage_points",
+            "value": 10
+          },
+          "memory_high_threshold": {
+            "type": "percentage_points",
+            "value": 75
+          }
+        }
+      },
+      "memory_check": "parse_monit_validate_output"
     }
   ]
 }
