@@ -5,6 +5,12 @@ bjw3-can-720dt-mc0-1,3,bjw3-can-7050c-6,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-1,4,bjw3-can-7050-leaf-2,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-1,5,bjw3-can-7050c-7,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-1,6,bjw3-can-7050-leaf-3,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-1,7,bjw3-can-7050c-8,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-1,8,bjw3-can-7050-leaf-4,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-1,9,bjw3-can-7050c-9,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-1,10,bjw3-can-7050-leaf-5,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-1,11,bjw3-can-7050c-10,ssh,sonic_config,sonicadmin,9600
+bjw3-can-720dt-mc0-1,12,bjw3-can-7050-leaf-6,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-2,1,bjw3-can-720dt-mc0-1,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-2,2,bjw3-can-720dt-mc0-3,ssh,sonic_config,sonicadmin,9600
 bjw3-can-720dt-mc0-2,3,bjw3-can-7260-root-1,ssh,sonic_config,sonicadmin,9600
