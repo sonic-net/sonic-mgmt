@@ -77,7 +77,7 @@ This section outlines the test cases for validating the insertion and removal of
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Transceiver eeprom show command should the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen for `link_flap_monitor_timeout` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Transceiver eeprom show command should show the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4. No link flaps are seen for `link_flap_monitor_timeout` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 2 | Remote reseat stress test| 1. Perform the remote reseat process `remote_reseat_stress_iteration` times.| 1. All the expected results from TC#1 after the last remote reseat.|
 
 ## Physical OIR API
