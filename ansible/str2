@@ -2576,9 +2576,9 @@ sonic_cisco_8101:
           timeout: 600
           wait: 600
 
-sonic_cisco_8101_tornado_V64:
+sonic_cisco_8101_tornado_C32:
   vars:
-    hwsku: Cisco-8101-V64
+    hwsku: Cisco-8101C01-C32
     iface_speed: 100000
   hosts:
     str2-8101c1-01:
@@ -2613,7 +2613,6 @@ sonic_cisco_8101_tornado_V64:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
-      reduce_port_speed: true
     str2-8101c1-02:
       ansible_host: 10.3.146.234
       ansible_hostv6: 2a01:111:e210:3000::a03:92ea
@@ -2646,13 +2645,6 @@ sonic_cisco_8101_tornado_V64:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
-      reduce_port_speed: true
-
-sonic_cisco_8101_tornado_C32:
-  vars:
-    hwsku: Cisco-8101C01-C32
-    iface_speed: 100000
-  hosts:
     str2-8101c1-03:
       ansible_host: 10.3.146.231
       ansible_hostv6: 2a01:111:e210:3000::a03:92e7
