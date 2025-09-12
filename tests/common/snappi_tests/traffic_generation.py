@@ -1059,10 +1059,11 @@ def run_traffic_and_collect_stats(rx_duthost,
     api.set_control_state(cs)
 
     stormed = False
+    check_list = [[rx_duthost, [x['rx_port_config'].peer_port for x in snappi_extra_params.base_flow_config_list][0]]]
     if tx_duthost.facts["platform_asic"] == 'cisco-8000' and enable_pfcwd_drop:
         retry = 3
         while retry > 0 and not stormed:
-            for dut, port in dutport_list:
+            for dut, port in check_list:
                 for pri in switch_tx_lossless_prios:
                     stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
