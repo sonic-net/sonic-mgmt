@@ -13,25 +13,21 @@ pytestmark = [
 
 
 def get_first_interface(duthost):
-    cmds = "show interface status"
-    output = duthost.shell(cmds)
-    assert (not output['rc']), "No output"
-    status_data = output["stdout_lines"]
-    if 'Admin' not in status_data[0]:
-        return None
-    if 'Lanes' not in status_data[0]:
-        return None
-    admin_index = status_data[0].split().index('Admin')
-    lanes_index = status_data[0].split().index('Lanes')
-    for line in status_data:
-        interface_status = line.strip()
-        assert len(interface_status) > 0, "Failed to read interface properties"
-        sl = interface_status.split()
-        # Skip portchannel
-        if sl[lanes_index] == 'N/A':
-            continue
-        if sl[admin_index] == 'up':
-            return sl[0]
+    cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+    port_table = cfg_facts["PORT"]
+
+    # Find the first interface with lanes (physical port, not portchannel)
+    for interface_name, interface_config in port_table.items():
+        if 'lanes' in interface_config:
+            # Check if admin status is up
+            if interface_config.get('admin_status', '').lower() == 'up':
+                return interface_name
+
+    # If no interface with admin_status up found, return the first one with lanes
+    for interface_name, interface_config in port_table.items():
+        if 'lanes' in interface_config:
+            return interface_name
+
     return None
 
 
