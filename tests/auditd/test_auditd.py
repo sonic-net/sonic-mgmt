@@ -76,11 +76,11 @@ def test_auditd_functionality(duthosts,
                               verify_auditd_containers_running,
                               check_auditd):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hwsku = duthost.facts["hwsku"]
-    if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "b70e0ec6b71b70c2282585685fbe53f5d00f1cd0"
-    else:
-        rule_checksum = "99aa7d071a15eb1f2b9d5f1cce75a37cf6a2483d"
+    output = duthost.command("file -L /bin/sh")["stdout"]
+    if "32-bit" in output:
+        rule_checksum = "ac45b13d45de02f08e12918e38b4122206859555"
+    elif "64-bit" in output:
+        rule_checksum = "1c532e73fdd3f7366d9c516eb712102d3063bd5a"
 
     cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
     output = duthost.command(cmd)["stdout"]
@@ -150,7 +150,7 @@ def test_modules_changes(localhost,
 
     kernel_version = duthost.command("uname -r")["stdout"].strip()
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                   "sudo ls -l /lib/modules/6.1.0-29-2-amd64/kernel/drivers/net/dummy.ko")
+                   f"sudo cat /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko > /dev/null")
 
     # Search SYSCALL & PATH logs
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
