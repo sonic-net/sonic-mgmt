@@ -49,7 +49,7 @@ This section outlines the test cases for validating the insertion and removal of
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
 | 1 | Optics removal validation| 1. Physically remove the optical module under test.| 1. Transceiver eeprom command should return "SFP EEPROM not detected" with exit code 0.<br>2. DOM, VDM and PM (if applicable) values are returned as empty from the CLI.<br>3. Transceiver related db tables are not deleted.<br>4. Interface should go oper down.<br>5. Other interfaces on the device should stay up.<br>6. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>7. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
-| 2 | Optics insertion validation| 1. Insert the optical module under test.| 1. Transceiver eeprom show command should show the values as per the configuration file and with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>8. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 2 | Optics insertion validation| 1. Insert the optical module under test.| 1. Transceiver eeprom show command should show the values as per the configuration file and with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4.No link flaps are seen for `link_flap_monitor_timeout_sec` seconds.<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>9. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 3 | Simultaneous Physical OIR | 1. Physically remove all optical modules under test simultaneously.<br>2. Physically insert all optical modules under test simultaneously.| 1. All the expected results from TC#1 for all ports under test.<br>2. All the expected results from TC#2 for all ports under test.|
 | 4 | Physical OIR stress test| 1. Perform the physical OIR process `physical_oir_stress_iteration` times in quick succession.| 1. All the expected results from TC#2 after last insertion.|
 
@@ -60,8 +60,36 @@ Remote reseat involves simulating the insertion and removal of optical modules b
 
 | TC No. | Test | Steps | Expected Results |
 |------|------|------|------------------|
-| 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Transceiver eeprom show command should show the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>8. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 1 | Remote reseat test| 1. Perform the remote reseat on the module under test.|  1. Transceiver eeprom show command should show the values as per the configuration file with the exit code as 0.<br>2. Expected DOM, VDM and PM (if applicable) values should be present for the interface.<br>3. Interface should go oper up.<br>4. No link flaps are seen for `link_flap_monitor_timeout_sec` seconds<br>5. Check that optics SI settings and media settings are as expected.<br>6. Verify that port appears in LLDP neighbor table and the LLDP neighbor information is correctly populated.<br>7. Ensure that [transceiver info tables](#transceiver-info-tables) and [transceiver flag change tables](#transceiver-flag-change-tables) are updated correctly.<br>8. Check that kernel has no error messages in syslog if `monitor_kernel_errors` flag is set.<br>9. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
 | 2 | Remote reseat stress test| 1. Perform the remote reseat process `remote_reseat_stress_iteration` times.| 1. All the expected results from TC#1 after the last remote reseat.|
+
+##### Transceiver info tables
+This table lists the transceiver related DB tables with the attributes that should be monitored during the physical OIR and remote reseat tests to ensure they are not deleted or corrupted.
+
+| Table name | Attributes to Monitor |
+|------------|----------------------|
+| TRANSCEIVER INFO TABLE | cmis_rev, model, type, connector, manufacturer |
+| TRANSCEIVER FIRMWARE INFO TABLE | active firmware |
+| TRANSCEIVER DOM SENSOR TABLE | everything |
+| TRANSCEIVER DOM FLAG TABLE | everything |
+| TRANSCEIVER VDM REAL VALUE table | everything |
+| TRANSCEIVER STATUS TABLE | everything |
+| TRANSCEIVER STATUS FLAG TABLE | everything |
+| APPL_DB | link related info, admin status, oper status, fec should be rs. |
+
+
+##### Transceiver flag change tables
+This table lists the transceiver flag change count DB tables that should be monitored during the physical OIR and remote reseat tests to ensure they are updated correctly.
+
+| Table name |
+|------------|
+| TRANSCEIVER STATUS FLAG CHANGE COUNT |
+| TRANSCEIVER DOM FLAG CHANGE COUNT |
+| TRANSCEIVER VDM HALARM FLAG CHANGE COUNT |
+| TRANSCEIVER VDM LALARM FLAG CHANGE COUNT |
+| TRANSCEIVER VDM HWARN FLAG CHANGE COUNT |
+| TRANSCEIVER VDM LWARN FLAG CHANGE COUNT |
+
 
 ## Physical OIR API
 
