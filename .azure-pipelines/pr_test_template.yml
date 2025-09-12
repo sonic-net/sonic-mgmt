@@ -291,6 +291,7 @@ jobs:
         parameters:
           TOPOLOGY: t2
           BUILD_BRANCH: $(BUILD_BRANCH)
+          PREPARE_TIME: 50
 
       - template: run-test-elastictest-template.yml
         parameters:
