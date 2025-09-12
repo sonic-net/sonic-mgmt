@@ -22,6 +22,27 @@ CURL_CMD = "curl http://localhost:50058"    # noqa: W605
 logger = logging.getLogger(__name__)
 
 
+@pytest.fixture(scope="module", autouse=True)
+def manage_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Stop auditd before any tests in this module run,
+    and restart auditd after all tests complete.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    # --- setup: stop auditd once ---
+    duthost.command("sudo systemctl stop auditd")
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
+    pytest_assert(output != "active", "auditd service is still running when it should be inactive")
+
+    yield  # run the tests
+
+    # --- teardown: restart auditd once ---
+    duthost.command("sudo systemctl restart auditd")
+    output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
+    pytest_assert(output == "active", "auditd service did not restart after tests")
+
+
 def is_log_valid(pattern, logs):
     for log in logs:
         if pattern in log and "ansible-ansible" not in log:
@@ -71,86 +92,19 @@ def extract_audit_timestamp(logs, include_seq=False):
     return ''
 
 
-def test_auditd_functionality(duthosts,
-                              enum_rand_one_per_hwsku_hostname,
-                              verify_auditd_containers_running,
-                              check_auditd):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    hwsku = duthost.facts["hwsku"]
-    if "Nokia-7215" in hwsku or "Nokia-7215-M0" in hwsku:
-        rule_checksum = "b70e0ec6b71b70c2282585685fbe53f5d00f1cd0"
-    else:
-        rule_checksum = "99aa7d071a15eb1f2b9d5f1cce75a37cf6a2483d"
-
-    cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
-    output = duthost.command(cmd)["stdout"]
-    pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
-
-    cmd = "cat /etc/audit/auditd.conf | sha1sum"
-    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
-    pytest_assert("7cdbd1450570c7c12bdc67115b46d9ae778cbd76" in output, "auditd.conf checksum is not as expected")
-
-    cmd = 'grep "^active = yes" /etc/audit/plugins.d/syslog.conf'
-    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
-    pytest_assert("active = yes" in output, "syslog.conf does not contain active=yes as expected")
-
-    cmd = 'grep "^CPUQuota=10%" /lib/systemd/system/auditd.service'
-    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
-    pytest_assert("CPUQuota=10%" in output, "auditd.service does not contain CPUQuota=10% as expected")
-
-    cmd = "systemctl is-active auditd"
-    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
-    pytest_assert(output == "active", "Auditd daemon is not running")
-
-    output = duthost.shell("show logging | grep 'audisp-syslog'")["stdout_lines"]
-    pytest_assert(len(output) > 0, "Auditd logs are not sent to syslog")
-
-
-def test_auditd_watchdog_functionality(duthosts,
-                                       enum_rand_one_per_hwsku_hostname,
-                                       verify_auditd_containers_running,
-                                       check_auditd):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-
-    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
-                             module_ignore_errors=True)["stdout"]
-    pytest_assert(output == "200", "Auditd watchdog reports auditd container is unhealthy")
-
-    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
-    try:
-        response = json.loads(output)
-    except json.JSONDecodeError:
-        pytest.fail("Invalid JSON response from auditd watchdog: {}".format(output))
-
-    # Define expected keys
-    expected_keys = [
-        "auditd_conf",
-        "syslog_conf",
-        "auditd_rules",
-        "auditd_service",
-        "auditd_active",
-        "rate_limit"
-    ]
-
-    # Check if all expected keys exist and have the value "OK"
-    for key in expected_keys:
-        pytest_assert(response.get(key) == "OK",
-                      "Auditd watchdog check failed for {}: {}".format(key, response.get(key)))
-
-
 def test_modules_changes(localhost,
                          duthosts,
                          enum_rand_one_per_hwsku_hostname,
-                         creds,
-                         verify_auditd_containers_running,
-                         check_auditd,
-                         reset_auditd_rate_limit):
+                         creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
     kernel_version = duthost.command("uname -r")["stdout"].strip()
+    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+    duthost.command("sudo auditctl -r 0")
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                   "sudo ls -l /lib/modules/6.1.0-29-2-amd64/kernel/drivers/net/dummy.ko")
+                   f"sudo cat /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko > /dev/null")
+    duthost.command("sudo systemctl stop auditd")
 
     # Search SYSCALL & PATH logs
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
@@ -169,10 +123,7 @@ def test_modules_changes(localhost,
 def test_directory_based_keys(localhost,
                               duthosts,
                               enum_rand_one_per_hwsku_hostname,
-                              creds,
-                              verify_auditd_containers_running,
-                              check_auditd,
-                              reset_auditd_rate_limit):
+                              creds):
     """
     Test directory-based rules (triggered by creating files in watched directories)
     """
@@ -200,11 +151,14 @@ def test_directory_based_keys(localhost,
         for path in paths:
             random_file = f"{path}{random_uuid}"
             # Trigger audit event
+            duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+            duthost.command("sudo auditctl -r 0")
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
                            f"sudo touch {random_file}")
 
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
                            f"sudo rm -f  {random_file}")
+            duthost.command("sudo systemctl stop auditd")
 
             cmd = f"sudo zgrep '{random_file}' /var/log/syslog*"
             logs = duthost.shell(cmd)["stdout_lines"]
@@ -230,10 +184,7 @@ def test_directory_based_keys(localhost,
 def test_file_based_keys(localhost,
                          duthosts,
                          enum_rand_one_per_hwsku_hostname,
-                         creds,
-                         verify_auditd_containers_running,
-                         check_auditd,
-                         reset_auditd_rate_limit):
+                         creds):
     """
     Test file-based auditd rules using 'sudo chown root:root <file>'
     """
@@ -259,7 +210,10 @@ def test_file_based_keys(localhost,
         for path in paths:
             # Trigger audit event
             chown_cmd = f"sudo chown root:root {path}"
+            duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+            duthost.command("sudo auditctl -r 0")
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], chown_cmd)
+            duthost.command("sudo systemctl stop auditd")
 
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -280,10 +234,7 @@ def test_file_based_keys(localhost,
 def test_docker_config(localhost,
                        duthosts,
                        enum_rand_one_per_hwsku_hostname,
-                       creds,
-                       verify_auditd_containers_running,
-                       check_auditd,
-                       reset_auditd_rate_limit):
+                       creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
     key_file_mapping = {
@@ -292,20 +243,13 @@ def test_docker_config(localhost,
 
     for key, paths in key_file_mapping.items():
         for path in paths:
-            # Check if the file exists
-            check_cmd = f"sudo test -e {path} && echo exists || echo missing"
-            exists = duthost.shell(check_cmd)['stdout_lines']
-
-            if "exists" in exists:
-                # File exists, trigger event using chown
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                               f"sudo chown root:root {path}")
-            elif "missing" in exists:
-                # File doesn't exist, create and delete to trigger event
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                               f"sudo touch {path}")
-                ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                               f"sudo rm -f {path}")
+            duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+            duthost.command("sudo auditctl -r 0")
+            ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                            f"sudo touch {path}")
+            ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
+                            f"sudo rm -f {path}")
+            duthost.command("sudo systemctl stop auditd")
 
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -322,17 +266,18 @@ def test_docker_config(localhost,
                 f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
 
 
+
 def test_docker_commands(localhost,
                          duthosts,
                          enum_rand_one_per_hwsku_hostname,
-                         creds,
-                         verify_auditd_containers_running,
-                         check_auditd,
-                         reset_auditd_rate_limit):
+                         creds):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
+    duthost.shell("sudo systemctl start auditd && sudo augenrules --load")
+    duthost.command("sudo auditctl -r 0")
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], "docker ps")
+    duthost.command("sudo systemctl stop auditd")
 
     # Search SYSCALL & PATH logs
     cmd = "sudo zgrep docker_commands /var/log/syslog* | grep /usr/bin/docker"
@@ -348,13 +293,83 @@ def test_docker_commands(localhost,
     assert is_log_valid("type=PATH", logs), "Auditd docker_commands rule does not contain the PATH logs"
 
 
+def test_auditd_functionality(duthosts,
+                              enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.command("sudo systemctl start auditd")
+    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
+    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
+    output = duthost.command("file -L /bin/sh")["stdout"]
+    if "32-bit" in output:
+        rule_checksum = "ac45b13d45de02f08e12918e38b4122206859555"
+    elif "64-bit" in output:
+        rule_checksum = "1c532e73fdd3f7366d9c516eb712102d3063bd5a"
+
+    cmd = "sudo sh -c \"find {} -name *.rules -type f | sort | xargs cat 2>/dev/null | sha1sum\"".format(RULES_DIR)
+    output = duthost.command(cmd)["stdout"]
+    pytest_assert(rule_checksum in output, "Rule files checksum is not as expected")
+
+    cmd = "cat /etc/audit/auditd.conf | sha1sum"
+    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
+    pytest_assert("7cdbd1450570c7c12bdc67115b46d9ae778cbd76" in output, "auditd.conf checksum is not as expected")
+
+    cmd = 'grep "^active = yes" /etc/audit/plugins.d/syslog.conf'
+    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
+    pytest_assert("active = yes" in output, "syslog.conf does not contain active=yes as expected")
+
+    cmd = 'grep "^CPUQuota=10%" /lib/systemd/system/auditd.service'
+    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
+    pytest_assert("CPUQuota=10%" in output, "auditd.service does not contain CPUQuota=10% as expected")
+
+    cmd = "systemctl is-active auditd"
+    output = duthost.command(AUDITD_CMD.format(NSENTER_CMD, cmd))["stdout"]
+    pytest_assert(output == "active", "Auditd daemon is not running")
+
+    output = duthost.shell("show logging | grep 'audisp-syslog'")["stdout_lines"]
+    pytest_assert(len(output) > 0, "Auditd logs are not sent to syslog")
+
+    duthost.command("sudo systemctl stop auditd")
+
+
+def test_auditd_watchdog_functionality(duthosts,
+                                       enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.command("sudo systemctl start auditd")
+    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
+    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
+
+    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
+                             module_ignore_errors=True)["stdout"]
+    pytest_assert(output == "200", "Auditd watchdog reports auditd container is unhealthy")
+
+    output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
+    try:
+        response = json.loads(output)
+    except json.JSONDecodeError:
+        pytest.fail("Invalid JSON response from auditd watchdog: {}".format(output))
+
+    # Define expected keys
+    expected_keys = [
+        "auditd_conf",
+        "syslog_conf",
+        "auditd_rules",
+        "auditd_service",
+        "auditd_active"
+    ]
+
+    # Check if all expected keys exist and have the value "OK"
+    for key in expected_keys:
+        pytest_assert(response.get(key) == "OK",
+                      "Auditd watchdog check failed for {}: {}".format(key, response.get(key)))
+
+    duthost.command("sudo systemctl stop auditd")
+
+
 def test_auditd_host_failure(localhost,
                              duthosts,
-                             enum_rand_one_per_hwsku_hostname,
-                             verify_auditd_containers_running,
-                             check_auditd_failure,
-                             reset_auditd_rate_limit):
+                             enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.command("sudo systemctl stop auditd")
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
                              module_ignore_errors=True)["stdout"]
@@ -378,11 +393,7 @@ def test_auditd_host_failure(localhost,
 
 
 def test_32bit_failure(duthosts,
-                       enum_rand_one_per_hwsku_hostname,
-                       verify_auditd_containers_running,
-                       check_auditd_failure_32bit,
-                       check_auditd,
-                       reset_auditd_rate_limit):
+                       enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     hwsku = duthost.facts["hwsku"]
@@ -414,9 +425,9 @@ def read_watchdog(duthost):
 
 
 def test_rate_limit(duthosts,
-                    enum_rand_one_per_hwsku_hostname,
-                    verify_auditd_containers_running):
+                    enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    duthost.command("sudo systemctl start auditd")
 
     debug_log(duthost)
     rate_limit_status = read_watchdog(duthost).get("rate_limit")
@@ -437,3 +448,5 @@ def test_rate_limit(duthosts,
 
     pytest_assert(rate_limit_status.startswith("FAIL (rate_limit: "),
                   "Auditd watchdog check rate limit failed for: {}".format(rate_limit_status))
+
+    duthost.command("sudo systemctl stop auditd")
