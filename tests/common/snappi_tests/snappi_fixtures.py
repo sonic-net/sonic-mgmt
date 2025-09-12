@@ -7,6 +7,10 @@ import logging
 import snappi
 import sys
 import random
+import subprocess
+import csv
+import json
+import os
 from copy import copy
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
@@ -19,7 +23,7 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-
+from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
 
 logger = logging.getLogger(__name__)
 
@@ -1322,6 +1326,86 @@ def check_fabric_counters(duthost):
                               format(crc_errors, duthost.hostname, val_list[0], val_list[1]))
                 pytest_assert(fec_uncor_err == 0, 'Forward Uncorrectable errors:{} for DUT:{}, ASIC:{}, Port:{}'.
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
+
+
+@pytest.fixture(autouse=True, scope="module")
+def config_uhd_connect(request, duthost, tbinfo):
+    """
+    Fixture configures UHD connect
+
+    Args:
+        request (object): pytest request object, duthost, tbinfo
+
+    Yields:
+    """
+
+    def read_links_from_csv(file_path):
+        with open(file_path, 'r') as f:
+            return list(csv.DictReader(f))
+
+    uhd_enabled = request.config.getoption("--uhd_config")
+    if uhd_enabled:
+        # Load UHD-specific config file
+        logger.info("Loading UHD-specific config file")
+
+        logger.info("Configuring UHD connect")
+        csv_data = read_links_from_csv(uhd_enabled)
+        dpu_ports = [row for row in csv_data if row['OutPort'] == 'True']
+        l47_ports = [row for row in csv_data if row['OutPort'] == 'False']
+
+        uhdConnect_ip = tbinfo['uhd_ip']
+        num_cps_cards = tbinfo['num_cps_cards']
+        num_tcpbg_cards = tbinfo['num_tcpbg_cards']
+        num_udpbg_cards = tbinfo['num_udpbg_cards']
+        num_dpu_ports = len(dpu_ports)
+
+        cards_dict = {
+            'num_cps_cards': num_cps_cards,
+            'num_tcpbg_cards': num_tcpbg_cards,
+            'num_udpbg_cards': num_udpbg_cards,
+            'num_dpus_ports': num_dpu_ports,
+            'l47_ports': l47_ports,
+            'dpu_ports': dpu_ports
+        }
+
+        total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
+
+        uhdSettings = NetworkConfigSettings()  # noqa: F405
+        uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
+        subnet_mask = uhdSettings.subnet_mask
+
+        ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
+        fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
+        arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
+        connections_list = create_connections(fp_ports_list, ip_list, subnet_mask, uhdSettings,  # noqa: F405
+                                              cards_dict, arp_bypass_list)
+
+        config = {
+            "profiles": create_profiles(uhdSettings),  # noqa: F405
+            "front_panel_ports": fp_ports_list,
+            "connections": connections_list
+        }
+
+        headers = {  # noqa: F841
+            'Content-Type': 'application/json'
+        }
+
+        file_name = "tempUhdConfig.json"
+        file_location = os.getcwd()
+        uhd_post_url = uhdSettings.uhd_post_url
+        url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
+        json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
+
+        uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
+                       '{}').format(file_location, file_name, url)
+        subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
+
+        rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
+        subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+    else:
+        logger.info("UHD config not enabled, skipping config")
+
+    return
 
 
 DEST_TO_GATEWAY_MAP = {}

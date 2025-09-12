@@ -1,0 +1,17 @@
+[duts]
+str3-smartswitch-01 ansible_host=10.1.1.3 ansible_user=cisco
+
+[duts:vars]
+hwsku="Cisco-8102-28FH-DPU-O-T1"
+iface_speed='400000'
+ansible_connection=ssh
+ansible_ssh_user=cisco
+ansible_ssh_pass=YourPaSsWoRd
+asic_type=cisco
+
+[Server_6]
+snappi_sonic          ansible_host=10.1.1.4    os=snappi
+uhd_connect           ansible_host=10.1.1.5   os=snappi
+
+[ptf]
+snappi_sonic_l47 ansible_host=10.1.1.3
