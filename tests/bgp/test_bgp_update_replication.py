@@ -214,7 +214,7 @@ def test_bgp_update_replication(
     prev_num_rib = int(results[0]["num_rib"])
 
     # Inject and withdraw routes with a specified interval in between iterations
-    for interval in [4, 3, 2]:
+    for interval in [4.0, 3.0, 2.5]:
         # Repeat 20 times
         for _ in range(20):
             # Inject 10000 routes
