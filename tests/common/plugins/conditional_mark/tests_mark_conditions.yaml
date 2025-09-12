@@ -288,6 +288,12 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
 #######################################
 #####            crm              #####
 #######################################
+crm/test_crm.py:
+  xfail:
+    reason: "Xfail crm test on Nvidia dualtor-aa testbed due to https://github.com/sonic-net/sonic-buildimage/issues/23924"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23924 and 'dualtor-aa' in topo_name and asic_type in ['mellanox']"
+
 crm/test_crm.py::test_crm_fdb_entry:
   skip:
     reason: "Unsupported topology, expected to run only on 'T0*' or 'M0/MX' topology"
