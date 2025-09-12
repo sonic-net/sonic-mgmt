@@ -20,6 +20,7 @@ import re
 from netaddr import IPNetwork
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
+import ipaddress
 from random import getrandbits
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
@@ -181,25 +182,29 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     return dropped_packets
 
 
-def get_addrs_in_subnet(subnet, number_of_ip):
+def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=[]):
     """
-    Get N IP addresses in a subnet.
+    Get N IP addresses in a subnet (supports both IPv4 and IPv6).
+
     Args:
-        subnet (str): IPv4 subnet, e.g., '192.168.1.1/24'
-        number_of_ip (int): Number of IP addresses to get
-    Return:
-        Return n IPv4 addresses in this subnet in a list.
+        subnet (str): IPv4 or IPv6 subnet, e.g., '192.168.1.0/24' or '2001:db8::/32'
+        number_of_ip (int): Number of IP addresses to retrieve
+        exclude_ips (list): List of IP addresses to exclude from the result
+
+    Returns:
+        list: List of N IP addresses in this subnet, excluding specified addresses.
     """
-    ip_addr = subnet.split('/')[0]
-    ip_addrs = [str(x) for x in list(IPNetwork(subnet))]
-    ip_addrs.remove(ip_addr)
-
-    """ Try to avoid network and broadcast addresses """
-    if len(ip_addrs) >= number_of_ip + 2:
-        del ip_addrs[0]
-        del ip_addrs[-1]
-
-    return ip_addrs[:number_of_ip]
+    try:
+        ip_network = IPNetwork(subnet)
+        # Generate the list of usable IP addresses
+        ip_addrs = [str(ip) for ip in ip_network.iter_hosts()]
+        # Exclude provided IPs
+        ip_addrs = [ip for ip in ip_addrs if ip not in exclude_ips]
+        # Return the first 'number_of_ips' addresses
+        return ip_addrs[:number_of_ip]
+    except Exception as e:
+        print(f"Error processing subnet {subnet}: {e}")
+        return []
 
 
 def get_peer_snappi_chassis(conn_data, dut_hostname):
@@ -262,6 +267,14 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     peer_snappi_devices = list(filter(lambda dut_name: ('ixia' in dut_name), peer_devices))
     if len(peer_snappi_devices) == 1:
         return peer_snappi_devices[0]
+    else:
+        return None
+    peer_snappi_devices = []
+    for peer in peer_devices:
+        if 'snappi' in peer or 'ixia' in peer:
+            peer_snappi_devices.append(peer)
+    if len(peer_snappi_devices) >= 1:
+        return peer_snappi_devices
     else:
         return None
 
@@ -907,6 +920,15 @@ def get_ipv6_addrs_in_subnet(subnet, number_of_ip):
         ipv6_list.append(str(address))
 
     return ipv6_list
+
+
+def get_other_hosts_from_ipv6_host(ip_str, prefix_length):
+    # Parse the IPv6 address and subnet
+    interface = ipaddress.IPv6Interface(f"{ip_str}/{prefix_length}")
+    network = interface.network
+    input_ip = interface.ip
+    # Return all other valid host addresses (excluding the input IP)
+    return [str(ip) for ip in network.hosts() if ip != input_ip]
 
 
 def sec_to_nanosec(secs):
