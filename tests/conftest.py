@@ -2125,13 +2125,11 @@ def parse_override(testbed, field):
     with open(override_file, 'r') as f:
         all_values = yaml.safe_load(f)
         if testbed not in all_values or field not in all_values[testbed]:
-            # When T1-tgen is available, we should do "return False, None"
-            return True, []
+            return False, None
 
         return True, all_values[testbed][field]
 
-    # When T1-tgen is available, we should do "return False, None"
-    return True, []
+    return False, None
 
 
 def generate_skeleton_port_info(request):
