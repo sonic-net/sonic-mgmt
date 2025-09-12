@@ -42,8 +42,8 @@
     {
         "hwsku": "Arista-7050CX3-32S-C32",
         "topo": "t0",
-        "owner": "Matt Soulsby",
-        "email": "mattsoulsby@microsoft.com",
+        "owner": "Xiawei Jiang",
+        "email": "xiaweijiang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -66,8 +66,8 @@
     {
         "hwsku": "Arista-7050CX3-32S-C32",
         "topo": "t1",
-        "owner": "Matt Soulsby",
-        "email": "mattsoulsby@microsoft.com",
+        "owner": "Xiawei Jiang",
+        "email": "xiaweijiang@microsoft.com",
         "new_platform": "",
         "tag": ""
     },
@@ -826,8 +826,8 @@
     {
         "hwsku": "Arista-7050CX3-32C-C32",
         "topo": "t0",
-        "owner": "Xiawei Zhang",
-        "email": "xiaweizhang@microsoft.com",
+        "owner": "Xiawei Jiang",
+        "email": "xiaweijiang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },

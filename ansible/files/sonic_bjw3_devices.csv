@@ -11,6 +11,9 @@ bjw3-can-7260-leaf-37,10.150.238.77/23,Arista-7260CX3,FanoutLeaf,,
 bjw3-can-7215a1d-leaf-1,10.150.238.79/23,Nokia-7215-A1,FanoutLeafSonic,,sonic
 bjw3-can-7215a1d-leaf-2,10.150.238.81/23,Nokia-7215-A1,FanoutLeafSonic,,sonic
 bjw3-can-7060x64-leaf-1,10.150.238.83/23,Arista-7060X6-64PE,FanoutLeafSonic,,sonic
+bjw3-can-7050-leaf-4,10.150.238.86/23,Arista-7050CX3-32S-S128,FanoutLeafSonic,,sonic
+bjw3-can-7050-leaf-5,10.150.238.88/23,Arista-7050CX3-32S-C28S16,FanoutLeafSonic,,sonic
+bjw3-can-7050-leaf-6,10.150.238.90/23,Arista-7050CX3-32S-C28S16,FanoutLeafSonic,,sonic
 bjw3-can-7050c-5,10.150.238.64/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw3-can-7050c-6,10.150.238.66/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw3-can-7050c-7,10.150.238.68/23,Arista-7050CX3-32C-S128,devsonic,,sonic
@@ -22,6 +25,9 @@ bjw3-can-7215a1d-1,10.150.238.78/23,Nokia-7215-A1,DevSonic,,sonic
 bjw3-can-7215a1d-2,10.150.238.80/23,Nokia-7215-A1,DevSonic,,sonic
 bjw3-can-ocs64-1,10.150.238.82/23,DLXA64B64HNLA1MS,DevSonic,,sonic
 bjw3-can-ocs64-2,10.150.238.84/23,DLXA64B64HNLA1MS,DevSonic,,sonic
+bjw3-can-7050c-8,10.150.238.85/23,Arista-7050CX3-32C-S128,devsonic,,sonic
+bjw3-can-7050c-9,10.150.238.87/23,Arista-7050CX3-32C-C28S16,devsonic,,sonic
+bjw3-can-7050c-10,10.150.238.89/23,Arista-7050CX3-32C-C28S16,devsonic,,sonic
 bjw3-pdu-126-62,10.150.126.62,Vertiv,Pdu,snmp,
 bjw3-pdu-126-63,10.150.126.63,Vertiv,Pdu,snmp,
 bjw3-pdu-126-64,10.150.126.64,Vertiv,Pdu,snmp,
