@@ -998,17 +998,19 @@ hash/test_generic_hash.py:
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed. Test is not fully stabilized on dualtor aa setup."
+    conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+      - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/14109"
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_backend_error_messages:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed. Test is not fully stabilized on dualtor aa setup."
+    conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+      - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/14109"
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash:
   skip:
@@ -1017,18 +1019,30 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash:
     conditions:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom', 'cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP hash is not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
   skip:
@@ -1036,37 +1050,58 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_hash:
   skip:
     reason: 'ECMP hash not supported in broadcom SAI and Cisco 8000'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP hash is not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_hash_capability:
   xfail:
-    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed"
+    reason: "This is a new test cases and doesn't work for platform other than Mellanox, xfail them before the issue is addressed. Test is not fully stabilized on dualtor aa setup."
+    conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/14109
+      - "asic_type not in ['mellanox'] and https://github.com/sonic-net/sonic-mgmt/issues/14109"
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_hash:
   skip:
     reason: 'LAG hash not supported in broadcom SAI and Cisco 8000'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_hash[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, LAG hash is not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap:
   skip:
@@ -1076,24 +1111,40 @@ hash/test_generic_hash.py::test_lag_member_flap:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
   skip:
@@ -1101,13 +1152,20 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
-
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add:
   skip:
@@ -1117,24 +1175,40 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
   skip:
@@ -1142,12 +1216,20 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap:
   skip:
@@ -1158,21 +1240,31 @@ hash/test_generic_hash.py::test_nexthop_flap:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
   xfail:
-    reason: "Flaky hashing behavior using specific combination of hash field and algorithm."
+    reason: "Flaky hashing behavior using specific combination of hash field and algorithm. Test is not fully stabilized on dualtor aa setup."
+    conditions_logical_operator: "OR"
     conditions:
       - "'isolated' in topo_name"
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
   skip:
@@ -1180,6 +1272,10 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot:
   skip:
@@ -1188,24 +1284,40 @@ hash/test_generic_hash.py::test_reboot:
     conditions:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
@@ -1213,12 +1325,20 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field"
     conditions:
     - "asic_type in ['mellanox']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "xfail test due to it's still not fully stabilized on dualtor aa setup"
+    conditions:
+      - "'dualtor-aa' in topo_name"
 
 #######################################
 #####           http              #####
