@@ -752,6 +752,10 @@ def get_convergence_for_link_flap(duthosts,
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
+        # NOTE: we sleep 60 seconds to make sure DUT is ready before receiving traffic, avoiding traffic lost
+        time.sleep(60)
+
         logger.info('Starting Traffic')
 
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
@@ -1034,6 +1038,9 @@ def get_convergence_for_process_flap(duthosts,
                         logger.info('Verifying protocol sessions state')
                         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
                         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
+                        # NOTE: we sleep 60 seconds to make sure DUT is ready before receiving traffic
+                        time.sleep(60)
 
                         logger.info('Starting Traffic')
                         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
@@ -1593,6 +1600,9 @@ def get_convergence_for_ungraceful_restart(duthosts,
             'Sessions Down', StatViewAssistant.EQUAL, 0)
         logger.info('Starting Traffic')
 
+        # NOTE: we sleep 60 seconds to make sure DUT is ready before receiving traffic, avoiding traffic lost
+        time.sleep(60)
+
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
         api.set_control_state(cs)
         wait(SNAPPI_TRIGGER, "For Traffic To start")
@@ -1645,7 +1655,7 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Clearing Stats')
         ixnetwork.ClearStats()
         for duthost in duthosts:
-            ping_device(duthost, timeout=180)
+            ping_device(duthost, timeout=300)
         wait(DUT_TRIGGER, "Contaniers on the DUT to stabalize after restart")
 
         flow_stats = get_flow_stats(api)
