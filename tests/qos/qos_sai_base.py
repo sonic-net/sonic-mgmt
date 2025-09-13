@@ -11,12 +11,14 @@ import six
 import copy
 import time
 import collections
+from contextlib import contextmanager
 
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file  # noqa F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
-from tests.common.cisco_data import is_cisco_device
+from tests.common.cisco_data import is_cisco_device, copy_set_voq_watchdog_script_cisco_8000, \
+    copy_dshell_script_cisco_8000, run_dshell_command
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa F401
 from tests.common.dualtor.dual_tor_utils import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa F401
 from tests.common.dualtor.mux_simulator_control \
@@ -2720,21 +2722,6 @@ class QosSaiBase(QosBase):
                         "Changing lacp timer multiplier to default for %s in %s" % (neighbor_lag_member, peer_device))
                     vm_host.no_lacp_time_multiplier(neighbor_lag_member)
 
-    def copy_dshell_script_cisco_8000(self, dut, asic, dshell_script, script_name):
-        if dut.facts['asic_type'] != "cisco-8000":
-            raise RuntimeError("This function should have been called only for cisco-8000.")
-
-        script_path = "/tmp/{}".format(script_name)
-        dut.copy(content=dshell_script, dest=script_path)
-        if dut.sonichost.is_multi_asic:
-            dest = f"syncd{asic}"
-        else:
-            dest = "syncd"
-        dut.docker_copy_to_all_asics(
-            container_name=dest,
-            src=script_path,
-            dst="/")
-
     def copy_set_cir_script_cisco_8000(self, dut, ports, asic="", speed="10000000"):
         dshell_script = '''
 from common import *
@@ -2751,7 +2738,27 @@ def set_port_cir(interface, rate):
         for intf in ports:
             dshell_script += f'\nset_port_cir("{intf}", {speed})'
 
-        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_scheduler.py")
+
+    def get_port_channel_members(self, dut, port_name):
+        """
+        Get the members of portchannel on the given port.
+        Args:
+            dut (AnsibleHost): Device Under Test (DUT)
+            port_name (str): Name of the port to check
+        Returns:
+            list: List of port names that are members of the same portchannel.
+        """
+        interfaces = [port_name]
+        mgfacts = dut.get_extended_minigraph_facts()
+        for portchan in mgfacts['minigraph_portchannels']:
+            members = mgfacts['minigraph_portchannels'][portchan]['members']
+            if port_name in members:
+                logger.info("Interface {} is a member of portchannel {}, setting interface list to members {}".format(
+                    port_name, portchan, members))
+                interfaces = members
+                break
+        return interfaces
 
     @pytest.fixture(scope="function", autouse=False)
     def set_cir_change(self, get_src_dst_asic_and_duts, dutConfig):
@@ -2764,16 +2771,7 @@ def set_port_cir(interface, rate):
             yield
             return
 
-        interfaces = [dst_port]
-        # If interface is a PortChannel member, expand the list of interfaces that need scheduler setting
-        mgfacts = dst_dut.get_extended_minigraph_facts()
-        for portchan in mgfacts['minigraph_portchannels']:
-            members = mgfacts['minigraph_portchannels'][portchan]['members']
-            if dst_port in members:
-                logger.info("Interface {} is a member of portchannel {}, setting interfaces list to members {}".format(
-                    dst_port, portchan, members))
-                interfaces = members
-                break
+        interfaces = self.get_port_channel_members(dst_dut, dst_port)
 
         # Set scheduler to 5 Gbps.
         self.copy_set_cir_script_cisco_8000(
@@ -2785,17 +2783,18 @@ def set_port_cir(interface, rate):
         yield
         return
 
-    def copy_set_voq_watchdog_script_cisco_8000(self, dut, asic="", enable=True):
-        dshell_script = '''
-from common import d0
-def set_voq_watchdog(enable):
-    d0.set_bool_property(sdk.la_device_property_e_VOQ_WATCHDOG_ENABLED, enable)
-set_voq_watchdog({})
-'''.format(enable)
+    def voq_watchdog_enabled(self, get_src_dst_asic_and_duts):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        if not is_cisco_device(dst_dut):
+            return False
+        namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
+        show_command = "show platform npu global {}".format(namespace_option)
+        result = run_dshell_command(dst_dut, show_command)
+        pattern = r"voq_watchdog_enabled +: +True"
+        match = re.search(pattern, result["stdout"])
+        return match
 
-        self.copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_voq_watchdog.py")
-
-    @pytest.fixture(scope='class', autouse=True)
+    @contextmanager
     def disable_voq_watchdog(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         dst_asic = get_src_dst_asic_and_duts['dst_asic']
@@ -2813,13 +2812,15 @@ set_voq_watchdog({})
                     dut_list.append(rp_dut)
                     asic_index_list.append(asic.asic_index)
 
-        if dst_dut.facts['asic_type'] != "cisco-8000" or not dst_dut.sonichost.is_multi_asic:
+        # Skip if voq watchdog is not enabled.
+        if not self.voq_watchdog_enabled(get_src_dst_asic_and_duts):
+            logger.info("voq_watchdog is not enabled, skipping disable voq watchdog")
             yield
             return
 
         # Disable voq watchdog.
         for (dut, asic_index) in zip(dut_list, asic_index_list):
-            self.copy_set_voq_watchdog_script_cisco_8000(
+            copy_set_voq_watchdog_script_cisco_8000(
                 dut=dut,
                 asic=asic_index,
                 enable=False)
@@ -2832,7 +2833,7 @@ set_voq_watchdog({})
 
         # Enable voq watchdog.
         for (dut, asic_index) in zip(dut_list, asic_index_list):
-            self.copy_set_voq_watchdog_script_cisco_8000(
+            copy_set_voq_watchdog_script_cisco_8000(
                 dut=dut,
                 asic=asic_index,
                 enable=True)
@@ -2841,4 +2842,73 @@ set_voq_watchdog({})
                 cmd_opt = ""
             dut.shell("sudo show platform npu script {} -s set_voq_watchdog.py".format(cmd_opt))
 
-        return
+    @pytest.fixture(scope='function')
+    def disable_voq_watchdog_function_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+            yield result
+
+    @pytest.fixture(scope='class')
+    def disable_voq_watchdog_class_scope(self, duthosts, get_src_dst_asic_and_duts, dutConfig):
+        with self.disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts, dutConfig) as result:
+            yield result
+
+    def oq_watchdog_enabled(self, get_src_dst_asic_and_duts):
+        dst_dut = get_src_dst_asic_and_duts['dst_dut']
+        if not is_cisco_device(dst_dut):
+            return False
+        namespace_option = "-n asic0" if dst_dut.facts.get("modular_chassis") else ""
+        show_command = "show platform npu global {}".format(namespace_option)
+        result = run_dshell_command(dst_dut, show_command)
+        pattern = r"gb_watchdog_oq_enabled +: +True"
+        match = re.search(pattern, result["stdout"])
+        return match
+
+    def copy_set_queue_pir_script_cisco_8000(self, dut, ports, queue, speed, schduler_type, asic=""):
+        dshell_script = '''
+from common import *
+def set_queue_pir(interface, queue, rate):
+    sai_lane = port_to_sai_lane_map[interface]
+    slice_id, ifg_id, serdes_id = sai_lane_to_slice_ifg_serdes(sai_lane)
+    sys_port = find_system_port(slice_id, ifg_id, serdes_id)
+    scheduler = sys_port.get_scheduler()
+    original_pir = scheduler.get_{}_pir(queue)
+    print(original_pir)
+    scheduler.set_{}_pir(queue, rate)
+'''.format(schduler_type, schduler_type)
+
+        for intf in ports:
+            dshell_script += 'set_queue_pir("{}", {}, {})\n'.format(intf, queue, speed)
+
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="set_queue_pir.py")
+
+    def block_queue(self, dut, port, queue, queue_type, asic_index=""):
+        interfaces = self.get_port_channel_members(dut, port)
+        scheduler_type = "credit" if queue_type == "voq" else "transmit"
+        self.copy_set_queue_pir_script_cisco_8000(
+            dut=dut,
+            ports=interfaces,
+            queue=queue,
+            asic=asic_index,
+            speed=0,
+            schduler_type=scheduler_type)
+        cmd_opt = "-n asic{}".format(asic_index)
+        if not dut.sonichost.is_multi_asic:
+            cmd_opt = ""
+        result = dut.shell("sudo show platform npu script {} -s set_queue_pir.py".format(cmd_opt))
+        original_pir = result["stdout_lines"][0]
+        return int(original_pir)
+
+    def unblock_queue(self, dut, port, queue, queue_type, speed, asic_index=""):
+        interfaces = self.get_port_channel_members(dut, port)
+        scheduler_type = "credit" if queue_type == "voq" else "transmit"
+        self.copy_set_queue_pir_script_cisco_8000(
+            dut=dut,
+            ports=interfaces,
+            queue=queue,
+            asic=asic_index,
+            speed=speed,
+            schduler_type=scheduler_type)
+        cmd_opt = "-n asic{}".format(asic_index)
+        if not dut.sonichost.is_multi_asic:
+            cmd_opt = ""
+        dut.shell("sudo show platform npu script {} -s set_queue_pir.py".format(cmd_opt))
