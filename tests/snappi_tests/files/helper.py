@@ -3,6 +3,7 @@ import pytest
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
+from tests.common.nokia_data import is_nokia_device
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
@@ -30,6 +31,8 @@ def skip_warm_reboot(duthost, reboot_type):
     asic_type = duthost.get_asic_name()
     reboot_case_supported = True
     if (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+        reboot_case_supported = False
+    elif (reboot_type == "warm" or reboot_type == "fast") and is_nokia_device(duthost):
         reboot_case_supported = False
     elif is_broadcom_device(duthost) and asic_type in SKIP_LIST and "warm" in reboot_type:
         reboot_case_supported = False
