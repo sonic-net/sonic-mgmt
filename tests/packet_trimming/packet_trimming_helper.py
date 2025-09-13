@@ -12,7 +12,7 @@ import random
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
@@ -2070,9 +2070,18 @@ def check_connected_route_ready(duthost, interface_name):
     Returns:
         bool: True if the route is ready, False otherwise
     """
-    output = duthost.shell(f"show ip route connected | grep {interface_name}")['stdout']
-    logger.info(f"Connected route output: {output}")
-    return bool(output and output.strip())
+    # Check IPv4 connected routes
+    ipv4_output = duthost.shell(f"show ip route connected | grep {interface_name}")['stdout']
+    logger.info(f"IPv4 connected route output: {ipv4_output}")
+    ipv4_ready = bool(ipv4_output and ipv4_output.strip())
+
+    # Check IPv6 connected routes
+    ipv6_output = duthost.shell(f"show ipv6 route connected | grep {interface_name}")['stdout']
+    logger.info(f"IPv6 connected route output: {ipv6_output}")
+    ipv6_ready = bool(ipv6_output and ipv6_output.strip())
+
+    # Return True if either IPv4 or IPv6 route is ready
+    return ipv4_ready and ipv6_ready
 
 
 def reboot_dut(duthost, localhost, reboot_type):
@@ -2322,3 +2331,225 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
             logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
 
     return True
+
+
+def get_queue_id_by_dscp(dscp, ingress_port_name, dut_qos_maps_module):
+    """
+    Calculate the queue ID based on the DSCP value and ingress port name
+    """
+    # Get port QoS map for the downlink port
+    port_qos_map = dut_qos_maps_module['port_qos_map']
+    logger.info(f"Retrieving QoS maps for port: {ingress_port_name}")
+
+    # Extract the DSCP to TC map name from the port QoS configuration
+    dscp_to_tc_map_name = port_qos_map[ingress_port_name]['dscp_to_tc_map'].split('|')[-1].strip(']')
+    logger.info(f"DSCP to TC map name: {dscp_to_tc_map_name}")
+
+    # Extract the TC to Queue map name from the port QoS configuration
+    tc_to_queue_map_name = port_qos_map[ingress_port_name]['tc_to_queue_map'].split('|')[-1].strip(']')
+    logger.info(f"TC to Queue map name: {tc_to_queue_map_name}")
+
+    # Get the actual DSCP to TC mapping from the QoS maps
+    dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
+    logger.debug(f"DSCP to TC mapping details: {dscp_to_tc_map}")
+
+    # Get the actual TC to Queue mapping from the QoS maps
+    tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
+    logger.debug(f"TC to Queue mapping details: {tc_to_queue_map}")
+
+    # Calculate the queue ID, this queue will be blocked during testing
+    queue_id = get_dscp_to_queue_value(dscp, dscp_to_tc_map, tc_to_queue_map)
+
+    return queue_id
+
+
+def convert_all_counter_values(data):
+    """
+    Convert all counter values in a dictionary, handle 'N/A' and comma-separated numbers.
+
+    Args:
+        data (dict): Dictionary containing counter values
+
+    Returns:
+        dict: Dictionary with all string values converted to integers.
+              'N/A' values are converted to 0, comma-separated numbers are handled.
+    """
+    for field, value in data.items():
+        if isinstance(value, str):
+            if value == 'N/A':
+                data[field] = 0
+            else:
+                data[field] = int(value.replace(',', ''))
+    return data
+
+
+def get_switch_trim_counters_json(duthost):
+    """
+    Get switch level trim counter using JSON format.
+
+    Args:
+        duthost: DUT host object
+
+    Example:
+        admin@r-bison-04:~$ show switch counters all --json
+        {
+            "trim_drop": "N/A",
+            "trim_sent": "N/A"
+        }
+
+    Returns:
+        dict: Switch trim counters with all values converted to integers.
+              'N/A' values are converted to 0, comma-separated numbers are handled.
+              Example: {"trim_drop": 0, "trim_sent": 0}
+    """
+    result = duthost.shell("show switch counters all --json")
+    json_data = json.loads(result['stdout'])
+
+    # Convert all counter values, handle 'N/A' and comma-separated numbers
+    convert_all_counter_values(json_data)
+
+    logger.info(f"Switch trim counters (JSON): {json_data}")
+    return json_data
+
+
+def get_port_trim_counters_json(duthost, port):
+    """
+    Get specified port trim counters using JSON format.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        admin@r-bison-04:~$ show interfaces counters trim Ethernet0 --json
+        {
+            "Ethernet0": {
+                "STATE": "U",
+                "TRIM_DRP_PKTS": "N/A",
+                "TRIM_PKTS": "0",
+                "TRIM_TX_PKTS": "N/A"
+            }
+        }
+
+    Return:
+        {'TRIM_DRP_PKTS': '0', 'TRIM_PKTS': '100', 'TRIM_TX_PKTS': '100'}
+    """
+    result = duthost.shell(f"show interfaces counters trim {port} --json")
+
+    # Extract JSON part from output (skip timestamp line if present)
+    stdout = result['stdout']
+    lines = stdout.strip().split('\n')
+
+    # If first line starts with "Last cached time", skip it
+    if lines and lines[0].startswith('Last cached time'):
+        json_str = '\n'.join(lines[1:])
+    else:
+        json_str = stdout
+
+    json_data = json.loads(json_str)
+    port_data = json_data.get(port, {})
+
+    # Remove the STATE field from the returned data
+    if "STATE" in port_data:
+        del port_data["STATE"]
+
+    # Convert all counter values, handle 'N/A' and comma-separated numbers
+    convert_all_counter_values(port_data)
+
+    logger.info(f"Trim counters for port {port}: {port_data}")
+    return port_data
+
+
+def get_queue_trim_counters_json(duthost, port):
+    """
+    Get specified port queue level trim counter using JSON format.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        admin@r-bison-04:~$ show queue counters Ethernet0 --all --json
+        {
+          "Ethernet0": {
+            "UC0": {
+              "dropbytes": "N/A",
+              "droppacket": "0",
+              "totalbytes": "0",
+              "totalpacket": "0",
+              "trimdroppacket": "N/A",
+              "trimpacket": "0",
+              "trimsentpacket": "N/A"
+            },
+            ...
+          }
+        }
+
+    Returns:
+        dict: Queue trim counters with all values converted to integers.
+              'N/A' values are converted to 0, comma-separated numbers are handled.
+              'time' field is excluded from the returned data.
+              Example: {
+                  "UC0": {
+                      "dropbytes": 0,
+                      "droppacket": 0,
+                      "totalbytes": 0,
+                      "totalpacket": 0,
+                      "trimdroppacket": 0,
+                      "trimpacket": 0,
+                      "trimsentpacket": 0
+                  },
+                  ...
+              }
+    """
+    result = duthost.shell(f"show queue counters {port} --all --json")
+
+    json_data = json.loads(result['stdout'])
+    port_data = json_data.get(port, {})
+
+    # Remove the time field from the returned data
+    if "time" in port_data:
+        del port_data["time"]
+
+    # Convert all counter values from string to int for all fields
+    for queue_id, queue_data in port_data.items():
+        if isinstance(queue_data, dict):
+            # Convert all counter values, handle 'N/A' and comma-separated numbers
+            convert_all_counter_values(queue_data)
+
+    logger.info(f"Queue trim counters for port {port} (JSON): {port_data}")
+    return port_data
+
+
+def verify_queue_and_port_trim_counter_consistency(duthost, port):
+    """
+    Verify the consistency of the trim counter on the queue and the port level.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Raises:
+        AssertionError: If the trim counter on the queue is not equal to the trim counter on the port level
+    """
+    logger.info(f"Verify the consistency of the trim counter on the queue and the port level for port {port}")
+
+    # Get the trim counter information on the queue level
+    queue_counters = get_queue_trim_counters_json(duthost, port)
+
+    # Calculate the total trimpacket on all queues
+    queue_trim_details = {}
+    for queue_id, queue_data in queue_counters.items():
+        trim_packets = queue_data['trimpacket']
+        queue_trim_details[queue_id] = trim_packets
+        logger.debug(f"Queue {queue_id} trim packets: {trim_packets}")
+    total_queue_trim_packets = sum(queue_trim_details.values())
+    logger.info(f"Queue trim details: {queue_trim_details}")
+    logger.info(f"Total trim packets on all queues for port {port}: {total_queue_trim_packets}")
+
+    # Get the trim counter information on the port level
+    port_trim_packets = get_port_trim_counters_json(duthost, port)['TRIM_PKTS']
+    logger.info(f"Port {port} port level trim packets: {port_trim_packets}")
+
+    # Verify the consistency
+    pytest_assert(total_queue_trim_packets == port_trim_packets and total_queue_trim_packets > 0)
