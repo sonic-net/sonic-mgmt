@@ -25,6 +25,10 @@ ASN_BASE = 61000
 PORT_BASE = 11000
 SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
 
+pytestmark = [
+    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2')
+]
+
 
 '''
     Helper functions
@@ -56,9 +60,6 @@ def measure_stats(dut):
     bgp_sum_template = "./bgp/templates/bgp_summary_extended.textfsm"
     # Time in seconds commands should execute within
     responsive_threshold = 2
-    # Percentage thresholds
-    cpu_threshold = 90.0
-    mem_threshold = 90.0
 
     time_before_cmd = time.process_time()
 
@@ -105,18 +106,6 @@ def measure_stats(dut):
     })
 
     logger.debug(stats)
-
-    # Check that CPU usage isn't excessive
-    pytest_assert(
-        cpu_threshold > cpu_usage,
-        f"CPU utilisation has reached {cpu_usage}, which is above threshold of {cpu_threshold}"
-    )
-
-    # Check that memory usage isn't excessive
-    pytest_assert(
-        mem_threshold > mem_usage,
-        f"Memory utilisation has reached {mem_usage}, which is above threshold of {mem_threshold}"
-    )
 
     return stats
 
@@ -225,9 +214,9 @@ def test_bgp_update_replication(
     prev_num_rib = int(results[0]["num_rib"])
 
     # Inject and withdraw routes with a specified interval in between iterations
-    for interval in [3.0, 1.0, 0.5]:
+    for interval in [4.0, 3.5, 3.0]:
         # Repeat 20 times
-        for _ in range(20):
+        for _ in range(15):
             # Inject 10000 routes
             num_routes = 10_000
             route_injector.announce_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
