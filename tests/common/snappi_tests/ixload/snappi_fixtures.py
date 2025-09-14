@@ -79,10 +79,7 @@ def config_snappi_l47(request, duthosts, tbinfo):
         'test_filename': test_filename, 'initial_cps_obj': initial_cps_obj
     }
 
-    ports_list = {
-        'Traffic1@Network1': [(1, 1, 1), (1, 2, 1), (1, 3, 1), (1, 4, 1), (1, 5, 1), (1, 6, 1), (1, 7, 1), (1, 8, 1)],  # noqa: E501
-        'Traffic2@Network2': [(1, 1, 2), (1, 2, 2), (1, 3, 2), (1, 4, 2), (1, 5, 2), (1, 6, 2), (1, 7, 2), (1, 8, 2)]  # noqa: E501
-    }
+    ports_list = tbinfo['ports_list']
 
     connection_dict = {
         'chassis_ip': chassis_ip,
@@ -95,4 +92,5 @@ def config_snappi_l47(request, duthosts, tbinfo):
     snappi_l47_params['connection_dict'] = connection_dict
     snappi_l47_params['ports_list'] = ports_list
 
+    import pdb; pdb.set_trace()
     return snappi_l47_params
