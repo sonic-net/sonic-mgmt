@@ -13,7 +13,11 @@ from tests.dash.dash_utils import verify_tunnel_packets
 
 logger = logging.getLogger(__name__)
 
-pytestmark = [pytest.mark.topology("t1"), pytest.mark.skip_check_dut_health]
+pytestmark = [
+    pytest.mark.topology("t1"),
+    pytest.mark.topology("smartswitch"),
+    pytest.mark.skip_check_dut_health
+]
 
 
 """
@@ -23,10 +27,12 @@ Test prerequisites:
 Note: It's also necessary for the DPU to learn the neighbor info of the dataplane port to the NPU before any
 DASH configs are programmed. This should be handled automatically by fixture ordering and does not require
 manual steps.
+
+The neighbor info is learned when appling the default route as orchagent will attempt to resolve the next hop IP.
 """
 
 
-@pytest.fixture(autouse=True, scope="function")
+@pytest.fixture(autouse=True)
 def common_setup_teardown(
     localhost,
     duthost,
@@ -37,7 +43,7 @@ def common_setup_teardown(
     set_vxlan_udp_sport_range,
     # manually invoke setup_npu_dpu to ensure routes are added before DASH configs are programmed
     setup_npu_dpu,  # noqa: F811
-    single_endpoint,
+    single_endpoint
 ):
     if skip_config:
         yield

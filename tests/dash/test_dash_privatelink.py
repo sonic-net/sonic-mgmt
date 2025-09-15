@@ -12,25 +12,15 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology('t1'),
+    pytest.mark.topology('smartswitch'),
     pytest.mark.skip_check_dut_health
 ]
 
 
 """
 Test prerequisites:
-- DPU needs the Appliance VIP configured as its loopback IP
 - Assign IPs to DPU-NPU dataplane interfaces
-- Default route on DPU to NPU
 """
-
-
-@pytest.fixture(scope="module")
-def use_pkt_alt_attrs(duthost):
-    hwsku = duthost.sonichost._facts["hwsku"]
-    if hwsku == "Cisco-8102-28FH-DPU-O-T1":
-        return True
-    else:
-        return False
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -42,7 +32,7 @@ def common_setup_teardown(
     skip_config,
     dpuhosts,
     set_vxlan_udp_sport_range,
-    setup_npu_dpu,  # noqa: F811
+    setup_npu_dpu  # noqa: F811
 ):
     if skip_config:
         return
@@ -94,8 +84,7 @@ def common_setup_teardown(
 def test_privatelink_basic_transform(
     ptfadapter,
     dash_pl_config,
-    encap_proto,
-    use_pkt_alt_attrs
+    encap_proto
 ):
     vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, encap_proto)
     pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config)

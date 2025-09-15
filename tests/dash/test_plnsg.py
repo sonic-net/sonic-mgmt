@@ -18,6 +18,10 @@ import ptf.packet as scapy
 
 logger = logging.getLogger(__name__)
 
+pytestmark = [
+    pytest.mark.topology('smartswitch')
+]
+
 
 @pytest.fixture(autouse=True)
 def config_setup_teardown(

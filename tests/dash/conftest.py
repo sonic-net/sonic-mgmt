@@ -462,7 +462,7 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
     apply_swssconfig_file(dpuhost, config_path)
     if 'pensando' in dpuhost.facts['asic_type']:
-        logger.warning("Appling Pensando DPU VXLAN sport workaround")
+        logger.warning("Applying Pensando DPU VXLAN sport workaround")
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
@@ -500,7 +500,7 @@ def single_endpoint(request):
     return request.param
 
 
-@pytest.fixture(scope="function")
+@pytest.fixture
 def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
     if skip_config:
 
