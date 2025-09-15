@@ -251,4 +251,3 @@ def cmis_cable_ports_and_ver(duthosts):
         cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
     logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
     return cmis_cable_ports_and_ver
-
