@@ -29,6 +29,25 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
+def is_hsflowd_ready(duthost):
+    """
+    Check if hsflowd is running.
+    """
+    # Check if the sflow container is running
+    if not duthost.is_container_running("sflow"):
+        return False
+
+    # Check if hsflowd is running inside the container
+    result = duthost.command("docker exec sflow pgrep hsflowd")
+    if result['failed']:
+        return False
+    hsflowd_pid = result['stdout_lines'][0]
+    if not hsflowd_pid:
+        return False
+
+    return True
+
+
 @pytest.fixture(scope='module', autouse=True)
 def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature):
     duthost = duthosts[rand_one_dut_hostname]
@@ -191,6 +210,9 @@ def config_sflow(duthost, sflow_status='enable'):
     wait_until(30, 5, 0, lambda: re.search(
         r"sFlow Admin State:\s+%s" % expected,
         duthost.shell('show sflow')['stdout']))
+    if sflow_status == 'enable' and not wait_until(180, 10, 0, is_hsflowd_ready, duthost):
+        pytest.fail("hsflowd is not running")
+
 # ----------------------------------------------------------------------------------
 
 
@@ -291,17 +313,31 @@ def partial_ptf_runner(request, ptfhost, tbinfo):
                   'agent_id': var['lo_ip'],
                   'sflow_ports_file': "/tmp/sflow_ports.json"}
         params.update(kwargs)
-        ptf_runner(host=ptfhost,
-                   testdir="ptftests",
-                   platform_dir="ptftests",
-                   testname="sflow_test",
-                   params=params,
-                   socket_recv_size=16384,
-                   log_file="/tmp/{}.{}.log".format(
-                       request.cls.__name__, request.function.__name__),
-                   is_python3=True)
+        return ptf_runner(host=ptfhost,
+                          testdir="ptftests",
+                          platform_dir="ptftests",
+                          testname="sflow_test",
+                          params=params,
+                          socket_recv_size=16384,
+                          log_file="/tmp/{}.{}.log".format(
+                              request.cls.__name__, request.function.__name__),
+                          is_python3=True)
 
     return _partial_ptf_runner
+
+
+def check_sflow_traffic(duthost, partial_ptf_runner, enabled_sflow_interfaces="[]",
+                        active_collectors="[]", agent_id=None, polling_int=None):
+    def check_sflow_traffic_on_ptf():
+        kwargs = {'enabled_sflow_interfaces': enabled_sflow_interfaces,
+                  'active_collectors': active_collectors}
+        if agent_id is not None:
+            kwargs['agent_id'] = agent_id
+        if polling_int is not None:
+            kwargs['polling_int'] = polling_int
+        return partial_ptf_runner(**kwargs)
+    return wait_until(180, 10, 0, check_sflow_traffic_on_ptf)
+
 
 # ----------------------------------------------------------------------------------
 
@@ -390,9 +426,10 @@ class TestSflowCollector():
         for intf in var['sflow_ports']:
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0']"), \
+               "No sflow samples received in collector"
 
     def test_collector_del_add(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
@@ -404,16 +441,17 @@ class TestSflowCollector():
                        'show sflow')['stdout'])) == 0)
         verify_show_sflow(duthost, status='up', collector=[])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="[]")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys())), \
+               "Unexpected sflow samples received"
         # re-add collector
         config_sflow_collector(duthost, 'collector0', 'add')
         verify_show_sflow(duthost, status='up', collector=['collector0'])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0']"), \
+               "No sflow samples received in collector"
 
     def test_two_collectors(self, sflowbase_config, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
@@ -421,26 +459,29 @@ class TestSflowCollector():
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
-        # Remove second collector anc check samples are received in only 1st collector
+        # Remove second collector and check samples are received in only 1st collector
         config_sflow_collector(duthost, 'collector1', 'del')
         verify_show_sflow(duthost, status='up', collector=['collector0'])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0']"), \
+               "No sflow samples received in collector"
 
         # Re-add second collector and check if samples are received in both collectors again
         config_sflow_collector(duthost, 'collector1', 'add')
         verify_show_sflow(duthost, status='up', collector=[
                           'collector0', 'collector1'])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
         # Add third collector and check only 2 collectors can be configured
         out = duthost.command(
@@ -451,9 +492,10 @@ class TestSflowCollector():
         config_sflow_collector(duthost, 'collector0', 'del')
         verify_show_sflow(duthost, status='up', collector=['collector1'])
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector1']"), \
+               "Received an uneexpected number of sflow samples"
 
 
 # ------------------------------------------------------------------------------
@@ -470,27 +512,30 @@ class TestSflowPolling():
         duthost = duthosts[rand_one_dut_hostname]
         duthost.shell("config sflow polling-interval 20")
         verify_show_sflow(duthost, status='up', polling_int=20)
-        partial_ptf_runner(
-            polling_int=20,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=20,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
     def testDisablePolling(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
         duthost.shell("config sflow polling-interval 0")
 
         verify_show_sflow(duthost, status='up', polling_int=0)
-        partial_ptf_runner(
-            polling_int=0,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=0,
+                                   active_collectors="['collector0','collector1']"), \
+               "Received an uneexpected number of sflow samples"
 
     def testDifferentPollingInt(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
         duthost.shell("config sflow polling-interval 60")
 
         verify_show_sflow(duthost, status='up', polling_int=60)
-        partial_ptf_runner(
-            polling_int=60,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=60,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
 # ------------------------------------------------------------------------------
 
@@ -518,9 +563,10 @@ class TestSflowInterface():
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
 
         # Traffic test for the enabled sflow interfaces
-        partial_ptf_runner(
-            enabled_sflow_interfaces=enabled_sflow_intf_list,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=enabled_sflow_intf_list,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
     def testIntfSamplingRate(self, sflowbase_config, duthosts, rand_one_dut_hostname,
                              ptfhost, partial_ptf_runner, selected_portchannel_members,
@@ -547,9 +593,10 @@ class TestSflowInterface():
         # Traffic test for the enabled sflow interfaces
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        partial_ptf_runner(
-            enabled_sflow_interfaces=enabled_sflow_intf_list,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=enabled_sflow_intf_list,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
         # Revert sflow rate for interface in first portchannel
         for intf in first_portchannel_members:
@@ -564,9 +611,10 @@ class TestSflowInterface():
         # Traffic test for the enabled sflow interfaces
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
-        partial_ptf_runner(
-            enabled_sflow_interfaces=enabled_sflow_intf_list,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=enabled_sflow_intf_list,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
 # ------------------------------------------------------------------------------
 
@@ -585,32 +633,34 @@ class TestAgentId():
         duthost.shell(" config sflow agent-id del")
         duthost.shell(" config sflow agent-id  add Loopback0")
         verify_show_sflow(duthost, status='up', agent_id='Loopback0')
-        partial_ptf_runner(
-            polling_int=20,
-            agent_id=agent_ip,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=20,
+                                   agent_id=agent_ip,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
     def testDelAgent(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
         duthost.shell(" config sflow agent-id del")
         verify_show_sflow(duthost, status='up', agent_id='default')
         wait_until(30, 5, 0, verify_sflow_config_apply, duthost)
-        agent_ip = get_default_agent(duthost)
         # Verify  whether the samples are received with previously configured agent ip
-        partial_ptf_runner(
-            polling_int=20,
-            agent_id=agent_ip,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=20,
+                                   agent_id=agent_ip,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
     def testAddAgent(self, duthosts, rand_one_dut_hostname, partial_ptf_runner):
         duthost = duthosts[rand_one_dut_hostname]
         agent_ip = var['mgmt_ip']
         duthost.shell(" config sflow agent-id  add  eth0")
         verify_show_sflow(duthost, status='up', agent_id='eth0')
-        partial_ptf_runner(
-            polling_int=20,
-            agent_id=agent_ip,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=20,
+                                   agent_id=agent_ip,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
 # ------------------------------------------------------------------------------
 
@@ -638,13 +688,15 @@ class TestReboot():
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
         # Test Polling
-        partial_ptf_runner(
-            polling_int=80,
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   polling_int=80,
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
     def testRebootSflowDisable(self, sflowbase_config, duthosts, rand_one_dut_hostname,
                                localhost, partial_ptf_runner, ptfhost):
@@ -665,9 +717,9 @@ class TestReboot():
                 duthost, intf)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="[]")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys())), \
+               "Received unexpected sflow samples"
 
     def testFastreboot(self, sflowbase_config, config_sflow_agent, duthosts,
                        rand_one_dut_hostname, localhost, partial_ptf_runner, ptfhost):
@@ -689,9 +741,10 @@ class TestReboot():
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
 
     def testWarmreboot(self, sflowbase_config, duthosts, rand_one_dut_hostname,
                        localhost, partial_ptf_runner, ptfhost):
@@ -713,6 +766,7 @@ class TestReboot():
             verify_sflow_interfaces(duthost, intf, 'up', SFLOW_RATE_DEFAULT)
         var['portmap'] = json.dumps(var['sflow_ports'])
         ptfhost.copy(content=var['portmap'], dest="/tmp/sflow_ports.json")
-        partial_ptf_runner(
-            enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
-            active_collectors="['collector0','collector1']")
+        assert check_sflow_traffic(duthost, partial_ptf_runner,
+                                   enabled_sflow_interfaces=list(var['sflow_ports'].keys()),
+                                   active_collectors="['collector0','collector1']"), \
+               "Missing sflow samples in either or both collectors"
