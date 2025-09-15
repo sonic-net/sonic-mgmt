@@ -1,4 +1,7 @@
 import functools
+import pytest
+import logging
+logger = logging.getLogger(__name__)
 
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
@@ -1266,7 +1269,6 @@ def is_unsupported_module(port_info, port_number):
 
 def skip_on_unsupported_module():
     pytest.skip(f"All ports are with unsupported modules, skipping the test due to Github issue #21878")
-
 
 
 def is_cmis_version_supported(cmis_version, min_required_version=5.0, failed_api_ports=None, port_name=None):
