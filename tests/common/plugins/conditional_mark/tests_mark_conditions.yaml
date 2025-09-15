@@ -603,6 +603,10 @@ decap/test_decap.py:
     reason: 'Skip on t1-isolated-d32/128 topos'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Xfail due to test is not aligned with Smartswitch light mode: https://github.com/sonic-net/sonic-mgmt/issues/20599"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20599 and is_smartswitch==True and 't1' in topo_name" 
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
@@ -1920,6 +1924,16 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Xfail due to test is not aligned with Smartswitch light mode: https://github.com/sonic-net/sonic-mgmt/issues/20599"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20599 and is_smartswitch==True and 't1' in topo_name"
+
+fib/test_fib.py::test_hash:
+  xfail:
+    reason: "Xfail due to test is not aligned with Smartswitch light mode: https://github.com/sonic-net/sonic-mgmt/issues/20599"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20599 and is_smartswitch==True and 't1' in topo_name"
 
 fib/test_fib.py::test_hash[ipv4]:
   skip:
@@ -1934,6 +1948,10 @@ fib/test_fib.py::test_ipinip_hash:
     conditions:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Xfail due to test is not aligned with Smartswitch light mode: https://github.com/sonic-net/sonic-mgmt/issues/20599"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20599 and is_smartswitch==True and 't1' in topo_name"
 
 fib/test_fib.py::test_nvgre_hash:
   skip:
@@ -1943,9 +1961,11 @@ fib/test_fib.py::test_nvgre_hash:
       - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
-    reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation'
+    reason: 'Nvgre hash test is not fully supported on SPC1 platform due to known limitation. Xfail due to test is not aligned with Smartswitch light mode: https://github.com/sonic-net/sonic-mgmt/issues/20599'
+    conditions_logical_operator: or
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20599 and is_smartswitch==True and 't1' in topo_name"
 
 fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
   skip:
@@ -1990,6 +2010,10 @@ fib/test_fib.py::test_vxlan_hash:
     conditions:
       - "asic_type in ['vs'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Xfail due to test is not aligned with Smartswitch light mode: https://github.com/sonic-net/sonic-mgmt/issues/20599"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20599 and is_smartswitch==True and 't1' in topo_name"
 
 fib/test_fib.py::test_vxlan_hash[ipv4-ipv4]:
   skip:
