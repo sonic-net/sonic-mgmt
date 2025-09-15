@@ -79,6 +79,7 @@ def get_pr_test_plans(kusto_client, start_time, end_time):
     | where TestPlanType == "PR"
     | where CreatedByType == "PR"
     | where TestPlanName !contains "optional"
+    | where TestPlanName contains "Baseline" or TestPlanName contains "PullRequest"
     | where EndTime between (datetime({start_time}) .. datetime({end_time}))
     | join kind=leftouter TestBeds on TestPlanId
     | extend RunDate = todatetime(format_datetime(EndTime, "yyyy-MM-dd"))
@@ -116,7 +117,7 @@ def merge_test_data(testplans_df, testcases_df):
     # Group by the specified keys and count the Result occurrences
     agg_df = (
         merged_df.groupby([
-            "TestBranch", "TriggerType", "SourceRepo", "TestbedName", "FilePath", "ModulePath", "TestCase", "RunDate"
+            "TestBranch", "TriggerType", "TestbedName", "FilePath", "ModulePath", "TestCase", "RunDate", "SourceRepo"
             ])["Result"]
         .value_counts()
         .unstack(fill_value=0)
@@ -139,16 +140,17 @@ def merge_test_data(testplans_df, testcases_df):
     return csv_file
 
 
-def Ingest_to_new_table(ingest_client, csv_file):
-    # Ingest into Kusto
+def ingest_to_new_table_json(ingest_client, agg_df):
+    json_file = "PRTestSuccessRate.json"
+    # Write DataFrame as JSON records (one object per line)
+    agg_df.to_json(json_file, orient="records", lines=True, date_format="iso")
     ingestion_props = IngestionProperties(
         database=DATABASE,
         table=NEWTABLE,
-        data_format=DataFormat.CSV,
-        additional_properties={"ignoreFirstRecord": "true"}
+        data_format=DataFormat.JSON
     )
-    ingest_client.ingest_from_file(csv_file, ingestion_properties=ingestion_props)
-    logger.info("Ingestion completed.")
+    ingest_client.ingest_from_file(json_file, ingestion_properties=ingestion_props)
+    logger.info("JSON ingestion completed.")
 
 
 def main(start_time, end_time):
@@ -159,7 +161,9 @@ def main(start_time, end_time):
     testplans_df, testplan_ids = get_pr_test_plans(kusto_client, start_time, end_time)
     testcases_df = get_pr_test_cases(kusto_client, testplan_ids)
     agg_csv = merge_test_data(testplans_df, testcases_df)
-    Ingest_to_new_table(ingest_client, agg_csv)
+    # Read the CSV back as DataFrame to ensure correct types (or refactor merge_test_data to return DataFrame directly)
+    agg_df = pd.read_csv(agg_csv)
+    ingest_to_new_table_json(ingest_client, agg_df)
 
 
 def normalize_arg(value):
@@ -171,7 +175,7 @@ def normalize_arg(value):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        description="Analyze test result")
+        description="PR result summary analyzer")
 
     parser.add_argument(
         "--start_time",
