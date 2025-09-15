@@ -229,8 +229,8 @@ def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinf
                     route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
 
     duthost.shell(add_route_command, module_ignore_errors=True)
-    assert wait_until(30, 5, 0, check_route_exist, duthost, \
-                      network_with_same_prefix_as_vlan_interface, nh_ip, route_check_command), \
+    assert wait_until(30, 5, 0, check_route_exist, duthost,
+                      network_with_same_prefix_as_vlan_interface, nh_ip, route_check_command),
                       f"Failed to add route {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
 
     get_sai_sdk_dump_file(duthost, "sai_sdk_dump_before_shutdown_vlan_ports")
