@@ -53,6 +53,6 @@ stages:
                 cd test_analyzer
                 pip install -r requirements.txt
 
-                python pr_failure_analyzer.py --start_time ${{ parameters.START_TIME }} --end_time ${{ parameters.END_TIME }}
+                python pr_test_result_summary.py --start_time ${{ parameters.START_TIME }} --end_time ${{ parameters.END_TIME }}
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
