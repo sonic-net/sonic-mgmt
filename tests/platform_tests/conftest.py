@@ -147,6 +147,25 @@ def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
         pytest.skip("skipped as thermal manager is not available")
 
 
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+    """
+    @summary: This function checks if pmon uptime is at least the minimal_runtime
+    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    """
+    result = duthost.command("docker ps | grep pmon", _uses_shell=True)
+    if result["stdout"]:
+        match = re.search(r'Up (\d+) (minutes|hours)', result["stdout"])
+        if match:
+            if match.group(2)=="hours":
+                return int(match.group(1))*60>=minimal_runtime
+            else:
+                return int(match.group(1))>=minimal_runtime
+        match = re.search(r'Up About an hour', result["stdout"])
+        if match:
+            return 60>=minimal_runtime
+    return False
+
+
 def pytest_generate_tests(metafunc):
     if 'power_off_delay' in metafunc.fixturenames:
         delays = metafunc.config.getoption('power_off_delay')
@@ -231,3 +250,4 @@ def cmis_cable_ports_and_ver(duthosts):
         cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
     logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
     return cmis_cable_ports_and_ver
+

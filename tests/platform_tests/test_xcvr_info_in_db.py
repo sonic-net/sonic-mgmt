@@ -9,6 +9,9 @@ import pytest
 from tests.common.platform.transceiver_utils import check_transceiver_status
 from tests.common.platform.interface_utils import get_port_map, get_lport_to_first_subport_mapping
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.platform_tests.conftest import check_pmon_uptime_minutes
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -22,6 +25,10 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     @summary: This test case is to verify that xcvrd works as expected by checking transceiver information in DB
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+                  "Pmon docker is not ready for test")
+
     logging.info("Check transceiver status")
     all_interfaces = conn_graph_facts.get("device_conn", {}).get(duthost.hostname, {})
 
@@ -39,3 +46,4 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     lport_to_first_subport_mapping = get_lport_to_first_subport_mapping(duthost, all_interfaces)
     check_transceiver_status(duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list,
                              port_list_with_flat_memory, lport_to_first_subport_mapping)
+
