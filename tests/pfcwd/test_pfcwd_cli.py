@@ -19,7 +19,7 @@ from tests.common import config_reload
 from tests.common.devices.eos import EosHost
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
