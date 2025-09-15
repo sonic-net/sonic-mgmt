@@ -74,12 +74,12 @@ class TestMACFault(object):
         eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
         eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
-        supported_available_optical_interfaces = get_supported_available_optical_interfaces(eeprom_infos, parsed_presence)
+        supported_available_optical_interfaces, failed_api_ports = get_supported_available_optical_interfaces(eeprom_infos, parsed_presence, return_failed_api_ports=True)
 
         pytest_assert(supported_available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
         logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
 
-        return dut, supported_available_optical_interfaces
+        return dut, supported_available_optical_interfaces, failed_api_ports
 
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
@@ -91,7 +91,7 @@ class TestMACFault(object):
                       "Interface {} did not come up after startup".format(interface))
 
     def test_mac_local_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
-        dut, supported_available_optical_interfaces = get_dut_and_supported_available_optical_interfaces
+        dut, supported_available_optical_interfaces, failed_api_ports = get_dut_and_supported_available_optical_interfaces
 
         selected_interfaces = random.sample(supported_available_optical_interfaces, min(collected_ports_num, len(supported_available_optical_interfaces)))
         logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
@@ -124,8 +124,10 @@ class TestMACFault(object):
             pytest_assert(local_fault_after > local_fault_before,
                           "MAC local fault count did not increment after disabling/enabling rx-output on the device")
 
+        pytest_assert(len(failed_api_ports) == 0, "Interfaces with failed API ports: {}".format(failed_api_ports))
+
     def test_mac_remote_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
-        dut, supported_available_optical_interfaces = get_dut_and_supported_available_optical_interfaces
+        dut, supported_available_optical_interfaces, failed_api_ports = get_dut_and_supported_available_optical_interfaces
 
         selected_interfaces = random.sample(supported_available_optical_interfaces, min(collected_ports_num, len(supported_available_optical_interfaces)))
         logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
@@ -158,3 +160,5 @@ class TestMACFault(object):
 
             pytest_assert(remote_fault_after > remote_fault_before,
                           "MAC remote fault count did not increment after disabling/enabling tx-output on the device")
+
+        pytest_assert(len(failed_api_ports) == 0, "Interfaces with failed API ports: {}".format(failed_api_ports))
