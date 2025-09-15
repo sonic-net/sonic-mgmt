@@ -302,6 +302,7 @@ def pytest_addoption(parser):
     parser.addoption("--collected-ports-num", action="store", default=5, type=int,
                      help="Number of ports to collect for testing (default: 5)")
 
+
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
