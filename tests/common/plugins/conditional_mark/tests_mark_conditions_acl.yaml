@@ -253,8 +253,10 @@ acl/test_acl.py::TestAclWithPortToggle::test_udp_source_ip_match_dropped[ipv6-eg
 acl/test_acl.py::TestAclWithReboot:
   skip:
     reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['t1'] and asic_type in ['vs']"
+      - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
 
 acl/test_acl.py::TestAclWithReboot::test_dest_ip_match_dropped[ipv6-egress-uplink->downlink-default-Vlan1000]:
   xfail:
