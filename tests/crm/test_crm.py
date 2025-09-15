@@ -14,8 +14,8 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
-from tests.common.fixtures.duthost_utils import disable_route_checker # noqa F401
-from tests.common.fixtures.duthost_utils import disable_fdb_aging # noqa F401
+from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
+from tests.common.fixtures.duthost_utils import disable_fdb_aging   # noqa: F401
 from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
@@ -651,7 +651,7 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
 def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                      enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo):
-    
+
     if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
