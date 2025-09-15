@@ -5,7 +5,8 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
-from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos, get_supported_available_optical_interfaces
+from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
+from tests.common.mellanox_data import get_supported_available_optical_interfaces
 from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
 from tests.common.utilities import wait_until
 
