@@ -532,7 +532,7 @@ def add_npu_static_routes(
         pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
         pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
 
-        cmds.append(f"config route add prefix {pl.APPLIANCE_VIP}/32 nexthop {dpuhost.dpu_data_port_ip}")
+        cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
 
         return_tunnel_endpoints = pl.TUNNEL1_ENDPOINT_IPS + pl.TUNNEL2_ENDPOINT_IPS
