@@ -70,7 +70,7 @@ fanout:
   hosts:
     svcstr-7260cx3-acs-5:
       ansible_host: 10.206.144.12
-      ansible_hostv6: 
+      ansible_hostv6:
     svcstr-7260cx3-acs-1:
       ansible_host: 10.206.144.8
       ansible_hostv6: 2a01:111:e205:100::ace:9008
@@ -549,6 +549,9 @@ sonic_cisco_lc_400G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 420
           wait: 600
+        metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
+          timeout: 600
+          wait: 900
     svcstr-8800-lc2-1:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
@@ -587,6 +590,9 @@ sonic_cisco_lc_400G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 420
           wait: 600
+        metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
+          timeout: 600
+          wait: 900
     svcstr-8800-lc3-1:
       hwsku: Cisco-88-LC0-36FH-O36
       sonic_hwsku: Cisco-88-LC0-36FH-O36
@@ -625,6 +631,9 @@ sonic_cisco_lc_400G:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 420
           wait: 600
+        metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
+          timeout: 600
+          wait: 900
 
 sonic_cisco_sup:
   vars:
@@ -701,5 +710,8 @@ sonic_cisco_sup:
           timeout: 420
           wait: 600
         install_image/install_image.py::test_install_image:
+          timeout: 600
+          wait: 900
+        metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
           timeout: 600
           wait: 900
