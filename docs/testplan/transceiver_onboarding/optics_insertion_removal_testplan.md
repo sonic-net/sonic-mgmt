@@ -30,7 +30,7 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 | link_flap_monitor_timeout_sec | Int | 10 | No | transceivers | The duration in seconds to monitor for link flaps after OIR operations. |
 
 
-3. `remote_reseat_attributes.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases).
+3. `remote_reseat.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the remote reseat tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases).
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
