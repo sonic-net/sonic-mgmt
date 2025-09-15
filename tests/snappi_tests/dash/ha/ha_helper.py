@@ -238,7 +238,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
         logger.info("Waiting for dut ssh to start".format())
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
 
-        # wait(wait_time, msg="Wait for system to be stable.")
+        wait(wait_time, msg="Wait for system to be stable.")
         logger.info("Moving next to DPU config")
         dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
 
