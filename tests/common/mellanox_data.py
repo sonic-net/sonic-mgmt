@@ -1298,7 +1298,7 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
     @param: min_cmis_version: Minimum required CMIS version (default: 5.0)
     @param: return_failed_api_ports: If True, return both available_optical_interfaces and failed_api_ports.
                                      If False, return only available_optical_interfaces (default: False)
-    @return: list or tuple: If return_failed_api_ports=False, returns list of available optical interface names. 
+    @return: list or tuple: If return_failed_api_ports=False, returns list of available optical interface names.
                             If return_failed_api_ports=True, returns (available_optical_interfaces, failed_api_ports)
     """
     available_optical_interfaces = []
@@ -1322,6 +1322,7 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
         elif not is_cmis_version_supported(cmis_version, min_cmis_version, failed_api_ports, port_name):
             logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
             continue
+
         available_optical_interfaces.append(port_name)
 
     if return_failed_api_ports:
