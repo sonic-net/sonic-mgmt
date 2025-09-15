@@ -830,7 +830,7 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                            enum_frontend_asic_index, crm_interface, group_member, tbinfo, network):
 
-    if  is_ipv6_only_topology(tbinfo):
+    if is_ipv6_only_topology(tbinfo):
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
