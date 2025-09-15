@@ -53,6 +53,28 @@ def skip_for_non_smartswitch(duthost):
                     "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
 
 
+@pytest.fixture(scope='function')
+def dpu_env(duthosts, enum_rand_one_per_hwsku_hostname,
+            platform_api_conn, num_dpu_modules):
+    """
+    Runs pre_test_check() before the test and ensures all DPUs
+    that are UP before the test are forced UP after the test (even if it fails).
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre-test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost, platform_api_conn, num_dpu_modules
+    )
+
+    yield duthost, ip_address_list, dpu_on_list, dpu_off_list
+
+    for dpu in dpu_on_list:
+        iface = dpu.lower()
+        logging.info(f"[Cleanup] Forcing UP {dpu} ({iface})")
+        duthost.shell(f"sudo ip link set {iface} up")
+
+
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
                                     platform_api_conn, num_dpu_modules,  # noqa F811

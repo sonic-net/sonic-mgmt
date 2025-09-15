@@ -338,24 +338,19 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(duthosts,
-                                     enum_rand_one_per_hwsku_hostname,
-                                     platform_api_conn, num_dpu_modules):  # noqa: F811
+def test_data_control_mid_plane_sync(dpu_env)
     """
     @summary: To verify data, control and mid planes are in sync
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Executing pre-test check")
-    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
-        duthost, platform_api_conn, num_dpu_modules)
+    duthost, ip_address_list, dpu_on_list, dpu_off_list = dpu_env
 
     for index, dpu in enumerate(dpu_on_list):
         dpu_ip = ip_address_list[index]
         interface_name = dpu.lower()
 
         logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
-        duthost.shell(f"ip link set {interface_name} down")
+        duthost.shell(f"sudo ip link set {interface_name} down")
 
         pytest_assert(wait_until(120, 20, 0, check_midplane_status,
                       duthost, dpu_ip, "False"),
@@ -364,7 +359,7 @@ def test_data_control_mid_plane_sync(duthosts,
         check_dpu_health_status(duthost, dpu, 'Offline', 'down')
 
         logging.info(f"Bringing UP {dpu} ({dpu_ip})")
-        duthost.shell(f"ip link set {interface_name} up")
+        duthost.shell(f"sudo ip link set {interface_name} up")
 
         pytest_assert(wait_until(120, 20, 0, check_midplane_status,
                       duthost, dpu_ip, "True"),
