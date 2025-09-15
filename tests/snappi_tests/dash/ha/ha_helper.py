@@ -779,7 +779,7 @@ def set_timelineCustom(api, initial_cps_value):
 
 def run_cps_search(api, initial_cps_value):
 
-    MAX_CPS = 35000000
+    MAX_CPS = 30000000
     MIN_CPS = 0
     threshold = 1000000
     test_iteration = 1
