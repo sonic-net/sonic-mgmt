@@ -234,7 +234,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
         logger.info("Issuing a {} reboot on the dut {}".format(
             "warm_reboot", duthost.hostname))
 
-        # reboot(duthost, localhost, wait_for_ssh=False)
+        reboot(duthost, localhost, wait_for_ssh=False)
         logger.info("Waiting for dut ssh to start".format())
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
 
