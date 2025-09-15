@@ -172,9 +172,9 @@ def test_all_rules(localhost,
     for key, paths in docker_key_file_mapping.items():
         for path in paths:
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                            f"sudo touch {path}")
+                           f"sudo touch {path}")
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                            f"sudo rm -f {path}")
+                           f"sudo rm -f {path}")
 
     # Trigger docker_commands
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], "docker ps")
@@ -242,9 +242,9 @@ def test_all_rules(localhost,
     for key, paths in docker_key_file_mapping.items():
         for path in paths:
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                            f"sudo touch {path}")
+                           f"sudo touch {path}")
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
-                            f"sudo rm -f {path}")
+                           f"sudo rm -f {path}")
 
             # Search SYSCALL & PATH logs
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
