@@ -1299,7 +1299,7 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
     @param: return_failed_api_ports: If True, return both available_optical_interfaces and failed_api_ports.
                                      If False, return only available_optical_interfaces (default: False)
     @return: list or tuple: If return_failed_api_ports=False, returns list of available optical interface names. 
-                            If return_failed_api_ports=True, returns tuple (available_optical_interfaces, failed_api_ports)
+                            If return_failed_api_ports=True, returns (available_optical_interfaces, failed_api_ports)
     """
     available_optical_interfaces = []
     failed_api_ports = []
