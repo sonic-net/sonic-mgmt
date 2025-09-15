@@ -830,6 +830,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
 
 
 # This is an non-oversubscribe-testcase.
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
 def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811
