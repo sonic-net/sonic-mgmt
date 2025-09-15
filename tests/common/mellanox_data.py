@@ -1322,7 +1322,6 @@ def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
         elif not is_cmis_version_supported(cmis_version, min_cmis_version, failed_api_ports, port_name):
             logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
             continue
-
         available_optical_interfaces.append(port_name)
 
     if return_failed_api_ports:
