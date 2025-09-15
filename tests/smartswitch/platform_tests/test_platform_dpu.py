@@ -338,7 +338,7 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(dpu_env)
+def test_data_control_mid_plane_sync(dpu_env):
     """
     @summary: To verify data, control and mid planes are in sync
     """
