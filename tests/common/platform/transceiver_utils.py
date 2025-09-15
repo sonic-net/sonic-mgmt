@@ -478,5 +478,3 @@ def is_sw_control_enabled(duthost, port_index):
             sw_control_enabled = True
     logging.info(f'The sw control enable of port index {port_index} is {sw_control_enabled}')
     return sw_control_enabled
-
-
