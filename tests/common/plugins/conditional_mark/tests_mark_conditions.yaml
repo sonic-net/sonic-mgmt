@@ -2043,7 +2043,7 @@ generic_config_updater/test_dynamic_acl.py:
       - "topo_name in ['m0-2vlan']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
 
-tests/generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal:
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal:
   skip:
     reason: "skip for IPv6-only topologies"
     conditions:
