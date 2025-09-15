@@ -75,9 +75,11 @@ class TestMACFault(object):
         eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
         eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
-        supported_available_optical_interfaces, failed_api_ports = get_supported_available_optical_interfaces(eeprom_infos, parsed_presence, return_failed_api_ports=True)
+        supported_available_optical_interfaces, failed_api_ports = get_supported_available_optical_interfaces(eeprom_infos,
+                                                                                                              parsed_presence, return_failed_api_ports=True)
 
-        pytest_assert(supported_available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
+        pytest_assert(supported_available_optical_interfaces,
+                      "No interfaces with SFP detected. Cannot proceed with tests.")
         logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
 
         return dut, supported_available_optical_interfaces, failed_api_ports
@@ -91,10 +93,12 @@ class TestMACFault(object):
         pytest_assert(wait_until(30, 2, 0, lambda: self.get_interface_status(dut, interface) == "up"),
                       "Interface {} did not come up after startup".format(interface))
 
-    def test_mac_local_fault_increment(self, get_dut_and_supported_available_optical_interfaces, collected_ports_num):
+    def test_mac_local_fault_increment(self, get_dut_and_supported_available_optical_interfaces,
+                                       collected_ports_num):
         dut, supported_available_optical_interfaces, failed_api_ports = get_dut_and_supported_available_optical_interfaces
 
-        selected_interfaces = random.sample(supported_available_optical_interfaces, min(collected_ports_num, len(supported_available_optical_interfaces)))
+        selected_interfaces = random.sample(supported_available_optical_interfaces,
+                                            min(collected_ports_num, len(supported_available_optical_interfaces)))
         logging.info("Selected interfaces for tests: {}".format(selected_interfaces))
 
         for interface in selected_interfaces:
