@@ -563,7 +563,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
     pkt_size = 1024
 
     testbed_config, port_config_list, _ = setup_ports_and_dut
-    port_map, snappi_ports = verify_port_speed
+    port_map, snappi_ports = verify_port_speed_oversubscribe
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
