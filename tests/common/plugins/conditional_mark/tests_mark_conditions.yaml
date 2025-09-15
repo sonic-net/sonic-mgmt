@@ -1,4 +1,33 @@
 #######################################
+#####        Define Anchors       #####
+#######################################
+
+# yaml files don't let an anchor be defined outside a yaml entry, so this block just
+# creates an entry for pre-test but ensure it will always run, then the other
+# conditions can just be used to define anchors for further use in this file
+
+test_pretest.py:
+  skip:
+    reason: "Dummy entry to allow anchors to be defined at the top of this file"
+    conditions_logical_operator: and
+    conditions:
+      - "False" # Ensure pretest always runs
+      - &lossyTopos |
+          topo_name in [
+            't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
+            't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
+            't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
+            't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
+            't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
+            't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+            't1-isolated-d224u8', 't1-isolated-v6-d224u8',
+            't1-isolated-d28u1', 't1-isolated-v6-d28u1',
+            't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
+            't1-isolated-d448u16', 't1-isolated-v6-d448u16',
+            't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
+            't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
+
+#######################################
 #####          cutsom_acl         #####
 #######################################
 acl:
@@ -2196,6 +2225,7 @@ generic_config_updater/test_pfcwd_status.py:
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+      - *lossyTopos
       - "release in ['202211']"
       - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
@@ -3048,9 +3078,10 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed."
+    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+      - *lossyTopos
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -3059,6 +3090,7 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
 
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
@@ -3069,6 +3101,7 @@ pfcwd/test_pfcwd_all_port_storm.py:
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - *lossyTopos
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
@@ -3083,6 +3116,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
      conditions:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
@@ -3093,6 +3127,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'standalone' in topo_name"
         - "platform in ['x86_64-mlnx_msn3800-r0']"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
         - "asic_type in ['cisco-8000']"
         - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
@@ -3106,6 +3141,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
 
@@ -3117,6 +3153,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
 
