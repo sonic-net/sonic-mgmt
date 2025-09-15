@@ -617,5 +617,5 @@ def check_midplane_status(duthost, dpu_ip, expected_status):
     output = duthost.show_and_parse("show chassis modules midplane-status")
     for entry in output:
         if entry['ip-address'] == dpu_ip:
-            return str(entry['reachability']).strip() == expected_status
+            return str(entry['reachability']).strip().lower() == expected_status.lower()
     return False
