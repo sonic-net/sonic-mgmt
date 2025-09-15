@@ -452,6 +452,38 @@ def check_vlan_members(duthost, member1, member2, exp_count):
 
 # fixtures
 
+@pytest.fixture(scope="module", autouse=True)
+def remove_data_everflow_acl_table(rand_selected_dut, duthosts):
+    """
+    Remove DATAACL and EVERFLOWV6 to free TCAM resources.
+    The change is written to configdb as we don't want DATAACL recovered after reboot
+    """
+    table_names = {'DATAACL': 'False', 'EVERFLOWV6': 'False', 'EVERFLOW': 'False'}
+    for duthost in duthosts:
+        lines = duthost.shell(cmd="show acl table")['stdout_lines']
+        for table_name in table_names.keys():
+            for line in lines:
+                if table_name in line:
+                    table_names[table_name] = True
+                    logger.info("Removing ACL table {}".format(table_name))
+                    rand_selected_dut.shell(cmd="config acl remove table {}".format(table_name))
+
+    if True not in table_names.values():
+        yield
+        return
+
+    yield
+    config_db_json = "/etc/sonic/config_db.json"
+    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+    entry_json = json.loads(output)
+    for table_name in table_names.keys():
+        if table_names[table_name]:
+            entry = entry_json[table_name]
+            cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+                    .format(table_name, entry['type'], ",".join(entry['ports']), entry['stage'])
+            logger.info("Restoring ACL table {}".format(table_name))
+            rand_selected_dut.shell(cmd_create_table)
+
 
 @pytest.fixture(scope="module")
 def dut_facts(duthosts, rand_one_dut_hostname):
