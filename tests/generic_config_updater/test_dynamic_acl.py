@@ -653,9 +653,9 @@ def generate_packets(setup, tbinfo, dst_ip=DST_IP_FORWARDED_ORIGINAL, dst_ipv6=D
     packets = {}
     if not is_ipv6_only_topology(tbinfo):
         packets["IPV4"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
-                                                  ip_src=IP_SOURCE,
-                                                  ip_dst=dst_ip,
-                                                  ip_ttl=64)
+                                                        ip_src=IP_SOURCE,
+                                                        ip_dst=dst_ip,
+                                                        ip_ttl=64)
 
     packets["IPV6"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
                                                     ipv6_src=IPV6_SOURCE,
@@ -1308,7 +1308,7 @@ def test_gcu_acl_forward_rule_same_priority(rand_selected_dut,
                                increment_ipv6_addr(DST_IPV6_FORWARDED_ORIGINAL, 2)),
                                packets_dropped=False)
     dynamic_acl_verify_packets(setup, ptfadapter,
-                               packets=generate_packets(setup, tbinfo,DST_IP_BLOCKED, DST_IPV6_BLOCKED),
+                               packets=generate_packets(setup, tbinfo, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=True)
 
 
