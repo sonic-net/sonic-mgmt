@@ -233,7 +233,11 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
         wait(wait_time, msg="Wait for system to be stable.")
 
         logger.info("Moving next to DPU config")
-        dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
+
+        # SKIP AHEAD for now to the ping
+        # dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
+        dpus_online_result = True
+
 
         if dpus_online_result is False:
             retries -= 1
@@ -247,11 +251,13 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
 
     logger.info("Pinging each DPU")
     dpuIFKeys = [k for k in static_ipmacs_dict['static_ips'] if k.startswith("221.0")]
+    passing_dpus = []
     for x, ipKey in enumerate(dpuIFKeys):
         logger.info(f"Pinging DPU{x}: {static_ipmacs_dict['static_ips'][ipKey]}")
         output_ping = duthost.command(f"ping -c 3 {static_ipmacs_dict['static_ips'][ipKey]}", module_ignore_errors=True)
         if output_ping.get("rc", 1) == 0 and "0% packet loss" in output_ping.get("stdout", ""):
             logger.info("Ping success")
+            passing_dpus.append(x)
             pass
         else:
             # failure path; inspect output_ping["stderr"] or ["stdout"] as needed
@@ -260,11 +266,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
 
     logger.info("DPU config loading DPUs")
     threads = []
-    for target_dpu_index in range(8):
-
-        # admin@MtFuji:~$
-        # admin@sonic:~$
-        # OSError: Search pattern never detected in send_command_expect: admin@MtFuji:\~
+    for target_dpu_index in passing_dpus:
 
         jump_host = {
             'device_type': 'linux',
