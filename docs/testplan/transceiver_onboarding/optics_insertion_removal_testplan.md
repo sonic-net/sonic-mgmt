@@ -17,7 +17,7 @@ Please refer to the [Testbed Topology](./transceiver_onboarding_test_plan.md#tes
 
 1. All the pre-requisites mentioned in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases) must be met.
 
-2. `physical_oir_attributes.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases). Following attributes are applicable here:
+2. `physical_oir.json` located in `ansible/files/transceiver/inventory` directory should be present to define the attributes for the physical OIR tests. The schema is defined in [Transceiver Onboarding Test Plan](./transceiver_onboarding_test_plan.md#test-cases). Following attributes are applicable here:
 
 | Attribute | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
