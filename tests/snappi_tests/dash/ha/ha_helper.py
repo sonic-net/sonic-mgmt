@@ -222,7 +222,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
 
     retries = 3
     wait_time = 300
-    timeout = 600
+    timeout = 300
 
     while True:
         logger.info("Issuing a {} on the dut {}".format(
