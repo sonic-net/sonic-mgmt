@@ -1,9 +1,9 @@
 import logging
-import os
 import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.buffer_utils import load_lossless_info_from_pg_profile_lookup
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -21,7 +21,7 @@ def setup_module(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_front
         duthosts: The duthosts object
         rand_one_dut_hostname:
     """
-    global RECLAIM_BUFFER_ON_ADMIN_DOWN
+    global DEFAULT_LOSSLESS_PROFILES, RECLAIM_BUFFER_ON_ADMIN_DOWN
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     dut_asic = duthost.asic_instance(enum_frontend_asic_index)
@@ -30,53 +30,7 @@ def setup_module(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_front
     else:
         RECLAIM_BUFFER_ON_ADMIN_DOWN = False
 
-    load_lossless_info_from_pg_profile_lookup(duthost, dut_asic)
-
-
-def load_lossless_info_from_pg_profile_lookup(duthost, dut_asic):
-    """Load pg_profile_lookup.ini to a dictionary. Called only once when the module is initialized
-
-    Args:
-        duthost: the DUT host object
-
-    Return:
-        The dictionary containing the information in pg_profile_lookup.ini
-    """
-    global DEFAULT_LOSSLESS_PROFILES
-
-    # Check the threshold mode
-    threshold_mode = dut_asic.run_redis_cmd(argv=['redis-cli', '-n', 4, 'hget', 'BUFFER_POOL|ingress_lossless_pool',
-                                                  'mode'])[0]
-    threshold_field_name = 'dynamic_th' if threshold_mode == 'dynamic' else 'static_th'
-    dut_hwsku = duthost.facts["hwsku"]
-    dut_platform = duthost.facts["platform"]
-    skudir = "/usr/share/sonic/device/{}/{}/".format(dut_platform, dut_hwsku)
-    if dut_asic.namespace is not None:
-        skudir = skudir + dut_asic.namespace.split('asic')[-1] + '/'
-    pg_profile_lookup_file = os.path.join(skudir, 'pg_profile_lookup.ini')
-    duthost.file(path=pg_profile_lookup_file, state="file")
-    lines = duthost.shell('cat {}'.format(
-        pg_profile_lookup_file))["stdout_lines"]
-    DEFAULT_LOSSLESS_PROFILES = {}
-    for line in lines:
-        if line[0] == '#':
-            continue
-        tokens = line.split()
-        speed = tokens[0]
-        cable_length = tokens[1]
-        size = tokens[2]
-        xon = tokens[3]
-        xoff = tokens[4]
-        threshold = tokens[5]
-        profile_info = {
-            'pool': '[BUFFER_POOL|ingress_lossless_pool]',
-            'size': size,
-            'xon': xon,
-            'xoff': xoff,
-            threshold_field_name: threshold}
-        if len(tokens) > 6:
-            profile_info['xon_offset'] = tokens[6]
-        DEFAULT_LOSSLESS_PROFILES[(speed, cable_length)] = profile_info
+    DEFAULT_LOSSLESS_PROFILES = load_lossless_info_from_pg_profile_lookup(duthost, dut_asic)
 
 
 def make_dict_from_output_lines(lines):
