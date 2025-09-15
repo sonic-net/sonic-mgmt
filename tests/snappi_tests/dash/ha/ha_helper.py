@@ -786,9 +786,9 @@ def set_timelineCustom(api, initial_cps_value):
 
 def run_cps_search(api, initial_cps_value):
 
-    MAX_CPS = 5000000
+    MAX_CPS = 35000000
     MIN_CPS = 0
-    threshold = 100000
+    threshold = 1000000
     test_iteration = 1
     test_value = initial_cps_value
     activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
@@ -803,6 +803,7 @@ def run_cps_search(api, initial_cps_value):
         old_value = test_value
         logger.info("Testing CPS Objective = %d" % test_value)
         cps_objective_value = test_value
+        """
         activityList_json = {
             'constraintType': 'ConnectionRateConstraint',
             'constraintValue': test_value,
@@ -810,6 +811,13 @@ def run_cps_search(api, initial_cps_value):
             'userObjectiveType': 'simulatedUsers',
             'userObjectiveValue': 64500
         }
+        """
+        activityList_json = {  # noqa: F841
+            'constraintType': 'ConnectionRateConstraint',
+            'constraintValue': test_value,
+            'enableConstraint': False,
+        }
+
         logger.info("Updating CPS objective value settings...")
         try:
             # Code that may raise an exception

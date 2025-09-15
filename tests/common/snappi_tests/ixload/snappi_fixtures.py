@@ -71,15 +71,16 @@ def config_snappi_l47(request, duthosts, tbinfo):
     chassis_ip = tbinfo['chassis_ip']
     gw_ip = tbinfo['l47_gateway']
 
+    ports_list = tbinfo['ports_list']
+    ports_list = {k: [tuple(x) for x in v] for k, v in ports_list.items()}
+
     test_filename = "dash_cps"
-    initial_cps_obj = 1000000
+    initial_cps_obj = len(ports_list['Traffic1@Network1']) * 4000000
 
     test_type_dict = {
         'cps': 'cps', 'tcpbg': 'tcpbg', 'all': 'all',
         'test_filename': test_filename, 'initial_cps_obj': initial_cps_obj
     }
-
-    ports_list = tbinfo['ports_list']
 
     connection_dict = {
         'chassis_ip': chassis_ip,
@@ -92,5 +93,4 @@ def config_snappi_l47(request, duthosts, tbinfo):
     snappi_l47_params['connection_dict'] = connection_dict
     snappi_l47_params['ports_list'] = ports_list
 
-    import pdb; pdb.set_trace()
     return snappi_l47_params
