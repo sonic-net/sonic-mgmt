@@ -1,5 +1,4 @@
 from tabulate import tabulate
-from tests.common.reboot import reboot
 from tests.common.utilities import (wait, wait_until)  # noqa F401
 from tests.common.helpers.assertions import pytest_assert  # noqa F401
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
@@ -131,11 +130,6 @@ def _copy_files_to_dut(duthost, local_files, remote_dir):
     for lf in local_files:
         duthost.copy(src=lf, dest=remote_dir)
 
-"""
-def _iter_dpu_config_files(dpu_index, local_dir):
-    pattern = os.path.join(local_dir, f"*dpu{dpu_index}*.json")
-    return sorted(glob.glob(pattern))
-"""
 
 def _iter_dpu_config_files(dpu_index, local_dir):
 
@@ -231,14 +225,13 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
     timeout = 600
 
     while True:
-        logger.info("Issuing a {} reboot on the dut {}".format(
-            "warm_reboot", duthost.hostname))
-
-        reboot(duthost, localhost, wait_for_ssh=False)
+        logger.info("Issuing a {} on the dut {}".format(
+            "reboot", duthost.hostname))
+        duthost.shell("shutdown -r now")
         logger.info("Waiting for dut ssh to start".format())
-        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
-
+        localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
         wait(wait_time, msg="Wait for system to be stable.")
+
         logger.info("Moving next to DPU config")
         dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
 
