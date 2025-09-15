@@ -46,4 +46,3 @@ def test_xcvr_info_in_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     lport_to_first_subport_mapping = get_lport_to_first_subport_mapping(duthost, all_interfaces)
     check_transceiver_status(duthost, enum_frontend_asic_index, all_interfaces, xcvr_skip_list,
                              port_list_with_flat_memory, lport_to_first_subport_mapping)
-
