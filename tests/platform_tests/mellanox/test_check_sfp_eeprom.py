@@ -87,4 +87,3 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
                     is_flat_memory = True if intf in port_list_with_flat_memory[duthost.hostname] else False
                     check_sfp_eeprom_info(
                         duthost, sfp_info_dict[intf], inft_support_dom, show_eeprom_cmd, is_flat_memory)
-
