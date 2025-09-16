@@ -2219,6 +2219,20 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
       - "release in ['202412']"
 
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
@@ -2234,6 +2248,13 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
     conditions:
