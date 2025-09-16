@@ -1,0 +1,29 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    leaf0:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.27.95.4, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    T1:
+        device_type: TGEN
+        properties: {type: ixia, version: 10.0, ip: 172.27.143.161, ix_server: 10.29.158.67}
+
+topology:
+    leaf0: 
+        interfaces:
+            Ethernet1_64: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
+            Ethernet1_60: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}

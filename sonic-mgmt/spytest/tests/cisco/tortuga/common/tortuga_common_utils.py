@@ -719,3 +719,17 @@ def get_if_mac(dut, if_name):
                 return mac_str[:i + 3]
         i += 1
     return None
+
+# json2 is a json file with optional comment lines starting with hash
+# The function will strip the comment lines and return a dictionary
+def json2_file_to_dict(json2_file):
+    result = ''
+    with open(json2_file, 'r') as file_obj:
+        for line in file_obj:
+            temp = line.lstrip()
+            # skip lines with leading hash
+            if temp.startswith('#'):
+                continue
+            result += line
+        return json.loads(result)
+    return None

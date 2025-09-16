@@ -10,6 +10,7 @@ sys.path.insert(0, os.path.abspath(module_dir))
 from traffic_stream_api import (get_tc_to_dscp_map)
 
 global tgen_handle
+ONE_GBPS = 1000000000
 
 # Note on reading link information in the dictionaries below.
 # D1D2P1 means an interface on node D1 that connects to an
@@ -98,10 +99,36 @@ two_spine_two_leaf_map = {
     'D4T1P4' : '41.1.1.1'
 }
 
+one_device_map = {
+    'D1T1P1' : '11.1.1.1',
+    'D1T1P2' : '13.1.1.1',
+    'D1T1P3' : '15.1.1.1',
+    'D1T1P4' : '17.1.1.1',
+
+    'D2T1P1' : '11.1.1.1',
+    'D2T1P2' : '13.1.1.1',
+    'D2T1P3' : '15.1.1.1',
+    'D2T1P4' : '17.1.1.1',
+
+    'D3T1P1' : '11.1.1.1',
+    'D3T1P2' : '13.1.1.1',
+    'D3T1P3' : '15.1.1.1',
+    'D3T1P4' : '17.1.1.1',
+
+    'D4T1P1' : '11.1.1.1',
+    'D4T1P2' : '13.1.1.1',
+    'D4T1P3' : '15.1.1.1',
+    'D4T1P4' : '17.1.1.1'
+}
+
 # A given tgen port can be used multiple times to create traffic streams.
 # We track the usage count here to generate unique IP addresses for each
 # such instance
 tgen_port_usage_cnt = {
+    'T1D1P1' : 0,
+    'T1D1P2' : 0,
+    'T1D1P3' : 0,
+    'T1D1P4' : 0,
     'T1D2P1' : 0,
     'T1D2P2' : 0,
     'T1D2P3' : 0,
@@ -191,7 +218,7 @@ def config_one_spine_three_leaf_topo(tb_dict):
     st.config(tb_dict.D4, cfg_route_dut4, skip_tmpl=True)
 
 def config_two_spine_two_leaf_topo(tb_dict):
-    global net_map 
+    global net_map
 
     net_map = two_spine_two_leaf_map
     cfg_dut1 = ''
@@ -263,8 +290,22 @@ def config_two_spine_two_leaf_topo(tb_dict):
     st.show(tb_dict.D4, "show ip interfaces\n", skip_tmpl=True)
     st.show(tb_dict.D4, "show ip route\n", skip_tmpl=True)
 
+def config_one_leaf(tb_dict, t_info):
+    global net_map
+
+    net_map = one_device_map
+    cfg_dut = ''
+    for i in range(t_info['tgen_port_cnt']):
+        key = t_info['leaf'] + t_info['tgen'] + 'P' + str(i + 1)
+        cfg_dut += 'config interface ip add {} {}/24\n'\
+            .format(tb_dict[key], one_device_map[key])
+    st.config(t_info['dut'], cfg_dut, skip_tmpl=True)
+
 def parse_tgen_port(tb_dict, port):
-    if port.startswith('T1D2'):
+    if port.startswith('T1D1'):
+        dut = tb_dict.D1
+        rtr_key = 'D1T1'
+    elif port.startswith('T1D2'):
         dut = tb_dict.D2
         rtr_key = 'D2T1'
     elif port.startswith('T1D3'):
@@ -277,12 +318,25 @@ def parse_tgen_port(tb_dict, port):
         assert(0)
     return dut, (rtr_key + port[4:])
 
-def generate_tgen_ip(tgen_key, rtr_key):
-    tgen_port_usage_cnt[tgen_key] += 1
-    if tgen_port_usage_cnt[tgen_key] > 64:
-        st.error('Cannot generate over 64 streams on a tgen port')
-        return None
-    return net_map[rtr_key][:-1] + str(tgen_port_usage_cnt[tgen_key] + 1)
+ip_alloc_dict = {}
+def alloc_tgen_ip(tgen_key, rtr_key):
+    # Always start with .2 and see if its in use
+    n = 2
+    while True:
+        ip_str = net_map[rtr_key][:-1] + str(n)
+        if ip_str not in ip_alloc_dict or (ip_alloc_dict[ip_str] == False):
+            ip_alloc_dict[ip_str] = True
+            return ip_str
+        n += 1
+        if n > 250:
+            st.error('Cannot have over 250 active streams')
+            return None
+
+def dealloc_tgen_ip(ip_str):
+    if ip_str not in ip_alloc_dict:
+        st.error('Cannot dealloc IP {}'.format(ip_str))
+        return
+    ip_alloc_dict[ip_str] = False
 
 def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps, tc=None):
 
@@ -304,7 +358,7 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
         'arp_send_req': 1,
         'enable_ping_response': 1,
         'resolve_gateway_mac': 1,
-        'intf_ip_addr' : generate_tgen_ip(tgen_src_port, s_key)
+        'intf_ip_addr' : alloc_tgen_ip(tgen_src_port, s_key)
     }
     if src_interface_config['intf_ip_addr'] == None:
         return None
@@ -326,7 +380,7 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
         'arp_send_req': 1,
         'enable_ping_response': 1,
         'resolve_gateway_mac': 1,
-        'intf_ip_addr' : generate_tgen_ip(tgen_dst_port, d_key)
+        'intf_ip_addr' : alloc_tgen_ip(tgen_dst_port, d_key)
     }
     if dst_interface_config['intf_ip_addr'] == None:
         return None
@@ -351,7 +405,7 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
         # Enable flow tracking for statistics
         'track_by': 'traffic_item',
         'enable_pgid': 1,
-        'rate_pps' : pps 
+        'rate_pps': pps
     }
 
     if tc != None:
@@ -378,58 +432,51 @@ def create_traffic_stream(tb_dict, tgen_src_port, tgen_dst_port, frame_size, pps
         st.error('traffic cfg failed {}'.format(result))
         return None
 
-    return (result['stream_id'], src_handle, dst_handle)
+    output_dict = {
+        'src_handle' : src_handle,
+        'dst_handle' : dst_handle,
+        'src_ip' : src_interface_config['intf_ip_addr'],
+        'dst_ip' : dst_interface_config['intf_ip_addr'],
+        'stream_id' : result['stream_id'],
+    }
+    return output_dict
 
 def start_traffic_stream(stream_info):
     tgen_handle.tg_topology_test_control(action='start_all_protocols')
     tgen_handle.tg_traffic_control(action='apply')
-    tgen_handle.tg_traffic_control(action='run', stream_handle=stream_info[0])
+    tgen_handle.tg_traffic_control(action='run',
+       stream_handle=stream_info['stream_id'])
 
 def stop_traffic_stream(stream_info):
-    tgen_handle.tg_traffic_control(action='stop', stream_handle=[stream_info[0]])
+    tgen_handle.tg_traffic_control(action='stop',
+        stream_handle=[stream_info['stream_id']])
 
 def collect_traffic_stream_stats():
     # Wait upto 30 seconds to collect statistics
-    # import pdb;pdb.set_trace()
     stats = tgen_handle.tg_traffic_stats(mode='traffic_item')
     if 'waiting_for_stats' in stats and stats['waiting_for_stats']:
         st.wait(30)
         stats = tgen_handle.tg_traffic_stats(mode='traffic_item')
     st.banner('DEBUG STATS')
     pprint.pprint(stats)
-    if 'traffic_item' in stats:
-        return stats['traffic_item']
-    if 'aggregate' in stats:
-        return stats['aggregate']
-    st.report_fail('msg', "stats collection failed")
-    return None
-
-def check_stats_dict(stats):
-    for key, value in stats.items():
-        # Go thru each traffic item and check statistics
-        tx_pkts = value['tx']['total_pkts']
-        rx_pkts = value['rx']['total_pkts']
-        if type(tx_pkts) != type(rx_pkts):
-            st.report_fail('msg', 'Unexpected data rx_pkts {} tx_pkts {}'.format(rx_pkts, tx_pkts))
-        elif type(tx_pkts) == dict:
-            tx_pkts = tx_pkts['sum']
-            rx_pkts = rx_pkts['sum']
-
-        if rx_pkts == tx_pkts: 
-            st.report_pass('msg',
-                '{}: Pkt count match : Rx {} Tx {}'.format(key, rx_pkts, tx_pkts))
-        else:
-            st.report_fail('msg',
-                '{}: Pkt count mismatch : Rx {} Tx {}'.format(key, rx_pkts, tx_pkts))
+    return stats
 
 def clear_all_stats():
     tgen_handle.tg_traffic_control(action='clear_stats')
 
 # Gigabits per second to packets per second with given frame size
 def gbps_to_pps(gbps, frame_size):
-    return int((gbps * 1000000000) / (8 * frame_size))
+    return int((gbps * ONE_GBPS) / (8 * frame_size))
+
+def gbps_to_bytes(gbps):
+    return int((gbps * ONE_GBPS) / 8)
 
 def delete_traffic_stream(stream_info):
-    tgen_handle.tg_traffic_config(mode='remove', stream_id=stream_info[0])
-    tgen_handle.tg_interface_config(mode='destroy', handle=stream_info[1])
-    tgen_handle.tg_interface_config(mode='destroy', handle=stream_info[2])
+    dealloc_tgen_ip(stream_info['src_ip'])
+    dealloc_tgen_ip(stream_info['dst_ip'])
+    tgen_handle.tg_traffic_config(mode='remove',
+        stream_id=stream_info['stream_id'])
+    tgen_handle.tg_interface_config(mode='destroy',
+        handle=stream_info['src_handle'])
+    tgen_handle.tg_interface_config(mode='destroy',
+        handle=stream_info['dst_handle'])
