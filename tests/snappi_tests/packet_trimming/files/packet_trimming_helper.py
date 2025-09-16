@@ -29,8 +29,6 @@ UDP_PKT_LEN = 190
 TOTAL_NUM_PKTS = 65535
 EXP_FLOW_DUR_SEC = 20
 SNAPPI_POLL_DELAY_SEC = 2
-INNER_PKT_SRC_IP = "20.0.20.0"
-INNER_PKT_DST_IP = "21.0.20.0"
 SEQUENCE_CHECKING_THRESHOLD = 1
 
 
@@ -130,7 +128,7 @@ def run_packet_trimming_test(api,
                                                                              exp_dur_sec=EXP_FLOW_DUR_SEC,
                                                                              snappi_extra_params=snappi_test_params,
                                                                              )
-    import pdb; pdb.set_trace()
+
     if isinstance(snappi_test_params.base_flow_config["rx_port_config"].peer_port, str):
         switch_egress_ports = [snappi_test_params.base_flow_config["rx_port_config"].peer_port]
     else:

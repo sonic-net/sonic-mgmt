@@ -101,7 +101,6 @@ def apply_trim_mode(duthost,
     """
 
     # Determine egress (switch TX) port name from snappi test params
-    import pdb; pdb.set_trace()
     egress_port = None
     if snappi_test_params and snappi_test_params.base_flow_config:
         try:
@@ -125,7 +124,7 @@ def apply_trim_mode(duthost,
         existing = _run_cmd(duthost, f"redis-cli -n 4 EXISTS '{tc_map_key}'")['stdout'].strip()
         if existing != '1':
             _run_cmd(duthost, f"redis-cli -n 4 HSET '{tc_map_key}' '{TRIM_TC_DEFAULT}' '{ASYM_MAP_DSCP_VALUE}'")
-        current_map = _run_cmd(duthost, f"redis-cli -n 4 HGET 'PORT_QOS_MAP|{egress_port}'" 
+        current_map = _run_cmd(duthost, f"redis-cli -n 4 HGET 'PORT_QOS_MAP|{egress_port}'"
                                f"'tc_to_dscp_map'")['stdout'].strip()
         if current_map != ASYM_MAP_NAME:
             _run_cmd(duthost, f"redis-cli -n 4 HSET 'PORT_QOS_MAP|{egress_port}' 'tc_to_dscp_map'"
@@ -151,7 +150,7 @@ def apply_trim_mode(duthost,
             continue
         if profile == skipped_profile:
             logger.debug(f"Skipping trimming enable for trim queue {queue_key} (profile {profile})")
-            action = _run_cmd(duthost, f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{profile}' " 
+            action = _run_cmd(duthost, f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{profile}' "
                               f"'packet_discard_action'")['stdout'].strip()
             if action == 'trim':
                 logger.info(f"Disabling trimming on trim queue profile {profile}")
@@ -352,7 +351,6 @@ def verify_trimmed_traffic(duthost,
         switch_egress_ports (list[str]): egress port names to check
         snappi_extra_params (SnappiTestParams): test params (needs tx_dscp_values, num_tx_links, num_rx_links)
     """
-    import pdb; pdb.set_trace()
     pytest_assert(switch_egress_ports, "switch_egress_ports must be non-empty")
     dscp_values = snappi_extra_params.tx_dscp_values
     pytest_assert(dscp_values, "snappi_extra_params.tx_dscp_values must be set")
