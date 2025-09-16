@@ -61,11 +61,14 @@ def fixture_route_type(request):
     name="monitor_type",
     scope="module",
     params=SUPPORTED_MONITOR_TYPES)
-def fixture_monitor_type(request):
+def fixture_monitor_type(duthosts, request, rand_one_dut_hostname):
     '''
         This fixture forces the script to perform one monitor_type at a time.
         So this script doesn't support multiple monitor types at the same time.
     '''
+    asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
+    if request.param in ["custom"] and asic_type in ["cisco-8000"]:
+        pytest.skip(f"{asic_type} is not a supported platform for this monitor type: {request.param}.")
     return request.param
 
 
