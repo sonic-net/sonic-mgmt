@@ -2971,6 +2971,7 @@ pfc_asym/test_pfc_asym.py:
 pfcwd:
   skip:
     reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
