@@ -563,7 +563,16 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
 
     condition_str = update_issue_status(condition, session)
     try:
-        condition_result = bool(eval(condition_str, basic_facts))
+        safe_facts = {k: v for k, v in basic_facts.items()}
+        safe_globals = {"__builtins__": {}}
+        safe_globals.update(safe_facts)
+
+        for var in ["asic_type", "topo", "hwsku"]:
+            if var not in safe_globals:
+                safe_globals[var] = None
+
+        condition_result = bool(eval(condition_str, safe_globals))
+
         if condition_result and dynamic_update_skip_reason:
             mark_details['reason'].append(condition)
         return condition_result
