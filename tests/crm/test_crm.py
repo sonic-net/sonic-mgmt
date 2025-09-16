@@ -419,12 +419,27 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
     del_neighbors_template = Template(del_template)
     add_neighbors_template = Template(add_template)
 
-    ip_addr_list = generate_neighbors(amount, ip_ver)
-    ip_addr_list = " ".join([str(item) for item in ip_addr_list])
+    # Increase default Linux configuration for ARP cache
+    increase_arp_cache(asichost, amount, ip_ver, test_name)
 
-    # Store CLI command to delete all created neighbors
-    RESTORE_CMDS[test_name].append(del_neighbors_template.render(
-                            neigh_ip_list=ip_addr_list,
+    # https://github.com/sonic-net/sonic-mgmt/issues/18624
+    # May need to batch the commands to avoid hitting "Argument list too long" error
+    # IPv4 will consume at most 14 characters: " 2.XXX.XXX.XXX"
+    # IPv6 will consume at most 11 characters: " 2001::XXXX"
+    # Assuming our argument character limit is 128KB (1310072)
+    # Our Max number of neighbors would be: 1310072 / 14 = 9362 (Using 9000 to leave room for other characters)
+    ip_addr_list = generate_neighbors(amount, ip_ver)
+    for ip_addr_batch in [ip_addr_list[i:i + 9000] for i in range(0, len(ip_addr_list), 9000)]:
+        ip_addr_str = " ".join([str(item) for item in ip_addr_batch])
+
+        # Store CLI command to delete all created neighbors
+        RESTORE_CMDS[test_name].append(del_neighbors_template.render(
+                                neigh_ip_list=ip_addr_str,
+                                iface=interface,
+                                namespace=asichost.namespace))
+
+        asichost.shell(add_neighbors_template.render(
+                            neigh_ip_list=ip_addr_str,
                             iface=interface,
                             namespace=asichost.namespace))
 
