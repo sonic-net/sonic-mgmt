@@ -252,7 +252,6 @@ INFRA:
         - cacl/test_ebtables_application.py
         - iface_namingmode/test_iface_namingmode.py
         - monit/test_monit_status.py
-        - system_health/test_system_health.py
         - container_checker/test_container_checker.py
         - container_hardening/test_container_hardening.py
         - database/test_db_scripts.py
@@ -260,8 +259,36 @@ INFRA:
         - test_announce_routes.py
         - test_procdockerstatsd.py
         - test_nbr_health.py
-        - portstat/test_portstat.py
         - override_config_table/test_override_config_table.py
+        - system_health/test_system_health.py
+      hw:
+        - system_health
+        - minigraph
+        - ntp
+        - portstat
+        - ssh
+  t0:
+    churchill-mono:
+      sim:
+        - cacl/test_cacl_application.py
+        - cacl/test_cacl_function.py
+        - cacl/test_ebtables_application.py
+        - iface_namingmode/test_iface_namingmode.py
+        - monit/test_monit_status.py
+        - container_checker/test_container_checker.py
+        - container_hardening/test_container_hardening.py
+        - database/test_db_scripts.py
+        - syslog/test_syslog_rate_limit.py
+        - test_announce_routes.py
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
+        - override_config_table/test_override_config_table.py
+      hw:
+        - system_health
+        - minigraph
+        - ntp
+        - portstat
+        - ssh
   t2-min:
     sfd:
       sim:
@@ -284,6 +311,7 @@ INFRA:
         - test_procdockerstatsd.py
         - test_nbr_health.py
         - portstat/test_portstat.py
+        - system_health
 
 MGMT: #Anukul Verma / Gourav Sharma
 
