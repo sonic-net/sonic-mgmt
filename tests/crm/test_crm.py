@@ -442,14 +442,6 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
                             neigh_ip_list=ip_addr_str,
                             iface=interface,
                             namespace=asichost.namespace))
-
-    # Increase default Linux configuration for ARP cache
-    increase_arp_cache(asichost, amount, ip_ver, test_name)
-
-    asichost.shell(add_neighbors_template.render(
-                        neigh_ip_list=ip_addr_list,
-                        iface=interface,
-                        namespace=asichost.namespace))
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
