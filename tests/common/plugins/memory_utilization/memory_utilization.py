@@ -628,6 +628,10 @@ def parse_frr_memory_output(output, memory_params):
     # Sum the three values and convert to MB
     total_bytes = holding_block_headers + used_small_blocks + used_ordinary_blocks
     memory_values['used'] = round(total_bytes / (1024 * 1024), 1)
+    logger.info(f"Total FRR memory used: {memory_values['used']} MB, "
+                f"holding: {holding_block_headers} bytes, "
+                f"small: {used_small_blocks} bytes, "
+                f"ordinary: {used_ordinary_blocks} bytes")
 
     logger.debug("Parsed FRR memory values: {}".format(memory_values))
     return memory_values
