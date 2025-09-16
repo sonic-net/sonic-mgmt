@@ -13,6 +13,7 @@ in .csv format etc.
 from argparse import ArgumentParser
 from enum import Enum
 from functools import lru_cache
+from typing import List
 import sys
 import ipaddr
 import json
@@ -1008,6 +1009,64 @@ def get_rx_frame_count(duthost, port):
     rx_drp_frame_count = get_port_stats(duthost, port, "RX_DRP")
 
     return rx_ok_frame_count, rx_drp_frame_count
+
+def check_tx_drp_counts(duthost, ports: List[str], threshold:int = 0, greater_than:bool = True, verbose:bool = False):
+    """Check TX_DRP counts for a list of ports against a threshold.
+
+    Issues one portstat command for all specified ports and parses JSON output.
+
+    Args:
+        duthost: Ansible host instance (device under test)
+        ports (list[str]): List of port names (e.g., ["Ethernet3", "Ethernet4"]).
+        threshold (int): Threshold to compare TX_DRP against (default 0).
+        greater_than (bool): If True require TX_DRP > threshold; if False require TX_DRP < threshold.
+        verbose (bool): If True, logs per-port TX_DRP counts via stdout for debug.
+
+    Returns:
+        tuple: (overall_pass (bool), details (dict|None))
+            details maps port -> { 'tx_drp': int, 'threshold': int, 'comparison': '>'|'<', 'pass': bool }
+            If verbose is False, details will be None for lighter-weight usage.
+
+    Raises:
+        AssertionError: If ports list empty, command fails, parsing fails, or a port missing in output.
+    """
+    pytest_assert(ports and isinstance(ports, (list)), "Ports list must be non-empty list")
+
+    port_list_str = ",".join(ports)
+    cmd = f"portstat -i {port_list_str} -j"
+    raw_out = duthost.shell(cmd)['stdout']
+
+    raw_json_str = re.sub(r'^(?:(?!{).)*\n', '', raw_out, count=1)
+    try:
+        stats = json.loads(raw_json_str)
+    except Exception as e:
+        pytest_assert(False, f"Failed to parse JSON from portstat output: {e}\nRaw: {raw_out[:200]}")
+
+    comparison = '>' if greater_than else '<'
+    all_pass = True
+    details = {} if verbose else None
+
+    for p in ports:
+        pytest_assert(p in stats, f"Port {p} not found in portstat output")
+        tx_drp_raw = stats[p].get('TX_DRP')
+        pytest_assert(tx_drp_raw is not None, f"TX_DRP field missing for port {p}")
+        try:
+            tx_drp_val = int(tx_drp_raw.replace(',', ''))
+        except ValueError:
+            pytest_assert(False, f"Non-integer TX_DRP value '{tx_drp_raw}' for port {p}")
+
+        passed = (tx_drp_val > threshold) if greater_than else (tx_drp_val < threshold)
+        if not passed:
+            all_pass = False
+        if verbose:
+            details[p] = {
+                'tx_drp': tx_drp_val,
+                'threshold': threshold,
+                'comparison': comparison,
+                'pass': passed,
+            }
+
+    return all_pass, details
 
 
 def get_egress_queue_count(duthost, port, priority):
