@@ -652,7 +652,7 @@ def generate_packets(setup, tbinfo, dst_ip=DST_IP_FORWARDED_ORIGINAL, dst_ipv6=D
 
     packets = {}
     if not is_ipv6_only_topology(tbinfo):
-        packets["IPV4"] = testutils.simple_tcpv6_packet(eth_dst=setup["router_mac"],
+        packets["IPV4"] = testutils.simple_tcp_packet(eth_dst=setup["router_mac"],
                                                         ip_src=IP_SOURCE,
                                                         ip_dst=dst_ip,
                                                         ip_ttl=64)
