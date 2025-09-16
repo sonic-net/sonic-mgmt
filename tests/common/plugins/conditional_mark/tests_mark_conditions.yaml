@@ -1,4 +1,43 @@
 #######################################
+#####        Define Anchors       #####
+#######################################
+
+# yaml files don't let an anchor be defined outside a yaml entry, so this block just
+# creates an entry for pre-test but ensure it will always run, then the other
+# conditions can just be used to define anchors for further use in this file
+
+test_pretest.py:
+  skip:
+    reason: "Dummy entry to allow anchors to be defined at the top of this file"
+    conditions_logical_operator: and
+    conditions:
+      - "False" # Ensure pretest always runs
+      - &lossyTopos |
+          topo_name in [
+            't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
+            't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
+            't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
+            't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
+            't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
+            't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+            't1-isolated-d224u8', 't1-isolated-v6-d224u8',
+            't1-isolated-d28u1', 't1-isolated-v6-d28u1',
+            't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
+            't1-isolated-d448u16', 't1-isolated-v6-d448u16',
+            't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
+            't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
+      - &noVxlanTopos |
+          topo_name in [
+            't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
+            't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
+            't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
+            't1-isolated-d56u2', 't1-isolated-d56u1-lag',
+            't1-isolated-d448u15-lag', 't1-isolated-d128',
+            't1-isolated-d32', 't1-isolated-v6-d56u2',
+            't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
+            't1-isolated-v6-d128' ]
+
+#######################################
 #####          cutsom_acl         #####
 #######################################
 acl:
@@ -102,7 +141,7 @@ arp/test_wr_arp.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -602,12 +641,12 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release. Skip on t1-isolated-d32/128 topos"
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
     conditions_logical_operator: or
     conditions:
       - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or platform in ['x86_64-8111_32eh_o-r0'] or asic_type in ['mellanox']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - *noVxlanTopos
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -2140,6 +2179,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
+generic_config_updater/test_packet_trimming_config_symmetric:
+  skip:
+    reason: "Packet trim is not supported in 202505 image"
+    conditions:
+      - "release in ['202505']"
+
 generic_config_updater/test_pfcwd_interval.py:
   skip:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
@@ -2155,6 +2200,7 @@ generic_config_updater/test_pfcwd_status.py:
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+      - *lossyTopos
       - "release in ['202211']"
       - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
@@ -2934,9 +2980,11 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed."
+    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+      - *lossyTopos
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -2945,6 +2993,7 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
      conditions:
         - "asic_type in ['cisco-8000']"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
 
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
@@ -2955,6 +3004,7 @@ pfcwd/test_pfcwd_all_port_storm.py:
      conditions:
       - "hwsku in ['Arista-7060X6-64PE-256x200G']"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - *lossyTopos
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
@@ -2969,6 +3019,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
      conditions:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
@@ -2978,9 +3029,11 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
         - "asic_type in ['cisco-8000']"
         - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
+        - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:
@@ -2990,6 +3043,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
 
@@ -3001,6 +3055,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
+        - *lossyTopos
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
 
@@ -3653,7 +3708,7 @@ snmp/test_snmp_link_local.py:
       - "release in ['202205', '202211', '202305', '202311']"
   xfail:
     reason: "Test script has issues on kvm testbed."
-    condition:
+    conditions:
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15081"
 
@@ -4220,9 +4275,11 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_decap.py:
   skip:
-    reason: "vxlan support not available for cisco-8122 platforms"
+    reason: "vxlan support not available for cisco-8122 platforms. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
+    conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
     conditions:
