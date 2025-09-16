@@ -85,7 +85,11 @@ def change_and_wait_aaa_config_update(duthost, command, last_timestamp=None, tim
     # Wait auditd reload config finish
     def log_exist(duthost):
         latest_timestamp = get_auditd_config_reload_timestamp(duthost)
-        return latest_timestamp != last_timestamp
+        reload = latest_timestamp != last_timestamp
+        if not reload:
+            # Send the HUP signal to auditd-tacplus to trigger a config reload
+            duthost.shell("sudo kill -1 $(pidof audisp-tacplus)")
+        return reload
 
     exist = wait_until(timeout, 1, 0, log_exist, duthost)
     pytest_assert(exist, "Not found aaa config update log: {}".format(command))

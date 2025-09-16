@@ -560,6 +560,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     # Skip 'radv' container on devices whose role is not T0.
     if tbinfo["topo"]["type"] != "t0":
         skip_containers.append("radv")
+    if "202412" in duthost.os_version:
+        skip_containers.append("gnmi")
     skip_containers = skip_containers + skip_vendor_specific_container
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)

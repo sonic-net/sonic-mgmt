@@ -9,13 +9,13 @@ import time
 import pytest
 
 from tests.common.config_reload import config_reload
+from tests.common.constants import CounterpollConstants
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.helpers.sonic_db import SonicDbCli, SonicDbKeyNotFound
 from tests.common.utilities import get_inventory_files, get_host_visible_vars
 from tests.common.utilities import skip_release, wait_until
 from tests.common.reboot import reboot
-from .counterpoll_constants import CounterpollConstants
-from .counterpoll_helper import ConterpollHelper
 
 pytestmark = [
     pytest.mark.sanity_check(skip_sanity=True),

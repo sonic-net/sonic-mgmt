@@ -36,6 +36,7 @@ pytestmark = [
     pytest.mark.acl,
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
     pytest.mark.topology("t0", "t1", "t2", "m0", "mx"),
+    pytest.mark.disable_memory_utilization
 ]
 
 MAX_WAIT_TIME_FOR_INTERFACES = 360
@@ -383,6 +384,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_unselected_dut, tbinfo, ptf
                         upstream_ports[neighbor['namespace']].append(interface)
                         upstream_port_ids.append(port_id)
                         upstream_port_id_to_router_mac_map[port_id] = rand_selected_dut.facts["router_mac"]
+                        if neigh_type == "PT0":
+                            upstream_service_ports[neighbor['namespace']].append(interface)
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:

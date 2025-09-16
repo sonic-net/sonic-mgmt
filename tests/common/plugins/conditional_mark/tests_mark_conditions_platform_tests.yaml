@@ -1049,53 +1049,53 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
-    conditions_logical_operator: or
+    reason: "Skip all advanced reboot tests on 202412 (warm reboot not required for backend ToRs)"
     conditions:
-      - "platform in ['x86_64-arista_7050_qx32s']"
-      - "'dualtor' in topo_name and release in ['202012']"
-      - "asic_type in ['vs']"
       - "release in ['202412']"
 
-platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
-  skip:
-    reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform / Warm reboot is not required for 202412"
-    conditions_logical_operator: or
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
-      - "platform in ['x86_64-arista_7050_qx32s']"
-      - "'dualtor' in topo_name and release in ['202012']"
-      - "release in ['202412']"
+# platform_tests/test_advanced_reboot.py:
+#   skip:
+#     reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+#     conditions_logical_operator: or
+#     conditions:
+#       - "platform in ['x86_64-arista_7050_qx32s']"
+#       - "'dualtor' in topo_name and release in ['202012']"
+#       - "asic_type in ['vs']"
+#       - "release in ['202412']"
 
-platform_tests/test_advanced_reboot.py::test_warm_reboot:
-  skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vs'] and 't0' not in topo_name"
-      - "release in ['202412']"
+# platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
+#   skip:
+#     reason: "skip test_fast_reboot_from_other_vendor due to knonw issue, if xfail it, it will block other test cases / Unsupported platform / Warm reboot is not required for 202412"
+#     conditions_logical_operator: or
+#     conditions:
+#       - "https://github.com/sonic-net/sonic-mgmt/issues/11007"
+#       - "platform in ['x86_64-arista_7050_qx32s']"
+#       - "'dualtor' in topo_name and release in ['202012']"
+#       - "release in ['202412']"
 
-platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
-  skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vs']"
-      - "release in ['202412']"
+# platform_tests/test_advanced_reboot.py::test_warm_reboot:
+#   skip:
+#     reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+#     conditions_logical_operator: or
+#     conditions:
+#       - "asic_type in ['vs'] and 't0' not in topo_name"
+#       - "release in ['202412']"
 
-platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
-  skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vs']"
-      - "release in ['202412']"
+# platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
+#   skip:
+#     reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+#     conditions_logical_operator: or
+#     conditions:
+#       - "asic_type in ['vs']"
+#       - "release in ['202412']"
 
-platform_tests/test_advanced_reboot.py::test_warm_reboot:
-  skip:
-    reason: "Skip in PR testing as taking too much time."
-    conditions:
-      - "asic_type in ['vs'] and 't0' not in topo_name"
+# platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
+#   skip:
+#     reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+#     conditions_logical_operator: or
+#     conditions:
+#       - "asic_type in ['vs']"
+#       - "release in ['202412']"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
@@ -1107,15 +1107,6 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "'dualtor' in topo_name"
       - "release in ['202412']"
-
-#######################################
-#####       test_intf_fec.py      #####
-#######################################
-platform_tests/test_intf_fec.py:
-  skip:
-    reason: "Temporarily skip in PR testing"
-    conditions:
-      - "asic_type in ['vs']"
 
 #######################################
 #####       test_intf_fec.py      #####
@@ -1260,6 +1251,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
     conditions:
       - "topo_type in ['m0', 'mx', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
+      - "release in ['202412']"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1327,15 +1319,14 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Testcase ignored due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/10362"
+    reason: "Skipped on mellanox and nvidia asic from 202411 and later"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/10362"
+      - "asic_type in ['mellanox', 'nvidia']"
 
 
 #######################################
 #####test_thermal_state_db.py #####
 #######################################
-
 platform_tests/test_thermal_state_db.py:
   skip:
     reason: "Skip in case of Cisco platform for T2 profile due to temperarory bug."

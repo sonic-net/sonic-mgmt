@@ -192,21 +192,43 @@ def compare_routes(running_routes, expected_routes):
     logger.info(f"compare_routes called at {datetime.datetime.now()}")
     is_same = True
     diff_cnt = 0
-    if len(expected_routes) != len(running_routes):
-        is_same = False
-        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
-                    len(expected_routes), len(running_routes))
-        return is_same
+    missing_prefixes = []
+    nh_diff_prefixes = []
+
+    expected_set = set(expected_routes.keys())
+    running_set = set(running_routes.keys())
+    missing = expected_set - running_set
+    extra = running_set - expected_set
+
+    # Count missing_prefixes and nh_diff_prefixes
     for prefix, attr in expected_routes.items():
         if prefix not in running_routes:
             is_same = False
             diff_cnt += 1
+            missing_prefixes.append(prefix)
             continue
         except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
         running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
         if except_nhs != running_nhs:
             is_same = False
             diff_cnt += 1
+            nh_diff_prefixes.append((prefix, except_nhs, running_nhs))
+
+    if len(expected_routes) != len(running_routes):
+        is_same = False
+        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
+                    len(expected_routes), len(running_routes))
+        if missing:
+            logger.info("Missing prefixes in running_routes: %s", list(missing))
+        if extra:
+            logger.info("Extra prefixes in running_routes: %s", list(extra))
+
+    if missing_prefixes:
+        logger.info("Prefixes missing in running_routes: %s", missing_prefixes)
+    if nh_diff_prefixes:
+        for prefix, expected, running in nh_diff_prefixes:
+            logger.info("Prefix %s nexthops not match, expected: %s, running: %s", prefix, expected, running)
+
     logger.info("%d of %d routes are different", diff_cnt, len(expected_routes))
     return is_same
 
@@ -442,6 +464,7 @@ def test_nexthop_group_member_scale(
     tbinfo,
     bgp_peers_info,
     announce_bgp_routes_teardown,
+    topo_bgp_routes,
     request
 ):
     '''
@@ -543,6 +566,17 @@ def test_nexthop_group_member_scale(
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
+    for hostname, routes in peers_routes_to_change.items():
+        for route in routes:
+            prefix = route[0].upper()
+            found = False
+            for topo_route in topo_bgp_routes[hostname]['ipv6']:
+                if topo_route[0] == prefix:
+                    route[2] = topo_route[2]
+                    found = True
+                    break
+            if not found:
+                logger.warning('Fail to update AS path of route %s, because of prefix was not found in topo', route[0])
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
@@ -552,7 +586,8 @@ def test_nexthop_group_member_scale(
     traffic_thread.start()
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
-        announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
+        change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_ANNOUNCE,
+                               servers_dut_interfaces.get(ptf_ip, ''))
     compressed_startup_routes = compress_expected_routes(startup_routes)
     result = check_bgp_routes_converged(
         duthost,
