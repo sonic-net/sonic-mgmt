@@ -2423,6 +2423,7 @@ Totals               6450                 6449
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
+                   v["peer_ipv4"] != "N/A" and
                    self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
                     ip_ifaces[k] = {
                         "ipv4": v["ipv4"],
