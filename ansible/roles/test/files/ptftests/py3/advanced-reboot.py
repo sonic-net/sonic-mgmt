@@ -2053,7 +2053,7 @@ class ReloadTest(BaseTest):
 
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
         packets = sorted(filtered_packets, key=lambda packet: (
-            int(bytes(packet[scapyall.TCP].payload)), packet.time))
+            int(bytes(packet[scapyall.TCP].payload)), float(packet.time)))
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
@@ -2092,7 +2092,7 @@ class ReloadTest(BaseTest):
                     # for dualtor both MACs are needed:
                     #   t1->server rcvd pkt will have src MAC as vlan_mac,
                     #   and server->t1 rcvd pkt will have src MAC as dut_mac
-                    received_time = packet.time
+                    received_time = float(packet.time)
                     received_payload = int(bytes(packet[scapyall.TCP].payload))
                     if (received_payload % 5) == 0:   # From vlan to T1.
                         received_vlan_to_t1 += 1
