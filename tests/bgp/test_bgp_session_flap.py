@@ -29,7 +29,7 @@ cpuSpike = 10
 memSpike = 1.3
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1')
+    pytest.mark.topology('t1', 't2', 'm1', 'lt2', 'ft2')
 ]
 
 
