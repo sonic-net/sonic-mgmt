@@ -2285,6 +2285,10 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
             if upstream_nbr_type in value['name']:
                 return a_dut.hostname
 
+    # In case of t1-isolated-d128, there is no upstream nbr, return the first dut
+    if tbinfo["topo"]["name"] == "t1-isolated-d128":
+        return duthosts[0].hostname
+
     pytest.fail("Did not find a dut in duthosts that for topo type {} that has upstream nbr type {}".
                 format(tbinfo["topo"]["type"], upstream_nbr_type))
 
