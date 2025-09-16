@@ -3034,6 +3034,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
         - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:
