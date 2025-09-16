@@ -895,6 +895,8 @@ platform_tests/broadcom/test_ser.py:
       - "platform in ['x86_64-arista_720dt_48s']"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
       - "'marvell' in asic_type"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20568 and 'Arista-7060X6-64PE-B' in hwsku"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20568 and 'Arista-7060X6-16PE-384C-B' in hwsku"
   xfail:
     reason: "Testcase consistently fails, CSP raised to follow up"
     conditions:
