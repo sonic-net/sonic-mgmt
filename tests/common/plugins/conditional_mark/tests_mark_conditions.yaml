@@ -466,6 +466,10 @@ configlet/test_add_rack.py:
     reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Testcase fails for smartswitch platform in the light mode due to https://github.com/sonic-net/sonic-mgmt/issues/20672 issue"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/20672 and is_smartswitch==True and topo_name.startswith('t1-')"
 
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
@@ -2585,6 +2589,10 @@ iface_loopback_action/test_iface_loopback_action.py:
     conditions:
       - "'dualtor' in topo_name"
       - "asic_type not in ['mellanox']"
+  xfail:
+    reason: "Testcase fails for smartswitch platform in the light mode due to https://github.com/sonic-net/sonic-mgmt/issues/20670 issue"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/20670 and is_smartswitch==True and topo_name.startswith('t1-')"
 
 #######################################
 #####      iface_namingmode       #####
