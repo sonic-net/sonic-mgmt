@@ -12,7 +12,7 @@ import re
 import os
 
 from ansible.module_utils.basic import AnsibleModule
-from sonic_py_common import device_info, multi_asic
+from sonic_py_common import device_info
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
@@ -319,13 +319,6 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_full_lossy_golden_config_db()
         else:
             config = "{}"
-
-        # To enable bmp feature
-        if self.check_version_for_bmp() is True:
-            if multi_asic.is_multi_asic():
-                config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
-            else:
-                config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)

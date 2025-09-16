@@ -20,6 +20,7 @@ def ps_check_bmp_redis(duthost):
     return ret
 
 
+@pytest.mark.skip(reason="Bypass bmp temporarily")
 def test_bmp_redis_instance(duthosts, rand_one_dut_hostname):
     """
     @summary: Test that redis has bmp instance

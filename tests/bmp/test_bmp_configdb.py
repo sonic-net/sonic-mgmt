@@ -29,6 +29,7 @@ def check_table_status(output, table_name):
             return enabled.lower()
 
 
+@pytest.mark.skip(reason="Bypass bmp temporarily")
 def test_bmp_configdb(duthosts, rand_one_dut_hostname, localhost):
 
     duthost = duthosts[rand_one_dut_hostname]

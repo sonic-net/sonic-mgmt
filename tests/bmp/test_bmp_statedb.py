@@ -90,6 +90,7 @@ def get_ipv6_neighbors(duthost):
     return ipv6_addresses
 
 
+@pytest.mark.skip(reason="Bypass bmp temporarily")
 def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
     duthost = duthosts[rand_one_dut_hostname]
 
