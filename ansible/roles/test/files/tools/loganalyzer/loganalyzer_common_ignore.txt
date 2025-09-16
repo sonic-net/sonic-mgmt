@@ -444,6 +444,12 @@ r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
 # Ignore SCD kernel warning about I2C communication ack errors on Arista platforms
 r, ".*WARNING kernel:.*scd.*rsp.*ack_error=1.*"
 
+# Ignore error log due to missing feature
+r, ".*CMD-IFC timeout for device.*"
+r, ".*Register access failed.*"
+r, ".*Failed to access PMAOS.*"
+r, ".*Failed in sx_netdev_module_get_present.*"
+
 # CHASSIS_STATE_DB only exists on chassis platforms; gnmi processes log an ERR on non-chassis systems at startup
 r, ".*ERR gnmi#.*getDbInfo: Failed to find CHASSIS_STATE_DB.*"
 
