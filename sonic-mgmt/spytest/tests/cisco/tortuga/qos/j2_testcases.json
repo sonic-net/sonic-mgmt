@@ -34,6 +34,42 @@
                         "dynamic_th": "7"
                     }
                 },
+                "TC_TO_QUEUE_MAP": {
+                    "AZURE": {
+                       "0": "0",
+                       "1": "1",
+                       "2": "2",
+                       "3": "3",
+                       "4": "4",
+                       "5": "5",
+                       "6": "6",
+                       "7": "7"
+                    }
+                },
+                "MAP_PFC_PRIORITY_TO_QUEUE": {
+                    "AZURE": {
+                        "0": "0",
+                        "1": "1",
+                        "2": "2",
+                        "3": "3",
+                        "4": "4",
+                        "5": "5",
+                        "6": "6",
+                        "7": "7"
+                    }
+                },
+                "TC_TO_PRIORITY_GROUP_MAP": {
+                    "AZURE": {
+                        "0": "0",
+                        "1": "0",
+                        "2": "0",
+                        "3": "3",
+                        "4": "4",
+                        "5": "0",
+                        "6": "0",
+                        "7": "7"
+                    }
+                },
                 "WRED_PROFILE": {
                     "AZURE_LOSSLESS": {
                         "wred_green_enable"      : "true",
@@ -93,29 +129,72 @@
             "results": {
                 "BUFFER_POOL": {
                     "ingress_lossless_pool": {
-                        "size": "201326592",
-                        "xoff": "47185920"
+                        "size": "219152384",
+                        "xoff": "35651584"
+                    },
+                    "ingress_lossy_pool": {
+                        "size": "268435456",
+                        "xoff": "0"
                     },
                     "egress_lossy_pool": {
-                        "size": "132120576"
+                        "size": "83886080"
+                    },
+                    "egress_lossless_pool" :{
+                        "size": "268435456"
                     }
                 },
                 "BUFFER_PROFILE": {
                     "egress_lossy_profile": {
-                        "size": "0",
+                        "size": "99615",
                         "dynamic_th": "1"
                     },
                     "egress_lossy_profile_sp": {
-                        "size": "0",
+                        "size": "99615",
                         "dynamic_th": "-2"
                     },
                     "egress_lossless_profile": {
                         "size": "0",
-                        "dynamic_th": "7"
+                        "static_th": "268435456"
                     },
                     "ingress_lossy_profile": {
                         "size": "0",
-                        "dynamic_th": "7"
+                        "static_th": "268435456"
+                    }
+                },
+                "TC_TO_QUEUE_MAP": {
+                    "AZURE": {
+                       "0": "0",
+                       "1": "1",
+                       "2": "2",
+                       "3": "3",
+                       "4": "4",
+                       "5": "5",
+                       "6": "6",
+                       "7": "7"
+                    }
+                },
+                "MAP_PFC_PRIORITY_TO_QUEUE": {
+                    "AZURE": {
+                        "0": "0",
+                        "1": "1",
+                        "2": "2",
+                        "3": "3",
+                        "4": "4",
+                        "5": "5",
+                        "6": "6",
+                        "7": "7"
+                    }
+                },
+                "TC_TO_PRIORITY_GROUP_MAP": {
+                    "AZURE": {
+                        "0": "0",
+                        "1": "0",
+                        "2": "0",
+                        "3": "3",
+                        "4": "4",
+                        "5": "0",
+                        "6": "0",
+                        "7": "7"
                     }
                 },
                 "WRED_PROFILE": {
