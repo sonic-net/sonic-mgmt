@@ -357,17 +357,18 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
 
 
 def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
-                            enum_rand_one_frontend_asic_index):
+                            enum_rand_one_frontend_asic_index, cli_namespace_prefix):
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
-    output = duthost.shell('sonic-db-cli CONFIG_DB keys "PORT|"\\*')["stdout"]
+    output = duthost.shell('sonic-db-cli {} CONFIG_DB keys "PORT|"\\*'.format(cli_namespace_prefix))["stdout"]
     interfaces = {}  # to be filled with two interfaces mapped to their indeces
 
     for line in output.split('\n'):
         if line.startswith('PORT|Ethernet'):
             interface = line[line.index('Ethernet'):].strip()
-            index = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" index'.format(interface))["stdout"]
+            index = duthost.shell('sonic-db-cli {} CONFIG_DB hget "PORT|{}" index'.format(
+                cli_namespace_prefix, interface))["stdout"]
             interfaces[interface] = index
             if len(interfaces) == 2:
                 break
