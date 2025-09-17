@@ -5,7 +5,7 @@ from tests.common.devices.eos import EosHost
 from tests.common.utilities import skip_release
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 't1-multi-asic'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2'),
     pytest.mark.device_type('vs')
 ]
 
