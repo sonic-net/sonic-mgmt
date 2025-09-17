@@ -36,8 +36,8 @@ str5-sn5640-4,10.64.246.35/23,Mellanox-SN5640-C448O16,DevSonic,,sonic
 str5-sn5640-fan-4,10.64.246.169/23,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
 str5-sn5640-5,10.64.247.169/23,Mellanox-SN5640-C448O16,DevSonic,,sonic
 str5-sn5640-fan-5,10.64.247.170/23,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
-str5-sn5640-6,10.64.246.164/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
-str5-sn5640-fan-6,10.64.246.165/23,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
+str5-sn5640-6,10.64.246.33/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
+str5-sn5640-fan-6,10.64.246.32/23,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 pdu-83,10.3.154.83,ApcRPDU,Pdu,snmp,
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
