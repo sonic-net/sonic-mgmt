@@ -19,6 +19,10 @@ SKU_NEXTHOP_THRESHOLDS = {
     'Arista-7050CX3-32S-C32': 255,
     'arista-7050cx3-32s-s128': 255,
     'arista-7050cx3-32s-c6s104': 255,
+    'arista-7050cx3-32c-c28s4': 255,
+    'Arista-7050CX3-32c-C32': 255,
+    'arista-7050cx3-32c-s128': 255,
+    'arista-7050cx3-32c-c6s104': 255,
 }
 
 DEFAULT_NEXTHOP_THRESHOLD = 256
