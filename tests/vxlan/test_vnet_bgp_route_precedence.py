@@ -68,7 +68,7 @@ def fixture_monitor_type(duthosts, request, rand_one_dut_hostname, tbinfo):
     '''
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
     topo = tbinfo["topo"]["type"]
-    if request.param in ["custom"] and asic_type in ["cisco-8000"] and topo == "t1":
+    if request.param in ["custom"] and asic_type in ["cisco-8000", "mellanox"] and topo == "t1":
         pytest.skip(f"{asic_type} {topo} is not a supported platform for this monitor type: {request.param}.")
     return request.param
 
