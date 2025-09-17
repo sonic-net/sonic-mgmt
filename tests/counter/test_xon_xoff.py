@@ -5,7 +5,7 @@ import pytest
 import ptf.packet as scapy
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1","lt2", "ft2", "ptf"),
+    pytest.mark.topology("t0", "t1", "lt2", "ft2", "ptf"),
 ]
 
 
