@@ -19,7 +19,7 @@ from tests.common.reboot import reboot, wait_for_startup
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
     pytest.mark.disable_loganalyzer,
 ]
 
