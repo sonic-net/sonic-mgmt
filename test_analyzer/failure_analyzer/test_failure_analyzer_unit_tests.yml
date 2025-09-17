@@ -16,6 +16,11 @@ variables:
 - name: pythonVersion
   value: '3.8'
 
+pr:
+  paths:
+    include:
+    - test_analyzer/failure_analyzer/*
+
 jobs:
 - job: CheckForChanges
   displayName: 'Check for changes in the test failure analyzer'
@@ -92,4 +97,3 @@ jobs:
       summaryFileLocation: '$(projectRoot)/coverage.xml'
       reportDirectory: '$(projectRoot)/htmlcov/'
     displayName: 'Publish Python 3 test coverage'
-
