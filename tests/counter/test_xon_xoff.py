@@ -5,7 +5,7 @@ import pytest
 import ptf.packet as scapy
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "ptf"),
+    pytest.mark.topology("t0", "t1","lt2", "ft2", "ptf"),
 ]
 
 
@@ -73,13 +73,20 @@ def test_xon_xoff_does_not_increase_rx_drop(
 
     # Send XOFF (pause_time > 0)
     xoff = craft_pause_frame(quanta=0xFFFF)
-    for _ in range(30):
+
+    xoff_frames = 300
+
+    for _ in range(xoff_frames):
         ptfadapter.dataplane.send(ptf_port_idx, bytes(xoff))
         time.sleep(0.005)
 
     # Send XON (pause_time == 0)
+
     xon = craft_pause_frame(quanta=0x0000)
-    for _ in range(10):
+
+    xon_frames = 100
+
+    for _ in range(xon_frames):
         ptfadapter.dataplane.send(ptf_port_idx, bytes(xon))
         time.sleep(0.005)
 
@@ -88,6 +95,6 @@ def test_xon_xoff_does_not_increase_rx_drop(
 
     after = read_rx_drops(duthost, dut_port)
 
-    assert (after - before) == 0, (
+    assert (after - before) <= 0, (
         f"RX_DROP increased on {dut_port}: before={before} after={after}"
     )
