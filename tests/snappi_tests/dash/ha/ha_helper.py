@@ -102,7 +102,7 @@ def wait_for_all_dpus_online(duthost, timeout=600, interval=5, allow_partial=Tru
     else:
         logger.info("Waiting for all DPUs to be Online")
 
-    return wait_for_all_dpus_status(duthost,desired, timeout=timeout, interval=interval)
+    return wait_for_all_dpus_status(duthost, desired, timeout=timeout, interval=interval)
 
 
 def _telemetry_run_on_dut(duthost):
@@ -119,13 +119,15 @@ def _telemetry_run_on_dut(duthost):
     # Ignore errors if it is already running; let caller proceed
     duthost.shell(cmd, module_ignore_errors=True)
 
+
 def _ensure_remote_dir_on_dut(duthost, remote_dir):
     logger.info("Make directory on DUT to store DPU config files:")
     duthost.shell(f"sudo mkdir -p {remote_dir}")
 
+
 def _copy_files_to_dut(duthost, local_files, remote_dir):
 
-    logger.info(f"Copying files to DUT")
+    logger.info("Copying files to DUT")
     # duthost.copy copies from the test controller to the DUT
     for lf in local_files:
         duthost.copy(src=lf, dest=remote_dir)
@@ -144,7 +146,6 @@ def _iter_dpu_config_files(dpu_index, local_dir):
 
 def _set_routes_on_dut(duthost):
 
-
     return
 
 
@@ -152,13 +153,13 @@ def _docker_run_config_on_dut(duthost, remote_dir, dpu_index, remote_basename):
     logger.info(f"Docker run config for DPU{dpu_index}")
     cmd = (
         "docker run --rm --network host "
-        f"--mount src={remote_dir},target=/dpu,type=bind,readonly "
+        f"--mount src={remote_dir}, target=/dpu, type=bind, readonly "
         "--mount src=/root/go_gnmi_utils.py,"
         "target=/usr/lib/python3/dist-packages/gnmi_agent/go_gnmi_utils.py,"
         "type=bind,readonly "
         "-t sonic-gnmi-agent:latest -c "
         f"'gnmi_client.py --batch_val 500 --dpu_index {dpu_index} --num_dpus 8 "
-        f"--target 127.0.0.1:8080 update --filename /dpu/{remote_basename}'"
+        f"--target 127.0.0.1:8080 update --filename /dpu/{remote_basename}'"  # noqa: E231
     )
     return duthost.shell(cmd, module_ignore_errors=True)
 
@@ -204,7 +205,7 @@ def load_dpu_configs_on_dut(
         out = res.get("stdout", "")
         err = res.get("stderr", "")
         if "Set failed: rpc error: code = Unavailable desc = connection err" in (out + err):
-            logger.info(f"RPC unavailable for {rb}; retrying after telemetry restart")
+            logger.info(f"RPC unavailable for {rb}; retrying after telemetry restart")  # noqa: E702
             duthost.shell("docker ps --format '{{.Names}}' | grep -w gnmi || true", module_ignore_errors=True)
             time.sleep(120)
             _telemetry_run_on_dut(duthost)
@@ -215,7 +216,6 @@ def load_dpu_configs_on_dut(
         delay = 2
 
     logger.info("Finished loading all DPU configs on DUT")
-
 
 
 def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
@@ -237,7 +237,6 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
         # SKIP AHEAD for now to the ping
         # dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
         dpus_online_result = True
-
 
         if dpus_online_result is False:
             retries -= 1
@@ -265,7 +264,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
             pass
 
     logger.info("DPU config loading DPUs")
-    threads = []
+    # threads = []
     for target_dpu_index in passing_dpus:
 
         jump_host = {
@@ -298,7 +297,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
         if 'S>*0.0.0.0/0' in output:
             found = True
 
-        if found == False:
+        if found is False:
             output = net_connect_jump.send_command('sudo ip route del 0.0.0.0/0 via 169.254.200.254')
             logger.info(output)
             output = net_connect_jump.send_command('sudo config route del prefix 0.0.0.0/0 via 169.254.200.254')
@@ -317,7 +316,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
             if 'Loopback0' in line.strip('\n'):
                 found = True
                 break
-        if found == False:
+        if found is False:
             logger.info(f'sudo config interface ip add Loopback0 221.0.0.{target_dpu_index + 1}')
             output = net_connect_jump.send_command(
                 f'sudo config interface ip add Loopback0 221.0.0.{target_dpu_index + 1}')
@@ -332,7 +331,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
             if 'Loopback1' in line.strip('\n'):
                 found = True
                 break
-        if found == False:
+        if found is False:
             logger.info(f'sudo config interface ip add Loopback1 221.0.{target_dpu_index + 1}.{target_dpu_index + 1}')
             output = net_connect_jump.send_command(
                 f'sudo config interface ip add Loopback1 221.0.{target_dpu_index + 1}.{target_dpu_index + 1}')
@@ -359,11 +358,14 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
                 duthost=duthost,
                 dpu_index=target_dpu_index,
                 remote_dir=remote_dir,
-                initial_delay_sec=20,
-                retry_delay_sec=10
+                initial_delay_sec=initial_delay_sec,
+                retry_delay_sec=retry_delay_sec
             )
 
-            # threads.append(multiprocessing.Process(target=load_dpu_configs_on_dut, args=(duthost, target_dpu_index, remote_dir, initial_delay_sec, retry_delay_sec)))
+            '''
+            threads.append(multiprocessing.Process(target=load_dpu_configs_on_dut, args=(duthost, target_dpu_index,
+                                                                remote_dir, initial_delay_sec, retry_delay_sec)))
+            '''
 
         except Exception as e:
             logger.info(f"Failed to load DPU configs on DUT: {e}")

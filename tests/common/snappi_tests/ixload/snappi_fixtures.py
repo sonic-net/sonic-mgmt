@@ -77,7 +77,6 @@ def config_snappi_l47(request, duthosts, tbinfo):
     test_filename = "dash_cps"
     initial_cps_obj = (len(ports_list['Traffic1@Network1']) * 4000000) // 2
 
-
     test_type_dict = {
         'cps': 'cps', 'tcpbg': 'tcpbg', 'all': 'all',
         'test_filename': test_filename, 'initial_cps_obj': initial_cps_obj
