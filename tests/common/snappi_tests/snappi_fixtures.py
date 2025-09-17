@@ -937,8 +937,17 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         True if we successfully configure the interfaces or False
     """
     ptype = "--snappi_macsec" in sys.argv
-    dutIps = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
-    tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    for index, port in enumerate(snappi_ports):
+        if port['duthost'] == duthost:
+            peer_port = port['peer_port']
+            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+            subnet = [ele for ele in int_addrs if "." in ele]
+            port['ipAddress'] = get_addrs_in_subnet(subnet[0], 2)[1]
+            if not subnet:
+                pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
+            port['ipGateway'], port['prefix'] = subnet[0].split("/")
+            port['subnet'] = subnet[0]
     ports = [port for port in snappi_ports if port['peer_device'] == duthost.hostname]
     if ptype:
         macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
@@ -947,34 +956,12 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
 
     for port in ports:
         port_id = port['port_id']
-        dutIp = dutIps[port_id]
-        tgenIp = tgenIps[port_id]
+        dutIp = port['ipGateway']
+        tgenIp = port['ipAddress']
+        prefix_length = int(port['prefix'])
         mac = __gen_mac(port_id)
-        logger.info('Configuring Dut: {} with port {} with IP {}/{}'.format(
-                                                                            duthost.hostname,
-                                                                            port['peer_port'],
-                                                                            dutIp,
-                                                                            prefix_length))
-        if setup:
-            cmd = "add"
-        else:
-            cmd = "remove"
         if not setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
-
-        if port['asic_value'] is None:
-            duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
-                                                                                cmd,
-                                                                                port['peer_port'],
-                                                                                dutIp,
-                                                                                prefix_length))
-        else:
-            duthost.command('sudo config interface -n {} ip {} {} {}/{} \n' .format(
-                                                                                    port['asic_value'],
-                                                                                    cmd,
-                                                                                    port['peer_port'],
-                                                                                    dutIp,
-                                                                                    prefix_length))
         if setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
@@ -1807,11 +1794,7 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
 def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
                    number_of_tx_rx_ports, duthosts, snappi_api):
     testbed = request.config.getoption("--testbed")
-    import pdb; pdb.set_trace() 
-    is_override, _ = parse_override(
-        testbed,
-        'multidut_port_info'
-    )
+    is_override, _ = parse_override(testbed, 'multidut_port_info')
 
     if is_override:
         testbed_subtype, rdma_ports = next(iter(request.param.items()))
