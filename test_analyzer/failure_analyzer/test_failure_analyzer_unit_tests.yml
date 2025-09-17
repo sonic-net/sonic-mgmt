@@ -1,3 +1,19 @@
+pr:
+   branches:
+     include:
+       - internal
+   paths:
+     include:
+       - test_analyzer/failure_analyzer/**
+
+trigger:
+  branches:
+    include:
+    - internal
+  paths:
+    include:
+    - test_analyzer/failure_analyzer/**
+
 variables:
 - group: KUSTO_SECRETS
 - group: NIGHTLY_HAWK
@@ -15,11 +31,6 @@ variables:
   value: 'internal'
 - name: pythonVersion
   value: '3.8'
-
-pr:
-  paths:
-    include:
-    - test_analyzer/failure_analyzer/*
 
 jobs:
 - job: CheckForChanges
