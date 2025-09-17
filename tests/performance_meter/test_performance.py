@@ -5,11 +5,12 @@ import statistics
 import pytest
 from contextlib import asynccontextmanager
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import async_wait_until
 
 from ops import get_op_by_name
 from success_criteria import get_success_criteria_by_name
 from success_criteria import get_success_criteria_stats_by_name
+from success_criteria import filter_vars
 
 
 pytestmark = [
@@ -35,15 +36,9 @@ pytestmark = [
 # 8. Log result and continue to next op
 
 
-def filter_vars(my_vars, prefix):
-    filter_vars = filter(lambda item: item[0].startswith(prefix), my_vars.items())
-    map_vars = map(lambda item: (item[0][len(prefix) + 1:], item[1]), filter_vars)
-    return dict(map_vars)
-
-
 async def check_success_criteria(timeout, delay, interval, checker, result):
     start_time = time.time()
-    result["passed"] = wait_until(timeout=timeout, interval=interval, delay=delay, condition=checker)
+    result["passed"] = await async_wait_until(timeout=timeout, interval=interval, delay=delay, condition=checker)
     end_time = time.time()
     result["time_to_pass"] = end_time - start_time
 
@@ -70,11 +65,11 @@ async def run_test_performance_for_op(duthost, call_sanity_check, reorged_test_c
                 continue
             test_result = {}
             path_test_result[test_name] = test_result
+            timeout = test_config["timeout"]
+            delay = test_config.get("delay", 0)
+            interval = test_config.get("interval", 1)
             success_criteria = test_config["success_criteria"]
             filtered_vars = filter_vars(test_config, success_criteria)
-            timeout = filtered_vars["timeout"]
-            delay = filtered_vars.get("delay", 0)
-            interval = filtered_vars.get("interval", 1)
             checker = get_success_criteria_by_name(success_criteria)(duthost, test_result, **filtered_vars)
             coros.append(check_success_criteria(timeout, delay, interval, checker, test_result))
 
@@ -84,7 +79,7 @@ async def run_test_performance_for_op(duthost, call_sanity_check, reorged_test_c
     async with asynccontextmanager(get_op_by_name(op))(duthost) as op_success:
         single_run_result["op_success"] = op_success
         if op_success:
-            asyncio.gather(*coros)
+            await asyncio.gather(*coros)
         else:
             for coro in coros:
                 coro.close()
@@ -112,7 +107,7 @@ async def async_test_performance(duthost, call_sanity_check, reorged_test_config
 # Ideally, test_performance should not give errors and only collect results regardless of the
 # errors received. Analyzing the result is reserved for test_performance_stats
 def test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
-                     path, test_name, op, success_criteria, run_index):     # noqa F811
+                     path, test_name, op, success_criteria, run_index):     # noqa: F811
     asyncio.run(async_test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
                                        path, test_name, op, success_criteria, run_index))
 

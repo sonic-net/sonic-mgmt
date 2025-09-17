@@ -60,8 +60,7 @@ def reorged_test_config(filtered_test_config):
         for test_name, test_config in config["performance_meter"].items():
             assert all(map(lambda item: item in test_config, required_items_for_each_test)), \
                    "{} should be in config".format(required_items_for_each_test)
-            assert (test_config["success_criteria"] + "_timeout") in test_config, \
-                   "success_criteria timeout should be in config"
+            assert "timeout" in test_config, "success_criteria timeout should be in config"
             op = test_config["op"]
             test_config_for_op = all_test_config.get(op, {})
             test_config_under_path_for_op = test_config_for_op.get(path, {})

@@ -2,6 +2,7 @@ import logging
 import random
 import statistics
 import datetime
+import pandas as pd
 from tests.common.helpers.assertions import pytest_assert
 
 
@@ -26,6 +27,12 @@ def suppress_exception(func):
         except Exception:
             return False
     return inner
+
+
+def filter_vars(my_vars, prefix):
+    filter_vars = filter(lambda item: item[0].startswith(prefix + "_"), my_vars.items())
+    map_vars = map(lambda item: (item[0][len(prefix) + 1:], item[1]), filter_vars)
+    return dict(map_vars)
 
 
 # Defining a success criteria and its stats.
@@ -106,6 +113,8 @@ def random_success_20_perc_stats(passed_op_precheck, **kwargs):
     logging.warning("Foo is {}".format(kwargs["foo"]))
 
 
+# function for printing out collected stats on display_variable/s provided through config
+# this variable should have been collected by success_criteria and stored in test results
 def display_variable_stats(passed_op_precheck, **kwargs):
     finished_op = list(filter(lambda item: item["op_success"], passed_op_precheck))
     success_rate_op = len(finished_op) / len(passed_op_precheck)
@@ -113,8 +122,11 @@ def display_variable_stats(passed_op_precheck, **kwargs):
     passed_success_criteria = list(filter(lambda result: result["passed"], finished_op))
     success_rate = len(passed_success_criteria) / len(finished_op)
     logging.warning("Success rate is {}".format(success_rate))
+    display_variables = kwargs.get("display_variables", [])
+    display_variable_stats = {}
     if "display_variable" in kwargs:
-        display_variable = kwargs["display_variable"]
+        display_variables.append(kwargs["display_variable"])
+    for display_variable in display_variables:
         all_display_variable = list(map(lambda item: item[display_variable], passed_success_criteria))
         max_display_variable = max(all_display_variable)
         logging.warning("Max {} is {}".format(display_variable, max_display_variable))
@@ -124,6 +136,20 @@ def display_variable_stats(passed_op_precheck, **kwargs):
         logging.warning("Mean {} is {}".format(display_variable, mean_display_variable))
         stdev_display_variable = statistics.stdev(all_display_variable)
         logging.warning("Stdev {} is {}".format(display_variable, stdev_display_variable))
+        display_variable_stats[display_variable] = {"max": max_display_variable,
+                                                    "min": min_display_variable,
+                                                    "mean": mean_display_variable,
+                                                    "stdev": stdev_display_variable,
+                                                    }
+        extra_vars = filter_vars(kwargs, display_variable)
+        if "quantile" in extra_vars:
+            quantile = extra_vars["quantile"]
+            series = pd.Series(all_display_variable)
+            result = series.quantile(quantile)
+            logging.warning("Quantile {} of {} is {}".format(quantile, display_variable, result))
+            display_variable_stats[display_variable]["quantile"] = quantile
+            display_variable_stats[display_variable]["quantile_result"] = result
+    return display_variable_stats
 
 
 def bgp_up(duthost, test_result, **kwargs):
@@ -148,38 +174,103 @@ def _get_last_timestamp(duthost):
     return _extract_timestamp(duthost, stdout)
 
 
-def swss_up(duthost, test_result, **kwargs):
+def success_criteria_by_syslog(duthost, test_result, **kwargs):
     last_timestamp = _get_last_timestamp(duthost)
-    cur_swss_start = None
-    swss_start_cmd = "show logging | grep 'docker cmd: start for swss' | grep -v ansible | tail -n 1"
-    swss_started_cmd = "show logging | grep 'Feature swss is enabled and started' | grep -v ansible | tail -n 1"
+    syslog_start = None
+    syslog_start_cmd = kwargs["syslog_start_cmd"]
+    syslog_end_cmd = kwargs["syslog_end_cmd"]
 
     @suppress_exception
-    def swss_up_checker():
-        nonlocal cur_swss_start
-        if cur_swss_start is None:
-            stdout = duthost.shell(swss_start_cmd)["stdout"]
-            swss_start = _extract_timestamp(duthost, stdout)
-            if swss_start > last_timestamp:
-                cur_swss_start = swss_start
-        if cur_swss_start is not None:
-            stdout = duthost.shell(swss_started_cmd)["stdout"]
-            swss_started = _extract_timestamp(duthost, stdout)
-            if swss_started > cur_swss_start:
-                test_result["swss_start_time"] = (swss_started - cur_swss_start).seconds
+    def syslog_checker():
+        nonlocal syslog_start
+        if syslog_start is None:
+            stdout = duthost.shell(syslog_start_cmd)["stdout"]
+            timestamp = _extract_timestamp(duthost, stdout)
+            if timestamp > last_timestamp:
+                syslog_start = timestamp
+        if syslog_start is not None:
+            stdout = duthost.shell(syslog_end_cmd)["stdout"]
+            timestamp = _extract_timestamp(duthost, stdout)
+            if timestamp > syslog_start:
+                test_result[kwargs["result_variable"]] = (timestamp - syslog_start).seconds
                 return True
         return False
-    return swss_up_checker
+    return syslog_checker
+
+
+def swss_up(duthost, test_result, **kwargs):
+    swss_start_cmd = "show logging | grep 'docker cmd: start for swss' | grep -v ansible | tail -n 1"
+    swss_end_cmd = "show logging | grep 'Feature swss is enabled and started' | grep -v ansible | tail -n 1"
+    extra_vars = {"syslog_start_cmd": swss_start_cmd,
+                  "syslog_end_cmd": swss_end_cmd,
+                  "result_variable": "swss_start_time"}
+    return success_criteria_by_syslog(duthost, test_result, **{**kwargs, **extra_vars})
+
+
+def swss_create_switch(duthost, test_result, **kwargs):
+    start_mark = "create: request switch create with context 0"
+    start_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(start_mark)
+    end_mark = "main: Create a switch, id:"
+    end_cmd = "show logging | grep '{}' | grep -v ansible | tail -n 1".format(end_mark)
+    extra_vars = {"syslog_start_cmd": start_cmd,
+                  "syslog_end_cmd": end_cmd,
+                  "result_variable": "swss_create_switch_start_time"}
+    return success_criteria_by_syslog(duthost, test_result, **{**kwargs, **extra_vars})
+
+
+def swss_create_switch_stats(passed_op_precheck, **kwargs):
+    variable_stats = display_variable_stats(passed_op_precheck,
+                                            **{**kwargs,
+                                               "display_variable": "swss_create_switch_start_time",
+                                               "swss_create_switch_start_time_quantile": 1})
+    start_time_stats = variable_stats["swss_create_switch_start_time"]
+    pytest_assert(start_time_stats["mean"] < kwargs["mean"],
+                  "swss_create_switch_start_time mean {} is not lower than target mean {}"
+                  .format(start_time_stats["mean"], kwargs["mean"]))
+    pytest_assert(start_time_stats["quantile_result"] < kwargs["p100"],
+                  "swss_create_switch_start_time p100 {} is not lower than target p100 {}"
+                  .format(start_time_stats["quantile_result"], kwargs["p100"]))
+
+
+def read_meminfo(duthost, item):
+    cmd = "cat /proc/meminfo | grep {} | egrep -o '[0-9]+'".format(item)
+    return int(duthost.shell(cmd)["stdout"])
 
 
 def startup_mem_usage_after_bgp_up(duthost, test_result, **kwargs):
     bgp_up_checker = bgp_up(duthost, test_result, **kwargs)
+    mem_total = read_meminfo(duthost, "MemTotal")
 
     @suppress_exception
     def checker():
         if bgp_up_checker():
-            cmd = "cat /proc/meminfo | grep MemAvailable | egrep -o '[0-9]+'"
-            test_result["mem_available"] = int(duthost.shell(cmd)["stdout"])
+            mem_available = read_meminfo(duthost, "MemAvailable")
+            test_result["mem_available"] = mem_available
+            test_result["mem_used_perc"] = 1 - mem_available / mem_total
             return True
         return False
     return checker
+
+
+def startup_mem_usage_after_bgp_up_stats(passed_op_precheck, **kwargs):
+    variable_stats = display_variable_stats(passed_op_precheck,
+                                            **{**kwargs,
+                                               "display_variables": ["time_to_pass", "mem_used_perc"],
+                                               "time_to_pass_quantile": 0.90,
+                                               "mem_used_perc_quantile": 0.90})
+    bgp_up_stats = variable_stats["time_to_pass"]
+    target_bgp_up_stats = filter_vars(kwargs, "bgp_up")
+    pytest_assert(bgp_up_stats["mean"] < target_bgp_up_stats["mean"],
+                  "bgp_up mean {} is not lower than target mean {}".format(bgp_up_stats["mean"],
+                                                                           target_bgp_up_stats["mean"]))
+    pytest_assert(bgp_up_stats["quantile_result"] < target_bgp_up_stats["p90"],
+                  "bgp_up p90 {} is not lower than target p90 {}".format(bgp_up_stats["quantile_result"],
+                                                                         target_bgp_up_stats["p90"]))
+    mem_used_perc_stats = variable_stats["mem_used_perc"]
+    target_mem_used_perc_stats = filter_vars(kwargs, "mem_used_perc")
+    pytest_assert(mem_used_perc_stats["mean"] < target_mem_used_perc_stats["mean"],
+                  "mem_used_perc mean {} is not lower than target mem_used_perc mean {}"
+                  .format(mem_used_perc_stats["mean"], target_mem_used_perc_stats["mean"]))
+    pytest_assert(mem_used_perc_stats["quantile_result"] < target_mem_used_perc_stats["p90"],
+                  "mem_used_perc p90 {} is not lower than target mem_used_perc p90 {}"
+                  .format(mem_used_perc_stats["quantile_result"], target_mem_used_perc_stats["p90"]))

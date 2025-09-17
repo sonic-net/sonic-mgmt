@@ -10,8 +10,11 @@ all:
       vars:
         topologies:
           - t1
+          - t1-vpp
           - t1-lag
+          - t1-lag-vpp
           - t1-28-lag
+          - t1-48-lag
           - t1-56-lag
           - t1-64-lag
           - t1-8-lag
@@ -32,12 +35,17 @@ all:
           - t0-116
           - t0-118
           - t0-backend
+          - t0-88-o8c80
           - dualtor
           - dualtor-56
           - dualtor-120
           - t2
           - t2_2lc_min_ports-masic
           - t2_2lc_min_ports
+          - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
@@ -79,6 +87,7 @@ all:
         vlab-t2-1-2:
         vlab-t2-1-sup:
         vlab-c-02:
+        vlab-vpp-01:
     ptf:
       hosts:
         ptf-01:
@@ -261,7 +270,7 @@ all:
           ansible_user: admin
           card_type: supervisor
           slot_num: slot0
-          switch_type: fabric
+          switch_type: dummy-sup
         vlab-09:
           ansible_host: 10.250.0.115
           ansible_hostv6: fec0::ffff:afb:1
@@ -327,6 +336,15 @@ all:
           ansible_user: admin
           ansible_ssh_user: admin
           ansible_altpassword: admin
+        vlab-vpp-01:
+          ansible_host: 10.250.0.92
+          ansible_hostv6: fec0::ffff:afa:70
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9001
+          ansible_password: password
+          ansible_user: admin
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

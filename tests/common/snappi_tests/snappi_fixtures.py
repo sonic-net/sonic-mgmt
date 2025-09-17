@@ -7,13 +7,13 @@ import logging
 import snappi
 import sys
 import random
-import snappi_convergence
+from copy import copy
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_peer_snappi_chassis, \
-    get_ipv6_addrs_in_subnet
+    get_ipv6_addrs_in_subnet, parse_override
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
@@ -39,7 +39,7 @@ def snappi_api_serv_ip(tbinfo):
 
 
 @pytest.fixture(scope="module")
-def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
+def snappi_api_serv_port(tbinfo, duthosts, rand_one_dut_hostname):
     """
     This fixture returns the TCP Port of the Snappi API server.
     Args:
@@ -47,6 +47,9 @@ def snappi_api_serv_port(duthosts, rand_one_dut_hostname):
     Returns:
         snappi API server port.
     """
+    if "tg_api_server" in tbinfo:
+        return tbinfo['tg_api_server'].split(':')[1]
+
     duthost = duthosts[rand_one_dut_hostname]
     return (duthost.host.options['variable_manager'].
             _hostvars[duthost.hostname]['snappi_api_server']['rest_port'])
@@ -113,7 +116,7 @@ def __valid_ipv4_addr(ip):
         return False
 
 
-def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
+def __l3_intf_config(config, port_config_list, duthost, snappi_ports, setup=True):
     """
     Generate Snappi configuration of layer 3 interfaces
     Args:
@@ -121,6 +124,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         port_config_list (list): list of Snappi port configuration information
         duthost (object): device under test
         snappi_ports (list): list of Snappi port information
+        setup (bool): Setting up or teardown? True or False
     Returns:
         True if we successfully generate configuration or False
     """
@@ -138,8 +142,6 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             l3_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     for k, v in list(l3_intf.items()):
         intf = str(k)
         gw_addr = str(v['addr'])
@@ -149,7 +151,10 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
         port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                     if snappi_port['peer_port'] == intf]
         if len(port_ids) != 1:
-            return False
+            continue
+
+        namespace = duthost.get_namespace_from_asic_id(duthost.get_port_asic_instance(intf).asic_index)
+        gen_data_flow_dest_ip(ip, duthost, intf, namespace=namespace, setup=setup)
 
         port_id = port_ids[0]
         mac = __gen_mac(port_id)
@@ -159,7 +164,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
 
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
+        ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
 
         ip_stack = ethernet.ipv4_addresses.add()
@@ -172,7 +177,7 @@ def __l3_intf_config(config, port_config_list, duthost, snappi_ports):
                                        ip=ip,
                                        mac=mac,
                                        gw=gw_addr,
-                                       gw_mac=dut_mac,
+                                       gw_mac=duthost.get_dut_iface_mac(intf),
                                        prefix_len=prefix,
                                        port_type=SnappiPortType.IPInterface,
                                        peer_port=intf)
@@ -212,8 +217,6 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             vlan_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     """ For each Vlan """
     for vlan in vlan_member:
         phy_intfs = vlan_member[vlan]
@@ -230,7 +233,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
             port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
-                return False
+                continue
 
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
@@ -239,7 +242,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
 
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
-            ethernet.port_name = config.ports[port_id].name
+            ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
             ip_stack = ethernet.ipv4_addresses.add()
@@ -252,7 +255,7 @@ def __vlan_intf_config(config, port_config_list, duthost, snappi_ports):
                                            ip=vlan_ip_addr,
                                            mac=mac,
                                            gw=gw_addr,
-                                           gw_mac=dut_mac,
+                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.VlanMember,
                                            peer_port=phy_intf)
@@ -292,8 +295,6 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             pc_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     """ For each port channel """
     pc_id = 0
     for pc in pc_member:
@@ -301,6 +302,16 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         gw_addr = str(pc_intf[pc]['addr'])
         prefix = str(pc_intf[pc]['prefixlen'])
         pc_ip_addr = str(pc_intf[pc]['peer_addr'])
+
+        """
+        Do not create a PC LAG object in config if no interfaces
+        are present for that PortChannel group
+        """
+        port_ids = [id for id, snappi_port in enumerate(snappi_ports)
+                    for phy_intf in phy_intfs
+                    if snappi_port['peer_port'] == phy_intf]
+        if len(port_ids) == 0:
+            continue
 
         lag = config.lags.lag(name='Lag {}'.format(pc))[-1]
         lag.protocol.lacp.actor_system_id = '00:00:00:00:00:01'
@@ -313,7 +324,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             port_ids = [id for id, snappi_port in enumerate(snappi_ports)
                         if snappi_port['peer_port'] == phy_intf]
             if len(port_ids) != 1:
-                return False
+                continue
 
             port_id = port_ids[0]
             mac = __gen_mac(port_id)
@@ -329,7 +340,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
                                            ip=pc_ip_addr,
                                            mac=mac,
                                            gw=gw_addr,
-                                           gw_mac=dut_mac,
+                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.PortChannelMember,
                                            peer_port=phy_intf)
@@ -339,7 +350,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         device = config.devices.device(name='Device {}'.format(pc))[-1]
 
         ethernet = device.ethernets.add()
-        ethernet.port_name = lag.name
+        ethernet.connection.port_name = lag.name
         ethernet.name = 'Ethernet {}'.format(pc)
         ethernet.mac = __gen_pc_mac(pc_id)
 
@@ -371,8 +382,10 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     """
     # As of now both single dut and multidut fixtures are being called from the same test,
     # When this function is called for T2 testbed, just return empty.
+    '''
     if is_snappi_multidut(duthosts):
         return None, []
+        '''
 
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -525,6 +538,10 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
     try:
         for port in snappi_ports:
             peer_port = port['peer_port']
+            asic_instance = duthost.get_port_asic_instance(peer_port)
+            config_facts = asic_instance.config_facts(
+                host=duthost.hostname,
+                source="running")['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
             if not ipv4_subnet:
@@ -541,15 +558,6 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         logger.info(snappi_ports)
 
     return snappi_ports
-
-
-@pytest.fixture(scope='module')
-def cvg_api(snappi_api_serv_ip,
-            snappi_api_serv_port):
-    api = snappi_convergence.api(location=snappi_api_serv_ip + ':' + str(snappi_api_serv_port), ext='ixnetwork')
-    yield api
-    if getattr(api, 'assistant', None) is not None:
-        api.assistant.Session.remove()
 
 
 def snappi_multi_base_config(duthost_list,
@@ -737,8 +745,11 @@ def setup_dut_ports(
             config_result = __l3_intf_config(config=config,
                                              port_config_list=port_config_list,
                                              duthost=duthost,
-                                             snappi_ports=snappi_ports)
+                                             snappi_ports=snappi_ports,
+                                             setup=setup)
             pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
+
+    pytest_assert(len(port_config_list) == len(snappi_ports), 'Failed to configure DUT ports')
 
     return config, port_config_list, snappi_ports
 
@@ -778,8 +789,6 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
         if __valid_ipv4_addr(v['addr']):
             vlan_intf[v['attachto']] = v
 
-    dut_mac = str(duthost.facts['router_mac'])
-
     """ For each Vlan """
     for vlan in vlan_member:
         phy_intfs = vlan_member[vlan]
@@ -805,7 +814,7 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
 
             ethernet = device.ethernets.add()
             ethernet.name = 'Ethernet Port {}'.format(port_id)
-            ethernet.port_name = config.ports[port_id].name
+            ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
 
             ip_stack = ethernet.ipv4_addresses.add()
@@ -818,7 +827,7 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
                                            ip=vlan_ip_addr,
                                            mac=mac,
                                            gw=gw_addr,
-                                           gw_mac=dut_mac,
+                                           gw_mac=duthost.get_dut_iface_mac(phy_intf),
                                            prefix_len=prefix,
                                            port_type=SnappiPortType.VlanMember,
                                            peer_port=phy_intf)
@@ -859,7 +868,7 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
         else:
             cmd = "remove"
         if not setup:
-            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
 
         if port['asic_value'] is None:
             duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
@@ -875,14 +884,14 @@ def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setu
                                                                                     dutIp,
                                                                                     prefix_length))
         if setup:
-            static_routes_cisco_8000(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup is False:
             continue
         port['intf_config_changed'] = True
         device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
         ethernet = device.ethernets.add()
         ethernet.name = 'Ethernet Port {}'.format(port_id)
-        ethernet.port_name = config.ports[port_id].name
+        ethernet.connection.port_name = config.ports[port_id].name
         ethernet.mac = mac
         ip_stack = ethernet.ipv4_addresses.add()
         ip_stack.name = 'Ipv4 Port {}'.format(port_id)
@@ -932,6 +941,21 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 def cleanup_config(duthost_list, snappi_ports):
+
+    if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
+            duthost_list[0].get_facts().get("modular_chassis", None)):
+        global DEST_TO_GATEWAY_MAP
+        copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
+        for addr in copy_DEST_TO_GATEWAY_MAP:
+            gen_data_flow_dest_ip(
+                addr,
+                dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
+                intf=None,
+                namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
+                setup=False)
+
+        time.sleep(4)
+
     for index, duthost in enumerate(duthost_list):
         port_count = len(snappi_ports)
         dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
@@ -983,13 +1007,18 @@ def pre_configure_dut_interface(duthost, snappi_ports):
         port['peer_ipv6'] = dutv6Ips[port_id]
         port['ipv6_prefix'] = v6_prefix_length
         port['ipv6'] = tgenv6Ips[port_id]
+        port['asic_value'] = duthost.get_port_asic_instance(port['peer_port'])
+        asic_cmd = ""
+        if port['asic_value'] is not None:
+            asic_cmd = " -n {} ".format(port['asic_value'])
         try:
             logger.info('Pre-Configuring Dut: {} with port {} with IP {}/{}'.format(
                                                                                 duthost.hostname,
                                                                                 port['peer_port'],
                                                                                 dutIps[port_id],
                                                                                 prefix_length))
-            duthost.command('sudo config interface ip add {} {}/{} \n' .format(
+            duthost.command('sudo config interface {} ip add {} {}/{} \n' .format(
+                                                                                asic_cmd,
                                                                                 port['peer_port'],
                                                                                 dutIps[port_id],
                                                                                 prefix_length))
@@ -998,10 +1027,13 @@ def pre_configure_dut_interface(duthost, snappi_ports):
                                                                                 port['peer_port'],
                                                                                 dutv6Ips[port_id],
                                                                                 v6_prefix_length))
-            duthost.command('sudo config interface ip add {} {}/{} \n' .format(
+            duthost.command('sudo config interface {} ip add {} {}/{} \n' .format(
+                                                                                asic_cmd,
                                                                                 port['peer_port'],
                                                                                 dutv6Ips[port_id],
                                                                                 v6_prefix_length))
+            gen_data_flow_dest_ip(tgenIps[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
+            gen_data_flow_dest_ip(tgenv6Ips[port_id], duthost, port['peer_port'], port['asic_value'], setup=True)
         except Exception:
             pytest_assert(False, "Unable to configure ip on the interface {}".format(port['peer_port']))
     return snappi_ports_dut
@@ -1180,14 +1212,6 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
         snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
         snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-        port_speed = None
-        for i in range(len(snappi_ports)):
-            if port_speed is None:
-                port_speed = int(snappi_ports[i]['speed'])
-
-            elif port_speed != int(snappi_ports[i]['speed']):
-                """ All the ports should have the same bandwidth """
-                return None
 
         for port in snappi_ports:
             port['intf_config_changed'] = False
@@ -1304,20 +1328,17 @@ DEST_TO_GATEWAY_MAP = {}
 
 
 # Add static routes using CLI WAY.
-def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=True):
+def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True):
     '''
         Return a static route-d IP address for the given IP gateway(Ixia port address).
         Also configure the same in the DUT.
     '''
-    global DEST_TO_GATEWAY_MAP
     if dut is None:
         if addr not in DEST_TO_GATEWAY_MAP:
-            logger.warn(f"Request for dest addr: {addr} without setting it in advance.")
             return addr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
 
-    if (dut.facts['asic_type'] != "cisco-8000" or
-            not dut.get_facts().get("modular_chassis", None)):
+    if dut.facts['asic_type'] != "cisco-8000":
         DEST_TO_GATEWAY_MAP[addr] = {}
         DEST_TO_GATEWAY_MAP[addr]['dest'] = addr
         return addr
@@ -1335,6 +1356,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     DEST_TO_GATEWAY_MAP[addr] = {}
     DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
     DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
+    DEST_TO_GATEWAY_MAP[addr]['dut'] = dut
+    DEST_TO_GATEWAY_MAP[addr]['asic'] = namespace
     cmd = "del"
     if setup:
         cmd = "add"
@@ -1342,6 +1365,8 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
     try:
+        dut.shell("{} arp -i {} -s {} aa:bb:cc:dd:ee:ff".format(
+            asic_arg, intf, addr))
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
@@ -1357,3 +1382,259 @@ def static_routes_cisco_8000(addr, dut=None, intf=None, namespace=None, setup=Tr
         return DEST_TO_GATEWAY_MAP[addr]['dest']
     else:
         del DEST_TO_GATEWAY_MAP[addr]
+
+
+@pytest.fixture(scope="module")
+def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=None):
+    '''
+    Dynamic selection of the DUT ports for the test.
+    Selects ports for three test combinations:
+            - Single line-card single asic
+            - Single line-card multiple asic
+            - Multiple line-card.
+    Args:
+        get_snappi_ports(fixture): returns list of the ports available in test.
+        number_of_tx_rx_ports(fixture): count of tx and rx ports available from the test.
+    Returns:
+        snappi_ports(dict): Dictionary with interface-speed and line-card-combo being primary keys.
+        Example: {'100':{'single-linecard-single-asic':{ports}, 'single-linecard-multiple-asic':{ports}}}
+
+    '''
+    # Reverse this here since this is more like on the DUT perspective
+    rx_port_count, tx_port_count = number_of_tx_rx_ports
+    tmp_snappi_port_list = get_snappi_ports
+
+    if (not mixed_speed):
+        # Creating list of all interface speeds from selected ports.
+        port_speed_list = []
+        for item in tmp_snappi_port_list:
+            if (int(item['speed'])/1000) not in port_speed_list:
+                port_speed_list.append(int(item['speed'])/1000)
+
+        port_list = {}
+        # Repeating loop for speed_types
+        for port_speed in port_speed_list:
+            new_list = []
+            # Selecting ports matching the port_speed
+            for item in tmp_snappi_port_list:
+                if (int(item['speed']) == (port_speed * 1000)):
+                    new_list.append(item)
+
+            # Creating dictionary f{hostname}{asic_val}
+            # f[hostname]['asic'] should contain associated elements.
+            f = {}
+            for item in new_list:
+                hostname = item['peer_device']
+                asic = item['asic_value']
+                if hostname not in f:
+                    f[hostname] = {}
+                if asic not in f[hostname]:
+                    f[hostname][asic] = []
+                f[hostname][asic].append(item)
+
+            total_ports = tx_port_count + rx_port_count
+
+            # Initializing dictionary port_list{speed}{line-card-asic-combo}
+            # example port_list['100']['single_linecard_single_asic']
+
+            # for 'single-linecard-single-asic'
+            for device, asic in f.items():
+                for asic_val in asic.keys():
+                    if len(f[device][asic_val]) >= (total_ports):
+                        if port_speed not in port_list:
+                            port_list[port_speed] = {}
+                        if 'single_linecard_single_asic' not in port_list[port_speed]:
+                            port_list[port_speed]['single_linecard_single_asic'] = []
+                        if len(port_list[port_speed]['single_linecard_single_asic']) == total_ports:
+                            break
+                        else:
+                            port_list[port_speed]['single_linecard_single_asic'] = f[device][asic_val][0:total_ports]
+
+            # for 'single_linecard_multiple_asic'
+            egress_done = False
+            ingress_done = False
+            tmp_ing_list = []
+            for device, asic in f.items():
+                # Execute ONLY if the number of asics is more than one.
+                if len(asic.keys()) < 2:
+                    continue
+                else:
+                    for asic_val in asic.keys():
+                        asic_port_len = len(f[device][asic_val])
+                        if ((asic_port_len >= tx_port_count) or (asic_port_len >= rx_port_count)):
+                            # Initializing the dictionary
+                            if port_speed not in port_list:
+                                port_list[port_speed] = {}
+                            if 'single_linecard_multiple_asic' not in port_list[port_speed]:
+                                port_list[port_speed]['single_linecard_multiple_asic'] = []
+
+                            # If the dictionary is complete, no need to add further ports.
+                            if len(port_list[port_speed]['single_linecard_multiple_asic']) == total_ports:
+                                break
+
+                            # Accomodating ingress ports first if more ports are available.
+                            if ((asic_port_len - tx_port_count) > (asic_port_len - rx_port_count)
+                                    and not ingress_done
+                                    and not tmp_ing_list
+                                    and (asic_port_len >= rx_port_count)):
+                                tmp_ing_list = f[device][asic_val][0:rx_port_count]
+                                ingress_done = True
+                            elif (not egress_done and (asic_port_len >= tx_port_count)):
+                                tx_list = f[device][asic_val][0:tx_port_count]
+                                port_list[port_speed]['single_linecard_multiple_asic'] = tx_list
+                                egress_done = True
+                                tmp_len = len(port_list[port_speed]['single_linecard_multiple_asic'])
+                                if (tmp_ing_list
+                                        and (tmp_len < total_ports)):
+                                    port_list[port_speed]['single_linecard_multiple_asic'].append(tmp_ing_list)
+                            elif (not ingress_done and (asic_port_len >= rx_port_count)):
+                                rx_list = f[device][asic_val][0:rx_port_count]
+                                port_list[port_speed]['single_linecard_multiple_asic'].append(rx_list)
+                                tmp_ing_list = f[device][asic_val][0:rx_port_count]
+                                ingress_done = True
+
+            if (ingress_done
+                    and egress_done
+                    and (len(flatten_list(port_list[port_speed]['single_linecard_multiple_asic'])) < total_ports)):
+                port_list[port_speed]['single_linecard_multiple_asic'].append(tmp_ing_list)
+
+            # Flatten the dictionary if the dictionary is created.
+            if (port_speed in port_list) and ('single_linecard_multiple_asic' in port_list[port_speed]):
+                port_list[port_speed]['single_linecard_multiple_asic'] = flatten_list(
+                    port_list[port_speed]['single_linecard_multiple_asic'])
+                # If egress or ingress ports are not found, delete the dictionary key-value.
+                if (not egress_done or not ingress_done):
+                    del port_list[port_speed]['single_linecard_multiple_asic']
+
+            # for 'multiple linecard, multiple ASIC'
+            egress_done = False
+            ingress_done = False
+            tmp_ing_list = []
+
+            for device, asic in f.items():
+                # Creating list for a given device for all ASIC combinations.
+                all_asic_ports = []
+                for asic_val in asic.keys():
+                    all_asic_ports.append(f[device][asic_val])
+                all_asic_ports = flatten_list(all_asic_ports)
+
+                # Initializing the dictionary, if it does not exist.
+                if port_speed not in port_list:
+                    port_list[port_speed] = {}
+                if 'multiple_linecard_multiple_asic' not in port_list[port_speed]:
+                    port_list[port_speed]['multiple_linecard_multiple_asic'] = []
+
+                asic_port_len = len(all_asic_ports)
+                if ((asic_port_len - tx_port_count) > (asic_port_len - rx_port_count)
+                        and not ingress_done
+                        and not tmp_ing_list
+                        and (asic_port_len >= rx_port_count)):
+                    tmp_ing_list = all_asic_ports[0:rx_port_count]
+                    ingress_done = True
+                # Identifying egress ports first
+                elif (len(port_list[port_speed]['multiple_linecard_multiple_asic']) <= tx_port_count
+                        and not egress_done and len(all_asic_ports) >= tx_port_count):
+                    port_list[port_speed]['multiple_linecard_multiple_asic'].append(all_asic_ports[0:tx_port_count])
+                    # egress ports identified, move to next device.
+                    # No need to select egress ports now.
+                    egress_done = True
+                    continue
+                # Identifying ingress ports
+                elif (len(port_list[port_speed]['multiple_linecard_multiple_asic']) <= rx_port_count
+                        and not ingress_done and len(all_asic_ports) >= rx_port_count):
+                    port_list[port_speed]['multiple_linecard_multiple_asic'].append(all_asic_ports[0:rx_port_count])
+                    # ingress ports identified, move to next device.
+                    # No need to select ingress ports now.
+                    ingress_done = True
+                    continue
+
+            if (ingress_done
+                    and egress_done
+                    and (len(port_list[port_speed]['multiple_linecard_multiple_asic']) < total_ports)):
+                port_list[port_speed]['multiple_linecard_multiple_asic'].append(tmp_ing_list)
+
+            # Flatten the dictionary, if the dictionary is created.
+            if (port_speed in port_list) and ('multiple_linecard_multiple_asic' in port_list[port_speed]):
+                # Flattening the list.
+                port_list[port_speed]['multiple_linecard_multiple_asic'] = flatten_list(
+                        port_list[port_speed]['multiple_linecard_multiple_asic'])
+
+                # If the dictionary does not select either ingress or egress ports, then dictionary is deleted.
+                if (not egress_done or not ingress_done):
+                    del port_list[port_speed]['multiple_linecard_multiple_asic']
+
+        pytest_assert(port_list is not None, 'snappi ports are not available for required Rx and Tx port counts')
+        return port_list
+
+
+@pytest.fixture(scope="function")
+def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
+                   number_of_tx_rx_ports, duthosts, snappi_api):
+    testbed = request.config.getoption("--testbed")
+
+    is_override, _ = parse_override(
+        testbed,
+        'multidut_port_info'
+    )
+
+    if is_override:
+        testbed_subtype, rdma_ports = next(iter(request.param.items()))
+        tx_port_count, rx_port_count = number_of_tx_rx_ports
+
+        if len(get_snappi_ports) < tx_port_count + rx_port_count:
+            pytest.skip(
+                "Need Minimum of 2 ports defined in ansible/files/*links.csv"
+                " file, got:{}".format(len(get_snappi_ports)))
+
+        if len(rdma_ports['tx_ports']) < tx_port_count:
+            pytest.skip(
+                "Doesn't have the required Tx ports defined for "
+                "testbed {}, subtype {} in variables.override.yml".format(
+                    testbed, testbed_subtype))
+
+        if len(rdma_ports['rx_ports']) < rx_port_count:
+            pytest.skip(
+                "Doesn't have the required Rx ports defined for "
+                "testbed {}, subtype {} in variables.override.yml".format(
+                    testbed, testbed_subtype))
+
+        snappi_ports = get_snappi_ports
+        if is_snappi_multidut(duthosts):
+            snappi_ports = get_snappi_ports_for_rdma(
+                get_snappi_ports,
+                rdma_ports,
+                tx_port_count,
+                rx_port_count,
+                testbed
+            )
+        return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+
+    flatten_skeleton_parameter = request.param
+    speed, category = flatten_skeleton_parameter.split("-")
+
+    if float(speed) not in snappi_port_selection or category not in snappi_port_selection[float(speed)]:
+        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+    snappi_ports = snappi_port_selection[float(speed)][category]
+
+    if not snappi_ports:
+        pytest.skip(f"Unsupported combination for {flatten_skeleton_parameter}")
+
+    return snappi_dut_base_config(duthosts, snappi_ports, snappi_api, setup=True)
+
+
+def flatten_list(lst):
+    '''
+    Function to flatten the list
+    Args:
+        lst(list): list that needs to be flattened
+    Retuns:
+        flattened(list): flattened list
+    '''
+    flattened = []
+    for item in lst:
+        if isinstance(item, list):
+            flattened.extend(flatten_list(item))
+        else:
+            flattened.append(item)
+    return flattened

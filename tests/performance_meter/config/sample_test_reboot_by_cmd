@@ -5,6 +5,6 @@ performance_meter:
     run: 10
     op: reboot_by_cmd
     success_criteria: bgp_up
-    bgp_up_timeout: 1200
-    bgp_up_delay: 60
-    bgp_up_interval: 10
+    timeout: 1200
+    delay: 60
+    interval: 10

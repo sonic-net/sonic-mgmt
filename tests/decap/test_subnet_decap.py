@@ -8,8 +8,9 @@ from collections import defaultdict
 import ptf.packet as packet
 import ptf.testutils as testutils
 from ptf.mask import Mask
-from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa F401
-from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa F401
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py       # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m  # noqa: F401
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -50,9 +51,11 @@ def prepare_subnet_decap_config(rand_selected_dut):
 def prepare_vlan_subnet_test_port(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
+
+    if not mg_facts['minigraph_portchannels']:
+        pytest.skip('No portchannels found in minigraph')
+
     dut_port = list(mg_facts['minigraph_portchannels'].keys())[0]
-    if not dut_port:
-        pytest.skip('No portchannels found')
     dut_eth_port = mg_facts["minigraph_portchannels"][dut_port]["members"][0]
     ptf_src_port = mg_facts["minigraph_ptf_indices"][dut_eth_port]
 
@@ -122,7 +125,7 @@ def setup_arp_responder(rand_selected_dut, ptfhost, prepare_negative_ip_port_map
 
 def build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage):
     eth_dst = rand_selected_dut.facts["router_mac"]
-    eth_src = ptfadapter.dataplane.get_mac(0, 0)
+    eth_src = ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0])
     logger.info("eth_src: {}, eth_dst: {}".format(eth_src, eth_dst))
 
     if ip_version == "IPv4":
@@ -191,7 +194,7 @@ def build_expected_vlan_subnet_packet(encapsulated_packet, ip_version, stage, de
 
 
 def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
-                                recv_ports=[], recv_port=None, timeout=10):    # noqa F811
+                                recv_ports=[], recv_port=None, timeout=10):    # noqa: F811
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, send_port, pkt, 10)
     if stage == "positive":
@@ -204,7 +207,9 @@ def verify_packet_with_expected(ptfadapter, stage, pkt, exp_pkt, send_port,
 @pytest.mark.parametrize("stage", ["positive", "negative"])
 def test_vlan_subnet_decap(request, rand_selected_dut, tbinfo, ptfhost, ptfadapter, ip_version, stage,
                            prepare_subnet_decap_config, prepare_vlan_subnet_test_port,
-                           prepare_negative_ip_port_map, setup_arp_responder):     # noqa F811
+                           prepare_negative_ip_port_map, setup_arp_responder,      # noqa: F811
+                           toggle_all_simulator_ports_to_rand_selected_tor_m,      # noqa: F811
+                           setup_standby_ports_on_rand_unselected_tor):            # noqa: F811
     ptf_src_port, _, upstream_port_ids = prepare_vlan_subnet_test_port
 
     encapsulated_packet = build_encapsulated_vlan_subnet_packet(ptfadapter, rand_selected_dut, ip_version, stage)

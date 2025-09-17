@@ -1,0 +1,19 @@
+---
+- name: nut-testbed-1
+  comment: "Example testbed for NUT with multi-tier topology"
+  inv_name: lab
+  topo: nut-2tiers
+  test_tags: []
+  duts:
+    - switch-t0-01
+    - switch-t0-02
+    - switch-t1-01
+    - switch-t1-02
+  tgs:
+    - tgen-1
+    - tgen-2
+  tg_api_server: 10.2.0.1:443
+  l1s:
+    - ocs-01
+    - ocs-02
+  auto_recover: 'True'
