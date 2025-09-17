@@ -1357,7 +1357,6 @@ def run_traffic_and_collect_stats(rx_duthost,
     logger.info('Writing statistics to file : {}'.format(fname))
     df_t.to_csv(fname, index=False)
     check_for_crc_errors(api, snappi_extra_params)
-
     return flow_metrics, switch_device_results, test_stats
 
 
