@@ -78,12 +78,12 @@ class TestMACFault(object):
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
         supported_available_optical_interfaces = []
         failed_api_ports = []
-                                                               
+
         if is_supported_nvidia_platform_with_sw_control_enabled:
     
             eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
             eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
-    
+
             supported_available_optical_interfaces, failed_api_ports = (
                 get_supported_available_optical_interfaces(
                     eeprom_infos, parsed_presence, return_failed_api_ports=True
