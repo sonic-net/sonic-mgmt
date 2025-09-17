@@ -257,7 +257,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
         self.expect(
             actual_timeout == -1,
-            "{}: Watchdog should be disarmed when configurued with {} seconds, but returned timeout of {} seconds".format(
+            "{}: Watchdog should be disarmed when configured with {} seconds, but returned timeout of {} seconds".format(
                 self.test_arm_too_big_timeout.__name__, watchdog_timeout, actual_timeout
             ),
         )
@@ -271,7 +271,7 @@ class TestWatchdogApi(PlatformApiTestBase):
         actual_timeout = watchdog.arm(platform_api_conn, watchdog_timeout)
         self.expect(
             actual_timeout == -1,
-            "{}: Watchdog should be disarmed when configurued with {} seconds, but returned timeout of {} seconds".format(
+            "{}: Watchdog should be disarmed when configured with {} seconds, but returned timeout of {} seconds".format(
                 self.test_arm_too_big_timeout.__name__, watchdog_timeout, actual_timeout
             ),
         )
