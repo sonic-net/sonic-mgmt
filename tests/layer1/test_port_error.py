@@ -93,12 +93,13 @@ class TestMACFault(object):
                           "No interfaces with SFP detected. Cannot proceed with tests.")
             logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
         else:
+            interfaces = list(dut.show_and_parse("show interfaces status"))
             supported_available_optical_interfaces = [
                 intf["interface"] for intf in interfaces
                 if parsed_presence.get(intf["interface"]) == "Present"
             ]
 
-            pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
+            pytest_assert(supported_available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
 
         return dut, supported_available_optical_interfaces, failed_api_ports
 
