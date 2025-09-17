@@ -1,4 +1,5 @@
 import copy
+from functools import lru_cache
 import ipaddress
 import json
 import logging
@@ -6,6 +7,7 @@ import logging
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
+from tests.common.devices.sonic_docker import SonicDockerManager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 from tests.common.platform.interface_utils import get_dut_interfaces_status
@@ -96,18 +98,20 @@ class MultiAsicSonicHost(object):
         if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
-        if self.get_facts().get("modular_chassis"):
-            # Update the asic service based on feature table state and asic flag
-            for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-                if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
-                    logger.info("Removing teamd from default services for switch_type DPU")
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                    continue
-                if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-                if config_facts['FEATURE'][service]['state'] == "disabled":
-                    self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-        else:
+        # Update the asic service based on feature table state and asic flag
+        for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
+            if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+                logger.info("Removing teamd from default services for switch_type DPU")
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
+            if service not in config_facts['FEATURE']:
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+                continue
+            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+            if config_facts['FEATURE'][service]['state'] == "disabled":
+                self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
+        if not self.get_facts().get("modular_chassis"):
             service_list.append("lldp")
 
         for asic in active_asics:
@@ -800,6 +804,17 @@ class MultiAsicSonicHost(object):
             container_name += str(asic_id)
         self.shell("sudo docker cp {}:{} {}".format(container_name, src, dst))
 
+    def is_critical_processes_running_per_asic_or_host(self, service):
+        duthost = self.sonichost
+        if duthost.is_multi_asic:
+            for asic in self.asics:
+                docker_name = asic.get_docker_name(service)
+                if not duthost.critical_processes_running(docker_name):
+                    return False
+            return True
+        else:
+            return duthost.critical_processes_running(service)
+
     def is_service_fully_started_per_asic_or_host(self, service):
         """This function tell if service is fully started base on multi-asic/single-asic"""
         duthost = self.sonichost
@@ -906,3 +921,7 @@ class MultiAsicSonicHost(object):
                     logger.info(line)
                     return False
         return True
+
+    @lru_cache
+    def containers(self):
+        return SonicDockerManager(self)

@@ -8,9 +8,9 @@ from ptf.mask import Mask
 import six
 from ipaddress import ip_address, IPv4Address
 from tests.common.helpers.assertions import pytest_assert as py_assert
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa F401
-from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa F401
-from tests.vlan.test_vlan import populate_mac_table   # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host   # noqa: F401
+from tests.vlan.test_vlan import populate_mac_table   # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -53,7 +53,7 @@ def static_neighbor_entry(duthost, dic, oper, ip_version="both"):
 
 
 @pytest.fixture(scope='module')
-def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa F811
+def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, lower_tor_host):   # noqa: F811
     """
     Setup:      Collecting vm_host_info, ptfhost_info
     Teardown:   Removing all added ipv4 and ipv6 neighbors
@@ -145,6 +145,8 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         if len(my_cfg_facts['VLAN_MEMBER']['Vlan' + vlanid]) >= 2:
             for addr in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid]:
                 if addr.find(':') == -1:
+                    if 'secondary' in my_cfg_facts['VLAN_INTERFACE']['Vlan' + vlanid][addr]:
+                        continue
                     ip4 = addr
                 else:
                     ip6 = addr
@@ -229,7 +231,7 @@ def verify_icmp_packet(dut_mac, src_port, dst_port, ptfadapter, tbinfo,
 
 
 def test_vlan_ping(vlan_ping_setup, duthosts, rand_one_dut_hostname, ptfadapter, tbinfo,
-                   toggle_all_simulator_ports_to_rand_selected_tor_m, populate_mac_table):  # noqa F811
+                   toggle_all_simulator_ports_to_rand_selected_tor_m, populate_mac_table):  # noqa: F811
     """
     test for checking connectivity of statically added ipv4 and ipv6 arp entries
     """

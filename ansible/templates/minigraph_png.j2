@@ -204,7 +204,7 @@
 {% elif 'T1' in dev %}
 {% set dev_type = 'LeafRouter' %}
 {% elif 'LT2' in dev %}
-{% set dev_type = 'SpineRouter' %}
+{% set dev_type = 'LowerSpineRouter' %}
 {% elif 'FT2' in dev %}
 {% set dev_type = 'FabricSpineRouter' %}
 {% elif 'UT2' in dev %}
@@ -215,6 +215,8 @@
 {% set dev_type = 'RegionalHub' if loop.index <= 2 else 'AZNGHub' %}
 {% elif 'T3' in dev %}
 {% set dev_type = 'RegionalHub' if loop.index is odd else 'AZNGHub' %}
+{% elif 'PT0' in dev %}
+{% set dev_type = 'ToRRouter' %}
 {% elif ('T0' in dev) and (enable_compute_ai_deployment|default('false')|bool) %}
 {% set dev_type = 'BackEndToRRouter' %}
 {% elif 'T0' in dev %}

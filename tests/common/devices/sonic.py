@@ -424,42 +424,6 @@ class SonicHost(AnsibleHostBase):
         inv_files = im._sources
         return is_supervisor_node(inv_files, self.hostname)
 
-    def is_smartswitch(self):
-        """Check if the current node is a SmartSwitch
-
-        Returns:
-            True if the current node is a SmartSwitch, else False
-        """
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "SmartSwitch" and
-            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["type"] != "SmartSwitchDPU"
-        ):
-            return True
-
-        return False
-
-    def is_dpu(self):
-        """Check if the current node is a DPU
-
-        Returns:
-            True if the current node is a DPU, else False
-        """
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
-        if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "type" in config_facts["DEVICE_METADATA"]["localhost"] and
-            config_facts["DEVICE_METADATA"]["localhost"]["type"] == "SmartSwitchDPU"
-        ):
-            return True
-
-        return False
-
     def is_frontend_node(self):
         """Check if the current node is a frontend node in case of multi-DUT.
 
@@ -1506,7 +1470,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self, skip_kernel_tunnel=False):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False, skip_kernel_linkdown=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1529,6 +1493,20 @@ Totals               6450                 6449
                 ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
                 ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
 
+        if skip_kernel_linkdown is True:
+            output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_skip_count = 0
+            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+
+            for line in output:
+                if pattern.search(line):
+                    ipv4_route_kernel_skip_count += 1
+                    logging.debug("skip IPv4 route kernel for linkdown: {}".format(line))
+
+            if ipv4_route_kernel_skip_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_skip_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_skip_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
 
@@ -1545,6 +1523,20 @@ Totals               6450                 6449
                 ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
                 ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
                 ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
+        if skip_kernel_linkdown is True:
+            output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_skip_count = 0
+            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+
+            for line in output:
+                if pattern.search(line):
+                    ipv6_route_kernel_skip_count += 1
+                    logging.debug("skip IPv6 route kernel for linkdown: {}".format(line))
+
+            if ipv6_route_kernel_skip_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_skip_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_skip_count
 
         return ipv4_summary, ipv6_summary
 
@@ -1605,6 +1597,9 @@ Totals               6450                 6449
         for line in show_cmd_output["stdout_lines"]:
             container_name = line.split()[0].strip()
             container_state = line.split()[1].strip()
+            if container_name == "frr_bmp":
+                continue
+
             if container_state in ["enabled", "disabled"]:
                 container_autorestart_states[container_name] = container_state
 
@@ -1837,6 +1832,7 @@ Totals               6450                 6449
         search_sets = {
             "td2": {"b85", "BCM5685"},
             "td3": {"b87", "BCM5687"},
+            "td4": {"b78", "BCM5678"},
             "th":  {"b96", "BCM5696"},
             "th2": {"b97", "BCM5697"},
             "th3": {"b98", "BCM5698"},
@@ -1858,6 +1854,8 @@ Totals               6450                 6449
             asic = "gb"
         elif "Mellanox Technologies" in output:
             asic = "spc"
+        elif "Marvell Technology" in output:
+            asic = "marvell-teralynx"
 
         logger.info("asic: {}".format(asic))
 
@@ -2133,8 +2131,15 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert (timeout >= 0)
-
+        assert (timeout >= 0), (
+            "Timeout expired while waiting for CRM counters to become ready. "
+            "CRM resource data was not available within the allotted time. "
+            "- Timeout value: {}\n"
+            "- Polling interval: {}\n"
+        ).format(
+            timeout,
+            crm_facts.get('polling_interval', 'N/A')
+        )
         return crm_facts
 
     def start_service(self, service_name, docker_name):
@@ -2476,7 +2481,11 @@ Totals               6450                 6449
         Return:
             packets_count (int): count of packets hit the specific ACL rule.
         """
-        assert timeout >= 0 and interval > 0  # Validate arguments to avoid infinite loop
+        assert timeout >= 0 and interval > 0, (
+            "Invalid arguments for ACL counter polling: timeout={}, interval={}. "
+            "Timeout must be non-negative and interval must be positive."
+        ).format(timeout, interval)
+        # Validate arguments to avoid infinite loop
         while timeout >= 0:
             time.sleep(interval)  # Wait for orchagent to update the ACL counters
             timeout -= interval
@@ -2692,7 +2701,7 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        if out["stdout_lines"]:
+        if out["stdout_lines"] and out["stdout_lines"][0] != "(nil)":
             return out["stdout_lines"][0]
         else:
             return None
@@ -2769,6 +2778,31 @@ Totals               6450                 6449
             result_dict[counter_type]['interval'] = interval
             result_dict[counter_type]['status'] = status
         return result_dict
+
+    def set_counter_poll_interval(self, counter_type, interval, wait_for_new_interval=True):
+        """
+        A function to config the interval of counterpoll. The counter type should be a key of
+        the 'counterpoll show' cli output.
+        """
+        counter_type_cli_map = {
+            'QUEUE_STAT': 'queue',
+            'PORT_STAT': 'port',
+            'PORT_BUFFER_DROP': 'port-buffer-drop',
+            'RIF_STAT': 'rif',
+            'QUEUE_WATERMARK_STAT': 'watermark',
+            'PG_WATERMARK_STAT': 'watermark',
+            'BUFFER_POOL_WATERMARK_STAT': 'watermark',
+            'ACL': 'acl',
+            'TUNNEL_STAT': 'tunnel',
+            'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
+            'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
+        }
+        origin_interval = self.get_counter_poll_status()[counter_type]['interval']
+        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        self.shell(cmd)
+        # Sleep for the old interval for the new interval to take effect
+        if wait_for_new_interval:
+            time.sleep(origin_interval / 1000 + 1)
 
     def config(self, lines=None, parents=None, module_ignore_errors=False, asic_id=DEFAULT_ASIC_ID):
         # Convert string inputs to lists

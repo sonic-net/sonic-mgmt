@@ -2,6 +2,7 @@ import os
 import pytest
 import logging
 import time
+from tests.common import utilities
 from tests.common.helpers.assertions import pytest_require
 
 logger = logging.getLogger(__name__)
@@ -40,6 +41,9 @@ def test_recover_rsyslog_rate_limit(duthosts, enum_dut_hostname):
             output = duthost.shell("docker images", module_ignore_errors=True)['stdout']
             if "sonic-telemetry" not in output:
                 continue
+        if feature_name == "frr_bmp":
+            # Skip frr_bmp since it's not container just bmp option used by bgpd
+            continue
         duthost.modify_syslog_rate_limit(feature_name, rl_option='enable')
 
 
@@ -74,3 +78,29 @@ def test_collect_ptf_logs(ptfhost):
         os.makedirs('logs/ptf')
     for log_file in log_files:
         ptfhost.fetch(src=log_file, dest='logs/ptf', fail_on_missing=False)
+
+
+def test_collect_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
+    """
+    Collect mux/nic simulator logs after test to local logs/server folder.
+    """
+    if 'dualtor' not in tbinfo['topo']['name']:
+        return
+    if not os.path.exists("logs/server"):
+        os.makedirs("logs/server")
+
+    log_name = None
+    if active_standby_ports:
+        server = tbinfo['server']
+        tbname = tbinfo['conf-name']
+        inv_files = utilities.get_inventory_files(request)
+        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
+        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
+    elif active_active_ports:
+        vm_set = tbinfo['group-name']
+        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
+
+    if log_name:
+        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
+        for log_file in log_files:
+            vmhost.fetch(src=log_file, dest="logs/server", fail_on_missing=False)
