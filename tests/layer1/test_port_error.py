@@ -72,9 +72,11 @@ class TestMACFault(object):
     @pytest.fixture(scope="class")
     def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_supported_nvidia_platform_with_sw_control_enabled):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        sfp_presence = dut.command(cmd_sfp_presence)
+        parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
+
         if is_supported_nvidia_platform_with_sw_control_enabled:
-            sfp_presence = dut.command(cmd_sfp_presence)
-            parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
     
             eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
             eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
