@@ -61,6 +61,11 @@ x86_64-nvidia_sn5600-r0:
     greater_timeout: 100
     too_big_timeout: 66000
 
+x86_64-nvidia_sn5640-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 66000
+
 x86_64-nvidia_sn4280-r0:
   default:
     valid_timeout: 25
