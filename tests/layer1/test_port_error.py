@@ -99,7 +99,8 @@ class TestMACFault(object):
                 if parsed_presence.get(intf["interface"]) == "Present"
             ]
 
-            pytest_assert(supported_available_optical_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
+            pytest_assert(supported_available_optical_interfaces,
+                          "No interfaces with SFP detected. Cannot proceed with tests.")
 
         return dut, supported_available_optical_interfaces, failed_api_ports
 
