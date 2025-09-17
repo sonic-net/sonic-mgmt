@@ -20,7 +20,7 @@ from tests.platform_tests.utils import get_max_to_reboot, fanout_hosts_and_ports
 
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2'),
+    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
     pytest.mark.disable_loganalyzer,
 ]
 
