@@ -39,6 +39,10 @@ def skip_if_packet_trimming_not_supported(duthost):
     if trimming_capable.lower() != 'true':
         pytest.skip("Packet trimming is not supported")
 
+    # For Nvidia SPC1/2/3 platforms, skip the test
+    elif any(platform_id in platform.lower() for platform_id in ["sn2", "sn3", "sn4"]):
+        pytest.skip(f"Packet trimming is not supported on {platform}")
+
     # For Nvidia SPC4 platforms, check if the "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT" exists in sai.profile
     elif "sn5600" in platform:
         hwsku = duthost.facts["hwsku"]
@@ -65,7 +69,7 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
     logger.info("Preparing test parameters for packet trimming tests")
 
     with allure.step("Get trimming test ports"):
-        ports = get_test_ports(upstream_links, downstream_links, peer_links)
+        ports = get_test_ports(upstream_links, downstream_links, peer_links, mg_facts)
         logger.info(f"The test ports: {ports}")
 
         ingress_port = ports["ingress_port"]
@@ -107,23 +111,29 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
         block_queue = get_dscp_to_queue_value(DEFAULT_DSCP, dscp_to_tc_map, tc_to_queue_map)
         logger.info(f"The tested queue: {block_queue}")
 
-    egress_ports = [
-        {
-            'name': egress_port_1_name,
-            'ptf_id': egress_port_1[egress_port_1_name]['ptf_port_id'],
-            'ipv4': egress_port_1_ipv4,
-            'ipv6': egress_port_1_ipv6,
-        }
-    ]
+    # Build egress_port_1 dictionary
+    egress_port_1_dict = {
+        'name': egress_port_1_name,
+        'ptf_id': egress_port_1[egress_port_1_name]['ptf_port_id'],
+        'ipv4': egress_port_1_ipv4,
+        'ipv6': egress_port_1_ipv6,
+        'dut_members': egress_port_1[egress_port_1_name]['dut_members'],
+    }
+
+    egress_ports = [egress_port_1_dict]
     # The egress_port_2 is a downlink interface.
     # For t0 topology, downlink interfaces do not have IP address, so do not add it to test_param.
     if tbinfo["topo"]["type"] != "t0":
-        egress_ports.append({
+        # Build egress_port_2 dictionary
+        egress_port_2_dict = {
             'name': egress_port_2_name,
             'ptf_id': egress_port_2[egress_port_2_name]['ptf_port_id'],
             'ipv4': egress_port_2_ipv4,
             'ipv6': egress_port_2_ipv6,
-        })
+            'dut_members': egress_port_2[egress_port_2_name]['dut_members'],
+        }
+
+        egress_ports.append(egress_port_2_dict)
 
     test_param = {
         'block_queue': block_queue,
@@ -176,13 +186,17 @@ def setup_trimming(duthost, test_params):
     with allure.step("Configure buffer profile for blocked queue and trimmed queue"):
         # The first interface is uplink interface, use uplink buffer profile
         uplink_port = test_params['egress_ports'][0]
-        set_buffer_profiles_for_block_and_trim_queues(duthost, uplink_port['name'], test_params['block_queue'],
+        block_interface = uplink_port['dut_members']
+        logger.info(f"Apply uplink buffer profile to interfaces: {block_interface}")
+        set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
                                                       test_params['trim_buffer_profiles']['uplink'])
 
         # The second interface is downlink interface. If the second interface exists, use downlink buffer profile
         if len(test_params['egress_ports']) > 1:
             downlink_port = test_params['egress_ports'][1]
-            set_buffer_profiles_for_block_and_trim_queues(duthost, downlink_port['name'], test_params['block_queue'],
+            block_interface = downlink_port['dut_members']
+            logger.info(f"Apply downlink buffer profile to interfaces: {block_interface}")
+            set_buffer_profiles_for_block_and_trim_queues(duthost, block_interface, test_params['block_queue'],
                                                           test_params['trim_buffer_profiles']['downlink'])
 
     with allure.step("Create scheduler used for blocking egress queues"):
@@ -238,9 +252,10 @@ def setup_srv6(duthost, request, rand_selected_dut, upstream_links, peer_links, 
     # If there are multiple uplink interfaces, they are in ECMP relationship, and SRv6 packets would
     # be sent out through a randomly selected interface. For trimming with SRv6 test, we use the first
     # uplink interface as the test interface and shutdown all other interfaces to ensure packet forwarding.
-    egress_port_1_name = test_params['egress_ports'][0]['name']
+    egress_port_1 = test_params['egress_ports'][0]
+    exclude_ports = egress_port_1['dut_members']
     all_ports = set(upstream_links.keys()) | set(peer_links.keys())
-    shutdown_ports = [k for k in all_ports if k != egress_port_1_name]
+    shutdown_ports = [k for k in all_ports if k not in exclude_ports]
     logger.info(f"Shutting down ports: {shutdown_ports}")
 
     # Shut down all collected ports

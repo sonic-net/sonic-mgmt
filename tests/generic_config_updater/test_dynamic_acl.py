@@ -336,11 +336,18 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     ports = list(sorted(external_ports, key=lambda item: int(item.replace('Ethernet', ''))))
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
+    is_isolated_topo = 'isolated' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
         if is_storage_backend:
             vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
             intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
+
+            intf1 = ports_for_test[0]
+        elif is_isolated_topo:
+            upstream_intfs = mg_facts['minigraph_interfaces']
+            intfs_to_t1 = [_intf['attachto'] for _intf in upstream_intfs]
             ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
             intf1 = ports_for_test[0]
