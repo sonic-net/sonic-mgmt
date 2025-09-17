@@ -1,7 +1,7 @@
 [
-    {"DASH_APPLIANCE_TABLE:appliance-33": {"sip": "221.0.0.2", "vm_vni": "33", "local_region_id": "100", "trusted_vnis": "100"}, "OP": "SET"}, 
-    {"DASH_ROUTING_TYPE_TABLE:vnet": {"action_name": "action-33", "action_type": "maprouting"}, "OP": "SET"}, 
-    {"DASH_ROUTING_TYPE_TABLE:vnet_direct": {"action_name": "action-33", "action_type": "maprouting"}, "OP": "SET"}, 
-    {"DASH_ROUTING_TYPE_TABLE:direct": {"action_name": "action-1000", "action_type": "direct"}, "OP": "SET"}, 
+    {"DASH_APPLIANCE_TABLE:appliance-33": {"sip": "221.0.0.2", "vm_vni": "33", "local_region_id": "100", "trusted_vnis": "100"}, "OP": "SET"},
+    {"DASH_ROUTING_TYPE_TABLE:vnet": {"action_name": "action-33", "action_type": "maprouting"}, "OP": "SET"},
+    {"DASH_ROUTING_TYPE_TABLE:vnet_direct": {"action_name": "action-33", "action_type": "maprouting"}, "OP": "SET"},
+    {"DASH_ROUTING_TYPE_TABLE:direct": {"action_name": "action-1000", "action_type": "direct"}, "OP": "SET"},
     {"DASH_ROUTING_TYPE_TABLE:vnet_encap": {"action_name": "action-33", "action_type": "staticencap", "encap_type": "vxlan"}, "OP": "SET"}
 ]
