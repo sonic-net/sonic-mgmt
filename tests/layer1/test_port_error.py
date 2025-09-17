@@ -29,7 +29,11 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
-    def is_supported_platform(self, duthost, tbinfo):
+    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost):
+        return 'nvidia' in duthost.facts['platform'].lower() and not check_sc_sai_attribute_value(duthost)
+
+    @pytest.fixture(autouse=True)
+    def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_enabled):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
@@ -38,7 +42,7 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if 'nvidia' in duthost.facts['platform'].lower() and not check_sc_sai_attribute_value(duthost):
+        if is_supported_nvidia_platform_with_sw_control_enabled:
             pytest.skip("SW control feature is not enabled on platform")
 
     @staticmethod
@@ -66,25 +70,34 @@ class TestMACFault(object):
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_supported_nvidia_platform_with_sw_control_enabled):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
-        sfp_presence = dut.command(cmd_sfp_presence)
-        parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
-
-        eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
-        eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
-
-        supported_available_optical_interfaces, failed_api_ports = (
-            get_supported_available_optical_interfaces(
-                eeprom_infos, parsed_presence, return_failed_api_ports=True
+        if is_supported_nvidia_platform_with_sw_control_enabled:
+            sfp_presence = dut.command(cmd_sfp_presence)
+            parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
+    
+            eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
+            eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    
+            supported_available_optical_interfaces, failed_api_ports = (
+                get_supported_available_optical_interfaces(
+                    eeprom_infos, parsed_presence, return_failed_api_ports=True
+                )
             )
-        )
-        pytest_assert(supported_available_optical_interfaces,
-                      "No interfaces with SFP detected. Cannot proceed with tests.")
-        logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
+            pytest_assert(supported_available_optical_interfaces,
+                          "No interfaces with SFP detected. Cannot proceed with tests.")
+            logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
+    
+            return dut, supported_available_optical_interfaces, failed_api_ports
+        else:
+            available_interfaces = [
+                intf["interface"] for intf in interfaces
+                if parsed_presence.get(intf["interface"]) == "Present"
+            ]
 
-        return dut, supported_available_optical_interfaces, failed_api_ports
+            pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
+
+            return dut, available_interfaces, []
 
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
