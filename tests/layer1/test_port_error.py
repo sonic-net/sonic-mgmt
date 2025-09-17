@@ -80,7 +80,7 @@ class TestMACFault(object):
         failed_api_ports = []
 
         if is_supported_nvidia_platform_with_sw_control_enabled:
-    
+
             eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
             eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
 
