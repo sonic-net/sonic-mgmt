@@ -704,8 +704,16 @@ def validate_saidump_file_inside_techsupport(duthost, techsupport_folder):
     """
     with allure.step('Validate SAI dump file is included in the tech-support dump'):
         saidump_files_inside_techsupport = \
-            duthost.shell('ls {}/sai_failure_dump'.format(techsupport_folder))['stdout_lines']
+            duthost.shell(f'ls {techsupport_folder}/sai_failure_dump')['stdout_lines']
         assert saidump_files_inside_techsupport, 'Expected SAI dump file(folder) not available in techsupport dump'
+        # Check sai_sdk_dump only for mellanox platform, and not for DPU
+        if duthost.facts['asic_type'] in ["mellanox"] and "dpu" not in duthost.hostname:
+            # sai XML dump is only support on the switch
+            sai_sdk_dump = duthost.command(f"ls {techsupport_folder}/sai_sdk_dump/")["stdout_lines"]
+            assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+            sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
+                   "No SAI XML file found in sai_sdk_dump folder"
 
 
 def validate_techsupport_since(duthost, techsupport_folder, expected_oldest_log_line_timestamps_list):

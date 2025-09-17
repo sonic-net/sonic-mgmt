@@ -240,7 +240,8 @@ def test_npu_dpu_date(duthosts, dpuhosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    date_format = "%a %b %d %I:%M:%S %p %Z %Y"
+    # output ISO format and UTC timezone
+    date_cmd = "date --iso-8601=s -u"
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -249,13 +250,13 @@ def test_npu_dpu_date(duthosts, dpuhosts,
             continue
 
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_date = dpuhosts[index].command("date")['stdout']
+        dpu_date = dpuhosts[index].command(date_cmd)['stdout'].strip()
 
         logging.info("Checking date and time on switch")
-        switch_date = duthost.command("date")['stdout_lines']
+        switch_date = duthost.command(date_cmd)['stdout'].strip()
 
-        date1 = datetime.strptime(switch_date[0], date_format)
-        date2 = datetime.strptime(dpu_date, date_format)
+        date1 = datetime.fromisoformat(switch_date)
+        date2 = datetime.fromisoformat(dpu_date)
 
         time_difference = abs((date1 - date2).total_seconds())
 

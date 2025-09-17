@@ -25,6 +25,7 @@ from sai_base_test import interface_to_front_mapping
 from ptf.thriftutils import *       # noqa F403
 from switch_sai_thrift.ttypes import *          # noqa F403
 from switch_sai_thrift.sai_headers import*      # noqa F403
+import ptf.testutils as testutils
 from switch_sai_thrift.ttypes import sai_thrift_fdb_entry_t, sai_thrift_ip_t, sai_thrift_ip_address_t,\
     sai_thrift_ip_prefix_t, sai_thrift_object_list_t, sai_thrift_vlan_list_t, sai_thrift_acl_mask_t,\
     sai_thrift_acl_data_t, sai_thrift_acl_field_data_t, sai_thrift_attribute_value_t, sai_thrift_attribute_t,\
@@ -114,9 +115,13 @@ def switch_init(clients):
 
         # TOFIX in brcm sai: This causes the following error on td2 (a7050-qx-32s)
         # ERR syncd: brcm_sai_set_switch_attribute:842 updating switch mac addr failed with error -2.
-        attr_value = sai_thrift_attribute_value_t(mac='00:77:66:55:44:33')
-        attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
-        client.sai_thrift_set_switch_attribute(attr)
+        test_params = testutils.test_params_get()
+        asic_type = test_params['sonic_asic_type']
+        print("switch_init asic_type= {}".format(asic_type))
+        if asic_type not in ['cisco-8000']:
+            attr_value = sai_thrift_attribute_value_t(mac='00:77:66:55:44:33')
+            attr = sai_thrift_attribute_t(id=SAI_SWITCH_ATTR_SRC_MAC_ADDRESS, value=attr_value)
+            client.sai_thrift_set_switch_attribute(attr)
 
         # wait till the port are up
         time.sleep(10)

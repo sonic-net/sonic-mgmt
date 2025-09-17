@@ -367,6 +367,7 @@ def free_up_disk_space(module, disk_used_pcent):
         exec_command(module, "rm -f /var/core/*", ignore_error=True)
         exec_command(module, "rm -rf /var/dump/*", ignore_error=True)
         exec_command(module, "rm -rf /home/admin/*", ignore_error=True)
+        exec_command(module, "rm -rf /host/logs_before_reboot/*", ignore_error=True)
         latest_used_percent = get_disk_used_percent(module)
         log("Done free up, latest used percent: {}".format(latest_used_percent))
     else:

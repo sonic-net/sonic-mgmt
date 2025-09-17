@@ -65,6 +65,9 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
     vlan_subnet_ipv6 = str(IPNetwork(vlan_info_ipv6["ipv6 address/mask"], flags=NOHOST))
     nbrcount = 0
     for nbrname, nbrhost in nbrhosts.items():
+        if 'PT0' in nbrname:
+            # Skip PT0 neighbors as only specific routes are being advertised to them.
+            continue
         nbrhost = nbrhost["host"]
         # check IPv4 routes on nbrhost
         logger.info(f"Checking IPv4 routes on {nbrname}...")
@@ -94,10 +97,18 @@ def test_vlan_ports_down(vlan_ports_setup, duthosts, rand_one_dut_hostname, nbrh
         return
     logger.info("Starting the IP-in-IP decapsulation test...")
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    # Use the first Ethernet port associated with the first portchannel to send test packets to the DUT
-    portchannel_info = next(iter(mg_facts["minigraph_portchannels"].values()))
-    ptf_src_port = portchannel_info["members"][0]
-    ptf_src_port_index = mg_facts["minigraph_ptf_indices"][ptf_src_port]
+    if mg_facts["minigraph_portchannels"]:
+        # Use the first Ethernet port associated with the first portchannel to send test packets to the DUT
+        portchannel_info = next(iter(mg_facts["minigraph_portchannels"].values()))
+        ptf_src_port = portchannel_info["members"][0]
+        ptf_src_port_index = mg_facts["minigraph_ptf_indices"][ptf_src_port]
+    else:
+        # for topology which has no portchannel, use the first uplink port to send test packets to the DUT
+        upstream_intfs = mg_facts['minigraph_interfaces']
+        intfs_to_t1 = [_intf['attachto'] for _intf in upstream_intfs]
+        ptf_src_port = intfs_to_t1[0]
+        ptf_src_port_index = mg_facts["minigraph_ptf_indices"][ptf_src_port]
+
     ptf_dst_port_indices = list(mg_facts["minigraph_ptf_indices"].values())
     # Test IPv4 in IPv4 decapsulation.
     # Outer IP packet:
