@@ -927,7 +927,7 @@ def create_ip_list(value, count, mask=32, incr=0):
             incr: increment value of the ip
     '''
     if sys.version_info.major == 2:
-        value = unicode(value)          # noqa: F821
+        value = unicode(value)          # noqa: F405
 
     ip_list = [value]
     for i in range(1, count):
