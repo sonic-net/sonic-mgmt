@@ -29,7 +29,7 @@ parser.add_argument("--dut-password", help = "password for the dut ", nargs='?',
 parser.add_argument("--onie-install", help = "path to use for onie install image", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-path", help = "npl path", nargs='?', const='', default = '', required=False)
 parser.add_argument("--npl-suite-ver", help = "npl suite version", nargs='?', const='', default = '', required=False)
-parser.add_argument('--disable-ztp', action='store_true', help='add command to disable ztp', default=False)
+parser.add_argument('--disable-ztp', action='store_true', help='add command to disable ztp', default=True)
 args = parser.parse_args()
 
 topology_file = args.topo_yaml
