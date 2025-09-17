@@ -1,10 +1,9 @@
 # TestName
 Upgrade Service via gNOI
-
+ 
 - [Overview](#overview)
 - [Background](#background)
 - [Scope](#scope)
-- [Test structure](#test-structure)
 - [Test scenario](#test-scenario)
 - [Test cases](#test-cases)
 
@@ -83,7 +82,7 @@ spec:
 ```
 
 ## Test scenario
-1. PR testing(sonic-gnmi): This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests.
+1. PR testing(sonic-gnmi): This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests. - https://github.com/ryanzhu706/sonic-gnmi-ryanzhu/blob/readme/azure-pipelines/README.md
 2. KVM PR testing(sonic-buildimage) This test runs in the sonic-buildimage repository's pull request pipeline, using a KVM-based SONiC VM. It verifies that gNOI upgrade-related components.
 3. Nightly testing(sonic-mgmt): This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
 
@@ -98,211 +97,6 @@ Workflow Engine Testing - Confirms YAML workflow parsing and execution logic
 CI/CD Integration - Provides fast, reliable automated testing for every PR
 This test serves as the first validation gate, catching integration issues before they reach more expensive KVM or physical device testing.
 
-**Architecture**
-The Local Linux VM test creates a minimal but complete upgrade ecosystem:
-
-```mermaid
-graph LR
-    subgraph "Local Test Environment"
-        subgraph "Test Host (Linux VM/Container)"
-            AGENT["upgrade-agent<br/>(Client)"]
-            HTTP["HTTP Server<br/>(Python/nginx)<br/>Port 8080"]
-            TEST["Test Harness<br/>(pytest/Go test)"]
-        end
-
-        subgraph "gNOI Server Container"
-            GNOI["gNOI Server<br/>Port 50051"]
-            MOCK["Mock Platform APIs<br/>(sonic-installer stub)"]
-        end
-    end
-
-    AGENT -->|"gRPC calls<br/>SetPackage, GetStatus"| GNOI
-    GNOI -->|"Download firmware"| HTTP
-    TEST -->|"Orchestrates test scenarios"| AGENT
-    GNOI -->|"Calls platform operations"| MOCK
-
-```
-
-#### Components:
-
-- **upgrade-agent (Client)**: CLI tool that reads YAML workflows and translates them to gNOI calls
-- **gNOI Server (Server)**: Containerized gNOI service with mock platform implementations
-- **HTTP Firmware Server**: Serves test firmware files for download validation
-- **Test Harness**: Coordinates test scenarios and validates results
-
-## Setup Instructions
-
-### 1. Deploy gNOI Server Container
-```bash
-# Build and run gNOI server with mock platform support
-docker build -t gnoi-server-test -f Dockerfile.test .
-docker run -d \
-  --name gnoi-test-server \
-  -p 50051:50051 \
-  -v /tmp/firmware:/firmware \
-  -e PLATFORM_MODE=mock \
-  gnoi-server-test
-
-# Verify server is running
-docker logs gnoi-test-server
-# Expected: "gNOI server listening on :50051"
-```
-
-### 2. Install upgrade-agent
-
-```bash
-# Build upgrade-agent from source
-cd cmd/upgrade-agent
-go build -o upgrade-agent .
-sudo install upgrade-agent /usr/local/bin/
-
-# Verify installation
-upgrade-agent version
-# Expected: "upgrade-agent version v0.1.0"
-```
-
-### 3. Setup Test Firmware Server
-```bash
-# Create test firmware files
-mkdir -p /tmp/firmware-server
-echo "mock-firmware-v1.0" > /tmp/firmware-server/test-firmware.bin
-echo "d41d8cd98f00b204e9800998ecf8427e" > /tmp/firmware-server/test-firmware.bin.sha256
-
-# Start HTTP server
-cd /tmp/firmware-server
-python3 -m http.server 8080 &
-HTTP_PID=$!
-
-# Verify firmware accessible
-curl -f http://localhost:8080/test-firmware.bin
-# Expected: "mock-firmware-v1.0"
-```
-
-## Test Execution
-### 1. Basic Connectivity Test
-```bash
-# Test gRPC service discovery
-grpcurl -plaintext localhost:50051 list
-```
-
-Expected output:
-
-```bash
-gnoi.file.File
-gnoi.system.System
-grpc.reflection.v1alpha.ServerReflection
-# Test specific service methods
-grpcurl -plaintext localhost:50051 list gnoi.system.System
-```
-
-Expected output:
-
-```bash
-gnoi.system.System.SetPackage
-gnoi.system.System.GetStatus
-```
-
-### 2. YAML Workflow Test
-
-Create test workflow file:
-```bash
-# test-download-workflow.yml
-apiVersion: sonic.net/v1
-kind: UpgradeWorkflow
-metadata:
-  name: test-download
-spec:
-  steps:
-    - name: download-test-firmware
-      type: download
-      params:
-        url: "http://localhost:8080/test-firmware.bin"
-        filename: "/tmp/test-firmware.bin"
-        sha256: "d41d8cd98f00b204e9800998ecf8427e"
-        timeout: 30
-```
-
-Execute workflow test:
-```bash
-# Test workflow parsing and execution
-upgrade-agent apply test-download-workflow.yml --target localhost:50051 --dry-run
-```
-
-Expected output:
-```bash
-✓ Workflow parsed successfully
-✓ Connected to gNOI server at localhost:50051
-✓ Dry-run: Would execute download step 'download-test-firmware'
-→ URL: http://localhost:8080/test-firmware.bin
-→ Target: /tmp/test-firmware.bin
-→ Expected SHA256: d41d8cd98f00b204e9800998ecf8427e
-```
-```bash
-# Execute actual workflow
-upgrade-agent apply test-download-workflow.yml --target localhost:50051
-```
-
-Expected output:
-```bash
-✓ Starting workflow 'test-download'
-✓ Step 1/1: download-test-firmware
-→ Downloading from http://localhost:8080/test-firmware.bin
-→ Progress: 15 bytes downloaded
-→ SHA256 verification: PASS
-→ File saved to /tmp/test-firmware.bin
-✓ Workflow completed successfully
-```
-
-### 3. Error Condition Testing
-```bash
-# Test invalid URL
-upgrade-agent apply --set url=http://invalid-host/firmware.bin test-download-workflow.yml --target localhost:50051
-```
-
-Expected output:
-
-```bash
-✗ Step 1/1: download-test-firmware
-→ Error: Failed to download from http://invalid-host/firmware.bin
-→ Cause: no such host
-✗ Workflow failed
-```
-```bash
-# Test checksum mismatch
-upgrade-agent apply --set sha256=invalid-checksum test-download-workflow.yml --target localhost:50051
-```
-
-Expected output:
-
-```bash
-✗ Step 1/1: download-test-firmware
-→ Downloaded 15 bytes successfully
-→ SHA256 verification: FAILED
-→ Expected: invalid-checksum
-→ Actual: d41d8cd98f00b204e9800998ecf8427e
-✗ Workflow failed
-```
-
-### Expected Results
-#### Success Indicators
-- Service Discovery: grpcurl list returns expected gNOI services
-- Workflow Parsing: YAML files parse without syntax errors
-- Download Success: Files download with correct checksums
-- Status Reporting: Progress updates appear during operations
-- Error Handling: Invalid inputs produce clear error messages
-
-### Cleanup
-```bash
-# Stop and remove containers
-docker stop gnoi-test-server
-docker rm gnoi-test-server
-
-# Stop HTTP server
-kill $HTTP_PID
-
-# Clean test files
-rm -rf /tmp/firmware-server /tmp/test-firmware.bin
-```
 
 ## Test Fixture
 ### Test Fixture #1 - Local Linux VM Compatibility
@@ -437,4 +231,107 @@ sha256sum /tmp/SONiC.bin
 grpcurl -plaintext DUT:50051 list
 # Query version/state via gNMI (example)
 # gnmi-client get --target DUT --path /sonic/system/version
+```
+
+## Test Cases
+
+These test cases mirror the structure of existing CLI-based upgrade tests (e.g., test_upgrade_path, test_double_upgrade_path, test_upgrade_path_t2) but use gNOI API calls for upgrade execution. They are designed to run in PTF environments and leverage upgrade-agent as the gNOI client.
+
+### test_gnoi_upgrade_path
+Purpose: Validate a single upgrade using gNOI SetPackage.
+```sh
+def test_gnoi_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    from_image = "sonic-v1.bin"
+    to_image = "sonic-v2.bin"
+    upgrade_type = "cold"
+
+    def upgrade_path_preboot_setup():
+        boot_into_base_image(duthost, localhost, from_image, tbinfo)
+        gnoi_set_package(duthost, to_image)
+
+    upgrade_test_helper(
+        duthost, localhost, ptfhost, from_image, to_image, tbinfo, upgrade_type,
+        preboot_setup=upgrade_path_preboot_setup
+    )
+
+```
+
+### test_gnoi_double_upgrade_path
+Purpose: Perform two consecutive upgrades via gNOI.
+```sh
+def test_gnoi_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    images = ["sonic-v1.bin", "sonic-v2.bin"]
+    upgrade_type = "cold"
+
+    def upgrade_path_preboot_setup():
+        boot_into_base_image(duthost, localhost, from_image, tbinfo)
+        gnoi_set_package(duthost, to_image)
+
+        upgrade_test_helper(
+            duthost, localhost, ptfhost, None, image, tbinfo, upgrade_type,
+            preboot_setup=upgrade_path_preboot_setup,
+            reboot_count=2
+        )
+```
+
+### test_gnoi_upgrade_path_t2
+Purpose: Validate upgrade across T2 topology using gNOI metadata targeting.
+```sh
+def test_gnoi_upgrade_path_t2(localhost, duthosts, ptfhost, tbinfo):
+    upgrade_type = "cold"
+    from_image = "sonic-v1.bin"
+    to_image = "sonic-v2.bin"
+
+    suphost = duthosts.supervisor_nodes[0]
+    frontend_nodes = duthosts.frontend_nodes
+
+    def upgrade_path_preboot_setup(dut):
+        gnoi_set_package(dut, to_image)
+
+    upgrade_test_helper(
+        suphost, localhost, ptfhost, from_image, to_image, tbinfo, upgrade_type,
+        preboot_setup=lambda: upgrade_path_preboot_setup(suphost)
+    )
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in frontend_nodes:
+            executor.submit(
+                upgrade_test_helper, dut, localhost, ptfhost, from_image, to_image,
+                tbinfo, upgrade_type,
+                preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut)
+            )
+```
+
+### test_gnoi_warm_upgrade_sad_path
+```sh
+def test_gnoi_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
+                                    nbrhosts, fanouthosts, vmhost, tbinfo, request, restore_image,
+                                    get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
+                                    upgrade_path_lists, backup_and_restore_config_db,
+                                    advanceboot_neighbor_restore, consistency_checker_provider,
+                                    sad_case_type):
+    duthost = duthosts[rand_one_dut_hostname]
+    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
+    logger.info("Test gNOI upgrade path from {} to {}".format(from_image, to_image))
+
+    def upgrade_path_preboot_setup():
+        # Replace CLI install with gNOI SetPackage call
+        gnoi_set_package(duthost, to_image)
+
+    # Inject sad-case scenarios
+    sad_preboot_list, sad_inboot_list = get_sad_case_list(
+        duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
+
+    upgrade_test_helper(
+        duthost, localhost, ptfhost, from_image, to_image, tbinfo, "warm",
+        get_advanced_reboot,
+        advanceboot_loganalyzer=advanceboot_loganalyzer,
+        preboot_setup=upgrade_path_preboot_setup,
+        consistency_checker_provider=consistency_checker_provider,
+        sad_preboot_list=sad_preboot_list,
+        sad_inboot_list=sad_inboot_list,
+        enable_cpa=enable_cpa
+    )
 ```
