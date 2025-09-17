@@ -382,7 +382,7 @@ r, ".* ERR swss#orchagent: :- queryTrimSizeAttrCapabilities: Failed to get attri
 r, ".* ERR swss#orchagent: :- queryTrimDscpAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_VALUE\) capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\) capabilities.*
+r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\) capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimDscpModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\) enum value capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimDscpModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\) capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimTcAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_TC_VALUE\) capabilities.*"
