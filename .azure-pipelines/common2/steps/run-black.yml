@@ -1,0 +1,17 @@
+steps:
+  - script: |
+      pip install black
+
+      # Source the shared script to get changed Python files
+      source .azure-pipelines/common2/scripts/get-changed-python-files.sh
+
+      if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
+        echo "Skipping Black."
+      else
+        echo "Running Black formatter on these files..."
+        # Pass the specific files to black --check
+        # Black will use the pyproject.toml configuration for these files
+        # It will fail (exit non-zero) if any files are not formatted correctly.
+        black --check $CHANGED_PYTHON_FILES
+      fi
+    displayName: 'Run Black formatter (conditional on changed .py files)'

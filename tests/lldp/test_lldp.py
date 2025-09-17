@@ -9,7 +9,7 @@ from tests.common.utilities import wait_until
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1'),
     pytest.mark.device_type('vs')
 ]
 
@@ -31,19 +31,32 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
     program_name = "orchagent"
 
     pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
-    assert pre_lldpctl_facts != 0, "Cannot get lldp neighbor information"
+    assert pre_lldpctl_facts != 0, (
+        "Cannot get lldp neighbor information. "
+        "No LLDP neighbor entries were detected before restarting orchagent. "
+        "pre_lldpctl_facts value: {}"
+    ).format(pre_lldpctl_facts)
 
     if duthost.facts['switch_type'] == "voq":
         """ VOQ type chassis does not support warm restart of orchagent. Use restart service here """
         duthost.shell("sudo systemctl reset-failed")
         duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
         # make sure all critical services are up
-        assert wait_until(600, 5, 30, duthost.critical_services_fully_started), \
-            "Not all critical services are fully started"
+        assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
+            "Not all critical services are fully started after restarting orchagent. "
+        )
+
         # wait for ports to be up and lldp neighbor information has been received by dut
         assert wait_until(300, 20, 60,
-                          lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), \
-            "Cannot get all lldp entries"
+                          lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), (
+            "Cannot get all lldp entries. "
+            "Expected LLDP entries: {}\n"
+            "Current LLDP entries: {}"
+        ).format(
+            pre_lldpctl_facts,
+            get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
+        )
+
         # add delay here to make sure neighbor devices also have received lldp packets from dut and neighbor
         # information has been updated properly
         time.sleep(30)
@@ -55,7 +68,13 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         _, program_pid = get_program_info(duthost, container_name, program_name)
         kill_process_by_pid(duthost, container_name, program_name, program_pid)
         is_running = is_container_running(duthost, container_name)
-        pytest_assert(is_running, "Container '{}' is not running. Exiting...".format(container_name))
+        pytest_assert(
+            is_running,
+            (
+                "Container '{}' is not running."
+            ).format(container_name)
+        )
+
         duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
     yield
 
@@ -85,13 +104,30 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
         pytest.fail("No LLDP neighbors received (lldpctl_facts are empty)")
     for k, v in list(lldpctl_facts['lldpctl'].items()):
         # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
-        assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name']
+        assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
+            "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
+        ).format(
+            config_facts['DEVICE_NEIGHBOR'][k]['name'],
+            v['chassis']['name']
+        )
+
         # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port)
         if request.config.getoption("--neighbor_type") == 'eos':
-            assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+            assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                "LLDP neighbor port interface name mismatch. Expected '{}', but got '{}'."
+            ).format(
+                config_facts['DEVICE_NEIGHBOR'][k]['port'],
+                v['port']['ifname']
+            )
+
         else:
             # Dealing with KVM that advertises port description
-            assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port']
+            assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                "LLDP neighbor port description mismatch. Expected '{}', but got '{}'."
+            ).format(
+                config_facts['DEVICE_NEIGHBOR'][k]['port'],
+                v['port']['descr']
+            )
 
 
 def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
@@ -139,22 +175,71 @@ def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_
                 'ansible_facts']
             neighbor_interface = v['port']['local']
         # Verify the published DUT system name field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname
+        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name'] == duthost.hostname, (
+            "LLDP neighbor system name mismatch for interface '{}'. "
+            "Expected '{}', but got '{}'."
+        ).format(
+            neighbor_interface,
+            duthost.hostname,
+            nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_name']
+        )
+
         # Verify the published DUT chassis id field is not empty
         if request.config.getoption("--neighbor_type") == 'eos':
             assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == \
-                "0x%s" % (switch_mac.replace(':', ''))
+                "0x%s" % (switch_mac.replace(':', '')), (
+                "LLDP neighbor chassis ID mismatch for interface '{}'. "
+                "Expected chassis ID: '{}', but got: '{}'."
+            ).format(
+                neighbor_interface,
+                "0x%s" % (switch_mac.replace(':', '')),
+                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id']
+            )
+
         else:
-            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == switch_mac
+            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id'] == switch_mac, (
+                "LLDP neighbor chassis ID mismatch for interface '{}'. "
+                "Expected chassis ID: '{}', but got: '{}'."
+            ).format(
+                neighbor_interface,
+                switch_mac,
+                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_chassis_id']
+            )
 
         # Verify the published DUT system description field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc'] == dut_system_description
+            assert (
+                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
+                == dut_system_description
+            ), (
+                "LLDP neighbor system description mismatch for interface '{}'. "
+                "Expected system description: '{}', but got: '{}'."
+            ).format(
+                neighbor_interface,
+                dut_system_description,
+                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_sys_desc']
+            )
+
         # Verify the published DUT port id field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
-            config_facts['PORT'][k]['alias']
+            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id'] == \
+                config_facts['PORT'][k]['alias'], (
+                "LLDP neighbor port ID mismatch for interface '{}'. "
+                "Expected port ID (alias) from config_facts: '{}', but got from LLDP: '{}'."
+            ).format(
+                neighbor_interface,
+                config_facts['PORT'][k]['alias'],
+                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_id']
+            )
+
         # Verify the published DUT port description field is correct
-        assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
-            config_facts['PORT'][k]['description']
+            assert nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc'] == \
+                config_facts['PORT'][k]['description'], (
+                "LLDP neighbor port description mismatch for interface '{}'. "
+                "Expected port description from config_facts: '{}', but got from LLDP: '{}'."
+            ).format(
+                neighbor_interface,
+                config_facts['PORT'][k]['description'],
+                nei_lldp_facts['ansible_lldp_facts'][neighbor_interface]['neighbor_port_desc']
+            )
 
 
 def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos, sonic,

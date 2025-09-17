@@ -412,7 +412,7 @@ configuration:
     - common
     bgp:
       router-id: 100.1.1.1
-      asn: 4200000000
+      asn: 64621
       peers:
         4200000000:
           - fc00::401
@@ -428,7 +428,7 @@ configuration:
     - common
     bgp:
       router-id: 100.1.1.2
-      asn: 4200000000
+      asn: 64622
       peers:
         4200000000:
           - fc00::405

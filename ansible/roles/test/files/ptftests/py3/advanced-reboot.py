@@ -1719,7 +1719,7 @@ class ReloadTest(BaseTest):
         return stdout, stderr, return_code
 
     def peer_state_check(self, ip, queue):
-        self.log('SSH thread for VM {} started'.format(ip))
+        self.log('SSH thread for VM {} started with queue {}'.format(ip, queue))
         self.test_params['port_channel_intf_idx'] = [x['ptf_ports'][0] for x in self.vm_dut_map.values()
                                                      if x['mgmt_addr'] == ip]
         ssh = HostDevice.getHostDeviceInstance(self.test_params['neighbor_type'], ip, queue,
@@ -1751,7 +1751,25 @@ class ReloadTest(BaseTest):
 
         # in the list of all LACPDUs received by T1, find the largest time gap between two consecutive LACPDUs
         max_lacp_session_wait = None
-        max_allowed_lacp_session_wait = 150
+
+        # Initialize max_allowed_lacp_session_wait
+        LACP_SLOW_PERIOD_SEC = 30
+
+        if self.test_params['neighbor_type'] == "eos":
+            if 'ceos_neighbor_lacp_multiplier' in self.test_params \
+                    and self.test_params['ceos_neighbor_lacp_multiplier']:
+                lacp_multiplier = self.test_params['ceos_neighbor_lacp_multiplier']
+            else:
+                lacp_multiplier = 3
+        elif self.test_params['neighbor_type'] == "sonic":
+            lacp_multiplier = 5  # SONiC negotiates multiplier 5 with SONiC peer
+        else:
+            lacp_multiplier = 3
+
+        max_allowed_lacp_session_wait = lacp_multiplier * LACP_SLOW_PERIOD_SEC
+        self.log('max_allowed_lacp_session_wait is set to {} sec for neighbor {}, neighbor_type {}'.format(
+            max_allowed_lacp_session_wait, ip, self.test_params['neighbor_type']))
+
         if lacp_pdu_all_times and len(lacp_pdu_all_times) > 1:
             lacp_pdu_all_times.sort()
             max_lacp_session_wait = 0
@@ -1778,7 +1796,9 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_down')
             if self.cpu_state.get() == 'down':
                 for _, q in self.ssh_jobs:
+                    self.log('CPU port is down, sending cpu_down signal to SSH thread queue {}'.format(q))
                     q.put('cpu_down')
+                    self.log('Sent cpu_down signal to SSH thread queue {}'.format(q))
                 break
             time.sleep(self.TIMEOUT)
 
@@ -1788,7 +1808,9 @@ class ReloadTest(BaseTest):
                 self.put_nowait(q, 'cpu_going_up')
             if self.cpu_state.get() == 'up':
                 for _, q in self.ssh_jobs:
+                    self.log('CPU port is up, sending cpu_up signal to SSH thread queue {}'.format(q))
                     q.put('cpu_up')
+                    self.log('Sent cpu_up signal to SSH thread queue {}'.format(q))
                 break
             time.sleep(self.TIMEOUT)
 
@@ -2031,7 +2053,7 @@ class ReloadTest(BaseTest):
 
         # Re-arrange packets, if delayed, by Payload ID and Timestamp:
         packets = sorted(filtered_packets, key=lambda packet: (
-            int(bytes(packet[scapyall.TCP].payload)), packet.time))
+            int(bytes(packet[scapyall.TCP].payload)), float(packet.time)))
         self.lost_packets = dict()
         self.max_disrupt, self.total_disruption = 0, 0
         sent_packets = dict()
@@ -2062,7 +2084,7 @@ class ReloadTest(BaseTest):
                     sent_payload = int(bytes(packet[scapyall.TCP].payload))
                     if sent_payload in sent_packets:
                         flooded_pkts.append(sent_payload)
-                    sent_packets[sent_payload] = packet.time
+                    sent_packets[sent_payload] = float(packet.time)
                     sent_counter += 1
                     continue
                 if packet[scapyall.Ether].src == self.dut_mac or packet[scapyall.Ether].src == self.vlan_mac:
@@ -2070,7 +2092,7 @@ class ReloadTest(BaseTest):
                     # for dualtor both MACs are needed:
                     #   t1->server rcvd pkt will have src MAC as vlan_mac,
                     #   and server->t1 rcvd pkt will have src MAC as dut_mac
-                    received_time = packet.time
+                    received_time = float(packet.time)
                     received_payload = int(bytes(packet[scapyall.TCP].payload))
                     if (received_payload % 5) == 0:   # From vlan to T1.
                         received_vlan_to_t1 += 1
@@ -2134,9 +2156,9 @@ class ReloadTest(BaseTest):
                         self.log("")
                         if not self.disruption_start:
                             self.disruption_start = datetime.datetime.fromtimestamp(
-                                prev_time)
+                               float(prev_time))
                         self.disruption_stop = datetime.datetime.fromtimestamp(
-                            received_time)
+                            float(received_time))
                 prev_payload = received_payload
                 prev_time = received_time
             self.log(

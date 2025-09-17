@@ -2070,6 +2070,8 @@ configuration_properties:
     ipv6_address_pattern: FC00:C:C::%02X%02X:%02X%02X:0/120
     enable_ipv4_routes_generation: false
     enable_ipv6_routes_generation: true
+    leaf_number: 512
+    downstream_neighbor_groups: 2
   spine:
     swrole: spine
   tor:
