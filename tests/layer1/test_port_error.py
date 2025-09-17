@@ -70,12 +70,15 @@ class TestMACFault(object):
                localhost, safe_reboot=True, check_intf_up_ports=True)
 
     @pytest.fixture(scope="class")
-    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname, is_supported_nvidia_platform_with_sw_control_enabled):
+    def get_dut_and_supported_available_optical_interfaces(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                                           is_supported_nvidia_platform_with_sw_control_enabled):
         dut = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
         sfp_presence = dut.command(cmd_sfp_presence)
         parsed_presence = {line.split()[0]: line.split()[1] for line in sfp_presence["stdout_lines"][2:]}
-
+        supported_available_optical_interfaces = []
+        failed_api_ports = []
+                                                               
         if is_supported_nvidia_platform_with_sw_control_enabled:
     
             eeprom_infos = dut.shell("sudo sfputil show eeprom -d")['stdout']
@@ -89,17 +92,15 @@ class TestMACFault(object):
             pytest_assert(supported_available_optical_interfaces,
                           "No interfaces with SFP detected. Cannot proceed with tests.")
             logging.info("Available Optical interfaces for tests: {}".format(supported_available_optical_interfaces))
-    
-            return dut, supported_available_optical_interfaces, failed_api_ports
         else:
-            available_interfaces = [
+            supported_available_optical_interfaces = [
                 intf["interface"] for intf in interfaces
                 if parsed_presence.get(intf["interface"]) == "Present"
             ]
 
             pytest_assert(available_interfaces, "No interfaces with SFP detected. Cannot proceed with tests.")
 
-            return dut, available_interfaces, []
+        return dut, supported_available_optical_interfaces, failed_api_ports
 
     def shutdown_and_startup_interfaces(self, dut, interface):
         dut.command("sudo config interface shutdown {}".format(interface))
