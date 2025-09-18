@@ -95,15 +95,16 @@ This table lists the transceiver flag change count DB tables that should be moni
 
 The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to initiate optics insertion/removal operations, monitor their progress, and retrieve results.
 
-A class named `PhysicalOIR` is defined under `tests.platform_tests.transceiver.utils.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
+A class named `PhysicalOIR` is defined under `tests.transceiver.utils.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
 
 1. **Constructor Method**
    - Description: Initializes the PhysicalOIR class.
    - Parameters:
-     - `duthost` : AnsibleHost object of the dut.
-     - `ports`: List of ports to be tested.
-     - `timeout`: Timeout value in minutes for the OIR process.
-     - `oir_method`: The method used for OIR ("manual" or "automated").
+     - `duthost` : AnsibleHost object of the dut. Following attributes are fetched from the `duthost` object for further processing:
+        - `port_under_test`: List of ports to be tested.
+        - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
+        - `oir_method`: The method used for OIR ("manual" or "automated").
+        - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
 
 2. **initiate_insertion**
    - Description: Initiates the insertion process for the specified ports.
