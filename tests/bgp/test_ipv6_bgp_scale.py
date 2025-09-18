@@ -112,16 +112,20 @@ def get_down_bgp_sessions_neighbors(duthost):
 
 
 @pytest.fixture(scope="function")
-def announce_bgp_routes_teardown(localhost, tbinfo, ptfhosts):
+def setup_routes_before_test(localhost, duthost, tbinfo, vmhosts, ptfhosts, topo_bgp_routes, bgp_peers_info):
+    if not validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
+        ptf_container = "ptf_%s" % tbinfo['group-name']
+        for vmhost in vmhosts:
+            vmhost.command("sudo docker exec %s supervisorctl restart exabgpv6:*" % ptf_container)
+        for ptfhost in ptfhosts:
+            ptf_ip = ptfhost.mgmt_ip
+            announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
     servers_dut_interfaces = {}
     # If servers in tbinfo, means tb was deployed with multi servers
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
     yield servers_dut_interfaces
-    for ptfhost in ptfhosts:
-        ptf_ip = ptfhost.mgmt_ip
-        announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
 
 
 def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
@@ -138,11 +142,13 @@ def announce_routes(localhost, tbinfo, ptf_ip, dut_interfaces):
     )
 
 
-def get_all_bgp_ipv6_routes(duthost):
+def get_all_bgp_ipv6_routes(duthost, save_snapshot=False):
     logger.info("Getting ipv6 routes")
-    return json.loads(
-        duthost.shell("docker exec bgp vtysh -c 'show ipv6 route bgp json'")['stdout']
-    )
+    routes_str = duthost.shell("docker exec bgp vtysh -c 'show ipv6 route bgp json'")['stdout']
+    if save_snapshot:
+        with open("/tmp/bgp_ipv6_routes_" + datetime.datetime.now().strftime("%Y%m%d-%H%M%S") + '.json', "w") as f:
+            f.write(routes_str)
+    return json.loads(routes_str)
 
 
 def generate_packets(prefixes, dut_mac, src_mac):
@@ -186,6 +192,28 @@ def remove_nexthops_in_routes(routes, nexthops):
     for prefix in prefixes_to_remove:
         ret_routes[prefix] = []
     return ret_routes
+
+
+def validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
+    identical = True
+    neighbors = {}
+    running_routes = get_all_bgp_ipv6_routes(duthost)
+    for prefix, attr in running_routes.items():
+        running_only_nhps = []
+        topo_only_nhps = []
+        running_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
+        topo_nhs = [bgp_peers_info[hostname][IPV6_KEY].lower() for hostname, routes in topo_bgp_routes.items()
+                    if hostname in bgp_peers_info and str(ipaddress.ip_network(prefix)) in [str(ipaddress.ip_network(r[0])) for r in routes[IPV6_KEY]]]
+        if prefix in STATIC_ROUTES or len(running_nhs) == 1:
+            logger.warning("Skip validate route %s", prefix)
+            continue
+        running_only_nhps = set(running_nhs) - set(topo_nhs)
+        topo_only_nhps = set(topo_nhs) - set(running_nhs)
+        if running_only_nhps or topo_only_nhps:
+            logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s",
+                        prefix, running_only_nhps, topo_only_nhps)
+            identical = False
+    return identical
 
 
 def compare_routes(running_routes, expected_routes):
@@ -381,7 +409,7 @@ def test_sessions_flapping(
     ptfadapter,
     bgp_peers_info,
     flapping_port_count,
-    announce_bgp_routes_teardown
+    setup_routes_before_test
 ):
     '''
     This test is to make sure When BGP sessions are flapping,
@@ -417,7 +445,7 @@ def test_sessions_flapping(
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
-    startup_routes = get_all_bgp_ipv6_routes(duthost)
+    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
     neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
     pkts = generate_packets(
         neighbor_ecmp_routes[injection_bgp_neighbor],
@@ -463,7 +491,7 @@ def test_nexthop_group_member_scale(
     localhost,
     tbinfo,
     bgp_peers_info,
-    announce_bgp_routes_teardown,
+    setup_routes_before_test,
     topo_bgp_routes,
     request
 ):
@@ -481,7 +509,7 @@ def test_nexthop_group_member_scale(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE.
     '''
-    servers_dut_interfaces = announce_bgp_routes_teardown
+    servers_dut_interfaces = setup_routes_before_test
     topo_name = tbinfo['topo']['name']
     global global_icmp_type
     global_icmp_type += 1
@@ -493,7 +521,7 @@ def test_nexthop_group_member_scale(
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
-    startup_routes = get_all_bgp_ipv6_routes(duthost)
+    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
     neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
 
     pkts = generate_packets(
@@ -609,7 +637,7 @@ def test_device_unisolation(
     duthost,
     ptfadapter,
     bgp_peers_info,
-    announce_bgp_routes_teardown,
+    setup_routes_before_test,
     tbinfo
 ):
     '''
@@ -638,7 +666,7 @@ def test_device_unisolation(
     injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
     logger.info("Injection port: %s", injection_port)
 
-    startup_routes = get_all_bgp_ipv6_routes(duthost)
+    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
     neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
     pkts = generate_packets(
         neighbor_ecmp_routes[injection_bgp_neighbor],
