@@ -180,7 +180,6 @@ DaemonSet Pod"]
     Agent -->|"Status ConfigMap
 (updated)"| MockKubeSONiC
 
-    style Client fill:#e1f5fe
     style MockKubeSONiC fill:#f3e5f5
     style Device fill:#e8f5e8
     style Agent fill:#fff3e0
