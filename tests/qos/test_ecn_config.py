@@ -311,7 +311,16 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         result = duthost.command(cmd)
         assert result['rc'] == 0, 'Set wred_profile command failed '
 
-    # Verify counterpoll CLI for enabling and disabling ecn statistics polling
+    # Verify counterpoll CLI for enabling and disabling ecn statistics
+    # WRED_ECN_QUEUE_STAT
+    # WRED_ECN_PORT_STAT
+    wred_stat = {'WRED_ECN_QUEUE_STAT':'wredqueue','WRED_ECN_PORT_STAT':'wredport'}
+    try:
+        for k,v in wred_stat.items():
+            duthost.command("sudo counterpoll {} {} enable".format(v, asic))
+    except Exception as e:
+        raise Exception("Error on enabling counterpoll wred stats : {}".format(e))
+
     cmd = 'sudo counterpoll show {}'.format(asic)
     result = duthost.command(cmd)
     assert 'WRED_ECN_QUEUE_STAT' in result['stdout'], f"Missing ecn configuration : {result['stderr']}"
