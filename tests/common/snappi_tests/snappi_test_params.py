@@ -45,6 +45,8 @@ class SnappiTestParams():
                                It can be "warm", "cold", "fast", or None. If set to None, then
                                no reboot is performed. (default: None)
             localhost (pytest fixture): localhost handle
+            flow_name_dscp_map (dict): A mapping of flow names to their corresponding DSCP values.
+                                       This is used to get the DSCP value for each flow in the test.
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -64,3 +66,4 @@ class SnappiTestParams():
         self.traffic_flow_config = TrafficFlowConfig()
         self.reboot_type = None
         self.localhost = None
+        self.flow_name_dscp_map = {}
