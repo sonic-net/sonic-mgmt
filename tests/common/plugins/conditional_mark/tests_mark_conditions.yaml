@@ -26,6 +26,16 @@ test_pretest.py:
             't1-isolated-d448u16', 't1-isolated-v6-d448u16',
             't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
             't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
+      - &noVxlanTopos |
+          topo_name in [
+            't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
+            't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
+            't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
+            't1-isolated-d56u2', 't1-isolated-d56u1-lag',
+            't1-isolated-d448u15-lag', 't1-isolated-d128',
+            't1-isolated-d32', 't1-isolated-v6-d56u2',
+            't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
+            't1-isolated-v6-d128' ]
 
 #######################################
 #####          cutsom_acl         #####
@@ -489,12 +499,12 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
-    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, marvell-teralynx, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release. Skip on t1-isolated-d32/128 topos"
+    reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, marvell-teralynx, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
     conditions_logical_operator: or
     conditions:
       - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or asic_type in ['marvell-teralynx'] or platform in ['x86_64-8111_32eh_o-r0'] or asic_type in ['mellanox']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - *noVxlanTopos
 
 decap/test_decap.py::test_decap[ttl=uniform, dscp=pipe, vxlan=disable]:
   skip:
@@ -3546,9 +3556,11 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
 
 vxlan/test_vxlan_decap.py:
   skip:
-    reason: "vxlan support not available for cisco-8122 platforms"
+    reason: "vxlan support not available for cisco-8122 platforms. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
+    conditions_logical_operator: OR
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - *noVxlanTopos
   xfail:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
     conditions:
