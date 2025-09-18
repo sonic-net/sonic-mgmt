@@ -2461,15 +2461,29 @@ class QosSaiBase(QosBase):
             Returns:
                 None
         """
-
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-            dut_asic.command("counterpoll watermark enable")
-            dut_asic.command("counterpoll queue enable")
+        duthost = duthosts.frontend_nodes[0]
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll watermark {} enable".format(namespace_arg))
+                    duthost.command("sudo counterpoll queue {} enable".format(namespace_arg))
+        else:
+            for dut_asic in get_src_dst_asic_and_duts["all_asics"]:
+                dut_asic.command("counterpoll watermark enable")
+                dut_asic.command("counterpoll queue enable")
 
         time.sleep(70)
-        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-            dut_asic.command("counterpoll watermark disable")
-            dut_asic.command("counterpoll queue disable")
+        if duthost.sonichost.is_multi_asic:
+            for duthost in get_src_dst_asic_and_duts['all_duts']:
+                for asic in duthost.asics:
+                    namespace_arg = '-n asic{}'.format(asic.asic_index)
+                    duthost.command("sudo counterpoll watermark {} disable".format(namespace_arg))
+                    duthost.command("sudo counterpoll queue {} disable".format(namespace_arg))
+        else:
+            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+                dut_asic.command("counterpoll watermark disable")
+                dut_asic.command("counterpoll queue disable")
 
     @pytest.fixture
     def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
