@@ -73,12 +73,16 @@ def bgp_peers_info(tbinfo, duthost):
     bgp_info = {}
     topo_name = tbinfo['topo']['name']
 
+    logger.info("Waiting for BGP sessions are established")
     while True:
         down_neighbors = get_down_bgp_sessions_neighbors(duthost)
+        start_time = datetime.datetime.now()
         if len(down_neighbors) <= MAX_BGP_SESSIONS_DOWN_COUNT:
             if down_neighbors:
-                logging.warning("There are down_neighbors %s", down_neighbors)
+                logger.warning("There are down_neighbors %s", down_neighbors)
             break
+        if (datetime.datetime.now() - start_time).total_seconds() > MAX_CONVERGENCE_WAIT_TIME:
+            pytest.fail("There are too many BGP sessions down: {}".format(down_neighbors))
 
     alias = duthost.show_and_parse("show interfaces alias")
     for hostname in tbinfo['topo']['properties']['configuration'].keys():
@@ -103,7 +107,7 @@ def bgp_peers_info(tbinfo, duthost):
             bgp_info[hostname][IPV6_KEY] = \
                 topo_cfg_intfs[pc_name]['ipv6'].split('/')[0]
 
-    logging.info("BGP peers info: %s", bgp_info)
+    logger.info("BGP peers info: %s", bgp_info)
     return bgp_info
 
 
@@ -295,12 +299,12 @@ def validate_rx_tx_counters(ptf_dp, end_time, start_time, masked_exp_pkt, downti
 
 
 def flush_counters(ptf_dp, masked_exp_pkt):
-    logging.info("Flushing counters")
+    logger.info("Flushing counters")
     for idx in ptf_dp.mask_rx_cnt[masked_exp_pkt].keys():
         ptf_dp.mask_rx_cnt[masked_exp_pkt][idx] = 0
     for idx in ptf_dp.mask_tx_cnt[masked_exp_pkt].keys():
         ptf_dp.mask_tx_cnt[masked_exp_pkt][idx] = 0
-    logging.info("after flush rx_counters: %s, tx_counters: %s",
+    logger.info("after flush rx_counters: %s, tx_counters: %s",
                  ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
 
 
@@ -319,9 +323,9 @@ def send_packets(
     rounds_cnt = 0
     while True:
         if terminated.is_set():
-            logging.info("%d packets are sent", rounds_cnt * pkts_len)
+            logger.info("%d packets are sent", rounds_cnt * pkts_len)
             break
-        logging.info("round %d, sending %d packets", rounds_cnt, rounds_cnt * pkts_len)
+        logger.info("round %d, sending %d packets", rounds_cnt, rounds_cnt * pkts_len)
         for _ in range(rounds_per_timeslot):
             for pkt in pkts:
                 ptf_dataplane.send(device_num, port_num, pkt)
