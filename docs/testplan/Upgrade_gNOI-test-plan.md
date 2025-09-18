@@ -133,6 +133,7 @@ if err := stream.Send(pkg); err != nil { return err }
 2. Run full upgrade flow: download → apply.
 
 **3. Nightly testing(sonic-mgmt)**: This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
+### Integration plan in the fleet
 
 ```mermaid
 graph LR
@@ -163,6 +164,7 @@ Status ConfigMap (pending)"| SonicLib
     style GNOI fill:#fce4ec
 ```
 
+### Integration plan in the lab
 ```mermaid
 graph LR
     subgraph TestServer ["TestServer"]
