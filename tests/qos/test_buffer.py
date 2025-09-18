@@ -2672,6 +2672,44 @@ def _recovery_to_dynamic_buffer_model(duthost):
     config_reload(duthost, config_source='config_db')
 
 
+def _is_mgmt_port(port_config: dict) -> bool:
+    """
+    Determine whether a port is a management/management-like port.
+
+    Heuristics (keep existing semantics):
+      - Port config must exist and admin_status must not be 'down'
+      - If description contains 'pt0' => management
+      - If speed is one of known low speeds (1G / 10G) => management
+
+    Args:
+        port_config: Dict from CONFIG_DB for a port.
+
+    Returns:
+        True if considered a management port, else False.
+    """
+    if not port_config:
+        return False
+
+    if port_config.get('admin_status') == 'down':
+        return False
+
+    desc = port_config.get('description', '').lower()
+    if 'pt0:' in desc:
+        # PT0 ports are considered management ports
+        return True
+
+    speed_raw = port_config.get('speed')
+    if speed_raw:
+        try:
+            speed = int(speed_raw)
+        except ValueError:
+            speed = None
+        if speed in {1000, 10000}:  # 1G / 10G
+            return True
+
+    return False
+
+
 def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts):      # noqa F811
     """Verify whether the buffer model is expected after configuration operations:
     The following items are verified
@@ -2985,6 +3023,10 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
             key_name = KEY_4_LOSSLESS_QUEUE
         else:
             key_name = KEY_2_LOSSLESS_QUEUE
+
+        if _is_mgmt_port(port_config):
+            logging.info("Skip management port {}".format(port))
+            continue
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
         if port_config.get('admin_status') == 'up':
