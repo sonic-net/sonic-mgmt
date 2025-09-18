@@ -214,7 +214,8 @@ def validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
         running_only_nhps = set(running_nhs) - set(topo_nhs)
         topo_only_nhps = set(topo_nhs) - set(running_nhs)
         if running_only_nhps or topo_only_nhps:
-            logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s", prefix, running_only_nhps, topo_only_nhps)
+            logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s",
+                           prefix, running_only_nhps, topo_only_nhps)
             identical = False
     return identical
 
@@ -303,7 +304,8 @@ def flush_counters(ptf_dp, masked_exp_pkt):
         ptf_dp.mask_rx_cnt[masked_exp_pkt][idx] = 0
     for idx in ptf_dp.mask_tx_cnt[masked_exp_pkt].keys():
         ptf_dp.mask_tx_cnt[masked_exp_pkt][idx] = 0
-    logger.info("after flush rx_counters: %s, tx_counters: %s", ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
+    logger.info("after flush rx_counters: %s, tx_counters: %s",
+                ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
 
 
 def send_packets(
