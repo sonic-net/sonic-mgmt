@@ -94,46 +94,46 @@ This test serves as the first validation gate, catching integration issues befor
 
 **1. PR testing(sonic-gnmi)**: This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests. - https://github.com/ryanzhu706/sonic-gnmi-ryanzhu/blob/readme/azure-pipelines/README.md
 
-#### Test objective
-
-Verify that the upgrade service functions correctly in a local Linux VM environment. (Can run along with sonic-gnmi PR testing)
-1. Deploy gNOI server locally.
-2. Run grpcurl to list services and verify connectivity.
-3. Use upgrade-agent download with a test file URL.
-4. Use upgrade-agent apply with a dry-run config.
+> #### Test objective
+>
+> Verify that the upgrade service functions correctly in a local Linux VM environment. (Can run along with sonic-gnmi PR testing)
+> 1. Deploy gNOI server locally.
+> 2. Run grpcurl to list services and verify connectivity.
+> 3. Use upgrade-agent download with a test file URL.
+> 4. Use upgrade-agent apply with a dry-run config.
 
 
 **2. KVM PR testing(sonic-buildimage)**: This test runs in the sonic-buildimage repository's pull request pipeline, using a KVM-based SONiC VM. It verifies that gNOI upgrade-related components.
-#### Test objective
-
-Validate upgrade service behavior on a KVM-based SONiC device.
-1. gNOI server health check and client readiness check.
-```go
-// Illustrative: open a SetPackage stream and send package metadata with SHA256 digest.
-stream, err := client.SetPackage(ctx)
-if err != nil { return err }
-
-pkg := &system.SetPackageRequest{
- Request: &system.SetPackageRequest_Package{
-  Package: &system.Package{
-   Filename: "SONiC.bin",
-   Version:  "SONiC-2025",
-   RemoteDownload: &common.RemoteDownload{
-    Path: "https://fw.test/SONiC.bin",
-    Protocol: common.RemoteDownload_HTTP,
-   },
-   Hash: &types.Hash{ Type: types.Hash_SHA256, Value: sha256sum },
-  },
- },
-}
-if err := stream.Send(pkg); err != nil { return err }
-// handle responses...
-```
+>#### Test objective
+>
+>Validate upgrade service behavior on a KVM-based SONiC device.
+>1. gNOI server health check and client readiness check.
+>```go
+>// Illustrative: open a SetPackage stream and send package metadata with SHA256 digest.
+>stream, err := client.SetPackage(ctx)
+>if err != nil { return err }
+>
+>pkg := &system.SetPackageRequest{
+> Request: &system.SetPackageRequest_Package{
+>  Package: &system.Package{
+>   Filename: "SONiC.bin",
+>   Version:  "SONiC-2025",
+>   RemoteDownload: &common.RemoteDownload{
+>    Path: "https://fw.test/SONiC.bin",
+>    Protocol: common.RemoteDownload_HTTP,
+>   },
+>   Hash: &types.Hash{ Type: types.Hash_SHA256, Value: sha256sum },
+>  },
+> },
+>}
+>if err := stream.Send(pkg); err != nil { return err }
+>// handle responses...
+>```
 
 2. Run full upgrade flow: download → apply.
 
 **3. Nightly testing(sonic-mgmt)**: This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
-### Integration plan in the fleet
+#### Integration plan in the fleet
 
 ```mermaid
 graph LR
@@ -164,7 +164,7 @@ Status ConfigMap (pending)"| SonicLib
     style GNOI fill:#fce4ec
 ```
 
-### Integration plan in the lab
+#### Integration plan in the lab
 ```mermaid
 graph LR
     subgraph TestServer ["TestServer"]
@@ -191,13 +191,13 @@ DaemonSet Pod"]
 ```
 
 
-#### Test objective
-
-Ensure upgrade service works reliably on physical SONiC hardware.
-1. gNOI server health check and client readiness check.
-3. Run upgrade with a real image and reboot.
-4. Validate system health post-upgrade.
-5. Test watchdog reboot and missing next-hop scenarios.
+>#### Test objective
+>
+>Ensure upgrade service works reliably on physical SONiC hardware.
+>1. gNOI server health check and client readiness check.
+>3. Run upgrade with a real image and reboot.
+>4. Validate system health post-upgrade.
+>5. Test watchdog reboot and missing next-hop scenarios.
 
 ### Test Cases
 
