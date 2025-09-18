@@ -3,8 +3,12 @@ from tests.common.constants import CounterpollConstants
 
 class ConterpollHelper:
     @staticmethod
-    def get_counterpoll_show_output(duthost):
-        return duthost.show_and_parse(CounterpollConstants.COUNTERPOLL_SHOW)
+    def get_counterpoll_show_output(duthost, asic_id=None):
+        if asic_id:
+            cmd = CounterpollConstants.COUNTERPOLL_SHOW + " -n asic{}".format(asic_id.asic_index)
+        else:
+            cmd = CounterpollConstants.COUNTERPOLL_SHOW
+        return duthost.show_and_parse(cmd)
 
     @staticmethod
     def get_available_counterpoll_types(duthost):
@@ -39,14 +43,22 @@ class ConterpollHelper:
                         counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
 
     @staticmethod
-    def disable_counterpoll(duthost, counter_type_list):
+    def disable_counterpoll(duthost, asic_id, counter_type_list):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
+            if duthost.is_multi_asic:
+                asic_index = " -n asic{}".format(asic_id.asic_index)
+                duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type, asic_index))
+            else:
+                duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
 
     @staticmethod
-    def enable_counterpoll(duthost, counter_type_list):
+    def enable_counterpoll(duthost, asic_id, counter_type_list):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
+            if duthost.is_multi_asic:
+                asic_index = " -n asic{}".format(asic_id.asic_index)
+                duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type,asic_index))
+            else:
+                duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
 
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):
