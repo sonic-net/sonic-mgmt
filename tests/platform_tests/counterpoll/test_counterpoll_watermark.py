@@ -100,7 +100,7 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
         config_apply_method = random.choice(["config reload", "switch reboot"])
     with allure.step("disabling all counterpolls"):
         for asic in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
+            ConterpollHelper.disable_counterpoll(duthost, asic, list(CounterpollConstants.COUNTERPOLL_MAPPING.values()))
 
     # verify relevant counterpolls (queue/watermark/pg-drop) are disabled
     with allure.step("Verifying initial output of {} on {} ..."
@@ -128,8 +128,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("enabling and verify randomly selected counterpoll {} on {} ..."
                      .format(duthost.hostname, [tested_counterpoll])):
         for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(asic, [tested_counterpoll])
-            verify_counterpoll_status(asic, [tested_counterpoll], ENABLE)
+            ConterpollHelper.enable_counterpoll(duthost, asic, [tested_counterpoll])
+            verify_counterpoll_status(duthost, asic, [tested_counterpoll], ENABLE)
     # Delay to allow the counterpoll to generate the maps in COUNTERS_DB
     with allure.step("waiting {} seconds for counterpoll to generate maps in COUNTERS_DB"):
         delay = RELEVANT_MAPS[tested_counterpoll][DELAY]
@@ -202,8 +202,8 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
     with allure.step("enable and verify all {} counterpolls on {} ..."
                      .format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(duthost, RELEVANT_COUNTERPOLLS)
-            verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, ENABLE)
+            ConterpollHelper.enable_counterpoll(duthost, asic, RELEVANT_COUNTERPOLLS)
+            verify_counterpoll_status(duthost, asic, RELEVANT_COUNTERPOLLS, ENABLE)
     # count FLEXCOUNTER_DB countrpolls and put in results dict key per countrpoll
     with allure.step("check all counterpolls {} results on {} ...".format(RELEVANT_COUNTERPOLLS, duthost.hostname)):
         for counterpoll in RELEVANT_COUNTERPOLLS:
@@ -233,20 +233,23 @@ def test_counterpoll_queue_watermark_pg_drop(duthosts, localhost, enum_rand_one_
 
 def verify_all_counterpoll_status(duthost, expected):
     for asic in duthost.asics:
-        verify_counterpoll_status(asic, RELEVANT_COUNTERPOLLS, expected)
+        verify_counterpoll_status(duthost, asic, RELEVANT_COUNTERPOLLS, expected)
 
 
-def verify_counterpoll_status(duthost, counterpoll_list, expected):
+def verify_counterpoll_status(duthost, asic_id, counterpoll_list, expected):
     with allure.step("verifying {} for {} in output of {} on {}..."
                      .format(expected, counterpoll_list, CounterpollConstants.COUNTERPOLL_SHOW, duthost.hostname)):
-        counterpoll_output = ConterpollHelper.get_counterpoll_show_output(duthost)
+        if duthost.is_multi_asic:
+            counterpoll_output = ConterpollHelper.get_counterpoll_show_output(duthost, asic_id)
+        else:
+            counterpoll_output = ConterpollHelper.get_counterpoll_show_output(asic_id)
         pytest_assert(len(counterpoll_output) > 0, "cmd {} returns no output"
                       .format(CounterpollConstants.COUNTERPOLL_SHOW))
 
         verified_output_dict = {}
         for counterpoll_parsed_dict in counterpoll_output:
             for k, v in list(CounterpollConstants.COUNTERPOLL_MAPPING.items()):
-                if k in counterpoll_parsed_dict[CounterpollConstants.TYPE]:
+                if k == counterpoll_parsed_dict[CounterpollConstants.TYPE]:
                     verified_output_dict[v] = counterpoll_parsed_dict[CounterpollConstants.STATUS]
 
         # Validate all of the relevant keys are disabled - QUEUE/WATERMARK/PG-DROP
