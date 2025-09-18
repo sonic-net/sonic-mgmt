@@ -163,6 +163,25 @@ Status ConfigMap (pending)"| SonicLib
     style GNOI fill:#fce4ec
 ```
 
+```mermaid
+graph LR
+    MockKubeSONiC["SonicKubeLib
+(C# Library)"]
+
+    subgraph Device ["SONiC Device"]
+        Agent["sonic-host-agent
+DaemonSet Pod"]
+        GNOI["gNOI Server
+(:50055)"]
+        Agent --> GNOI
+    end
+
+    style MockKubeSONiC fill:#f3e5f5
+    style Device fill:#e8f5e8
+    style Agent fill:#fff3e0
+    style GNOI fill:#fce4ec
+```
+
 
 #### Test objective
 
