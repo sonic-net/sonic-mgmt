@@ -8,7 +8,7 @@ import pytest
 from collections import defaultdict
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
+from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
@@ -158,30 +158,34 @@ def do_checks(request, check_items, *args, **kwargs):
 
 @pytest.fixture(scope="module")
 def prepare_parallel_run(request, parallel_run_context):
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
+    par_ctx = parallel_run_context
     should_skip_sanity = False
-    if is_par_run:
-        initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
-        if is_par_leader:
-            initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+    if par_ctx.is_par_run:
+        parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+        if par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
             yield should_skip_sanity
 
             if (request.config.cache.get("pre_sanity_check_failed", None) or
                     request.config.cache.get("post_sanity_check_failed", None)):
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.SANITY_CHECK_FAILED,
-                    is_par_leader,
-                    target_hostname,
+                parallel_coordinator.set_failed_status(
+                    ParallelStatus.SANITY_CHECK_FAILED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
             else:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+                parallel_coordinator.set_new_status(
+                    ParallelStatus.TEARDOWN_COMPLETED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
 
-                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
+                parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
         else:
             should_skip_sanity = True
             logger.info(
@@ -196,11 +200,13 @@ def prepare_parallel_run(request, parallel_run_context):
                 "Please refer to the leader node log for check status."
             )
 
-            initial_check_state.wait_and_acknowledge_status(
-                InitialCheckStatus.TEARDOWN_COMPLETED,
-                is_par_leader,
-                target_hostname,
+            parallel_coordinator.wait_and_ack_status_for_followers(
+                ParallelStatus.TEARDOWN_COMPLETED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
             )
+
+            parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
     else:
         yield should_skip_sanity
 
@@ -423,33 +429,41 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
 
 def _sanity_check(request, parallel_run_context):
 
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
-    initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
-    if is_par_run:
-        initial_check_state.mark_and_wait_before_setup(target_hostname, is_par_leader)
+    par_ctx = parallel_run_context
+    parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+    if par_ctx.is_par_run:
+        parallel_coordinator.mark_and_wait_for_status(
+            ParallelStatus.SETUP_READY,
+            par_ctx.target_hostname,
+            par_ctx.is_par_leader,
+        )
 
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
-        if is_par_run and is_par_leader:
-            initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
         yield
 
-        if is_par_run:
-            if is_par_leader:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+        if par_ctx.is_par_run:
+            if par_ctx.is_par_leader:
+                parallel_coordinator.set_new_status(
+                    ParallelStatus.TEARDOWN_COMPLETED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
+                )
+            else:
+                parallel_coordinator.wait_and_ack_status_for_followers(
+                    ParallelStatus.TEARDOWN_COMPLETED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
 
-                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
-            else:
-                initial_check_state.wait_and_acknowledge_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
-                )
+            parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
     else:
         yield request.getfixturevalue('sanity_check_full')
 
