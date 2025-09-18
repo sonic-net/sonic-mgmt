@@ -591,6 +591,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                              .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                    is_python3=True)
 
+
 def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_config, rand_unselected_dut):     # noqa F811
     """
     Test the dhcp relay function on dual tor standby host
@@ -671,6 +672,7 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
     restart_dhcp_service(standby_duthost)
     pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost))
     pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+
 
 def test_dhcp_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             setup_standby_ports_on_rand_unselected_tor,												# noqa F811
