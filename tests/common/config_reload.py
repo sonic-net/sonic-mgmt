@@ -3,6 +3,7 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.parallel_utils import synchronized_config_reload
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
@@ -113,6 +114,7 @@ def pfcwd_feature_enabled(duthost):
 
 
 @support_ignore_loganalyzer
+@synchronized_config_reload
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False, wait_for_ibgp=True,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
