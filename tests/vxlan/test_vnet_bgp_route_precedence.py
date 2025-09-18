@@ -61,15 +61,11 @@ def fixture_route_type(request):
     name="monitor_type",
     scope="module",
     params=SUPPORTED_MONITOR_TYPES)
-def fixture_monitor_type(duthosts, request, rand_one_dut_hostname, tbinfo):
+def fixture_monitor_type(request):
     '''
         This fixture forces the script to perform one monitor_type at a time.
         So this script doesn't support multiple monitor types at the same time.
     '''
-    asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    topo = tbinfo["topo"]["type"]
-    if request.param in ["custom"] and asic_type in ["cisco-8000", "mellanox"] and topo == "t1":
-        pytest.skip(f"{asic_type} {topo} is not a supported platform for this monitor type: {request.param}.")
     return request.param
 
 
@@ -640,7 +636,7 @@ class Test_VNET_BGP_route_Precedence():
                                          ports=setup_vnet['ptf_dst_ports'],
                                          timeout=10)
 
-    def test_vnet_route_after_bgp(self, setUp, encap_type, monitor_type, init_nh_state, duthost):
+    def test_vnet_route_after_bgp(self, setUp, encap_type, monitor_type, init_nh_state, duthost, tbinfo):
         '''
         ADD BGP ROUTE on TOR
         Add VNET route
@@ -663,18 +659,24 @@ class Test_VNET_BGP_route_Precedence():
             community = "6789:9876"
         self.create_bgp_profile(profile, community)
 
+        asic_type = duthost.facts["asic_type"]
+        topo = tbinfo["topo"]["type"]
         # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
             self.adv_mask = 24
-            if monitor_type == 'custom':
+            if monitor_type == 'custom' and asic_type in ["cisco-8000", "mellanox"] and topo == "t1":
+                self.adv_mask = 24
+            elif monitor_type == 'custom':
                 self.adv_mask = 16
         else:
             self.prefix_type = 'v6'
             self.adv_mask = 64
             self.prefix_mask = 64
-            if monitor_type == 'custom':
+            if monitor_type == 'custom' and asic_type in ["cisco-8000", "mellanox"] and topo == "t1":
+                self.adv_mask = 64
+            elif monitor_type == 'custom':
                 self.adv_mask = 60
 
         # generate routes
