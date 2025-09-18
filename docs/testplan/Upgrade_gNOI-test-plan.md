@@ -24,7 +24,7 @@ The service operates as follows:
 
 ## Background
 **Components:**
-- **upgrade-agent(new)** (Client): CLI tool that reads YAML workflows and translates them to gNOI calls
+- **sonic-host-agent(new)** (Client): CLI tool that reads YAML workflows and translates them to gNOI calls
 - **gNOI Server(new)** (Server): Containerized gNOI service with mock platform implementations  
 - **HTTP Firmware Server**: Serves test firmware files for download validation
 - **Test Harness**: Coordinates test scenarios and validates results
@@ -33,7 +33,7 @@ The service operates as follows:
 
 | Component      | Role & Responsibilities                                                                 | Dependencies & Requirements                                                                 | Potential Failure Points & Expected Behavior                                                                                     |
 |----------------|-----------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------|----------------------------------------------------------------------------------------------------------------------------------|
-| upgrade-agent  | CLI tool that drives upgrade workflows by translating YAML into gNOI RPCs               | Requires access to gNOI server and firmware server; supports dry-run and live execution modes | - Cannot connect to gNOI server: should timeout and return a clear network error.<br>- YAML parsing failure: should return syntax error and abort. |
+| sonic-host-agent  | CLI tool that drives upgrade workflows by translating YAML into gNOI RPCs               | Requires access to gNOI server and firmware server; supports dry-run and live execution modes | - Cannot connect to gNOI server: should timeout and return a clear network error.<br>- YAML parsing failure: should return syntax error and abort. |
 | gNOI Server    | Receives and executes upgrade RPCs on the DUT or mock platform                          | Must expose gRPC port; may run in container or as daemon on SONiC device; needs firmware access | - Server not running or port blocked: agent should timeout and report connection failure.<br>- Server crash mid-upgrade: agent should log error and mark session incomplete. |
 | Firmware Server| Hosts firmware images for remote download and integrity verification                    | Accessible via HTTP/HTTPS; must serve valid files with correct SHA256 checksum                 | - Invalid URL or DNS failure: agent should retry or abort with download error.                                                   |
 
@@ -45,7 +45,7 @@ This test targets the validation of the Upgrade Service across three distinct en
 Server-side (gNOI)
 - `gnoi.system.System.SetPackage`
   - Test individually: unit tests and grpcurl (stream semantics, request validation, error paths) against a mock gNOI server.  
-  - Test combined: run with `upgrade-agent` + HTTP firmware server to validate streaming, remote-download → SetPackage flow, checksum verification, session state, and recovery on failures.
+  - Test combined: run with `sonic-host-agent` + HTTP firmware server to validate streaming, remote-download → SetPackage flow, checksum verification, session state, and recovery on failures.
 - `gnoi.system.System.GetStatus`
   - Test individually: grpcurl/unit tests to verify status payloads and error responses.  
   - Test combined: assert status reflects progress and post-upgrade health in integration runs.
@@ -58,8 +58,8 @@ Server-side (gNOI)
 - `grpc.reflection.v1alpha.ServerReflection`
   - Test individually: grpcurl discovery checks (service listing) as a quick health check.
 
-Agent-side (upgrade-agent / workflow)
-- `upgrade-agent apply` (including `--dry-run`)
+Agent-side (sonic-host-agent / workflow)
+- `sonic-host-agent apply` (including `--dry-run`)
   - Test individually: unit tests for YAML parsing, sequencing, CLI flags, and dry-run semantics (use `file://` or local stubs).  
   - Test combined: run against real gNOI servers + HTTP firmware server to validate end-to-end workflow execution.
 
@@ -87,7 +87,7 @@ accomplishes several critical objectives:
 
 Rapid Development Feedback - Developers can validate gNOI server changes without requiring full SONiC environments
 API Contract Verification - Ensures gRPC service definitions work correctly and return expected responses
-Component Integration - Validates that upgrade-agent can successfully communicate with gNOI server
+Component Integration - Validates that sonic-host-agent can successfully communicate with gNOI server
 Workflow Engine Testing - Confirms YAML workflow parsing and execution logic
 CI/CD Integration - Provides fast, reliable automated testing for every PR
 This test serves as the first validation gate, catching integration issues before they reach more expensive KVM or physical device testing.
@@ -99,8 +99,8 @@ This test serves as the first validation gate, catching integration issues befor
 > Verify that the upgrade service functions correctly in a local Linux VM environment. (Can run along with sonic-gnmi PR testing)
 > 1. Deploy gNOI server locally.
 > 2. Run grpcurl to list services and verify connectivity.
-> 3. Use upgrade-agent download with a test file URL.
-> 4. Use upgrade-agent apply with a dry-run config.
+> 3. Use sonic-host-agent download with a test file URL.
+> 4. Use sonic-host-agent apply with a dry-run config.
 
 
 **2. KVM PR testing(sonic-buildimage)**: This test runs in the sonic-buildimage repository's pull request pipeline, using a KVM-based SONiC VM. It verifies that gNOI upgrade-related components.
@@ -201,7 +201,7 @@ DaemonSet Pod"]
 
 ### Test Cases
 
-These test cases mirror the structure of existing CLI-based upgrade tests (e.g., test_upgrade_path, test_double_upgrade_path, test_upgrade_path_t2) but use gNOI API calls for upgrade execution. They are designed to run in PTF environments and leverage upgrade-agent as the gNOI client.
+These test cases mirror the structure of existing CLI-based upgrade tests (e.g., test_upgrade_path, test_double_upgrade_path, test_upgrade_path_t2) but use gNOI API calls for upgrade execution. They are designed to run in PTF environments and leverage sonic-host-agent as the gNOI client.
 
 #### test_gnoi_upgrade_path
 Purpose: Validate a single upgrade using gNOI SetPackage.
