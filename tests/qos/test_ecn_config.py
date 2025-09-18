@@ -314,9 +314,9 @@ def test_ecn_config_utility(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     # Verify counterpoll CLI for enabling and disabling ecn statistics
     # WRED_ECN_QUEUE_STAT
     # WRED_ECN_PORT_STAT
-    wred_stat = {'WRED_ECN_QUEUE_STAT':'wredqueue','WRED_ECN_PORT_STAT':'wredport'}
+    wred_stat = {'WRED_ECN_QUEUE_STAT': 'wredqueue', 'WRED_ECN_PORT_STAT': 'wredport'}
     try:
-        for k,v in wred_stat.items():
+        for k, v in wred_stat.items():
             duthost.command("sudo counterpoll {} {} enable".format(v, asic))
     except Exception as e:
         raise Exception("Error on enabling counterpoll wred stats : {}".format(e))
