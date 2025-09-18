@@ -134,7 +134,7 @@ if err := stream.Send(pkg); err != nil { return err }
 
 **3. Nightly testing(sonic-mgmt)**: This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
 
-
+```mermaid
 graph LR
     Client["Client\n(Any Client)"]
     SonicLib["SonicKubeLib\n(C# Library)"]
