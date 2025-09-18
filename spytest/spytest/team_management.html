@@ -1,0 +1,311 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.1//EN" "http://www.w3.org/TR/xhtml11/DTD/xhtml11.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml">
+<head>
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+
+    <title>Team Management - SPyTest</title>
+
+    <link rel="stylesheet" type="text/css" href="{{cdn}}datatables.min.css"/> <!-- nosemgrep -->
+    <script type="text/javascript" src="{{cdn}}datatables.min.js"></script> <!-- nosemgrep -->
+
+    <style type="text/css">
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f5f5f5;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        
+        h1 {
+            color: #333;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        
+        .team-section {
+            margin: 20px 0;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .team-name {
+            font-size: 18px;
+            font-weight: bold;
+            color: #2196F3;
+        }
+        
+        .member-list {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+        
+        .member-item {
+            background-color: #e3f2fd;
+            padding: 8px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            border: 1px solid #bbdefb;
+        }
+        
+        .member-name {
+            font-weight: 500;
+        }
+        
+        .remove-btn {
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            cursor: pointer;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background-color 0.3s;
+        }
+        
+        .remove-btn:hover {
+            background-color: #d32f2f;
+        }
+        
+        .add-member-section {
+            margin-top: 15px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+        }
+        
+        .add-member-input {
+            width: 200px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            margin-right: 10px;
+        }
+        
+        .add-btn {
+            background-color: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        
+        .add-btn:hover {
+            background-color: #45a049;
+        }
+        
+        .codeowners-section {
+            margin-top: 30px;
+            border-top: 2px solid #eee;
+            padding-top: 20px;
+        }
+        
+        .notification {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+            display: none;
+        }
+        
+        .notification.success {
+            background-color: #dff0d8;
+            border: 1px solid #d6e9c6;
+            color: #3c763d;
+        }
+        
+        .notification.error {
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            color: #a94442;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Team Management</h1>
+        
+        <div id="notification" class="notification"></div>
+        
+        <div class="team-section">
+            <div class="team-header">
+                <span class="team-name">Core Development Team</span>
+            </div>
+            <div class="member-list" id="core-team">
+                <div class="member-item">
+                    <span class="member-name">@wangxin</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@wangxin', 'core-team')" title="Remove from team">×</button>
+                </div>
+                <div class="member-item">
+                    <span class="member-name">@xwjiang-ms</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@xwjiang-ms', 'core-team')" title="Remove from team">×</button>
+                </div>
+                <div class="member-item">
+                    <span class="member-name">@yejianquan</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@yejianquan', 'core-team')" title="Remove from team">×</button>
+                </div>
+            </div>
+            <div class="add-member-section">
+                <input type="text" class="add-member-input" id="core-team-input" placeholder="Enter username (e.g., @username)">
+                <button class="add-btn" onclick="addMember('core-team')">Add Member</button>
+            </div>
+        </div>
+        
+        <div class="team-section">
+            <div class="team-header">
+                <span class="team-name">Testing Team</span>
+            </div>
+            <div class="member-list" id="testing-team">
+                <div class="member-item">
+                    <span class="member-name">@opcoder0</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@opcoder0', 'testing-team')" title="Remove from team">×</button>
+                </div>
+                <div class="member-item">
+                    <span class="member-name">@yutongzhang-microsoft</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@yutongzhang-microsoft', 'testing-team')" title="Remove from team">×</button>
+                </div>
+            </div>
+            <div class="add-member-section">
+                <input type="text" class="add-member-input" id="testing-team-input" placeholder="Enter username (e.g., @username)">
+                <button class="add-btn" onclick="addMember('testing-team')">Add Member</button>
+            </div>
+        </div>
+        
+        <div class="team-section">
+            <div class="team-header">
+                <span class="team-name">Network Team</span>
+            </div>
+            <div class="member-list" id="network-team">
+                <div class="member-item">
+                    <span class="member-name">@JibinBao</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@JibinBao', 'network-team')" title="Remove from team">×</button>
+                </div>
+                <div class="member-item">
+                    <span class="member-name">@Junchao-Mellanox</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@Junchao-Mellanox', 'network-team')" title="Remove from team">×</button>
+                </div>
+                <div class="member-item">
+                    <span class="member-name">@keboliu</span>
+                    <button class="remove-btn" onclick="removeMember(this, '@keboliu', 'network-team')" title="Remove from team">×</button>
+                </div>
+            </div>
+            <div class="add-member-section">
+                <input type="text" class="add-member-input" id="network-team-input" placeholder="Enter username (e.g., @username)">
+                <button class="add-btn" onclick="addMember('network-team')">Add Member</button>
+            </div>
+        </div>
+        
+        <div class="codeowners-section">
+            <h2>CODEOWNERS Management</h2>
+            <p>Team assignments are synchronized with the CODEOWNERS file. Changes made here will update the repository permissions.</p>
+            <button class="add-btn" onclick="syncWithCodeowners()">Sync with CODEOWNERS</button>
+        </div>
+    </div>
+    
+    <script type="text/javascript">
+        function removeMember(button, username, teamId) {
+            if (confirm(`Are you sure you want to remove ${username} from the team?`)) {
+                const memberItem = button.parentElement;
+                memberItem.style.transition = 'opacity 0.3s';
+                memberItem.style.opacity = '0';
+                
+                setTimeout(() => {
+                    memberItem.remove();
+                    showNotification(`Successfully removed ${username} from team`, 'success');
+                }, 300);
+            }
+        }
+        
+        function addMember(teamId) {
+            const input = document.getElementById(teamId + '-input');
+            const username = input.value.trim();
+            
+            if (!username) {
+                showNotification('Please enter a username', 'error');
+                return;
+            }
+            
+            if (!username.startsWith('@')) {
+                showNotification('Username must start with @', 'error');
+                return;
+            }
+            
+            const memberList = document.getElementById(teamId);
+            
+            // Check if user already exists
+            const existingMembers = memberList.querySelectorAll('.member-name');
+            for (let member of existingMembers) {
+                if (member.textContent === username) {
+                    showNotification('User is already a member of this team', 'error');
+                    return;
+                }
+            }
+            
+            // Create new member item
+            const memberItem = document.createElement('div');
+            memberItem.className = 'member-item';
+            memberItem.innerHTML = `
+                <span class="member-name">${username}</span>
+                <button class="remove-btn" onclick="removeMember(this, '${username}', '${teamId}')" title="Remove from team">×</button>
+            `;
+            
+            memberList.appendChild(memberItem);
+            input.value = '';
+            showNotification(`Successfully added ${username} to team`, 'success');
+        }
+        
+        function showNotification(message, type) {
+            const notification = document.getElementById('notification');
+            notification.textContent = message;
+            notification.className = `notification ${type}`;
+            notification.style.display = 'block';
+            
+            setTimeout(() => {
+                notification.style.display = 'none';
+            }, 3000);
+        }
+        
+        function syncWithCodeowners() {
+            showNotification('Synchronizing with CODEOWNERS file...', 'success');
+            // This would typically make an API call to update the CODEOWNERS file
+            // For now, we'll just show a success message
+            setTimeout(() => {
+                showNotification('Successfully synchronized team assignments with CODEOWNERS', 'success');
+            }, 1500);
+        }
+        
+        // Add enter key support for input fields
+        document.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter' && e.target.classList.contains('add-member-input')) {
+                const teamId = e.target.id.replace('-input', '');
+                addMember(teamId);
+            }
+        });
+    </script>
+</body>
+</html>

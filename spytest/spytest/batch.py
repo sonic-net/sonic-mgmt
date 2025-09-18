@@ -1579,6 +1579,13 @@ def update_dashboard_html():
     dashboard_path = os.path.join(os.path.dirname(__file__), dashboard_html)
     content = utils.j2_apply(None, dashboard_path, **wa.j2dict)
     utils.write_file(os.path.join(logs_path, dashboard_html), content)
+    
+    # generate team management page
+    team_mgmt_html = "team_management.html"
+    team_mgmt_path = os.path.join(os.path.dirname(__file__), team_mgmt_html)
+    if os.path.exists(team_mgmt_path):
+        team_content = utils.j2_apply(None, team_mgmt_path, **wa.j2dict)
+        utils.write_file(os.path.join(logs_path, team_mgmt_html), team_content)
 
 
 def create_dashboard():
