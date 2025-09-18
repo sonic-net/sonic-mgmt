@@ -83,7 +83,43 @@ spec:
 
 ## Test scenario
 1. PR testing(sonic-gnmi): This test runs in the sonic-gnmi repository to validate gNOI-related changes in a lightweight local Linux CI environment during pull requests. - https://github.com/ryanzhu706/sonic-gnmi-ryanzhu/blob/readme/azure-pipelines/README.md
+#### Test objective
+
+Verify that the upgrade service functions correctly in a local Linux VM environment. (Can run along with sonic-gnmi PR testing)
+1. Deploy gNOI server locally.
+2. Run grpcurl to list services and verify connectivity.
+3. Use upgrade-agent download with a test file URL.
+4. Use upgrade-agent apply with a dry-run config.
+
 2. KVM PR testing(sonic-buildimage) This test runs in the sonic-buildimage repository's pull request pipeline, using a KVM-based SONiC VM. It verifies that gNOI upgrade-related components.
+#### Test objective
+
+Validate upgrade service behavior on a KVM-based SONiC device.
+1. gNOI server health check and client readiness check.
+```go
+// Illustrative: open a SetPackage stream and send package metadata with SHA256 digest.
+stream, err := client.SetPackage(ctx)
+if err != nil { return err }
+
+pkg := &system.SetPackageRequest{
+ Request: &system.SetPackageRequest_Package{
+  Package: &system.Package{
+   Filename: "SONiC.bin",
+   Version:  "SONiC-2025",
+   RemoteDownload: &common.RemoteDownload{
+    Path: "https://fw.test/SONiC.bin",
+    Protocol: common.RemoteDownload_HTTP,
+   },
+   Hash: &types.Hash{ Type: types.Hash_SHA256, Value: sha256sum },
+  },
+ },
+}
+if err := stream.Send(pkg); err != nil { return err }
+// handle responses...
+```
+
+2. Run full upgrade flow: download → apply.
+
 3. Nightly testing(sonic-mgmt): This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
 
 #### Motivation and Purpose
@@ -149,16 +185,87 @@ Ensure upgrade service works reliably on physical SONiC hardware.
 4. Validate system health post-upgrade.
 5. Test watchdog reboot and missing next-hop scenarios.
 
-### Test Fixture #4 - Negative Scenarios
+### Test Cases
 
-#### Test objective
+These test cases mirror the structure of existing CLI-based upgrade tests (e.g., test_upgrade_path, test_double_upgrade_path, test_upgrade_path_t2) but use gNOI API calls for upgrade execution. They are designed to run in PTF environments and leverage upgrade-agent as the gNOI client.
+
+#### test_gnoi_upgrade_path
+Purpose: Validate a single upgrade using gNOI SetPackage.
+```sh
+def test_gnoi_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    from_image = "sonic-v1.bin"
+    to_image = "sonic-v2.bin"
+    upgrade_type = "cold"
+
+    def upgrade_path_preboot_setup():
+        boot_into_base_image(duthost, localhost, from_image, tbinfo)
+        gnoi_set_package(duthost, to_image)
+
+    upgrade_test_helper(
+        duthost, localhost, ptfhost, from_image, to_image, tbinfo, upgrade_type,
+        preboot_setup=upgrade_path_preboot_setup
+    )
+
+```
+
+#### test_gnoi_double_upgrade_path
+Purpose: Perform two consecutive upgrades via gNOI.
+```sh
+def test_gnoi_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
+    images = ["sonic-v1.bin", "sonic-v2.bin"]
+    upgrade_type = "cold"
+
+    def upgrade_path_preboot_setup():
+        boot_into_base_image(duthost, localhost, from_image, tbinfo)
+        gnoi_set_package(duthost, to_image)
+
+        upgrade_test_helper(
+            duthost, localhost, ptfhost, None, image, tbinfo, upgrade_type,
+            preboot_setup=upgrade_path_preboot_setup,
+            reboot_count=2
+        )
+```
+
+#### test_gnoi_upgrade_path_t2
+Purpose: Validate upgrade across T2 topology using gNOI metadata targeting.
+```sh
+def test_gnoi_upgrade_path_t2(localhost, duthosts, ptfhost, tbinfo):
+    upgrade_type = "cold"
+    from_image = "sonic-v1.bin"
+    to_image = "sonic-v2.bin"
+
+    suphost = duthosts.supervisor_nodes[0]
+    frontend_nodes = duthosts.frontend_nodes
+
+    def upgrade_path_preboot_setup(dut):
+        gnoi_set_package(dut, to_image)
+
+    upgrade_test_helper(
+        suphost, localhost, ptfhost, from_image, to_image, tbinfo, upgrade_type,
+        preboot_setup=lambda: upgrade_path_preboot_setup(suphost)
+    )
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for dut in frontend_nodes:
+            executor.submit(
+                upgrade_test_helper, dut, localhost, ptfhost, from_image, to_image,
+                tbinfo, upgrade_type,
+                preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut)
+            )
+```
+
+#### Negative Scenarios
+
+##### Test objective
 
 Test robustness of the upgrade service under failure conditions.
 1. Use unreachable URL in download config.
 2. Connection timeout.
 3. APIs failure.
 
-### Antagonist (sad-case) scenarios
+##### Antagonist (sad-case) scenarios
 Run these negative setups per scenario to validate error handling and robustness. Each antagonist defines: setup, expected behavior, and verification.
 
 1) Low disk space on DUT
@@ -201,7 +308,7 @@ Notes
 - Each scenario should include automation where possible (Ansible or test scripts) so PR-level tests can inject antagonists reliably.
 - Add per-scenario timeouts and retries to avoid false positives due to transient lab issues.
 
-### Test examples & code snippets
+#### Test examples & code snippets
 Practical snippets and checks to include in test cases and automation.
 
 1) gNOI sanity checks (grpcurl)
@@ -231,107 +338,4 @@ sha256sum /tmp/SONiC.bin
 grpcurl -plaintext DUT:50051 list
 # Query version/state via gNMI (example)
 # gnmi-client get --target DUT --path /sonic/system/version
-```
-
-## Test Cases
-
-These test cases mirror the structure of existing CLI-based upgrade tests (e.g., test_upgrade_path, test_double_upgrade_path, test_upgrade_path_t2) but use gNOI API calls for upgrade execution. They are designed to run in PTF environments and leverage upgrade-agent as the gNOI client.
-
-### test_gnoi_upgrade_path
-Purpose: Validate a single upgrade using gNOI SetPackage.
-```sh
-def test_gnoi_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
-    from_image = "sonic-v1.bin"
-    to_image = "sonic-v2.bin"
-    upgrade_type = "cold"
-
-    def upgrade_path_preboot_setup():
-        boot_into_base_image(duthost, localhost, from_image, tbinfo)
-        gnoi_set_package(duthost, to_image)
-
-    upgrade_test_helper(
-        duthost, localhost, ptfhost, from_image, to_image, tbinfo, upgrade_type,
-        preboot_setup=upgrade_path_preboot_setup
-    )
-
-```
-
-### test_gnoi_double_upgrade_path
-Purpose: Perform two consecutive upgrades via gNOI.
-```sh
-def test_gnoi_double_upgrade_path(localhost, duthosts, ptfhost, rand_one_dut_hostname, tbinfo):
-    duthost = duthosts[rand_one_dut_hostname]
-    images = ["sonic-v1.bin", "sonic-v2.bin"]
-    upgrade_type = "cold"
-
-    def upgrade_path_preboot_setup():
-        boot_into_base_image(duthost, localhost, from_image, tbinfo)
-        gnoi_set_package(duthost, to_image)
-
-        upgrade_test_helper(
-            duthost, localhost, ptfhost, None, image, tbinfo, upgrade_type,
-            preboot_setup=upgrade_path_preboot_setup,
-            reboot_count=2
-        )
-```
-
-### test_gnoi_upgrade_path_t2
-Purpose: Validate upgrade across T2 topology using gNOI metadata targeting.
-```sh
-def test_gnoi_upgrade_path_t2(localhost, duthosts, ptfhost, tbinfo):
-    upgrade_type = "cold"
-    from_image = "sonic-v1.bin"
-    to_image = "sonic-v2.bin"
-
-    suphost = duthosts.supervisor_nodes[0]
-    frontend_nodes = duthosts.frontend_nodes
-
-    def upgrade_path_preboot_setup(dut):
-        gnoi_set_package(dut, to_image)
-
-    upgrade_test_helper(
-        suphost, localhost, ptfhost, from_image, to_image, tbinfo, upgrade_type,
-        preboot_setup=lambda: upgrade_path_preboot_setup(suphost)
-    )
-
-    with SafeThreadPoolExecutor(max_workers=8) as executor:
-        for dut in frontend_nodes:
-            executor.submit(
-                upgrade_test_helper, dut, localhost, ptfhost, from_image, to_image,
-                tbinfo, upgrade_type,
-                preboot_setup=lambda dut=dut: upgrade_path_preboot_setup(dut)
-            )
-```
-
-### test_gnoi_warm_upgrade_sad_path
-```sh
-def test_gnoi_warm_upgrade_sad_path(localhost, duthosts, ptfhost, rand_one_dut_hostname,
-                                    nbrhosts, fanouthosts, vmhost, tbinfo, request, restore_image,
-                                    get_advanced_reboot, verify_dut_health, advanceboot_loganalyzer,
-                                    upgrade_path_lists, backup_and_restore_config_db,
-                                    advanceboot_neighbor_restore, consistency_checker_provider,
-                                    sad_case_type):
-    duthost = duthosts[rand_one_dut_hostname]
-    upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
-    logger.info("Test gNOI upgrade path from {} to {}".format(from_image, to_image))
-
-    def upgrade_path_preboot_setup():
-        # Replace CLI install with gNOI SetPackage call
-        gnoi_set_package(duthost, to_image)
-
-    # Inject sad-case scenarios
-    sad_preboot_list, sad_inboot_list = get_sad_case_list(
-        duthost, nbrhosts, fanouthosts, vmhost, tbinfo, sad_case_type)
-
-    upgrade_test_helper(
-        duthost, localhost, ptfhost, from_image, to_image, tbinfo, "warm",
-        get_advanced_reboot,
-        advanceboot_loganalyzer=advanceboot_loganalyzer,
-        preboot_setup=upgrade_path_preboot_setup,
-        consistency_checker_provider=consistency_checker_provider,
-        sad_preboot_list=sad_preboot_list,
-        sad_inboot_list=sad_inboot_list,
-        enable_cpa=enable_cpa
-    )
 ```
