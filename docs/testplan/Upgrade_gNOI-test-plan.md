@@ -165,8 +165,10 @@ Status ConfigMap (pending)"| SonicLib
 
 ```mermaid
 graph LR
+    subgraph TestServer ["TestServer"]
     MockKubeSONiC["MockKubeSONiC
 (C# Library)"]
+    end 
 
     subgraph Device ["SONiC Device"]
         Agent["sonic-host-agent
