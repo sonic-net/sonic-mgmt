@@ -134,25 +134,20 @@ if err := stream.Send(pkg); err != nil { return err }
 
 **3. Nightly testing(sonic-mgmt)**: This test is integrated into sonic-mgmt to perform full-system validation of gNOI functionality across physical SONiC devices during nightly regression, also test the entire pipeline including gnoi server and carry out an individual upgrade.
 
+
 graph LR
-    Client["Client
-(Any Client)"]
-    SonicLib["SonicKubeLib
-(C# Library)"]
+    Client["Client\n(Any Client)"]
+    SonicLib["SonicKubeLib\n(C# Library)"]
 
     subgraph Device ["SONiC Device"]
-        Agent["sonic-host-agent
-DaemonSet Pod"]
-        GNOI["gNOI Server
-(:50055)"]
+        Agent["sonic-host-agent\nDaemonSet Pod"]
+        GNOI["gNOI Server\n(:50055)"]
         Agent --> GNOI
     end
 
-    Client -->|"Workflow ConfigMap
-Status ConfigMap (pending)"| SonicLib
+    Client -->|"Workflow ConfigMap\nStatus ConfigMap (pending)"| SonicLib
     SonicLib -->|"ConfigMaps via K8s API"| Agent
-    Agent -->|"Status ConfigMap
-(updated)"| SonicLib
+    Agent -->|"Status ConfigMap\n(updated)"| SonicLib
     SonicLib -->|"Client polls status"| Client
 
     style Client fill:#e1f5fe
@@ -160,6 +155,8 @@ Status ConfigMap (pending)"| SonicLib
     style Device fill:#e8f5e8
     style Agent fill:#fff3e0
     style GNOI fill:#fce4ec
+```
+
 
 #### Test objective
 
