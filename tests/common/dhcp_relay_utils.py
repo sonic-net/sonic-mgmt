@@ -7,7 +7,7 @@ import ptf.packet as scapy
 
 logger = logging.getLogger(__name__)
 SUPPORTED_DHCPV4_TYPE = [
-     "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp", "Unknown"
+     "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp", "Unknown", "Malformed"
 ]
 SUPPORTED_DIR = ["TX", "RX"]
 
