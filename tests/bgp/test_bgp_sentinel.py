@@ -84,18 +84,6 @@ def is_bgp_monv6_supported(duthost):
     return False if re.search(bgp_sentinel_pattern, output['stdout']) is None else True
 
 
-# Returns True if the topology has a spine layer, else returns False
-def topo_has_spine_layer(tbinfo):
-    if not tbinfo:
-        return False
-
-    for k, v in tbinfo['topo']['properties']['configuration'].items():
-        if 'spine' in v['properties']:
-            return True
-
-    return False
-
-
 def get_dut_listen_range(tbinfo):
     # Find spine route and get the bp_interface's network
     ipv4_subnet, ipv6_subnet, = None, None
@@ -185,11 +173,6 @@ def dut_lo_addr(rand_selected_dut):
 
 @pytest.fixture(scope="module", params=['BGPSentinel', 'BGPMonV6'])
 def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
-
-    # Skip test for topologies with no spine layer with BGP peers.
-    if not topo_has_spine_layer(tbinfo):
-        pytest.skip('This test is not applicable to topologies with no SPINE layer')
-
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr = dut_lo_addr
     ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
