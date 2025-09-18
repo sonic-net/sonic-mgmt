@@ -165,7 +165,7 @@ Status ConfigMap (pending)"| SonicLib
 
 ```mermaid
 graph LR
-    MockKubeSONiC["SonicKubeLib
+    MockKubeSONiC["MockKubeSONiC
 (C# Library)"]
 
     subgraph Device ["SONiC Device"]
@@ -179,7 +179,6 @@ DaemonSet Pod"]
     MockKubeSONiC -->|"ConfigMaps via K8s API"| Agent
     Agent -->|"Status ConfigMap
 (updated)"| MockKubeSONiC
-    MockKubeSONiC -->|"Client polls status"| Client
 
     style Client fill:#e1f5fe
     style MockKubeSONiC fill:#f3e5f5
