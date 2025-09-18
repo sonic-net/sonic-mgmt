@@ -136,18 +136,24 @@ if err := stream.Send(pkg); err != nil { return err }
 
 ```mermaid
 graph LR
-    Client["Client\n(Any Client)"]
-    SonicLib["SonicKubeLib\n(C# Library)"]
+    Client["Client
+(Any Client)"]
+    SonicLib["SonicKubeLib
+(C# Library)"]
 
     subgraph Device ["SONiC Device"]
-        Agent["sonic-host-agent\nDaemonSet Pod"]
-        GNOI["gNOI Server\n(:50055)"]
+        Agent["sonic-host-agent
+DaemonSet Pod"]
+        GNOI["gNOI Server
+(:50055)"]
         Agent --> GNOI
     end
 
-    Client -->|"Workflow ConfigMap\nStatus ConfigMap (pending)"| SonicLib
+    Client -->|"Workflow ConfigMap
+Status ConfigMap (pending)"| SonicLib
     SonicLib -->|"ConfigMaps via K8s API"| Agent
-    Agent -->|"Status ConfigMap\n(updated)"| SonicLib
+    Agent -->|"Status ConfigMap
+(updated)"| SonicLib
     SonicLib -->|"Client polls status"| Client
 
     style Client fill:#e1f5fe
