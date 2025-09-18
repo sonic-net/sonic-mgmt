@@ -27,8 +27,16 @@ def test_snmp_loopback(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         community=creds_all_duts[duthost.hostname]["snmp_rocommunity"], wait=True)['ansible_facts']
     config_facts = duthost.config_facts(
         host=duthost.hostname, source="persistent")['ansible_facts']
-    # Get first neighbor VM information
-    nbr = nbrhosts[list(nbrhosts.keys())[0]]
+
+    if tbinfo['topo']['type'] == 'lt2':
+        # Get a UT2 nbr to run the test on LT2 topo
+        for nbr_id, nbr_host in nbrhosts.items():
+            if "UT2" in nbr_id:
+                nbr = nbr_host
+                break
+    else:
+        # Get first neighbor VM information
+        nbr = nbrhosts[list(nbrhosts.keys())[0]]
 
     for ip in config_facts['LOOPBACK_INTERFACE']['Loopback0']:
         loip = ip.split('/')[0]
