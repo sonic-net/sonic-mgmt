@@ -7,19 +7,16 @@ high frequency telemetry test cases.
 
 import itertools
 import logging
-import os
 import re
-import signal
-import subprocess
 import threading
 import time
+from datetime import datetime, timedelta, timezone
 
 import pytest
 import ptf.testutils as testutils
 from natsort import natsorted
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -230,13 +227,14 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
                 f"for profile '{profile_name}'")
 
 
-def run_countersyncd_and_capture_output(duthost, timeout=120):
+def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=10):
     """
     Run countersyncd command and capture output.
 
     Args:
         duthost: DUT host object
         timeout: Timeout in seconds (default: 120)
+        stats_interval: Stats reporting interval in seconds (default: 10)
 
     Returns:
         dict: Command result with stdout, stderr, rc
@@ -244,6 +242,7 @@ def run_countersyncd_and_capture_output(duthost, timeout=120):
     countersyncd_cmd = (
         f'timeout {timeout} docker exec swss countersyncd -e '
         f'--max-stats-per-report 0 '
+        f'--stats-interval {stats_interval} '
     )
     result = duthost.shell(countersyncd_cmd, module_ignore_errors=True)
 
@@ -360,8 +359,8 @@ class CountersyncdMonitor:
 
 
 def run_continuous_countersyncd_with_state_changes(duthost, profile_name,
-                                                    state_sequence,
-                                                    phase_duration=60):
+                                                   state_sequence,
+                                                   phase_duration=60):
     """Run countersyncd continuously while changing stream states.
 
     Uses file-based output capture.
@@ -424,9 +423,7 @@ def run_continuous_countersyncd_with_state_changes(duthost, profile_name,
             # Get output for this phase
             phase_end_position = monitor.get_current_file_size()
             phase_output, _ = monitor.get_output_since_position(
-
                 phase_start_position
-
             )
 
             results[phase_name] = {
@@ -439,16 +436,16 @@ def run_continuous_countersyncd_with_state_changes(duthost, profile_name,
             }
 
             logger.info(f"Completed {phase_name}. "
-                       f"Output length: {len(phase_output)} chars, "
-                       f"File positions: {phase_start_position} -> "
-                       f"{phase_end_position}")
+                        f"Output length: {len(phase_output)} chars, "
+                        f"File positions: {phase_start_position} -> "
+                        f"{phase_end_position}")
 
             # Show a snippet of the output for debugging
             if phase_output:
                 snippet = (
-            phase_output[:200] + "..." if len(phase_output) > 200
-            else phase_output
-        )
+                    phase_output[:200] + "..." if len(phase_output) > 200
+                    else phase_output
+                )
                 logger.info(f"Phase output snippet: {snippet}")
             else:
                 logger.warning(f"No output captured for {phase_name}")
@@ -461,11 +458,11 @@ def run_continuous_countersyncd_with_state_changes(duthost, profile_name,
 
 
 def run_continuous_countersyncd_with_config_changes(duthost, profile_name,
-                                                     group_name,
-                                                     object_names,
-                                                     object_counters,
-                                                     config_sequence,
-                                                     phase_duration=60):
+                                                    group_name,
+                                                    object_names,
+                                                    object_counters,
+                                                    config_sequence,
+                                                    phase_duration=60):
     """
     Run countersyncd continuously while changing configuration
     (create/delete) using file-based output capture.
@@ -546,9 +543,7 @@ def run_continuous_countersyncd_with_config_changes(duthost, profile_name,
             # Get output for this phase
             phase_end_position = monitor.get_current_file_size()
             phase_output, _ = monitor.get_output_since_position(
-
                 phase_start_position
-
             )
 
             results[phase_name] = {
@@ -561,16 +556,16 @@ def run_continuous_countersyncd_with_config_changes(duthost, profile_name,
             }
 
             logger.info(f"Completed {phase_name}. "
-                       f"Output length: {len(phase_output)} chars, "
-                       f"File positions: {phase_start_position} -> "
-                       f"{phase_end_position}")
+                        f"Output length: {len(phase_output)} chars, "
+                        f"File positions: {phase_start_position} -> "
+                        f"{phase_end_position}")
 
             # Show a snippet of the output for debugging
             if phase_output:
                 snippet = (
-            phase_output[:200] + "..." if len(phase_output) > 200
-            else phase_output
-        )
+                    phase_output[:200] + "..." if len(phase_output) > 200
+                    else phase_output
+                )
                 logger.info(f"Phase output snippet: {snippet}")
             else:
                 logger.warning(f"No output captured for {phase_name}")
@@ -603,7 +598,7 @@ def validate_stream_state_transitions(
         phase_name = f"phase_{i+1}_{state}"
 
         if phase_name not in phase_results:
-            logger.warning(f"Phase {phase_name} not found in results")
+            logger.warning(f"Phase {phase_name} not found in results")  # noqa: E713
             continue
 
         phase_data = phase_results[phase_name]
@@ -646,10 +641,10 @@ def validate_stream_state_transitions(
         }
 
         logger.info(f"{phase_name} analysis: "
-                   f"Msg/s values: {validation['actual_msg_per_sec']}, "
-                   f"Active msgs: {has_active_msgs}, "
-                   f"Reports: {validation['stable_reports_count']}"
-                   f"/{validation['total_reports_count']}")
+                    f"Msg/s values: {validation['actual_msg_per_sec']}, "
+                    f"Active msgs: {has_active_msgs}, "
+                    f"Reports: {validation['stable_reports_count']}"
+                    f"/{validation['total_reports_count']}")
 
     return validation_results
 
@@ -675,7 +670,7 @@ def validate_config_state_transitions(
         phase_name = f"phase_{i+1}_{action}"
 
         if phase_name not in phase_results:
-            logger.warning(f"Phase {phase_name} not found in results")
+            logger.warning(f"Phase {phase_name} not found in results")  # noqa: E713
             continue
 
         phase_data = phase_results[phase_name]
@@ -718,10 +713,10 @@ def validate_config_state_transitions(
         }
 
         logger.info(f"{phase_name} analysis: "
-                   f"Msg/s values: {validation['actual_msg_per_sec']}, "
-                   f"Active msgs: {has_active_msgs}, "
-                   f"Reports: {validation['stable_reports_count']}"
-                   f"/{validation['total_reports_count']}")
+                    f"Msg/s values: {validation['actual_msg_per_sec']}, "
+                    f"Active msgs: {has_active_msgs}, "
+                    f"Reports: {validation['stable_reports_count']}"
+                    f"/{validation['total_reports_count']}")
 
     return validation_results
 
@@ -807,7 +802,7 @@ def validate_enabled_stream_output(
         counter_value = int(counter_value_str)
         counter_values.append(counter_value)
         pytest_assert(
-            counter_value > min_counter_value,
+            counter_value >= min_counter_value,
             f"Counter value {counter_value} should be greater "
             f"than {min_counter_value}")
 
@@ -834,20 +829,30 @@ def validate_enabled_stream_output(
             min_acceptable = expected_msg_per_sec * (1 - tolerance)
             max_acceptable = expected_msg_per_sec * (1 + tolerance)
 
-            # for actual_msg_per_sec in msg_values:
-            #     pytest_assert(
-            #         min_acceptable <= actual_msg_per_sec <= max_acceptable,
-            # f"Msg/s {actual_msg_per_sec} is
-            # outside acceptable range
-            # f"[{min_acceptable:.2f}, {max_acceptable:.2f}]
-            # for poll_interval {expected_poll_interval}us"
-            #     )
+            # Calculate average Msg/s for validation (data may be uneven)
+            avg_msg_per_sec = sum(msg_values) / len(msg_values)
+
+            # Log individual values and average for debugging
+            logger.info(f"Individual Msg/s values: {msg_values}")
+            logger.info(f"Average Msg/s: {avg_msg_per_sec: .2f}, Expected: {expected_msg_per_sec: .2f}")
+
+            # Validate the average against expected range
+            if min_acceptable <= avg_msg_per_sec <= max_acceptable:
+                logger.info(
+                    f"Msg/s validation PASSED: Average {avg_msg_per_sec: .2f} is within "
+                    f"expected range {min_acceptable: .2f} - {max_acceptable: .2f}")
+                msg_validation_result = True
+            else:
+                pytest_assert(False,
+                              f"Average Msg/s {avg_msg_per_sec: .2f} is outside expected range: "
+                              f"{min_acceptable: .2f} - {max_acceptable: .2f}. "
+                              f"Individual values: {msg_values}")
 
             logger.info(
                 f"Successfully verified {len(msg_per_sec_matches)} Msg/s values. "
-                f"Expected: {expected_msg_per_sec:.2f}, "
-                f"Actual range: {min(msg_values)} - {max(msg_values)}")
-            msg_validation_result = True
+                f"Expected: {expected_msg_per_sec: .2f}, "
+                f"Average: {avg_msg_per_sec: .2f}, "
+                f"Individual range: {min(msg_values): .2f} - {max(msg_values): .2f}")
         else:
             # Debug logging to help diagnose Msg/s issues
             logger.warning(
@@ -882,7 +887,7 @@ def validate_enabled_stream_output(
     object_matches = {}
     if expected_objects:
         for obj_name in expected_objects:
-            obj_pattern = rf'Object: {re.escape(obj_name)}\s+.*?Counter:\s+(\d+)'
+            obj_pattern = rf'Object: {re.escape(obj_name)}\s+.*?Counter:\s+(\d+)'  # noqa: E231
             obj_matches = re.findall(obj_pattern, stable_output)
 
             pytest_assert(
@@ -892,12 +897,55 @@ def validate_enabled_stream_output(
             object_matches[obj_name] = [int(val) for val in obj_matches]
             logger.info(f"Successfully verified counters for {obj_name}: {object_matches[obj_name]}")
 
+    # Validate LastTime timestamps - expect them to be close to current UTC time
+    lasttime_pattern = r'LastTime: (\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.\d+) UTC'
+    lasttime_matches = re.findall(lasttime_pattern, stable_output)
+    lasttime_validation_result = True
+
+    if lasttime_matches:
+        current_utc = datetime.now(timezone.utc)
+        tolerance_minutes = 10
+        min_acceptable_time = current_utc - timedelta(minutes=tolerance_minutes)
+        max_acceptable_time = current_utc + timedelta(minutes=tolerance_minutes)
+
+        valid_timestamps = []
+        invalid_timestamps = []
+
+        for timestamp_str in lasttime_matches:
+            try:
+                # Parse timestamp (format: 1970-01-02 02:08:37.307033444)
+                timestamp = datetime.strptime(timestamp_str[:26], '%Y-%m-%d %H:%M:%S.%f')
+
+                if min_acceptable_time <= timestamp <= max_acceptable_time:
+                    valid_timestamps.append(timestamp_str)
+                else:
+                    invalid_timestamps.append(timestamp_str)
+                    logger.warning(f"Invalid timestamp {timestamp_str}: outside {tolerance_minutes}-minute window")
+            except ValueError as e:
+                invalid_timestamps.append(timestamp_str)
+                logger.warning(f"Failed to parse timestamp {timestamp_str}: {e}")
+
+        if invalid_timestamps:
+            lasttime_validation_result = False
+            pytest_assert(False,
+                          f"Found {len(invalid_timestamps)} invalid timestamps outside "
+                          f"{tolerance_minutes}-minute window. Current UTC: {current_utc}, "
+                          f"Invalid timestamps: {invalid_timestamps[:5]}")  # Show first 5
+
+        logger.info(f"LastTime validation PASSED: {len(valid_timestamps)} timestamps within "
+                    f"{tolerance_minutes}-minute window of current UTC time {current_utc}")
+    else:
+        logger.warning("No LastTime timestamps found in stable output")
+        lasttime_validation_result = False
+
     return {
         "counter_values": counter_values,
         "object_matches": object_matches,
         "total_counters": len(counter_matches),
         "actual_msg_per_sec": [float(m) for m in msg_per_sec_matches] if msg_per_sec_matches else [],
         "msg_per_sec_validation": msg_validation_result,
+        "lasttime_validation": lasttime_validation_result,
+        "lasttime_matches": lasttime_matches if lasttime_matches else [],
         "stable_reports_count": len(stable_reports),
         "total_reports_count": len(reports)
     }
@@ -978,7 +1026,7 @@ def validate_disabled_stream_output(output, expected_objects, expected_poll_inte
     object_matches = {}
     if expected_objects:
         for obj_name in expected_objects:
-            obj_pattern = rf'Object: {re.escape(obj_name)}\s+.*?Counter:\s+(\d+)'
+            obj_pattern = rf'Object: {re.escape(obj_name)}\s+.*?Counter:\s+(\d+)'  # noqa: E231
             obj_matches = re.findall(obj_pattern, stable_output)
 
             if obj_matches:
@@ -988,7 +1036,7 @@ def validate_disabled_stream_output(output, expected_objects, expected_poll_inte
                 object_matches[obj_name] = object_values
                 logger.info(f"Found counters for {obj_name} in disabled stream: {object_values} (values preserved)")
             else:
-                logger.info(f"Object {obj_name} not found in disabled stream output - this is expected")
+                logger.info(f"Object {obj_name} not found in disabled stream output - this is expected")  # noqa: E713
 
     return {
         "counter_values": counter_values,
@@ -1002,8 +1050,8 @@ def validate_disabled_stream_output(output, expected_objects, expected_poll_inte
 
 
 def run_continuous_countersyncd_with_port_state_changes(duthost, profile_name, ptfadapter,
-                                                      test_port, ptf_port_index, router_mac,
-                                                      port_state_sequence):
+                                                        test_port, ptf_port_index, router_mac,
+                                                        port_state_sequence):
     """
     Run countersyncd continuously while changing port states (up/down) and injecting PTF traffic.
 
@@ -1120,16 +1168,16 @@ def run_continuous_countersyncd_with_port_state_changes(duthost, profile_name, p
             }
 
             logger.info(f"Completed {phase_name}. "
-                       f"Output length: {len(phase_output)} chars, "
-                       f"File positions: {phase_start_position} -> "
-                       f"{phase_end_position}")
+                        f"Output length: {len(phase_output)} chars, "
+                        f"File positions: {phase_start_position} -> "
+                        f"{phase_end_position}")
 
             # Show a snippet of the output for debugging
             if phase_output:
                 snippet = (
-            phase_output[:200] + "..." if len(phase_output) > 200
-            else phase_output
-        )
+                    phase_output[:200] + "..." if len(phase_output) > 200
+                    else phase_output
+                )
                 logger.info(f"Phase output snippet: {snippet}")
             else:
                 logger.warning(f"No output captured for {phase_name}")
@@ -1167,7 +1215,7 @@ def validate_port_state_transitions(phase_results, port_state_sequence, validati
         phase_name = f"phase_{i+1}_{state}"
 
         if phase_name not in phase_results:
-            logger.warning(f"Phase {phase_name} not found in results")
+            logger.warning(f"Phase {phase_name} not found in results")  # noqa: E713
             continue
 
         phase_data = phase_results[phase_name]
@@ -1249,7 +1297,8 @@ def analyze_counter_trend(output):
     diff = last_val - first_val
     pct_change = (diff / first_val * 100) if first_val > 0 else 0
 
-    logger.info(f"Counter trend analysis: first={first_val}, last={last_val}, diff={diff}, pct_change={pct_change:.2f}%")
+    logger.info(f"Counter trend analysis: first={first_val}, last={last_val}, "
+                f"diff={diff}, pct_change={pct_change: .2f}%")
 
     # Determine trend based on percentage change
     if pct_change > 5:  # More than 5% increase

@@ -3638,4 +3638,3 @@ zmq/test_gnmi_zmq.py:
     conditions:
       - "'arista' in platform"
       - "'isolated' in topo_name"
-

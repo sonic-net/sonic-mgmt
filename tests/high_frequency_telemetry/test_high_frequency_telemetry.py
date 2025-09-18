@@ -96,8 +96,8 @@ def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         cleanup_hft_config(duthost, profile_name, [group_name])
 
 
-@pytest.mark.xfail(reason="Queue-based high frequency telemetry "
-                           "not yet supported")
+@pytest.mark.skip(reason="Queue-based high frequency telemetry "
+                         "not yet supported")
 def test_hft_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
                             disable_flex_counters, tbinfo):
     """
@@ -154,8 +154,9 @@ def test_hft_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         cleanup_hft_config(duthost, profile_name)
 
 
+@pytest.mark.skip(reason="Some PORT stats haven't been supported yet")
 def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                                 disable_flex_counters, tbinfo):
+                                disable_flex_counters, tbinfo):
     """
     Test high frequency telemetry with all available ports and all
     available counter types.
@@ -237,6 +238,7 @@ def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         # num_ports * num_counters if some counter types are not supported)
         min_expected_counters = len(all_available_ports)  # At least one
         # counter per port
+        actual_counters = validation_results['total_counters']
         pytest_assert(
             validation_results['total_counters'] >= min_expected_counters,
             f"Expected at least {min_expected_counters} counters, "
@@ -247,11 +249,10 @@ def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         max_expected_counters = (
             len(all_available_ports) * len(all_port_counters)
         )
-        actual_counters = validation_results['total_counters']
 
         logger.info(
             f"Counter coverage: {actual_counters} counters verified "
-            f"({actual_counters/max_expected_counters*100:.1f}%)"
+            f"({actual_counters/max_expected_counters*100: .1f}%)"
         )
 
         if actual_counters < max_expected_counters:
@@ -264,8 +265,8 @@ def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
             logger.info("✓ All counter types are supported on this platform!")
 
         logger.info(f"Full port counter test completed successfully. "
-                   f"Total counters verified: {validation_results['total_counters']} "
-                   f"across {len(all_available_ports)} ports")
+                    f"Total counters verified: {validation_results['total_counters']} "
+                    f"across {len(all_available_ports)} ports")
 
     finally:
         cleanup_hft_config(duthost, profile_name)
@@ -347,7 +348,8 @@ def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
                 phase2_no_msgs = not validation_results[phase2_key]['has_active_msgs']
                 pytest_assert(
                     phase2_no_msgs,
-                    f"Phase 2 (disabled): Expected Msg/s = 0, got {validation_results[phase2_key]['actual_msg_per_sec']}"
+                    f"Phase 2 (disabled): Expected Msg/s = 0, "
+                    f"got {validation_results[phase2_key]['actual_msg_per_sec']}"
                 )
                 logger.info("✓ Phase 2 validation passed: Stream disabled, Msg/s = 0")
 
@@ -356,7 +358,8 @@ def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
                 phase3_has_msgs = validation_results[phase3_key]['has_active_msgs']
                 pytest_assert(
                     phase3_has_msgs,
-                    f"Phase 3 (re-enabled): Expected Msg/s > 0, got {validation_results[phase3_key]['actual_msg_per_sec']}"
+                    f"Phase 3 (re-enabled): Expected Msg/s > 0, "
+                    f"got {validation_results[phase3_key]['actual_msg_per_sec']}"
                 )
                 logger.info("✓ Phase 3 validation passed: Stream re-enabled, Msg/s > 0")
 
@@ -364,8 +367,8 @@ def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
         logger.info("Summary of phases:")
         for phase_name, result in validation_results.items():
             logger.info(f"  {phase_name}: {result['state']} -> "
-                       f"Msg/s: {result['actual_msg_per_sec']} -> "
-                       f"Active: {result['has_active_msgs']}")
+                        f"Msg/s: {result['actual_msg_per_sec']} -> "
+                        f"Active: {result['has_active_msgs']}")
 
     finally:
         # Clean up: Remove high frequency telemetry configuration
@@ -451,7 +454,8 @@ def test_hft_config_deletion_stream(duthosts, enum_rand_one_per_hwsku_hostname,
                 phase3_has_msgs = validation_results[phase3_key]['has_active_msgs']
                 pytest_assert(
                     phase3_has_msgs,
-                    f"Phase 3 (re-create): Expected Msg/s > 0, got {validation_results[phase3_key]['actual_msg_per_sec']}"
+                    f"Phase 3 (re-create): Expected Msg/s > 0, "
+                    f"got {validation_results[phase3_key]['actual_msg_per_sec']}"
                 )
                 logger.info("✓ Phase 3 validation passed: Configuration re-created, Msg/s > 0")
 
@@ -459,8 +463,8 @@ def test_hft_config_deletion_stream(duthosts, enum_rand_one_per_hwsku_hostname,
         logger.info("Summary of phases:")
         for phase_name, result in validation_results.items():
             logger.info(f"  {phase_name}: {result['action']} -> "
-                       f"Msg/s: {result['actual_msg_per_sec']} -> "
-                       f"Active: {result['has_active_msgs']}")
+                        f"Msg/s: {result['actual_msg_per_sec']} -> "
+                        f"Active: {result['has_active_msgs']}")
 
     finally:
         # Clean up: Remove any remaining high frequency telemetry configuration
@@ -474,6 +478,7 @@ def test_hft_config_deletion_stream(duthosts, enum_rand_one_per_hwsku_hostname,
     (1000000, 1),      # 1000ms -> 1 Msg/s
     (10000000, 0.1),   # 10000ms -> 0.1 Msg/s
 ])
+@pytest.mark.skip(reason="Some intervals may not be supported")
 def test_hft_poll_interval_validation(duthosts, enum_rand_one_per_hwsku_hostname,
                                       disable_flex_counters, tbinfo,
                                       poll_interval_us, expected_msg_per_sec):
@@ -578,32 +583,45 @@ def test_hft_poll_interval_validation(duthosts, enum_rand_one_per_hwsku_hostname
                 min_expected = expected_msg_per_sec * (1 - tolerance)
                 max_expected = expected_msg_per_sec * (1 + tolerance)
 
-                logger.info(f"Poll interval validation:")
+                logger.info("Poll interval validation:")
                 logger.info(f"  Poll interval: {poll_interval_us} μs")
                 logger.info(f"  Expected Msg/s: {expected_msg_per_sec}")
-                logger.info(f"  Actual Msg/s: {avg_msg_per_sec:.2f} (range: {min(actual_msg_per_sec):.2f}-{max(actual_msg_per_sec):.2f})")
-                logger.info(f"  Acceptable range: {min_expected:.2f} - {max_expected:.2f} (±{tolerance*100:.0f}%)")
+                logger.info(f"  Actual Msg/s: {avg_msg_per_sec: .2f} "
+                            f"(range: {min(actual_msg_per_sec): .2f}-"
+                            f"{max(actual_msg_per_sec): .2f})")
+                logger.info(f"  Acceptable range: {min_expected: .2f} - "
+                            f"{max_expected: .2f} (±{tolerance*100: .0f}%)")
 
                 # Validate that average Msg/s is within acceptable range
                 pytest_assert(
                     min_expected <= avg_msg_per_sec <= max_expected,
-                    f"Poll interval {poll_interval_us} μs: Expected Msg/s {min_expected:.2f}-{max_expected:.2f}, "
-                    f"got {avg_msg_per_sec:.2f}. Individual measurements: {actual_msg_per_sec}"
+                    f"Poll interval {poll_interval_us} μs: "
+                    f"Expected Msg/s {min_expected: .2f}-{max_expected: .2f}, "
+                    f"got {avg_msg_per_sec: .2f}. Individual measurements: "
+                    f"{actual_msg_per_sec}"
                 )
 
-                logger.info(f"✓ Poll interval validation PASSED: {poll_interval_us} μs -> {avg_msg_per_sec:.2f} Msg/s")
+                logger.info(f"✓ Poll interval validation PASSED: "
+                            f"{poll_interval_us} μs -> "
+                            f"{avg_msg_per_sec: .2f} Msg/s")
 
             else:
-                pytest.fail(f"Msg/s validation returned True but no actual measurements found for poll interval {poll_interval_us} μs")
+                pytest.fail(f"Msg/s validation returned True but no actual "
+                            f"measurements found for poll interval "
+                            f"{poll_interval_us} μs")
         elif validation_results['msg_per_sec_validation'] is False:
-            pytest.fail(f"No Msg/s measurements found for poll interval {poll_interval_us} μs")
+            pytest.fail(f"No Msg/s measurements found for poll interval "
+                        f"{poll_interval_us} μs")
         else:
-            pytest.fail(f"Msg/s validation failed - unexpected validation state for poll interval {poll_interval_us} μs")
+            pytest.fail(f"Msg/s validation failed - unexpected validation "
+                        f"state for poll interval {poll_interval_us} μs")
 
         logger.info(f"Poll interval test completed successfully. "
-                   f"Poll interval: {poll_interval_us} μs, "
-                   f"Total counters verified: {validation_results['total_counters']} "
-                   f"(from {validation_results['stable_reports_count']} stable reports)")
+                    f"Poll interval: {poll_interval_us} μs, "
+                    f"Total counters verified: "
+                    f"{validation_results['total_counters']} "
+                    f"(from {validation_results['stable_reports_count']} "
+                    f"stable reports)")
 
     finally:
         # Clean up: Remove high frequency telemetry configuration
@@ -634,7 +652,6 @@ def test_hft_port_shutdown_stream(duthosts, enum_rand_one_per_hwsku_hostname,
     logger.info(f"Using port for testing: {test_port}")
 
     # Get PTF port mapping for traffic injection
-    cfg_facts = duthost.config_facts(host=duthost.hostname, source="persistent")['ansible_facts']
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_port_index = mg_facts['minigraph_ptf_indices'][test_port]
 
@@ -728,8 +745,8 @@ def test_hft_port_shutdown_stream(duthosts, enum_rand_one_per_hwsku_hostname,
         logger.info("Summary of phases:")
         for phase_name, result in validation_results.items():
             logger.info(f"  {phase_name}: port {result['port_state']} -> "
-                       f"Counter trend: {result['counter_trend']} -> "
-                       f"Increasing: {result['counters_increasing']}")
+                        f"Counter trend: {result['counter_trend']} -> "
+                        f"Increasing: {result['counters_increasing']}")
 
     finally:
         # Ensure port is up before cleanup

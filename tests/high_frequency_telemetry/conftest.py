@@ -93,11 +93,11 @@ def ensure_swss_ready(duthosts, enum_rand_one_per_hwsku_hostname):
             current_uptime = get_swss_uptime_seconds()
             if current_uptime >= min_uptime:
                 logger.info(f"swss container is stable "
-                           f"(uptime: {current_uptime}s)")
+                            f"(uptime: {current_uptime}s)")
                 break
         else:
             raise RuntimeError(f"swss container failed to stabilize "
-                              f"after {max_wait} seconds")
+                               f"after {max_wait} seconds")
 
     elif uptime < min_uptime:
         wait_time = min_uptime - uptime + 1  # +1 for safety margin
