@@ -117,6 +117,11 @@ def get_down_bgp_sessions_neighbors(duthost):
 
 @pytest.fixture(scope="function")
 def setup_routes_before_test(localhost, duthost, tbinfo, vmhosts, ptfhosts, topo_bgp_routes, bgp_peers_info):
+    servers_dut_interfaces = {}
+    # If servers in tbinfo, means tb was deployed with multi servers
+    if 'servers' in tbinfo:
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
     if not validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
         ptf_container = "ptf_%s" % tbinfo['group-name']
         for vmhost in vmhosts:
@@ -124,11 +129,6 @@ def setup_routes_before_test(localhost, duthost, tbinfo, vmhosts, ptfhosts, topo
         for ptfhost in ptfhosts:
             ptf_ip = ptfhost.mgmt_ip
             announce_routes(localhost, tbinfo, ptf_ip, servers_dut_interfaces.get(ptf_ip, ''))
-    servers_dut_interfaces = {}
-    # If servers in tbinfo, means tb was deployed with multi servers
-    if 'servers' in tbinfo:
-        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
-                                  for value in tbinfo['servers'].values()}
     yield servers_dut_interfaces
 
 
@@ -200,22 +200,21 @@ def remove_nexthops_in_routes(routes, nexthops):
 
 def validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
     identical = True
-    neighbors = {}
     running_routes = get_all_bgp_ipv6_routes(duthost)
     for prefix, attr in running_routes.items():
         running_only_nhps = []
         topo_only_nhps = []
         running_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
         topo_nhs = [bgp_peers_info[hostname][IPV6_KEY].lower() for hostname, routes in topo_bgp_routes.items()
-                    if hostname in bgp_peers_info and str(ipaddress.ip_network(prefix)) in [str(ipaddress.ip_network(r[0])) for r in routes[IPV6_KEY]]]
+                    if hostname in bgp_peers_info and str(ipaddress.ip_network(prefix))
+                    in [str(ipaddress.ip_network(r[0])) for r in routes[IPV6_KEY]]]
         if prefix in STATIC_ROUTES or len(running_nhs) == 1:
             logger.warning("Skip validate route %s", prefix)
             continue
         running_only_nhps = set(running_nhs) - set(topo_nhs)
         topo_only_nhps = set(topo_nhs) - set(running_nhs)
         if running_only_nhps or topo_only_nhps:
-            logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s",
-                        prefix, running_only_nhps, topo_only_nhps)
+            logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s", prefix, running_only_nhps, topo_only_nhps)
             identical = False
     return identical
 
@@ -304,8 +303,7 @@ def flush_counters(ptf_dp, masked_exp_pkt):
         ptf_dp.mask_rx_cnt[masked_exp_pkt][idx] = 0
     for idx in ptf_dp.mask_tx_cnt[masked_exp_pkt].keys():
         ptf_dp.mask_tx_cnt[masked_exp_pkt][idx] = 0
-    logger.info("after flush rx_counters: %s, tx_counters: %s",
-                 ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
+    logger.info("after flush rx_counters: %s, tx_counters: %s", ptf_dp.mask_rx_cnt[masked_exp_pkt], ptf_dp.mask_tx_cnt[masked_exp_pkt])
 
 
 def send_packets(
