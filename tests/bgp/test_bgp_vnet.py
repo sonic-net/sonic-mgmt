@@ -29,9 +29,9 @@ TEMPLATE_CONFIGS = {
     "vnet_dynamic_peer_add": {
         "BGP_PEER_RANGE": {
             "Vnet2|BGPSLBPassive": {
-                "ip_range": ["10.0.0.60/31", "10.0.0.62/31"],
-                "peer_asn": "64600",
-                "src_address": "10.0.0.60",
+                "ip_range": [],
+                "peer_asn": "",
+                "src_address": "",
                 "name": "BGPSLBPassive"
             }
         }
@@ -39,9 +39,9 @@ TEMPLATE_CONFIGS = {
     "vnet_dynamic_peer_del": {
         "BGP_PEER_RANGE": {
             "Vnet2|BGPSLBPassive": {
-                "ip_range": ["10.0.0.60/31"],
-                "peer_asn": "64600",
-                "src_address": "10.0.0.60",
+                "ip_range": [],
+                "peer_asn": "",
+                "src_address": "",
                 "name": "BGPSLBPassive"
             }
         }
@@ -149,6 +149,43 @@ def setup_vnet(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
             "swss", "syncd", "database", "teamd", "bgp"]
         cfg_t0 = get_cfg_facts(duthost)  # generate cfg_facts for t0 topo
 
+        bgp_neighbors = cfg_t0.get("BGP_NEIGHBOR", {})
+
+        g_vars["vnet1"] = {"static": [], "dynamic": []}
+        g_vars["vnet2"] = {"static": [], "dynamic": {"ARISTA03T1": "", "ARISTA04T1": ""}}
+        peer_asn = list(bgp_neighbors.values())[0]["asn"]
+        TEMPLATE_CONFIGS["vnet_dynamic_peer_add"]["BGP_PEER_RANGE"]["Vnet2|BGPSLBPassive"]["peer_asn"] = peer_asn
+        TEMPLATE_CONFIGS["vnet_dynamic_peer_del"]["BGP_PEER_RANGE"]["Vnet2|BGPSLBPassive"]["peer_asn"] = peer_asn
+        for neighbor_ip, attrs in bgp_neighbors.items():
+            name = attrs.get("name", "")
+            # Check if IPv6 (contains ':')
+            is_ipv6 = ":" in neighbor_ip
+            if name in ["ARISTA01T1", "ARISTA02T1"]:
+                # Static neighbors for vnet1
+                g_vars["vnet1"]["static"].append(neighbor_ip)
+            elif name == "ARISTA03T1":
+                if is_ipv6:
+                    # Static neighbors for vnet2 (IPv6)
+                    g_vars["vnet2"]["static"].append(neighbor_ip)
+                else:
+                    # Dynamic neighbors for vnet2 (IPv4)
+                    g_vars["vnet2"]["dynamic"]["ARISTA03T1"] = neighbor_ip
+                    peer_cfg_add = TEMPLATE_CONFIGS["vnet_dynamic_peer_add"]["BGP_PEER_RANGE"]["Vnet2|BGPSLBPassive"]
+                    peer_cfg_del = TEMPLATE_CONFIGS["vnet_dynamic_peer_del"]["BGP_PEER_RANGE"]["Vnet2|BGPSLBPassive"]
+                    peer_cfg_add["src_address"] = attrs['local_addr']
+                    peer_cfg_del["src_address"] = attrs['local_addr']
+                    peer_cfg_add["ip_range"].append(f"{attrs['local_addr']}/31")
+                    peer_cfg_del["ip_range"].append(f"{attrs['local_addr']}/31")
+            elif name == "ARISTA04T1":
+                if is_ipv6:
+                    # Static neighbors for vnet2 (IPv6)
+                    g_vars["vnet2"]["static"].append(neighbor_ip)
+                else:
+                    # Dynamic neighbors for vnet2 (IPv4)
+                    g_vars["vnet2"]["dynamic"]["ARISTA04T1"] = neighbor_ip
+                    peer_cfg_add = TEMPLATE_CONFIGS["vnet_dynamic_peer_add"]["BGP_PEER_RANGE"]["Vnet2|BGPSLBPassive"]
+                    peer_cfg_add["ip_range"].append(f"{attrs['local_addr']}/31")
+
         setup_vnet_cfg(duthost, localhost, cfg_t0)
 
         duthost.shell("sonic-clear arp")
@@ -229,23 +266,25 @@ def validate_dynamic_peer_established(bgp_summary, template):
     '''
     Validate that the dynamic peer is in the established state.
     '''
+    dyn_peer1 = g_vars["vnet2"]["dynamic"]["ARISTA03T1"]
+    dyn_peer2 = g_vars["vnet2"]["dynamic"]["ARISTA04T1"]
     if template == 'vnet_dynamic_peer_add':
         assert (
-            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+            dyn_peer1 in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers'][dyn_peer1]['state'] == 'Established'
+        ), f"BGP peer {dyn_peer1} not in Established state or missing from summary"
         assert (
-            '10.0.0.63' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.63']['state'] == 'Established'
-        ), "BGP peer 10.0.0.63 not in Established state or missing from summary"
+            dyn_peer2 in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers'][dyn_peer2]['state'] == 'Established'
+        ), f"BGP peer {dyn_peer2} not in Established state or missing from summary"
     elif template == 'vnet_dynamic_peer_del':
         assert (
-            '10.0.0.61' in bgp_summary['ipv4Unicast']['peers']
-            and bgp_summary['ipv4Unicast']['peers']['10.0.0.61']['state'] == 'Established'
-        ), "BGP peer 10.0.0.61 not in Established state or missing from summary"
+            dyn_peer1 in bgp_summary['ipv4Unicast']['peers']
+            and bgp_summary['ipv4Unicast']['peers'][dyn_peer1]['state'] == 'Established'
+        ), f"BGP peer {dyn_peer1} not in Established state or missing from summary"
         assert (
-            '10.0.0.63' not in bgp_summary['ipv4Unicast']['peers']
-            ), "BGP peer 10.0.63 should not be in show bgp summary output"
+            dyn_peer2 not in bgp_summary['ipv4Unicast']['peers']
+        ), f"BGP peer {dyn_peer2} should not be in show bgp summary output"
 
 
 def modify_dynamic_peer_cfg(duthost, template):
@@ -271,8 +310,8 @@ def dynamic_range_add_delete(duthost, template):
     '''
     Validate the behavior when a different dynamic range is added/deleted.
     '''
-    static_peers = ['fc00::7a', 'fc00::7e']
-    dynamic_peer = '10.0.0.61'
+    static_peers = g_vars["vnet2"]["static"]
+    dynamic_peer = g_vars["vnet2"]["dynamic"]["ARISTA03T1"]
     static_peer_uptime_before, dynamic_peer_uptime_before = get_bgp_peer_uptime(
         duthost, static_peers, dynamic_peer)
     time.sleep(10)
@@ -467,7 +506,7 @@ def test_dynamic_peer_group_delete(duthosts, rand_one_dut_hostname):
     '''
     duthost = duthosts[rand_one_dut_hostname]
     try:
-        static_peers = ['fc00::7a', 'fc00::7e']
+        static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
         redis_cmd = 'redis-cli -n 4 DEL "BGP_PEER_RANGE|Vnet2|BGPSLBPassive"'
         duthost.shell(redis_cmd)
@@ -499,8 +538,8 @@ def test_dynamic_peer_modify_stress(duthosts, rand_one_dut_hostname):
     try:
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
         time.sleep(120)
-        static_peers = ['fc00::7a', 'fc00::7e']
-        dynamic_peer = '10.0.0.61'
+        static_peers = g_vars["vnet2"]["static"]
+        dynamic_peer = g_vars["vnet2"]["dynamic"]["ARISTA03T1"]
         static_peer_uptime_before, dynamic_peer_uptime_before = get_bgp_peer_uptime(
             duthost, static_peers, dynamic_peer)
         core_dumps_before = get_core_dumps(duthost)
@@ -536,7 +575,7 @@ def test_dynamic_peer_delete_stress(duthosts, rand_one_dut_hostname):
     try:
         modify_dynamic_peer_cfg(duthost, 'vnet_dynamic_peer_add')
         time.sleep(120)
-        static_peers = ['fc00::7a', 'fc00::7e']
+        static_peers = g_vars["vnet2"]["static"]
         static_peer_uptime_before = get_bgp_peer_uptime(duthost, static_peers)
         core_dumps_before = get_core_dumps(duthost)
 
