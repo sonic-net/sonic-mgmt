@@ -54,6 +54,28 @@ def skip_for_non_smartswitch(duthost):
                     "is_smartswitch: {}".format(duthost.facts.get('is_smartswitch')))
 
 
+@pytest.fixture(scope='function')
+def dpu_env(duthosts, enum_rand_one_per_hwsku_hostname,
+            platform_api_conn, num_dpu_modules):  # noqa F811
+    """
+    Runs pre_test_check() before the test and ensures all DPUs
+    that are UP before the test are forced UP after the test (even if it fails).
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    logging.info("Executing pre-test check")
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+        duthost, platform_api_conn, num_dpu_modules
+    )
+
+    yield duthost, ip_address_list, dpu_on_list, dpu_off_list
+
+    for dpu in dpu_on_list:
+        iface = dpu.lower()
+        logging.info(f"[Cleanup] Forcing UP {dpu} ({iface})")
+        duthost.shell(f"sudo ip link set {iface} up")
+
+
 @pytest.fixture(scope='function', autouse=True)
 def check_smartswitch_and_dark_mode(duthosts, enum_rand_one_per_hwsku_hostname,
                                     platform_api_conn, num_dpu_modules,  # noqa F811
@@ -581,3 +603,20 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
                 wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
             )
+
+
+def check_midplane_status(duthost, dpu_ip, expected_status):
+    """
+    Check midplane reachability for a given DPU IP
+    Args:
+        duthost: DUT host handle
+        dpu_ip: IP address of the DPU to check
+        expected_status: "True" or "False" (string)
+    Returns:
+        True if the reachability matches expected_status, else False
+    """
+    output = duthost.show_and_parse("show chassis modules midplane-status")
+    for entry in output:
+        if entry['ip-address'] == dpu_ip:
+            return str(entry['reachability']).strip().lower() == expected_status.lower()
+    return False
