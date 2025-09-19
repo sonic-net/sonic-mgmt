@@ -259,7 +259,10 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     peer_devices = list(set(peer_devices))
     # in case there are other fanout devices (Arista, SONiC, etc) defined in the inventory file,
     # try to filter out the other device based on the name for now.
-    peer_snappi_devices = list(filter(lambda dut_name: ('ixia' in dut_name), peer_devices))
+    peer_snappi_devices = list(filter(
+        lambda dut_name: ('ixia' in dut_name or 'snappi' in dut_name), peer_devices)
+    )
+
     if len(peer_snappi_devices) == 1:
         return peer_snappi_devices[0]
     else:
