@@ -508,7 +508,7 @@ def run_traffic(duthost,
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
-    switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
+    switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"]["Tx"][0].values(), [])
     switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
     switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
     switch_device_results = None
