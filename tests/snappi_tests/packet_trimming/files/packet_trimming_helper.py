@@ -12,7 +12,7 @@ from tests.common.snappi_tests.packet_trim_helpers import (
 from tests.common.snappi_tests.traffic_generation import (
     setup_base_traffic_config,
     generate_srv6_encap_flow,
-    run_traffic,
+    run_basic_traffic,
     clear_dut_interface_counters,
     clear_dut_que_counters,
 )
@@ -25,11 +25,7 @@ TX_PORT_NAME = None
 RX_PORT_NAME = None
 FLOW_RATE_PERCENT = 100  # line rate for packet trimming tests
 PKT_SIZE = 4096 # 4kB packet size
-UDP_PKT_LEN = 190
-TOTAL_NUM_PKTS = 65535
-EXP_FLOW_DUR_SEC = 20
-SNAPPI_POLL_DELAY_SEC = 2
-SEQUENCE_CHECKING_THRESHOLD = 1
+EXP_FLOW_DUR_SEC = 300
 
 
 def run_packet_trimming_test(api,
@@ -90,7 +86,7 @@ def run_packet_trimming_test(api,
 
     apply_trim_mode(duthost=duthost,
                     trim_mode=trim_mode,
-                    snappi_test_params=snappi_test_params
+                    snappi_test_params=snappi_test_params,
                     )
 
     if snappi_test_params.traffic_flow_config.data_flow_config is None:
@@ -120,14 +116,14 @@ def run_packet_trimming_test(api,
     all_flow_names = [flow.name for flow in flows]
 
 
-    tgen_flow_stats, switch_flow_stats, in_flight_flow_metrics = run_traffic(duthost=duthost,
-                                                                             api=api,
-                                                                             config=testbed_config,
-                                                                             data_flow_names=all_flow_names,
-                                                                             all_flow_names=all_flow_names,
-                                                                             exp_dur_sec=EXP_FLOW_DUR_SEC,
-                                                                             snappi_extra_params=snappi_test_params,
-                                                                             )
+    tgen_flow_stats, _ = run_basic_traffic(duthost=duthost,
+                                           api=api,
+                                           config=testbed_config,
+                                           data_flow_names=all_flow_names,
+                                           all_flow_names=all_flow_names,
+                                           exp_dur_sec=EXP_FLOW_DUR_SEC,
+                                           snappi_extra_params=snappi_test_params,
+                                           )
 
     if isinstance(snappi_test_params.base_flow_config["rx_port_config"].peer_port, str):
         switch_egress_ports = [snappi_test_params.base_flow_config["rx_port_config"].peer_port]
@@ -136,6 +132,7 @@ def run_packet_trimming_test(api,
     tx_drops, _ = check_tx_drp_counts(duthost=duthost,
                                       ports=switch_egress_ports,
                                       )
+
     pytest_assert(tx_drops, f"Expected TX drops on egress port(s) {switch_egress_ports} but none seen")
 
     verify_trimmed_traffic(duthost=duthost,

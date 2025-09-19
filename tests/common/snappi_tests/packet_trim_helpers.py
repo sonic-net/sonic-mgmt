@@ -133,7 +133,6 @@ def apply_trim_mode(duthost,
                  f"{TRIM_TC_DEFAULT} --queue {TRIM_QUEUE_DEFAULT}")
 
     # Enable trimming on every queue profile EXCEPT the designated trim queue's profile.
-    pdb.set_trace()
     trim_queue_key = f"BUFFER_QUEUE|{egress_port}|{TRIM_QUEUE_DEFAULT}"
     trim_queue_profile = _run_cmd(duthost, f"redis-cli -n 4 HGET '{trim_queue_key}' 'profile'")['stdout'].strip()
     pytest_assert(trim_queue_profile, f"Failed to fetch profile for {trim_queue_key}")
@@ -162,7 +161,7 @@ def apply_trim_mode(duthost,
         logger.info(f"Enabling trimming on profile {profile} (queue {qi})")
         _run_cmd(duthost, f"sudo config mmu -p {profile} -t on")
         enabled_profiles.append(profile)
-    pdb.set_trace()
+
     # Verification: all enabled profiles have packet_discard_action=trim; skipped profile does not.
     for profile in enabled_profiles:
         action = _run_cmd(duthost, f"redis-cli -n 4 HGET 'BUFFER_PROFILE|{profile}' "
