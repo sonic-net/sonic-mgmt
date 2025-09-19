@@ -347,7 +347,7 @@
   auto_recover: 'True'
   comment: yawenni
 
-- conf-name: vms21-t1-8101-06
+- conf-name: vms21-t1-8101c1-06
   group-name: vms21-5
   topo: t1-56-lag
   ptf_image_name: docker-ptf

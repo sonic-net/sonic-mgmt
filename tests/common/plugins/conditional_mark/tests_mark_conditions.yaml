@@ -2646,25 +2646,25 @@ iface_namingmode/test_iface_namingmode.py::TestShowInterfaces::test_config_inter
   xfail:
     reason: "Cisco-8101-O8V48 testbed is not supported."
     conditions:
-      - "hwsku in ['Cisco-8101-O8V48']"
+      - "hwsku in ['Cisco-8101-O8V48', 'Cisco-8101C01-O8V48']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowInterfaces::test_show_interfaces_portchannel:
   xfail:
     reason: "Cisco-8101-O8V48 testbed is not supported."
     conditions:
-      - "hwsku in ['Cisco-8101-O8V48']"
+      - "hwsku in ['Cisco-8101-O8V48', 'Cisco-8101C01-O8V48']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_neighbor:
   xfail:
     reason: "Cisco-8101-O8V48 testbed is not supported."
     conditions:
-      - "hwsku in ['Cisco-8101-O8V48']"
+      - "hwsku in ['Cisco-8101-O8V48', 'Cisco-8101C01-O8V48']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowLLDP::test_show_lldp_table:
   xfail:
     reason: "Cisco-8101-O8V48 testbed is not supported."
     conditions:
-      - "hwsku in ['Cisco-8101-O8V48']"
+      - "hwsku in ['Cisco-8101-O8V48', 'Cisco-8101C01-O8V48']"
 
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
