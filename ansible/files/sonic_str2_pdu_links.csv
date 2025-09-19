@@ -27,8 +27,8 @@ pdu-122,46,str2-7050qx-32s-acs-02,PSU1
 pdu-121,46,str2-7050qx-32s-acs-02,PSU2
 pdu-110,25,str2-z9332f-02,PSU1
 pdu-109,31,str2-z9332f-02,PSU2
-pdu-111,44,str2-z9332f-03,PSU1
-pdu-111,48,str2-z9332f-03,PSU2
+pdu-111,44,str2-8101-fanout-22,PSU1
+pdu-111,48,str2-8101-fanout-22,PSU2
 pdu-111,35,str2-z9332f-05,PSU1
 pdu-111,46,str2-z9332f-05,PSU2
 pdu-117,29,str2-7060cx-32s-29,PSU1

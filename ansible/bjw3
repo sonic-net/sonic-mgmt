@@ -37,6 +37,15 @@ all:
         bjw3-1-3:
           ansible_host: 10.150.239.7
           ansible_hostv6: 2404:f801:10:16::a96:ef07
+        bjw3-4-1:
+          ansible_host: 10.150.239.9
+          ansible_hostv6: 2404:f801:10:16::a96:ef08
+        bjw3-5-1:
+          ansible_host: 10.150.239.10
+          ansible_hostv6: 2404:f801:10:16::a96:ef09
+        bjw3-5-2:
+          ansible_host: 10.150.239.11
+          ansible_hostv6: 2404:f801:10:16::a96:ef0a
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -129,6 +138,18 @@ fanout:
       ansible_host: 10.150.238.81
       ansible_hostv6: 2404:f801:10:16::a96:ee51
       os: sonic
+    bjw3-can-7050-leaf-4:
+      ansible_host: 10.150.238.86
+      ansible_hostv6: 2404:f801:10:16::a96:ee56
+      os: sonic
+    bjw3-can-7050-leaf-5:
+      ansible_host: 10.150.238.88
+      ansible_hostv6: 2404:f801:10:16::a96:ee58
+      os: sonic
+    bjw3-can-7050-leaf-6:
+      ansible_host: 10.150.238.90
+      ansible_hostv6: 2404:f801:10:16::a96:ee5a
+      os: sonic
 
 
 sonic:
@@ -137,8 +158,8 @@ sonic:
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_arista_7050C_S128:
-    sonic_arista_7050_C6S104:
-    sonic_arista_7050_C28S16:
+    sonic_arista_7050C_C6S104:
+    sonic_arista_7050C_C28S16:
     sonic_arista_7260cx3:
     sonic_nokia_7215a1d:
 
@@ -169,6 +190,7 @@ server:
     bjw3-can-serv-8:
       ansible_host: 10.150.238.23
       ansible_hostv6: 2404:f801:10:16::a96:ee17
+
 
 sonic_arista_7050C_S128:
   vars:
@@ -244,19 +266,44 @@ sonic_arista_7050C_S128:
         "0x2E": "Aboot-norcal11-11.0.10-38648278"
         "0x2F": "HBG24350097"
         "0xFE": "0xdeadbeef"
+    bjw3-can-7050c-8:
+      ansible_host: 10.150.238.85
+      ansible_hostv6: 2404:f801:10:16::a96:ee55
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32C
+      serial:
+      base_mac:
+      syseeprom_info:
 
-sonic_arista_7050_C6S104:
+
+sonic_arista_7050C_C6S104:
   vars:
-    hwsku: Arista-7050CX3-32S-C6S104
+    hwsku: Arista-7050CX3-32C-C6S104
     iface_speed: 10000
   hosts:
 
 
-sonic_arista_7050_C28S16:
+sonic_arista_7050C_C28S16:
   vars:
-    hwsku: Arista-7050CX3-32S-C28S16
+    hwsku: Arista-7050CX3-32C-C28S16
     iface_speed: 10000
   hosts:
+    bjw3-can-7050c-9:
+      ansible_host: 10.150.238.87
+      ansible_hostv6: 2404:f801:10:16::a96:ee57
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32C
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7050c-10:
+      ansible_host: 10.150.238.89
+      ansible_hostv6: 2404:f801:10:16::a96:ee59
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32C
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 sonic_arista_7260cx3:

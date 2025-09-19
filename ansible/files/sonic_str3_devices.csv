@@ -49,8 +49,8 @@ str3-8101-01,10.3.146.194/24,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8101-02,10.3.146.191/24,Cisco-8101-O8V48,DevSonic,,sonic
 str3-8101-03,10.3.146.121/24,Cisco-8101-O8C48,DevSonic,,sonic
 str3-8101-04,10.3.146.35/24,Cisco-8101-O8V48,DevSonic,,sonic
-str3-8101c1-05,10.3.146.160/24,Cisco-8101-V64,DevSonic,,sonic
-str3-8101c1-06,10.64.247.90/23,Cisco-8101-V64,DevSonic,,sonic
+str3-8101c1-05,10.3.146.160/24,Cisco-8101C01-V64,DevSonic,,sonic
+str3-8101c1-06,10.64.247.90/23,Cisco-8101C01-V64,DevSonic,,sonic
 str3-8101c1-07,10.3.146.238/24,Cisco-8101C01-C32,DevSonic,,sonic
 str3-8101c1-08,10.3.146.179/24,Cisco-8101C01-C32,DevSonic,,sonic
 str3-8111-01,10.3.146.237/24,Cisco-8111-O64,DevSonic,,sonic

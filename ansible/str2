@@ -343,10 +343,6 @@ fanout:
     str2-7263CX3-azd-01:
       ansible_host: 10.3.146.32
       ansible_hostv6: 2a01:111:e210:3000::a03:9220
-    str2-z9332f-03:
-      ansible_host: 10.3.146.229
-      ansible_hostv6: 2a01:111:e210:3000::a03:92e5
-      os: sonic
     str2-z9332f-02:
       ansible_host: 10.3.146.84
       ansible_hostv6: 2a01:111:e210:3000::a03:9254
@@ -460,6 +456,10 @@ fanout:
       ansible_host: 10.3.146.24
       ansible_hostv6: 2a01:111:e210:3000::a03:9218
       os: sonic
+    str2-8101-fanout-22:
+      ansible_host: 10.3.146.229
+      ansible_hostv6: 2a01:111:e210:3000::a03:92e5
+      os: sonic
 
 sonic:
   vars:
@@ -484,6 +484,7 @@ sonic:
     sonic_cisco_8102:
     sonic_cisco_8102_smartswitch:
     sonic_cisco_8101:
+    sonic_cisco_8101_tornado_O8V48:
     sonic_cisco_8101_tornado_V64:
     sonic_cisco_8101_tornado_C32:
     sonic_nokia_sup:
@@ -2575,6 +2576,45 @@ sonic_cisco_8101:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 600
           wait: 600
+
+sonic_cisco_8101_tornado_O8V48:
+  vars:
+    hwsku: Cisco-8101C01-O8V48
+    iface_speed: 100000
+  hosts:
+    str2-8101c1-09:
+      ansible_host: 10.64.247.57
+      ansible_hostv6: 2a01:111:e210:b000::a40:f739
+      mgmt_subnet_mask_length: 23
+      model: 8101-32FH-O-C01
+      serial: WZP29179HRY
+      base_mac: 48:00:B3:A2:80:48
+      syseeprom_info:
+        "0x21": "8101-32FH-O-C01"
+        "0x22": "480260"
+        "0x23": "WZP29179HRY"
+        "0x24": "48:00:B3:A2:80:48"
+        "0x26": "4"
+        "0x28": "x86_64-8101_32fh_o_c01-r0"
+        "0x2A": "512"
+        "0x2B": "Cisco"
+        "0x2C": "US"
+        "0x2D": "Cisco"
+        "0xFE": "0x842AA000"
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+          wait: 600
+        watchdog:
+          timeout: 600
+          wait: 600
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 600
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 600
+          wait: 600
+
 
 sonic_cisco_8101_tornado_C32:
   vars:

@@ -991,7 +991,7 @@ sonic_cisco_8101_O8V48:
 
 sonic_cisco_8101_tornado_V64:
   vars:
-    hwsku: Cisco-8101-V64
+    hwsku: Cisco-8101C01-V64
     iface_speed: 100000
   hosts:
     str3-8101c1-05:

@@ -124,9 +124,12 @@
     when: hwsku == 'Cisco-8111-O64' and 't0' in topo
 
   - name: Port speed fix for 8101-t0 and dualtor
-    shell: sed -i 's/200000/100000/g' /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/Cisco-8101-V64/port_config.ini
+    shell: sed -i 's/200000/100000/g' /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/{{ hwsku }}/port_config.ini
     become: true
-    when: hwsku == 'Cisco-8101-V64' and ('t0' in topo or 'dualtor' in topo) and (reduce_port_speed is defined and reduce_port_speed == true)
+    when: >
+      ( hwsku == 'Cisco-8101-V64' or hwsku == 'Cisco-8101C01-V64' )
+      and ('t0' in topo or 'dualtor' in topo)
+      and ( reduce_port_speed is defined and reduce_port_speed == true )
 
   - name: override group_file for route-conv
     set_fact:
