@@ -3638,6 +3638,12 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
       - "asic_type not in ['mellanox']"
       - "is_multi_asic==True"
 
+show_techsupport/test_techsupport.py::test_techsupport:
+  xfail:
+    reason: "ipv6 mgmt ip is not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+
 #######################################
 #####         snappi_tests        #####
 #######################################
