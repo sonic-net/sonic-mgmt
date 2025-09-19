@@ -116,13 +116,27 @@ def get_down_bgp_sessions_neighbors(duthost):
 
 
 @pytest.fixture(scope="function")
-def setup_routes_before_test(localhost, duthost, tbinfo, vmhosts, ptfhosts, topo_bgp_routes, bgp_peers_info):
+def design_routes(topo_bgp_routes, bgp_peers_info):
+    ret = {}
+    for hostname, routes in topo_bgp_routes.items():
+        if hostname not in bgp_peers_info:
+            continue
+        for route in routes[IPV6_KEY]:
+            prefix = str(ipaddress.ip_network(route[0]))
+            if prefix not in ret:
+                ret[prefix] = set()
+            ret[prefix].add(bgp_peers_info[hostname][IPV6_KEY])
+    return ret
+
+
+@pytest.fixture(scope="function")
+def setup_routes_before_test(localhost, duthost, tbinfo, vmhosts, ptfhosts, design_routes, bgp_peers_info):
     servers_dut_interfaces = {}
     # If servers in tbinfo, means tb was deployed with multi servers
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
-    if not validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
+    if not validate_dut_routes(duthost, tbinfo, design_routes):
         ptf_container = "ptf_%s" % tbinfo['group-name']
         for vmhost in vmhosts:
             vmhost.command("sudo docker exec %s supervisorctl restart exabgpv6:*" % ptf_container)
@@ -198,16 +212,17 @@ def remove_nexthops_in_routes(routes, nexthops):
     return ret_routes
 
 
-def validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
+def validate_dut_routes(duthost, tbinfo, expected_routes):
     identical = True
+    neighbors = {}
     running_routes = get_all_bgp_ipv6_routes(duthost)
+    checked_prefixes = set()
     for prefix, attr in running_routes.items():
         running_only_nhps = []
         topo_only_nhps = []
         running_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
-        topo_nhs = [bgp_peers_info[hostname][IPV6_KEY].lower() for hostname, routes in topo_bgp_routes.items()
-                    if hostname in bgp_peers_info and str(ipaddress.ip_network(prefix))
-                    in [str(ipaddress.ip_network(r[0])) for r in routes[IPV6_KEY]]]
+        topo_nhs = expected_routes[prefix] if prefix in expected_routes else []
+        checked_prefixes.add(prefix)
         if prefix in STATIC_ROUTES or len(running_nhs) == 1:
             logger.warning("Skip validate route %s", prefix)
             continue
@@ -217,6 +232,12 @@ def validate_dut_routes(duthost, tbinfo, topo_bgp_routes, bgp_peers_info):
             logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s",
                            prefix, running_only_nhps, topo_only_nhps)
             identical = False
+    import pdb; pdb.set_trace()
+    for prefix in expected_routes.keys() - checked_prefixes:
+        if prefix in STATIC_ROUTES:
+            continue
+        logger.warning("Prefix %s is missing in DUT routes", prefix)
+        identical = False
     return identical
 
 
