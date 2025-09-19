@@ -158,8 +158,8 @@ sonic:
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_arista_7050C_S128:
-    sonic_arista_7050_C6S104:
-    sonic_arista_7050_C28S16:
+    sonic_arista_7050C_C6S104:
+    sonic_arista_7050C_C28S16:
     sonic_arista_7260cx3:
     sonic_nokia_7215a1d:
 
@@ -276,16 +276,16 @@ sonic_arista_7050C_S128:
       syseeprom_info:
 
 
-sonic_arista_7050_C6S104:
+sonic_arista_7050C_C6S104:
   vars:
-    hwsku: Arista-7050CX3-32S-C6S104
+    hwsku: Arista-7050CX3-32C-C6S104
     iface_speed: 10000
   hosts:
 
 
-sonic_arista_7050_C28S16:
+sonic_arista_7050C_C28S16:
   vars:
-    hwsku: Arista-7050CX3-32S-C28S16
+    hwsku: Arista-7050CX3-32C-C28S16
     iface_speed: 10000
   hosts:
     bjw3-can-7050c-9:
