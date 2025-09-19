@@ -2405,7 +2405,7 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2421,16 +2421,26 @@ Totals               6450                 6449
             if ((k.startswith("Ethernet") and config_facts_ports.get(k, {}).get("role", "") != "Dpc" and
                  (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
-                # Ping for some time to get ARP Re-learnt.
-                # We might have to tune it further if needed.
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                   self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
-                    ip_ifaces[k] = {
-                        "ipv4": v["ipv4"],
-                        "peer_ipv4": v["peer_ipv4"],
-                        "bgp_neighbor": v["bgp_neighbor"]
-                    }
-                    active_ip_intf_cnt += 1
+                if ip_type == "ipv4":
+                    # Ping for some time to get ARP Re-learnt.
+                    # We might have to tune it further if needed.
+                    if (v["admin"] == "up" and v["oper_state"] == "up" and
+                    self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
+                        ip_ifaces[k] = {
+                            "ipv4": v["ipv4"],
+                            "peer_ipv4": v["peer_ipv4"],
+                            "bgp_neighbor": v["bgp_neighbor"]
+                        }
+                        active_ip_intf_cnt += 1
+                elif ip_type == "ipv6":
+                    if (v["admin"] == "up" and v["oper_state"] == "up" and
+                    self.ping_v6(v["peer_ipv6"], count=3, ns_arg=ns_arg)):
+                        ip_ifaces[k] = {
+                            "ipv6": v["ipv6"],
+                            "peer_ipv6": v["peer_ipv6"],
+                            "bgp_neighbor": v["bgp_neighbor"]
+                        }
+                        active_ip_intf_cnt += 1
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
