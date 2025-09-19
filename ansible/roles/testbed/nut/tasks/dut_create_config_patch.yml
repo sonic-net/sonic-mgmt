@@ -3,7 +3,7 @@
   nut_allocate_ip:
     testbed_facts: "{{ testbed_facts }}"
     device_info: "{{ device_info }}"
-    device_port_links: "{{ device_conn }}"
+    device_port_links: "{{ device_linked_ports }}"
     device_port_vrfs: "{{ device_port_vrfs }}"
   delegate_to: localhost
 
@@ -17,7 +17,7 @@
 
 - name: output device conn
   debug:
-    var: device_conn[inventory_hostname]
+    var: device_linked_ports[inventory_hostname]
 
 - name: output device port vlan
   debug:
