@@ -9,6 +9,7 @@ from multiprocessing.pool import ThreadPool
 from collections import deque
 
 from .helpers.assertions import pytest_assert
+from .helpers.parallel_utils import synchronized_reboot
 from .platform.interface_utils import check_interface_status_of_up_ports
 from .platform.processes_utils import wait_critical_processes
 from .plugins.loganalyzer.utils import support_ignore_loganalyzer
@@ -293,6 +294,7 @@ def check_dshell_ready(duthost):
 
 
 @support_ignore_loganalyzer
+@synchronized_reboot
 def reboot(duthost, localhost, reboot_type='cold', delay=10,
            timeout=0, wait=0, wait_for_ssh=True, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
            reboot_helper=None, reboot_kwargs=None, return_after_reconnect=False,
