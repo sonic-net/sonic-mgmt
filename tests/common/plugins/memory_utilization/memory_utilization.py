@@ -575,25 +575,63 @@ def parse_frr_memory_output(output, memory_params):
         'GiB': 1024 * 1024 * 1024
     }
 
+    # Initialize values for the three lines
+    holding_block_headers = 0.0
+    used_small_blocks = 0.0
+    used_ordinary_blocks = 0.0
+
     for line in output.split('\n'):
-        if "Used ordinary blocks:" in line:
+        line = line.strip()
+        if "Holding block headers:" in line:
             parts = line.split()
-            if len(parts) >= 5:
+            if len(parts) >= 4:
                 try:
                     value = float(parts[3])
-                    unit = parts[4]
-
+                    unit = parts[4] if len(parts) > 4 else 'bytes'
+                    logger.debug(f"Parsed 'Holding block headers': {value} {unit}")
                     if unit in unit_multipliers:
-                        memory_bytes = value * unit_multipliers[unit]
-                        # Convert to MB for consistent measurement
-                        memory_values['used'] = round(memory_bytes / (1024 * 1024), 1)
+                        holding_block_headers = value * unit_multipliers[unit]
                     else:
-                        logger.warning("Unknown memory unit: {}, treating as bytes".format(unit))
-                        memory_values['used'] = round(value / (1024 * 1024), 1)
-
+                        logger.warning(f"Unknown memory unit in 'Holding block headers': {unit}, treating as bytes")
+                        holding_block_headers = value
                 except (ValueError, TypeError) as e:
-                    logger.error("Failed to parse FRR memory value: {}".format(e))
-                break
+                    logger.error(f"Failed to parse 'Holding block headers' value: {e}")
+        elif "Used small blocks:" in line:
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    value = float(parts[3])
+                    unit = parts[4] if len(parts) > 4 else 'bytes'
+                    logger.debug(f"Parsed 'Used small blocks': {value} {unit}")
+                    if unit in unit_multipliers:
+                        used_small_blocks = value * unit_multipliers[unit]
+                    else:
+                        logger.warning(f"Unknown memory unit in 'Used small blocks': {unit}, treating as bytes")
+                        used_small_blocks = value
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Failed to parse 'Used small blocks' value: {e}")
+        elif "Used ordinary blocks:" in line:
+            parts = line.split()
+            if len(parts) >= 4:
+                try:
+                    value = float(parts[3])
+                    unit = parts[4] if len(parts) > 4 else 'bytes'
+                    logger.debug(f"Parsed 'Used ordinary blocks': {value} {unit}")
+                    if unit in unit_multipliers:
+                        used_ordinary_blocks = value * unit_multipliers[unit]
+                    else:
+                        logger.warning(f"Unknown memory unit in 'Used ordinary blocks': {unit}, treating as bytes")
+                        used_ordinary_blocks = value
+                except (ValueError, TypeError) as e:
+                    logger.error(f"Failed to parse 'Used ordinary blocks' value: {e}")
+
+    # Sum the three values and convert to MB
+    total_bytes = holding_block_headers + used_small_blocks + used_ordinary_blocks
+    memory_values['used'] = round(total_bytes / (1024 * 1024), 1)
+    logger.info(f"Total FRR memory used: {memory_values['used']} MB, "
+                f"holding: {holding_block_headers} bytes, "
+                f"small: {used_small_blocks} bytes, "
+                f"ordinary: {used_ordinary_blocks} bytes")
 
     logger.debug("Parsed FRR memory values: {}".format(memory_values))
     return memory_values
