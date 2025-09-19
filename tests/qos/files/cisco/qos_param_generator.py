@@ -13,7 +13,9 @@ class QosParamCisco(object):
                                                         "Cisco-8101-O8C48",
                                                         "Cisco-8101-O8V48"],
                               "x86_64-8101_32fh_o_c01-r0": ["Cisco-8101-O32",
-                                                            "Cisco-8101-V64"],
+                                                            "Cisco-8101-V64",
+                                                            "Cisco-8101C01-O8V48",
+                                                            "Cisco-8101C01-V64"],
                               "x86_64-8102_64h_o-r0": ["Cisco-8102-C64"]}
     VOQ_ASICS = ["gb", "gr"]
 
