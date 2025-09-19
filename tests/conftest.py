@@ -118,6 +118,7 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
