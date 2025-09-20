@@ -119,6 +119,15 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
       - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
+#####          acstests              #####
+#######################################
+acstests:
+  skip:
+    reason: "It is not  tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####            arp              #####
 #######################################
 arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
@@ -193,6 +202,12 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
@@ -574,6 +589,12 @@ cacl/test_ebtables_application.py:
 #######################################
 #####           configlet         #####
 #######################################
+configlet:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 configlet/test_add_rack.py:
   skip:
     reason: "AddRack is not yet supported on multi-ASIC platform"
@@ -659,6 +680,12 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
+dash:
+  skip:
+    reason: "Not supported on this DUT topology."
+    conditions:
+      - "'dpu' not in topo_name"
+
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -825,6 +852,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
@@ -986,6 +1019,15 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
     reason: "Skip test_interface_binding in old release version"
     conditions:
       - "release in ['201911', '202106']"
+
+#######################################
+#####         dhcp_server        #####
+#######################################
+dhcp_server:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
 
 #######################################
 #####         drop_packets        #####
@@ -3084,6 +3126,15 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####          http              #####
+#######################################
+http:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
+#######################################
 #####    iface_loopback_action    #####
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
@@ -3327,6 +3378,12 @@ lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+      - "'dualtor' in topo_name"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -3348,6 +3405,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
 #######################################
 #####           mclag             #####
 #######################################
+mclag:
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+       - "'dualtor' in topo_name"
+
 mclag/test_mclag_l3.py:
   skip:
     reason: "Mclag test only support on t0-mclag platform which is not in PR test"
@@ -3368,6 +3431,14 @@ memory_checker/test_memory_checker.py:
 #######################################
 #####            mpls             #####
 #######################################
+mpls:
+  skip:
+    reason: "Skip running on dualtor testbed and '202412' for now"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "release in ['202412']"
+      - "'dualtor' in topo_name"
+
 mpls/test_mpls.py:
   skip:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
@@ -3407,6 +3478,15 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
+#####           mx              #####
+#######################################
+mx:
+  skip:
+    reason: "Test is only applicable to m0, mx, and m1 topologies"
+    conditions:
+      - "topo_type not in ['m0', 'mx', 'm1']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
@@ -3422,9 +3502,11 @@ nat:
 #######################################
 ospf:
   skip:
-    reason: "Neighbor type must be sonic, skip in PR testing"
+    reason: "Neighbor type must be sonic, skip in PR testing and it is skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "release in ['202412']"
 
 #######################################
 #####    override_config_table    #####
@@ -3666,6 +3748,15 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
+
+#######################################
+#####     ptftests      #####
+#######################################
+ptftests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####           qos               #####
@@ -4219,6 +4310,24 @@ route/test_static_route.py::test_static_route_ipv6:
       - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
+#####           sai_qualify       #####
+#######################################
+sai_qualify:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
+#####              saitests         #####
+#######################################
+saitests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####              scp            #####
 #######################################
 scp/test_scp_copy.py::test_scp_copy:
@@ -4226,6 +4335,15 @@ scp/test_scp_copy.py::test_scp_copy:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
+
+#######################################
+#####            scripts         #####
+#######################################
+scripts:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####              sflow          #####
