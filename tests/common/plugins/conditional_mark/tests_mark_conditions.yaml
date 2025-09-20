@@ -84,6 +84,15 @@ acl/test_acl_outer_vlan.py:
       - "'dualtor' in topo_name"
 
 #######################################
+#####          acstests              #####
+#######################################
+acstests:
+  skip:
+    reason: "It is not  tested for now"
+    conditions:
+      - True
+
+#######################################
 #####            arp              #####
 #######################################
 arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
@@ -146,6 +155,12 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+      - "release in ['202412']"
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
@@ -461,6 +476,12 @@ cacl/test_ebtables_application.py:
 #######################################
 #####           configlet         #####
 #######################################
+configlet:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+      - "release in ['202412']"
+
 configlet/test_add_rack.py:
   skip:
     reason: "AddRack is not yet supported on multi-ASIC platform"
@@ -542,6 +563,12 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
+dash:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform,dualtor and for  Arista-7060X6-64PE-B-* TH5 SKUs and it run only on DPU topologies"
+    conditions:
+      - "'dpu' not in topo"
+
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -678,6 +705,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+      - "release in ['202412']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
@@ -842,6 +875,16 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
     reason: "Skip test_interface_binding in old release version"
     conditions:
       - "release in ['201911', '202106']"
+
+
+#######################################
+#####         dhcp_server        #####
+#######################################
+dhcp_server:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+      - "release in ['202412']"
 
 #######################################
 #####         drop_packets        #####
@@ -2073,8 +2116,8 @@ generic_config_updater/test_dhcp_relay.py:
 generic_config_updater/test_dynamic_acl.py:
   skip:
     reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-    on m0-2vlan testbed causes consistent failures
-    / Dynamic ACL is not supported in Cisco Q200 based platforms"
+     on m0-2vlan testbed causes consistent failures
+     / Dynamic ACL is not supported in Cisco Q200 based platforms"
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
@@ -2442,7 +2485,7 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2488,7 +2531,7 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_SRC_MAC-ip
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2532,7 +2575,7 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2571,7 +2614,7 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2580,6 +2623,17 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+#######################################
+#####          http              #####
+#######################################
+http:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform, 4700 dualtor and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "hwsku in ['Arista-7060X6-64PE-B-C448O16','Arista-7060X6-64PE-B-C512S2','Mellanox-SN5640-C512S2','Mellanox-SN5640-C448O16']"
+      - "hwsku in ['Mellanox-SN4700-V64'] and 'dualtor' in topo_name"
 
 #######################################
 #####    iface_loopback_action    #####
@@ -2732,6 +2786,12 @@ ixia:
 #######################################
 #####            k8s              #####
 #######################################
+k8s:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
 k8s/test_config_reload.py:
   skip:
     reason: "There is no k8s in veos_vtb, skip in PR testing"
@@ -2785,6 +2845,12 @@ lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform,dualtor and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+      - "'dualtor' in topo_name"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -2806,6 +2872,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
 #######################################
 #####           mclag             #####
 #######################################
+mclag:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform,dualtor and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+       - "'dualtor' in topo_name"
+
 mclag/test_mclag_l3.py:
   skip:
     reason: "Mclag test only support on t0-mclag platform which is not in PR test"
@@ -2826,6 +2898,14 @@ memory_checker/test_memory_checker.py:
 #######################################
 #####            mpls             #####
 #######################################
+mpls:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform,dualtor and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions_logical_operator: "OR"
+    conditions:
+     - "release in ['202412']"
+     - "'dualtor' in topo_name"
+
 mpls/test_mpls.py:
   skip:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
@@ -2865,6 +2945,15 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
+#####           mx              #####
+#######################################
+mx:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform,dualtor and for  Arista-7060X6-64PE-B-* TH5 SKUs and runs on mx topology"
+    conditions:
+      - "topo_type !in ['m0', 'mx', 'm1']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
@@ -2880,9 +2969,11 @@ nat:
 #######################################
 ospf:
   skip:
-    reason: "Neighbor type must be sonic, skip in PR testing"
+    reason: "Neighbor type must be sonic, skip in PR testing and Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs "
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "release in ['202412']"
 
 #######################################
 #####    override_config_table    #####
@@ -3090,6 +3181,15 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
       - "'t1' in topo_name"
 
 #######################################
+#####     ptftests      #####
+#######################################
+ptftests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
@@ -3289,8 +3389,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
-      and asic_type in ['cisco-8000']"
+       and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
+       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
       - "asic_type in ['vs']"
@@ -3599,6 +3699,33 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "'standalone' in topo_name"
 
 #######################################
+#####           sai_qualify       #####
+#######################################
+sai_qualify:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
+#####              saitests         #####
+#######################################
+saitests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
+#####            scripts         #####
+#######################################
+scripts:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - True
+
+#######################################
 #####              sflow          #####
 #######################################
 sflow/test_sflow.py:
@@ -3642,6 +3769,15 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
       - "is_multi_asic==True"
+
+#######################################
+#####         smartswitch      #####
+#######################################
+smartswitch:
+  skip:
+    reason: "Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions:
+      - "hwsku in ['Arista-7060X6-64PE-B-C448O16','Mellanox-SN5640-C512S2','Mellanox-SN5640-C448O16']"
 
 #######################################
 #####         snappi_tests        #####
@@ -3971,16 +4107,18 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
 #######################################
 test_pktgen.py:
   skip:
-    reason: "No need in M0/Mx/M1"
+    reason: "No need in M0/Mx/M1 and Test is skipped for Mellanox SN5640 platform and for  Arista-7060X6-64PE-B-* TH5 SKUs"
+    conditions_logical_operator: "OR"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "hwsku in ['Arista-7060X6-64PE-B-C448O16','Arista-7060X6-64PE-B-C512S2','Mellanox-SN5640-C512S2','Mellanox-SN5640-C448O16']"
 
 #######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
   skip:
-    reason: "Skip vs_chassis setup on non-vs testbeds"
+    reason: "Skip vs_chassis setup on non-vs testbeds "
     conditions:
       - "asic_type not in ['vs']"
 
