@@ -114,8 +114,9 @@ class TestbedVMFacts():
         result_dict = {}
         for group_name, group_content in yaml_data.items():
             if group_name.startswith('vms_'):
-                for host_name, host_info in group_content.get('hosts', {}).items():
-                    result_dict[host_name] = {'ansible_host': host_info.get('ansible_host', '')}
+                if 'hosts' in group_content and group_content['hosts']:
+                    for host_name, host_info in group_content['hosts'].items():
+                        result_dict[host_name] = {'ansible_host': host_info.get('ansible_host', '')}
         return result_dict
 
 
