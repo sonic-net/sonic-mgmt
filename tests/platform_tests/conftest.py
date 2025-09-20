@@ -1,3 +1,4 @@
+import tarfile
 import json
 import pytest
 import os
@@ -148,6 +149,10 @@ def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def pytest_generate_tests(metafunc):
+    val = metafunc.config.getoption('--fw-pkg')
+    if 'fw_pkg_name' in metafunc.fixturenames:
+        metafunc.parametrize('fw_pkg_name', val.split(','), scope="module")
+
     if 'power_off_delay' in metafunc.fixturenames:
         delays = metafunc.config.getoption('power_off_delay')
         default_delay_list = [5, 15]
@@ -203,6 +208,24 @@ def dpu_npu_port_list(duthosts):
 
 
 @pytest.fixture(scope="module")
+def is_sw_control_feature_enabled(duthost):
+    return sc_supported(duthost) and sc_ms_sku(duthost) and check_sc_sai_attribute_value(duthost)
+
+
+@pytest.fixture(scope="module")
+def get_sw_control_ports(duthost, is_sw_control_feature_enabled, conn_graph_facts):
+    if is_sw_control_feature_enabled:
+        sw_ports = get_ports_supporting_sc(duthost)
+        return sw_ports
+
+
+@pytest.fixture(scope="module")
+def skip_if_sw_control_feature_enabled(is_sw_control_feature_enabled):
+    if is_sw_control_feature_enabled:
+        pytest.skip("Do not supported if FW control feature enabled")
+
+
+@pytest.fixture(scope="module")
 def port_list_with_flat_memory(duthosts):
     ports_with_flat_memory = {}
     for dut in duthosts:
@@ -231,3 +254,42 @@ def cmis_cable_ports_and_ver(duthosts):
         cmis_cable_ports_and_ver.update({dut.hostname: get_cmis_cable_ports_and_ver(dut)})
     logging.info(f"cmis_cable_ports_and_ver: {cmis_cable_ports_and_ver}")
     return cmis_cable_ports_and_ver
+
+
+@pytest.fixture(scope="module")
+def toggles_num(request):
+    """
+    Retrieve the value of the --toggles_num command line option for the test session.
+    """
+    return request.config.getoption("--toggles_num")
+
+
+@pytest.fixture(scope='module')
+def fw_pkg(fw_pkg_name):
+    if fw_pkg_name is None:
+        pytest.skip("No fw package specified.")
+
+    yield extract_fw_data(fw_pkg_name)
+
+
+def extract_fw_data(fw_pkg_path):
+    """
+    Extract fw data from updated-fw.tar.gz file or firmware.json file
+    :param fw_pkg_path: the path to tar.gz file or firmware.json file
+    :return: fw_data in dictionary
+    """
+    if tarfile.is_tarfile(fw_pkg_path):
+        path = "/tmp/firmware"
+        isExist = os.path.exists(path)
+        if not isExist:
+            os.mkdir(path)
+        with tarfile.open(fw_pkg_path, "r:gz") as f:
+            f.extractall(path)
+            json_file = os.path.join(path, "firmware.json")
+            with open(json_file, 'r') as fw:
+                fw_data = json.load(fw)
+    else:
+        with open(fw_pkg_path, 'r') as fw:
+            fw_data = json.load(fw)
+
+    return fw_data

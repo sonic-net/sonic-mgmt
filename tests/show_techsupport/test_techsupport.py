@@ -10,6 +10,8 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
+from tests.common.helpers.platform_api import bmc
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.utilities import wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
@@ -355,7 +357,8 @@ def gen_dump_file(duthost, since):
     return tar_file
 
 
-def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_on_dpu):  # noqa F811
+def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend_hostname, skip_on_dpu,  # noqa F811
+                     platform_api_conn):
     """
     test the "show techsupport" command in a loop
     :param config: fixture to configure additional setups_list on dut.
@@ -365,7 +368,9 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
     loop_range = request.config.getoption("--loop_num") or DEFAULT_LOOP_RANGE
     loop_delay = request.config.getoption("--loop_delay") or DEFAULT_LOOP_DELAY
     since = request.config.getoption("--logs_since") or str(randint(1, 5)) + " minute ago"
-
+    is_bmc_present = False
+    if bmc.get_presence(platform_api_conn):
+        is_bmc_present = True
     logger.debug("Loop_range is {} and loop_delay is {}".format(loop_range, loop_delay))
 
     for i in range(loop_range):
@@ -374,7 +379,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
         extracted_dump_folder_name = tar_file.lstrip('/var/dump/').split('.')[0]
         extracted_dump_folder_path = '/tmp/{}'.format(extracted_dump_folder_name)
         try:
-            validate_dump_file_content(duthost, extracted_dump_folder_path)
+            validate_dump_file_content(duthost, extracted_dump_folder_path, is_bmc_present)
         except AssertionError as err:
             raise AssertionError(err)
         finally:
@@ -384,7 +389,7 @@ def test_techsupport(request, config, duthosts, enum_rand_one_per_hwsku_frontend
             time.sleep(loop_delay)
 
 
-def validate_dump_file_content(duthost, dump_folder_path):
+def validate_dump_file_content(duthost, dump_folder_path, is_bmc_present):
     """
     Validate generated dump file content
     :param duthost: duthost object
@@ -404,6 +409,13 @@ def validate_dump_file_content(duthost, dump_folder_path):
             sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
             assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
                    "No SAI XML file found in sai_sdk_dump folder"
+        if is_bmc_present:
+            bmc_dump = duthost.command(f"ls {dump_folder_path}/bmc/")["stdout_lines"]
+            logger.info("BMC is present, validate BMC dump files existence")
+            assert len(bmc_dump), "Folder 'bmc_dump' in dump archive is empty. Expected not empty folder"
+            bmc_regex = re.compile(r'bmc_[\w-]+\.tar.xz')
+            assert any(bmc_regex.fullmatch(file_name) for file_name in bmc_dump), "No BMC dump file found in bmc folder"
+
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
