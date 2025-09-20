@@ -922,6 +922,7 @@ def port_to_test(request, duthost):
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
         # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
+        exclude_ports_with_autogeg_enable(duthost, testPort)
         if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
             for port in list(testPort):
                 if duthost.count_portlanes(port) >= 4:
@@ -3323,3 +3324,17 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
     return True, head_room_data
+
+
+def exclude_ports_with_autogeg_enable(duthost, test_ports):
+    """
+    This function is used to exclude the port with auto-negotiation enabled
+    """
+    logging.info(f"Test ports with auto-negotiation enabled: {test_ports}")
+
+    autoneg_status_list = duthost.show_and_parse("show int autoneg status")
+    for autoneg_status in autoneg_status_list:
+        if autoneg_status.get('auto-neg mode') == 'enabled':
+            test_ports.remove(autoneg_status.get('interface'))
+
+    logging.info(f"Test ports without auto-negotiation enabled: {test_ports}")
