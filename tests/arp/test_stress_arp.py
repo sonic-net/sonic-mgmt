@@ -11,9 +11,6 @@ from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsm
 from ipaddress import ip_address, ip_network
 from tests.common.utilities import wait_until, increment_ipv6_addr
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.dualtor.constants import UPPER_TOR, LOWER_TOR
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports   # noqa: F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host
 
 
 ARP_BASE_IP = "172.16.0.1/16"
@@ -63,17 +60,6 @@ def arp_cache_fdb_cleanup(duthost):
             raise e
 
     time.sleep(10)
-
-
-@pytest.fixture(autouse=True)
-def toggle_simulator_ports_to_current_device(duthost, upper_tor_host, toggle_all_simulator_ports):
-    """
-    Automatically toggle all mux simulator ports toward the current duthost
-    before each test.
-    """
-    role = UPPER_TOR if duthost == upper_tor_host else LOWER_TOR
-    toggle_all_simulator_ports(role, retries=5)
-    yield
 
 
 def add_arp(ptf_intf_ipv4_addr, intf1_index, ptfadapter):
@@ -202,7 +188,8 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available):
 
 
 def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
-                 ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+                 ptfadapter, get_function_completeness_level, proxy_arp_enabled,
+                 setup_dualtor_mux_ports):
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -266,7 +253,8 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
 
 
 def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
-                            ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+                            ptfadapter, get_function_completeness_level, proxy_arp_enabled,
+                            setup_dualtor_mux_ports):
 
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
