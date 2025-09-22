@@ -2268,6 +2268,13 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
 gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
