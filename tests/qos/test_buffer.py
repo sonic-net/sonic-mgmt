@@ -923,6 +923,8 @@ def port_to_test(request, duthost):
     if not PORT_TO_TEST:
         # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
         exclude_ports_with_autogeg_enable(duthost, testPort)
+        if not testPort:
+            pytest.skip("No available port to test")
         if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
             for port in list(testPort):
                 if duthost.count_portlanes(port) >= 4:
