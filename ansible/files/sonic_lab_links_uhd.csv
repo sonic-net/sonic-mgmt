@@ -1,0 +1,5 @@
+FrontPanel,Channel,LinkSpeed,OutPort,SwitchOverPort
+9,,100,False,False
+10,,100,False,False
+5,,400,True,False
+6,,400,True,False
