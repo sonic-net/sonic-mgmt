@@ -401,22 +401,6 @@ qos_params:
                     pkts_num_dismiss_pfc: 14
                     pkts_num_margin: 2
                     pkts_num_trig_pfc: 134690
-            cell_size: 254
-            hdrm_pool_wm_multiplier: 1
-            wrr:
-                dscp_list: [0, 47, 3, 4, 46, 44]
-                ecn: 1
-                limit: 80
-                q_list: [0, 1, 3, 4, 5, 6]
-                q_pkt_cnt: [50, 50, 100, 50, 50, 350]
-            wrr_chg:
-                dscp_list: [0, 47, 3, 4, 46, 44]
-                ecn: 1
-                limit: 80
-                lossless_weight: 30
-                lossy_weight: 8
-                q_list: [0, 1, 3, 4, 5, 6]
-                q_pkt_cnt: [40, 50, 150, 50, 50, 350]
         topo-t1-isolated-d128: &topo-t1-isolated-d128
             200000_5m: &topo-t1-isolated-d128_200000_5m
                 hdrm_pool_size:
