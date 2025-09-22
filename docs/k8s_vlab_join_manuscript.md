@@ -55,10 +55,7 @@ curl -L https://github.com/kubernetes/minikube/releases/download/v1.34.0/minikub
   -o /tmp/minikube-linux-amd64 --max-time 360
 ```
 
-**Expected Output:**
-```
-100 99.0M  100 99.0M    0     0   [speed]      0 --:--:-- --:--:-- --:--:-- [speed]
-```
+**Expected:** Download completes successfully (file is ~99MB)
 
 ### 2.2 Install Minikube
 
