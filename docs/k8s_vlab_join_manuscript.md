@@ -12,12 +12,33 @@ This manuscript provides step-by-step instructions to set up a Kubernetes cluste
 
 - **DUT/Virtual Switch Requirements:**
   - SONiC device with Kubernetes support (K8s version v1.22.2)
+  - **CRITICAL:** SONiC version 202505 or later internal build (kubesonic functionality is NOT available in public SONiC images)
   - SSH access with admin credentials
   - ctrmgrd service running
 
 ## Step 1: Verify DUT/Virtual Switch Prerequisites
 
-### 1.1 Check Kubernetes Version on DUT
+### 1.1 Check SONiC Version and Build Type
+
+**On the DUT/Virtual Switch, run:**
+```bash
+show version
+```
+
+**Expected Output:** Look for:
+- SONiC Software Version: SONiC.202505xx.xx or later
+- Ensure this is an **internal build** (not a public release)
+
+**Example:**
+```
+SONiC Software Version: SONiC.20250510.21
+Distribution: Debian 12.11
+...
+```
+
+**IMPORTANT:** If you see a public SONiC release, kubesonic functionality will not be available. You need an internal build from 202505 or later.
+
+### 1.2 Check Kubernetes Version on DUT
 
 **On the DUT/Virtual Switch, run:**
 ```bash
@@ -29,7 +50,30 @@ kubeadm version -o short
 v1.22.2
 ```
 
-### 1.2 Verify ctrmgrd Service Status
+### 1.3 Verify Kubernetes Configuration Command Availability
+
+**On the DUT/Virtual Switch, run:**
+```bash
+sudo config kube --help
+```
+
+**Expected Output:**
+```
+Usage: config kube [OPTIONS] COMMAND [ARGS]...
+
+  kubernetes command line
+
+Options:
+  -?, -h, --help  Show this message and exit.
+
+Commands:
+  label   label configuration
+  server  Server configuration
+```
+
+**If this command fails or is not found:** Your SONiC build does not include kubesonic functionality. You need a 202505+ internal build.
+
+### 1.4 Verify ctrmgrd Service Status
 
 **On the DUT/Virtual Switch, run:**
 ```bash
