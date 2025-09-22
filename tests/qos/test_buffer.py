@@ -3334,7 +3334,7 @@ def exclude_ports_with_autogeg_enable(duthost, test_ports):
 
     autoneg_status_list = duthost.show_and_parse("show int autoneg status")
     for autoneg_status in autoneg_status_list:
-        if autoneg_status.get('auto-neg mode') == 'enabled':
+        if autoneg_status.get('auto-neg mode') == 'enabled' and autoneg_status.get('interface') in test_ports:
             test_ports.remove(autoneg_status.get('interface'))
 
     logging.info(f"Test ports without auto-negotiation enabled: {test_ports}")
