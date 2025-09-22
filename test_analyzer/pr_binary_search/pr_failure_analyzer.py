@@ -122,9 +122,9 @@ def get_pr_result_summary(kusto, start, end):
     pr_failures = []
 
     for row in query_result:
-        if row['TriggerType'] == 'BaselineTest' and float(row['SuccessRate']) < BASELINE_LOW_SUCCESS_THRESHOLD:
+        if row['TriggerType'] == 'BaselineTest' and float(row['SuccessRate']) < float(BASELINE_LOW_SUCCESS_THRESHOLD):
             baseline_failures.append(row)
-        elif row['TriggerType'] == 'PRTest' and float(row['SuccessRate']) < PR_LOW_SUCCESS_THRESHOLD:
+        elif row['TriggerType'] == 'PRTest' and float(row['SuccessRate']) < float(PR_LOW_SUCCESS_THRESHOLD):
             pr_failures.append(row)
 
     # Check if baseline and pr failures have common entries
