@@ -6,8 +6,8 @@ trigger: none
 pr: none
 
 schedules:
-  - cron: "30 1,5,9,13,17,21 * * *"
-    displayName: PRTestResultSummary
+  - cron: "0 22 * * *"
+    displayName: PRFailureAnalyzer
     branches:
       include:
         - internal
@@ -25,12 +25,13 @@ parameters:
     displayName: "End Time"
 
 stages:
-  - stage: PRTestResultSummary
+  - stage: PRFailureAnalyzer
     jobs:
-      - job: PRTestResultSummary
+      - job: PRFailureAnalyzer
         timeoutInMinutes: 180
         variables:
           - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -52,7 +53,9 @@ stages:
 
                 cd test_analyzer
                 pip install -r requirements.txt
+                cd pr_binary_search
 
-                python pr_test_result_summary.py --start_time ${{ parameters.START_TIME }} --end_time ${{ parameters.END_TIME }}
+                python pr_failure_analyzer.py
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              GIT_API_TOKEN: $(GIT_API_TOKEN)
