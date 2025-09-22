@@ -24,7 +24,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
-from tests.common.dualtor.dual_tor_common import mux_config
+from tests.common.dualtor.dual_tor_common import mux_config # noqa: F401
 from tests.common.helpers.sonic_db import AsicDbCli
 import json
 
@@ -61,7 +61,7 @@ UP_STREAM = "upstream"
 DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
 
 
-def get_default_server_ip(mux_config, avoidList):
+def get_default_server_ip(mux_config, avoidList): # noqa F811
     """
     Get default server IP
     """
@@ -516,7 +516,7 @@ def remove_route(duthost, prefix, nexthop, namespace):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup_arp_responder(duthost, ptfhost, setup_info, mux_config):
+def setup_arp_responder(duthost, ptfhost, setup_info, mux_config): # noqa F811
     if setup_info['topo'] not in ['t0', 'm0_vlan']:
         yield
         return
