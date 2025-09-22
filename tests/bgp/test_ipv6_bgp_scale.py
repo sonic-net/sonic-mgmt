@@ -214,7 +214,6 @@ def remove_nexthops_in_routes(routes, nexthops):
 
 def validate_dut_routes(duthost, tbinfo, expected_routes):
     identical = True
-    neighbors = {}
     running_routes = get_all_bgp_ipv6_routes(duthost)
     checked_prefixes = set()
     for prefix, attr in running_routes.items():
@@ -232,7 +231,6 @@ def validate_dut_routes(duthost, tbinfo, expected_routes):
             logger.warning("Prefix %s nexthops not match, running only: %s, topo only: %s",
                            prefix, running_only_nhps, topo_only_nhps)
             identical = False
-    import pdb; pdb.set_trace()
     for prefix in expected_routes.keys() - checked_prefixes:
         if prefix in STATIC_ROUTES:
             continue
