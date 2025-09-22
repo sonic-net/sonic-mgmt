@@ -24,7 +24,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
-from tests.common.dualtor.dual_tor_common import mux_config    # noqa: F401
+from tests.common.dualtor.dual_tor_common import mux_config
 from tests.common.helpers.sonic_db import AsicDbCli
 import json
 
@@ -60,6 +60,7 @@ UP_STREAM = "upstream"
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
 
+
 def get_default_server_ip(mux_config, avoidList):
     """
     Get default server IP
@@ -68,8 +69,6 @@ def get_default_server_ip(mux_config, avoidList):
         if (server_ip := port_config["SERVER"]["IPv4"].split('/')[0]) not in avoidList:
             return server_ip
     return DEFAULT_SERVER_IP
-
-
 
 def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
     """
