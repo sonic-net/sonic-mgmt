@@ -11,46 +11,54 @@ This manuscript provides step-by-step instructions to set up a Kubernetes cluste
   - Network connectivity to the DUT
 
 - **DUT/Virtual Switch Requirements:**
-  - SONiC device with Kubernetes support (K8s version v1.22.2)
-  - **CRITICAL:** SONiC version 202505 or later internal build (kubesonic functionality is NOT available in public SONiC images)
+  - SONiC device with Kubernetes support
+  - **CRITICAL:** SONiC version 202311 or later internal build (kubesonic functionality is NOT available in public SONiC images)
   - SSH access with admin credentials
   - ctrmgrd service running
 
 ## Step 1: Verify DUT/Virtual Switch Prerequisites
 
-### 1.1 Check SONiC Version and Build Type
+### 1.1 Verify Internal Build with kubeadm
 
 **On the DUT/Virtual Switch, run:**
 ```bash
-show version
+which kubeadm
 ```
 
-**Expected Output:** Look for:
-- SONiC Software Version: SONiC.202505xx.xx or later
-- Ensure this is an **internal build** (not a public release)
-
-**Example:**
+**Expected Output:**
 ```
-SONiC Software Version: SONiC.20250510.21
-Distribution: Debian 12.11
-...
+/usr/bin/kubeadm
 ```
 
-**IMPORTANT:** If you see a public SONiC release, kubesonic functionality will not be available. You need an internal build from 202505 or later.
+**If kubeadm is not found:** Your SONiC build does not include Kubernetes components. You need an internal build from 202311 or later.
 
-### 1.2 Check Kubernetes Version on DUT
+### 1.2 Check SONiC Version
+
+**On the DUT/Virtual Switch, run:**
+```bash
+show version | head -1
+```
+
+**Expected Output:** SONiC version 202311 or later
+```
+SONiC Software Version: SONiC.20231101.xx or later
+```
+
+**IMPORTANT:** kubesonic functionality is only available in internal builds from 202311 onwards, not in public SONiC releases.
+
+### 1.3 Check Kubernetes Version on DUT
 
 **On the DUT/Virtual Switch, run:**
 ```bash
 kubeadm version -o short
 ```
 
-**Expected Output:**
+**Expected Output:** (version may vary depending on SONiC build)
 ```
 v1.22.2
 ```
 
-### 1.3 Verify Kubernetes Configuration Command Availability
+### 1.4 Verify Kubernetes Configuration Command Availability
 
 **On the DUT/Virtual Switch, run:**
 ```bash
@@ -71,9 +79,9 @@ Commands:
   server  Server configuration
 ```
 
-**If this command fails or is not found:** Your SONiC build does not include kubesonic functionality. You need a 202505+ internal build.
+**If this command fails or is not found:** Your SONiC build does not include kubesonic functionality. You need a 202311+ internal build.
 
-### 1.4 Verify ctrmgrd Service Status
+### 1.5 Verify ctrmgrd Service Status
 
 **On the DUT/Virtual Switch, run:**
 ```bash
