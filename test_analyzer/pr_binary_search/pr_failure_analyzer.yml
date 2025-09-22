@@ -32,6 +32,7 @@ stages:
         variables:
           - group: KUSTO_SECRETS
           - group: GIT_SECRETS
+          - group: PR Regression
           - name: skipComponentGovernanceDetection
             value: true
 
@@ -59,3 +60,8 @@ stages:
             env:
               KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
               GIT_API_TOKEN: $(GIT_API_TOKEN)
+              BASELINE_LOW_SUCCESS_THRESHOLD: $(BASELINE_LOW_SUCCESS_THRESHOLD)
+              PR_LOW_SUCCESS_THRESHOLD: $(PR_LOW_SUCCESS_THRESHOLD)
+              PREVIOUS_SUCCESS_THRESHOLD: $(PREVIOUS_SUCCESS_THRESHOLD)
+              TOTAL_TEST_COUNT_THRESHOLD: $(TOTAL_TEST_COUNT_THRESHOLD)
+              QUERY_DAYS_RANGE: $(QUERY_DAYS_RANGE)
