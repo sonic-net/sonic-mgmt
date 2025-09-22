@@ -58,7 +58,11 @@ class DHCPStressDiscoverTest(DHCPTest):
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
         end_time = time.time() + self.packets_send_duration
+        xid = 0
         while time.time() < end_time:
+            # Set a unique transaction ID for each DHCPOFFER packet for making sure no packet miss
+            dhcp_discover[scapy.BOOTP].xid = xid
+            xid += 1
             testutils.send_packet(self, self.client_port_index, dhcp_discover)
             time.sleep(1/self.client_packets_per_sec)
 
@@ -89,6 +93,7 @@ class DHCPStressDiscoverTest(DHCPTest):
 
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_discover.set_do_not_care_scapy(scapy.BOOTP, "file")
+        masked_discover.set_do_not_care_scapy(scapy.BOOTP, "xid")
 
         discover_count = testutils.count_matched_packets_all_ports(
             self, masked_discover, self.server_port_indices)
@@ -119,7 +124,11 @@ class DHCPStressOfferTest(DHCPTest):
     def client_send_offer_stress(self):
         dhcp_offer = self.create_dhcp_offer_packet()
         end_time = time.time() + self.packets_send_duration
+        xid = 0
         while time.time() < end_time:
+            # Set a unique transaction ID for each DHCPOFFER packet for making sure no packet miss
+            dhcp_offer[scapy.BOOTP].xid = xid
+            xid += 1
             testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
             time.sleep(1/self.client_packets_per_sec)
 
@@ -149,6 +158,7 @@ class DHCPStressOfferTest(DHCPTest):
 
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_offer.set_do_not_care_scapy(scapy.BOOTP, "file")
+        masked_offer.set_do_not_care_scapy(scapy.BOOTP, "xid")
 
         offer_count = testutils.count_matched_packets(self, masked_offer, self.client_port_index)
         return offer_count
@@ -179,7 +189,11 @@ class DHCPStressRequestTest(DHCPTest):
         # Form and send DHCPREQUEST packet
         dhcp_request = self.create_dhcp_request_packet(dst_mac, src_port)
         end_time = time.time() + self.packets_send_duration
+        xid = 0
         while time.time() < end_time:
+            # Set a unique transaction ID for each DHCPACK packet for making sure no packet miss
+            dhcp_request[scapy.BOOTP].xid = xid
+            xid += 1
             testutils.send_packet(self, self.client_port_index, dhcp_request)
             time.sleep(1/self.client_packets_per_sec)
 
@@ -210,6 +224,7 @@ class DHCPStressRequestTest(DHCPTest):
 
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_request.set_do_not_care_scapy(scapy.BOOTP, "file")
+        masked_request.set_do_not_care_scapy(scapy.BOOTP, "xid")
 
         request_count = testutils.count_matched_packets_all_ports(
             self, masked_request, self.server_port_indices)
@@ -240,7 +255,11 @@ class DHCPStressAckTest(DHCPTest):
     def client_send_ack_stress(self):
         dhcp_ack = self.create_dhcp_ack_packet()
         end_time = time.time() + self.packets_send_duration
+        xid = 0
         while time.time() < end_time:
+            # Set a unique transaction ID for each DHCPACK packet for making sure no packet miss
+            dhcp_ack[scapy.BOOTP].xid = xid
+            xid += 1
             testutils.send_packet(self, self.server_port_indices[0], dhcp_ack)
             time.sleep(1/self.client_packets_per_sec)
 
@@ -270,6 +289,7 @@ class DHCPStressAckTest(DHCPTest):
 
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "sname")
         masked_ack.set_do_not_care_scapy(scapy.BOOTP, "file")
+        masked_ack.set_do_not_care_scapy(scapy.BOOTP, "xid")
 
         ack_count = testutils.count_matched_packets(self, masked_ack, self.client_port_index)
         return ack_count
