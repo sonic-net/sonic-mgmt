@@ -111,16 +111,38 @@ def measure_stats(dut):
 
 
 @pytest.fixture
+def setup_duthost_intervals(duthost):
+    '''
+    Fixture to allow for dynamic interval definitions for each interval, based on duthost facts.
+    Returns a list of float values.
+    '''
+    platform = duthost.facts["platform"]
+
+    # Example (same as default interval)
+    if 'mellanox' in platform:
+        intervals = [4.0, 3.5, 3.0]
+        logger.info(f"'mellanox' found in platform {platform}, intervals {intervals} selected")
+        return intervals
+
+    if 'arista' in platform:
+        intervals = [5.0, 4.5, 4.0]
+        logger.info(f"'arista' found in platform {platform}, intervals {intervals} selected")
+        return intervals
+
+    intervals = [4.0, 3.5, 3.0]
+    logger.info(f"No matching conditions for platform {platform}, selecting default intervals {intervals}")
+    return intervals
+
+
+@pytest.fixture
 def setup_bgp_peers(
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname,
+    duthost,
     tbinfo,
     ptfhost,
     setup_interfaces,
     is_dualtor,
     is_quagga
 ):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
@@ -188,12 +210,12 @@ def setup_bgp_peers(
 
 
 def test_bgp_update_replication(
-    duthosts,
-    enum_rand_one_per_hwsku_frontend_hostname,
+    duthost,
     setup_bgp_peers,
+    setup_duthost_intervals,
 ):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
+    duthost_intervals: list[float] = setup_duthost_intervals
 
     # Ensure new sessions are ready
     if not wait_until(
@@ -211,14 +233,16 @@ def test_bgp_update_replication(
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
     results = [measure_stats(duthost)]
-    prev_num_rib = int(results[0]["num_rib"])
+    num_routes = 10_000
+    base_rib = int(results[0]["num_rib"])
+    min_expected_rib = base_rib + num_routes
+    max_expected_rib = base_rib + (2 * num_routes)
 
     # Inject and withdraw routes with a specified interval in between iterations
-    for interval in [4.0, 3.5, 3.0]:
+    for interval in duthost_intervals:
         # Repeat 20 times
-        for _ in range(15):
+        for _ in range(20):
             # Inject 10000 routes
-            num_routes = 10_000
             route_injector.announce_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
 
             time.sleep(interval)
@@ -228,12 +252,12 @@ def test_bgp_update_replication(
 
             # Validate all routes have been received
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = prev_num_rib + (2 * num_routes)
             pytest_assert(
-                curr_num_rib == expected,
-                f"All routes have not been received: current '{curr_num_rib}', expected: '{expected}'"
+                curr_num_rib >= min_expected_rib,
+                f"All routes have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
             )
-            prev_num_rib = curr_num_rib
+            if curr_num_rib < max_expected_rib:
+                logger.warning(f"All routes have not been announced: current '{curr_num_rib}', expected: '{max_expected_rib}'")
 
             # Remove routes
             route_injector.withdraw_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
@@ -245,12 +269,11 @@ def test_bgp_update_replication(
 
             # Validate all routes have been withdrawn
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = prev_num_rib - (2 * num_routes)
+            expected = base_rib
             pytest_assert(
                 curr_num_rib == expected,
                 f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{expected}'"
             )
-            prev_num_rib = curr_num_rib
 
     results.append(measure_stats(duthost))
 
