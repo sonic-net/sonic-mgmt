@@ -24,6 +24,11 @@ WAIT_TIMEOUT = 120
 ASN_BASE = 61000
 PORT_BASE = 11000
 SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
+DEFAULT_INTERVALS = [4.0, 3.5, 3.0]
+PLATFORM_INTERVALS = {
+    'mellanox': [4.0, 3.5, 3.0],
+    'arista': [5.0, 4.5, 4.0]
+}
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2')
@@ -116,22 +121,16 @@ def setup_duthost_intervals(duthost):
     Fixture to allow for dynamic interval definitions for each interval, based on duthost facts.
     Returns a list of float values.
     '''
-    platform = duthost.facts["platform"]
+    dut_platform = duthost.facts["platform"]
 
-    # Example (same as default interval)
-    if 'mellanox' in platform:
-        intervals = [4.0, 3.5, 3.0]
-        logger.info(f"'mellanox' found in platform {platform}, intervals {intervals} selected")
+    for platform, intervals in PLATFORM_INTERVALS.values():
+        if dut_platform not in platform:
+            continue
+        logger.info(f"'{platform}' found in platform {dut_platform}, intervals {intervals} selected")
         return intervals
 
-    if 'arista' in platform:
-        intervals = [5.0, 4.5, 4.0]
-        logger.info(f"'arista' found in platform {platform}, intervals {intervals} selected")
-        return intervals
-
-    intervals = [4.0, 3.5, 3.0]
-    logger.info(f"No matching conditions for platform {platform}, selecting default intervals {intervals}")
-    return intervals
+    logger.info(f"No matching conditions for platform {dut_platform}, selecting default intervals {DEFAULT_INTERVALS}")
+    return DEFAULT_INTERVALS
 
 
 @pytest.fixture
