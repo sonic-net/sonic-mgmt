@@ -1,0 +1,10 @@
+/.git:
+  type: IGNORE
+/.code-owners:
+  type: IGNORE
+/.flake8:
+  type: IGNORE
+/.github:
+  type: IGNORE
+/.hooks:
+  type: IGNORE
