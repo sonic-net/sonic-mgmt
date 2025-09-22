@@ -75,7 +75,9 @@ def fake_storm(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         fake_storm: False/True
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    return False if (isMellanoxDevice(duthost) or is_cisco_device(duthost)) \
+    return False if (isMellanoxDevice(duthost) or
+                     is_cisco_device(duthost) or
+                     "7060X6" in duthost.facts['hwsku'].upper()) \
         else request.config.getoption('--fake-storm')
 
 
