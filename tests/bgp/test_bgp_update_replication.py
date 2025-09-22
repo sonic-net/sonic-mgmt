@@ -257,7 +257,9 @@ def test_bgp_update_replication(
                 f"All routes have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
             )
             if curr_num_rib < max_expected_rib:
-                logger.warning(f"All routes have not been announced: current '{curr_num_rib}', expected: '{max_expected_rib}'")
+                logger.warning(
+                    f"All routes have not been announced: current '{curr_num_rib}', expected: '{max_expected_rib}'"
+                )
 
             # Remove routes
             route_injector.withdraw_routes_batch(generate_routes(num_routes=num_routes, nexthop=route_injector.ip))
