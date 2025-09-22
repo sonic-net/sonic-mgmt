@@ -27,10 +27,11 @@ ingest_cluster = os.environ.get("KUSTO_CLUSTER_INGEST_URL", None)
 cluster = ingest_cluster.replace("ingest-", "") if ingest_cluster else None
 access_token = os.environ.get("ACCESS_TOKEN", None)
 github_api_token = os.environ.get("GIT_API_TOKEN", None)
-TOTAL_COUNT_THRESHOLD = 10
-PR_LOW_SUCCESS_THRESHOLD = 0.9
-BASELINE_LOW_SUCCESS_THRESHOLD = 0.9
-QUERY_DAYS = 7
+TOTAL_COUNT_THRESHOLD = os.environ.get("TOTAL_TEST_COUNT_THRESHOLD", 10)
+PREVIOUS_SUCCESS_THRESHOLD = os.environ.get("PREVIOUS_SUCCESS_THRESHOLD", 0.7)
+PR_LOW_SUCCESS_THRESHOLD = os.environ.get("PR_LOW_SUCCESS_THRESHOLD", 0.5)
+BASELINE_LOW_SUCCESS_THRESHOLD = os.environ.get("BASELINE_LOW_SUCCESS_THRESHOLD", 0.5)
+QUERY_DAYS_RANGE = os.environ.get("QUERY_DAYS_RANGE", 7)
 SUPPORTED_PUBLIC_REPOS = ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage"]
 
 
@@ -121,9 +122,9 @@ def get_pr_result_summary(kusto, start, end):
     pr_failures = []
 
     for row in query_result:
-        if row['TriggerType'] == 'BaselineTest' and row['SuccessRate'] < BASELINE_LOW_SUCCESS_THRESHOLD:
+        if row['TriggerType'] == 'BaselineTest' and float(row['SuccessRate']) < float(BASELINE_LOW_SUCCESS_THRESHOLD):
             baseline_failures.append(row)
-        elif row['TriggerType'] == 'PRTest' and row['SuccessRate'] < PR_LOW_SUCCESS_THRESHOLD:
+        elif row['TriggerType'] == 'PRTest' and float(row['SuccessRate']) < float(PR_LOW_SUCCESS_THRESHOLD):
             pr_failures.append(row)
 
     # Check if baseline and pr failures have common entries
@@ -155,7 +156,7 @@ def get_failure_details(kusto, failure_details, failures, trigger_type):
             Success, Failure, Error, Skip, Total
         | where Total != Skip and Total > 0
         | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
-        | where SuccessRate < 0.9
+        | where SuccessRate < {PREVIOUS_SUCCESS_THRESHOLD}
         | summarize EarliestTime = min(RunDate), LatestTime = max(RunDate)
         '''
         query_time_range = kusto.execute_query(DATABASE, query_time_range).primary_results[0].to_dict()['data']
@@ -230,7 +231,7 @@ def analyze_candidates(kusto, lookback_days):
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--lookback-days", type=int, default=QUERY_DAYS)
+    p.add_argument("--lookback-days", type=int, default=QUERY_DAYS_RANGE)
     args = p.parse_args()
 
     kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster, access_token)
