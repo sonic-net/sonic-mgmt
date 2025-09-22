@@ -223,7 +223,7 @@ def validate_dut_routes(duthost, tbinfo, expected_routes):
         topo_nhs = expected_routes[prefix] if prefix in expected_routes else []
         checked_prefixes.add(prefix)
         if prefix in STATIC_ROUTES or len(running_nhs) == 1:
-            logger.warning("Skip validate route %s", prefix)
+            logger.info("Skip validate route %s", prefix)
             continue
         running_only_nhps = set(running_nhs) - set(topo_nhs)
         topo_only_nhps = set(topo_nhs) - set(running_nhs)
