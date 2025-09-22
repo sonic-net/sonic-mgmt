@@ -1,6 +1,6 @@
-# Kubernetes Cluster Setup and vlab-01 Join Operational Manuscript
+# Kubernetes Cluster Setup and SONiC DUT Join Operational Manuscript
 
-This manuscript provides step-by-step instructions to set up a Kubernetes cluster using minikube and join a SONiC device (vlab-01) to the cluster. Each step includes verification commands to ensure successful execution.
+This manuscript provides step-by-step instructions to set up a Kubernetes cluster using minikube and join a SONiC device (DUT/Virtual Switch) to the cluster. Each step includes verification commands to ensure successful execution.
 
 ## Prerequisites
 
@@ -8,20 +8,20 @@ This manuscript provides step-by-step instructions to set up a Kubernetes cluste
   - Ubuntu/Debian Linux system with Docker installed
   - sudo privileges
   - Internet connection for downloading minikube
-  - Network connectivity to vlab-01
+  - Network connectivity to the DUT
 
-- **vlab-01 Requirements:**
+- **DUT/Virtual Switch Requirements:**
   - SONiC device with Kubernetes support (K8s version v1.22.2)
   - SSH access with admin credentials
   - ctrmgrd service running
 
-## Step 1: Verify vlab-01 Prerequisites
+## Step 1: Verify DUT/Virtual Switch Prerequisites
 
-### 1.1 Check Kubernetes Version on vlab-01
+### 1.1 Check Kubernetes Version on DUT
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "kubeadm version -o short"
+kubeadm version -o short
 ```
 
 **Expected Output:**
@@ -31,9 +31,9 @@ v1.22.2
 
 ### 1.2 Verify ctrmgrd Service Status
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "systemctl status ctrmgrd | head -5"
+systemctl status ctrmgrd | head -5
 ```
 
 **Expected Output:**
@@ -100,7 +100,7 @@ minikube delete --all --purge
 hostname -I | awk '{print $1}'
 ```
 
-**Expected Output:** Your local IP address (e.g., `10.52.0.72`)
+**Expected Output:** Your local IP address (e.g., `<YOUR_HOST_IP>`)
 
 **Note:** Save this IP address as `VMHOST_IP` - you'll need it in subsequent steps.
 
@@ -108,7 +108,7 @@ hostname -I | awk '{print $1}'
 
 **Command:**
 ```bash
-VMHOST_IP=10.52.0.72  # Replace with your actual IP from step 3.2
+VMHOST_IP=<YOUR_HOST_IP>  # Replace with your actual IP from step 3.2
 
 minikube start \
   --listen-address=0.0.0.0 \
@@ -233,22 +233,22 @@ NAME             DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELEC
 test-daemonset   0         0         0       0            0           deployDaemonset=true   [age]
 ```
 
-## Step 6: Prepare vlab-01 for Joining
+## Step 6: Prepare DUT for Joining
 
 ### 6.1 Check K8s State Database
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time"
+sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time
 ```
 
 **Expected Output:** A timestamp (e.g., `2025-09-22 22:05:41`)
 
-If empty, initialize it:
+If empty, initialize it on the DUT:
 ```bash
-ssh admin@vlab-01 "sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' \
-  update_time '2024-12-24 01:01:01'"
-ssh admin@vlab-01 "sudo systemctl restart ctrmgrd"
+sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' \
+  update_time '2024-12-24 01:01:01'
+sudo systemctl restart ctrmgrd
 ```
 
 ### 6.2 Extract Certificates from Minikube
@@ -268,29 +268,33 @@ ls -la /tmp/apiserver.* | wc -l
 2
 ```
 
-### 6.3 Transfer Certificates to vlab-01
+### 6.3 Transfer Certificates to DUT
 
-**Commands:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-# Backup existing credentials on vlab-01
-ssh admin@vlab-01 "sudo bash -c 'if [ -d /etc/sonic/credentials ]; then \
-  mv /etc/sonic/credentials /etc/sonic/credentials.bak; fi'"
+# Backup existing credentials
+sudo bash -c 'if [ -d /etc/sonic/credentials ]; then \
+  mv /etc/sonic/credentials /etc/sonic/credentials.bak; fi'
 
 # Create credentials directory
-ssh admin@vlab-01 "sudo mkdir -p /etc/sonic/credentials"
-
-# Copy certificates
-scp /tmp/apiserver.crt admin@vlab-01:/tmp/apiserver.crt
-scp /tmp/apiserver.key admin@vlab-01:/tmp/apiserver.key
-
-# Move to proper location with correct names
-ssh admin@vlab-01 "sudo mv /tmp/apiserver.crt /etc/sonic/credentials/restapiserver.crt"
-ssh admin@vlab-01 "sudo mv /tmp/apiserver.key /etc/sonic/credentials/restapiserver.key"
+sudo mkdir -p /etc/sonic/credentials
 ```
 
-**Verification:**
+**On the Local Host, copy certificates to DUT:**
 ```bash
-ssh admin@vlab-01 "sudo ls -la /etc/sonic/credentials/"
+scp /tmp/apiserver.crt admin@<DUT_IP>:/tmp/apiserver.crt
+scp /tmp/apiserver.key admin@<DUT_IP>:/tmp/apiserver.key
+```
+
+**Back on the DUT/Virtual Switch, move certificates to proper location:**
+```bash
+sudo mv /tmp/apiserver.crt /etc/sonic/credentials/restapiserver.crt
+sudo mv /tmp/apiserver.key /etc/sonic/credentials/restapiserver.key
+```
+
+**Verification on the DUT:**
+```bash
+sudo ls -la /etc/sonic/credentials/
 ```
 
 **Expected Output:**
@@ -304,85 +308,85 @@ drwxr-xr-x [n] root root [size] [date] ..
 
 ### 6.4 Configure DNS for Minikube VIP
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-VMHOST_IP=10.52.0.72  # Use your IP from step 3.2
+VMHOST_IP=<YOUR_HOST_IP>  # Use your IP from step 3.2
 
-ssh admin@vlab-01 "grep '${VMHOST_IP} control-plane.minikube.internal' /etc/hosts || \
-  echo '${VMHOST_IP} control-plane.minikube.internal' | sudo tee -a /etc/hosts"
+grep "${VMHOST_IP} control-plane.minikube.internal" /etc/hosts || \
+  echo "${VMHOST_IP} control-plane.minikube.internal" | sudo tee -a /etc/hosts
 ```
 
 **Expected Output:**
 ```
-10.52.0.72 control-plane.minikube.internal
+<YOUR_HOST_IP> control-plane.minikube.internal
 ```
 
-**Verification:**
+**Verification on the DUT:**
 ```bash
-ssh admin@vlab-01 "grep minikube /etc/hosts"
+grep minikube /etc/hosts
 ```
 
-## Step 7: Join vlab-01 to Kubernetes Cluster
+## Step 7: Join DUT to Kubernetes Cluster
 
 ### 7.1 Configure K8s Server IP
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-VMHOST_IP=10.52.0.72  # Use your IP from step 3.2
+VMHOST_IP=<YOUR_HOST_IP>  # Use your IP from step 3.2
 
-ssh admin@vlab-01 "sudo config kube server ip ${VMHOST_IP}"
+sudo config kube server ip ${VMHOST_IP}
 ```
 
-### 7.2 Enable Kubernetes on vlab-01
+### 7.2 Enable Kubernetes on DUT
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "sudo config kube server disable off"
+sudo config kube server disable off
 ```
 
 ### 7.3 Wait and Verify Join Status
 
-**Commands:**
+**On the Local Host, run:**
 ```bash
 # Wait for join process
 sleep 10
 
-# Check if vlab-01 joined the cluster
-NO_PROXY=192.168.49.2 minikube kubectl -- get nodes vlab-01
+# Check if DUT joined the cluster (replace <DUT_HOSTNAME> with actual hostname)
+NO_PROXY=192.168.49.2 minikube kubectl -- get nodes <DUT_HOSTNAME>
 ```
 
 **Expected Output:**
 ```
-NAME      STATUS   ROLES    AGE   VERSION
-vlab-01   Ready    <none>   [age]   v1.22.2
+NAME            STATUS   ROLES    AGE   VERSION
+<DUT_HOSTNAME>  Ready    <none>   [age]   v1.22.2
 ```
 
 **Note:** The status should show "Ready". If it shows "NotReady", wait another 10 seconds and check again.
 
 ## Step 8: Verify DaemonSet Deployment
 
-### 8.1 Label vlab-01 Node
+### 8.1 Label DUT Node
 
-**Command:**
+**On the Local Host, run:**
 ```bash
-NO_PROXY=192.168.49.2 minikube kubectl -- label node vlab-01 deployDaemonset=true
+NO_PROXY=192.168.49.2 minikube kubectl -- label node <DUT_HOSTNAME> deployDaemonset=true
 ```
 
 **Expected Output:**
 ```
-node/vlab-01 labeled
+node/<DUT_HOSTNAME> labeled
 ```
 
 ### 8.2 Wait for Pod Deployment and Verify
 
-**Commands:**
+**On the Local Host, run:**
 ```bash
 # Wait for pod scheduling
 sleep 15
 
 # Check pod status
 NO_PROXY=192.168.49.2 minikube kubectl -- get pods -l group=test-ds-pod \
-  --field-selector spec.nodeName=vlab-01
+  --field-selector spec.nodeName=<DUT_HOSTNAME>
 ```
 
 **Expected Output:**
@@ -391,11 +395,11 @@ NAME                   READY   STATUS    RESTARTS   AGE
 test-daemonset-[hash]  1/1     Running   0          [age]
 ```
 
-### 8.3 Verify Container on vlab-01
+### 8.3 Verify Container on DUT
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "docker ps | grep mock-ds-container"
+docker ps | grep mock-ds-container
 ```
 
 **Expected Output:**
@@ -405,28 +409,28 @@ ssh admin@vlab-01 "docker ps | grep mock-ds-container"
 
 ## Step 9: Test DaemonSet Removal
 
-### 9.1 Remove Label from vlab-01
+### 9.1 Remove Label from DUT
 
-**Command:**
+**On the Local Host, run:**
 ```bash
-NO_PROXY=192.168.49.2 minikube kubectl -- label node vlab-01 deployDaemonset-
+NO_PROXY=192.168.49.2 minikube kubectl -- label node <DUT_HOSTNAME> deployDaemonset-
 ```
 
 **Expected Output:**
 ```
-node/vlab-01 unlabeled
+node/<DUT_HOSTNAME> unlabeled
 ```
 
 ### 9.2 Verify Pod Removal
 
-**Commands:**
+**On the Local Host, run:**
 ```bash
 # Wait for pod termination
 sleep 15
 
 # Check that pod is removed
 NO_PROXY=192.168.49.2 minikube kubectl -- get pods -l group=test-ds-pod \
-  --field-selector spec.nodeName=vlab-01
+  --field-selector spec.nodeName=<DUT_HOSTNAME>
 ```
 
 **Expected Output:**
@@ -434,11 +438,11 @@ NO_PROXY=192.168.49.2 minikube kubectl -- get pods -l group=test-ds-pod \
 No resources found in default namespace.
 ```
 
-### 9.3 Verify Container Removed from vlab-01
+### 9.3 Verify Container Removed from DUT
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "docker ps | grep mock-ds-container || echo 'Container not found'"
+docker ps | grep mock-ds-container || echo 'Container not found'
 ```
 
 **Expected Output:**
@@ -446,45 +450,46 @@ ssh admin@vlab-01 "docker ps | grep mock-ds-container || echo 'Container not fou
 Container not found
 ```
 
-## Step 10: Disjoin vlab-01 from Cluster
+## Step 10: Disjoin DUT from Cluster
 
-### 10.1 Disable Kubernetes on vlab-01
+### 10.1 Disable Kubernetes on DUT
 
-**Command:**
+**On the DUT/Virtual Switch, run:**
 ```bash
-ssh admin@vlab-01 "sudo config kube server disable on"
+sudo config kube server disable on
 ```
 
 ### 10.2 Verify Node Removal
 
-**Commands:**
+**On the Local Host, run:**
 ```bash
 # Wait for node removal
 sleep 20
 
 # Check node is removed
-NO_PROXY=192.168.49.2 minikube kubectl -- get nodes vlab-01 2>&1
+NO_PROXY=192.168.49.2 minikube kubectl -- get nodes <DUT_HOSTNAME> 2>&1
 ```
 
 **Expected Output:**
 ```
-Error from server (NotFound): nodes "vlab-01" not found
+Error from server (NotFound): nodes "<DUT_HOSTNAME>" not found
 ```
 
 ## Cleanup (Optional)
 
-### Clean Up vlab-01
+### Clean Up DUT
 
+**On the DUT/Virtual Switch, run:**
 ```bash
 # Remove DNS entry
-ssh admin@vlab-01 "sudo sed -i '/control-plane.minikube.internal/d' /etc/hosts"
+sudo sed -i '/control-plane.minikube.internal/d' /etc/hosts
 
 # Restore original certificates
-ssh admin@vlab-01 "sudo bash -c 'if [ -d /etc/sonic/credentials.bak ]; then \
-  rm -rf /etc/sonic/credentials && mv /etc/sonic/credentials.bak /etc/sonic/credentials; fi'"
+sudo bash -c 'if [ -d /etc/sonic/credentials.bak ]; then \
+  rm -rf /etc/sonic/credentials && mv /etc/sonic/credentials.bak /etc/sonic/credentials; fi'
 
 # Clean K8s config
-ssh admin@vlab-01 "sudo sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'"
+sudo sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'
 ```
 
 ### Clean Up Local Host
@@ -505,11 +510,11 @@ rm -f /tmp/apiserver.* /tmp/kubelet-config.yaml /tmp/daemonset.yaml
 
 ## Troubleshooting
 
-### Issue: vlab-01 Shows NotReady Status
+### Issue: DUT Shows NotReady Status
 
-**Check kubelet logs:**
+**On the DUT/Virtual Switch, check kubelet logs:**
 ```bash
-ssh admin@vlab-01 "sudo journalctl -u kubelet -n 50"
+sudo journalctl -u kubelet -n 50
 ```
 
 ### Issue: DaemonSet Pod Not Starting
@@ -521,16 +526,17 @@ NO_PROXY=192.168.49.2 minikube kubectl -- describe pods -l group=test-ds-pod
 
 ### Issue: Certificate Errors
 
-**Verify certificate content:**
+**On the DUT/Virtual Switch, verify certificate content:**
 ```bash
-ssh admin@vlab-01 "sudo openssl x509 -in /etc/sonic/credentials/restapiserver.crt -text -noout | grep Subject"
+sudo openssl x509 -in /etc/sonic/credentials/restapiserver.crt -text -noout | grep Subject
 ```
 
 ### Issue: Network Connectivity
 
-**Test connectivity from vlab-01 to master:**
+**On the DUT/Virtual Switch, test connectivity to master:**
 ```bash
-ssh admin@vlab-01 "curl -k https://${VMHOST_IP}:6443/healthz"
+VMHOST_IP=<YOUR_HOST_IP>  # Replace with your actual host IP
+curl -k https://${VMHOST_IP}:6443/healthz
 ```
 
 **Expected Output:**
@@ -543,8 +549,8 @@ ok
 This manuscript provides a complete operational procedure for:
 1. Setting up a Kubernetes master using minikube
 2. Configuring the environment for SONiC device compatibility
-3. Joining vlab-01 to the Kubernetes cluster
-4. Deploying and managing workloads on vlab-01
-5. Safely removing vlab-01 from the cluster
+3. Joining DUT to the Kubernetes cluster
+4. Deploying and managing workloads on DUT
+5. Safely removing DUT from the cluster
 
 Each step includes verification commands to ensure successful execution before proceeding to the next step. The procedure has been tested and validated on actual hardware following the test_k8s_join_disjoin.py implementation.
