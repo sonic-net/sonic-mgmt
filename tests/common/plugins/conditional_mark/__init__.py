@@ -550,7 +550,7 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
             it will update the skip reason, else will not.
         mark_details (dict): The mark detail infos specified in the mark conditions file.
         condition (str): A raw condition string that can be evaluated using python "eval()" function. The raw condition
-            string may contain issue URLs that need further processing.
+            #string may contain issue URLs that need further processing.
         basic_facts (dict): A one level dict with basic facts. Keys of the dict can be used as variables in the
             condition string evaluation.
         session (obj): Pytest session object, for getting cached data.
@@ -564,10 +564,10 @@ def evaluate_condition(dynamic_update_skip_reason, mark_details, condition, basi
     condition_str = update_issue_status(condition, session)
     try:
         safe_facts = {k: v for k, v in basic_facts.items()}
-        safe_globals = {"__builtins__": {}}
+        safe_globals = {}
         safe_globals.update(safe_facts)
 
-        for var in ["asic_type", "topo", "hwsku"]:
+        for var in ["asic_type"]:
             if var not in safe_globals:
                 safe_globals[var] = None
 
