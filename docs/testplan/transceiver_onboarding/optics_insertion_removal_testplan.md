@@ -128,6 +128,10 @@ A class named `PhysicalOIR` is defined under `tests.transceiver.utils.physical_o
     - Parameters: None
     - Returns: True if the removal process is complete, False otherwise.
 
+6. **cleanup**
+    - Description: Cleans up resources used by the PhysicalOIR class.
+    - Parameters: None
+    - Returns: None
 
 #### CLI commands
 
