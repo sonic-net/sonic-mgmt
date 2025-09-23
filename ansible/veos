@@ -11144,6 +11144,70 @@ vms_28:
       ansible_host: 172.16.147.126
     VM28095:
       ansible_host: 172.16.147.127
+    VM28096:
+      ansible_host: 172.16.147.128
+    VM28097:
+      ansible_host: 172.16.147.129
+    VM28098:
+      ansible_host: 172.16.147.130
+    VM28099:
+      ansible_host: 172.16.147.131
+    VM28100:
+      ansible_host: 172.16.147.132
+    VM28101:
+      ansible_host: 172.16.147.133
+    VM28102:
+      ansible_host: 172.16.147.134
+    VM28103:
+      ansible_host: 172.16.147.135
+    VM28104:
+      ansible_host: 172.16.147.136
+    VM28105:
+      ansible_host: 172.16.147.137
+    VM28106:
+      ansible_host: 172.16.147.138
+    VM28107:
+      ansible_host: 172.16.147.139
+    VM28108:
+      ansible_host: 172.16.147.140
+    VM28109:
+      ansible_host: 172.16.147.141
+    VM28110:
+      ansible_host: 172.16.147.142
+    VM28111:
+      ansible_host: 172.16.147.143
+    VM28112:
+      ansible_host: 172.16.147.144
+    VM28113:
+      ansible_host: 172.16.147.145
+    VM28114:
+      ansible_host: 172.16.147.146
+    VM28115:
+      ansible_host: 172.16.147.147
+    VM28116:
+      ansible_host: 172.16.147.148
+    VM28117:
+      ansible_host: 172.16.147.149
+    VM28118:
+      ansible_host: 172.16.147.150
+    VM28119:
+      ansible_host: 172.16.147.151
+    VM28120:
+      ansible_host: 172.16.147.152
+    VM28121:
+      ansible_host: 172.16.147.153
+    VM28122:
+      ansible_host: 172.16.147.154
+    VM28123:
+      ansible_host: 172.16.147.155
+    VM28124:
+      ansible_host: 172.16.147.156
+    VM28125:
+      ansible_host: 172.16.147.157
+    VM28126:
+      ansible_host: 172.16.147.158
+    VM28127:
+      ansible_host: 172.16.147.159
 
 vms_29:
   hosts:

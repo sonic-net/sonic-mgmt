@@ -512,22 +512,35 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms28-dual-t0-8102
+- conf-name: vms28-t1-8102-03
   group-name: vms28-2
-  topo: dualtor-aa
+  topo: t1-64-lag
   ptf_image_name: docker-ptf
   ptf: vms28-2
   ptf_ip: 10.64.246.239/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f6ef/64
-  netns_mgmt_ip: 10.64.247.70/23
   server: server_28
-  vm_base: VM28024
+  vm_base: VM28064
   dut:
   - str2-8102-03
+  inv_name: str2
+  auto_recover: 'True'
+  comment: sagummaraj
+
+- conf-name: vms28-t1-8102-04
+  group-name: vms28-5
+  topo: t1-64-lag
+  ptf_image_name: docker-ptf
+  ptf: vms28-5
+  ptf_ip: 10.64.246.242/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f6f2/64
+  server: server_28
+  vm_base: VM28096
+  dut:
   - str2-8102-04
   inv_name: str2
   auto_recover: 'True'
-  comment: v-saidia
+  comment: sagummaraj
 
 - conf-name: vms61-t0-8102-01
   group-name: vms61-2
