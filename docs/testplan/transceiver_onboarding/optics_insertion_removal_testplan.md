@@ -108,17 +108,22 @@ A class named `PhysicalOIR` is defined under `tests.transceiver.utils.physical_o
         - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
     - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
 
-2. **insert_sfps**
+2. **is_available**
+    - Description: Checks if the testbed supports physical OIR.
+    - Parameters: None
+    - Returns: Boolean indicating availability.
+
+3. **insert_sfps**
     - Description: Inserts SFPs on the ports specified by the port_under_test attribute.
     - Parameters: None
     - Returns: None
 
-3. **remove_sfps**
+4. **remove_sfps**
     - Description: Removes SFPs from the ports specified by the port_under_test attribute.
     - Parameters: None
     - Returns: None
 
-6. **cleanup**
+5. **cleanup**
     - Description: Cleans up resources used by the PhysicalOIR class.
     - Parameters: None
     - Returns: None
