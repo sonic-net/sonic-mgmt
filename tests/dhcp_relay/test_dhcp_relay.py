@@ -674,9 +674,9 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
     pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
 
 
-def test_dhcp_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                             setup_standby_ports_on_rand_unselected_tor,												# noqa F811
-                            rand_unselected_dut, toggle_all_simulator_ports_to_rand_selected_tor_mode):     # noqa F811
+                            rand_unselected_dut):     # noqa F811
     """Test DHCP relay functionality on T0 topology.
        For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
     """
@@ -733,4 +733,3 @@ def test_dhcp_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, validate
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
-
