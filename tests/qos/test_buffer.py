@@ -2661,40 +2661,26 @@ def _recovery_to_dynamic_buffer_model(duthost):
     config_reload(duthost, config_source='config_db')
 
 
-def _is_mgmt_port(port_config: dict) -> bool:
+def _is_pfc_enabled_on_port(config_facts, intf):
     """
-    Determine whether a port is a management/management-like port.
-
-    Heuristics (keep existing semantics):
-      - Port config must exist and admin_status must not be 'down'
-      - If description contains 'pt0' => management
-      - If speed is one of known low speeds (1G / 10G) => management
-
+    Checks if Priority Flow Control (PFC) is enabled on a specific interface.
     Args:
-        port_config: Dict from CONFIG_DB for a port.
-
+        config_facts (dict): Configuration facts of the DUT.
+        intf (str): Interface name.
     Returns:
-        True if considered a management port, else False.
+        bool: True if PFC is enabled on the specified interface, False otherwise.
     """
-    if not port_config:
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
         return False
 
-    if port_config.get('admin_status') == 'down':
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
         return False
-
-    desc = port_config.get('description', '').lower()
-    if 'pt0:' in desc:
-        # PT0 ports are considered management ports
+    if intf not in port_qos_map:
+        return False
+    pfc_enable = port_qos_map[intf].get('pfc_enable')
+    if pfc_enable:
         return True
-
-    speed_raw = port_config.get('speed')
-    if speed_raw:
-        try:
-            speed = int(speed_raw)
-        except ValueError:
-            speed = None
-        if speed in {1000, 10000}:  # 1G / 10G
-            return True
 
     return False
 
@@ -2999,6 +2985,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     profiles_checked = {}
     lossless_pool_oid = None
     admin_up_ports = set()
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0, source="running")['ansible_facts']
     for port in configdb_ports:
         logging.info("Checking port buffer information: {}".format(port))
         port_config = dut_db_info.get_port_info_from_config_db(port)
@@ -3012,9 +2999,6 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         else:
             key_name = KEY_2_LOSSLESS_QUEUE
 
-        if _is_mgmt_port(port_config):
-            logging.info("Skip management port {}".format(port))
-            continue
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
         if port_config.get('admin_status') == 'up':
@@ -3025,8 +3009,11 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                     [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
                      ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
             else:
-                buffer_items_to_check.append(
-                    ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+                if _is_pfc_enabled_on_port(config_facts, port):
+                    buffer_items_to_check.append(
+                        ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+                else:
+                    logging.info(f"Lossless config does not apply on port {port}")
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
