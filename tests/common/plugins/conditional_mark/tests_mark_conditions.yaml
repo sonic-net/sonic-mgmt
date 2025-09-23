@@ -3070,7 +3070,7 @@ process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical
   xfail:
     reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336 on hwsku Mellanox-SN2700"
     conditions:
-    - "https://github.com/sonic-net/sonic-buildimage/issues/10336 and hwsku in ['Mellanox-SN2700']"
+    - "https://github.com/sonic-net/sonic-buildimage/issues/10336 and platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']"
 
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
