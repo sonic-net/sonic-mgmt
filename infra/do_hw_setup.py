@@ -13,7 +13,8 @@ from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractF
     login_prompt, passwd_prompt, cisco_prompt, pre_sonic_prompt, sonic_login_prompt, admin_prompt, pre_admin_prompt, first_login, onie_prompt, \
     DUT_PASSWORD, DUT_USERNAME, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
     scpUtil, sonic_prompt, getDockerExecCommand, checkForMGFailures, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
-    default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability, channelConnection
+    default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability, \
+    channelConnection, checkTortugaImage, CISCO_PASSWORD, CISCO_USERNAME
 
 UNSET_PROXY = "unset https_proxy http_proxy HTTPS_PROXY HTTP_PROXY"
 DEFAULT_DOCKER_COUNT = 13
@@ -581,7 +582,13 @@ def sonic_install(args, index):
             cmd = cmd.strip().replace("$image_url", image_url)
         cmd_list.append(cmd)
     log.debug(cmd_list)
-    rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], DUT_USERNAME, DUT_PASSWORD, cmd_list, False)
+    username = DUT_USERNAME
+    password = DUT_PASSWORD
+    if checkTortugaImage(stream):
+        username = CISCO_USERNAME
+        password = CISCO_PASSWORD
+
+    rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], username, password, cmd_list, False)
     time.sleep(120)
     log.debug("Image loaded, log into dut again and check for docker count")
 
@@ -602,7 +609,7 @@ def sonic_install(args, index):
         for ssh in testbed_info_dict['dut_ssh']:
             if len(testbed_info_dict['extra_sonic_commands']) > 1:
                 cmd_list = testbed_info_dict['extra_sonic_commands'][1:]
-                rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], ssh, DUT_USERNAME, DUT_PASSWORD, cmd_list, True)
+                rc = nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], ssh, username, password, cmd_list, True)
                 if rc!=0:
                     log.error("Execution failed in extra_sonic_commands")
     
@@ -616,7 +623,13 @@ def checkForDockersSonic(testbed, stream, index=0):
     testbed_info_dict = getTestbedInfoDict(testbed)
     docker_count = testbed_info_dict['docker_count'] if 'docker_count' in testbed_info_dict else DEFAULT_DOCKER_COUNT
     # connection gets lost after loading new image, reconnect with retry
-    return nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], DUT_USERNAME, DUT_PASSWORD, cmd_list, True, docker_count)
+    username = DUT_USERNAME
+    password = DUT_PASSWORD
+    if checkTortugaImage(stream):
+        username = CISCO_USERNAME
+        password = CISCO_PASSWORD
+
+    return nested_ssh(testbed_info_dict["ucs_host_name"], testbed_info_dict["ucs_username"], testbed_info_dict["ucs_password"], testbed_info_dict["dut_ssh"][index], username, password, cmd_list, True, docker_count)
 
 def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user, target_key, cmd_list, retry, docker_count=None):
     """Connect to a target host via a bastion host using Paramiko."""

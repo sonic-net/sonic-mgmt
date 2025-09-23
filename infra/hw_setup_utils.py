@@ -135,6 +135,9 @@ lower_pass_prompt = 'password'
 #credentials/commands to send
 DUT_USERNAME = 'admin'
 DUT_PASSWORD = 'password'
+CISCO_USERNAME = 'cisco'
+CISCO_PASSWORD = 'cisco123'
+
 
 WHITEBOX_TOKEN = os.getenv("WHITEBOX_TOKEN")
 PIPELINE_TYPE = os.getenv("PIPELINE_TYPE")
@@ -332,6 +335,9 @@ def create_allure_id(build_id, image_id, testbed="none"):
 
 def checkProdImage(stream):
     return "release" in stream
+
+def checkTortugaImage(stream):
+    return "tortuga" in stream
 
 def telnetConnection(host, port, timeout, logfile_loc, encoding, without_port, testbed_info_dict):
     retries = 0
