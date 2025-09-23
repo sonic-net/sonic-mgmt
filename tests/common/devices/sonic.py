@@ -2415,11 +2415,12 @@ Totals               6450                 6449
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
+        config_facts_ports = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("PORT", {})
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
-               (k.startswith("PortChannel") and not
-               self.is_backend_portchannel(k, mg_facts))):
+            if ((k.startswith("Ethernet") and config_facts_ports.get(k, {}).get("role", "") != "Dpc" and
+                 (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
+               (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
