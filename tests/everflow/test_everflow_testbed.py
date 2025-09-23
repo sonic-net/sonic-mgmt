@@ -672,6 +672,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
