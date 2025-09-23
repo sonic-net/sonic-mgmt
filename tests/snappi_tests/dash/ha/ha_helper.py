@@ -1,4 +1,5 @@
 from tabulate import tabulate
+
 from tests.common.utilities import (wait, wait_until)  # noqa F401
 from tests.common.helpers.assertions import pytest_assert  # noqa F401
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
@@ -32,23 +33,21 @@ def run_ha_test(duthost, localhost, tbinfo, ha_test_case, config_snappi_l47):
     # Configure SmartSwitch
     # duthost_port_config(duthost)
 
-    static_ipsmacs_dict = duthost_ha_config(duthost, nw_config, ha_test_case)
+    # static_ipsmacs_dict = duthost_ha_config(duthost, nw_config, ha_test_case)
 
-    startup_result = npu_dpu_startup(duthost, localhost, static_ipsmacs_dict)
-    if startup_result is False:
-        return
+    # startup_result = npu_dpu_startup(duthost, localhost, static_ipsmacs_dict)
+    # if startup_result is False:
+    #    return
 
-    set_static_routes(duthost, static_ipsmacs_dict)
+    # set_static_routes(duthost, static_ipsmacs_dict)
 
     # Configure IxLoad traffic
     api, config, initial_cps_value = ha_main(ports_list, connection_dict, nw_config, test_type_dict['cps'],
                                              test_type_dict['test_filename'], test_type_dict['initial_cps_obj'])
 
-    # saveAs(api, config)
-
     # Traffic Starts
     if ha_test_case == 'cps':
-        api = run_cps_search(api, initial_cps_value)
+        api = run_cps_search(api, config, initial_cps_value)
         logger.info("Test Ending")
 
     return
@@ -267,6 +266,7 @@ def npu_dpu_startup(duthost, localhost, static_ipmacs_dict):
     # threads = []
     for target_dpu_index in passing_dpus:
 
+        # ALBERTO
         jump_host = {
             'device_type': 'linux',
             'ip': '10.36.77.120',
@@ -723,26 +723,6 @@ def set_timelineCustom(api, initial_cps_value):
 
     activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"  # noqa: F841
     timelineObjectives_url = "ixload/test/activeTest/communityList/0/activityList/0/timeline"
-    # url_activityList = "{}/{}".format(base_url, activityList_url)
-    # url_timeline = "{}/{}".format(base_url, timelineObjectives_url)
-
-    """
-    activityList_json = {
-        'constraintType': 'ConnectionRateConstraint',
-        'constraintValue': 6000000,
-        'enableConstraint': True,
-        'userObjectiveType': 'simulatedUsers',
-        'userObjectiveValue': ENI_COUNT*250000
-    }
-
-    activityList_json = {  # noqa: F841
-        'constraintType': 'ConnectionRateConstraint',
-        'constraintValue': initial_cps_value,
-        'enableConstraint': True,
-        'userObjectiveType': 'simulatedUsers',
-        'userObjectiveValue': 64500
-    }
-    """
 
     activityList_json = {  # noqa: F841
         'constraintType': 'ConnectionRateConstraint',
@@ -751,26 +731,10 @@ def set_timelineCustom(api, initial_cps_value):
     }
 
     timeline_json = {
-        'rampUpValue': 1000,
+        'rampUpValue': 1000000,
         'sustainTime': 300
     }
 
-    """
-    timeline_json = {
-        'rampUpValue': 1000000,
-        'sustainTime': 180
-    }
-    """
-
-    # response = requests.patch(url_activityList, json=activityList_json)
-    """
-    try:
-        # Code that may raise an exception
-        res = api.ixload_configure("patch", activityList_url, activityList_json)
-    except Exception as e:
-        # Handle any exception
-        logger.info(f"An error occurred: {e}")
-    """
     try:
         # Code that may raise an exception
         res = api.ixload_configure("patch", timelineObjectives_url, timeline_json)  # noqa: F841
@@ -781,14 +745,15 @@ def set_timelineCustom(api, initial_cps_value):
     return
 
 
-def run_cps_search(api, initial_cps_value):
+def run_cps_search(api, config, initial_cps_value):
 
     MAX_CPS = 30000000
     MIN_CPS = 0
     threshold = 1000000
     test_iteration = 1
     test_value = initial_cps_value
-    activityList_url = "ixload/test/activeTest/communityList/0/activityList/0"
+    activityList_url = "ixload/test/activeTest/communityList/0"
+    constraint_url = "ixload/test/activeTest/communityList/0/activityList/0"
     releaseConfig_url = "ixload/test/operations/abortAndReleaseConfigWaitFinish"
     testRuns = []
 
@@ -800,31 +765,28 @@ def run_cps_search(api, initial_cps_value):
         old_value = test_value
         logger.info("Testing CPS Objective = %d" % test_value)
         cps_objective_value = test_value
-        """
-        activityList_json = {
-            'constraintType': 'ConnectionRateConstraint',
-            'constraintValue': test_value,
-            'enableConstraint': True,
-            'userObjectiveType': 'simulatedUsers',
-            'userObjectiveValue': 64500
-        }
-        """
+
         activityList_json = {  # noqa: F841
-            'constraintType': 'ConnectionRateConstraint',
-            'constraintValue': test_value,
-            'enableConstraint': False,
+            'totalUserObjectiveValue': test_value,
+            'userObjectiveType': 'connectionRate',
+        }
+
+        constriant_json = {  # noqa: F841
+            'enableConstraint': False
         }
 
         logger.info("Updating CPS objective value settings...")
         try:
             # Code that may raise an exception
             res = api.ixload_configure("patch", activityList_url, activityList_json)
+            res = api.ixload_configure("patch", constraint_url, constriant_json)
         except Exception as e:
             # Handle any exception
             logger.info(f"An error occurred: {e}")
         logger.info("CPS objective value updated.")
 
         logger.info("Applying config...")
+        # saveAs(api, 'dash_cps')
         logger.info("Starting Traffic")
         cs = api.control_state()
         cs.app.state = 'start'  # cs.app.state.START
