@@ -188,7 +188,7 @@ def check_warmboot_finalizer_inactive(duthost):
     return 'inactive' == stdout.strip()
 
 
-def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
+def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res=None):
     hostname = duthost.hostname
     dut_ip = duthost.mgmt_ip
     logger.info('waiting for ssh to drop on {}'.format(hostname))
@@ -201,7 +201,7 @@ def wait_for_shutdown(duthost, localhost, delay, timeout, reboot_res):
                              module_ignore_errors=True)
 
     if res.is_failed or ('msg' in res and 'Timeout' in res['msg']):
-        if reboot_res.ready():
+        if reboot_res and reboot_res.ready():
             logger.error('reboot result: {} on {}'.format(reboot_res.get(), hostname))
         raise Exception('DUT {} did not shutdown'.format(hostname))
 
