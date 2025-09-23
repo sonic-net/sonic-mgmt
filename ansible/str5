@@ -341,7 +341,7 @@ sonic_arista_7060x6_512:
       base_mac: d8:06:f3:3b:ff:f7
       syseeprom_info:
         "0x21": "DCS-7060X6-64PE-B"
-        "0x22": "ASY089940107"
+        "0x22": "ASY0899401A0"
         "0x23": "HBG25160FHW"
         "0x24": "d8:06:f3:3b:ff:f7"
         "0x25": "2025/03/08 09:42:12"
