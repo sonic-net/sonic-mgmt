@@ -1,4 +1,4 @@
-
+#!/usr/bin/python
 from ansible.module_utils.basic import AnsibleModule
 from ansible.module_utils.multi_servers_utils import MultiServersUtils
 import re
@@ -37,11 +37,13 @@ options:
         type: str
         default: veos
     servers_info:
-        description: Optional mapping describing multi-server VM allocation. If provided, used to derive VM name mapping.
+        description: Optional mapping describing multi-server VM allocation. If provided, used to derive VM name
+                     mapping.
         required: false
         type: dict
 notes:
-    - This module no longer imports ansible.parsing.dataloader or ansible.inventory.manager; inventory data is parsed directly via YAML.
+    - This module no longer imports ansible.parsing.dataloader or ansible.inventory.manager; inventory data is parsed
+      directly via YAML.
     - The inventory file must be accessible from the target host where this module runs.
 author:
     - SONiC Community
