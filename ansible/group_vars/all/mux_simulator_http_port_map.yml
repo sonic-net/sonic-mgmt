@@ -78,8 +78,6 @@ mux_simulator_http_port:
     testbed-bjw2-can-dual-t0-8101c1-1: 8080
     # On server_bjw2_4
     testbed-bjw2-can-dual-t0-8101c1-2: 8082
-    # On server_bjw2_9
-    tb-bjw2-can-dual-t0-7050c-1: 8080
 
   # On server_bjw3_1
     testbed-bjw3-can-dual-t0-7260-1: 8080
