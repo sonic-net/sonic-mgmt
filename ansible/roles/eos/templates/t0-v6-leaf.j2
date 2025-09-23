@@ -1,9 +1,9 @@
 {% set host = configuration[hostname] %}
 {% set mgmt_ip = ansible_host %}
 {% if vm_type is defined and vm_type == "ceos" %}
-{% set mgmt_if_index = 0 %}
+    {% set mgmt_if_index = 0 %}
 {% else %}
-{% set mgmt_if_index = 1 %}
+    {% set mgmt_if_index = 1 %}
 {% endif %}
 no schedule tech-support
 !
@@ -59,28 +59,28 @@ interface Management {{ mgmt_if_index }}
 !
 {% for name, iface in host['interfaces'].items() %}
 interface {{ name }}
-{% if name.startswith('Loopback') %}
+    {% if name.startswith('Loopback') %}
  description LOOPBACK
-{% else %}
+    {% else %}
  mtu 9214
  no switchport
  no shutdown
-{% endif %}
-{% if name.startswith('Port-Channel') %}
+    {% endif %}
+    {% if name.startswith('Port-Channel') %}
  port-channel min-links 1
-{% endif %}
-{% if iface['lacp'] is defined %}
+    {% endif %}
+    {% if iface['lacp'] is defined %}
  channel-group {{ iface['lacp'] }} mode active
  lacp rate normal
-{% endif %}
-{% if iface['ipv4'] is defined %}
+    {% endif %}
+    {% if iface['ipv4'] is defined %}
  ip address {{ iface['ipv4'] }}
-{% endif %}
-{% if iface['ipv6'] is defined %}
+    {% endif %}
+    {% if iface['ipv6'] is defined %}
  ipv6 enable
  ipv6 address {{ iface['ipv6'] }}
  ipv6 nd ra suppress
-{% endif %}
+    {% endif %}
  no shutdown
 !
 {% endfor %}
@@ -103,16 +103,16 @@ router bgp {{ host['bgp']['asn'] }}
  router-id {{ host['bgp']['router-id'] |  ipaddr('address') }}
  !
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
-{% for remote_ip in remote_ips %}
+    {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
  neighbor {{ remote_ip }} next-hop-self
-{% if remote_ip | ipv6 %}
+        {% if remote_ip | ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate
  exit
-{% endif %}
-{% endfor %}
+        {% endif %}
+    {% endfor %}
 {% endfor %}
 {% if props.nhipv4 is defined %}
  neighbor {{ props.nhipv4 }} remote-as {{ host['bgp']['asn'] }}
@@ -125,12 +125,12 @@ router bgp {{ host['bgp']['asn'] }}
  exit
  !
 {% for name, iface in host['interfaces'].items() if name.startswith('Loopback') %}
-{% if iface['ipv4'] is defined %}
+    {% if iface['ipv4'] is defined %}
  network {{ iface['ipv4'] }}
-{% endif %}
-{% if iface['ipv6'] is defined %}
+    {% endif %}
+    {% if iface['ipv6'] is defined %}
  network {{ iface['ipv6'] }}
-{% endif %}
+    {% endif %}
 {% endfor %}
 !
 management api http-commands
