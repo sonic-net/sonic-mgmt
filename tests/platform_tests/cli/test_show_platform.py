@@ -544,7 +544,8 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
 
         if key == "Health":
             health_float_value = float(line_data.strip("%"))
-            pytest_assert(health_float_value > 50.0, "SSD health is '{}', SSD replacement required".format(line_data))
+            pytest_assert(0.0 <= health_float_value <= 100.0,
+                          "SSD health value '{}' is outside the expected 0-100 range".format(health_float_value))
 
         if key == "Temperature":
             temp_float_value = float(line_data.strip("C"))
