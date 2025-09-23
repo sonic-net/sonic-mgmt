@@ -2,6 +2,12 @@
 
 This manuscript provides step-by-step instructions to set up a Kubernetes cluster using minikube and join a SONiC device (DUT/Virtual Switch) to the cluster. Each step includes verification commands to ensure successful execution.
 
+## Command Location Guide
+
+Throughout this document, commands are marked with these indicators:
+- **[🖥️ LOCAL]** - Run on your local host/workstation
+- **[🔧 DUT]** - Run on the DUT/Virtual Switch (e.g., vlab-01)
+
 ## Prerequisites
 
 - **Local Host Requirements:**
@@ -20,7 +26,7 @@ This manuscript provides step-by-step instructions to set up a Kubernetes cluste
 
 ### 1.1 Verify Internal Build with kubeadm
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 which kubeadm
 ```
@@ -34,7 +40,7 @@ which kubeadm
 
 ### 1.2 Check SONiC Version
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 show version | head -1
 ```
@@ -48,7 +54,7 @@ SONiC Software Version: SONiC.20231101.xx or later
 
 ### 1.3 Check Kubernetes Version on DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 kubeadm version -o short
 ```
@@ -60,7 +66,7 @@ v1.22.2
 
 ### 1.4 Verify Kubernetes Configuration Command Availability
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 sudo config kube --help
 ```
@@ -83,7 +89,7 @@ Commands:
 
 ### 1.5 Verify ctrmgrd Service Status
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 systemctl status ctrmgrd | head -5
 ```
@@ -99,9 +105,11 @@ systemctl status ctrmgrd | head -5
 
 ## Step 2: Install Minikube on Local Host
 
+⚠️ **CRITICAL:** The following steps (2.1-2.2) must be run on your **LOCAL HOST/WORKSTATION**, NOT on the DUT/Virtual Switch!
+
 ### 2.1 Download Minikube Binary
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 curl -L https://github.com/kubernetes/minikube/releases/download/v1.34.0/minikube-linux-amd64 \
   -o /tmp/minikube-linux-amd64 --max-time 360
@@ -111,13 +119,13 @@ curl -L https://github.com/kubernetes/minikube/releases/download/v1.34.0/minikub
 
 ### 2.2 Install Minikube
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 sudo install /tmp/minikube-linux-amd64 /usr/local/bin/minikube
 rm -f /tmp/minikube-linux-amd64
 ```
 
-**Verification:**
+**[🖥️ LOCAL] Verification:**
 ```bash
 minikube version
 ```
@@ -131,7 +139,7 @@ minikube version: v1.34.0
 
 ### 3.1 Clean Up Any Existing Minikube Setup
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 minikube delete --all --purge
 ```
@@ -144,7 +152,7 @@ minikube delete --all --purge
 
 ### 3.2 Get Local Host IP Address
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 hostname -I | awk '{print $1}'
 ```
@@ -155,7 +163,7 @@ hostname -I | awk '{print $1}'
 
 ### 3.3 Start Minikube with Custom Configuration
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 VMHOST_IP=<YOUR_HOST_IP>  # Replace with your actual IP from step 3.2
 
@@ -183,7 +191,7 @@ minikube start \
 
 ### 3.4 Verify Minikube is Ready
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 NO_PROXY=192.168.49.2 minikube kubectl -- get node minikube --no-headers
 ```
@@ -197,7 +205,7 @@ minikube   Ready   control-plane,master   [age]   v1.22.2
 
 ### 4.1 Update Kernel Parameter
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 sudo sysctl fs.protected_regular=0
 ```
@@ -209,7 +217,7 @@ fs.protected_regular = 0
 
 ### 4.2 Update Kubelet Configuration for DUT Compatibility
 
-**Commands:**
+**[🖥️ LOCAL] Commands:**
 ```bash
 # Get current kubelet config
 NO_PROXY=192.168.49.2 minikube kubectl -- get cm kubelet-config-1.22 \
@@ -232,7 +240,7 @@ configmap/kubelet-config-1.22 configured
 
 ### 5.1 Create DaemonSet YAML
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 cat > /tmp/daemonset.yaml << 'EOF'
 apiVersion: apps/v1
@@ -259,7 +267,7 @@ EOF
 
 ### 5.2 Deploy the DaemonSet
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 NO_PROXY=192.168.49.2 minikube kubectl -- apply -f /tmp/daemonset.yaml
 ```
@@ -271,7 +279,7 @@ daemonset.apps/test-daemonset created
 
 ### 5.3 Verify DaemonSet Creation
 
-**Command:**
+**[🖥️ LOCAL] Command:**
 ```bash
 NO_PROXY=192.168.49.2 minikube kubectl -- get daemonset test-daemonset
 ```
@@ -286,14 +294,14 @@ test-daemonset   0         0         0       0            0           deployDaem
 
 ### 6.1 Check K8s State Database
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 sonic-db-cli STATE_DB hget 'KUBERNETES_MASTER|SERVER' update_time
 ```
 
 **Expected Output:** A timestamp (e.g., `2025-09-22 22:05:41`)
 
-If empty, initialize it on the DUT:
+**[🔧 DUT] If empty, initialize it on the DUT:**
 ```bash
 sonic-db-cli STATE_DB hset 'KUBERNETES_MASTER|SERVER' \
   update_time '2024-12-24 01:01:01'
@@ -302,7 +310,7 @@ sudo systemctl restart ctrmgrd
 
 ### 6.2 Extract Certificates from Minikube
 
-**Commands:**
+**[🖥️ LOCAL] Commands:**
 ```bash
 # Extract certificates
 docker exec minikube cat /var/lib/minikube/certs/apiserver.crt > /tmp/apiserver.crt
@@ -319,7 +327,7 @@ ls -la /tmp/apiserver.* | wc -l
 
 ### 6.3 Transfer Certificates to DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 # Backup existing credentials
 sudo bash -c 'if [ -d /etc/sonic/credentials ]; then \
@@ -329,19 +337,19 @@ sudo bash -c 'if [ -d /etc/sonic/credentials ]; then \
 sudo mkdir -p /etc/sonic/credentials
 ```
 
-**On the Local Host, copy certificates to DUT:**
+**[🖥️ LOCAL] On the Local Host, copy certificates to DUT:**
 ```bash
 scp /tmp/apiserver.crt admin@<DUT_IP>:/tmp/apiserver.crt
 scp /tmp/apiserver.key admin@<DUT_IP>:/tmp/apiserver.key
 ```
 
-**Back on the DUT/Virtual Switch, move certificates to proper location:**
+**[🔧 DUT] Back on the DUT/Virtual Switch, move certificates to proper location:**
 ```bash
 sudo mv /tmp/apiserver.crt /etc/sonic/credentials/restapiserver.crt
 sudo mv /tmp/apiserver.key /etc/sonic/credentials/restapiserver.key
 ```
 
-**Verification on the DUT:**
+**[🔧 DUT] Verification on the DUT:**
 ```bash
 sudo ls -la /etc/sonic/credentials/
 ```
@@ -357,7 +365,7 @@ drwxr-xr-x [n] root root [size] [date] ..
 
 ### 6.4 Configure DNS for Minikube VIP
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 VMHOST_IP=<YOUR_HOST_IP>  # Use your IP from step 3.2
 
@@ -370,7 +378,7 @@ grep "${VMHOST_IP} control-plane.minikube.internal" /etc/hosts || \
 <YOUR_HOST_IP> control-plane.minikube.internal
 ```
 
-**Verification on the DUT:**
+**[🔧 DUT] Verification on the DUT:**
 ```bash
 grep minikube /etc/hosts
 ```
@@ -379,7 +387,7 @@ grep minikube /etc/hosts
 
 ### 7.1 Configure K8s Server IP
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 VMHOST_IP=<YOUR_HOST_IP>  # Use your IP from step 3.2
 
@@ -388,14 +396,14 @@ sudo config kube server ip ${VMHOST_IP}
 
 ### 7.2 Enable Kubernetes on DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 sudo config kube server disable off
 ```
 
 ### 7.3 Wait and Verify Join Status
 
-**On the Local Host, run:**
+**[🖥️ LOCAL] On the Local Host, run:**
 ```bash
 # Wait for join process
 sleep 10
@@ -416,7 +424,7 @@ NAME            STATUS   ROLES    AGE   VERSION
 
 ### 8.1 Label DUT Node
 
-**On the Local Host, run:**
+**[🖥️ LOCAL] On the Local Host, run:**
 ```bash
 NO_PROXY=192.168.49.2 minikube kubectl -- label node <DUT_HOSTNAME> deployDaemonset=true
 ```
@@ -428,7 +436,7 @@ node/<DUT_HOSTNAME> labeled
 
 ### 8.2 Wait for Pod Deployment and Verify
 
-**On the Local Host, run:**
+**[🖥️ LOCAL] On the Local Host, run:**
 ```bash
 # Wait for pod scheduling
 sleep 15
@@ -446,7 +454,7 @@ test-daemonset-[hash]  1/1     Running   0          [age]
 
 ### 8.3 Verify Container on DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 docker ps | grep mock-ds-container
 ```
@@ -460,7 +468,7 @@ docker ps | grep mock-ds-container
 
 ### 9.1 Remove Label from DUT
 
-**On the Local Host, run:**
+**[🖥️ LOCAL] On the Local Host, run:**
 ```bash
 NO_PROXY=192.168.49.2 minikube kubectl -- label node <DUT_HOSTNAME> deployDaemonset-
 ```
@@ -472,7 +480,7 @@ node/<DUT_HOSTNAME> unlabeled
 
 ### 9.2 Verify Pod Removal
 
-**On the Local Host, run:**
+**[🖥️ LOCAL] On the Local Host, run:**
 ```bash
 # Wait for pod termination
 sleep 15
@@ -489,7 +497,7 @@ No resources found in default namespace.
 
 ### 9.3 Verify Container Removed from DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 docker ps | grep mock-ds-container || echo 'Container not found'
 ```
@@ -503,14 +511,14 @@ Container not found
 
 ### 10.1 Disable Kubernetes on DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 sudo config kube server disable on
 ```
 
 ### 10.2 Verify Node Removal
 
-**On the Local Host, run:**
+**[🖥️ LOCAL] On the Local Host, run:**
 ```bash
 # Wait for node removal
 sleep 20
@@ -528,7 +536,7 @@ Error from server (NotFound): nodes "<DUT_HOSTNAME>" not found
 
 ### Clean Up DUT
 
-**On the DUT/Virtual Switch, run:**
+**[🔧 DUT] On the DUT/Virtual Switch, run:**
 ```bash
 # Remove DNS entry
 sudo sed -i '/control-plane.minikube.internal/d' /etc/hosts
@@ -543,6 +551,7 @@ sudo sonic-db-cli CONFIG_DB DEL 'KUBERNETES_MASTER|SERVER'
 
 ### Clean Up Local Host
 
+**[🖥️ LOCAL] Commands:**
 ```bash
 # Stop and delete minikube
 minikube delete --all --purge
@@ -561,28 +570,28 @@ rm -f /tmp/apiserver.* /tmp/kubelet-config.yaml /tmp/daemonset.yaml
 
 ### Issue: DUT Shows NotReady Status
 
-**On the DUT/Virtual Switch, check kubelet logs:**
+**[🔧 DUT] On the DUT/Virtual Switch, check kubelet logs:**
 ```bash
 sudo journalctl -u kubelet -n 50
 ```
 
 ### Issue: DaemonSet Pod Not Starting
 
-**Check pod events:**
+**[🖥️ LOCAL] Check pod events:**
 ```bash
 NO_PROXY=192.168.49.2 minikube kubectl -- describe pods -l group=test-ds-pod
 ```
 
 ### Issue: Certificate Errors
 
-**On the DUT/Virtual Switch, verify certificate content:**
+**[🔧 DUT] On the DUT/Virtual Switch, verify certificate content:**
 ```bash
 sudo openssl x509 -in /etc/sonic/credentials/restapiserver.crt -text -noout | grep Subject
 ```
 
 ### Issue: Network Connectivity
 
-**On the DUT/Virtual Switch, test connectivity to master:**
+**[🔧 DUT] On the DUT/Virtual Switch, test connectivity to master:**
 ```bash
 VMHOST_IP=<YOUR_HOST_IP>  # Replace with your actual host IP
 curl -k https://${VMHOST_IP}:6443/healthz
