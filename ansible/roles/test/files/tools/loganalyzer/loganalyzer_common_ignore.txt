@@ -321,6 +321,9 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
 r, ".* ERR chronyd\[\d*\]: nss_tacplus: .*"
 
+# ignore iptable nss_tacplus error, some change iptable operations may temporarily disrupt the DUT-to-PTF network connection, which triggers the error. It is safe to ignore this message during such transitions.
+r, ".* ERR iptables: nss_tacplus: failed to connect TACACS+ server .*"
+
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
 r, ".* ERR ntpd\[\d*\]:.*leapsecond file \('/usr/share/zoneinfo/leap-seconds\.list'\): expired.*"
 
@@ -382,7 +385,7 @@ r, ".* ERR swss#orchagent: :- queryTrimSizeAttrCapabilities: Failed to get attri
 r, ".* ERR swss#orchagent: :- queryTrimDscpAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_VALUE\) capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\) capabilities.*
+r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\) capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimDscpModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\) enum value capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimDscpModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\) capabilities.*"
 r, ".* ERR swss#orchagent: :- queryTrimTcAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_TC_VALUE\) capabilities.*"

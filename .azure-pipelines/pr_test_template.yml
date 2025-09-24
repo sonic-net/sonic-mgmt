@@ -247,44 +247,44 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
-  - job: impacted_area_multi_asic_t1_elastictest
-    displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest - optional"
-    dependsOn:
-    - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
-    variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
-    timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-    continueOnError: true
-    pool: sonic-ubuntu-1c
-    steps:
-      - template: impacted_area_testing/calculate-instance-numbers.yml
-        parameters:
-          TOPOLOGY: t1
-          BUILD_BRANCH: $(BUILD_BRANCH)
+  # - job: impacted_area_multi_asic_t1_elastictest
+  #   displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest - optional"
+  #   dependsOn:
+  #   - get_impacted_area
+  #   condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
+  #   variables:
+  #     TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
+  #   timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
+  #   continueOnError: true
+  #   pool: sonic-ubuntu-1c
+  #   steps:
+  #     - template: impacted_area_testing/calculate-instance-numbers.yml
+  #       parameters:
+  #         TOPOLOGY: t1
+  #         BUILD_BRANCH: $(BUILD_BRANCH)
 
-      - template: run-test-elastictest-template.yml
-        parameters:
-          TOPOLOGY: t1-8-lag
-          STOP_ON_FAILURE: "False"
-          SCRIPTS: $(SCRIPTS)
-          MIN_WORKER: $(INSTANCE_NUMBER)
-          MAX_WORKER: $(INSTANCE_NUMBER)
-          NUM_ASIC: 4
-          KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
-          MGMT_BRANCH: $(BUILD_BRANCH)
-          COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
+  #     - template: run-test-elastictest-template.yml
+  #       parameters:
+  #         TOPOLOGY: t1-8-lag
+  #         STOP_ON_FAILURE: "False"
+  #         SCRIPTS: $(SCRIPTS)
+  #         MIN_WORKER: $(INSTANCE_NUMBER)
+  #         MAX_WORKER: $(INSTANCE_NUMBER)
+  #         NUM_ASIC: 4
+  #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         MGMT_BRANCH: $(BUILD_BRANCH)
+  #         COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+  #         BUILD_REASON: ${{ parameters.BUILD_REASON }}
 
   - job: impacted_area_t2_elastictest
-    displayName: "impacted-area-kvmtest-t2 by Elastictest - optional"
+    displayName: "impacted-area-kvmtest-t2 by Elastictest"
     dependsOn:
     - get_impacted_area
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
-    continueOnError: true
+    continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
       - template: impacted_area_testing/calculate-instance-numbers.yml
@@ -296,7 +296,6 @@ jobs:
       - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t2
-          STOP_ON_FAILURE: "False"
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)

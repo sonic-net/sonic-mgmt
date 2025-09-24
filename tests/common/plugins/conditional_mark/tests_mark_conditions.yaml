@@ -2179,6 +2179,12 @@ generic_config_updater/test_multiasic_linkcrc.py:
     conditions:
       - "(is_multi_asic is False)"
 
+generic_config_updater/test_packet_trimming_config_asymmetric.py:
+    skip:
+        reason: "Packet trim is not supported in 202505 image"
+        conditions:
+        - "release in ['202505']"
+
 generic_config_updater/test_packet_trimming_config_symmetric:
   skip:
     reason: "Packet trim is not supported in 202505 image"
@@ -3023,7 +3029,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch."
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
@@ -3034,6 +3040,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'isolated' in topo_name"
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
         - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
+        - "is_smartswitch==True"
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
@@ -3531,12 +3538,13 @@ route/test_duplicate_route.py::test_duplicate_routes[4:
 
 route/test_route_flap.py:
   skip:
-    reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo. Does not apply to standalone topos."
+    reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo. Does not apply to standalone or t1-isolated-d128 topos."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11323 and 't0-56-po2vlan' in topo_name"
       - "https://github.com/sonic-net/sonic-mgmt/issues/11324 and 'dualtor-64' in topo_name"
       - "'standalone' in topo_name"
+      - "topo_name in ['t1-isolated-d128']"
 
 route/test_route_flow_counter.py:
   skip:
