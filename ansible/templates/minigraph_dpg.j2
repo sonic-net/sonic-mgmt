@@ -170,10 +170,10 @@
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
 {% if 'prefix' in vlan_param %}
-          <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+          <Subnets>{{ vlan_param['prefix'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['prefix'] | ansible.utils.ipaddr('prefix') }}</Subnets>
 {% endif %}
 {% if 'secondary_subnet' in vlan_param %}
-          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('prefix') }}</SecondarySubnets>
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ansible.utils.ipaddr('prefix') }}</SecondarySubnets>
 {% endif %}
 {% if 'mac' in vlan_param %}
           <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
