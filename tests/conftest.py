@@ -1119,7 +1119,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
         if 'topo_routes' not in res:
             logger.warning("No routes generated.")
         else:
-            bgp_routes.update(res['topo_routes'])
+            for host in res['topo_routes'].keys():
+                if host in bgp_routes:
+                    pytest.fail("Duplicate vm name={} on multiple servers".format(host))
+                bgp_routes[host] = res['topo_routes'][host]
     return bgp_routes
 
 
