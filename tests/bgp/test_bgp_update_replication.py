@@ -24,7 +24,7 @@ WAIT_TIMEOUT = 120
 ASN_BASE = 61000
 PORT_BASE = 11000
 SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
-DEFAULT_INTERVALS = [4.0, 3.5, 3.0]
+DEFAULT_INTERVALS = [6.0, 5.5, 5.0]
 PLATFORM_INTERVALS = {
     'mellanox': [4.0, 3.5, 3.0],
     'arista': [5.0, 4.5, 4.0]
