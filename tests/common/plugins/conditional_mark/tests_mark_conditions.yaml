@@ -190,6 +190,16 @@ arp/test_wr_arp.py:
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
 
+########################################
+######        autorestart          #####
+########################################
+autorestart/test_container_autorestart.py::test_containers_autorestart.*teamd.*:
+  regex: true
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -3659,6 +3669,12 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
 #######################################
 #####     process_monitoring      #####
 #######################################
+process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
