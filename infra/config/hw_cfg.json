@@ -1140,6 +1140,7 @@
             "sonic_mgmt_container_202405": "cicd_prod_202405",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
             "sonic_mgmt_container_202405c": "cicd_prod_202405",
+            "sonic_mgmt_container_202505": "202505-sonic-mgmt",
             "run_type_check": "run_tests",
             "skip_tests": "bgp/test_bgp_stress_link_flap.py platform_tests/test_sim_reboot.py mvrf/test_mgmtvrf.py platform_tests/test_advanced_reboot.py pfcwd/test_pfcwd_warm_reboot.py platform_tests/test_cont_warm_reboot.py platform_tests/test_service_warm_restart.py arp/test_wr_arp.py",
             "skip_folder":"dualtor pfc_asym ixia cisco",
