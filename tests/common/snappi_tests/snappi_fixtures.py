@@ -401,9 +401,42 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
     return True
 
 
+@pytest.fixture(scope="module")
+def is_pfc_enabled(duthosts, rand_one_dut_front_end_hostname):
+    """
+    This fixture checks if Priority Flow Control (PFC) is enabled on the SONiC DUT.
+
+    Args:
+        duthosts (pytest fixture): List of DUT hosts.
+        rand_one_dut_front_end_hostname (pytest fixture): Hostname of a randomly selected front-end DUT.
+
+    Returns:
+        bool: True if PFC is enabled on at least one port, False otherwise.
+    """
+    duthost = duthosts[rand_one_dut_front_end_hostname]
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0,
+                                        source="running")['ansible_facts']
+
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
+        return False
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
+        return False
+
+    # Here we assume all the ports have the same lossless priorities
+    intf = list(port_qos_map.keys())[0]
+    pfc_enable = port_qos_map[intf].get('pfc_enable')
+    if pfc_enable:
+        return True
+
+    return False
+
+
 @pytest.fixture(scope="function")
 def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
-                          duthosts, rand_one_dut_hostname, snappi_api):
+                          duthosts, rand_one_dut_hostname, is_pfc_enabled,
+                          snappi_api):
     """
     Geenrate snappi API config and port config information for the testbed
     Args:
@@ -460,31 +493,63 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
     l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
     l1_config.ieee_media_defaults = False
     l1_config.auto_negotiate = False
-    l1_config.auto_negotiation.link_training = True
-    l1_config.auto_negotiation.rs_fec = True
 
-    pfc = l1_config.flow_control.ieee_802_1qbb
-    pfc.pfc_delay = 0
-    if pfcQueueGroupSize == 8:
-        pfc.pfc_class_0 = 0
-        pfc.pfc_class_1 = 1
-        pfc.pfc_class_2 = 2
-        pfc.pfc_class_3 = 3
-        pfc.pfc_class_4 = 4
-        pfc.pfc_class_5 = 5
-        pfc.pfc_class_6 = 6
-        pfc.pfc_class_7 = 7
-    elif pfcQueueGroupSize == 4:
-        pfc.pfc_class_0 = pfcQueueValueDict[0]
-        pfc.pfc_class_1 = pfcQueueValueDict[1]
-        pfc.pfc_class_2 = pfcQueueValueDict[2]
-        pfc.pfc_class_3 = pfcQueueValueDict[3]
-        pfc.pfc_class_4 = pfcQueueValueDict[4]
-        pfc.pfc_class_5 = pfcQueueValueDict[5]
-        pfc.pfc_class_6 = pfcQueueValueDict[6]
-        pfc.pfc_class_7 = pfcQueueValueDict[7]
+    # Determine link training and RS-FEC settings from DUT before applying to TGEN
+    try:
+        run_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        port_table = run_facts.get('PORT', {})
+    except Exception as e:
+        logger.warning(f"Failed to read DUT PORT table for link training/FEC detection: {e}")
+        port_table = {}
+
+    def _is_enabled(val):
+        return str(val).lower() in ['on', 'true', 'yes', '1']
+
+    lt_values = []
+    rs_fec_values = []
+    for sp in snappi_ports:
+        p = sp.get('peer_port')
+        attrs = port_table.get(p, {})
+        if 'link_training' in attrs:
+            lt_values.append(_is_enabled(attrs.get('link_training')))
+        if 'fec' in attrs:
+            fec_val = str(attrs.get('fec', '')).lower()
+            rs_fec_values.append(fec_val.startswith('rs'))
+
+    # Enable only if ALL ports have it enabled
+    lt_enable = all(lt_values) if lt_values else False
+    rs_fec_enable = all(rs_fec_values) if rs_fec_values else False
+
+    logger.info(f"Configuring TGEN L1: link_training={lt_enable}, rs_fec={rs_fec_enable} (DUT derived)")
+
+    l1_config.auto_negotiation.link_training = lt_enable
+    l1_config.auto_negotiation.rs_fec = rs_fec_enable
+
+    if is_pfc_enabled:
+        pfc = l1_config.flow_control.ieee_802_1qbb
+        pfc.pfc_delay = 0
+        if pfcQueueGroupSize == 8:
+            pfc.pfc_class_0 = 0
+            pfc.pfc_class_1 = 1
+            pfc.pfc_class_2 = 2
+            pfc.pfc_class_3 = 3
+            pfc.pfc_class_4 = 4
+            pfc.pfc_class_5 = 5
+            pfc.pfc_class_6 = 6
+            pfc.pfc_class_7 = 7
+        elif pfcQueueGroupSize == 4:
+            pfc.pfc_class_0 = pfcQueueValueDict[0]
+            pfc.pfc_class_1 = pfcQueueValueDict[1]
+            pfc.pfc_class_2 = pfcQueueValueDict[2]
+            pfc.pfc_class_3 = pfcQueueValueDict[3]
+            pfc.pfc_class_4 = pfcQueueValueDict[4]
+            pfc.pfc_class_5 = pfcQueueValueDict[5]
+            pfc.pfc_class_6 = pfcQueueValueDict[6]
+            pfc.pfc_class_7 = pfcQueueValueDict[7]
+        else:
+            pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
     else:
-        pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+        logger.info('PFC is not enabled on the DUT, skipping PFC configuration on TGEN')
 
     port_config_list = []
 
