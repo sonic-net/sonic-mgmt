@@ -24,7 +24,7 @@ from tests.common.dualtor.icmp_responder_control import shutdown_icmp_responder 
 from tests.common.dualtor.icmp_responder_control import start_icmp_responder                            # noqa: F401
 from tests.common.dualtor.control_plane_utils import verify_tor_states
 from tests.common.platform.interface_utils import expect_interface_status
-from tests.common.dualtor.constants import UPPER_TOR
+
 
 pytestmark = [
     pytest.mark.topology('dualtor'),
