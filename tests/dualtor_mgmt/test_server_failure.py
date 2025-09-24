@@ -3,8 +3,7 @@ import pytest
 import random
 
 from tests.common.dualtor.mux_simulator_control import toggle_simulator_port_to_upper_tor, \
-                                                       simulator_flap_counter, simulator_server_down, \
-                                                       toggle_all_simulator_ports                       # noqa: F401
+                                                       simulator_flap_counter, simulator_server_down    # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status                                    # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                    # noqa: F401
@@ -101,11 +100,11 @@ def test_server_down(cable_type, duthosts, tbinfo, active_active_ports, active_s
 
 
 @pytest.mark.enable_active_active
+@pytest.mark.dualtor_active_standby_toggle_to_upper_tor
 def test_server_reboot(request, cable_type, tbinfo,                                # noqa: F811
                        start_icmp_responder, shutdown_icmp_responder,              # noqa: F811
                        active_standby_ports, active_active_ports,                  # noqa: F811
                        upper_tor_host, lower_tor_host,                             # noqa: F811
-                       toggle_all_simulator_ports,                                 # noqa: F811
                        fanout_upper_tor_port_control,                              # noqa: F811
                        fanout_lower_tor_port_control):                             # noqa: F811
 
@@ -119,8 +118,6 @@ def test_server_reboot(request, cable_type, tbinfo,                             
 
     if cable_type == CableType.active_standby:
         interface_name = random.choice(active_standby_ports)
-        # Set upper_tor as active
-        toggle_all_simulator_ports(UPPER_TOR)
         verify_tor_states(expected_active_host=upper_tor_host,
                           expected_standby_host=lower_tor_host, cable_type=cable_type)
 
