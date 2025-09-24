@@ -57,7 +57,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% for (name, prefix) in VLAN_INTERFACE %}
 {% if prefix | ipv4 %}
   network {{ prefix }}
-{% elif prefix | ipv6 %}
+{% elif prefix | ansible.utils.ipv6 %}
   address-family ipv6
    network {{ prefix }}
   exit-address-family
@@ -88,7 +88,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   exit-address-family
 {% endif %}
 {% endif %}
-{% if neighbor_addr | ipv6 %}
+{% if neighbor_addr | ansible.utils.ipv6 %}
   address-family ipv6
     neighbor {{ neighbor_addr }} activate
     maximum-paths 64
