@@ -123,7 +123,7 @@ def setup_duthost_intervals(duthost):
     '''
     dut_platform = duthost.facts["platform"]
 
-    for platform, intervals in PLATFORM_INTERVALS.values():
+    for platform, intervals in PLATFORM_INTERVALS.items():
         if dut_platform not in platform:
             continue
         logger.info(f"'{platform}' found in platform {dut_platform}, intervals {intervals} selected")
