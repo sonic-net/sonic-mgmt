@@ -457,9 +457,11 @@ def test_dhcp_relay_monitor_packet_length_validation(ptfhost, dut_dhcp_relay_dat
                 # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
                 validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
             expected_downlink_counter = {
-                "RX": {"Malformed": 2}
+                "RX": {"Malformed": 2},
+                "TX": {"Offer": 1, "Ack": 1}
             }
             expected_uplink_counter = {
+                "RX": {"Offer": 1, "Ack": 1}
             }
             validate_dhcpcom_relay_counters(dhcp_relay, duthost,
                                             expected_uplink_counter,
