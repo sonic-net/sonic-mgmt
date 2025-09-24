@@ -304,6 +304,7 @@ def pytest_addoption(parser):
     parser.addoption("--skip_yang", action="store_true", default=False,
                      help="Skip YANG validation")
 
+
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
@@ -3693,7 +3694,7 @@ def yang_validation_check(request, duthosts):
                         'error': result.get('stderr', result.get('stdout', 'Unknown error'))
                     }
                     logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
-                               f"{validation_results[duthost.hostname]['error']}")
+                                 f"{validation_results[duthost.hostname]['error']}")
                 else:
                     validation_results[duthost.hostname] = {'failed': False}
                     logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
@@ -3717,7 +3718,7 @@ def yang_validation_check(request, duthosts):
         for host, result in pre_failures.items():
             error_summary.append(f"{host}: {result['error']}")
 
-        pt_assert(False, f"pre-test YANG validation failed:\n" + "\n".join(error_summary))
+        pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
 
     yield
 
@@ -3731,4 +3732,4 @@ def yang_validation_check(request, duthosts):
         for host, result in post_failures.items():
             error_summary.append(f"{host}: {result['error']}")
 
-        pt_assert(False, f"post-test YANG validation failed:\n" + "\n".join(error_summary))
+        pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
