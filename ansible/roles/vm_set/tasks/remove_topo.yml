@@ -38,11 +38,15 @@
       loop_var: dut_name
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+    loop: "{{ VM_hosts | flatten(levels=1) }}"
+    loop_control:
+      loop_var: current_vm_name
     vm_topology:
       cmd: "unbind"
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
       vm_names: "{{ VM_hosts }}"
+      current_vm_name: "{{ current_vm_name }}"
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
@@ -54,6 +58,21 @@
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
+    async: 3600
+    poll: 0
+    register: async_unbind_vm
+
+  - name: Wait for unbind tasks to complete
+    become: yes
+    async_status:
+      jid: "{{ async_unbind_vm_item.ansible_job_id }}"
+    loop: "{{ async_unbind_vm.results }}"
+    loop_control:
+      loop_var: async_unbind_vm_item
+    register: async_unbind_topology_poll_results
+    until: async_unbind_topology_poll_results.finished
+    retries: 30
+    delay: 60
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -156,10 +175,28 @@
   when: container_type == "IxANVL-CONF-TESTER"
 
 - name: Destroy VMs network
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
   vm_topology:
     cmd: 'destroy'
-    vm_names: "{{ VM_targets }}"
+    vm_names: "{{ vm_name }}"
   become: yes
+  async: 3600
+  poll: 0
+  register: async_destory_vm_network
+
+- name: Wait for destroy tasks to complete
+  become: yes
+  async_status:
+    jid: "{{ async_destory_vm_network_item.ansible_job_id }}"
+  loop: "{{ async_destory_vm_network.results }}"
+  loop_control:
+    loop_var: async_destory_vm_network_item
+  register: async_destroy_vm_network_poll_results
+  until: async_destroy_vm_network_poll_results.finished
+  retries: 30
+  delay: 60
 
 - name: Destroy DPUs network
   vm_topology:
