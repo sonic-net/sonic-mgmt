@@ -298,7 +298,7 @@ class DHCPTest(DataplaneBaseTest):
                             siaddr=self.DEFAULT_ROUTE_IP,
                             giaddr=self.relay_iface_ip if not self.dual_tor else self.switch_loopback_ip,
                             chaddr=my_chaddr)
-        bootp /= scapy.DHCP(options=[('message-type', 10),
+        bootp /= scapy.DHCP(options=[('message-type', 11),
                                      (82, self.option82),
                                      ('end')])
 
@@ -663,9 +663,10 @@ class DHCPTest(DataplaneBaseTest):
     def client_send_discover(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         # Form and send DHCPDISCOVER packet
         dhcp_discover = self.create_dhcp_discover_packet(dst_mac, src_port)
-        logger.info("Client send discover packet")
+        logger.info("Client send discover packet via interface: {}".format(self.client_port_index))
         log_dhcp_packet_info(dhcp_discover)
-        testutils.send_packet(self, self.client_port_index, dhcp_discover)
+        sent = testutils.send_packet(self, self.client_port_index, dhcp_discover)
+        logger.info("Client sent {} bytes".format(sent))
 
     # Verify the relayed packet has option82 info or not. Sniffing for the relayed packet on leaves and
     # once the packet is recieved checking for the destination and looking into options and verifying
@@ -708,7 +709,7 @@ class DHCPTest(DataplaneBaseTest):
     # of our leaf switches.
     def server_send_offer(self):
         dhcp_offer = self.create_dhcp_offer_packet()
-        logger.info("Server send offer packet")
+        logger.info("Server send offer packet via interface: {}".format(self.server_port_indices[0]))
         log_dhcp_packet_info(dhcp_offer)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_offer)
 
@@ -845,7 +846,7 @@ class DHCPTest(DataplaneBaseTest):
     def client_send_unknown(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         dhcp_unknown = self.create_dhcp_discover_packet(dst_mac, src_port)
         logger.info("Client send unknown packet")
-        dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 10), ('end')])
+        dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
         log_dhcp_packet_info(dhcp_unknown)
         testutils.send_packet(self, self.client_port_index, dhcp_unknown)
 
@@ -864,13 +865,13 @@ class DHCPTest(DataplaneBaseTest):
     def server_send_unknown(self):
         dhcp_unknown = self.create_dhcp_offer_packet()
         logger.info("Server send unknown packet")
-        dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 10), ('end')])
+        dhcp_unknown[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
         log_dhcp_packet_info(dhcp_unknown)
         testutils.send_packet(self, self.server_port_indices[0], dhcp_unknown)
 
     def verify_relayed_unknown_on_client_side(self):
         dhcp_offer = self.create_dhcp_offer_relayed_packet()
-        dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 10), ('end')])
+        dhcp_offer[scapy.DHCP] = scapy.DHCP(options=[('message-type', 11), ('end')])
         masked_offer = Mask(dhcp_offer)
         self.set_common_ignored_mask_fields(masked_offer)
 
@@ -1051,3 +1052,56 @@ class DHCPPacketsServerToClientTest(DHCPTest):
         self.verify_relayed_unknown_on_client_side()
         self.server_send_nak()
         self.verify_relayed_nak()
+
+
+class DHCPInvalidChecksumTest(DHCPTest):
+    """
+    Test DHCP packets with invalid checksum.
+    """
+
+    def create_dhcp_discover_packet(self, dst_mac=DHCPTest.BROADCAST_MAC, src_port=DHCPTest.DHCP_CLIENT_PORT):
+        pkt = super().create_dhcp_discover_packet(dst_mac, src_port)
+
+        pkt[scapy.UDP].chksum = 0x1234
+        return pkt
+
+    def create_dhcp_offer_packet(self):
+        pkt = super().create_dhcp_offer_packet()
+        pkt[scapy.IP].chksum = 0x1234
+        return pkt
+
+    def create_dhcp_request_packet(self, dst_mac=DHCPTest.BROADCAST_MAC, src_port=DHCPTest.DHCP_CLIENT_PORT):
+        pkt = super().create_dhcp_request_packet(dst_mac, src_port)
+
+        pkt[scapy.IP].chksum = 0x4321
+        return pkt
+
+    def create_dhcp_ack_packet(self):
+        pkt = super().create_dhcp_ack_packet()
+
+        pkt[scapy.UDP].chksum = 0x4321
+        return pkt
+
+    def create_bootp_packet(self, src_mac, src_ip, sport, giaddr, hops, dst_mac=DHCPTest.BROADCAST_MAC):
+        pkt = super().create_bootp_packet(src_mac=src_mac, src_ip=src_ip,
+                                          giaddr=giaddr, hops=hops, sport=sport, dst_mac=dst_mac)
+        pkt[scapy.IP].chksum = 0x1234
+        return pkt
+
+    def runTest(self):
+        # Start sniffer process for each server port to capture DHCP packet
+        # and then verify option 82
+        for interface_index in self.server_port_indices:
+            t1 = Thread(target=self.Sniffer, args=(
+                "eth"+str(interface_index),))
+            t1.start()
+
+        self.client_send_discover(
+            self.dest_mac_address, self.client_udp_src_port)
+        self.server_send_offer()
+        self.client_send_request(
+            self.dest_mac_address, self.client_udp_src_port)
+        self.server_send_ack()
+        self.client_send_bootp()
+        self.client_send_unknown(self.dest_mac_address, self.client_udp_src_port)
+        self.server_send_unknown()
