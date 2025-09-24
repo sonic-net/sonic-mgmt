@@ -159,7 +159,7 @@ def reapply_pfcwd(duthost, pfcwd_config):
         raise RuntimeError(f"Script problem: Got an unsupported type of pfcwd_config:{pfcwd_config}")
 
 
-@pytest.fixture(autouse=False)
+@pytest.fixture(scope="function", autouse=False)
 def disable_pfcwd(duthosts):
     pfcwd_value = {}
     for duthost in duthosts:

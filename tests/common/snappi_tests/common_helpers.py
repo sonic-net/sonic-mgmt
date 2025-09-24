@@ -917,6 +917,95 @@ def sec_to_nanosec(secs):
     return secs * 1e9
 
 
+def get_pfc_counters(duthost, port=None):
+    """
+    Generalized PFC counters utility for arbitrary numbers of hosts, ports, priorities, and TX/RX
+    """
+    cntrs = {duthost.hostname: {'tx': {}, 'rx': {}}}
+    rv = duthost.shell("show pfc counters")
+    pytest_assert(rv['rc'] == 0, "PFC counters command failed on host {}".format(duthost.hostname))
+    is_tx = None
+    num_prios = None
+    for line in rv['stdout'].split('\n'):
+        line = line.strip()
+        if "PFC" in line:
+            num_prios = line.count("PFC")
+            is_tx = "tx" in line.lower()
+        elif "---" in line or len(line) == 0:
+            continue
+        else:
+            line_data = line.split()
+            port = line_data[0]
+            counts = [int(count_str.replace(',', '')) for count_str in line_data[1:]]
+            tx_or_rx = 'tx' if is_tx else 'rx'
+            pytest_assert(num_prios is not None, "Failed to parse header priority count in pfc counter output")
+            pytest_assert(is_tx is not None, "Failed to parse header priority type in pfc counter output")
+            pytest_assert(len(counts) == num_prios,
+                          "Incorrect number of counts found {} in pfc priority output, expected {}".format(
+                              len(counts), num_prios))
+            cntrs[duthost.hostname][tx_or_rx][port] = counts
+    return cntrs
+
+
+def get_pfc_counters_multihost(duthosts, port=None):
+    cntrs = {}
+    for duthost in duthosts:
+        cntrs.update(get_pfc_counters(duthost, port))
+    return cntrs
+
+
+def compare_pfc_counters(cntrs_old, cntrs_new):
+    """
+    Returns a new dict structured identically to cntrs_new (as returned by
+    get_pfc_counters) and contains the cntrs_old subtracted from the cntrs_new. cntrs_old
+    may be a superset of cntrs_new.
+
+    TODO
+    """
+    delta = {}
+    for hostname in cntrs_new:
+        delta[hostname] = {}
+        for cnt_type in cntrs_new[hostname]:
+            delta[hostname][cnt_type] = {}
+            for port in cntrs_new[hostname][cnt_type]:
+                delta[hostname][cnt_type][port] = []
+                for prio in range(len(cntrs_new[hostname][cnt_type][port])):
+                    cnt_diff = cntrs_new[hostname][cnt_type][port][prio] - cntrs_old[hostname][cnt_type][port][prio]
+                    delta[hostname][cnt_type][port].append(cnt_diff)
+    return delta
+
+
+def scan_pfc_counters(cntrs, process_fn):
+    """
+    Iterates over all cntrs (as returned by get_pfc_counters) and invokes:
+       process_fn(hostname, cnt_type, port, prio, count)
+    for all counters.
+
+    NOTE: process_fn cannot write to immutable local variables outside the function,
+    but it can write to mutable objects like dictionaries and lists.
+    """
+    for hostname in cntrs:
+        for cnt_type in cntrs[hostname]:
+            for port in cntrs[hostname][cnt_type]:
+                for prio in range(len(cntrs[hostname][cnt_type][port])):
+                    process_fn(hostname, cnt_type, port, prio, cntrs[hostname][cnt_type][port][prio])
+
+
+def flatten_pfc_counts(pfc_counts):
+    """
+    Flattens pfc counter dictionary (as returned by get_pfc_counters) to a list of all
+    non-zero counts and their locations.
+    e.g.
+    [('myhost', 'tx', 'Ethernet0', 3, 1234), ...]
+    """
+    flattened = []
+    def helper(hostname, cntr_type, port, prio, cnt):
+        if cnt != 0:
+            flattened.append((hostname, cntr_type, port, prio, cnt))
+    scan_pfc_counters(pfc_counts, helper)
+    return flattened
+
+
 def check_pfc_counters(duthost, port, priority, is_tx=False):
     if is_tx:
         raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
@@ -1161,54 +1250,118 @@ def clear_counters(duthost, port):
         duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
 
 
-def get_interface_stats(duthost, port):
+def get_interface_stats(duthost, port=None):
     """
     Get the Rx and Tx port failures, throughput and pkts from SONiC CLI.
     This is the equivalent of the "show interface counters" command.
     Args:
-        duthost (Ansible host instance): device under test
-        port (str): port name
+        duthost (Ansible host instance): device under test. Can also be a list of devices.
+        port (str): port name. Defaults to all ports if not specified
     Returns:
         i_stats (dict): Returns various parameters for given DUT and port.
     """
     # Initializing nested dictionary i_stats
     i_stats = defaultdict(dict)
+    port_option = "" if port is None else " -i {}".format(port)
+    port_stats = parse_portstat(duthost.command('portstat{}'.format(port_option))['stdout_lines'])
+    for port in port_stats:
+        n_out = port_stats[port]
+        i_stats[duthost.hostname][port] = n_out
+        for k in ['rx_ok', 'rx_err', 'rx_drp', 'rx_ovr', 'tx_ok', 'tx_err', 'tx_drp', 'tx_ovr']:
+            i_stats[duthost.hostname][port][k] = int("".join(i_stats[duthost.hostname][port][k].split(',')))
 
-    n_out = parse_portstat(duthost.command('portstat -i {}'.format(port))['stdout_lines'])[port]
-    i_stats[duthost.hostname][port] = n_out
-    for k in ['rx_ok', 'rx_err', 'rx_drp', 'rx_ovr', 'tx_ok', 'tx_err', 'tx_drp', 'tx_ovr']:
-        i_stats[duthost.hostname][port][k] = int("".join(i_stats[duthost.hostname][port][k].split(',')))
+        # rx_err, rx_ovr and rx_drp are counted in single counter rx_fail
+        # tx_err, tx_ovr and tx_drp are counted in single counter tx_fail
+        rx_err = ['rx_err', 'rx_ovr', 'rx_drp']
+        tx_err = ['tx_err', 'tx_ovr', 'tx_drp']
+        rx_fail = 0
+        tx_fail = 0
+        for m in rx_err:
+            rx_fail = rx_fail + n_out[m]
+        for m in tx_err:
+            tx_fail = tx_fail + n_out[m]
 
-    # rx_err, rx_ovr and rx_drp are counted in single counter rx_fail
-    # tx_err, tx_ovr and tx_drp are counted in single counter tx_fail
-    rx_err = ['rx_err', 'rx_ovr', 'rx_drp']
-    tx_err = ['tx_err', 'tx_ovr', 'tx_drp']
-    rx_fail = 0
-    tx_fail = 0
-    for m in rx_err:
-        rx_fail = rx_fail + n_out[m]
-    for m in tx_err:
-        tx_fail = tx_fail + n_out[m]
+        # Any throughput below 1MBps is measured as 0 for simplicity.
+        thrput = n_out['rx_bps']
+        if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
+            i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+        else:
+            i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
+        thrput = n_out['tx_bps']
+        if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
+            i_stats[duthost.hostname][port]['tx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
+        else:
+            i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
 
-    # Any throughput below 1MBps is measured as 0 for simplicity.
-    thrput = n_out['rx_bps']
-    if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
-        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
-    else:
-        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
-    thrput = n_out['tx_bps']
-    if thrput.split(' ')[1] == 'MB/s' and (thrput.split(' ')[0]) != '0.00':
-        i_stats[duthost.hostname][port]['tx_thrput_Mbps'] = float(thrput.split(' ')[0]) * 8
-    else:
-        i_stats[duthost.hostname][port]['rx_thrput_Mbps'] = 0
-
-    i_stats[duthost.hostname][port]['rx_pkts'] = n_out['rx_ok']
-    i_stats[duthost.hostname][port]['tx_pkts'] = n_out['tx_ok']
-    i_stats[duthost.hostname][port]['rx_fail'] = rx_fail
-    i_stats[duthost.hostname][port]['tx_fail'] = tx_fail
+        i_stats[duthost.hostname][port]['rx_pkts'] = n_out['rx_ok']
+        i_stats[duthost.hostname][port]['tx_pkts'] = n_out['tx_ok']
+        i_stats[duthost.hostname][port]['rx_fail'] = rx_fail
+        i_stats[duthost.hostname][port]['tx_fail'] = tx_fail
 
     return i_stats
 
+def get_interface_stats_from_duthosts(duthosts, port=None):
+    all_i_stats = defaultdict(dict)
+    for duthost in duthosts:
+        i_stats = get_interface_stats(duthost, port)
+        all_i_stats[duthost.hostname] = i_stats[duthost.hostname]
+    return all_i_stats
+
+def convert_interface_stats_to_num(i_stats):
+    """
+    Converts the data returned by get_interface_stats to numerics, accounting for the non-numeric state field.
+    Args:
+    TODO
+    """
+    num_i_stats = defaultdict(dict)
+    for hostname in i_stats:
+        num_i_stats[hostname] = {}
+        for port in i_stats[hostname]:
+            num_i_stats[hostname][port] = {}
+            for stat in i_stats[hostname][port]:
+                value = i_stats[hostname][port][stat]
+                if stat == 'state' or isinstance(value, int) or isinstance(value, float):
+                    num_value = value
+                else:
+                    pytest_assert(isinstance(value, str), "Invalid type for stat '{}' during numeric conversion".format(value))
+                    match = re.search(r'[0-9,\.]+', value)
+                    pytest_assert(bool(match), "No numbers found in value '{}'".format(value))
+                    float_or_digit_str = match.group().replace(',', '')
+                    if '.' in float_or_digit_str:
+                        num_value = float(float_or_digit_str)
+                    else:
+                        num_value = int(float_or_digit_str)
+                num_i_stats[hostname][port][stat] = num_value
+    return num_i_stats
+
+def compare_interface_stats(i_stats_old, i_stats_new):
+    """
+    Subtracts i_stats_old from i_stats_new to obtain a counter delta.
+    Args:
+    TODO
+    """
+    compared_i_stats = defaultdict(dict)
+    all_ports_old = i_stats_old.keys()
+    all_ports_new = i_stats_new.keys()
+    pytest_assert(set(all_ports_old) == set(all_ports_new), "Interface set mismatch")
+    i_stats_old_num = convert_interface_stats_to_num(i_stats_old)
+    i_stats_new_num = convert_interface_stats_to_num(i_stats_new)
+
+    for hostname in i_stats_old_num:
+        compared_i_stats[hostname] = {}
+        for port in i_stats_old_num[hostname]:
+            compared_i_stats[hostname][port] = {}
+            for stat in i_stats_old_num[hostname][port]:
+                old_value = i_stats_old_num[hostname][port][stat]
+                new_value = i_stats_new_num[hostname][port][stat]
+                if stat == 'state':
+                    # Concatenate both strings to relay state-change information: UU, DD, UD, DU
+                    value = old_value + new_value
+                else:
+                    # Stat is numeric, subtract. Negative values will be common due to rate changes.
+                    value = new_value - old_value
+                compared_i_stats[hostname][port][stat] = value
+    return compared_i_stats
 
 def get_interface_counters_detailed(duthost, port):
     """
