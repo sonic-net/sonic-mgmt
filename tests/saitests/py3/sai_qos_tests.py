@@ -561,6 +561,7 @@ def construct_ipv6_pkt(pkt_len, dst_mac, src_mac, src_ip, dst_ip, dscp, src_vlan
     else:
         return pkt
 
+
 def construct_arp_pkt(eth_dst, eth_src, arp_op, src_ip, dst_ip, hw_dst, src_vlan):
     pkt_args = {
         'eth_dst': eth_dst,
@@ -619,7 +620,7 @@ def create_multicast_mac(multicast_ipv6_binary):
     # Copy last 32 bits (4 bytes) from multicast IPv6
     mac_bytes[2:6] = multicast_ipv6_binary[12:16]
 
-    return ':'.join(f'{b:02x}' for b in mac_bytes)
+    return ':'.join(f'{b:02x}' for b in mac_bytes)  # noqa: E231
 
 
 def convert_to_ns_multicast(ipv6_address):
@@ -651,6 +652,7 @@ def convert_to_ns_multicast(ipv6_address):
     solicited_node_multicast_mac = create_multicast_mac(multicast_addr_binary)
 
     return solicited_node_multicast_ip, solicited_node_multicast_mac
+
 
 def construct_ns_pkt(eth_src, src_ip, dst_ip='fc02:1000::1'):
     dst_multicast_ip, dst_multicast_mac = convert_to_ns_multicast(dst_ip)
@@ -691,10 +693,10 @@ def get_rx_port(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vla
 
     return result.port
 
+
 def get_rx_port_ipv6(dp, device_number, src_port_id, dst_mac, dst_ip, src_ip, src_vlan=None):
     src_port_mac = dp.dataplane.get_mac(device_number, src_port_id)
-    pkt = construct_ipv6_pkt(64, dst_mac, src_port_mac,
-                           src_ip, dst_ip, 0, src_vlan)
+    pkt = construct_ipv6_pkt(64, dst_mac, src_port_mac, src_ip, dst_ip, 0, src_vlan)
     # Send initial packet for any potential ARP resolution, which may cause the LAG
     # destination to change. Can occur especially when running tests in isolation on a
     # first test attempt.
@@ -1051,14 +1053,14 @@ class ARPpopulateIPv6(ARPpopulate):
     def runTest(self):
         # ARP Populate
         # Ping only  required for testports
-        arpreq_pkt = construct_ns_pkt( self.src_port_mac, self.src_port_ip)
+        arpreq_pkt = construct_ns_pkt(self.src_port_mac, self.src_port_ip)
 
         send_packet(self, self.src_port_id, arpreq_pkt)
-        arpreq_pkt = construct_ns_pkt( self.dst_port_mac, self.dst_port_ip)
+        arpreq_pkt = construct_ns_pkt(self.dst_port_mac, self.dst_port_ip)
         send_packet(self, self.dst_port_id, arpreq_pkt)
-        arpreq_pkt = construct_ns_pkt( self.dst_port_2_mac, self.dst_port_2_ip)
+        arpreq_pkt = construct_ns_pkt(self.dst_port_2_mac, self.dst_port_2_ip)
         send_packet(self, self.dst_port_2_id, arpreq_pkt)
-        arpreq_pkt = construct_ns_pkt( self.dst_port_3_mac, self.dst_port_3_ip)
+        arpreq_pkt = construct_ns_pkt(self.dst_port_3_mac, self.dst_port_3_ip)
         send_packet(self, self.dst_port_3_id, arpreq_pkt)
 
         for dut_i in self.test_port_ids:
@@ -1066,7 +1068,7 @@ class ARPpopulateIPv6(ARPpopulate):
                 for dst_port_id in self.test_port_ids[dut_i][asic_i]:
                     dst_port_ip = self.test_port_ips[dut_i][asic_i][dst_port_id]
                     dst_port_mac = self.dataplane.get_mac(0, dst_port_id)
-                    arpreq_pkt = construct_ns_pkt( dst_port_mac, dst_port_ip['peer_addr'])
+                    arpreq_pkt = construct_ns_pkt(dst_port_mac, dst_port_ip['peer_addr'])
                     send_packet(self, dst_port_id, arpreq_pkt)
 
         # ptf don't know the address of neighbor, use ping to learn relevant arp entries instead of send arp request
@@ -1075,7 +1077,7 @@ class ARPpopulateIPv6(ARPpopulate):
             if ips:
                 cmd = 'for ip in {}; do ping -6 -c 4 -i 0.2 -W 1 -q $ip > /dev/null 2>&1 & done'.format(' '.join(ips))
                 self.exec_cmd_on_dut(self.server, self.test_params['dut_username'],
-                                        self.test_params['dut_password'], cmd)
+                                     self.test_params['dut_password'], cmd)
 
         time.sleep(8)
 
@@ -1121,91 +1123,91 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
         return sai_port_id
 
     def verify_v4_pkt(
-        self, pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id, src_port_id, \
+            self, pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id, src_port_id,
             exp_ip_id, exp_ttl, ip_ttl):
         for dscp in range(0, 64):
-                tos = (dscp << 2)
-                tos |= 1
-                pkt = simple_ip_packet(pktlen=64,
-                                       eth_dst=pkt_dst_mac,
-                                       eth_src=src_port_mac,
-                                       ip_src=src_port_ip,
-                                       ip_dst=dst_port_ip,
-                                       ip_tos=tos,
-                                       ip_id=exp_ip_id,
-                                       ip_ttl=ip_ttl)
-                send_packet(self, src_port_id, pkt, 1)
-                print("dscp: %d, calling send_packet()" %
-                      (tos >> 2), file=sys.stderr)
+            tos = (dscp << 2)
+            tos |= 1
+            pkt = simple_ip_packet(pktlen=64,
+                                   eth_dst=pkt_dst_mac,
+                                   eth_src=src_port_mac,
+                                   ip_src=src_port_ip,
+                                   ip_dst=dst_port_ip,
+                                   ip_tos=tos,
+                                   ip_id=exp_ip_id,
+                                   ip_ttl=ip_ttl)
+            send_packet(self, src_port_id, pkt, 1)
+            print("dscp: %d, calling send_packet()" %
+                  (tos >> 2), file=sys.stderr)
 
-                cnt = 0
-                dscp_received = False
-                while not dscp_received:
-                    result = self.dataplane.poll(
-                        device_number=0, port_number=dst_port_id, timeout=3)
-                    if isinstance(result, self.dataplane.PollFailure):
-                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
-                            dst_port_id, cnt, result.format()))
+            cnt = 0
+            dscp_received = False
+            while not dscp_received:
+                result = self.dataplane.poll(
+                    device_number=0, port_number=dst_port_id, timeout=3)
+                if isinstance(result, self.dataplane.PollFailure):
+                    self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
+                        dst_port_id, cnt, result.format()))
 
-                    recv_pkt = scapy.Ether(result.packet)
-                    cnt += 1
+                recv_pkt = scapy.Ether(result.packet)
+                cnt += 1
 
-                    # Verify dscp flag
-                    try:
-                        if (recv_pkt.payload.tos == tos and
-                                recv_pkt.payload.src == src_port_ip and
-                                recv_pkt.payload.dst == dst_port_ip and
-                                recv_pkt.payload.ttl == exp_ttl and
-                                recv_pkt.payload.id == exp_ip_id):
-                            dscp_received = True
-                            print("dscp: %d, total received: %d" %
-                                  (tos >> 2, cnt), file=sys.stderr)
-                    except AttributeError:
-                        print("dscp: %d, total received: %d, attribute error!" % (
-                            tos >> 2, cnt), file=sys.stderr)
-                        continue
+                # Verify dscp flag
+                try:
+                    if (recv_pkt.payload.tos == tos and
+                            recv_pkt.payload.src == src_port_ip and
+                            recv_pkt.payload.dst == dst_port_ip and
+                            recv_pkt.payload.ttl == exp_ttl and
+                            recv_pkt.payload.id == exp_ip_id):
+                        dscp_received = True
+                        print("dscp: %d, total received: %d" %
+                              (tos >> 2, cnt), file=sys.stderr)
+                except AttributeError:
+                    print("dscp: %d, total received: %d, attribute error!" % (
+                        tos >> 2, cnt), file=sys.stderr)
+                    continue
 
     def verify_v6_pkt(
-        self, pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id, src_port_id, \
+            self, pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id, src_port_id,
             exp_ttl, ip_ttl):
         for dscp in range(0, 64):
-                pkt = simple_udpv6_packet(pktlen=64,
-                                          eth_dst=pkt_dst_mac,
-                                          eth_src=src_port_mac,
-                                          ipv6_src=src_port_ip,
-                                          ipv6_dst=dst_port_ip,
-                                          ipv6_dscp=dscp,
-                                          ipv6_hlim=ip_ttl)
-                send_packet(self, src_port_id, pkt, 1)
-                print("dscp: %d, calling send_packet()" %
-                      (dscp), file=sys.stderr)
+            pkt = simple_udpv6_packet(pktlen=64,
+                                      eth_dst=pkt_dst_mac,
+                                      eth_src=src_port_mac,
+                                      ipv6_src=src_port_ip,
+                                      ipv6_dst=dst_port_ip,
+                                      ipv6_dscp=dscp,
+                                      ipv6_hlim=ip_ttl)
+            send_packet(self, src_port_id, pkt, 1)
+            print("dscp: %d, calling send_packet()" %
+                  (dscp), file=sys.stderr)
 
-                cnt = 0
-                dscp_received = False
-                while not dscp_received:
-                    result = self.dataplane.poll(
-                        device_number=0, port_number=dst_port_id, timeout=3)
-                    if isinstance(result, self.dataplane.PollFailure):
-                        self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
-                            dst_port_id, cnt, result.format()))
+            cnt = 0
+            dscp_received = False
+            while not dscp_received:
+                result = self.dataplane.poll(
+                    device_number=0, port_number=dst_port_id, timeout=3)
+                if isinstance(result, self.dataplane.PollFailure):
+                    self.fail("Expected packet was not received on port %d. Total received: %d.\n%s" % (
+                        dst_port_id, cnt, result.format()))
 
-                    recv_pkt = scapy.Ether(result.packet)
-                    cnt += 1
+                recv_pkt = scapy.Ether(result.packet)
+                cnt += 1
 
-                    # Verify dscp flag
-                    try:
-                        tc = dscp << 2
-                        if (recv_pkt.payload.tc == tc and
-                                recv_pkt.payload.src == src_port_ip and
-                                recv_pkt.payload.dst == dst_port_ip and
-                                recv_pkt.payload.hlim == exp_ttl ):
-                            dscp_received = True
-                            print("dscp: %d, total received: %d" %
-                                  (dscp, cnt), file=sys.stderr)
-                    except AttributeError:
-                        print("dscp: %d, total received: %d, attribute error!" % (
-                            dscp, cnt), file=sys.stderr)
-                        continue
+                # Verify dscp flag
+                try:
+                    tc = dscp << 2
+                    if (recv_pkt.payload.tc == tc and
+                            recv_pkt.payload.src == src_port_ip and
+                            recv_pkt.payload.dst == dst_port_ip and
+                            recv_pkt.payload.hlim == exp_ttl):
+                        dscp_received = True
+                        print("dscp: %d, total received: %d" %
+                              (dscp, cnt), file=sys.stderr)
+                except AttributeError:
+                    print("dscp: %d, total received: %d, attribute error!" % (
+                        dscp, cnt), file=sys.stderr)
+                    continue
 
     def runTest(self):
         switch_init(self.clients)
@@ -1268,11 +1270,11 @@ class DscpMappingPB(sai_base_test.ThriftInterfaceDataPlane):
                 ip_ttl = ip_ttl + 1 if masic else ip_ttl
             if ip_type == 'ipv4':
                 self.verify_v4_pkt(
-                    pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id, \
+                    pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id,
                     src_port_id, exp_ip_id, exp_ttl, ip_ttl)
             else:
                 self.verify_v6_pkt(
-                    pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id, \
+                    pkt_dst_mac, src_port_mac, src_port_ip, dst_port_ip, dst_port_id,
                     src_port_id, exp_ttl, ip_ttl)
 
             # Read Counters
@@ -4697,24 +4699,24 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
         pkt_dst_mac = router_mac if router_mac != '' else dst_port_mac
         if ip_type == 'ipv6':
             pkt = construct_ipv6_pkt(packet_length,
-                                pkt_dst_mac,
-                                src_port_mac,
-                                src_port_ip,
-                                dst_port_ip,
-                                dscp,
-                                src_port_vlan,
-                                ecn=ecn,
-                                ttl=ttl)
+                                     pkt_dst_mac,
+                                     src_port_mac,
+                                     src_port_ip,
+                                     dst_port_ip,
+                                     dscp,
+                                     src_port_vlan,
+                                     ecn=ecn,
+                                     ttl=ttl)
         else:
             pkt = construct_ip_pkt(packet_length,
-                                pkt_dst_mac,
-                                src_port_mac,
-                                src_port_ip,
-                                dst_port_ip,
-                                dscp,
-                                src_port_vlan,
-                                ecn=ecn,
-                                ttl=ttl)
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
         log_message("dst_port_id: {}, src_port_id: {} src_port_vlan: {}".format(
             dst_port_id, src_port_id, src_port_vlan), to_stderr=True)
         # in case dst_port_id is part of LAG, find out the actual dst port
@@ -5180,24 +5182,24 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             if ip_type == 'ipv6':
                 pkt = construct_ipv6_pkt(packet_length,
-                                   pkt_dst_mac,
-                                   src_port_mac,
-                                   src_port_ip,
-                                   dst_port_ip,
-                                   dscp,
-                                   src_port_vlan,
-                                   ecn=ecn,
-                                   ttl=ttl)
+                                         pkt_dst_mac,
+                                         src_port_mac,
+                                         src_port_ip,
+                                         dst_port_ip,
+                                         dscp,
+                                         src_port_vlan,
+                                         ecn=ecn,
+                                         ttl=ttl)
             else:
                 pkt = construct_ip_pkt(packet_length,
-                                   pkt_dst_mac,
-                                   src_port_mac,
-                                   src_port_ip,
-                                   dst_port_ip,
-                                   dscp,
-                                   src_port_vlan,
-                                   ecn=ecn,
-                                   ttl=ttl)
+                                       pkt_dst_mac,
+                                       src_port_mac,
+                                       src_port_ip,
+                                       dst_port_ip,
+                                       dscp,
+                                       src_port_vlan,
+                                       ecn=ecn,
+                                       ttl=ttl)
 
             print("dst_port_id: %d, src_port_id: %d src_port_vlan: %s" %
                   (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)
@@ -5826,24 +5828,24 @@ class QSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
 
         if ip_type == 'ipv6':
             pkt = construct_ipv6_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ecn=ecn,
-                               ttl=ttl)
+                                     pkt_dst_mac,
+                                     src_port_mac,
+                                     src_port_ip,
+                                     dst_port_ip,
+                                     dscp,
+                                     src_port_vlan,
+                                     ecn=ecn,
+                                     ttl=ttl)
         else:
             pkt = construct_ip_pkt(packet_length,
-                               pkt_dst_mac,
-                               src_port_mac,
-                               src_port_ip,
-                               dst_port_ip,
-                               dscp,
-                               src_port_vlan,
-                               ecn=ecn,
-                               ttl=ttl)
+                                   pkt_dst_mac,
+                                   src_port_mac,
+                                   src_port_ip,
+                                   dst_port_ip,
+                                   dscp,
+                                   src_port_vlan,
+                                   ecn=ecn,
+                                   ttl=ttl)
 
         print("dst_port_id: %d, src_port_id: %d, src_port_vlan: %s" %
               (dst_port_id, src_port_id, src_port_vlan), file=sys.stderr)

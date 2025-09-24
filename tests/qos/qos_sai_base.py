@@ -2030,7 +2030,7 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts, lossy_queue_traffic_direction,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host,
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host,  # noqa: F811
         ip_type, update_delay_first_probe_time_for_v6_top  # noqa: F811
     ):
         """
@@ -2731,7 +2731,8 @@ class QosSaiBase(QosBase):
 
     def populate_arp_entries(
         self, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host, ip_type='ipv4'  # noqa: F811
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host,  # noqa: F811
+        ip_type='ipv4'
     ):
         """
         Update ARP entries of QoS SAI test ports
@@ -2752,7 +2753,8 @@ class QosSaiBase(QosBase):
             else:
                 for dut_asic in get_src_dst_asic_and_duts['all_asics']:
                     result = dut_asic.command("arp -n")
-                    pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
+                    pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(
+                        dut_asic.sonichost.hostname))
                     if result["stdout"].find("incomplete") == -1:
                         saiQosTest = "sai_qos_tests.ARPpopulate"
 
@@ -3132,7 +3134,7 @@ def set_queue_pir(interface, queue, rate):
         queue_dynamic_th_map = {}
         weights_list = []
         for queue in queue_table_postfix_list:
-            key_str = f"BUFFER_PROFILE_TABLE:queue{queue}_downlink_lossy_profile"
+            key_str = f"BUFFER_PROFILE_TABLE:queue{queue}_downlink_lossy_profile"  # noqa: E231
             dynamic_th_res = duthost.run_redis_cmd(argv=["redis-cli", "-n", 0, "HGET", key_str, "dynamic_th"])
             if dynamic_th_res:
                 queue_dynamic_th_map[queue] = dynamic_th_res[0]

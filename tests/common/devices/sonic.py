@@ -2425,7 +2425,7 @@ Totals               6450                 6449
                     # Ping for some time to get ARP Re-learnt.
                     # We might have to tune it further if needed.
                     if (v["admin"] == "up" and v["oper_state"] == "up" and
-                    self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
+                            self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
                         ip_ifaces[k] = {
                             "ipv4": v["ipv4"],
                             "peer_ipv4": v["peer_ipv4"],
@@ -2434,7 +2434,7 @@ Totals               6450                 6449
                         active_ip_intf_cnt += 1
                 elif ip_type == "ipv6":
                     if (v["admin"] == "up" and v["oper_state"] == "up" and
-                    self.ping_v6(v["peer_ipv6"], count=3, ns_arg=ns_arg)):
+                            self.ping_v6(v["peer_ipv6"], count=3, ns_arg=ns_arg)):
                         ip_ifaces[k] = {
                             "ipv6": v["ipv6"],
                             "peer_ipv6": v["peer_ipv6"],
