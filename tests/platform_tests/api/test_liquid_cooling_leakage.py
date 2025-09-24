@@ -2,7 +2,7 @@ import logging
 import pytest
 
 
-from tests.common.helpers.platform_api import chassis, liquid_cooling_leakage
+from tests.common.helpers.platform_api import liquid_cooling_leakage
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.platform.device_utils import platform_api_conn    # noqa: F401
 from tests.common.platform.device_utils import start_platform_api_service    # noqa: F401

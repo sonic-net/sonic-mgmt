@@ -7,7 +7,6 @@ import pytest
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.config_reload import config_reload
-from tests.common.reboot import reboot
 from tests.common.devices.sonic import SonicHost
 from tests.common.helpers.sensor_control_test_helper import BaseMocker
 

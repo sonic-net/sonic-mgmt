@@ -15,6 +15,7 @@ WAIT_GNMI_LD_EVENT_TIMEOUT = 90
 # To left some buffer for the thread timeout,the timeout for gnmi event is set to 120 seconds
 WAIT_GNMI_EVENT_TIMEOUT = WAIT_GNMI_LD_EVENT_TIMEOUT + 30
 
+
 class LiquidLeakageMocker(BaseMocker):
     """
     Liquid leakage mocker. Vendor should implement this class to provide a liquid leakage mocker.
@@ -56,7 +57,8 @@ def get_leakage_status(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return: The leakage status of the DUT.
     """
-    return dut.show_and_parse(f"show platform leakage status")
+    return dut.show_and_parse("show platform leakage status")
+
 
 def get_leakage_status_in_health_system(dut):
     """
@@ -64,7 +66,7 @@ def get_leakage_status_in_health_system(dut):
     :param dut: DUT object representing a SONiC switch under test.
     :return: The health system status of the DUT.
     """
-    system_health_status = dut.show_and_parse(f"sudo show system-health detail")
+    system_health_status = dut.show_and_parse("sudo show system-health detail")
     system_health_leakage_status_list = []
     for status in system_health_status:
         if status['name'].startswith('leakage'):
@@ -72,8 +74,10 @@ def get_leakage_status_in_health_system(dut):
     logging.info(f"System health leakage status list: {system_health_leakage_status_list}")
     return system_health_leakage_status_list
 
+
 def get_state_db(dut):
     return ast.literal_eval(dut.shell('sonic-db-dump -n STATE_DB -y')['stdout'])
+
 
 def verify_leakage_status(dut, leakage_index_list, expected_status):
     """
@@ -84,8 +88,8 @@ def verify_leakage_status(dut, leakage_index_list, expected_status):
     """
     logging.info(f"Verify leakage status of {leakage_index_list} is : {expected_status}")
     leakage_status_list = get_leakage_status(dut)
-    failed_leakage_list =[]
-    success_leakage_list =[]
+    failed_leakage_list = []
+    success_leakage_list = []
     for index in leakage_index_list:
         for leak_status in leakage_status_list:
             if leak_status['name'] == f"leakage{index}":
@@ -101,6 +105,7 @@ def verify_leakage_status(dut, leakage_index_list, expected_status):
         f"success leakage index list:  {success_leakage_list}"
     return True
 
+
 def verify_leakage_status_in_health_system(dut, leakage_index_list, expected_status):
     """
     Verify the leakage status in health system of the DUT.
@@ -110,8 +115,8 @@ def verify_leakage_status_in_health_system(dut, leakage_index_list, expected_sta
     """
     logging.info(f"Verify leakage status in health system of {leakage_index_list} is: {expected_status}")
     health_system_leakage_status_list = get_leakage_status_in_health_system(dut)
-    failed_leakage_list =[]
-    success_leakage_list =[]
+    failed_leakage_list = []
+    success_leakage_list = []
     for index in leakage_index_list:
         for leak_status in health_system_leakage_status_list:
             if f"leakage{index}" == leak_status['name']:
@@ -127,6 +132,7 @@ def verify_leakage_status_in_health_system(dut, leakage_index_list, expected_sta
         f"success leakage index list:  {success_leakage_list}"
     return True
 
+
 def verify_leakage_status_in_state_db(dut, leakage_index_list, expected_status):
     """
     Verify the leakage status in state db of the DUT.
@@ -136,8 +142,8 @@ def verify_leakage_status_in_state_db(dut, leakage_index_list, expected_status):
     """
     logging.info(f"Verify leakage status in state db of {leakage_index_list} is: {expected_status}")
     state_db = get_state_db(dut)
-    failed_leakage_list =[]
-    success_leakage_list =[]
+    failed_leakage_list = []
+    success_leakage_list = []
     for index in leakage_index_list:
         leak_status = state_db.get(f"LIQUID_COOLING_INFO|leakage{index}", {}).get("value", {}).get("leak_status")
         if leak_status != expected_status:
@@ -151,6 +157,7 @@ def verify_leakage_status_in_state_db(dut, leakage_index_list, expected_status):
         f"Not all leakage status are detected: test leakage index list: {leakage_index_list}, " \
         f"success leakage index list:  {success_leakage_list}"
     return True
+
 
 def verify_gnmi_msg_is_sent(leakage_index_list, gnmi_result, msg_type):
     """
@@ -170,6 +177,7 @@ def verify_gnmi_msg_is_sent(leakage_index_list, gnmi_result, msg_type):
         assert re.search(expected_msg_regex, gnmi_result), f"Gnmi msg is not as expected: {gnmi_result}"
     return True
 
+
 def startmonitor_gnmi_event(duthost, ptfhost):
     """
     Monitor the gnmi event of the DUT.
@@ -187,6 +195,7 @@ def startmonitor_gnmi_event(duthost, ptfhost):
     logging.info(f"gnmi subscribe cmd: {gnmi_subscribe_cmd} \n gnmi event result: {result}")
     return result
 
+
 def get_pmon_daemon_control_dict(dut):
     """
     Get the pmon daemon control dict of the DUT.
@@ -196,6 +205,7 @@ def get_pmon_daemon_control_dict(dut):
     pmon_daemon_control_file_path = os.path.join(
         "/usr/share/sonic/device", dut.facts["platform"], "pmon_daemon_control.json")
     return json.loads(dut.shell(f"cat {pmon_daemon_control_file_path} ")['stdout'])
+
 
 def is_liquid_cooling_system_supported(dut):
     """
@@ -210,6 +220,7 @@ def is_liquid_cooling_system_supported(dut):
     else:
         logging.info("Liquid cooling system is not supported")
         return False
+
 
 def get_liquid_cooling_update_interval(dut):
     """
@@ -235,8 +246,10 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' port 50052")
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|gnmi' client_auth true")
     duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|certs' ca_crt /etc/sonic/telemetry/dsmsroot.cer")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer")
-    duthost.shell("sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_key /etc/sonic/telemetry/streamingtelemetryserver.key")
+    duthost.shell(
+        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_crt /etc/sonic/telemetry/streamingtelemetryserver.cer")
+    duthost.shell(
+        "sonic-db-cli CONFIG_DB hset 'GNMI|certs' server_key /etc/sonic/telemetry/streamingtelemetryserver.key")
     duthost.shell('sonic-db-cli CONFIG_DB HSET "GNMI|gnmi" "client_auth" "false"')
     duthost.shell('sudo systemctl reset-failed gnmi')
     duthost.shell('sudo service gnmi restart')

@@ -2,12 +2,12 @@ import pytest
 import logging
 import time
 from tests.common.helpers.assertions import pytest_require
-from tests.common.helpers.sensor_control_test_helper import mocker_factory
+from tests.common.helpers.sensor_control_test_helper import mocker_factory  # noqa: F401
 from tests.common.helpers.liquid_leakage_control_test_helper import verify_leakage_status, \
     verify_leakage_status_in_health_system, get_liquid_cooling_update_interval, is_liquid_cooling_system_supported, \
-    startmonitor_gnmi_event,verify_gnmi_msg_is_sent, setup_gnmi_server, WAIT_GNMI_EVENT_TIMEOUT
+    startmonitor_gnmi_event, verify_gnmi_msg_is_sent, setup_gnmi_server, WAIT_GNMI_EVENT_TIMEOUT  # noqa: F401
 from tests.common.mellanox_data import get_platform_data
-from tests.common.helpers.mellanox_liquid_leakage_control_test_helper import MlxLiquidLeakageMocker
+from tests.common.helpers.mellanox_liquid_leakage_control_test_helper import MlxLiquidLeakageMocker  # noqa: F401
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, get_bughandler_instance
 from concurrent.futures import ThreadPoolExecutor
 
@@ -46,7 +46,8 @@ def test_verify_liquid_senors_number_and_status(duthosts, enum_rand_one_per_hwsk
 
 
 @pytest.mark.disable_loganalyzer
-def test_mock_liquid_leak_event(duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory, ptfhost, setup_gnmi_server):
+def test_mock_liquid_leak_event(
+        duthosts, enum_rand_one_per_hwsku_hostname, mocker_factory, ptfhost, setup_gnmi_server):  # noqa: F811
     """
     1. Mock liquid leak event and verify the dut has the correct response.
     2. Mock liquid leak event is fixed and verify the dut has the correct response.

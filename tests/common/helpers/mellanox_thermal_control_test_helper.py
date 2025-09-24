@@ -3,7 +3,6 @@ import json
 import re
 import random
 import logging
-import time
 from pkg_resources import parse_version
 from tests.common.helpers.sensor_control_test_helper import mocker
 from tests.common.helpers.thermal_control_test_helper import FanStatusMocker, ThermalStatusMocker, \
@@ -203,7 +202,6 @@ class MockerHelper(MockerBaseHelper):
         """
         super().__init__(dut)
         self._extract_num_of_fans_and_fan_drawers()
-
 
     def _extract_num_of_fans_and_fan_drawers(self):
         """

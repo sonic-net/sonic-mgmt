@@ -447,6 +447,7 @@ def generate_sysfs_sfp_config(platform_data):
         ]
     }
 
+
 def generate_sysfs_leakage_config(platform_data):
     return {
         'name': 'leakage_info',
@@ -460,6 +461,7 @@ def generate_sysfs_leakage_config(platform_data):
             }
         ]
     }
+
 
 def check_liquid_cooling_leakage_sysfs(dut, sysfs_facts):
     """
