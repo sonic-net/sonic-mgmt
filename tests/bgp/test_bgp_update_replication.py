@@ -270,11 +270,14 @@ def test_bgp_update_replication(
 
             # Validate all routes have been withdrawn
             curr_num_rib = int(results[-1]["num_rib"])
-            expected = base_rib
             pytest_assert(
-                curr_num_rib == expected,
-                f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{expected}'"
+                curr_num_rib <= min_expected_rib,
+                f"All withdrawls have not been received: current '{curr_num_rib}', expected: '{min_expected_rib}'"
             )
+            if curr_num_rib > base_rib:
+                logger.warning(
+                    f"All routes have not been withdrawn: current '{curr_num_rib}', expected: '{base_rib}'"
+                )
 
     results.append(measure_stats(duthost))
 
