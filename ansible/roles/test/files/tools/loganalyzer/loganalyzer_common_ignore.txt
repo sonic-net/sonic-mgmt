@@ -347,6 +347,9 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
 r, ".* ERR chronyd\[\d*\]: nss_tacplus: .*"
 
+# ignore iptable nss_tacplus error, some change iptable operations may temporarily disrupt the DUT-to-PTF network connection, which triggers the error. It is safe to ignore this message during such transitions.
+r, ".* ERR iptables: nss_tacplus: failed to connect TACACS+ server .*"
+
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
 r, ".* ERR ntpd\[\d*\]:.*leapsecond file \('/usr/share/zoneinfo/leap-seconds\.list'\): expired.*"
 
