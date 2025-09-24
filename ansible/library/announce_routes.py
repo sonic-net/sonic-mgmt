@@ -162,7 +162,8 @@ def read_topo(topo_name, path):
 
 
 def change_routes(action, ptf_ip, port, routes, routes_batch_size=ROUTES_BATCH_SIZE):
-    logging.debug("action = {}, ptf_ip = {}, port = {}, routes_batch_size = {}, routes = {}".format(action, ptf_ip, port, routes_batch_size, routes))
+    logging.debug("action = {}, ptf_ip = {}, port = {}, routes_batch_size = {}, routes = {}"
+                  .format(action, ptf_ip, port, routes_batch_size, routes))
     messages = []
     for prefix, nexthop, aspath in routes:
         if aspath:
