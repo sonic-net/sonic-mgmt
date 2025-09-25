@@ -339,12 +339,12 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(dpu_env):
+def test_data_control_mid_plane_sync(dpu_setup):
     """
     @summary: To verify data, control and mid planes are in sync
     """
 
-    duthost, ip_address_list, dpu_on_list, dpu_off_list = dpu_env
+    duthost, ip_address_list, dpu_on_list, dpu_off_list = dpu_setup
 
     for index, dpu in enumerate(dpu_on_list):
         dpu_ip = ip_address_list[index]

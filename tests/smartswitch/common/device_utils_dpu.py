@@ -55,8 +55,8 @@ def skip_for_non_smartswitch(duthost):
 
 
 @pytest.fixture(scope='function')
-def dpu_env(duthosts, enum_rand_one_per_hwsku_hostname,
-            platform_api_conn, num_dpu_modules):  # noqa F811
+def dpu_setup(duthosts, enum_rand_one_per_hwsku_hostname,
+              platform_api_conn, num_dpu_modules):  # noqa F811
     """
     Runs pre_test_check() before the test and ensures all DPUs
     that are UP before the test are forced UP after the test (even if it fails).
@@ -72,7 +72,7 @@ def dpu_env(duthosts, enum_rand_one_per_hwsku_hostname,
 
     for dpu in dpu_on_list:
         iface = dpu.lower()
-        logging.info(f"[Cleanup] Forcing UP {dpu} ({iface})")
+        logging.info(f"Forcing UP {dpu} ({iface})")
         duthost.shell(f"sudo ip link set {iface} up")
 
 
