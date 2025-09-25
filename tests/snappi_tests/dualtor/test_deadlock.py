@@ -340,14 +340,6 @@ def create_devices(snappi_api, config, port_configs, device_configs : dict, snap
     # Global options
     config.options.port_options.location_preemption = True  # Forcefully take ports.
     # Order all ports by ID
-    port_configs.sort(key=lambda dct: int(dct['port_id']))
-    # TODO: Determine better way to dynamically find or specify RG breakouts in Ixia.
-    # TODO: Only supports 4x breakouts...
-    MAX_NON_BREAKOUT_IXIA_ID = 15 # Note: somewhat arbitrary, likely won't work elsewhere!
-    breakout_snappi_ports = []
-    non_breakout_snappi_ports = []
-
-    logger.info("port_configs = {}".format(port_configs))
     for snappi_port_dct in port_configs:
         # Create the port
         port_id = snappi_port_dct['port_id']
@@ -357,32 +349,12 @@ def create_devices(snappi_api, config, port_configs, device_configs : dict, snap
         port = config.ports.add()
         port.name = port_name
         port.location = location
-        if int(port_id) > MAX_NON_BREAKOUT_IXIA_ID:
-            breakout_snappi_ports.append(snappi_port_dct)
-        else:
-            non_breakout_snappi_ports.append(snappi_port_dct)
-    # Order breakout ports by ID
-    # breakout_snappi_ports.sort(key=lambda dct: int(dct['port_id']))
-    # Construct each port and L1 configuration (temporary structure to keep clean loops)
-    port_configs = []
-    for snappi_port_dct in non_breakout_snappi_ports:
-        port_configs.append(([snappi_port_dct['port_name']],
-                             snappi_port_dct['location'],
-                             snappi_port_dct['speed']))
-    sub_port_names = []
-    for snappi_port_dct in breakout_snappi_ports:
-        sub_port_names.append(snappi_port_dct['port_name'])
-        if len(sub_port_names) == 4:
-            port_configs.append((sub_port_names,
-                                 snappi_port_dct['location'],
-                                 snappi_port_dct['speed']))
-            sub_port_names = []
-    assert len(sub_port_names) == 0, "Unprocessed sub-ports {}".format(sub_port_names)
-    for port_names, location, speed_mbps in port_configs:
-        # L1 settings, where breakout ports share settings
+        # L1 settings
+        speed_mbps = snappi_port_dct['speed']
         speed_gbps = int(int(speed_mbps) / 1000)
         # TODO: Where does the other name show up? Need to be unique for any reason?
         l1_config = config.layer1.add()
+        port_names = [port_name]
         l1_config.port_names = port_names
         logger.info("Adding L1 config for ports: {}".format(port_names))
         l1_config.name = 'L1 config {}'.format(";".join(port_names))
@@ -649,6 +621,9 @@ def test_deadlock(snappi_api,                   # noqa: F811
     # needs to be run after every test parametrization in order to clear out
     # deadlock. This does depend on the order of the parametrization execution (PCBB or
     # non-PCBB first).
+    # A second option is PCBB thinks it's enabled, but is improperly deployed. Do a "show
+    # pfc prio" on each DUT and validate PFC priorities have 2,3,4,6 in some locations and
+    # not others.
     pytest_assert_eq(len(non_zero_pfc_locs), 0, msg)
 
     # Validate port speeds are satisfactory for deadlock
