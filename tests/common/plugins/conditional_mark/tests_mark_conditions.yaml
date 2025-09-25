@@ -220,6 +220,12 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
+bgp/test_bgp_bounce.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20753"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20753 and '-v6-' in topo_name"
+
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -318,6 +324,18 @@ bgp/test_bgp_session.py::test_bgp_session_interface_down:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
 
+bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20755"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20755 and '-v6-' in topo_name"
+
+bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20755"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20755 and '-v6-' in topo_name"
+
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb."
@@ -365,6 +383,10 @@ bgp/test_bgp_suppress_fib.py:
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
 
 bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
   xfail:
@@ -383,6 +405,12 @@ bgp/test_bgpmon.py:
     reason: "Not supported on T2 topology or topology backend"
     conditions:
       - "'backend' in topo_name or 't2' in topo_name"
+
+bgp/test_bgpmon.py::test_bgpmon:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20754"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
@@ -835,6 +863,15 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
     reason: "Skip test_interface_binding in old release version"
     conditions:
       - "release in ['201911', '202106']"
+
+#######################################
+#####             disk            #####
+#######################################
+disk/test_disk_exhaustion.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20759"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20759 and '-v6-' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -2049,9 +2086,9 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
-    reason: "xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20757"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19638 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20757 and '-v6-' in topo_name"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -3948,6 +3985,12 @@ telemetry/test_events.py:
     conditions:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
+
+telemetry/test_events.py::test_events:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20758"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20758 and '-v6-' in topo_name"
 
 telemetry/test_telemetry.py:
   skip:
