@@ -21,7 +21,8 @@ PEER_COUNT = 16
 WAIT_TIMEOUT = 120
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2')
+    pytest.mark.topology('t0', 't1', 't2', 'lt2', 'ft2'),
+    pytest.mark.disable_loganalyzer
 ]
 
 
