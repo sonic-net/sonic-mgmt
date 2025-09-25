@@ -1340,7 +1340,9 @@ def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
 
-    return duthosts[0].get_facts().get("modular_chassis")
+    if len(duthosts) == 1:
+        return duthosts[0].get_facts().get("modular_chassis")
+    return len(duthosts) > 1
 
 
 @pytest.fixture(scope="module")

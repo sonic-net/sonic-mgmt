@@ -24,3 +24,7 @@ def patch_snappi_ixnetwork():
             logger.info("Success patching {} at directory {}".format(patch_file, si_dir))
         assert exit_code == 0, "Patch {} failed at directory {}".format(patch_file, si_dir)
         importlib.reload(snappi_ixnetwork)
+
+
+if __name__ == "__main__":
+    patch_snappi_ixnetwork()

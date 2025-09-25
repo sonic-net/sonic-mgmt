@@ -1,5 +1,4 @@
-"""
------------------------------------------------
+"""-----------------------------------------------
   _   _  _   _     _
  |_) /  |_) |_)   | \  _   _.  _| |  _   _ |
  |   \_ |_) |_)   |_/ (/_ (_| (_| | (_) (_ |<
@@ -42,10 +41,22 @@ TODO: Notes on TB setup
 Additional Notes
 ----------------
 
-- sonic_lab_links.csv should declare all inter-device links in addition to snappi/ixia links. 
+- sonic_lab_links.csv should declare all inter-device links in addition to snappi/ixia links.
   This is used for pathfinding algorithms.
 - 't1' should be present in the T1 device name, and vice versa for 't0'
 
+
+Known Issues
+------------
+
+If you get an error like this:
+E             File "/usr/local/lib/python3.8/dist-packages/snappi_ixnetwork/resourcegroup.py", line 67, in set_group
+E               raise Exception(
+E           Port 57Port 58Port 59Port 60
+
+This is the snappi_ixnetwork bug that is intended to be patched in patcher.py. However,
+this doesn't work on the first run, since snappi_ixnetwork is already imported
+elsewhere. Try rerunning.
 """
 
 # Patch snappi_ixnetwork bug that breaks breakout ports.
@@ -137,7 +148,7 @@ DEVICE_CONFIGS = [{'name': 'Device to T1 E224', # TODO: Autogenerate device name
                    'ipv4': "10.0.224.3",
                    'prefix': 24,
                    'gateway': "10.0.224.2"},
-                  {'name': 'Device on Port 3.1 to LT0:E240', # Simulated servers, with dualtor-matching IPs and macs.
+                  {'name': 'Device on Port 3.1 to LT0:E240', # "Simulated" TGEN servers, with dualtor-matching IPs and macs.
                    'port_id': 57,
                    'mac': "00:15:01:00:00:01",
                    'ipv4': "192.168.0.10",
@@ -224,40 +235,49 @@ def add_flow(config, src_dev_name, dst_dev_name):
     pytest_assert(src_dev_name in SNAPPI_DEVICES, "Source device {} not created".format(src_dev_name))
     pytest_assert(dst_dev_name in SNAPPI_DEVICES, "Destination device {} not created".format(dst_dev_name))
     # Construct flow
-    f = config.flows.add()
-    f.name = device_names_to_flow_name(src_dev_name, dst_dev_name)
-    f.tx_rx.device.tx_names = [device_name_to_ipv4_name(src_dev_name)]
-    f.tx_rx.device.rx_names = [device_name_to_ipv4_name(dst_dev_name)]
-    f.size.fixed = 1024
-    f.rate.percentage = 10
-    f.duration.fixed_packets.set(PATH_DETECTION_COUNT)
-    # f.duration.fixed_seconds.set(DEFAULT_SEND_SEC)
-    # f.duration.continuous.set(True)
+    flow = config.flows.add()
+    flow.name = device_names_to_flow_name(src_dev_name, dst_dev_name)
+    flow.tx_rx.device.tx_names = [device_name_to_ipv4_name(src_dev_name)]
+    flow.tx_rx.device.rx_names = [device_name_to_ipv4_name(dst_dev_name)]
+    flow.size.fixed = 1024
+    flow.rate.percentage = 10
+    flow.duration.fixed_packets.packets = PATH_DETECTION_COUNT
 
     # IP settings
-    eth, ipv4 = f.packet.ethernet().ipv4()
+    eth, ipv4 = flow.packet.ethernet().ipv4()
     # RAW mode does not work, probably a snappi/ixia API shortcoming
     ipv4.priority.choice = ipv4.priority.DSCP
     ipv4.priority.dscp.phb.values = [3]
     ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
-    return f
+    return flow
 
 
 def start_protocols(snappi_api):
     # Start protocols
     # TODO: Does not seem to work correctly. Can disable protocols with False, but not start.
-    cs = snappi_api.control_state()
-    cs.protocol.all.set(cs.protocol.all.START)
-    snappi_api.set_control_state(cs)
+    if "control_state" in dir(snappi_api):
+        cs = snappi_api.control_state()
+        cs.protocol.all.set(cs.protocol.all.START)
+        snappi_api.set_control_state(cs)
+    else:
+        ps = snappi_api.protocol_state()
+        ps.state = ps.START
+        snappi_api.set_protocol_state(ps)
 
 
 def start_stop_traffic(snappi_api, start_or_stop : bool, flow_names=[]):
     # Starting traffic auto-applies it
     pytest_assert(isinstance(flow_names, list), "Snappi requires a list of flow names")
-    cs = snappi_api.control_state()
-    cs.traffic.flow_transmit.flow_names = flow_names
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START if start_or_stop else cs.traffic.flow_transmit.STOP
-    snappi_api.set_control_state(cs)
+    if "control_state" in dir(snappi_api):
+        cs = snappi_api.control_state()
+        cs.traffic.flow_transmit.flow_names = flow_names
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START if start_or_stop else cs.traffic.flow_transmit.STOP
+        snappi_api.set_control_state(cs)
+    else:
+        ts = snappi_api.transmit_state()
+        ts.flow_names = flow_names
+        ts.state = ts.START if start_or_stop else ts.STOP
+        snappi_api.set_transmit_state(ts)
 
 
 def start_traffic(snappi_api, flow_names=[]):
@@ -346,16 +366,6 @@ def create_devices(snappi_api, config, port_configs, device_configs : dict, snap
         l1_config.auto_negotiate = False
         l1_config.auto_negotiation.link_training = False
         l1_config.auto_negotiation.rs_fec = True
-        # TODO: What PFC config is actually required?
-        pfc = l1_config.flow_control.ieee_802_1qbb
-        for i in range(8):
-            if pfcQueueGroupSize == 8:
-                value = i
-            elif pfcQueueGroupSize == 4:
-                value = pfcQueueValueDict[i]
-            else:
-                pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
-            setattr(pfc, "pfc_class_{}".format(i), value)
 
     # Device config
     for device_config in device_configs:
@@ -506,14 +516,15 @@ def add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts
     """
     Advanced BB flow detection routine.
     Identifies flow path and customizes the flow to take a BounceBack path rather than straight-through.
-    Assumes that the specified src and dst port IDs are correctly configured with the peer ToR in the correct 
+    Assumes that the specified src and dst port IDs are correctly configured with the peer ToR in the correct
     standby mux state to cause a BounceBack to be needed.
     """
     # Create a new flow and explicitly set some important parameters
     flow = add_flow(config, src_dev_name, dst_dev_name)
     flow.size.fixed = 1024
     flow.rate.percentage = 10
-    flow.duration.fixed_packets.set(PATH_DETECTION_COUNT)
+    flow.duration.fixed_packets.packets = PATH_DETECTION_COUNT
+
 
     snappi_api.set_config(config)
     start_protocols(snappi_api)
@@ -655,7 +666,8 @@ def test_deadlock(snappi_api,                   # noqa: F811
     logger.info("Setting flow rates to {}% for {} seconds".format(flow_rate_from_t1, DEADLOCK_ATTEMPT_FLOW_SEC))
     for flow in [t1_upper_bounce_to_lower_flow, t1_lower_bounce_to_upper_flow]:
         flow.rate.percentage = flow_rate_from_t1
-        flow.duration.fixed_seconds.set(DEADLOCK_ATTEMPT_FLOW_SEC)
+        flow.duration.fixed_seconds.seconds = DEADLOCK_ATTEMPT_FLOW_SEC
+
     # Push config change
     snappi_api.set_config(config)
 
