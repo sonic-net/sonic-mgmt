@@ -80,6 +80,7 @@ BGP_SCALE_T1S = [
     't1-isolated-d254u2', 't1-isolated-d254u2s1', 't1-isolated-d254u2s2',
     't1-isolated-d510u2', 't1-isolated-d510u2s2'
 ]
+ROUTES_BATCH_SIZE = 200
 
 # Describe default number of COLOs
 COLO_NUMBER = 30
@@ -157,8 +158,9 @@ def read_topo(topo_name, path):
         return {}
 
 
-def change_routes(action, ptf_ip, port, routes):
-    logging.debug("action = {}, ptf_ip = {}, port = {}, routes = {}".format(action, ptf_ip, port, routes))
+def change_routes(action, ptf_ip, port, routes, routes_batch_size=ROUTES_BATCH_SIZE):
+    logging.debug("action = {}, ptf_ip = {}, port = {}, routes_batch_size = {}, routes = {}"
+                  .format(action, ptf_ip, port, routes_batch_size, routes))
     messages = []
     for prefix, nexthop, aspath in routes:
         if aspath:
@@ -169,8 +171,14 @@ def change_routes(action, ptf_ip, port, routes):
                 "{} route {} next-hop {}".format(action, prefix, nexthop))
     wait_for_http(ptf_ip, port, timeout=60)
     url = "http://%s:%d" % (ptf_ip, port)
-    data = {"commands": ";".join(messages)}
+    for i in range(0, len(messages), routes_batch_size):
+        batch_messages = messages[i:i+routes_batch_size]
+        data = {"commands": ";".join(batch_messages)}
+        logging.debug("Posting to url={} data={}".format(url, json.dumps(data)))
+        post_data_to_url(url, data)
 
+
+def post_data_to_url(url, data):
     # nosemgrep-next-line
     # Flaky error `ConnectionResetError(104, 'Connection reset by peer')` may happen while using `requests.post`
     # To avoid this error, we add sleep time before sending request.
