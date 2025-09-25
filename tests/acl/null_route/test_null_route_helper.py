@@ -16,6 +16,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.utilities import get_upstream_neigh_type
 from tests.common.utilities import get_neighbor_ptf_port_list
 from tests.common.utilities import get_neighbor_port_list
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -36,6 +37,10 @@ NULL_ROUTE_HELPER = "null_route_helper"
 
 FORWARD = "FORWARD"
 DROP = "DROP"
+SHOW_ACL_RULE_CMD = "show acl rule {}"
+ACTIVE_RULE_STATUS = "Active"
+UNBLOCK_RULE_TYPE = "UNBLOCK"
+BLOCK_RULE_TYPE = "BLOCK"
 
 TEST_DATA = [
     # src_ip, action, expected_result
@@ -246,6 +251,57 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
         testutils.verify_no_packet(ptfadapter, pkt=exp_pkt, port_id=rx_port, timeout=5)
 
 
+def parse_acl_rule(rule):
+    rule_tested_parts = rule.split()
+    tested_rule_type = rule_tested_parts[0].upper()
+    tested_acl_table = rule_tested_parts[1]
+    tested_ip = rule_tested_parts[-1]
+    return tested_rule_type, tested_acl_table, tested_ip
+
+
+def verify_test_data_rule_inserted_to_acl_table(duthost, rule_tested):
+    is_rule_inserted_successfully = False
+    tested_rule_type, tested_acl_table, tested_ip = parse_acl_rule(rule_tested)
+    matching_acl_rules_for_tested_ip = (
+        duthost.shell(f'{SHOW_ACL_RULE_CMD.format(tested_acl_table)} | grep -E {tested_ip}',
+                      module_ignore_errors=True)['stdout_lines']
+    )
+    logger.info(f"Verifying that the tested rule: {rule_tested}, was applied in ACL table")
+    if not matching_acl_rules_for_tested_ip and tested_rule_type == UNBLOCK_RULE_TYPE:
+        logger.info(
+            f"[{UNBLOCK_RULE_TYPE} rule was applied successfully] "
+            f"Expected: No rule for {tested_ip} | "
+            f"Actual: No rule found (traffic allowed by default)"
+        )
+        is_rule_inserted_successfully = True
+
+    elif matching_acl_rules_for_tested_ip and tested_rule_type == BLOCK_RULE_TYPE:
+        logger.info(
+            f"[{BLOCK_RULE_TYPE} rule was applied successfully] "
+            f"Expected: Rule for {tested_ip} to be found and active | "
+            f"Actual: {matching_acl_rules_for_tested_ip}"
+        )
+        for rule in matching_acl_rules_for_tested_ip:
+            rule_split = rule.split()
+            if len(rule_split) < 2:
+                logger.debug(f"Skipping incomplete ACL rule line: {rule}")
+                continue
+            matched_rule_from_table = rule_split[1]
+            is_rule_active = rule_split[-1] == ACTIVE_RULE_STATUS
+            is_rule_added_correctly = (
+                tested_ip in matched_rule_from_table and
+                tested_rule_type in matched_rule_from_table and
+                is_rule_active
+            )
+            if is_rule_added_correctly:
+                is_rule_inserted_successfully = True
+    if not is_rule_inserted_successfully:
+        logger.info(f"Tested rule: {rule_tested} wasn't applied in ACL table")
+        acl_table = duthost.shell(SHOW_ACL_RULE_CMD.format(tested_acl_table), module_ignore_errors=True)['stdout']
+        logger.info(f"ACL table: {acl_table}")
+    return is_rule_inserted_successfully
+
+
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
                            apply_pre_defined_rules, setup_ptf):  # noqa: F811
     """
@@ -281,7 +337,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
         pkt, exp_pkt = generate_packet(src_ip, ptf_port_info[ip_ver].split("/")[0], router_mac)
         if action != "":
             rand_selected_dut.shell(NULL_ROUTE_HELPER + " " + action)
-            time.sleep(1)
+            wait_until(5, 1, 0, verify_test_data_rule_inserted_to_acl_table, rand_selected_dut, action)
 
         send_and_verify_packet(ptfadapter, pkt, exp_pkt, random.choice(ptf_interfaces),
                                rx_port, expected_result)
