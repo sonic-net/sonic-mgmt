@@ -1012,7 +1012,6 @@ def get_rx_frame_count(duthost, port):
 
 def check_tx_drp_counts(duthost, ports: List[str], threshold:int = 0, greater_than:bool = True, verbose:bool = False):
     """Check TX_DRP counts for a list of ports against a threshold.
-
     Issues one portstat command for all specified ports and parses JSON output.
 
     Args:
