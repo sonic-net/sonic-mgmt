@@ -1010,6 +1010,7 @@ def get_rx_frame_count(duthost, port):
 
     return rx_ok_frame_count, rx_drp_frame_count
 
+
 def check_tx_drp_counts(
     duthost,
     ports: List[str],

@@ -423,7 +423,7 @@ def generate_srv6_encap_flow(testbed_config,
             pytest_assert(outer_ipv6.src.value is not None, "Outer IPv6 source address is None")
             outer_ipv6.dst.value = base_flow_config["rx_port_config"].ipv6
             pytest_assert(outer_ipv6.dst.value is not None, "Outer IPv6 destination address is None")
-            ecn = 1 # ECN ECT(1)=1 ECN-capable
+            ecn = 1  # ECN ECT(1)=1 ECN-capable
             outer_ipv6.traffic_class.value = (tx_dscp << 2) | ecn
             outer_ipv6.flow_label.value = getrandbits(20)
 
@@ -438,11 +438,11 @@ def generate_srv6_encap_flow(testbed_config,
             if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
                 flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
                 flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
-                                                                        (data_flow_config["flow_delay_sec"]))
+                                                                    (data_flow_config["flow_delay_sec"]))
             elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
                 flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
                 flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
-                                                                        (data_flow_config["flow_delay_sec"]))
+                                                                    (data_flow_config["flow_delay_sec"]))
             flow.metrics.enable = True
             flow.metrics.loss = True
 
