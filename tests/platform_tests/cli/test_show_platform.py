@@ -601,4 +601,3 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     for line in pcieinfo_output_lines[1:]:
         error_message = "Failed to validate output of command '{}' line: '{}'".format(cmd, line)
         pytest_assert(re.search(passed_check_regexp, line), error_message)
-
