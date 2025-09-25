@@ -178,7 +178,7 @@ def normalize_vendor_field(field: str) -> str:
 
 ###### 1.1.1.3 Firmware Binary Storage on SONiC Device
 
-The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name and part number.
+The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the SONiC device, organized by normalized vendor name, part number and firmware version number.
 
 **Directory Structure Requirements:**
 
@@ -186,8 +186,8 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 /tmp/cmis_cdb_firmware/
 ├── <NORMALIZED_VENDOR_NAME>/
 │   └── <NORMALIZED_VENDOR_PART_NUMBER>/
-│       ├── FIRMWARE_BINARY_1.bin
-│       └── FIRMWARE_BINARY_2.bin
+│       └── <FIRMWARE_VERSION_NUMBER>/
+│           ├── FIRMWARE_BINARY_1.bin
 └── ...
 ```
 
@@ -202,11 +202,14 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 /tmp/cmis_cdb_firmware/
 ├── ACMECORP/
 │   └── QSFP-100G-AOC-GENERIC_2_ENDM/
-│       ├── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
-│       └── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
+│       ├── 1.2.3
+│           └── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
+│       ├── 1.2.4
+│            └── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ├── EXAMPLE_INC/
 │   └── QSFP_200G_LR4/
-│       └── EXAMPLE_INC_QSFP_200G_LR4_2.0.1.bin
+│       ├── 2.0.1
+│           └── EXAMPLE_INC_QSFP_200G_LR4_2.0.1.bin
 └── ...
 ```
 
