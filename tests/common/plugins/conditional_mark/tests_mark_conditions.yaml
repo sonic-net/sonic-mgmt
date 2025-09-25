@@ -1938,6 +1938,18 @@ fib/test_fib.py::test_ipinip_hash:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
+fib/test_fib.py::test_ipinip_hash[ipv4]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+fib/test_fib.py::test_ipinip_hash_negative[ipv4]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos'
@@ -2630,6 +2642,12 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::test_show_ip_route_v4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
 
 iface_namingmode/test_iface_namingmode.py::test_show_pfc_counters:
   skip:
