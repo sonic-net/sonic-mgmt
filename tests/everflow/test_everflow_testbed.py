@@ -14,7 +14,7 @@ from common.helpers.assertions import pytest_assert
 from . import everflow_test_utilities as everflow_utils
 import ptf.packet as scapy
 from tests.ptf_runner import ptf_runner
-from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, DEFAULT_SERVER_IP
+from .everflow_test_utilities import TARGET_SERVER_IP, BaseEverflowTest, DOWN_STREAM, UP_STREAM, get_default_server_ip
 # Module-level fixtures
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                   # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_acstests_directory                                   # noqa: F401
@@ -22,6 +22,7 @@ from .everflow_test_utilities import setup_info, setup_arp_responder, erspan_ip_
 from .everflow_test_utilities import skip_ipv6_everflow_tests                                             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import copy_arp_responder_py                                     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
+from tests.common.dualtor.dual_tor_common import mux_config                                               # noqa: F401
 from tests.common.helpers.ptf_tests_helper import find_links
 from ipaddress import ip_address, IPv4Address
 from tests.common.fixtures.duthost_utils import is_multi_binding_acl_enabled  # noqa: F401
@@ -257,6 +258,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -267,7 +269,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
-                                       dest_port_type, ptfadapter, tbinfo,
+                                       dest_port_type, ptfadapter, tbinfo, mux_config,
                                        toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                        erspan_ip_ver):                                              # noqa F811
@@ -302,6 +304,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -320,6 +323,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -344,6 +348,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -362,6 +367,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -375,7 +381,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             setup_info[dest_port_type]["remote_namespace"]))
 
     def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
-                                          dest_port_type, ptfadapter, tbinfo,
+                                          dest_port_type, ptfadapter, tbinfo, mux_config,
                                           toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                           setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                           erspan_ip_ver):                                              # noqa F811
@@ -399,6 +405,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -420,6 +427,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             self._run_everflow_test_scenarios(
                 ptfadapter,
                 setup_info,
+                mux_config,
                 setup_mirror_session,
                 everflow_dut,
                 rx_port_ptf_id,
@@ -442,6 +450,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -451,7 +460,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
     def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
-                                                  dest_port_type, ptfadapter, tbinfo,
+                                                  dest_port_type, ptfadapter, tbinfo, mux_config,
                                                   toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                                   erspan_ip_ver):                                              # noqa F811
@@ -484,6 +493,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -508,6 +518,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -527,6 +538,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -541,6 +553,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -550,7 +563,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
     def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
-                                                dest_port_type, ptfadapter, tbinfo,
+                                                dest_port_type, ptfadapter, tbinfo, mux_config,
                                                 toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
                                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                                 erspan_ip_ver):                                              # noqa F811
@@ -582,6 +595,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -606,6 +620,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -623,6 +638,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -642,6 +658,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -655,6 +672,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
+            mux_config,
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
@@ -793,7 +811,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_frwd_with_bkg_trf(self,
                                         setup_info,  # noqa F811
                                         setup_mirror_session,
-                                        dest_port_type, ptfadapter, tbinfo,
+                                        dest_port_type, ptfadapter, tbinfo, mux_config,
                                         erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
                                         setup_standby_ports_on_rand_unselected_tor_unconditionally):  # noqa F811
         """
@@ -883,6 +901,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             self._run_everflow_test_scenarios(
                 ptfadapter,
                 setup_info,
+                mux_config,
                 setup_mirror_session,
                 everflow_dut,
                 rx_port_ptf_id,
@@ -903,6 +922,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             self._run_everflow_test_scenarios(
                 ptfadapter,
                 setup_info,
+                mux_config,
                 setup_mirror_session,
                 everflow_dut,
                 rx_port_ptf_id,
@@ -927,6 +947,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             self._run_everflow_test_scenarios(
                 ptfadapter,
                 setup_info,
+                mux_config,
                 setup_mirror_session,
                 everflow_dut,
                 rx_port_ptf_id,
@@ -945,6 +966,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             self._run_everflow_test_scenarios(
                 ptfadapter,
                 setup_info,
+                mux_config,
                 setup_mirror_session,
                 everflow_dut,
                 rx_port_ptf_id,
@@ -1080,7 +1102,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
                 setup_info[dest_port_type]["remote_namespace"]))
 
-    def _run_everflow_test_scenarios(self, ptfadapter, setup, mirror_session, duthost, rx_port,
+    def _run_everflow_test_scenarios(self, ptfadapter, setup, mux_config, mirror_session, duthost, rx_port,
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
                                      erspan_ip_ver=4, multi_binding_acl=False):  # noqa F811
         # FIXME: In the ptf_runner version of these tests, LAGs were passed down to the tests
@@ -1092,7 +1114,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         default_ip = self.DEFAULT_DST_IP
         if setup['topo'] in ['t0', 'm0_vlan'] and direction == DOWN_STREAM:
             target_ip = TARGET_SERVER_IP
-            default_ip = DEFAULT_SERVER_IP
+            default_ip = get_default_server_ip(mux_config, [TARGET_SERVER_IP])
 
         router_mac = setup[direction]["ingress_router_mac"]
 
