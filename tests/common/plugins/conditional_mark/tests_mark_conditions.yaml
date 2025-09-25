@@ -719,19 +719,6 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_counter:
     conditions:
       - "release in ['201811', '201911', '202012']"
 
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
-  skip:
-    reason: "Skip test_dhcp_relay_monitor_checksum_validation for bypassing the build image failure"
-    conditions:
-      - "asic_type in ['vs']"
-
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
-  skip:
-    reason: "Skip test_dhcp_relay_monitor_checksum_validation for bypassing the build image failure"
-    conditions:
-      - "asic_type in ['vs']"
-
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
   skip:
     reason: "The test case only tests DHCP relay on the dualtor standby dut"
