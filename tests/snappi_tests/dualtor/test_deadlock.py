@@ -8,34 +8,60 @@ Design Principles
 -----------------
 
 1) Due to the high complexity of the TB setup required to reproduce a deadlock scenario,
-this test is designed to maximize incremental validation. Everything setup step that can
-break will break at some point, and we should ensure the first log message seen in the
+this test is designed to maximize incremental validation. Every setup step that can break
+ will break at some point, and we should ensure the first log message seen in the
 backtrace tells exactly what the issue is.
 
 2) Assertion failures should contain sizeable messages explaining the failure. Other logs
 before the exception can be helpful, but the exception itself should contain enough info
 to uniquely classify the issue.
 
-3) The main test body needs to ignore the test parametrization except for validation
+3) The main test body needs to ignore the 'pcbb' test parametrization except for validation
 purposes. The test cannot start changing config based on whether we're in PCBB-enabled or
 disabled mode, as this will invalidate the deadlock reproduction attempt.
 
-4) Do not throw an exception in a loop over multiple things that could have an
-exception. Instead, construct a list of all the failure cases, and fail if its length is
-non-zero. The error will then show the entire scope of the problem, rather than just the
-failing first case.
-
-5) TODO: Idea: All exception messages should be worded neutrally and printed in either case.
-
-
+4) Do not throw an exception in a loop over multiple things that could have an exception.
+Instead, construct a list of all the failure cases, and fail if its length is non-zero.
+The error will then show the entire scope of the problem, rather than just the failing
+first case.
 
 
 Topology Overview
 -----------------
 
-TODO: Ascii diagram of topology.
-TODO: Notes on TB setup
+The DualToR snappi test topology consists of 2 ToRs, 1 T1, and an Ixia. The Ixia should be
+connected to 2 ports on the Upper T0, 2 ports on the Lower T0, and 1 port on the T1.
+Currently the T1 port must be a faster speed than T0 in order to cause a deadlock. One
+TODO item is to use 2 ports for the deadlock procedure to have more flexibility past this
+restriction.
 
+This diagram shows the basic port [P] layout:
+
+             +----------------------------------+
+             |                                  |
+             |               T1                 |
+             |                                  |
+             +-[P]-----------[P]------------[P]-+
+                |             |              |
++--------------[P]-+          |           +-[P]--------------+
+|                  |          |           |                  |
+|     Upper T0     |          |           |     Lower T0     |
+|                  |          |           |                  |
++----------[P]-[P]-+          |           +-[P]-[P]----------+
+            |   |             |              |   |
+       +---[P]-[P]-----------[P]------------[P]-[P]---+
+       |                                              |
+       |                    TGEN                      |
+       |                                              |
+       +----------------------------------------------+
+
+Note that the TGEN connected to the T0s is impersonating either a Y-cable or a NIC with 2
+ports. Thus there are only 2 "servers" being impersonated by the Ixia with 4 ports. The
+device IP/mac information should thus match for each T0. For example, if the Upper T0 is
+connected to Ixia's virtual devices at 192.168.0.10 and 192.168.0.12, then the Ixia's
+other devices on the ports to the Lower T0 should also have these addresses
+respectively. This enables the bounceback route inserted on the ToR with a down mux to
+arrive correctly at the other ToR and get forwarded to the Ixia.
 
 
 Additional Notes
@@ -43,7 +69,7 @@ Additional Notes
 
 - sonic_lab_links.csv should declare all inter-device links in addition to snappi/ixia links.
   This is used for pathfinding algorithms.
-- 't1' should be present in the T1 device name, and vice versa for 't0'
+- 't1' should be present in the T1 device name, and vice versa for 't0'.
 
 
 Known Issues
@@ -57,6 +83,7 @@ E           Port 57Port 58Port 59Port 60
 This is the snappi_ixnetwork bug that is intended to be patched in patcher.py. However,
 this doesn't work on the first run, since snappi_ixnetwork is already imported
 elsewhere. Try rerunning.
+
 """
 
 # Patch snappi_ixnetwork bug that breaks breakout ports.
@@ -254,7 +281,6 @@ def add_flow(config, src_dev_name, dst_dev_name):
 
 def start_protocols(snappi_api):
     # Start protocols
-    # TODO: Does not seem to work correctly. Can disable protocols with False, but not start.
     if "control_state" in dir(snappi_api):
         cs = snappi_api.control_state()
         cs.protocol.all.set(cs.protocol.all.START)
@@ -310,7 +336,6 @@ def validate_snappi_device_state(snappi_api, get_snappi_ports):
             neigh.ipv4_address, neigh.ethernet_name, neigh.link_layer_address))
 
 
-# TODO: Need a way to query port IDs for sessions.
 def create_devices(snappi_api, config, port_configs, device_configs : dict, snappi_devices : dict):
     # Global options
     config.options.port_options.location_preemption = True  # Forcefully take ports.
