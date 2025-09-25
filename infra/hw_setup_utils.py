@@ -241,7 +241,7 @@ def copyDockerFileToDut(testbed, image_id):
             p1.expect(prompt)
             scp_prompt = image_ucs['scp_prompt']
             pswd = image_ucs['password']
-            scpUtil(p1, f'scp {scp_prompt}/{image_id}/docker-syncd-cisco-rpc.gz /home/cisco', pswd)
+            scpUtil(p1, f'scp {scp_prompt}/{image_id}/docker-syncd-cisco-rpc.gz ~/', pswd)
             p1.expect(prompt)
             p1.close() 
         p2.close()
