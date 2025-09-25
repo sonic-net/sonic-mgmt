@@ -187,7 +187,7 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 ├── <NORMALIZED_VENDOR_NAME>/
 │   └── <NORMALIZED_VENDOR_PART_NUMBER>/
 │       └── <FIRMWARE_VERSION_NUMBER>/
-│           ├── FIRMWARE_BINARY_1.bin
+│           └── FIRMWARE_BINARY_1.bin
 └── ...
 ```
 
@@ -202,13 +202,13 @@ The CMIS CDB firmware binaries are stored under `/tmp/cmis_cdb_firmware/` on the
 /tmp/cmis_cdb_firmware/
 ├── ACMECORP/
 │   └── QSFP-100G-AOC-GENERIC_2_ENDM/
-│       ├── 1.2.3
+│       └── 1.2.3
 │           └── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.3.bin
-│       ├── 1.2.4
+│       └── 1.2.4
 │            └── ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ├── EXAMPLE_INC/
 │   └── QSFP_200G_LR4/
-│       ├── 2.0.1
+│       └── 2.0.1
 │           └── EXAMPLE_INC_QSFP_200G_LR4_2.0.1.bin
 └── ...
 ```
@@ -232,17 +232,17 @@ lab,http://firmware-server.example.com/cmis_cdb_firmware
 production,https://secure-firmware.example.com/cmis_cdb_firmware
 ```
 
-> Note: The `fw_base_url` should not end with a trailing slash (`/`). The test framework will append the necessary path components based on the normalized vendor name and part number.
+> Note: The `fw_base_url` should not end with a trailing slash (`/`). The test framework will append the necessary path components based on the normalized vendor name, part number and firmware version number.
 
 **Download URL Format:**
 Firmware binaries are accessed using the following URL pattern:
 ```
-<fw_base_url>/<NORMALIZED_VENDOR_NAME>/<NORMALIZED_VENDOR_PART_NUMBER>/<FIRMWARE_BINARY_NAME>
+<fw_base_url>/<NORMALIZED_VENDOR_NAME>/<NORMALIZED_VENDOR_PART_NUMBER>/<FIRMWARE_VERSION_NUMBER>/<FIRMWARE_BINARY_NAME>
 ```
 
 **Example:**
 ```
-http://firmware-server.example.com/cmis_cdb_firmware/ACMECORP/QSFP-100G-AOC-GENERIC_2_ENDM/ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
+http://firmware-server.example.com/cmis_cdb_firmware/ACMECORP/QSFP-100G-AOC-GENERIC_2_ENDM/1.2.4/ACMECORP_QSFP-100G-AOC-GENERIC_2_ENDM_1.2.4.bin
 ```
 
 ##### 1.1.2 CMIS CDB Firmware Copy to DUT via sonic-mgmt infrastructure
