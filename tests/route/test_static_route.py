@@ -122,7 +122,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     upstream_name = UPSTREAM_NEIGHBOR_MAP[topo_type]
     ptf_upstream_intf = random.choice(get_neighbor_ptf_port_list(duthost, upstream_name, tbinfo))
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, ptf_upstream_intf, pkt)
+    testutils.send(ptfadapter, ptf_upstream_intf, pkt, count=10)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
 
 
@@ -249,6 +249,12 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         # try to refresh arp entry before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+
+        # show neighbor and check neighbor consistency on dualtor
+        duthost.shell("show arp" if not ipv6 else "show ndp")
+        if is_dual_tor:
+            duthost.shell("dualtor_neighbor_check.py")
+
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': '1'}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
@@ -301,6 +307,8 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         if config_reload_test:
             duthost.shell('config save -y')
             if is_dual_tor:
+                duthost.shell('config mux mode auto all')
+                unselected_duthost.shell('config mux mode auto all')
                 unselected_duthost.shell('config save -y')
 
         # Clean up arp or ndp
