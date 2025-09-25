@@ -1504,6 +1504,15 @@ kubesonic/test_k8s_join_disjoin.py:
       - "hwsku in ['Arista-7050-QX-32S', 'Arista-7050-Q16S64', 'Arista-7060CX-32S-C32', 'Arista-7060CX-32S-C32-T1', 'Arista-7060CX-32S-Q32', 'Arista-7060CX-32S-D48C8', 'Arista-7050QX-32S-S4Q31', 'Arista-7050QX32S-Q32', 'Celestica-E1031-T48S4']"
 
 #######################################
+#####            l2               #####
+#######################################
+l2/test_l2_configure.py:
+  xfail:
+    reason: "Xfail the test in 202411 on Mellanox dualtor testbed due to the bug fix https://github.com/sonic-net/sonic-buildimage/pull/23804 will not be backported to 202411."
+    conditions:
+      - "'dualtor' in topo_name and asic_type in ['mellanox']"
+
+#######################################
 #####           lldp              #####
 #######################################
 lldp/test_lldp.py::test_lldp:
