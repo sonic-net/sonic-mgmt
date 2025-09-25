@@ -639,14 +639,15 @@ def run_traffic(duthost,
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
-def run_basic_traffic(duthost,
-                      api,
-                      config,
-                      data_flow_names,
-                      all_flow_names,
-                      exp_dur_sec,
-                      snappi_extra_params):
-
+def run_basic_traffic(
+    duthost,
+    api,
+    config,
+    data_flow_names,
+    all_flow_names,
+    exp_dur_sec,
+    snappi_extra_params,
+):
     """
     Run a basic traffic and return per-flow statistics, and capture packets if needed.
     Suitable for T0/T1 topologies.
@@ -682,22 +683,27 @@ def run_basic_traffic(duthost,
     cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
     api.set_control_state(cs)
 
-    time.sleep(exp_dur_sec*(2/5))
+    time.sleep(exp_dur_sec * (2 / 5))
     logger.info("Polling TGEN for in-flight traffic statistics...")
-    tgen_in_flight_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)  # fetch in-flight metrics from TGEN
-    time.sleep(exp_dur_sec*(3/5))
+    tgen_in_flight_flow_metrics = fetch_snappi_flow_metrics(
+        api, all_flow_names
+    )  # fetch in-flight metrics from TGEN
+    time.sleep(exp_dur_sec * (3 / 5))
 
     attempts = 0
     max_attempts = 20
 
     while attempts < max_attempts:
-        logger.info("Checking if all flows have stopped. Attempt #{}".format(attempts + 1))
+        logger.info(
+            "Checking if all flows have stopped. Attempt #{}".format(attempts + 1)
+        )
         flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
 
         # If all the data flows have stopped
         transmit_states = [metric.transmit for metric in flow_metrics]
-        if len(flow_metrics) == len(data_flow_names) and\
-           list(set(transmit_states)) == ['stopped']:
+        if len(flow_metrics) == len(data_flow_names) and list(set(transmit_states)) == [
+            "stopped"
+        ]:
             logger.info("All test and background traffic flows stopped")
             time.sleep(SNAPPI_POLL_DELAY_SEC)
             break
@@ -705,8 +711,9 @@ def run_basic_traffic(duthost,
             time.sleep(1)
             attempts += 1
 
-    pytest_assert(attempts < max_attempts,
-                  "Flows do not stop in {} seconds".format(max_attempts))
+    pytest_assert(
+        attempts < max_attempts, "Flows do not stop in {} seconds".format(max_attempts)
+    )
 
     if pcap_type != packet_capture.NO_CAPTURE:
         logger.info("Stopping packet capture ...")
@@ -715,9 +722,11 @@ def run_basic_traffic(duthost,
         cs = api.control_state()
         cs.port.capture.state = cs.port.capture.STOP
         api.set_control_state(cs)
-        logger.info(f"Retrieving and saving packet capture to {snappi_extra_params.packet_capture_file}.pcapng")
+        logger.info(
+            f"Retrieving and saving packet capture to {snappi_extra_params.packet_capture_file}.pcapng"
+        )
         pcap_bytes = api.get_capture(request)
-        with open(snappi_extra_params.packet_capture_file + ".pcapng", 'wb') as fid:
+        with open(snappi_extra_params.packet_capture_file + ".pcapng", "wb") as fid:
             fid.write(pcap_bytes.getvalue())
 
     # Dump per-flow statistics

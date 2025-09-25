@@ -1010,7 +1010,13 @@ def get_rx_frame_count(duthost, port):
 
     return rx_ok_frame_count, rx_drp_frame_count
 
-def check_tx_drp_counts(duthost, ports: List[str], threshold:int = 0, greater_than:bool = True, verbose:bool = False):
+def check_tx_drp_counts(
+    duthost,
+    ports: List[str],
+    threshold: int = 0,
+    greater_than: bool = True,
+    verbose: bool = False,
+):
     """Check TX_DRP counts for a list of ports against a threshold.
     Issues one portstat command for all specified ports and parses JSON output.
 
@@ -1029,40 +1035,47 @@ def check_tx_drp_counts(duthost, ports: List[str], threshold:int = 0, greater_th
     Raises:
         AssertionError: If ports list empty, command fails, parsing fails, or a port missing in output.
     """
-    pytest_assert(ports and isinstance(ports, (list)), "Ports list must be non-empty list")
+    pytest_assert(
+        ports and isinstance(ports, (list)), "Ports list must be non-empty list"
+    )
 
     port_list_str = ",".join(ports)
     cmd = f"portstat -i {port_list_str} -j"
-    raw_out = duthost.shell(cmd)['stdout']
+    raw_out = duthost.shell(cmd)["stdout"]
 
-    raw_json_str = re.sub(r'^(?:(?!{).)*\n', '', raw_out, count=1)
+    raw_json_str = re.sub(r"^(?:(?!{).)*\n", "", raw_out, count=1)
     try:
         stats = json.loads(raw_json_str)
     except Exception as e:
-        pytest_assert(False, f"Failed to parse JSON from portstat output: {e}\nRaw: {raw_out[:200]}")
+        pytest_assert(
+            False,
+            f"Failed to parse JSON from portstat output: {e}\nRaw: {raw_out[:200]}",
+        )
 
-    comparison = '>' if greater_than else '<'
+    comparison = ">" if greater_than else "<"
     all_pass = True
     details = {} if verbose else None
 
     for p in ports:
         pytest_assert(p in stats, f"Port {p} not found in portstat output")
-        tx_drp_raw = stats[p].get('TX_DRP')
+        tx_drp_raw = stats[p].get("TX_DRP")
         pytest_assert(tx_drp_raw is not None, f"TX_DRP field missing for port {p}")
         try:
-            tx_drp_val = int(tx_drp_raw.replace(',', ''))
+            tx_drp_val = int(tx_drp_raw.replace(",", ""))
         except ValueError:
-            pytest_assert(False, f"Non-integer TX_DRP value '{tx_drp_raw}' for port {p}")
+            pytest_assert(
+                False, f"Non-integer TX_DRP value '{tx_drp_raw}' for port {p}"
+            )
 
         passed = (tx_drp_val > threshold) if greater_than else (tx_drp_val < threshold)
         if not passed:
             all_pass = False
         if verbose:
             details[p] = {
-                'tx_drp': tx_drp_val,
-                'threshold': threshold,
-                'comparison': comparison,
-                'pass': passed,
+                "tx_drp": tx_drp_val,
+                "threshold": threshold,
+                "comparison": comparison,
+                "pass": passed,
             }
 
     return all_pass, details
