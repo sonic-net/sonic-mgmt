@@ -66,6 +66,18 @@ BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
+# Returns True if the topology has a spine layer, else returns False
+def topo_has_spine_layer(tbinfo):
+    if not tbinfo:
+        return False
+
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        if 'spine' in v['properties']:
+            return True
+
+    return False
+
+
 @pytest.fixture(scope="module")
 def generate_route_and_traffic_data():
     """
@@ -177,6 +189,11 @@ def prepare_param(duthost, tbinfo, get_exabgp_ptf_ports):
     """
     Prepare parameters
     """
+
+    # Skip test if t1 topo does not have a spine layer
+    if not topo_has_spine_layer(tbinfo):
+        pytest.skip('This test is not applicable to topologies with no SPINE layer')
+
     router_mac = duthost.facts["router_mac"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_ip = tbinfo['ptf_ip']
