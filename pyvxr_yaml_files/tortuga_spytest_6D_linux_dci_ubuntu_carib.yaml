@@ -1,0 +1,128 @@
+simulation:
+  slurm_flags:
+    pending_timeout: 60
+    partition: regression
+    cluster: rch-slurm-m1
+    hours: 30
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  staggered_boot_delay: 60
+
+
+devices:
+  SD1: &sonic_router
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+      - 8101-32FH
+    port_breakout:
+      lc0:
+        0..31: 1x400
+    vxr_sim_config:
+      shelf:
+        ConfigCardPidOverride: HF6100-32D
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /auto/vxr1/sonic-images/yadeng/sonic-cisco-8000.bin.202405c 
+    os_type: sonic
+    memory: 12GB
+    vcpu: 8
+    platform: spitfire_f
+    xr_port_redir:
+      - 22
+    pre_cli: |
+        sudo systemctl disable drake
+        sudo systemctl disable lira
+        sudo systemctl disable azimuth
+
+  SD2:
+      <<: *sonic_router
+
+  SD3:
+      <<: *sonic_router
+
+  SD5:
+      <<: *sonic_router
+
+  SD6:
+      <<: *sonic_router
+
+  SD7:
+      <<: *sonic_router
+
+
+  HOST1: &host
+    data_ports:
+    - eth1
+    - eth2
+    - eth3
+    - eth4
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    disks:
+      - hda_ref:
+          file: /auto/vxr/images/linux/ubuntu22.qcow2 
+          type: reference
+    memory: 2GB
+    platform: linux
+    vcpu: 1
+    xr_port_redir:
+      - 22
+  HOST2:
+      <<: *host
+
+  HOST3:
+      <<: *host
+
+  HOST4:
+      <<: *host
+
+  sonic_mgmt :
+    platform: linux
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@ubuntu:~\$'
+    xr_port_redir: [22]
+    vcpu: 4
+    memory: '4G'
+
+connections:
+  ovs_hubs:
+    hub0:
+      - SD1.Ethernet[0..1]
+      - SD5.Ethernet[0..1]
+    hub1:
+      - SD1.Ethernet[4..5]
+      - SD6.Ethernet[0..1]
+    hub2:
+      - SD2.Ethernet[0..1]
+      - SD5.Ethernet[4..5]
+    hub3:
+      - SD2.Ethernet[4..5]
+      - SD6.Ethernet[4..5]
+    hub4:
+      - SD3.Ethernet[0..1]
+      - SD7.Ethernet[0..1]
+    hub8:
+      - SD1.Ethernet[7..8]
+      - SD3.Ethernet[7..8]
+    hub10:
+      - SD2.Ethernet[7..8]
+      - SD3.Ethernet[9..10]
+    hub12:
+      - SD5.Ethernet12
+      - HOST1.eth1
+    hub13:
+      - SD5.Ethernet13
+      - HOST2.eth1
+    hub14:
+      - SD6.Ethernet12
+      - HOST2.eth2
+    hub15:
+      - SD7.Ethernet12
+      - HOST3.eth1
