@@ -37,11 +37,17 @@ def prio_dscp_map(duthosts, rand_one_dut_front_end_hostname):
     if "DSCP_TO_TC_MAP" not in list(config_facts.keys()):
         return None
 
+    profile = None
     dscp_to_tc_map_lists = config_facts["DSCP_TO_TC_MAP"]
     if len(dscp_to_tc_map_lists) != 1:
-        return None
+        # If multiple profiles (e.g. dualtor) use AZURE if present
+        if "AZURE" in dscp_to_tc_map_lists.keys():
+            profile = "AZURE"
+        else:
+            return None
 
-    profile = list(dscp_to_tc_map_lists.keys())[0]
+    if profile is None:
+        profile = list(dscp_to_tc_map_lists.keys())[0]
     dscp_to_tc_map = dscp_to_tc_map_lists[profile]
 
     result = {}
