@@ -1618,11 +1618,12 @@ def filterout_subnet(aggregate_routes, candidate_routes):
 
 
 def convert_routes_to_str(topo_routes):
-    for vm in topo_routes:
-        for ip_version in topo_routes[vm]:
+    for vm in topo_routes.keys():
+        for ip_version in topo_routes[vm].keys():
             topo_routes[vm][ip_version] = \
                 [(str(r[0]) if r[0] else None, str(r[1]) if r[1] else None, str(r[2]) if r[2] else None)
                  for r in topo_routes[vm][ip_version]]
+    return topo_routes
 
 
 def main():
