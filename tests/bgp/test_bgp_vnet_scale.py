@@ -2,6 +2,7 @@ import json
 import time
 import logging
 import pytest
+from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
@@ -12,6 +13,9 @@ NEIGH_INTERFACE = "Po1"
 VXLAN_TUNNEL_NAME = "vtep_v4"
 VXLAN_SRC_IP = "10.1.0.32"
 
+pytestmark = [
+    pytest.mark.topology('smartswitch')
+]
 
 def get_cfg_facts(duthost):
     # return config db contents(running-config)
@@ -195,8 +199,7 @@ def validate_bgp_summary(duthost, count):
         assert int(total_peers) == 2, "There should be 2 dynamic peers. Found {}".format(total_peers)
 
 
-@pytest.mark.topology('smartswitch')
-def test_vnet_bulk_configure(duthost, nbrhosts, vnet_count, request):
+def test_vnet_bulk_configure(duthost, nbrhosts, localhost, vnet_count, request):
     cfg_facts = get_cfg_facts(duthost)
     dut_asn = cfg_facts['DEVICE_METADATA']['localhost']['bgp_asn']
     dut_name = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
@@ -234,5 +237,16 @@ def test_vnet_bulk_configure(duthost, nbrhosts, vnet_count, request):
 
     validate_bgp_summary(duthost, vnet_count)
 
+    duthost.shell("cp /etc/sonic/config_db.json /home/admin/config_db_backup.json")
+
+    # Validate config persistence after config reload.
+    duthost.shell("config save -y", module_ignore_errors=True)
+    time.sleep(5)
+
+    duthost.shell("config reload -y", module_ignore_errors=True)
+    time.sleep(60)
+    validate_bgp_summary(duthost, vnet_count)
+
     # cleanup
+    duthost.shell("cp /home/admin/config_db_backup.json /etc/sonic/config_db.json")
     duthost.shell("config reload -y", module_ignore_errors=True)
