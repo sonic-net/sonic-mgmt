@@ -2,6 +2,7 @@ import logging
 import pytest
 import time
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.helpers.dut_utils import get_program_info, kill_process_by_pid, is_container_running
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -76,6 +77,9 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         )
 
         duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
+        # There was an image issue that orchagent exited after start 1~2 minutes.
+        # Add critical process check here to make sure all critical processes are up
+        wait_critical_processes(duthost, delay=120)
     yield
 
 
