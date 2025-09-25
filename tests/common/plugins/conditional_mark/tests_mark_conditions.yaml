@@ -3151,6 +3151,14 @@ qos/test_pfc_pause.py::test_pfc_pause_lossless:
   skip:
     reason: "Fanout needs to send PFC frames fast enough to completely pause the queue"
 
+qos/test_pfc_counters.py::test_pfc_unpause:
+  # The test case expects both XON and XOFF frames to be supported.
+  # In wistron platform the port PFC stats count only XOFF frames. Hence skipping this case.
+  skip:
+    reason: "Not supported on platform"
+    conditions:
+      - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
+
 qos/test_qos_dscp_mapping.py:
   skip:
     reason: "ECN marking in combination with tunnel decap not yet supported. Test is also skipped on KVM since it is run in nightly."
@@ -3170,9 +3178,11 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
 
 qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to_queue_mapping_uniform_mode:
   skip:
-    reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping"
+    reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping / Test case unsupported in the default profile configuration."
+    conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
+      - "asic_type in ['marvell-teralynx']"
 
 qos/test_qos_masic.py:
   skip:
@@ -3197,7 +3207,7 @@ qos/test_qos_sai.py::TestQosSai:
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox','marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
   skip:
@@ -3226,6 +3236,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiBufferPoolWatermark:
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-arista_7800r3_48cq2_lc', 'x86_64-arista_7800r3_48cqm2_lc', 'x86_64-arista_7800r3a_36d2_lc', 'x86_64-arista_7800r3a_36dm2_lc','x86_64-arista_7800r3ak_36dm2_lc']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
+      - "topo_type not in ['t0'] and asic_type in ['marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
   skip:
@@ -3234,7 +3245,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pPgMapping:
     conditions:
       - "'backend' not in topo_name"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
+      - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox','marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
   skip:
@@ -3244,6 +3255,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiDot1pQueueMapping:
       - "'backend' not in topo_name"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
+      - "asic_type in ['marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiDscpQueueMapping:
   skip:
@@ -3287,10 +3299,10 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
+      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox','marvell-teralynx']
       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
-      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+      - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox','marvell-teralynx']"
       - "asic_type in ['vs']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
@@ -3303,10 +3315,11 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
          and https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100'] and topo_type in ['t1-64-lag']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in constants['QOS_SAI_TOPO'] and asic_type not in ['mellanox']"
+      - "asic_type in ['marvell-teralynx']"
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8'] and asic_type not in ['marvell-teralynx']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
@@ -3349,9 +3362,16 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
     reason: "Unsupported testbed type."
     conditions_logical_operator: or
     conditions:
+      - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_6512_32r-r0']"
       - "asic_type in ['cisco-8000'] and not platform.startswith('x86_64-8122_')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
+
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark:
+  skip:
+    reason: "PG Shared Watermark not supported."
+    conditions:
+      - "asic_type in ['marvell-teralynx'] and platform in ['x86_64-wistron_6512_32r-r0', 'x86_64-wistron_sw_to3200k-r0']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
