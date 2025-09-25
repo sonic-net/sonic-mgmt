@@ -96,7 +96,12 @@ def check_redis_output(duthost, key):
 def enable_queue_counterpoll_type(duthosts):
     for duthost in duthosts:
         if duthost.facts['platform'] not in ['armhf-nokia_ixs7215_52x-r0']:
-            duthost.command('counterpoll queue enable')
+            if duthost.is_multi_asic:
+                for asic in duthost.asics:
+                    cmd = "counterpoll queue -n asic{} enable".format(asic.asic_index)
+                    duthost.command(cmd)
+            else:
+                duthost.command('counterpoll queue enable')
 
 
 def pytest_addoption(parser):
