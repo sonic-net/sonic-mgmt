@@ -58,8 +58,9 @@ def skip_for_non_smartswitch(duthost):
 def dpu_setup(duthosts, enum_rand_one_per_hwsku_hostname,
               platform_api_conn, num_dpu_modules):  # noqa F811
     """
-    Runs pre_test_check() before the test and ensures all DPUs
-    that are UP before the test are forced UP after the test (even if it fails).
+    Performs pre_test_check() before the test and
+    guarantees that any DPUs that were UP prior to the test
+    are set back to UP afterward, even if the test fails.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
