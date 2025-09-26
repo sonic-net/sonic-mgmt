@@ -38,6 +38,25 @@
       loop_var: dut_name
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }}
+    vm_topology:
+      cmd: "unbind"
+      vm_set_name: "{{ vm_set_name }}"
+      topo: "{{ topology }}"
+      vm_names: "{{ VM_hosts }}"
+      vm_base: "{{ VM_base }}"
+      vm_type: "{{ vm_type }}"
+      duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
+      duts_mgmt_port: "{{ duts_mgmt_port }}"
+      duts_name: "{{ duts_name.split(',') }}"
+      max_fp_num: "{{ max_fp_num }}"
+      dut_interfaces: "{{ dut_interfaces | default('') }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
+    become: yes
+    when: not (enable_async | default(false) | bool)
+
+  - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_hosts | flatten(levels=1) }}"
     loop_control:
       loop_var: current_vm_name
@@ -61,6 +80,7 @@
     async: 3600
     poll: 0
     register: async_unbind_vm
+    when: enable_async | default(false) | bool
 
   - name: Wait for unbind tasks to complete
     become: yes
@@ -73,6 +93,7 @@
     until: async_unbind_topology_poll_results.finished
     retries: 30
     delay: 60
+    when: enable_async | default(false) | bool
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -175,6 +196,13 @@
   when: container_type == "IxANVL-CONF-TESTER"
 
 - name: Destroy VMs network
+  vm_topology:
+    cmd: 'destroy'
+    vm_names: "{{ VM_targets }}"
+  become: yes
+  when: not (enable_async | default(false) | bool)
+
+- name: Destroy VMs network (async mode)
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
@@ -185,6 +213,7 @@
   async: 3600
   poll: 0
   register: async_destory_vm_network
+  when: enable_async | default(false) | bool
 
 - name: Wait for destroy tasks to complete
   become: yes
@@ -197,6 +226,7 @@
   until: async_destroy_vm_network_poll_results.finished
   retries: 30
   delay: 60
+  when: enable_async | default(false) | bool
 
 - name: Destroy DPUs network
   vm_topology:
