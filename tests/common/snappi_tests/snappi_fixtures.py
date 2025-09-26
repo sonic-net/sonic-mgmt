@@ -7,6 +7,7 @@ import logging
 import snappi
 import sys
 import random
+import json
 from copy import copy
 from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
@@ -1216,37 +1217,39 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
                    "{} Port is not mapped to the expected DUT".format(rand_one_dut_portname_oper_up))
 
     """ Generate L1 config """
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=duthost.hostname)
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                             dut_hostname=duthost.hostname)
 
-    pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
+    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
+    snappi_ports_all = []
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        # Add snappi ports for each chassis connetion
+        for sp in snappi_ports:
+            snappi_ports_all.append(sp)
+        autonegs = json.loads(duthost.command("intfutil -c autoneg -j")['stdout'])
+        fecs = json.loads(duthost.command("intfutil -c fec -j")['stdout'])
 
-    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-
-    rx_ports = []
-    tx_ports = []
-    for port in snappi_ports:
-        port['intf_config_changed'] = False
-        port['location'] = get_snappi_port_location(port)
-        port['speed'] = port['speed']
-        port['api_server_ip'] = tbinfo['ptf_ip']
-        port['asic_type'] = duthost.facts["asic_type"]
-        port['duthost'] = duthost
-        port['snappi_speed_type'] = speed_type[port['speed']]
-        if duthost.facts["num_asic"] > 1:
-            port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
-        else:
-            port['asic_value'] = None
-        # convert to RX ports first, tx ports later to be consistent with multi-dut
-        if port['peer_port'] == dut_port:
-            rx_ports.append(port)
-        else:
-            tx_ports.append(port)
-    return rx_ports + tx_ports
+        for port in snappi_ports_all:
+            port['intf_config_changed'] = False
+            port['location'] = get_snappi_port_location(port)
+            port['speed'] = port['speed']
+            port['api_server_ip'] = tbinfo['ptf_ip']
+            port['asic_type'] = duthost.facts["asic_type"]
+            port['duthost'] = duthost
+            port['snappi_speed_type'] = speed_type[port['speed']]
+            port['autoneg'] = True if autonegs[port["peer_port"]]["Auto-Neg Mode"] == 'enabled' else False
+            port['fec'] = True if fecs[port["peer_port"]]["FEC Admin"] == 'rs' else False
+            if duthost.facts["num_asic"] > 1:
+                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+            else:
+                port['asic_value'] = None
+    for index, port in enumerate(snappi_ports_all):
+        port['port_id'] = str(index + 1)
+    return snappi_ports_all
 
 
 @pytest.fixture(scope="module")
@@ -1305,35 +1308,45 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
         return []
 
     for duthost in duthosts:
-        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                                dut_hostname=duthost.hostname)
-        if snappi_fanout is None:
+        snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                 dut_hostname=duthost.hostname)
+        if snappi_fanouts is None:
             continue
-        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
-        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
-        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+        for snappi_fanout in snappi_fanouts:
+            snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
+            snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
+            snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+            snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
+            autonegs = json.loads(duthost.command("intfutil -c autoneg -j")['stdout'])
+            fecs = json.loads(duthost.command("intfutil -c fec -j")['stdout'])
 
-        for port in snappi_ports:
-            port['intf_config_changed'] = False
-            port['location'] = get_snappi_port_location(port)
-            port['speed'] = port['speed']
-            port['api_server_ip'] = tbinfo['ptf_ip']
-            port['asic_type'] = duthost.facts["asic_type"]
-            port['duthost'] = duthost
-            port['snappi_speed_type'] = speed_type[port['speed']]
-            if duthost.facts["num_asic"] > 1:
-                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
-            else:
-                port['asic_value'] = None
-        multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+            for port in snappi_ports:
+                port['intf_config_changed'] = False
+                port['location'] = get_snappi_port_location(port)
+                port['speed'] = port['speed']
+                port['api_server_ip'] = tbinfo['ptf_ip']
+                port['asic_type'] = duthost.facts["asic_type"]
+                port['duthost'] = duthost
+                port['snappi_speed_type'] = speed_type[port['speed']]
+                port['autoneg'] = True if autonegs["peer_port"]["Auto-Neg Mode"] == 'enabled' else False
+                port['fec'] = True if fecs["peer_port"]["FEC Admin"] == 'rs' else False
+                if duthost.facts["num_asic"] > 1:
+                    port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
+                else:
+                    port['asic_value'] = None
+            multidut_snappi_ports = multidut_snappi_ports + snappi_ports
+    for index, port in enumerate(multidut_snappi_ports):
+        port['port_id'] = str(index + 1)
     return multidut_snappi_ports
 
 
 def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
-
+    if len(duthosts) == 1:
+        return False
+    if len(duthosts) > 1:
+        return True
     return duthosts[0].get_facts().get("modular_chassis")
 
 
