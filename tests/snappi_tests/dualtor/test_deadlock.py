@@ -98,13 +98,12 @@ from tests.common.snappi_tests.common_helpers import get_interface_stats_multidu
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
-    fanout_graph_facts     # noqa: F401
+    fanout_graph_facts  # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
-    get_snappi_ports_single_dut       # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list, disable_pfcwd                 # noqa: F401
+    get_snappi_ports_single_dut  # noqa: F401
+from tests.common.snappi_tests.qos_fixtures import disable_pfcwd  # noqa: F401
 from tests.snappi_tests.cisco.helper import disable_voq_watchdog  # noqa: F401
 
 from tests.snappi_tests.dualtor.utilities import set_tunnel_qos_remap_multidut
@@ -568,30 +567,36 @@ def add_bb_flow(api, config, snappi_ports, conn_graph, duthosts, src_dev_name, d
 
 
 @pytest.mark.parametrize("pcbb", [True, False])
-def test_deadlock(snappi_api,                   # noqa: F811
-                  conn_graph_facts,             # noqa: F811
+def test_deadlock(snappi_api,        # noqa: F811
+                  conn_graph_facts,  # noqa: F811
                   duthosts,
-                  prio_dscp_map,                # noqa: F811
-                  lossless_prio_list,           # noqa: F811
-                  lossy_prio_list,              # noqa: F811
-                  tbinfo,
-                  get_snappi_ports,             # noqa: F811
-                  disable_pfcwd,                # noqa: F811
+                  get_snappi_ports,  # noqa: F811
+                  disable_pfcwd,     # noqa: F811
                   pcbb,
                   on_test_end_enable_tunnel_qos_remap):
     """
-    TODO
+    Create a dualtor deadlock when Priority Class Bounce Back (PCBB) is inactive and show
+    that activating PCBB prevents the deadlock.
+
+    If pcbb is False, the DUTs are reconfigured to support BB but without the priority
+    class switching. This requires explicit support in the QOS and J2 files to allow the
+    DualToRs to have the usual AZURE_TUNNEL maps, except they are degraded to be 1-1
+    without the 3->2 and 4->6 priority class redirection. Doing so allows a specific
+    traffic pattern across the DualToRs and T1 to create a PFC deadlock, even without any
+    PFC input to the system from the TGEN.
+
+    If pcbb is True, enable the usual 3->2 and 4->6 PriorityClass redirection that is
+    usually enabled in DualToR. Then perform the same procedure as before and validate
+    that now a deadlock does not occur.
 
     Args:
         snappi_api (pytest fixture): SNAPPI session
         conn_graph_facts (pytest fixture): connection graph
         duthosts (pytest fixture): list of DUTs
-        prio_dscp_map (pytest fixture): priority vs. DSCP map (key = priority).
-        lossless_prio_list(list): list of lossless priorities
-        lossy_prio_list(list): list of lossy priorities.
-        tbinfo(key): element to identify testbed info name.
         get_snappi_ports(pytest fixture): returns list of ports based on linecards selected.
-        disable_pfcwd(pytest fixture): function scope pytest fixture
+        disable_pfcwd(pytest fixture): function scope pytest fixture.
+        pcbb (bool): whether to enable PCBB and expect no deadlock
+        on_test_end_enable_tunnel_qos_remap (pytest fixture): Ensure PCBB is enabled after testing
     Returns:
         N/A
 
