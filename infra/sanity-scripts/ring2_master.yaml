@@ -1,0 +1,364 @@
+################################################################################
+#                         CICD test list - Ring2                               #
+################################################################################
+#
+# This structure organizes a list of tests in two layers:
+#     TEST_CATEGORY: Defines a subset of sonic-mgmt tests.
+#     TOPOLOGY: Defines the type of topology in which the test is run.
+#     PLATFORM: Defines the type of platform in which the test is run
+#     SIM_OR_HW: Defines sim/hw specific test cases
+#
+# In other words, the hierarchy is:
+#     TEST_CATEGORY -> TOPOLOGY -> PLATFORM -> SIM_OR_HW -> [list of tests]
+#
+# TOPOLOGY section will always include a 'all_topo' key, which serves as a base.
+# PLATFORM section will always include a 'all_pids'
+# SIM_OR_HW key can be either 'sim', or 'hw'
+#
+# Example:
+#
+# example-ring2.yaml
+#
+#
+# baseline:
+#   all_topo:
+#     all_pids:
+#       sim:
+#         - bgp/test_bgp_fact.py
+#         - fib/test_fib.py
+#         - ipfwd/test_mtu.py
+#         - test_features.py
+#         - test_interfaces.py
+#         - test_nbr_health.py
+#         - test_pre-test.py
+#         - test_procdockerstatsd.py
+#         - test_announce_routes.py
+#         - test_posttest.py
+#         - test_pretest.py
+# ROUTING:
+#   all_topo:
+#     all_pids:
+#       sim:
+#         - bgp/test_4-byte_asn_community.py
+#         - bgp/test_bgp_update_timer.py
+#         - bgp/test_ipv6_nlri_over_ipv4.py
+# PFC:
+#   all_topo:
+#     all_pids:
+#       sim:
+#         - cisco/platform_tests/test_serviceability_pfc.py
+#         - pfcwd/test_pfc_config.py
+#   t0-64:
+#     all_pids:
+#       sim:
+#         - generic_config_updater/test_pfcwd_status.py
+#         - generic_config_updater/test_pg_headroom_update.py
+#         - cisco/qos/test_cpu_port_config.py
+#         - cisco/qos/test_pg_profile_lookup.py
+#   t1-64-lag:
+#     all_pids:
+#       sim:
+#         - generic_config_updater/test_pfcwd_status.py
+#         - generic_config_updater/test_pg_headroom_update.py
+#         - cisco/qos/test_cpu_port_config.py
+#     mth64:
+#       sim:
+#         - cisco/qos/test_pg_profile_lookup.py
+#
+# How the test list is created
+# - a list of TEST_CATEGORY is given(must have at least one)
+# - For each TEST_CATEGORY:
+#     - tests in TEST_CATEGORY/all_topo/all_pids are included
+#     - if TOPOLOGY is specified, and TEST_CATEGORY/TOPOLOGY exists, tests in TEST_CATEGORY/TOPOLOGY/all_pids are included
+#     - if TOPOLOGY and PLATFORM are specified, and TEST_CATEGORY/TOPOLOGY/PLATFORM exists, tests in TEST_CATEGORY/TOPOLOGY/PLATFORM are included
+#     - depending on sim/hw run, test cases in 'sim' or 'hw' are included
+# - Any duplicate test entries are removed.
+# - You now have your final test list!
+
+baseline:
+  t0-64: # T0-64 is the preferred topology for all tests
+    mth64: # MTH64 is the preferred platform for all tests.
+      sim:
+        - bgp/test_bgp_fact.py
+        #- decap/test_decap.py
+        - ipfwd/test_mtu.py
+        #- ipfwd/test_dip_sip.py
+        #- ipfwd/test_dir_bcast.py
+        #- ipfwd/test_nhop_group.py
+        - test_features.py
+        - test_interfaces.py
+        - test_nbr_health.py
+        - test_pre-test.py
+        - test_procdockerstatsd.py
+        - test_announce_routes.py
+        - test_posttest.py
+        - test_pretest.py
+  t2-min:
+    sfd:
+      sim:
+        - bgp/test_bgp_fact.py
+        - ipfwd/test_mtu.py
+        - test_interfaces.py
+        - test_nbr_health.py
+        - test_pre-test.py
+        - test_procdockerstatsd.py
+        - test_announce_routes.py
+        - test_posttest.py
+        - test_pretest.py    
+  t1:
+    lightning,superbolt:
+      sim:
+        - bgp/test_bgp_fact.py
+        #- decap/test_decap.py
+        #- fib/test_fib.py
+        - ipfwd/test_mtu.py
+        #- ipfwd/test_dip_sip.py
+        #- ipfwd/test_dir_bcast.py
+        #- ipfwd/test_nhop_group.py
+        - test_features.py
+        - test_interfaces.py
+        - test_nbr_health.py
+        - test_pre-test.py
+        - test_procdockerstatsd.py
+        - test_announce_routes.py
+        - test_posttest.py
+        - test_pretest.py
+
+ROUTING: #Sridhar Santhanam
+  t0-64:
+    mth64:
+      sim:
+        - bgp/test_4-byte_asn_community.py
+        #- bgp/test_bgp_allow_list.py
+        #- bgp/test_bgp_dual_asn.py
+        #- bgp/test_bgp_session.py
+        #- bgp/test_bgp_session_flap.py
+        #- bgp/test_bgp_speaker.py
+        - bgp/test_bgp_update_timer.py
+        - bgp/test_ipv6_nlri_over_ipv4.py
+        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+        - route/test_default_route.py::test_default_route_set_src
+        - route/test_route_flap.py
+        - route/test_default_route.py::test_default_route_with_bgp_flap
+  t2-min:
+    sfd:
+      sim:
+        - bgp/test_4-byte_asn_community.py
+        - bgp/test_bgp_update_timer.py
+        - bgp/test_ipv6_nlri_over_ipv4.py
+        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+        - route/test_default_route.py::test_default_route_set_src
+        - route/test_route_flap.py
+  t1:
+    lightning,superbolt:
+      sim:
+        - bgp/test_4-byte_asn_community.py
+        #- bgp/test_bgp_allow_list.py
+        #- bgp/test_bgp_dual_asn.py
+        #- bgp/test_bgp_session.py
+        #- bgp/test_bgp_session_flap.py
+        #- bgp/test_bgp_speaker.py
+        - bgp/test_bgp_update_timer.py
+        - bgp/test_ipv6_nlri_over_ipv4.py
+        - route/test_default_route.py::test_default_ipv6_route_next_hop_global_address
+        - route/test_default_route.py::test_ipv6_default_route_table_enabled_for_mgmt_interface
+        - route/test_default_route.py::test_default_route_set_src
+        - route/test_route_flap.py
+        - route/test_default_route.py::test_default_route_with_bgp_flap
+  
+FWD: #Rajendra Thirumurthi
+  t0-64:
+    mth64:
+      sim:
+        - crm/test_crm.py::test_crm_neighbor
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+        - acl/test_acl.py::TestBasicAcl
+  t2-min:
+    sfd:
+      sim:
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change
+        - everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop
+  t1:
+    lightning,superbolt:
+      sim:
+        - drop_packets/test_drop_counters.py::test_absent_ip_header
+        - drop_packets/test_drop_counters.py::test_acl_drop
+
+PLT: #Mridul Bajpai
+  t0-64:
+    mth64:
+      sim:
+        - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+        - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+        - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
+  t2-min:
+    sfd:
+      sim:
+        - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+        - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+        - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
+  t1:
+    lightning,superbolt:
+      sim:
+        - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+        - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+        - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+        - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
+
+INFRA: #Anand Mehra
+  t0-64:
+    mth64:
+      sim:
+        - container_checker/test_container_checker.py
+        - container_hardening/test_container_hardening.py
+        - database/test_db_scripts.py
+        - dhcp_relay/test_dhcp_pkt_fwd.py
+        - dhcp_relay/test_dhcp_relay.py
+        - monit/test_monit_status.py
+        - syslog/test_syslog_rate_limit.py
+        - system_health/test_system_health.py
+  t2-min:
+    sfd:
+      sim:
+        - container_checker/test_container_checker.py
+        - container_hardening/test_container_hardening.py
+        - database/test_db_scripts.py
+        - dhcp_relay/test_dhcp_pkt_fwd.py
+        - dhcp_relay/test_dhcp_relay.py
+        - monit/test_monit_status.py
+        - syslog/test_syslog_rate_limit.py
+        - system_health/test_system_health.py
+  t1:
+    lightning,superbolt:
+      sim:
+        - container_checker/test_container_checker.py
+        - container_hardening/test_container_hardening.py
+        - database/test_db_scripts.py
+        - dhcp_relay/test_dhcp_pkt_fwd.py
+        - dhcp_relay/test_dhcp_relay.py
+        - monit/test_monit_status.py
+        - syslog/test_syslog_rate_limit.py
+        - system_health/test_system_health.py
+
+MGMT: #Anukul Verma / Bidipta Das
+  t0-64:
+    mth64:
+      sim:
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ntp.py
+        - gnmi/test_gnmi.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        - ssh/test_ssh_limit.py
+  t2-min:
+    sfd:
+      sim:
+        - dns/static_dns/test_static_dns.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        - ssh/test_ssh_limit.py
+  t1:
+    lightning,superbolt:
+      sim:
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ntp.py
+        - gnmi/test_gnmi.py
+        - snmp/test_snmp_interfaces.py
+        - snmp/test_snmp_lldp.py
+        - ssh/test_ssh_limit.py
+
+L2: #Venkata Gouri Rajesh Etla / Bidipta Das
+  t0-64:
+    mth64:
+      sim:
+        - fdb/test_fdb.py
+        - fdb/test_fdb_flush.py
+        - arp/test_neighbor_mac.py
+  t2-min:
+    sfd:
+      sim:
+        - arp/test_neighbor_mac.py
+  t1:
+    lightning,superbolt:
+      sim:
+        #- fdb/test_fdb.py
+        #- fdb/test_fdb_flush.py
+        - arp/test_neighbor_mac.py
+
+PFC: #Alpesh Patel / Sonum Mathur
+  t0-64:
+    mth64:
+      sim:
+        - cisco/platform_tests/test_serviceability_pfc.py
+        - pfcwd/test_pfc_config.py
+        - generic_config_updater/test_pfcwd_status.py
+        - generic_config_updater/test_pg_headroom_update.py
+        - cisco/qos/test_cpu_port_config.py
+        - cisco/qos/test_pg_profile_lookup.py
+  t1-64-lag:
+    mth64:
+      sim:
+        - cisco/platform_tests/test_serviceability_pfc.py
+        - pfcwd/test_pfc_config.py
+        - generic_config_updater/test_pfcwd_status.py
+        - generic_config_updater/test_pg_headroom_update.py
+        - cisco/qos/test_cpu_port_config.py
+        - cisco/qos/test_pg_profile_lookup.py
+  t2-min:
+    sfd:
+      sim:
+        - cisco/platform_tests/test_serviceability_pfc.py
+        - pfcwd/test_pfc_config.py #works with LC. Errors out for RP, which is ok
+        # - cisco/qos/test_cpu_port_config.py  (enable after fix for MIGSOFTWAR-22760)
+        # - cisco/qos/test_pg_profile_lookup.py (enable after fix for MIGSOFTWAR-22762)
+  t1:
+    lightning,superbolt:
+      sim:
+        #- cisco/platform_tests/test_serviceability_pfc.py
+        - pfcwd/test_pfc_config.py
+        - generic_config_updater/test_pfcwd_status.py
+        - generic_config_updater/test_pg_headroom_update.py
+        #- cisco/qos/test_cpu_port_config.py
+        - cisco/qos/test_pg_profile_lookup.py
+
+#this is what we used to run
+#this test tag will not be used, it is here jsut for reference
+# LEGACY:
+#  all_topo:
+#     - bgp/test_bgp_fact.py
+#     - memory_checker/test_memory_checker.py::test_memory_checker_without_container_created[mathilda-01-mathilda-01|telemetry]
+#     - monit/test_monit_status.py::test_monit_status
+#     - mvrf/test_mgmtvrf.py:test_ping
+#     - mvrf/test_mgmtvrf.py:test_snmp_fact
+#     - platform_tests/cli/test_show_platform.py::test_show_platform_summary
+#     - platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom
+#     - platform_tests/cli/test_show_platform.py::test_show_platform_temperature
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_kill_and_start_status
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_running_status
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_stop_and_start_status
+#     - platform_tests/daemon/test_psud.py::test_pmon_psud_term_and_start_status
+#     - test_interfaces.py
+#     - test_posttest.py
+#     - test_pretest.py::test_cleanup_cache
+#     - test_pretest.py::test_cleanup_testbed
+#     - test_pretest.py::test_collect_testbed_prio
+#     - test_pretest.py::test_disable_container_autorestart
+#     - test_pretest.py::test_disable_rsyslog_rate_limit
+#     - test_pretest.py::test_features_state
+#     - test_pretest.py::test_generate_running_golden_config
+#     - test_pretest.py::test_stop_pfcwd
+#     - test_pretest.py::test_update_saithrift_ptf
+#     - test_procdockerstatsd.py::test_verify_redisexport
