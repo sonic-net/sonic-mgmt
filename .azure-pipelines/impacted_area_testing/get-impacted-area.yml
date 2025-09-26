@@ -19,7 +19,7 @@ steps:
 - script: |
     set -x
 
-    if [[ -n "$(TEST_SCRIPTS)" and -n "$(PR_CHECKERS)" ]]; then
+    if [[ -n "${TEST_SCRIPTS}" && -n "${PR_CHECKERS}" ]]; then
       echo "Impact area was pre-defined, skip get diff step."
       exit 0
     fi
@@ -39,7 +39,7 @@ steps:
 - script: |
     set -x
 
-    if [[ -n "$(TEST_SCRIPTS)" and -n "$(PR_CHECKERS)" ]]; then
+    if [[ -n "${TEST_SCRIPTS}" && -n "${PR_CHECKERS}" ]]; then
       echo "Impact area was pre-defined, skip get impacted area step."
       exit 0
     fi
