@@ -10,7 +10,7 @@ Design Principles
 
 1) Due to the high complexity of the TB setup required to reproduce a deadlock scenario,
 this test is designed to maximize incremental validation. Every setup step that can break
- will break at some point, and we should ensure the first log message seen in the
+will break at some point, and we should ensure the first log message seen in the
 backtrace tells exactly what the issue is.
 
 2) Assertion failures should contain sizeable messages explaining the failure. Other logs
