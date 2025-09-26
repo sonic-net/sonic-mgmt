@@ -165,3 +165,13 @@ cacl/test_cacl_application.py::test_cacl_application_dualtor:
 show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dump:
   skip:
     reason: "Skip the test for sim"
+
+#######################################
+#####   dhcp_relay          #####
+#######################################
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
+  skip:
+    reason: "The test case only tests DHCP relay on the dualtor standby dut"
+    conditions:
+      - "'dualtor' not in topo_name"
+      
