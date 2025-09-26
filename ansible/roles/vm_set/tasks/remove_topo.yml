@@ -79,6 +79,7 @@
     become: yes
     async: 3600
     poll: 0
+    throttle: 50
     register: async_unbind_vm
     when: enable_async | default(false) | bool
 
@@ -212,6 +213,7 @@
   become: yes
   async: 3600
   poll: 0
+  throttle: 50
   register: async_destory_vm_network
   when: enable_async | default(false) | bool
 

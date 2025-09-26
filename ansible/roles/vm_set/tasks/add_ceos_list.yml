@@ -197,6 +197,7 @@
     loop_var: vm_name
   async: 3600
   poll: 0
+  throttle: 50
   register: async_create_ceos_network
   when: enable_async | default(false) | bool
 
