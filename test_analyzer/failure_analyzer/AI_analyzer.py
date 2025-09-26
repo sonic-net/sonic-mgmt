@@ -1438,7 +1438,7 @@ Failures in this category:
                 # Find all active ICM entries with the same failed type (flaky_category)
                 matching_icm_rows = active_icm_df[
                     (active_icm_df['flaky_category'] == analysis_failed_type) &
-                    (active_icm_df['is_flaky'] is True)
+                    (active_icm_df['is_flaky'])
                 ]
 
                 if len(matching_icm_rows) == 0:
