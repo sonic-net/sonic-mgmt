@@ -657,7 +657,7 @@
     },
     {
         "hwsku": "Mellanox-SN5600-C256S1",
-        "topo": "t0-isolated-d16u16s1",
+        "topo": "t0",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -665,7 +665,7 @@
     },
     {
         "hwsku": "Mellanox-SN5600-C256S1",
-        "topo": "t1-isolated-v6-d28u1",
+        "topo": "t1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
@@ -689,7 +689,7 @@
     },
     {
         "hwsku": "Mellanox-SN5600-C224O8",
-        "topo": "t1-isolated-d28u1",
+        "topo": "t1",
         "owner": "Riff Jiang",
         "email": "riffjiang@microsoft.com",
         "new_platform": "Yes",
