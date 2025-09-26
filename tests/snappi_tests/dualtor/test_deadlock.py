@@ -96,8 +96,8 @@ import random
 import time
 
 from tests.common.snappi_tests.common_helpers import traffic_flow_mode, get_interface_stats, \
-    get_interface_stats_from_duthosts, compare_interface_stats, \
-    get_pfc_counters_multihost, compare_pfc_counters, scan_pfc_counters, flatten_pfc_counts
+    get_interface_stats_multidut, compare_interface_stats, \
+    get_pfc_counters_multidut, compare_pfc_counters, scan_pfc_counters, flatten_pfc_counters
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
@@ -107,19 +107,13 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
     get_snappi_ports_single_dut       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
-    lossy_prio_list, all_prio_list, disable_pfcwd                                                     # noqa: F401
-# from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401 # TODO: Uncomment import
+    lossy_prio_list, all_prio_list, disable_pfcwd                 # noqa: F401
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog  # noqa: F401
 
-# TODO: Only needed for unabstracted work, will eventually be removed
-from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.snappi_tests.dualtor.utilities import set_tunnel_qos_remap_multidut
 
 import logging
 logger = logging.getLogger(__name__)
-
-# Testplan: docs/testplan/TODO
-# This test-script covers following testcases:
-# TODO
 
 # TODO: Use snappi's variable
 LINK_UP = 'up'
@@ -145,6 +139,13 @@ DEADLOCK_MIN_PORTS_INVOLVED = 4
 
 
 def inc_ip_address(addr):
+    """
+    Utility to increment an IP address
+    Args:
+        addr (str): IPv4 address a.b.c.d, where d < 255
+    Returns:
+        String a.b.c.(d+1)
+    """
     num_strs = addr.split('.')
     last_str = num_strs[-1]
     last = int(last_str)
@@ -154,6 +155,9 @@ def inc_ip_address(addr):
 
 
 def is_margin_eq(value, expected, percent):
+    """
+    Returns whether 'value' is within 'percent'% of 'expected'.
+    """
     return (100 * abs(value - expected) / float(expected)) <= percent
 
 
@@ -336,19 +340,13 @@ def validate_snappi_device_state(snappi_api, get_snappi_ports):
             neigh.ipv4_address, neigh.ethernet_name, neigh.link_layer_address))
 
 
-def create_devices(snappi_api, config, port_configs, device_configs : dict, snappi_devices : dict):
-    # Global options
-    config.options.port_options.location_preemption = True  # Forcefully take ports.
-    # Order all ports by ID
+def create_ports(config, port_configs):
     for snappi_port_dct in port_configs:
         # Create the port
-        port_id = snappi_port_dct['port_id']
-        location = snappi_port_dct['location']
-        port_name = "Port {}".format(port_id)
-        snappi_port_dct['port_name'] = port_name # Store for later
+        port_name = "Port {}".format(snappi_port_dct['port_id'])
         port = config.ports.add()
         port.name = port_name
-        port.location = location
+        port.location = snappi_port_dct['location']
         # L1 settings
         speed_mbps = snappi_port_dct['speed']
         speed_gbps = int(int(speed_mbps) / 1000)
@@ -363,12 +361,6 @@ def create_devices(snappi_api, config, port_configs, device_configs : dict, snap
         l1_config.auto_negotiate = False
         l1_config.auto_negotiation.link_training = False
         l1_config.auto_negotiation.rs_fec = True
-
-    # Device config
-    for device_config in device_configs:
-        device = add_device(config, **device_config)
-        snappi_devices[device_config['name']] = device
-
 
 def to_hostport(hostname, port):
     return "{}:{}".format(hostname, port)
@@ -530,10 +522,10 @@ def add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts
     success = False
     num_attempts = 0 # flow above counts as first attempt
     while not success and num_attempts < MAX_BB_FLOW_ATTEMPTS:
-        int_stats_old = get_interface_stats_from_duthosts(duthosts)
+        int_stats_old = get_interface_stats_multidut(duthosts)
         start_traffic(snappi_api, [flow.name])
         time.sleep(10) # TODO: Detect traffic termination
-        int_stats_new = get_interface_stats_from_duthosts(duthosts)
+        int_stats_new = get_interface_stats_multidut(duthosts)
         delta = compare_interface_stats(int_stats_old, int_stats_new)
         sanitize_flow_stats(delta, PATH_DETECTION_COUNT)
         path = pathfinder(src_dev_name, dst_dev_name, delta, get_snappi_ports, conn_graph_facts)
@@ -542,6 +534,7 @@ def add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts
             success = True
         elif len(path) == STRAIGHT_THROUGH_PATH_LENGTH:
             # TODO: Can't increment device addr, that'll break the other flow. Need to change just the flow. Probably need a UDP port.
+            #
             # Increment source IP addr on the snappi/ixia device to cycle the hash on T1
             src_dev = get_device(src_dev_name)
             pytest_assert_eq(len(src_dev.ethernets), 1,
@@ -600,16 +593,15 @@ def test_deadlock(snappi_api,                   # noqa: F811
     # Enable or disable PCBB
     set_tunnel_qos_remap_multidut(duthosts, pcbb)
 
-    # Validate MUX state
-    # TODO
+    # TODO: Validate DUT mux port state is correct
 
     # Validate PFC counters are not incrementing. If fails, one example reason would be
     # that the disable_pfcwd isn't cycling on a function scope.
-    pfc_counters_old = get_pfc_counters_multihost(duthosts)
+    pfc_counters_old = get_pfc_counters_multidut(duthosts)
     time.sleep(5)
-    pfc_counters_new = get_pfc_counters_multihost(duthosts)
+    pfc_counters_new = get_pfc_counters_multidut(duthosts)
     pfc_delta = compare_pfc_counters(pfc_counters_old, pfc_counters_new)
-    non_zero_pfc_locs = flatten_pfc_counts(pfc_delta)
+    non_zero_pfc_locs = flatten_pfc_counters(pfc_delta)
     if len(non_zero_pfc_locs) > 0:
         msg = "On test start, found an apparent PFC-deadlock:\n"
         for hostname, cntr_type, port, prio, delta in non_zero_pfc_locs:
@@ -650,7 +642,16 @@ def test_deadlock(snappi_api,                   # noqa: F811
 
     # Construct snappi config
     config = snappi_api.config()
-    create_devices(snappi_api, config, get_snappi_ports, DEVICE_CONFIGS, SNAPPI_DEVICES)
+    # Global options
+    config.options.port_options.location_preemption = True  # Forcefully take ports.
+    # Create ports
+    create_ports(config, get_snappi_ports)
+    # Create and record devices
+    for device_config in DEVICE_CONFIGS:
+        device = add_device(config, **device_config)
+        SNAPPI_DEVICES[device_config['name']] = device
+
+    # Apply and validate state
     snappi_api.set_config(config)
     start_protocols(snappi_api)
     time.sleep(5) # TODO: Analyze whether sleeps are needed here and elsewhere
@@ -662,6 +663,8 @@ def test_deadlock(snappi_api,                   # noqa: F811
     t1_lower_bounce_to_upper_flow = add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts,
                                                 'Device to T1 E224', 'Device on Port 3.4 to T0:E224')
 
+    # TODO: Validate correct queue is being taken for flow
+
     # Customize flow to the rate required to cause a deadlock
     logger.info("Setting flow rates to {}% for {} seconds".format(flow_rate_from_t1, DEADLOCK_ATTEMPT_FLOW_SEC))
     for flow in [t1_upper_bounce_to_lower_flow, t1_lower_bounce_to_upper_flow]:
@@ -671,17 +674,18 @@ def test_deadlock(snappi_api,                   # noqa: F811
     # Push config change
     snappi_api.set_config(config)
 
-    pfc_counters_old = get_pfc_counters_multihost(duthosts)
+    # Record baseline PFC counters before starting deadlock attempt
+    pfc_counters_old = get_pfc_counters_multidut(duthosts)
 
     # Start all traffic to attempt a deadlock
     start_traffic(snappi_api)
     time.sleep(DEADLOCK_ATTEMPT_FLOW_SEC + 5)
 
     # Validate PFC counters have increased due to oversubscription
-    pfc_counters_new = get_pfc_counters_multihost(duthosts)
+    pfc_counters_new = get_pfc_counters_multidut(duthosts)
     pfc_delta = compare_pfc_counters(pfc_counters_old, pfc_counters_new)
     logger.info("After deadlock oversubscription, analyzing PFC count changes:")
-    non_zero_pfc_locs = flatten_pfc_counts(pfc_delta)
+    non_zero_pfc_locs = flatten_pfc_counters(pfc_delta)
     cnt_ports_with_pfc = {'tx': 0, 'rx': 0}
     for hostname, cntr_type, port, prio, delta in non_zero_pfc_locs:
         logger.info("  PFC {} prio {} count on host {} port {} increased by {}".format(
@@ -695,7 +699,8 @@ def test_deadlock(snappi_api,                   # noqa: F811
     #
     # Note: If fails on only the pcbb=False parametrization, it's very likely there's a
     # problem with the sonic-buildimage qos_config.j2 or the platform/hwsku's qos j2
-    # file. The maps need to be configured properly.
+    # files. The maps need to be configured properly to enable the device to BounceBack,
+    # but without the PriorityClass switching.
     for cntr_type in cnt_ports_with_pfc:
         pytest_assert(cnt_ports_with_pfc[cntr_type] >= DEADLOCK_MIN_PORTS_INVOLVED,
                       "DUT must start {} PFC in at least {} locations to create a deadlock".format(
@@ -704,9 +709,9 @@ def test_deadlock(snappi_api,                   # noqa: F811
     # Gather PFC deadlock information
     pfc_counters_old = pfc_counters_new
     time.sleep(5)
-    pfc_counters_new = get_pfc_counters_multihost(duthosts)
+    pfc_counters_new = get_pfc_counters_multidut(duthosts)
     pfc_delta = compare_pfc_counters(pfc_counters_old, pfc_counters_new)
-    non_zero_pfc_locs = flatten_pfc_counts(pfc_delta)
+    non_zero_pfc_locs = flatten_pfc_counters(pfc_delta)
     if len(non_zero_pfc_locs) > 0:
         msg = "Found PFC deadlock on the following hosts/cntr_type/ports/priorities:\n"
         for hostname, cntr_type, port, prio, delta in non_zero_pfc_locs:
@@ -721,10 +726,3 @@ def test_deadlock(snappi_api,                   # noqa: F811
         pytest_assert(not deadlock_detected, msg)
     else:
         pytest_assert(deadlock_detected, msg)
-
-    # TODO: Validate DUT mux port state is correct
-    # TODO: Validate correct queue is being taken for flow
-
-    # Teardown
-    # import pdb; pdb.set_trace()
-    # snappi_api.assistant.Session.remove()

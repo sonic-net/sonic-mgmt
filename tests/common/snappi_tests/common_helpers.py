@@ -917,9 +917,13 @@ def sec_to_nanosec(secs):
     return secs * 1e9
 
 
-def get_pfc_counters(duthost, port=None):
+def get_pfc_counters(duthost):
     """
     Generalized PFC counters utility for arbitrary numbers of hosts, ports, priorities, and TX/RX
+    Args:
+        duthost (object): Host to retrieve PFC counters via CLI.
+    Return:
+        Dict with format {<hostname> : {'tx': {'Ethernet0': 1234, ...}, 'rx': ...}}
     """
     cntrs = {duthost.hostname: {'tx': {}, 'rx': {}}}
     rv = duthost.shell("show pfc counters")
@@ -947,10 +951,17 @@ def get_pfc_counters(duthost, port=None):
     return cntrs
 
 
-def get_pfc_counters_multihost(duthosts, port=None):
+def get_pfc_counters_multidut(duthosts):
+    """
+    Equivalent to get_pfc_counters, but retrieves for each duthost in duthosts.
+    Args:
+        duthosts (list): Hosts to retrieve PFC counters via CLI.
+    Return:
+        Dict with format {<hostname1> : {'tx': {'Ethernet0': 1234, ...}, 'rx': ...}, <hostname2> :, ...}
+    """
     cntrs = {}
     for duthost in duthosts:
-        cntrs.update(get_pfc_counters(duthost, port))
+        cntrs.update(get_pfc_counters(duthost))
     return cntrs
 
 
@@ -959,8 +970,11 @@ def compare_pfc_counters(cntrs_old, cntrs_new):
     Returns a new dict structured identically to cntrs_new (as returned by
     get_pfc_counters) and contains the cntrs_old subtracted from the cntrs_new. cntrs_old
     may be a superset of cntrs_new.
-
-    TODO
+    Args:
+        cntrs_old (dict): Counters to subtract
+        cntrs_new (dict): Counters to add
+    Returns:
+        cntrs_new - cntrs_old
     """
     delta = {}
     for hostname in cntrs_new:
@@ -980,9 +994,13 @@ def scan_pfc_counters(cntrs, process_fn):
     Iterates over all cntrs (as returned by get_pfc_counters) and invokes:
        process_fn(hostname, cnt_type, port, prio, count)
     for all counters.
-
     NOTE: process_fn cannot write to immutable local variables outside the function,
     but it can write to mutable objects like dictionaries and lists.
+    Args:
+        cntrs (dict): PFC counter dict with format returned by get_pfc_counters
+        process_fn (func): Function with args (hostname, cnt_type, port, prio, count)
+    Returns:
+        None
     """
     for hostname in cntrs:
         for cnt_type in cntrs[hostname]:
@@ -991,12 +1009,16 @@ def scan_pfc_counters(cntrs, process_fn):
                     process_fn(hostname, cnt_type, port, prio, cntrs[hostname][cnt_type][port][prio])
 
 
-def flatten_pfc_counts(pfc_counts):
+def flatten_pfc_counters(pfc_counts):
     """
     Flattens pfc counter dictionary (as returned by get_pfc_counters) to a list of all
     non-zero counts and their locations.
     e.g.
     [('myhost', 'tx', 'Ethernet0', 3, 1234), ...]
+    Args:
+        pfc_counts (dict): PFC counter dict with format returned by get_pfc_counters
+    Returns:
+        List of non-zero PFC counter information
     """
     flattened = []
     def helper(hostname, cntr_type, port, prio, cnt):
@@ -1255,7 +1277,7 @@ def get_interface_stats(duthost, port=None):
     Get the Rx and Tx port failures, throughput and pkts from SONiC CLI.
     This is the equivalent of the "show interface counters" command.
     Args:
-        duthost (Ansible host instance): device under test. Can also be a list of devices.
+        duthost (Ansible host instance): device under test
         port (str): port name. Defaults to all ports if not specified
     Returns:
         i_stats (dict): Returns various parameters for given DUT and port.
@@ -1300,18 +1322,29 @@ def get_interface_stats(duthost, port=None):
 
     return i_stats
 
-def get_interface_stats_from_duthosts(duthosts, port=None):
+
+def get_interface_stats_multidut(duthosts, port=None):
+    """
+    get_interface_stats over multiple duthosts.
+    Args:
+        duthosts (list): List of duts
+        port (str): port name. Defaults to all ports if not specified
+    Returns:
+        i_stats (dict): Mapping of each host to interface stats.
+    """
     all_i_stats = defaultdict(dict)
     for duthost in duthosts:
-        i_stats = get_interface_stats(duthost, port)
-        all_i_stats[duthost.hostname] = i_stats[duthost.hostname]
+        all_i_stats.update(get_interface_stats(duthost, port))
     return all_i_stats
+
 
 def convert_interface_stats_to_num(i_stats):
     """
     Converts the data returned by get_interface_stats to numerics, accounting for the non-numeric state field.
     Args:
-    TODO
+        i_stats (dict): Stats data returned by get_interface_stats
+    Returns:
+        New dict with all strings converted to integers or floats where possible.
     """
     num_i_stats = defaultdict(dict)
     for hostname in i_stats:
@@ -1338,7 +1371,11 @@ def compare_interface_stats(i_stats_old, i_stats_new):
     """
     Subtracts i_stats_old from i_stats_new to obtain a counter delta.
     Args:
-    TODO
+        i_stats_old (dict): Stats data returned by get_interface_stats to subtract
+        i_stats_new (dict): Stats data returned by get_interface_stats to add
+    Returns:
+        i_stats_new - i_stats_old
+        For state fields, returns old state concatenated with new state, so one of: UU, DD, UD, DU
     """
     compared_i_stats = defaultdict(dict)
     all_ports_old = i_stats_old.keys()
