@@ -719,19 +719,6 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_counter:
     conditions:
       - "release in ['201811', '201911', '202012']"
 
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default:
-  skip:
-    reason: "Skip test_dhcp_relay_monitor_checksum_validation for bypassing the build image failure"
-    conditions:
-      - "asic_type in ['vs']"
-
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
-  skip:
-    reason: "Skip test_dhcp_relay_monitor_checksum_validation for bypassing the build image failure"
-    conditions:
-      - "asic_type in ['vs']"
-
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
   skip:
     reason: "The test case only tests DHCP relay on the dualtor standby dut"
@@ -2783,10 +2770,10 @@ lldp/test_lldp.py::test_lldp_neighbor:
       - "'standalone' in topo_name"
 
 lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
-  xfail:
-    reason: "Xfail the test due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/19658"
+  skip:
+    reason: "Not M0/Mx/M1 scenario"
     conditions:
-    - "https://github.com/sonic-net/sonic-mgmt/issues/19658 and asic_type in ['mellanox', 'nvidia']"
+      - "topo_type in ['m0', 'mx', 'm1']"
 
 #######################################
 #####           macsec            #####
@@ -3047,6 +3034,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
         - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
         - "is_smartswitch==True"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:
