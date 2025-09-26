@@ -399,6 +399,17 @@ def ignore_syslog_errors(rand_selected_dut, loganalyzer):
         )
 
 
+def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
+    for addr in neighbor_addrs:
+        logger.info(f"Warming up IPv6 neighbor {addr}")
+        duthost.shell(f"ping -6 -c 1 -W 1 {addr}", module_ignore_errors=True)
+
+    ndp_output = duthost.shell("ip -6 neigh show", module_ignore_errors=False)['stdout']
+    logger.info(f"NDP entries:\n{ndp_output}")
+    for addr in neighbor_addrs:
+        assert any(addr in line and "REACHABLE" in line for line in ndp_output.splitlines())
+
+
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_first):
@@ -415,6 +426,9 @@ def test_bfd_basic(request, rand_selected_dut, ptfhost, tbinfo, ipv6, dut_init_f
         # neighborship can be resolved on PTF side.
         time.sleep(5)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
+
+        if ipv6:
+            warm_up_ipv6_neighbors(duthost, neighbor_addrs)
 
         time.sleep(1)
         for idx, neighbor_addr in enumerate(neighbor_addrs):
