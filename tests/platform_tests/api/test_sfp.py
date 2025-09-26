@@ -271,7 +271,11 @@ class TestSfpApi(PlatformApiTestBase):
 
     # xcvr to be skipped for lpmode test due to known issue
     LPMODE_SKIP_LIST = [
-        {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-02'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-05'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-0X'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-10'},
     ]
 
     # Keys supported for Amphenol 800G Backplane cartridge.
@@ -360,9 +364,9 @@ class TestSfpApi(PlatformApiTestBase):
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
-                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
-                logger.info("Temporarily skipping {} due to known issue".format(
-                    xcvr_info_dict["manufacturer"]))
+                    xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
+                logger.info("Temporarily skipping {} - {} due to known issue".format(
+                    xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
                 return False
 
         return True
