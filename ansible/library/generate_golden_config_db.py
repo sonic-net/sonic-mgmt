@@ -545,7 +545,7 @@ class GenerateGoldenConfigDBModule(object):
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
 
-        # Set buffer_model to traditional to prevent regression:
+        # Set buffer_model to traditional to prevent regression, as it is currently hardcoded here:
         #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
         golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
