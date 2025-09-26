@@ -7,7 +7,7 @@ all:
             sonic_ocs:
         servers:
           children:
-            vm_host:
+            test_station:
     ptf:
       vars:
         ansible_user: yourusername
@@ -17,17 +17,14 @@ all:
           ansible_host: 10.10.12.1
 
 sonic_ocs:
-  vars:
-    hwsku: 
   hosts:
-    device_name:
+    device_ocs:
       ansible_host: 10.11.12.13
       ansible_ssh_user: yourusername
       ansible_ssh_pass: yourpassword
 
-vm_host:
-  hosts:
-    test_station:
-      ansible_host: 10.12.13.14
-      ansible_ssh_user: yourusername
-      ansible_ssh_pass: yourpassword
+test_station:
+  test_server:
+    ansible_host: 10.12.13.14
+    ansible_ssh_user: yourusername
+    ansible_ssh_pass: yourpassword

@@ -65,12 +65,19 @@ def clear_all_cross_configuration(duthost):
         send_and_verify_command(duthost, f'config ocs cross-connect delete {pair}', expect="succeeded")
 
 
-def test_configure_ocs_overwrite_batch(duthost):
-    """Test OCS cross-connect batch configuration in overwrite mode"""
+@pytest.fixture
+def clear_and_verify_config(duthost):
+    """Fixture to clear all cross-connect configurations and verify they are cleared"""
     clear_all_cross_configuration(duthost)
-
+    check_cross_connect_config(duthost)
+    yield
+    # Cleanup after test
+    clear_all_cross_configuration(duthost)
     check_cross_connect_config(duthost)
 
+
+def test_configure_ocs_overwrite_batch(duthost, clear_and_verify_config):
+    """Test OCS cross-connect batch configuration in overwrite mode"""
     test_cases = [
         ("Single pair", "1A-2B"),
         ("Multiple pairs", "3A-4B,5A-6B"),
@@ -84,6 +91,3 @@ def test_configure_ocs_overwrite_batch(duthost):
 
         expected_pairs = expand_port_pairs(config)
         check_cross_connect_config(duthost, expected_pairs)
-
-    clear_all_cross_configuration(duthost)
-    check_cross_connect_config(duthost)
