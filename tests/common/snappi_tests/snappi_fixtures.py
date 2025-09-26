@@ -27,6 +27,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 logger = logging.getLogger(__name__)
 DEST_TO_GATEWAY_MAP = {}
 
+
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
     """
