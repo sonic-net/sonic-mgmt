@@ -5,6 +5,7 @@ import pytest
 import time
 import logging
 import snappi
+import json
 import sys
 import os
 import yaml
@@ -828,20 +829,25 @@ def setup_dut_ports(
     if not ptype:
         for index, duthost in enumerate(duthost_list):
             config_result = __vlan_intf_config(config=config,
-                                            port_config_list=port_config_list,
-                                            duthost=duthost,
-                                            snappi_ports=snappi_ports)
+                                               port_config_list=port_config_list,
+                                               duthost=duthost,
+                                               snappi_ports=snappi_ports)
             pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
 
         for index, duthost in enumerate(duthost_list):
             config_result = __portchannel_intf_config(config=config,
-                                                    port_config_list=port_config_list,
-                                                    duthost=duthost,
-                                                    snappi_ports=snappi_ports)
+                                                      port_config_list=port_config_list,
+                                                      duthost=duthost,
+                                                      snappi_ports=snappi_ports)
             pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
 
         if is_snappi_multidut(duthost_list):
             for index, duthost in enumerate(duthost_list):
+                config_result = __intf_config_multidut(config=config,
+                                                       port_config_list=port_config_list,
+                                                       duthost=duthost,
+                                                       snappi_ports=snappi_ports,
+                                                       setup=setup)
                 config_result = __intf_config_multidut(
                                                         config=config,
                                                         port_config_list=port_config_list,
@@ -852,19 +858,18 @@ def setup_dut_ports(
         else:
             for index, duthost in enumerate(duthost_list):
                 config_result = __l3_intf_config(config=config,
-                                                port_config_list=port_config_list,
-                                                duthost=duthost,
-                                                snappi_ports=snappi_ports,
-                                                setup=setup)
+                                                 port_config_list=port_config_list,
+                                                 duthost=duthost,
+                                                 snappi_ports=snappi_ports,
+                                                 setup=setup)
                 pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
     else:
         for index, duthost in enumerate(duthost_list):
-            config_result = __intf_config_macsec(
-                                                config=config,
-                                                port_config_list=port_config_list,
-                                                duthost=duthost,
-                                                snappi_ports=snappi_ports,
-                                                setup=setup)
+            config_result = __intf_config_macsec(config=config,
+                                                 port_config_list=port_config_list,
+                                                 duthost=duthost,
+                                                 snappi_ports=snappi_ports,
+                                                 setup=setup)
             pytest_assert(config_result is True, 'Fail to configure macsec on snappi ports')
     return config, port_config_list, snappi_ports
 
@@ -1217,7 +1222,7 @@ def cleanup_config(duthost_list, snappi_ports):
 
     if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
             duthost_list[0].get_facts().get("modular_chassis", None)):
-        global DEST_TO_GATEWAY_MAP
+        global DEST_TO_GATEWAY_MAP  # noqa: F824
         copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
         for addr in copy_DEST_TO_GATEWAY_MAP:
             gen_data_flow_dest_ip(
@@ -1928,7 +1933,6 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
 def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
                    number_of_tx_rx_ports, duthosts, snappi_api):
     testbed = request.config.getoption("--testbed")
-    import pdb; pdb.set_trace()
     is_override, _ = parse_override(
         testbed,
         'multidut_port_info'
