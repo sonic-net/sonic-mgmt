@@ -350,7 +350,6 @@ def create_ports(config, port_configs):
         # L1 settings
         speed_mbps = snappi_port_dct['speed']
         speed_gbps = int(int(speed_mbps) / 1000)
-        # TODO: Where does the other name show up? Need to be unique for any reason?
         l1_config = config.layer1.add()
         port_names = [port_name]
         l1_config.port_names = port_names
@@ -424,7 +423,6 @@ def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, snappi_ports, conn_g
     for hostname in delta_int_stats:
         # Inter-DUT link construction
         for port in conn_graph['device_conn'][hostname]:
-            # TODO: Better check for ixia device
             peer_hostname = conn_graph['device_conn'][hostname][port]['peerdevice']
             peer_port = conn_graph['device_conn'][hostname][port]['peerport']
             # Bidirectional lookup link
@@ -611,8 +609,7 @@ def test_deadlock(snappi_api,        # noqa: F811
 
     # TODO: Validate DUT mux port state is correct
 
-    # Validate PFC counters are not incrementing. If fails, one example reason would be
-    # that the disable_pfcwd isn't cycling on a function scope.
+    # Validate PFC counters are not incrementing.
     pfc_counters_old = get_pfc_counters_multidut(duthosts)
     time.sleep(5)
     pfc_counters_new = get_pfc_counters_multidut(duthosts)
@@ -629,9 +626,6 @@ def test_deadlock(snappi_api,        # noqa: F811
     # needs to be run after every test parametrization in order to clear out
     # deadlock. This does depend on the order of the parametrization execution (PCBB or
     # non-PCBB first).
-    # A second option is PCBB thinks it's enabled, but is improperly deployed. Do a "show
-    # pfc prio" on each DUT and validate PFC priorities have 2,3,4,6 in some locations and
-    # not others.
     pytest_assert_eq(len(non_zero_pfc_locs), 0, msg)
 
     # Validate port speeds are satisfactory for deadlock
@@ -713,10 +707,16 @@ def test_deadlock(snappi_api,        # noqa: F811
     # should ensure the attempt is good, but there may be a regression in the PCBB-enabled
     # run.
     #
-    # Note: If fails on only the pcbb=False parametrization, it's very likely there's a
+    # Note 1: If fails on only the pcbb=False parametrization, it's very likely there's a
     # problem with the sonic-buildimage qos_config.j2 or the platform/hwsku's qos j2
-    # files. The maps need to be configured properly to enable the device to BounceBack,
-    # but without the PriorityClass switching.
+    # files. The maps need to be configured properly to enable the device to BounceBack
+    # without the PriorityClass switching.
+    #
+    # Note 2: A second option is PCBB thinks it's enabled, but is improperly deployed,
+    # perhaps due to misconfiguration in the DEVICE_NEIGHBOR_METADATA table which prevents
+    # the dualtor peers from detecting the appropriate locations to apply PCBB. Do a "show
+    # pfc prio" on each DUT and validate PFC priorities have 2,3,4,6 in some locations and
+    # not others.
     for cntr_type in cnt_ports_with_pfc:
         pytest_assert(cnt_ports_with_pfc[cntr_type] >= DEADLOCK_MIN_PORTS_INVOLVED,
                       "DUT must start {} PFC in at least {} locations to create a deadlock".format(
