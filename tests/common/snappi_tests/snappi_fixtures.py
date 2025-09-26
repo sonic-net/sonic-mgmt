@@ -5,10 +5,10 @@ import pytest
 import time
 import logging
 import snappi
+import json
 import sys
 import os
 import random
-import json
 from copy import copy
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
@@ -25,7 +25,7 @@ from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_
 
 
 logger = logging.getLogger(__name__)
-
+DEST_TO_GATEWAY_MAP = {}
 
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
@@ -823,42 +823,41 @@ def setup_dut_ports(
     if not ptype:
         for index, duthost in enumerate(duthost_list):
             config_result = __vlan_intf_config(config=config,
-                                            port_config_list=port_config_list,
-                                            duthost=duthost,
-                                            snappi_ports=snappi_ports)
+                                               port_config_list=port_config_list,
+                                               duthost=duthost,
+                                               snappi_ports=snappi_ports)
             pytest_assert(config_result is True, 'Fail to configure Vlan interfaces')
 
         for index, duthost in enumerate(duthost_list):
             config_result = __portchannel_intf_config(config=config,
-                                                    port_config_list=port_config_list,
-                                                    duthost=duthost,
-                                                    snappi_ports=snappi_ports)
+                                                      port_config_list=port_config_list,
+                                                      duthost=duthost,
+                                                      snappi_ports=snappi_ports)
             pytest_assert(config_result is True, 'Fail to configure portchannel interfaces')
 
         if is_snappi_multidut(duthost_list):
             for index, duthost in enumerate(duthost_list):
                 config_result = __intf_config_multidut(config=config,
-                                                    port_config_list=port_config_list,
-                                                    duthost=duthost,
-                                                    snappi_ports=snappi_ports,
-                                                    setup=setup)
+                                                       port_config_list=port_config_list,
+                                                       duthost=duthost,
+                                                       snappi_ports=snappi_ports,
+                                                       setup=setup)
                 pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
         else:
             for index, duthost in enumerate(duthost_list):
                 config_result = __l3_intf_config(config=config,
-                                                port_config_list=port_config_list,
-                                                duthost=duthost,
-                                                snappi_ports=snappi_ports,
-                                                setup=setup)
+                                                 port_config_list=port_config_list,
+                                                 duthost=duthost,
+                                                 snappi_ports=snappi_ports,
+                                                 setup=setup)
                 pytest_assert(config_result is True, 'Fail to configure L3 interfaces')
     else:
         for index, duthost in enumerate(duthost_list):
-            config_result = __intf_config_macsec(
-                                                config=config,
-                                                port_config_list=port_config_list,
-                                                duthost=duthost,
-                                                snappi_ports=snappi_ports,
-                                                setup=setup)
+            config_result = __intf_config_macsec(config=config,
+                                                 port_config_list=port_config_list,
+                                                 duthost=duthost,
+                                                 snappi_ports=snappi_ports,
+                                                 setup=setup)
             pytest_assert(config_result is True, 'Fail to configure macsec on snappi ports')
     return config, port_config_list, snappi_ports
 
@@ -942,6 +941,82 @@ def __intf_config(config, port_config_list, duthost, snappi_ports):
                                            peer_port=phy_intf)
 
             port_config_list.append(port_config)
+
+    return True
+
+
+def __intf_config_multidut(config, port_config_list, duthost, snappi_ports, setup=True):
+    """
+    Configures interfaces of the DUT
+    Args:
+        config (obj): Snappi API config of the testbed
+        port_config_list (list): list of Snappi port configuration information
+        duthost (object): device under test
+        snappi_ports (list): list of Snappi port information
+        setup: Setting up or teardown? True or False
+    Returns:
+        True if we successfully configure the interfaces or False
+    """
+    dutIps = create_ip_list(dut_ip_start, len(snappi_ports), mask=prefix_length)
+    tgenIps = create_ip_list(snappi_ip_start, len(snappi_ports), mask=prefix_length)
+    ports = [port for port in snappi_ports if port['peer_device'] == duthost.hostname]
+
+    for port in ports:
+        port_id = port['port_id']
+        dutIp = dutIps[port_id]
+        tgenIp = tgenIps[port_id]
+        mac = __gen_mac(port_id)
+        logger.info('Configuring Dut: {} with port {} with IP {}/{}'.format(
+                                                                            duthost.hostname,
+                                                                            port['peer_port'],
+                                                                            dutIp,
+                                                                            prefix_length))
+        if setup:
+            cmd = "add"
+        else:
+            cmd = "remove"
+        if not setup:
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+
+        if port['asic_value'] is None:
+            duthost.command('sudo config interface ip {} {} {}/{} \n' .format(
+                                                                                cmd,
+                                                                                port['peer_port'],
+                                                                                dutIp,
+                                                                                prefix_length))
+        else:
+            duthost.command('sudo config interface -n {} ip {} {} {}/{} \n' .format(
+                                                                                    port['asic_value'],
+                                                                                    cmd,
+                                                                                    port['peer_port'],
+                                                                                    dutIp,
+                                                                                    prefix_length))
+        if setup:
+            gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
+        if setup is False:
+            continue
+        port['intf_config_changed'] = True
+        device = config.devices.device(name='Device Port {}'.format(port_id))[-1]
+        ethernet = device.ethernets.add()
+        ethernet.name = 'Ethernet Port {}'.format(port_id)
+        ethernet.connection.port_name = config.ports[port_id].name
+        ethernet.mac = mac
+        ip_stack = ethernet.ipv4_addresses.add()
+        ip_stack.name = 'Ipv4 Port {}'.format(port_id)
+        ip_stack.address = tgenIp
+        ip_stack.prefix = prefix_length
+        ip_stack.gateway = dutIp
+        port_config = SnappiPortConfig(
+                                        id=port_id,
+                                        ip=tgenIp,
+                                        mac=mac,
+                                        gw=dutIp,
+                                        gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
+                                        prefix_len=prefix_length,
+                                        port_type=SnappiPortType.IPInterface,
+                                        peer_port=port['peer_port']
+                                      )
+        port_config_list.append(port_config)
 
     return True
 
@@ -1211,7 +1286,7 @@ def cleanup_config(duthost_list, snappi_ports):
 
     if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
             duthost_list[0].get_facts().get("modular_chassis", None)):
-        global DEST_TO_GATEWAY_MAP
+        global DEST_TO_GATEWAY_MAP  # noqa: F824
         copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
         for addr in copy_DEST_TO_GATEWAY_MAP:
             gen_data_flow_dest_ip(
