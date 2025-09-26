@@ -7,7 +7,6 @@ import logging
 import snappi
 import sys
 import os
-import yaml
 import random
 from copy import copy
 from tests.common.helpers.assertions import pytest_require
@@ -840,12 +839,11 @@ def setup_dut_ports(
 
         if is_snappi_multidut(duthost_list):
             for index, duthost in enumerate(duthost_list):
-                config_result = __intf_config_multidut(
-                                                        config=config,
-                                                        port_config_list=port_config_list,
-                                                        duthost=duthost,
-                                                        snappi_ports=snappi_ports,
-                                                        setup=setup)
+                config_result = __intf_config_multidut(config=config,
+                                                    port_config_list=port_config_list,
+                                                    duthost=duthost,
+                                                    snappi_ports=snappi_ports,
+                                                    setup=setup)
                 pytest_assert(config_result is True, 'Fail to configure multidut L3 interfaces')
         else:
             for index, duthost in enumerate(duthost_list):
@@ -995,6 +993,10 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             port['ipGateway'], port['prefix'] = subnet[0].split("/")
             port['subnet'] = subnet[0]
     ports = [port for port in snappi_ports if port['peer_device'] == duthost.hostname]
+    if ptype:
+        macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
+        with open(macsec_var_file, "r") as f:
+            all_values = json.load(f)
     for port in ports:
         port_id = port['port_id']
         dutIp = port['ipGateway']
@@ -1838,7 +1840,6 @@ def snappi_port_selection(get_snappi_ports, number_of_tx_rx_ports, mixed_speed=N
 def tgen_port_info(request: pytest.FixtureRequest, snappi_port_selection, get_snappi_ports,
                    number_of_tx_rx_ports, duthosts, snappi_api):
     testbed = request.config.getoption("--testbed")
-    import pdb; pdb.set_trace()
     is_override, _ = parse_override(
         testbed,
         'multidut_port_info'
