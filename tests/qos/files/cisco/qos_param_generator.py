@@ -86,7 +86,7 @@ class QosParamCisco(object):
 
             # Calculate real lossless/lossy thresholds while accounting for maxes
             if max_queue_depth is None:
-                egress_pool_reserved_buffer = 12582912 # 12MB reserve of the pool
+                egress_pool_reserved_buffer = 12582912  # 12MB reserve of the pool
                 dynamic_th = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["dynamic_th"])
                 alpha = 2 ** dynamic_th
                 profile_reserved_memory = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["size"])
