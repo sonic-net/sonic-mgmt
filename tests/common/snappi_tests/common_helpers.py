@@ -929,6 +929,16 @@ def sec_to_nanosec(secs):
     return secs * 1e9
 
 
+def check_pfc_counters(duthost, port, priority, is_tx=False):
+    if is_tx:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
+    else:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
+    if raw_out.split()[priority + 1].replace(',', '') == 'N/A':
+        return False
+    return True
+
+
 def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     """
     Get the PFC frame count for a given port and priority from SONiC CLI
