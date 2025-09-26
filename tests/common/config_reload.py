@@ -164,7 +164,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
-        cmd = 'config load_minigraph -y &>/dev/null'
+        cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
         if override_config or macsec_en:
@@ -180,12 +180,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
-        cmd = 'config reload -y &>/dev/null'
+        cmd = 'config reload -y'
         reloading = False
         if config_force_option_supported(sonic_host):
             if wait_before_force_reload:
                 reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
-            cmd = 'config reload -y -f &>/dev/null'
+            cmd = 'config reload -y -f'
         if not reloading:
             time.sleep(30)
             sonic_host.shell(cmd, executable="/bin/bash")
@@ -195,9 +195,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if sonic_host.is_multi_asic:
             for asic in range(sonic_host.num_asics()):
                 golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic}.json'  # noqa: E231
-        cmd = f'config reload -y -l {golden_path} &>/dev/null'
+        cmd = f'config reload -y -l {golden_path}'
         if config_force_option_supported(sonic_host):
-            cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
+            cmd = f'config reload -y -f -l {golden_path}'
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
