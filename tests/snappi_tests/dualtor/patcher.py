@@ -1,10 +1,10 @@
-import os
 import importlib
+import logging
+import os
 
 patch_file = "resourcegroup.patch"
 target_file = "resourcegroup.py"
 
-import logging
 logger = logging.getLogger(__name__)
 
 

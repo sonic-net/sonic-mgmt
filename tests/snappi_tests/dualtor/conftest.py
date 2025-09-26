@@ -4,6 +4,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 @pytest.fixture(scope="module")
 def on_test_end_enable_tunnel_qos_remap(duthosts):
     """

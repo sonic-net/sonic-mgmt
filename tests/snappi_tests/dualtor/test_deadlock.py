@@ -1,7 +1,8 @@
-"""-----------------------------------------------
+"""
+-----------------------------------------------
   _   _  _   _     _
- |_) /  |_) |_)   | \  _   _.  _| |  _   _ |
- |   \_ |_) |_)   |_/ (/_ (_| (_| | (_) (_ |<
+ |_) |  |_) |_)   | |  _   _.  _| |  _   _ |
+ |   |_ |_) |_)   |_/ (/_ (_| (_| | (_) (_ |<
 -----------------------------------------------
 
 Design Principles
@@ -86,18 +87,14 @@ elsewhere. Try rerunning.
 
 """
 
-# Patch snappi_ixnetwork bug that breaks breakout ports.
-from tests.snappi_tests.dualtor.patcher import patch_snappi_ixnetwork
-patch_snappi_ixnetwork()
-# TODO: Patcher doesn't fix the first run, but subsequent runs work.
-
 import pytest
-import random
 import time
 
-from tests.common.snappi_tests.common_helpers import traffic_flow_mode, get_interface_stats, \
-    get_interface_stats_multidut, compare_interface_stats, \
-    get_pfc_counters_multidut, compare_pfc_counters, scan_pfc_counters, flatten_pfc_counters
+# Patch snappi_ixnetwork bug that breaks breakout ports.
+from tests.snappi_tests.dualtor.patcher import patch_snappi_ixnetwork
+
+from tests.common.snappi_tests.common_helpers import get_interface_stats_multidut, compare_interface_stats, \
+    get_pfc_counters_multidut, compare_pfc_counters, flatten_pfc_counters
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
@@ -114,6 +111,10 @@ from tests.snappi_tests.dualtor.utilities import set_tunnel_qos_remap_multidut
 
 import logging
 logger = logging.getLogger(__name__)
+
+patch_snappi_ixnetwork()
+# TODO: Patcher doesn't fix the first run, but subsequent runs work.
+# Formatter doesn't like it at the top, but that doesn't help regardless.
 
 # TODO: Use snappi's variable
 LINK_UP = 'up'
@@ -173,13 +174,13 @@ def pytest_assert_neq(a, b, msg=""):
     pytest_assert(a != b, "Failed neq check: {} != {}{}".format(a, b, msg))
 
 
-DEVICE_CONFIGS = [{'name': 'Device to T1 E224', # TODO: Autogenerate device name from input parameters
+DEVICE_CONFIGS = [{'name': 'Device to T1 E224',  # TODO: Autogenerate device name from input parameters
                    'port_id': 2,
                    'mac': "00:12:01:00:00:01",
                    'ipv4': "10.0.224.3",
                    'prefix': 24,
                    'gateway': "10.0.224.2"},
-                  {'name': 'Device on Port 3.1 to LT0:E240', # "Simulated" TGEN servers, with dualtor-matching IPs and macs.
+                  {'name': 'Device on Port 3.1 to LT0:E240',  # "Simulated" TGEN servers
                    'port_id': 57,
                    'mac': "00:15:01:00:00:01",
                    'ipv4': "192.168.0.10",
@@ -202,8 +203,7 @@ DEVICE_CONFIGS = [{'name': 'Device to T1 E224', # TODO: Autogenerate device name
                    'mac': "00:14:01:00:00:01",
                    'ipv4': "192.168.0.12",
                    'prefix': 21,
-                   'gateway': "192.168.0.1"},
-]
+                   'gateway': "192.168.0.1"}]
 
 # Maps 'name' -> 'device'
 SNAPPI_DEVICES = {}
@@ -283,55 +283,56 @@ def add_flow(config, src_dev_name, dst_dev_name):
     return flow
 
 
-def start_protocols(snappi_api):
+def start_protocols(api):
     # Start protocols
-    if "control_state" in dir(snappi_api):
-        cs = snappi_api.control_state()
+    if "control_state" in dir(api):
+        cs = api.control_state()
         cs.protocol.all.set(cs.protocol.all.START)
-        snappi_api.set_control_state(cs)
+        api.set_control_state(cs)
     else:
-        ps = snappi_api.protocol_state()
+        ps = api.protocol_state()
         ps.state = ps.START
-        snappi_api.set_protocol_state(ps)
+        api.set_protocol_state(ps)
 
 
-def start_stop_traffic(snappi_api, start_or_stop : bool, flow_names=[]):
+def start_stop_traffic(api, start_or_stop: bool, flow_names=[]):
     # Starting traffic auto-applies it
     pytest_assert(isinstance(flow_names, list), "Snappi requires a list of flow names")
-    if "control_state" in dir(snappi_api):
-        cs = snappi_api.control_state()
+    if "control_state" in dir(api):
+        cs = api.control_state()
         cs.traffic.flow_transmit.flow_names = flow_names
-        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START if start_or_stop else cs.traffic.flow_transmit.STOP
-        snappi_api.set_control_state(cs)
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START if start_or_stop else \
+            cs.traffic.flow_transmit.STOP
+        api.set_control_state(cs)
     else:
-        ts = snappi_api.transmit_state()
+        ts = api.transmit_state()
         ts.flow_names = flow_names
         ts.state = ts.START if start_or_stop else ts.STOP
-        snappi_api.set_transmit_state(ts)
+        api.set_transmit_state(ts)
 
 
-def start_traffic(snappi_api, flow_names=[]):
-    start_stop_traffic(snappi_api, True, flow_names)
+def start_traffic(api, flow_names=[]):
+    start_stop_traffic(api, True, flow_names)
 
 
-def stop_traffic(snappi_api, flow_names=[]):
-    start_stop_traffic(snappi_api, False, flow_names)
+def stop_traffic(api, flow_names=[]):
+    start_stop_traffic(api, False, flow_names)
 
 
-def validate_snappi_device_state(snappi_api, get_snappi_ports):
+def validate_snappi_device_state(api, snappi_ports):
     # Grab all metrics
-    req = snappi_api.metrics_request()
-    metrics = snappi_api.get_metrics(req)
+    req = api.metrics_request()
+    metrics = api.get_metrics(req)
 
     # Validate ports up
-    pytest_assert_eq(len(metrics.port_metrics), len(get_snappi_ports), "Unexpected number of ports in metrics response")
+    pytest_assert_eq(len(metrics.port_metrics), len(snappi_ports), "Unexpected number of ports in metrics response")
     for pm in metrics.port_metrics:
         pytest_assert_eq(pm.link.lower(), LINK_UP, "Link not up on port {}".format(pm.name))
         logger.info("Validated link up for port {}".format(pm.name))
 
     # Validate IPv4 neighbor/gateway resolved
-    states_req = snappi_api.states_request()
-    states_resp = snappi_api.get_states(states_req)
+    states_req = api.states_request()
+    states_resp = api.get_states(states_req)
     pytest_assert_eq(len(states_resp.ipv4_neighbors), len(DEVICE_CONFIGS))
     for neigh in states_resp.ipv4_neighbors:
         pytest_assert(neigh.link_layer_address is not None,
@@ -362,6 +363,7 @@ def create_ports(config, port_configs):
         l1_config.auto_negotiation.link_training = False
         l1_config.auto_negotiation.rs_fec = True
 
+
 def to_hostport(hostname, port):
     return "{}:{}".format(hostname, port)
 
@@ -370,7 +372,7 @@ def expand_hostport(hostport):
     return hostport.split(":")
 
 
-def find_hostport(device_name, get_snappi_ports):
+def find_hostport(device_name, snappi_ports):
     port_id = None
     for dev_config in DEVICE_CONFIGS:
         if dev_config['name'] == device_name:
@@ -378,7 +380,7 @@ def find_hostport(device_name, get_snappi_ports):
             break
     pytest_assert(port_id is not None, "Device config not found for device {}".format(device_name))
     hostport = None
-    for port in get_snappi_ports:
+    for port in snappi_ports:
         if int(port['port_id']) == port_id:
             hostport = to_hostport(port['peer_device'], port['peer_port'])
             break
@@ -393,7 +395,8 @@ def sanitize_flow_stats(delta_int_stats, non_trivial_count_threshold):
     more advanced testing.
     """
     pytest_assert(non_trivial_count_threshold >= 1000,
-                  "Flow traversal RX=TX sanitization cannot be done with small packet count {}".format(non_trivial_count_threshold))
+                  "Flow traversal RX=TX sanitization cannot be done with small packet count {}".format(
+                      non_trivial_count_threshold))
     for hostname in delta_int_stats:
         rx_total = 0
         tx_total = 0
@@ -407,24 +410,24 @@ def sanitize_flow_stats(delta_int_stats, non_trivial_count_threshold):
                       "DUT {} received {} packets but transmitted {}".format(hostname, rx_total, tx_total))
 
 
-def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, get_snappi_ports, conn_graph_facts):
+def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, snappi_ports, conn_graph):
     """
     Takes the counters returned from compare_interface_stats to identify the packet path.
     One purpose of this is for validation, but it can also play a significantly beneficial
     role in debugging efforts.
     """
-    src_hostport = find_hostport(src_dev_name, get_snappi_ports)
-    dst_hostport = find_hostport(dst_dev_name, get_snappi_ports)
+    src_hostport = find_hostport(src_dev_name, snappi_ports)
+    dst_hostport = find_hostport(dst_dev_name, snappi_ports)
     rx_hostports = []
     tx_hostports = []
     intf_to_peer_map = {}
     intf_traversed = {}
     for hostname in delta_int_stats:
         # Inter-DUT link construction
-        for port in conn_graph_facts['device_conn'][hostname]:
+        for port in conn_graph['device_conn'][hostname]:
             # TODO: Better check for ixia device
-            peer_hostname = conn_graph_facts['device_conn'][hostname][port]['peerdevice']
-            peer_port = conn_graph_facts['device_conn'][hostname][port]['peerport']
+            peer_hostname = conn_graph['device_conn'][hostname][port]['peerdevice']
+            peer_port = conn_graph['device_conn'][hostname][port]['peerport']
             # Bidirectional lookup link
             for host in [hostname, peer_hostname]:
                 if host not in intf_to_peer_map:
@@ -439,19 +442,21 @@ def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, get_snappi_ports, co
             tx_ok = delta_int_stats[hostname][port]['tx_ok']
             if is_margin_eq(rx_ok, PATH_DETECTION_COUNT, PATH_DETECTION_MARGIN_PERCENT):
                 intf_traversed[hostname]['rx_ports'][port] = False
-                hostport = to_hostport(hostname, port)  #TODO RM
+                hostport = to_hostport(hostname, port)
                 rx_hostports.append(hostport)
             if is_margin_eq(tx_ok, PATH_DETECTION_COUNT, PATH_DETECTION_MARGIN_PERCENT):
                 intf_traversed[hostname]['tx_ports'][port] = False
                 hostport = to_hostport(hostname, port)
                 tx_hostports.append(hostport)
     # Validate source is present to start pathfinding
-    pytest_assert(src_hostport in rx_hostports, "Flow source port was not received on the appropriate hostport {}".format(src_hostport))
+    pytest_assert(src_hostport in rx_hostports,
+                  "Flow source port was not received on the appropriate hostport {}".format(src_hostport))
     pytest_assert_eq(len(rx_hostports), len(tx_hostports), "There should be the same number of TX and RX ports")
     pytest_assert(len(rx_hostports) > 0, "No port stat traversal found")
     stat_ports_traversed = len(rx_hostports) + len(tx_hostports)
     # Visit first node
     paths = []
+
     def rover(curr_path, curr_host, curr_rx_port):
         if len(curr_path) > 0 and len(curr_path) == stat_ports_traversed:
             # All stats on DUTs accounted for, report the path
@@ -475,7 +480,8 @@ def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, get_snappi_ports, co
                 pytest_assert(curr_host in intf_to_peer_map,
                               "Host {} not defined in device inter-links".format(curr_host))
                 pytest_assert(tx_port in intf_to_peer_map[curr_host],
-                              "Host {} port {} does not have a link mapping definition in sonic lab links".format(curr_host, tx_port))
+                              "Host {} port {} does not have a link mapping definition in sonic lab links".format(
+                                  curr_host, tx_port))
                 new_host, rx_port = intf_to_peer_map[curr_host][tx_port]
                 rover(curr_path, new_host, rx_port)
                 # Revert traversal of TX
@@ -489,19 +495,20 @@ def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, get_snappi_ports, co
     src_host, src_port = expand_hostport(src_hostport)
     rover([], src_host, src_port)
     pytest_assert(len(paths) > 0,
-                  "Failed to find a path from snappi device {} to {} " +
-                  "given stats indicating RX ports {} and TX ports {}".format(
+                  ("Failed to find a path from snappi device {} to {} " +
+                  "given stats indicating RX ports {} and TX ports {}").format(
                       src_dev_name, dst_dev_name, rx_hostports, tx_hostports))
     if len(paths) > 1:
         logger.warning("Unexpectedly was able to find another possible path for this flow, " +
                        "path detection and usage may be errant. Returning first path.")
     # After pathfinding, validate destination. If destination fails, report the actual path taken.
     pytest_assert(dst_hostport in tx_hostports,
-                  "Flow dest port was not transmitted from the appropriate hostport {}, actual path {}".format(dst_hostport, paths[0]))
+                  "Flow dest port was not transmitted from the appropriate hostport {}, actual path {}".format(
+                      dst_hostport, paths[0]))
     return paths[0]
 
 
-def add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts, src_dev_name, dst_dev_name):
+def add_bb_flow(api, config, snappi_ports, conn_graph, duthosts, src_dev_name, dst_dev_name):
     """
     Advanced BB flow detection routine.
     Identifies flow path and customizes the flow to take a BounceBack path rather than straight-through.
@@ -514,26 +521,26 @@ def add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts
     flow.rate.percentage = 10
     flow.duration.fixed_packets.packets = PATH_DETECTION_COUNT
 
-
-    snappi_api.set_config(config)
-    start_protocols(snappi_api)
+    api.set_config(config)
+    start_protocols(api)
     time.sleep(5)
     MAX_BB_FLOW_ATTEMPTS = 20
     success = False
-    num_attempts = 0 # flow above counts as first attempt
+    num_attempts = 0  # flow above counts as first attempt
     while not success and num_attempts < MAX_BB_FLOW_ATTEMPTS:
         int_stats_old = get_interface_stats_multidut(duthosts)
-        start_traffic(snappi_api, [flow.name])
-        time.sleep(10) # TODO: Detect traffic termination
+        start_traffic(api, [flow.name])
+        time.sleep(10)  # TODO: Detect traffic termination
         int_stats_new = get_interface_stats_multidut(duthosts)
         delta = compare_interface_stats(int_stats_old, int_stats_new)
         sanitize_flow_stats(delta, PATH_DETECTION_COUNT)
-        path = pathfinder(src_dev_name, dst_dev_name, delta, get_snappi_ports, conn_graph_facts)
+        path = pathfinder(src_dev_name, dst_dev_name, delta, snappi_ports, conn_graph)
         if len(path) == BOUNCE_BACK_PATH_LENGTH:
             logger.info("Constructed flow with BounceBack path {}".format(path))
             success = True
         elif len(path) == STRAIGHT_THROUGH_PATH_LENGTH:
-            # TODO: Can't increment device addr, that'll break the other flow. Need to change just the flow. Probably need a UDP port.
+            # TODO: Can't increment device addr, that'll break the other flow.
+            # Need to change just the flow. Probably need a UDP port.
             #
             # Increment source IP addr on the snappi/ixia device to cycle the hash on T1
             src_dev = get_device(src_dev_name)
@@ -550,10 +557,10 @@ def add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts
             logger.info("Flow has been identified as StraightThrough, " +
                         "reconfiguring device source IP from {} to {}".format(ipv4.address, new_ip_addr))
             ipv4.address = new_ip_addr
-            snappi_api.set_config(config)
-            start_protocols(snappi_api)
+            api.set_config(config)
+            start_protocols(api)
             time.sleep(5)
-            validate_snappi_device_state(snappi_api, get_snappi_ports)
+            validate_snappi_device_state(api, snappi_ports)
         else:
             pytest_assert(False, "Invalid path length {} detected, path taken for flow: {}".format(len(path), path))
     pytest_assert(success, "Failed to find a bounce-back path")
@@ -589,6 +596,10 @@ def test_deadlock(snappi_api,                   # noqa: F811
         N/A
 
     """
+    # Renaming fixtures
+    api = snappi_api
+    conn_graph = conn_graph_facts
+    snappi_ports = get_snappi_ports
 
     # Enable or disable PCBB
     set_tunnel_qos_remap_multidut(duthosts, pcbb)
@@ -623,7 +634,7 @@ def test_deadlock(snappi_api,                   # noqa: F811
     # speed, use a second port.
     t1_port_speeds = []
     t0_port_speeds = []
-    for snappi_port in get_snappi_ports:
+    for snappi_port in snappi_ports:
         if 't1' in snappi_port['peer_device'].lower():
             t1_port_speeds.append(int(snappi_port['speed']))
         elif 't0' in snappi_port['peer_device'].lower():
@@ -633,34 +644,34 @@ def test_deadlock(snappi_api,                   # noqa: F811
     pytest_assert_eq(len(set(t1_port_speeds)), 1, "All t1 port speeds facing ixia should match")
     t1_speed = t1_port_speeds[0]
     pytest_assert(t0_speed < t1_speed,
-                  "T0 port speeds ({}) must be less than T1 port speeds for snappi " +
-                  "facing ports to induce oversubscription".format(t0_speed, t1_speed))
+                  ("T0 port speeds ({}) must be less than T1 port speeds for snappi " +
+                   "facing ports to induce oversubscription").format(t0_speed, t1_speed))
     # Total bandwidth of both flows must exceed T0 port speed, but must individually not
     # exceed it. Choose 75% of the T0 port speed.
     flow_rate_from_t1 = 75 * (float(t0_speed) / t1_speed)
     logger.info("Choosing T1 flow rate percentage {}%".format(flow_rate_from_t1))
 
     # Construct snappi config
-    config = snappi_api.config()
+    config = api.config()
     # Global options
     config.options.port_options.location_preemption = True  # Forcefully take ports.
     # Create ports
-    create_ports(config, get_snappi_ports)
+    create_ports(config, snappi_ports)
     # Create and record devices
     for device_config in DEVICE_CONFIGS:
         device = add_device(config, **device_config)
         SNAPPI_DEVICES[device_config['name']] = device
 
     # Apply and validate state
-    snappi_api.set_config(config)
-    start_protocols(snappi_api)
-    time.sleep(5) # TODO: Analyze whether sleeps are needed here and elsewhere
-    validate_snappi_device_state(snappi_api, get_snappi_ports)
+    api.set_config(config)
+    start_protocols(api)
+    time.sleep(5)  # TODO: Analyze whether sleeps are needed here and elsewhere
+    validate_snappi_device_state(api, snappi_ports)
 
     # Define custom test flows
-    t1_upper_bounce_to_lower_flow = add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts,
+    t1_upper_bounce_to_lower_flow = add_bb_flow(api, config, snappi_ports, conn_graph, duthosts,
                                                 'Device to T1 E224', 'Device on Port 3.1 to LT0:E240')
-    t1_lower_bounce_to_upper_flow = add_bb_flow(snappi_api, config, get_snappi_ports, conn_graph_facts, duthosts,
+    t1_lower_bounce_to_upper_flow = add_bb_flow(api, config, snappi_ports, conn_graph, duthosts,
                                                 'Device to T1 E224', 'Device on Port 3.4 to T0:E224')
 
     # TODO: Validate correct queue is being taken for flow
@@ -672,13 +683,13 @@ def test_deadlock(snappi_api,                   # noqa: F811
         flow.duration.fixed_seconds.seconds = DEADLOCK_ATTEMPT_FLOW_SEC
 
     # Push config change
-    snappi_api.set_config(config)
+    api.set_config(config)
 
     # Record baseline PFC counters before starting deadlock attempt
     pfc_counters_old = get_pfc_counters_multidut(duthosts)
 
     # Start all traffic to attempt a deadlock
-    start_traffic(snappi_api)
+    start_traffic(api)
     time.sleep(DEADLOCK_ATTEMPT_FLOW_SEC + 5)
 
     # Validate PFC counters have increased due to oversubscription

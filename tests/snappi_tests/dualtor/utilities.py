@@ -2,6 +2,7 @@ import concurrent.futures
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 import logging
+
 logger = logging.getLogger(__name__)
 
 
@@ -9,7 +10,7 @@ def validate_status(status):
     pytest_assert(status in ["enabled", "disabled"], "Invalid tunnel_qos_remap status {}".format(status))
 
 
-def bool_to_status(is_enabled : bool):
+def bool_to_status(is_enabled: bool):
     return "enabled" if is_enabled else "disabled"
 
 
@@ -37,7 +38,8 @@ def validate_pfc_buffer_pg_synced(duthost):
             prios = []
             if '-' in prio_range:
                 lhs_prio, rhs_prio = prio_range.split('-')
-                pytest_assert(int(lhs_prio) < int(rhs_prio), "Invalid priority range in config DB {}".format(prio_range))
+                pytest_assert(int(lhs_prio) < int(rhs_prio),
+                              "Invalid priority range in config DB {}".format(prio_range))
                 for prio in range(int(lhs_prio), int(rhs_prio) + 1):
                     prios.append(str(prio))
             else:
@@ -49,6 +51,7 @@ def validate_pfc_buffer_pg_synced(duthost):
     extra_buffer_pg = buffer_pg_lossless_locs - pfc_enabled_locs
     pytest_assert(len(extra_buffer_pg) == 0, "Extra lossless buffer profile at {}".format(extra_buffer_pg))
 
+
 def get_tunnel_qos_remap(duthost):
     rv = duthost.shell('redis-cli -n 4 HGET "SYSTEM_DEFAULTS|tunnel_qos_remap" "status"')
     pytest_assert(rv['rc'] == 0, "Failed to get tunnel_qos_remap state")
@@ -57,24 +60,28 @@ def get_tunnel_qos_remap(duthost):
     return status
 
 
-def set_tunnel_qos_remap(duthost, is_enabled : bool):
+def set_tunnel_qos_remap(duthost, is_enabled: bool):
     old_status = get_tunnel_qos_remap(duthost)
     new_status = bool_to_status(is_enabled)
     if old_status != new_status:
-        logger.info("Changing duthost {} tunnel_qos_remap from {} to {}".format(duthost.hostname, old_status, new_status))
+        logger.info("Changing duthost {} tunnel_qos_remap from {} to {}".format(
+            duthost.hostname, old_status, new_status))
         rv = duthost.shell('redis-cli -n 4 HSET "SYSTEM_DEFAULTS|tunnel_qos_remap" "status" {}'.format(new_status))
         pytest_assert(rv['rc'] == 0, "Failed to set tunnel_qos_remap state")
         modified_status = get_tunnel_qos_remap(duthost)
-        pytest_assert(modified_status == new_status, "Failed to change duthost {} status to the target status {}, got {}".format(
-            duthost.hostname, new_status, modified_status))
+        pytest_assert(modified_status == new_status,
+                      "Failed to change duthost {} status to the target status {}, got {}".format(
+                          duthost.hostname, new_status, modified_status))
 
         # Regenerate QOS config with new setting
         rv = duthost.shell('config qos reload')
-        pytest_assert(rv['rc'] == 0, "Failed to perform qos reload, stdout: {}, stderr: {}".format(rv['stdout'], rv['stderr']))
+        pytest_assert(rv['rc'] == 0, "Failed to perform qos reload, stdout: {}, stderr: {}".format(
+            rv['stdout'], rv['stderr']))
 
         # Save config
         rv = duthost.shell('config save -y')
-        pytest_assert(rv['rc'] == 0, "Failed to config save, stdout: {}, stderr: {}".format(rv['stdout'], rv['stderr']))
+        pytest_assert(rv['rc'] == 0, "Failed to config save, stdout: {}, stderr: {}".format(
+            rv['stdout'], rv['stderr']))
 
         # Reload config since the buffer config manager may not detect the lossless buffer profile changes
         config_reload(duthost, yang_validate=False)
@@ -84,10 +91,11 @@ def set_tunnel_qos_remap(duthost, is_enabled : bool):
 
         # Save config again with lossless profiles applied by the buffer config manager
         rv = duthost.shell('config save -y')
-        pytest_assert(rv['rc'] == 0, "Failed to config save after reload, stdout: {}, stderr: {}".format(rv['stdout'], rv['stderr']))
+        pytest_assert(rv['rc'] == 0, "Failed to config save after reload, stdout: {}, stderr: {}".format(
+            rv['stdout'], rv['stderr']))
 
 
-def set_tunnel_qos_remap_multidut(duthosts, is_enabled : bool, is_parallel=True):
+def set_tunnel_qos_remap_multidut(duthosts, is_enabled: bool, is_parallel=True):
     """
     Perform set_tunnel_qos_remap in parallel over all duthosts.
     """

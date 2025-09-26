@@ -1021,6 +1021,7 @@ def flatten_pfc_counters(pfc_counts):
         List of non-zero PFC counter information
     """
     flattened = []
+
     def helper(hostname, cntr_type, port, prio, cnt):
         if cnt != 0:
             flattened.append((hostname, cntr_type, port, prio, cnt))
@@ -1356,7 +1357,8 @@ def convert_interface_stats_to_num(i_stats):
                 if stat == 'state' or isinstance(value, int) or isinstance(value, float):
                     num_value = value
                 else:
-                    pytest_assert(isinstance(value, str), "Invalid type for stat '{}' during numeric conversion".format(value))
+                    pytest_assert(isinstance(value, str),
+                                  "Invalid type for stat '{}' during numeric conversion".format(value))
                     match = re.search(r'[0-9,\.]+', value)
                     pytest_assert(bool(match), "No numbers found in value '{}'".format(value))
                     float_or_digit_str = match.group().replace(',', '')
@@ -1366,6 +1368,7 @@ def convert_interface_stats_to_num(i_stats):
                         num_value = int(float_or_digit_str)
                 num_i_stats[hostname][port][stat] = num_value
     return num_i_stats
+
 
 def compare_interface_stats(i_stats_old, i_stats_new):
     """
@@ -1399,6 +1402,7 @@ def compare_interface_stats(i_stats_old, i_stats_new):
                     value = new_value - old_value
                 compared_i_stats[hostname][port][stat] = value
     return compared_i_stats
+
 
 def get_interface_counters_detailed(duthost, port):
     """
