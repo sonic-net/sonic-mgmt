@@ -715,6 +715,7 @@
             "sonic_mgmt_container_202305": "cicd_prod_202305",
             "sonic_mgmt_container_202311": "cicd_prod_202311",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202505": "cicd_prod_202505",
             "sonic_mgmt_container_202405c": "cicd_prod_202405c",
             "sonic_mgmt_container_master": "cicd_prod_master",
             "run_type_check": "run_tests",
