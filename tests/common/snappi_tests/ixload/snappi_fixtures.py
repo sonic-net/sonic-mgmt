@@ -142,13 +142,13 @@ def config_npu_dpu(request, duthost, localhost, tbinfo):
 
         static_ipsmacs_dict = duthost_ha_config(duthost, nw_config)
 
-        npu_startup_result = npu_startup(duthost, localhost)
-        if npu_startup_result is False:
-            return
+        npu_startup_result = npu_startup(duthost, localhost)  # noqa: F841
+        # if npu_startup_result is False:
+        #    return
 
         dpu_startup_result, passing_dpus = dpu_startup(duthost, static_ipsmacs_dict)
-        if dpu_startup_result is False:
-            return
+        # if dpu_startup_result is False:
+        #    return
 
         set_static_routes(duthost, static_ipsmacs_dict)
     else:

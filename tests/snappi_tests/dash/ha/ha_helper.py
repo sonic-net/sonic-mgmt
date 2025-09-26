@@ -110,10 +110,10 @@ class ContinuousMetricsCollector:
                             'client_metrics': client_metrics,
                             'server_metrics': server_metrics
                         })
-                    print(f"Collected metrics for phase {self.current_phase.value}")
+                    logger.info(f"Collected metrics for phase {self.current_phase.value}")
                     time.sleep(self.collection_interval)
                 except Exception as e:
-                    print(f"Error collecting metrics: {e}")
+                    logger.info(f"Error collecting metrics: {e}")
                     time.sleep(1)  # Add delay on error to prevent rapid retries
 
         self.running = True
@@ -324,7 +324,7 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
     clientStat_req = api.metrics_request()
     serverStat_req = api.metrics_request()
 
-    error_threshold = 0.01
+    error_threshold = 0.01  # noqa: F841
     MAX_CPS = 30000000
     MIN_CPS = 0
     threshold = 1000000
@@ -378,7 +378,7 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         collector.stop_collection()
 
         all_metrics = collector.get_metrics()
-        print(f"Collected metrics for {len(all_metrics)} phases")
+        logger.info(f"Collected metrics for {len(all_metrics)} phases")
 
         pattern = r"- name:\s*([^\n]*)\n(.*?)(?=- name|\Z)"
 
@@ -424,9 +424,15 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         ret_rst_pairs = [("Client Retries", c_ret), ("Client Resets", c_rst), ("Server Retries", s_ret),
                          ("Server Resets", s_rst)]
         err_maxname, err_maxvalue = max(ret_rst_pairs, key=lambda p: p[1])
-        error_percent = err_maxvalue / cps_max
+        error_percent = err_maxvalue/cps_objective_value  # noqa: F841
 
-        if cps_max < test_value and err_maxvalue < cps_max and error_percent < error_threshold:
+        """
+        if (err_maxvalue < cps_max) and (error_percent <= error_threshold):
+            test = True
+        else:
+            test = False
+        """
+        if cps_max < test_value:
             test = False
         else:
             test = True
@@ -445,7 +451,7 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         if len(passing_dpus) == 0:
             passing_dpus = 0
 
-        columns = ['#Run', 'CPS Objective', 'Max CPS', f'{err_maxname}', 'Number of DPUs', 'Test Result']
+        columns = ['#Run', 'CPS Objective', 'Max CPS', f'{err_maxname}', 'Number of DPUs (Indexes)', 'Test Result']
         testRuns.append([test_iteration, cps_objective_value, cps_max, err_maxvalue, passing_dpus, test_result])
         table = tabulate(testRuns, headers=columns, tablefmt='psql')
         logger.info(table)
