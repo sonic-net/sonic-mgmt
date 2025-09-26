@@ -125,7 +125,14 @@ class SnappiFanoutManager():
             self.fanout_list[self.last_fanout_assessed]['device_conn']
 
         # Chassis ip details
-        chassis_ip = self.fanout_list[self.last_fanout_assessed]['device_info']['mgmtip']
+        fanout_info = self.fanout_list[self.last_fanout_assessed]['device_info']
+        if 'mgmtip' in fanout_info:
+            key = 'mgmtip'
+        elif 'ManagementIp' in fanout_info:
+            key = 'ManagementIp'
+        else:
+            raise Exception("No Management IP found for fanout with info {}".format(fanout_info))
+        chassis_ip = fanout_info[key]
         self.ip_address = ansible_stdout_to_str(chassis_ip)
 
         # List of chassis cards and ports
