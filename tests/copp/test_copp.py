@@ -362,7 +362,7 @@ def copp_testbed(
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
         if 't2' in tbinfo["topo"]["name"]:
-            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo), tbinfo)
         else:
             upStreamDuthost = duthost
 
