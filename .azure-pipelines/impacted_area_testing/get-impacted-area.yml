@@ -1,7 +1,28 @@
 steps:
 - script: |
+    echo "##vso[task.setvariable variable=BUILD_BRANCH]${{ parameters.BUILD_BRANCH }}"
+    echo "##vso[task.setvariable variable=IMPACT_AREA_INFO]${{ parameters.IMPACT_AREA_INFO }}"
+    TEST_SCRIPTS=""
+    PR_CHECKERS=""
+    if [[ -n "${{ parameters.IMPACT_AREA_INFO }}" ]]; then
+      echo "Impact area was pre-defined."
+      TEST_SCRIPTS=$(echo "${{ parameters.IMPACT_AREA_INFO }}")
+      PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+    else
+      echo "Impact area was not pre-defined."
+    fi
+    echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
+    echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
+  displayName: "Verify input parameters"
+
+
+- script: |
     set -x
 
+    if [[ -n "$(TEST_SCRIPTS)" and -n "$(PR_CHECKERS)" ]]; then
+      echo "Impact area was pre-defined, skip get diff step."
+      exit 0
+    fi
     git fetch --all
     DIFF_FOLDERS=$(git diff $(git merge-base origin/${{ parameters.BUILD_BRANCH }} HEAD)..HEAD  --name-only | xargs -n1 dirname | sort -u | tr '\n' ' ')
 
@@ -18,6 +39,10 @@ steps:
 - script: |
     set -x
 
+    if [[ -n "$(TEST_SCRIPTS)" and -n "$(PR_CHECKERS)" ]]; then
+      echo "Impact area was pre-defined, skip get impacted area step."
+      exit 0
+    fi
     pip install PyYAML
     pip install natsort
 

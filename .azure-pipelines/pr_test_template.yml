@@ -35,6 +35,10 @@ parameters:
   type: string
   default: "sonic-mgmt"
 
+- name: IMPACT_AREA_INFO
+  type: string
+  default: ""
+
 
 jobs:
   - job: get_impacted_area
@@ -46,6 +50,7 @@ jobs:
       - template: impacted_area_testing/get-impacted-area.yml
         parameters:
           BUILD_BRANCH: $(BUILD_BRANCH)
+          IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
