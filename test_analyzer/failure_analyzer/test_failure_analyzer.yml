@@ -57,6 +57,8 @@ stages:
                   2>&1 | tee logs/analyzer.log
             env:
               TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              AZURE_OPENAI_ENDPOINT: $(AZURE_OPENAI_ENDPOINT)
+              AZURE_OPENAI_API: $(AZURE_OPENAI_API)
 
           - publish: test_analyzer/failure_analyzer/logs
             displayName: "Archive test logs"

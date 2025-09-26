@@ -47,6 +47,8 @@ class KustoConnector(object):
             timedelta(days=int(configuration['threshold']['duration_days']))
         self.history_start_time = self.search_end_time - \
             timedelta(days=int(configuration['threshold']['history_days']))
+        self.flaky_query_start_time = self.search_end_time - \
+            timedelta(days=float(configuration['threshold']['flaky_case_query_days']))
 
         # Contains all of the common variables for queries to share, based on configuration
         self.query_head = f'''
@@ -201,14 +203,22 @@ class KustoConnector(object):
         logger.info("Query common summary failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
-    def query_flaky_failure(self):
+    def query_flaky_failure(self, query_testbed=False):
         """
         Query flaky cases in past 7 days.
         """
-        query_str = self.query_head + '''
-        let buildsWithRetry = TestReportUnionData
-        | where UploadTimestamp > datetime({}) and UploadTimestamp <= datetime({})
-        '''.format(self.search_start_time, self.search_end_time).rstrip()
+        if query_testbed:
+            query_str = self.query_head + f'''
+            let buildsWithRetry = TestReportUnionData
+            | where UploadTimestamp > datetime({self.flaky_query_start_time})
+                and UploadTimestamp <= datetime({self.search_end_time})
+            '''.rstrip()
+        else:
+            query_str = self.query_head + f'''
+            let buildsWithRetry = TestReportUnionData
+            | where UploadTimestamp > datetime({self.search_start_time})
+                and UploadTimestamp <= datetime({self.search_end_time})
+            '''.rstrip()
         query_str += self.query_valid_condition + '''
         | summarize maxAttempt = max(toint(Attempt)) by BuildId
         | where maxAttempt >= 1
@@ -230,43 +240,70 @@ class KustoConnector(object):
         ) on BuildId, FullCaseName
         | where Result in (ResultFilterList)
         '''.rstrip()
-        query_str += self.query_common_condition + '''
-        | extend FailedType = case(
-            Summary contains "Pre-test sanity check failed",
-            "pre_sanity_check_failed",
-            Summary contains "Recovery of sanity check failed",
-            "recovery_sanity_check_failed",
-            Summary contains "stage_pre_test sanity check after recovery failed",
-            "stage_pre_test_sanity_check_failed",
-            Summary contains "Did not receive expected packet" or
-            Summary contains "Received expected packet", "PacketLoss",
-            Summary contains "Match Messages:" and Summary contains "analyze_logs",
-            "loganalyzer",
-            Summary contains "bin/ptf --test-dir ptftests", "PtfScriptFailed",
-            Summary contains "Not all critical processes are healthy",
-            "CriticalProcessUnhealthy",
-            Summary contains "system cpu and memory usage check fails",
-            "cpu memory check failed",
-            Summary contains "tests.common.errors.RunAnsibleModuleFail: run module" and
-            Summary contains "failed, Ansible Results", "RunAnsibleModuleFail",
-            Summary contains "PSU", "PSU",
-            Summary contains "fan ", "fan",
-            Summary contains "AssertionError", "AssertionError",
-            Summary contains "Host unreachable in the inventory", 'unreachable',
-            Summary contains "memory usage" and
-            Summary contains "exceeds high threshold", "MemoryExceed",
-            Summary contains "failed on setup with", "SetupError",
-            Summary contains "failed on teardown with", 'Teardown',
-            "Others")
-        | where FailedType in ("loganalyzer","PacketLoss","PtfScriptFailed",
-                              "AssertionError","PSU")
-        | where Summary !in (SummaryWhileList)
-        | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName,
-                  TestCase, opTestCase, Summary, FailedType, Result, BranchName,
-                  OSVersion, TestbedName, Asic, AsicType, TopologyType, Topology,
-                  HardwareSku, BuildId, PipeStatus
-        | sort by UploadTimestamp desc
-        '''.rstrip()
+
+        if query_testbed:
+            query_str += self.query_common_condition + '''
+            | extend FailedType = case(
+                Summary contains "Pre-test sanity check failed","pre_sanity_check_failed",
+                Summary contains "Recovery of sanity check failed","recovery_sanity_check_failed",
+                Summary contains "stage_pre_test sanity check after recovery failed",
+                    "stage_pre_test_sanity_check_failed",
+                Summary contains "Did not receive expected packet" or
+                    Summary contains "Received expected packet", "PacketLoss",
+                Summary contains "Match Messages:" and Summary contains "analyze_logs" ,"loganalyzer",
+                Summary contains "bin/ptf --test-dir ptftests", "PtfScriptFailed",
+                Summary contains "Not all critical processes are healthy","CriticalProcessUnhealthy",
+                Summary contains "system cpu and memory usage check fails", "cpu memory check failed",
+                Summary contains "tests.common.errors.RunAnsibleModuleFail: run module" and
+                    Summary contains "failed, Ansible Results", "RunAnsibleModuleFail",
+                Summary contains "PSU", "PSU",
+                Summary contains "fan ", "fan",
+                Summary contains "AssertionError", "AssertionError",
+                Summary contains "Host unreachable in the inventory", 'unreachable',
+                Summary contains "memory usage" and Summary contains "exceeds high threshold",
+                    "MemoryExceed",
+                Summary contains "failed on setup with", "SetupError",
+                Summary contains "failed on teardown with", 'Teardown',
+                "Others")
+            | where FailedType !in ("loganalyzer","PacketLoss","PtfScriptFailed","AssertionError","PSU")
+            | where Summary !in (SummaryWhileList)
+            | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase,
+                opTestCase, Summary, FailedType, Attempt, Result, BranchName, OSVersion, TestbedName,
+                Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, Pipeline
+            | sort by Summary desc
+            '''.rstrip()
+        else:
+            query_str += self.query_common_condition + '''
+                | extend FailedType = case(
+                    Summary contains "Pre-test sanity check failed","pre_sanity_check_failed",
+                    Summary contains "Recovery of sanity check failed","recovery_sanity_check_failed",
+                    Summary contains "stage_pre_test sanity check after recovery failed",
+                        "stage_pre_test_sanity_check_failed",
+                    Summary contains "Did not receive expected packet" or
+                        Summary contains "Received expected packet", "PacketLoss",
+                    Summary contains "Match Messages:" and Summary contains "analyze_logs" ,"loganalyzer",
+                    Summary contains "bin/ptf --test-dir ptftests", "PtfScriptFailed",
+                    Summary contains "Not all critical processes are healthy","CriticalProcessUnhealthy",
+                    Summary contains "system cpu and memory usage check fails", "cpu memory check failed",
+                    Summary contains "tests.common.errors.RunAnsibleModuleFail: run module" and
+                        Summary contains "failed, Ansible Results", "RunAnsibleModuleFail",
+                    Summary contains "PSU", "PSU",
+                    Summary contains "fan ", "fan",
+                    Summary contains "AssertionError", "AssertionError",
+                    Summary contains "Host unreachable in the inventory", 'unreachable',
+                    Summary contains "memory usage" and Summary contains "exceeds high threshold",
+                        "MemoryExceed",
+                    Summary contains "failed on setup with", "SetupError",
+                    Summary contains "failed on teardown with", 'Teardown',
+                    "Others")
+                | where FailedType in ("loganalyzer","PacketLoss","PtfScriptFailed","AssertionError","PSU")
+                | where Summary !in (SummaryWhileList)
+                | project UploadTimestamp, Feature, ModulePath, FullTestPath, FullCaseName, TestCase,
+                    opTestCase, Summary, FailedType, Result, BranchName, OSVersion, TestbedName,
+                    Asic, AsicType, TopologyType, Topology, HardwareSku, BuildId, Pipeline
+                | sort by UploadTimestamp desc
+                '''.rstrip()
+
         logger.info("Query flaky failure cases:\n{}".format(query_str))
         return self.query(query_str)
 
@@ -435,9 +472,10 @@ class KustoConnector(object):
         query_str = '''
             NightlyTestFailureAnalysis
             | where TriggerIcM == 'true'
-            | project UploadTimestamp, ModulePath, TestCase, Branch, Subject, FailureSummary
+            | project UploadTimestamp, ModulePath, TestCase, Branch, Subject, FailureLevelInfo, FailureSummary
             | sort by UploadTimestamp desc
             '''
+        logger.info("Query all upload records with TriggerIcM:\n{}".format(query_str))
         return self.query(query_str)
 
     def query_previsou_upload_record(self, title):

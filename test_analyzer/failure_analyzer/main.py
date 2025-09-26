@@ -7,15 +7,21 @@ import pytz
 from kusto_connector import KustoConnector
 from data_deduplicator import DataDeduplicator
 from data_analyzer import DataAnalyzer
-from config import configuration, logger, \
-    LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV, LEGACY_AFTER_DEDUPLICATION_ICM_CSV, \
-    FLAKY_AFTER_ANALYSIS_CSV, FLAKY_AFTER_AGGREGATION_CSV, FLAKY_AFTER_DEDUPLICATION_ICM_CSV, FLAKY_AFTER_DEDUPLICATION_CSV, \
-    CONSISTENT_AFTER_ANALYSIS_CSV, CONSISTENT_AFTER_AGGREGATION_CSV, CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV, CONSISTENT_AFTER_DEDUPLICATION_CSV
+from AI_analyzer import LLMFailureCategorizer
+from config import (
+    configuration, logger,
+    LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV,
+    LEGACY_AFTER_DEDUPLICATION_ICM_CSV,
+    FLAKY_AFTER_ANALYSIS_CSV, FLAKY_AFTER_AGGREGATION_CSV, FLAKY_AFTER_DEDUPLICATION_ICM_CSV,
+    FLAKY_AFTER_DEDUPLICATION_CSV,
+    CONSISTENT_AFTER_ANALYSIS_CSV, CONSISTENT_AFTER_AGGREGATION_CSV,
+    CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV
+)
 import pandas as pd
 
 
-
-def log_failure_cases(title, new_icm_table, duplicated_icm_table, include_summary_new=False, include_summary_duplicated=False):
+def log_failure_cases(title, new_icm_table, duplicated_icm_table, include_summary_new=False,
+                      include_summary_duplicated=False):
     """
     Common function to log failure case information in a consistent format.
 
@@ -40,19 +46,22 @@ def log_failure_cases(title, new_icm_table, duplicated_icm_table, include_summar
     logger.info(f"================={title} end =================")
 
 
-def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch, released_branch, upload_flag):
+def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, included_branch,
+         released_branch, upload_flag):
     current_time = datetime.now(tz=pytz.UTC)
     logger.info(configuration)
     configuration["testbeds"] = {}
     configuration["testbeds"]["excluded_testbed_keywords"] = excluded_testbed_keywords
-    configuration["testbeds"]["excluded_testbed_keywords_setup_error"] = excluded_testbed_keywords_setup_error
+    configuration["testbeds"]["excluded_testbed_keywords_setup_error"] = (
+        excluded_testbed_keywords_setup_error)
 
     configuration["branch"]["included_branch"] = included_branch
     configuration["branch"]["released_branch"] = released_branch
     configuration["upload"] = upload_flag
     logger.info("level_priority: {}".format(configuration['level_priority']))
     for level in configuration['level_priority']:
-        configuration.update(read_types_configuration(level, configuration["icm_decision_config"].get(level, {}).get("types", [])))
+        configuration.update(read_types_configuration(
+            level, configuration["icm_decision_config"].get(level, {}).get("types", [])))
 
     deduper = DataDeduplicator()
     kusto_connector = KustoConnector(current_time)
@@ -61,37 +70,49 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     common_summary_new_icm_table = []
     common_summary_duplicated_icm_table = []
 
-    common_summary_new_icm_table, common_summary_duplicated_icm_table = analyzer.run_common_summary_failure()
+    common_summary_new_icm_table, common_summary_duplicated_icm_table = (
+        analyzer.run_common_summary_failure())
 
-    log_failure_cases("Common summary failure cases", common_summary_new_icm_table, common_summary_duplicated_icm_table, True, False)
+    log_failure_cases("Common summary failure cases", common_summary_new_icm_table,
+                      common_summary_duplicated_icm_table, True, False)
 
     legacy_new_icm_table, legacy_duplicated_icm_table = analyzer.run_legacy_failure()
-    log_failure_cases("Legacy failure cases", legacy_new_icm_table, legacy_duplicated_icm_table, True, True)
+    log_failure_cases("Legacy failure cases", legacy_new_icm_table, legacy_duplicated_icm_table,
+                      True, True)
 
     aggregated_legacy_new_icm_list, legacy_aggregated_df = deduper.process_aggregated_failures(
         "legacy", legacy_new_icm_table, legacy_duplicated_icm_table, analyzer,
         LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_ICM_CSV
     )
 
-    log_failure_cases("After aggregation, legacy failure cases", aggregated_legacy_new_icm_list, legacy_duplicated_icm_table, True, True)
+    log_failure_cases("After aggregation, legacy failure cases", aggregated_legacy_new_icm_list,
+                      legacy_duplicated_icm_table, True, True)
 
     consistent_new_icm_table, consistent_duplicated_icm_table = analyzer.run_consistent_failure()
-    log_failure_cases("Consistent failure cases", consistent_new_icm_table, consistent_duplicated_icm_table, True, True)
+    log_failure_cases("Consistent failure cases", consistent_new_icm_table,
+                      consistent_duplicated_icm_table, True, True)
 
     aggregated_consistent_new_icm_list, consistent_aggregated_df = deduper.process_aggregated_failures(
         "consistent", consistent_new_icm_table, consistent_duplicated_icm_table, analyzer,
         CONSISTENT_AFTER_ANALYSIS_CSV, CONSISTENT_AFTER_AGGREGATION_CSV, CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV
     )
-    log_failure_cases("After aggregation, consistent failure cases", aggregated_consistent_new_icm_list, consistent_duplicated_icm_table, True, True)
+    log_failure_cases("After aggregation, consistent failure cases", aggregated_consistent_new_icm_list,
+                      consistent_duplicated_icm_table, True, True)
 
-    logger.info("=================Deduplicating legacy aggregated df against consistent aggregated df=================")
-    legacy_deduplicated_vs_consistent_df = deduper.deduplicate_dataframe_clusters(consistent_aggregated_df, legacy_aggregated_df)
-    legacy_deduplicated_vs_consistent_df.to_csv(LEGACY_AFTER_DEDUPLICATION_CSV, index=False)
-    logger.info(f"After deduplication with consistent failure cases, kept {len(legacy_deduplicated_vs_consistent_df)} unique legacy failure cases, before is {len(legacy_aggregated_df)}")
+    logger.info("=================Deduplicating legacy aggregated df against consistent "
+                "aggregated df=================")
+    legacy_deduplicated_vs_consistent_df = deduper.deduplicate_dataframe_clusters(
+        consistent_aggregated_df, legacy_aggregated_df)
+    legacy_deduplicated_vs_consistent_df.to_csv(LEGACY_AFTER_DEDUPLICATION_CSV, index=True)
+    logger.info(f"After deduplication with consistent failure cases, kept "
+                f"{len(legacy_deduplicated_vs_consistent_df)} unique legacy failure cases, "
+                f"before is {len(legacy_aggregated_df)}")
 
-    aggregated_legacy_new_icm_list = deduper.filter_out_icm_list("legacy", legacy_new_icm_table, legacy_deduplicated_vs_consistent_df)
+    aggregated_legacy_new_icm_list = deduper.filter_out_icm_list(
+        "legacy", legacy_new_icm_table, legacy_deduplicated_vs_consistent_df)
 
-    log_failure_cases("After aggregation, legacy failure cases", aggregated_legacy_new_icm_list, legacy_duplicated_icm_table, True, True)
+    log_failure_cases("After aggregation, legacy failure cases", aggregated_legacy_new_icm_list,
+                      legacy_duplicated_icm_table, True, True)
 
     flaky_new_icm_table, flaky_duplicated_icm_table = analyzer.run_flaky_failure()
 
@@ -103,35 +124,55 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
     )
 
     # Deduplicate flaky_aggregated_df against consistent_aggregated_df and legacy failures
-    logger.info("=================Deduplicating flaky failure case aggregated df against consistent and legacy aggregated dfs=================")
+    logger.info("=================Deduplicating flaky failure case aggregated df against "
+                "consistent and legacy aggregated dfs=================")
     # Combine legacy and consistent dataframes to use as reference for flaky deduplication
-    combined_reference_df = pd.concat([consistent_aggregated_df, legacy_deduplicated_vs_consistent_df], ignore_index=True)
-    logger.info(f"Combined dataframe has {len(consistent_aggregated_df)} consistent + {len(legacy_deduplicated_vs_consistent_df)} legacy = {len(combined_reference_df)} total entries")
+    combined_reference_df = pd.concat([consistent_aggregated_df, legacy_deduplicated_vs_consistent_df],
+                                      ignore_index=True)
+    logger.info(f"Combined dataframe has {len(consistent_aggregated_df)} consistent + "
+                f"{len(legacy_deduplicated_vs_consistent_df)} legacy = "
+                f"{len(combined_reference_df)} total entries")
 
     flaky_deduplicated_df = deduper.deduplicate_dataframe_clusters(combined_reference_df, flaky_aggregated_df)
-    flaky_deduplicated_df.to_csv(FLAKY_AFTER_DEDUPLICATION_CSV, index=False)
-    logger.info(f"After deduplication with combined df, kept {len(flaky_deduplicated_df)} unique flaky entries")
+    flaky_deduplicated_df.to_csv(FLAKY_AFTER_DEDUPLICATION_CSV, index=True)
+    logger.info(f"After deduplication with combined df, kept {len(flaky_deduplicated_df)} "
+                f"unique flaky entries")
 
-    aggregated_flaky_new_icm_list = deduper.filter_out_icm_list("flaky", flaky_new_icm_table, flaky_deduplicated_df)
+    aggregated_flaky_new_icm_list = deduper.filter_out_icm_list("flaky", flaky_new_icm_table,
+                                                                flaky_deduplicated_df)
 
-    log_failure_cases("After aggregation, flaky failure cases", aggregated_flaky_new_icm_list, flaky_duplicated_icm_table, True, True)
+    log_failure_cases("After aggregation, flaky failure cases", aggregated_flaky_new_icm_list,
+                      flaky_duplicated_icm_table, True, True)
+
+    # AI-based flaky case analysis
+    ai_analyzer = LLMFailureCategorizer()
+    ai_flaky_new_icm_table, ai_flaky_duplicated_icm_table = ai_analyzer.run_ai_flaky_analysis(analyzer)
+
+    log_failure_cases("After deduplication, AI flaky failure cases", ai_flaky_new_icm_table,
+                      ai_flaky_duplicated_icm_table, True, True)
 
     origin_data = [
         {"table": common_summary_new_icm_table, "type": "common"},
         {"table": aggregated_legacy_new_icm_list, "type": "legacy"},
         {"table": aggregated_consistent_new_icm_list, "type": "consistent"},
         {"table": aggregated_flaky_new_icm_list, "type": "flaky"},
+        {"table": ai_flaky_new_icm_table, "type": "ai_flaky"},
     ]
     logger.info(f"Type common Count {len(common_summary_new_icm_table)}")
     logger.info(f"Type legacy Count {len(aggregated_legacy_new_icm_list)}")
     logger.info(f"Type consistent Count {len(aggregated_consistent_new_icm_list)}")
     logger.info(f"Type flaky Count {len(aggregated_flaky_new_icm_list)}")
+    logger.info(f"Type ai_flaky Count {len(ai_flaky_new_icm_table)}")
 
     final_failure_list, uploading_dupplicated_list = deduper.deduplication(
-        common_summary_new_icm_table, origin_data, configuration["branch"]["included_branch"])
-    duplicated_icm_table = common_summary_duplicated_icm_table + legacy_duplicated_icm_table + \
-        flaky_duplicated_icm_table + consistent_duplicated_icm_table + uploading_dupplicated_list
-    log_failure_cases("After deduplication, final result", final_failure_list, duplicated_icm_table, True, False)
+        origin_data, configuration["branch"]["included_branch"]
+        )
+
+    duplicated_icm_table = (common_summary_duplicated_icm_table + legacy_duplicated_icm_table +
+                            flaky_duplicated_icm_table + consistent_duplicated_icm_table +
+                            uploading_dupplicated_list)
+    log_failure_cases("After deduplication, final result", final_failure_list, duplicated_icm_table,
+                      True, False)
 
     autoblame_table = analyzer.generate_autoblame_ado_data(final_failure_list)
     logger.info("=================AutoBlame items=================")
@@ -143,6 +184,7 @@ def main(excluded_testbed_keywords, excluded_testbed_keywords_setup_error, inclu
 
     end_time = datetime.now(tz=pytz.UTC)
     logger.info("Cost {} for this run.".format(end_time - current_time))
+
 
 def read_types_configuration(level, type_list):
     """
@@ -167,7 +209,6 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
         description="Analyze test result")
-
 
     parser.add_argument(
         "--exclude_testbed", "-extb",
@@ -213,7 +254,7 @@ if __name__ == '__main__':
     upload_flag = args.upload
 
     logger.info("excluded_testbed_keywords={}, excluded_testbed_keywords_setup_error={}"
-        .format(excluded_testbed_keywords, excluded_testbed_keywords_setup_error))
+                .format(excluded_testbed_keywords, excluded_testbed_keywords_setup_error))
 
     logger.info(f"included_branch={included_branch}, released_branch={released_branch}")
 

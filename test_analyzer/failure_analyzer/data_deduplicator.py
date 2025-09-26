@@ -1,4 +1,4 @@
-from config import configuration, logger, ICM_PREFIX, MIDDLE_FAILURES_CSV, LEGACY_AFTER_ANALYSIS_CSV, LEGACY_AFTER_AGGREGATION_CSV, LEGACY_AFTER_DEDUPLICATION_CSV, FLAKY_AFTER_ANALYSIS_CSV, FLAKY_AFTER_AGGREGATION_CSV, FLAKY_AFTER_DEDUPLICATION_CSV, CONSISTENT_AFTER_ANALYSIS_CSV, CONSISTENT_AFTER_AGGREGATION_CSV, CONSISTENT_AFTER_DEDUPLICATION_CSV
+from config import configuration, logger, ICM_PREFIX, MIDDLE_FAILURES_CSV
 import pytz
 from datetime import datetime, timedelta
 import json
@@ -17,7 +17,7 @@ class DataDeduplicator:
         self.new_icm_number_limit = configuration['icm_limitation']['new_icm_number_limit']
         self.setup_error_limit = configuration['icm_limitation']['setup_error_limit']
         self.failure_limit = configuration['icm_limitation']['failure_limit']
-        self.platform_limit = configuration['icm_limitation']['platform_limit']
+        self.max_ai_flaky_icm_limit = configuration['icm_limitation']['max_ai_flaky_icm_limit']
 
         # For each branch, set a limit for created IcMs
         default_icm_limit = configuration['icm_limitation']['default_branch_limit']
@@ -27,29 +27,27 @@ class DataDeduplicator:
             icm_branch_limit = configuration['icm_limitation'].get(icm_branch_limit_key, default_icm_limit)
             setattr(self, icm_branch_limit_key, icm_branch_limit)
 
-        self.max_icm_count_per_module = configuration['icm_limitation']['max_icm_count_per_module']
         self.HOST_RE = re.compile(
             r'^(?:[A-Za-z0-9]*(?:str|bjw)[A-Za-z0-9]*)'  # first part must contain 'str' or 'bjw'
-            r'-'                        # first hyphen
-            r'(?:[A-Za-z0-9]+(?:x\d+)?)' # platform: alnum+, optional x+digits
-            r'(?:-[A-Za-z0-9]+)*'       # any additional segments, hyphen + alnum+
-            r'-(?:u\d+|\d+)$'          # final hyphen + either 'u' followed by digits or just digits
+            r'-'                         # first hyphen
+            r'(?:[A-Za-z0-9]+(?:x\d+)?)'  # platform: alnum+, optional x+digits
+            r'(?:-[A-Za-z0-9]+)*'        # any additional segments, hyphen + alnum+
+            r'-(?:u\d+|\d+)$'            # final hyphen + either 'u' followed by digits or just digits
         )
 
-
-    def deduplication(self, common_summary_new_icm_table, original_failure_dict, branches):
+    def deduplication(self, original_failure_dict, branches):
         """
         Deduplicate the IcM list, remove the duplicated IcM.
         """
         duplicated_icm_list = []
         unique_title = set()
         final_icm_list = []
-        count_platform_test = 0
+        count_ai_flaky = 0  # Add counter for AI flaky cases
         branch_counts = {branch: 0 for branch in branches}  # Initialize counts for each branch
 
         logger.info("limit the number of setup error cases to {}".format(self.setup_error_limit))
         logger.info("limit the number of general failure cases to {}".format(self.failure_limit))
-        logger.info("limit the number of platform_tests cases to {}".format(self.platform_limit))
+        logger.info("limit the number of AI flaky cases to {}".format(self.max_ai_flaky_icm_limit))
 
         # Logging limits for each branch
         for branch in branches:
@@ -65,7 +63,8 @@ class DataDeduplicator:
                 if candidator['subject'] in unique_title:
                     candidator['trigger_icm'] = False
                     duplicated_icm_list.append(candidator)
-                    logger.info(f"Found duplicated item in appending IcM list, not trigger IcM for: {candidator['subject']}")
+                    logger.info(f"Found duplicated item in appending IcM list, not trigger IcM for: "
+                                f"{candidator['subject']}")
                     continue
 
                 unique_title.add(candidator['subject'])
@@ -75,11 +74,13 @@ class DataDeduplicator:
                     duplicated_flag = self.check_duplicates(uploading_new_icm['subject'], candidator)
                     if duplicated_flag:
                         duplicated_icm_list.append(candidator)
-                        logger.info(f"Found lower case, not trigger IcM: the IcM in final_icm_list {uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
+                        logger.info(f"Found lower case, not trigger IcM: the IcM in final_icm_list "
+                                    f"{uploading_new_icm['subject']}, duplicated one {candidator['subject']}")
                         break
                     duplicated_flag = self.check_duplicates(candidator['subject'], uploading_new_icm)
                     if duplicated_flag:
-                        logger.info(f"Found lower case, replace {uploading_new_icm['subject']} in final_icm_list with {candidator['subject']}")
+                        logger.info(f"Found lower case, replace {uploading_new_icm['subject']} "
+                                    f"in final_icm_list with {candidator['subject']}")
                         final_icm_list.remove(uploading_new_icm)
                         duplicated_icm_list.append(uploading_new_icm)
                         final_icm_list.append(candidator)
@@ -88,54 +89,68 @@ class DataDeduplicator:
 
                 if not duplicated_flag:
                     candidator_branch = candidator['branch']
-                    if 'platform_tests' in candidator['module_path']:
-                        count_platform_test += 1
-                        if count_platform_test > self.platform_limit:
-                            logger.info(f"Reach the limit of platform_test case, ignore this IcM {candidator['subject']}")
+
+                    # Check AI flaky limit
+                    if failure_type == 'ai_flaky':
+                        if count_ai_flaky >= self.max_ai_flaky_icm_limit:
+                            logger.info(f"Reach the limit of AI flaky cases: {self.max_ai_flaky_icm_limit}, "
+                                        f"ignore this IcM {candidator['subject']}")
                             candidator['trigger_icm'] = False
                             continue
+                        count_ai_flaky += 1
 
-                    # Check that this branch is part of a release we care about (i.e. 20231105, if we have specified 202311 in config)
-                    candidator_branch_prefix_list = [branch for branch in branch_counts.keys() if candidator_branch.startswith(branch)]
+                    # Check that this branch is part of a release we care about
+                    # (i.e. 20231105, if we have specified 202311 in config)
+                    candidator_branch_prefix_list = [
+                        branch for branch in branch_counts.keys()
+                        if candidator_branch.startswith(branch)]
 
                     if len(candidator_branch_prefix_list) > 0:
                         candidator_branch_prefix = candidator_branch_prefix_list[0]
                         branch_limit_attr = f"icm_{candidator_branch_prefix}_limit"
                         branch_limit = getattr(self, branch_limit_attr)
                         if branch_counts[candidator_branch_prefix] >= branch_limit:
-                            logger.info(f"Reach the limit of {candidator_branch_prefix} case: {branch_limit}, ignore this IcM {candidator['subject']}")
+                            logger.info(f"Reach the limit of {candidator_branch_prefix} case: "
+                                        f"{branch_limit}, ignore this IcM {candidator['subject']}")
                             candidator['trigger_icm'] = False
                             continue
                         branch_counts[candidator_branch_prefix] += 1
 
-                    logger.info(f"Add branch {candidator_branch} type {failure_type} : {candidator['subject']} to final_icm_list")
+                    logger.info(f"Add branch {candidator_branch} type {failure_type} : "
+                                f"{candidator['subject']} to final_icm_list")
                     final_icm_list.append(candidator)
 
-        logger.info("Count summary: platform_test {}, ".format(count_platform_test) +
+        logger.info(f"Count summary: ai_flaky {count_ai_flaky}, " +
                     ", ".join(f"{branch} {count}" for branch, count in branch_counts.items()))
         for kusto_row_item in final_icm_list:
             self.check_subject_match(kusto_row_item)
         for kusto_row_item in duplicated_icm_list:
             self.check_subject_match(kusto_row_item)
+        logger.debug(f"duplicated_icm_list={json.dumps(duplicated_icm_list, indent=4)}")
         logger.debug(f"final_icm_list={json.dumps(final_icm_list, indent=4)}")
 
         return final_icm_list, duplicated_icm_list
-
 
     def check_subject_match(self, kusto_row):
         """
         Check if the subject match with asic/hwsku/osversion
         """
-        asic_name = kusto_row['failure_level_info']['asic'] if 'asic' in kusto_row['failure_level_info'] else None
-        hwsku_name = kusto_row['failure_level_info']['hwsku'] if 'hwsku' in kusto_row['failure_level_info'] else None
-        osversion_name = kusto_row['failure_level_info']['osversion'] if 'osversion' in kusto_row['failure_level_info'] else None
+        asic_name = (kusto_row['failure_level_info']['asic']
+                     if 'asic' in kusto_row['failure_level_info'] else None)
+        hwsku_name = (kusto_row['failure_level_info']['hwsku']
+                      if 'hwsku' in kusto_row['failure_level_info'] else None)
+        osversion_name = (kusto_row['failure_level_info']['osversion']
+                          if 'osversion' in kusto_row['failure_level_info'] else None)
         subject_name = kusto_row['subject']
         if asic_name and asic_name not in subject_name:
-            logger.error("In check_subject_match: asic {} not in subject {}".format(asic_name, subject_name))
+            logger.error("In check_subject_match: asic {} not in subject {}".format(
+                asic_name, subject_name))
         if hwsku_name and hwsku_name not in subject_name:
-            logger.error("In check_subject_match: hwsku {} not in subject {}".format(hwsku_name, subject_name))
+            logger.error("In check_subject_match: hwsku {} not in subject {}".format(
+                hwsku_name, subject_name))
         if osversion_name and osversion_name not in subject_name:
-            logger.error("In check_subject_match: osversion {} not in subject {}".format(osversion_name, subject_name))
+            logger.error("In check_subject_match: osversion {} not in subject {}".format(
+                osversion_name, subject_name))
 
         return
 
@@ -143,12 +158,19 @@ class DataDeduplicator:
         """
         Prepares data for clustering by removing duplicates and NaN values.
         """
-        failures_df = pd.DataFrame(failure_new_icm_table, columns=['full_casename', 'subject', 'branch', 'failure_summary'])
+        failures_df = pd.DataFrame(
+            failure_new_icm_table,
+            columns=['full_casename', 'subject', 'branch', 'failure_summary']
+        )
         # Add topology, asic, hwsku and os_version columns from failure_level_info
-        failures_df['topology'] = [item.get('failure_level_info', {}).get('topology', '') for item in failure_new_icm_table]
-        failures_df['asic'] = [item.get('failure_level_info', {}).get('asic', '') for item in failure_new_icm_table]
-        failures_df['hwsku'] = [item.get('failure_level_info', {}).get('hwsku', '') for item in failure_new_icm_table]
-        failures_df['os_version'] = [item.get('failure_level_info', {}).get('os_version', '') for item in failure_new_icm_table]
+        failures_df['topology'] = [
+            item.get('failure_level_info', {}).get('topology', '') for item in failure_new_icm_table]
+        failures_df['asic'] = [
+            item.get('failure_level_info', {}).get('asic', '') for item in failure_new_icm_table]
+        failures_df['hwsku'] = [
+            item.get('failure_level_info', {}).get('hwsku', '') for item in failure_new_icm_table]
+        failures_df['os_version'] = [
+            item.get('failure_level_info', {}).get('os_version', '') for item in failure_new_icm_table]
 
         return failures_df
 
@@ -159,7 +181,8 @@ class DataDeduplicator:
         Aggregates similar summaries and keeps representative cases.
 
         Args:
-            dataframe_data: DataFrame with columns [full_casename, subject, branch, failure_summary, topology, asic, hwsku, os_version]
+            dataframe_data: DataFrame with columns [full_casename, subject, branch, failure_summary,
+                           topology, asic, hwsku, os_version]
             week_failure_df: DataFrame containing all failure data with Summaries across branches and testbeds
 
         Returns:
@@ -171,7 +194,8 @@ class DataDeduplicator:
         if len(df) == 0:
             logger.info("No failure data to process - returning empty dataframes")
             return pd.DataFrame()
-        df['aggregated'] = df['failure_summary'].apply(lambda x: False if pd.isna(x) or not x else True)
+        df['aggregated'] = df['failure_summary'].apply(
+            lambda x: False if pd.isna(x) or not x else True)
         # Create processed_summary column for storing preprocessed versions
         df['processed_summary'] = df['failure_summary'].copy()
 
@@ -211,7 +235,8 @@ class DataDeduplicator:
                             new_row['failure_summary'] = match_row['Summary']  # Keep original summary as is
                             new_row['processed_summary'] = match_row['Summary']  # Will be processed later
                             rows_to_add.append(new_row)
-                            logger.info(f"Subject '{row['subject']}': Added new row with summary {new_row['failure_summary'][:80]}")
+                            logger.info(f"Subject '{row['subject']}': Added new row with summary "
+                                        f"{new_row['failure_summary'][:80]}")
 
         # Apply the changes to the dataframe
         if rows_to_drop:
@@ -223,9 +248,11 @@ class DataDeduplicator:
         # Verify that we don't have empty summaries after processing
         empty_summary_rows = df[df['failure_summary'].isna() | (df['failure_summary'] == '')]
         if not empty_summary_rows.empty:
-            logger.error(f"\nFound {len(empty_summary_rows)} rows with empty summaries after filling process:")
+            logger.error(f"\nFound {len(empty_summary_rows)} rows with empty summaries after "
+                         f"filling process:")
             for idx, row in empty_summary_rows.iterrows():
-                logger.error(f"  - Subject '{row['subject']}': Case: {row['full_casename']}, Branch: {row['branch']}")
+                logger.error(f"  - Subject '{row['subject']}': Case: {row['full_casename']}, "
+                             f"Branch: {row['branch']}")
 
         else:
             logger.info("\nNo empty summaries found after filling process.")
@@ -239,7 +266,9 @@ class DataDeduplicator:
         # Process each branch group separately for clustering
         for branch_group, branch_group_df in df.groupby('branch_group'):
             # Skip empty summaries
-            to_cluster = branch_group_df[~branch_group_df['processed_summary'].isna() & (branch_group_df['processed_summary'] != '')]
+            to_cluster = branch_group_df[
+                ~branch_group_df['processed_summary'].isna() &
+                (branch_group_df['processed_summary'] != '')]
 
             if to_cluster.empty:
                 logger.error(f"Branch group {branch_group}: No summaries to cluster")
@@ -283,12 +312,14 @@ class DataDeduplicator:
         representative_rows = []
         seen_clusters = set()
         # Process clusters with aggregated=True first, as they are preferred representatives
-        logger.info("\nProcessing clusters with aggregated=True as preferred representatives...")
+        logger.info("\nProcessing clusters with aggregated=True as preferred "
+                    "representatives...")
         for idx, (cluster_id, cluster_df) in enumerate(df.groupby('cluster')):
             cluster_name = cluster_df['cluster'].iloc[0]
             cluster_size = len(cluster_df)
 
-            logger.info(f"Cluster {idx+1}/{len(df['cluster'].unique())}: Cluster '{cluster_name}' with {cluster_size} entries")
+            logger.info(f"Cluster {idx+1}/{len(df['cluster'].unique())}: Cluster '{cluster_name}' "
+                        f"with {cluster_size} entries")
 
             if cluster_name in seen_clusters:
                 logger.info(f"  - Skipping cluster '{cluster_name}' (already processed)")
@@ -353,12 +384,14 @@ class DataDeduplicator:
 
                 # Sum up the counts from all unique unseen clusters
                 # Use drop_duplicates to count each cluster type only once
-                unseen_cluster_df = case_df[case_df['cluster'].isin(unseen_clusters)].drop_duplicates('cluster')
+                unseen_cluster_df = case_df[case_df['cluster'].isin(unseen_clusters)].drop_duplicates(
+                    'cluster')
                 total_count = unseen_cluster_df['count'].sum()
                 representative_row['count'] = total_count
 
                 representative_rows.append(representative_row)
-                logger.info(f"  - Subject '{case_name}': Added combined row with clusters '{representative_row['cluster']}' to output")
+                logger.info(f"  - Subject '{case_name}': Added combined row with clusters "
+                            f"'{representative_row['cluster']}' to output")
 
                 # Add all unseen clusters to seen_clusters to avoid duplicates
                 for cluster in unseen_clusters:
@@ -369,7 +402,8 @@ class DataDeduplicator:
 
         missing_subjects = all_subjects - rep_subjects
         if missing_subjects:
-            logger.info(f"Note: {len(missing_subjects)} subjects from original dataframe are missing in representative rows:")
+            logger.info(f"Note: {len(missing_subjects)} subjects from original dataframe are missing "
+                        f"in representative rows:")
             for subject in missing_subjects:
                 logger.info(f"  - Aggreated subject: '{subject}'")
 
@@ -383,14 +417,16 @@ class DataDeduplicator:
                 subject_counts[subject] = [i]
 
         # logger.info and handle duplicates
-        duplicates = {subject: indices for subject, indices in subject_counts.items() if len(indices) > 1}
+        duplicates = {subject: indices for subject, indices in subject_counts.items()
+                      if len(indices) > 1}
         if duplicates:
             logger.error(f"Warning: Found {len(duplicates)} subjects with duplicate entries in representative rows:")
             for subject, indices in duplicates.items():
                 logger.error(f"  - Subject '{subject}' appears {len(indices)} times at indices: {indices}")
                 # Keep only the first occurrence (you could implement a different strategy if needed)
                 indices_to_remove = indices[1:]
-                logger.info(f"  - Subject '{subject}': Keeping index {indices[0]}, removing indices {indices_to_remove}")
+                logger.info(f"  - Subject '{subject}': Keeping index {indices[0]}, "
+                            f"removing indices {indices_to_remove}")
                 # Remove duplicates in reverse order to avoid index shifting
                 for idx in sorted(indices_to_remove, reverse=True):
                     representative_rows.pop(idx)
@@ -429,14 +465,17 @@ class DataDeduplicator:
         # Filter active_icm_df to only include rows with the same branch group as the target_summary
         # For master/internal, this will match both branches; for others, use branch group logic
         if target_branch_group == 'master_internal':
-            same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
+            same_branch_df = valid_active_icm_df[
+                valid_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
         else:
             # For numeric branches, match by branch group (first 6 digits)
             # For other branches, match exactly
-            same_branch_df = valid_active_icm_df[valid_active_icm_df['Branch'].apply(self.get_branch_group) == target_branch_group]
+            same_branch_df = valid_active_icm_df[
+                valid_active_icm_df['Branch'].apply(self.get_branch_group) == target_branch_group]
 
         if same_branch_df.empty:
-            logger.info("{}: No active IcM found for branch group {} (branch: {}) in valid date scope".format(case_branch, target_branch_group, icm_branch))
+            logger.info("{}: No active IcM found for branch group {} (branch: {}) in valid date scope"
+                        .format(case_branch, target_branch_group, icm_branch))
             return False, None
 
         # Prepare data for clustering
@@ -463,15 +502,19 @@ class DataDeduplicator:
             # Get the rows from same_branch_df that match these indices
             matched_rows = same_branch_df.iloc[same_cluster_indices]
 
-            logger.debug("{}: Found {} matches in the same cluster".format(case_branch, len(matched_rows)))
+            logger.debug("{}: Found {} matches in the same cluster"
+                         .format(case_branch, len(matched_rows)))
             for index, row in matched_rows.iterrows():
-                logger.debug("{}: Matched Row: Branch={}, BranchGroup={}, CreatedDate={}\n Title={}\n Summary={}".format(
-                    case_branch, row['Branch'], target_branch_group, row['SourceCreateDate'], row['Title'], row['FailureSummary']))
+                logger.debug("{}: Matched Row: Branch={}, BranchGroup={}, CreatedDate={}\n "
+                             "Title={}\n Summary={}".format(
+                                 case_branch, row['Branch'], target_branch_group,
+                                 row['SourceCreateDate'], row['Title'], row['FailureSummary']))
 
             # Return the first matched row
             return True, matched_rows.iloc[0]
         else:
-            logger.info("{}: No matched IcM found for branch group {} (branch: {}) in valid date scope".format(case_branch, target_branch_group, icm_branch))
+            logger.info("{}: No matched IcM found for branch group {} (branch: {}) in valid date scope"
+                        .format(case_branch, target_branch_group, icm_branch))
             return False, None
 
     def is_same_with_active_icm_by_gpt(self, target_summary, active_icm_df):
@@ -496,7 +539,8 @@ class DataDeduplicator:
         topology = condition.get('topology')
         hwsku = condition.get('hwsku')
         osversion = condition.get('osversion')
-        logger.info("{}: asic={}, topology={}, hwsku={}, osversion={}".format(case_branch, asic, topology, hwsku, osversion))
+        logger.info("{}: asic={}, topology={}, hwsku={}, osversion={}"
+                    .format(case_branch, asic, topology, hwsku, osversion))
 
         query_conditions = [
             f"ModulePath == '{kusto_data['module_path']}'",
@@ -519,7 +563,9 @@ class DataDeduplicator:
 
         logger.debug("{} failed_results_df=\n{}".format(case_branch, failed_results_df[['TestCase', 'Summary']]))
         if len(failed_results_df) == 0:
-            logger.error(f"{case_branch}: with asic:{asic} topology:{topology} hwsku:{hwsku} osversion:{osversion}, No failed results found in 7 days results, don't trigger IcM.")
+            logger.error(f"{case_branch}: with asic:{asic} topology:{topology} hwsku:{hwsku} "
+                         f"osversion:{osversion}, No failed results found in 7 days results, "
+                         f"don't trigger IcM.")
             return failed_results_df, False
         return failed_results_df, True
 
@@ -535,24 +581,32 @@ class DataDeduplicator:
             condition['hwsku'] = kusto_data['failure_level_info'].get('hwsku')
             condition['osversion'] = kusto_data['failure_level_info'].get('osversion')
             logger.debug(f"{case_branch}: with condition={condition} Setting failure summary...")
-            failed_results_df, _ = self.is_in_weekly_failure(case_branch, kusto_data, week_failed_testcases_df, condition)
-            case_branch = kusto_data['module_path'] + '.' + kusto_data['testcase'] + "#" + kusto_data['branch']
+            failed_results_df, _ = self.is_in_weekly_failure(case_branch, kusto_data,
+                                                             week_failed_testcases_df, condition)
+            case_branch = (kusto_data['module_path'] + '.' + kusto_data['testcase'] +
+                           "#" + kusto_data['branch'])
             asic = kusto_data['failure_level_info'].get('asic')
             topology = kusto_data['failure_level_info'].get('topology')
             hwsku = kusto_data['failure_level_info'].get('hwsku')
             osversion = kusto_data['failure_level_info'].get('osversion')
             if len(failed_results_df) > 0:
-                is_aggregated = self.is_same_cluster(failed_results_df, summary_col='Summary', eps=configuration["threshold"]["eps"], min_samples=1)
+                is_aggregated = self.is_same_cluster(failed_results_df, summary_col='Summary',
+                                                     eps=configuration["threshold"]["eps"],
+                                                     min_samples=1)
                 if is_aggregated:
                     kusto_data['failure_summary'] = failed_results_df['Summary'].iloc[0]
-                    logger.info("{}:{} {} {} {} Has similar summary and it can be aggregated: {}".format(case_branch, asic, topology, hwsku, osversion, kusto_data['failure_summary']))
+                    logger.info("{}:{} {} {} {} Has similar summary and it can be aggregated: {}"
+                                .format(case_branch, asic, topology, hwsku, osversion,
+                                        kusto_data['failure_summary']))
                 else:
                     kusto_data['failure_summary'] = ''
-                    logger.info("{}:{} {} {} {} Doesn't have similar summary, so it can't be aggregated".format(case_branch, asic, topology, hwsku, osversion))
+                    logger.info("{}:{} {} {} {} Doesn't have similar summary, so it can't be aggregated"
+                                .format(case_branch, asic, topology, hwsku, osversion))
             else:
                 kusto_data['failure_summary'] = ''
                 kusto_data['trigger_icm'] = False
-                logger.error("{}: No failed results found in 7 days results, don't trigger IcM. Ignore it.".format(case_branch))
+                logger.error("{}: No failed results found in 7 days results, don't trigger IcM. "
+                             "Ignore it.".format(case_branch))
         no_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' not in icm)
         has_summary_count = sum(1 for icm in kusto_data_list if 'failure_summary' in icm)
         logger.info("{}:Number of cases without failure_summary:{}".format(case_branch, no_summary_count))
@@ -596,18 +650,22 @@ class DataDeduplicator:
 
         # Create branch groups for aggregated_df
         aggregated_df_copy = aggregated_df.copy()
-        aggregated_df_copy['branch_group'] = aggregated_df_copy['branch'].apply(self.get_branch_group)
+        aggregated_df_copy['branch_group'] = aggregated_df_copy['branch'].apply(
+            self.get_branch_group)
 
-        for branch_group, branch_group_aggregated_df in aggregated_df_copy.groupby('branch_group'):
+        for branch_group, branch_group_aggregated_df in aggregated_df_copy.groupby(
+                'branch_group'):
             logger.info(f"Processing branch group: {branch_group}")
 
             # Filter recent active ICMs for the same branch group
             if branch_group == 'master_internal':
-                branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
+                branch_active_icm_df = recent_active_icm_df[
+                    recent_active_icm_df['Branch'].str.lower().isin(['master', 'internal'])]
             else:
                 # For numeric branches, match by branch group (first 6 digits)
                 # For other branches, match exactly
-                branch_active_icm_df = recent_active_icm_df[recent_active_icm_df['Branch'].apply(self.get_branch_group) == branch_group]
+                branch_active_icm_df = recent_active_icm_df[
+                    recent_active_icm_df['Branch'].apply(self.get_branch_group) == branch_group]
 
             if branch_active_icm_df.empty:
                 logger.info(f"No recent active ICMs found for branch group {branch_group}")
@@ -630,8 +688,10 @@ class DataDeduplicator:
                 continue
 
             # Preprocess summaries
-            aggregated_summaries_processed = [self.__preprocess_summary(s) for s in aggregated_summaries]
-            active_icm_summaries_processed = [self.__preprocess_summary(s) for s in active_icm_summaries]
+            aggregated_summaries_processed = [self.__preprocess_summary(s)
+                                              for s in aggregated_summaries]
+            active_icm_summaries_processed = [self.__preprocess_summary(s)
+                                              for s in active_icm_summaries]
 
             # Combine all summaries for clustering
             all_summaries = aggregated_summaries_processed + active_icm_summaries_processed
@@ -647,7 +707,8 @@ class DataDeduplicator:
             aggregated_clusters = clusters[:len(aggregated_summaries_processed)]
 
             # Create mapping from aggregated summary index to cluster
-            valid_aggregated_indices = branch_group_aggregated_df.index[branch_group_aggregated_df['failure_summary'].notna()].tolist()
+            valid_aggregated_indices = branch_group_aggregated_df.index[
+                branch_group_aggregated_df['failure_summary'].notna()].tolist()
 
             removed_count = 0
             for i, (orig_idx, cluster) in enumerate(zip(valid_aggregated_indices, aggregated_clusters)):
@@ -667,19 +728,27 @@ class DataDeduplicator:
                             break
 
                     if matched_active_icm is not None:
-                        logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - matches active ICM cluster {cluster}")
-                        logger.info(f"  Matched active ICM title: '{matched_active_icm.get('Title', 'N/A')}'")
-                        logger.info(f"  Matched active ICM summary: '{matched_active_icm.get('FailureSummary', 'N/A')}'")
-                        logger.info(f"  Duplicated row summary: '{row_dict.get('failure_summary', 'N/A')}'")
+                        logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - "
+                                    f"matches active ICM cluster {cluster}")
+                        logger.info(f"  Matched active ICM title: "
+                                    f"'{matched_active_icm.get('Title', 'N/A')}'")
+                        logger.info(f"  Matched active ICM summary: "
+                                    f"'{matched_active_icm.get('FailureSummary', 'N/A')}'")
+                        logger.info(f"  Duplicated row summary: "
+                                    f"'{row_dict.get('failure_summary', 'N/A')}'")
 
                     else:
-                        logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - matches active ICM cluster {cluster} (no specific match found)")
+                        logger.info(f"Marking as duplicate: subject '{row_dict.get('subject', 'N/A')}' - "
+                                    f"matches active ICM cluster {cluster} (no specific match found)")
 
             # Add rows with empty failure_summary (they can't be duplicates)
-            empty_summary_rows = branch_group_aggregated_df[branch_group_aggregated_df['failure_summary'].isna() | (branch_group_aggregated_df['failure_summary'] == '')]
+            empty_summary_rows = branch_group_aggregated_df[
+                (branch_group_aggregated_df['failure_summary'].isna()) |
+                (branch_group_aggregated_df['failure_summary'] == '')]
             for _, empty_row in empty_summary_rows.iterrows():
                 empty_row_dict = empty_row.to_dict()
-                logger.debug(f"Branch group {branch_group}: found empty summary row, append it to deduplicated_rows: {empty_row_dict.get('subject', 'N/A')}")
+                logger.debug(f"Branch group {branch_group}: found empty summary row, "
+                             f"append it to deduplicated_rows: {empty_row_dict.get('subject', 'N/A')}")
                 deduplicated_rows.append(empty_row_dict)
 
             logger.info(f"Branch group {branch_group}: Found {removed_count} entries that match active ICM clusters")
@@ -723,61 +792,40 @@ class DataDeduplicator:
                 if duplicated_flag:
                     icm['trigger_icm'] = False
                     duplicated_icm_list.append(icm)
-                    logger.info("{}: Found same title or higher title item in active IcM list, not trigger IcM:\n active IcM {}\t duplicated one {}".format(
-                        case_branch, icm_title, icm['subject']))
+                    logger.info("{}: Found same title or higher title item in active IcM list, "
+                                "not trigger IcM:\n active IcM {}\t duplicated one {}"
+                                .format(case_branch, icm_title, icm['subject']))
                     break
             if not duplicated_flag and icm['failure_summary']:
-                logger.info("{} has failure_summary:{}".format(case_branch, icm['failure_summary']))
-                is_matched, matched_row = self.is_matched_active_icm(case_branch, icm['failure_summary'], branch, active_icm_df)
+                logger.info("{} has failure_summary:{}"
+                            .format(case_branch, icm['failure_summary']))
+                is_matched, matched_row = self.is_matched_active_icm(
+                        case_branch, icm['failure_summary'], branch, active_icm_df)
                 if is_matched:
-                    logger.info("{}: Found summary matched item in active IcM list, not trigger IcM:\n active IcM: {}\n summary:{}\n duplicated: {}\n summary:{}".format(
-                        case_branch, matched_row['Title'], matched_row['FailureSummary'], icm['subject'], icm['failure_summary']))
+                    logger.info("{}: Found summary matched item in active IcM list, not trigger IcM:\n "
+                                "active IcM: {}\n summary:{}\n duplicated: {}\n summary:{}"
+                                .format(case_branch, matched_row['Title'], matched_row['FailureSummary'],
+                                        icm['subject'], icm['failure_summary']))
 
                     icm['trigger_icm'] = False
                     duplicated_icm_list.append(icm)
                     duplicated_flag = True
                     continue
             if not duplicated_flag:
-                module_path = icm['module_path']
-                items = module_path.split('.')
-                if 'everflow' in items[0]:
-                    if icm_count_dict['everflow_count'] >= configuration['icm_limitation']['max_icm_count_per_module']:
-                        logger.info(
-                            "There are already 10 IcMs for everflow, inhibit this one avoid generating so many similar cases.")
-                        kusto_data = kusto_data_list[:idx]
-                        logger.info("kusto_data={}".format(kusto_data))
-                        break
-                    else:
-                        icm_count_dict['everflow_count'] += 1
-                if len(items) > 1 and 'test_qos_sai' in items[1]:
-                    if icm_count_dict['qos_sai_count'] >= configuration['icm_limitation']['max_icm_count_per_module']:
-                        logger.info(
-                            "There are already 10 IcMs for qos_sai, inhibit this one avoid generating so many similar cases.")
-                        kusto_data = kusto_data_list[:idx]
-                        logger.info("kusto_data={}".format(kusto_data))
-                        break
-                    else:
-                        icm_count_dict['qos_sai_count'] += 1
-                if 'acl' in items[0]:
-                    if icm_count_dict['acl_count'] >= configuration['icm_limitation']['max_icm_count_per_module']:
-                        logger.info(
-                            "There are already 10 IcMs for acl, inhibit this one avoid generating so many similar cases.")
-                        kusto_data = kusto_data_list[:idx]
-                        break
-                    else:
-                        icm_count_dict['acl_count'] += 1
-                logger.info("Got new IcM for this run: {} idx = {}".format(
-                    icm['subject'], idx))
+                logger.info("Got new IcM for this run: {} idx = {}"
+                            .format(icm['subject'], idx))
                 new_icm_list.append(icm)
                 new_icm_count += 1
         updated_icm_count_dict = copy.deepcopy(icm_count_dict)
-        logger.info("{}: There are {} new IcMs for this run".format(case_branch, new_icm_count))
+        logger.info("{}: There are {} new IcMs for this run".format(
+            case_branch, new_icm_count))
         return new_icm_list, duplicated_icm_list, updated_icm_count_dict
 
     def combined_level_split(self, title):
         """
-            Split the title for combined level
-            e.g. split [case_a][branch_b][hwskuA_20240510.16] into [case_a][branch_b][hwskuA] and [case_a][branch_b][20240510.16]
+        Split the title for combined level
+        e.g. split [case_a][branch_b][hwskuA_20240510.16] into [case_a][branch_b][hwskuA] and
+             [case_a][branch_b][20240510.16]
         """
         last_bracket_start = title.rindex('[')
         last_bracket_end = title.rindex(']')
@@ -825,11 +873,11 @@ class DataDeduplicator:
                     duplicated_flag = True
                     return duplicated_flag
             components = combined_split['components']
-            if all(component in active_icm_title for component in components):    #[case_a][20240510][topologyA_hwskuC] is duplicated with [case_a][20240510][topologyA][asicB][hwskuC]
+            # [case_a][20240510][topologyA_hwskuC] is duplicated with [case_a][20240510][topologyA][asicB][hwskuC]
+            if all(component in active_icm_title for component in components):
                 icm['trigger_icm'] = False
                 duplicated_flag = True
         return duplicated_flag
-
 
     def __preprocess_summary(self, text):
         """
@@ -861,8 +909,10 @@ class DataDeduplicator:
                     line = re.sub(pattern, '', line)
 
                 # Pattern to match hostname with various delimiters
-                # Matches: (start of line or space or hyphen or [ or " or ' or :) + hostname + (space or quote or angle bracket or square bracket or - or , or })
-                hostname_pattern = r'(?:^|\s+|-|\[|"|\'|:)(' + self.HOST_RE.pattern[1:-1] + r')(?=[\s\'">\]]|-|,|}|$)'
+                # Matches: (start of line or space or hyphen or [ or " or ' or :) + hostname +
+                # (space or quote or angle bracket or square bracket or - or , or })
+                hostname_pattern = (r'(?:^|\s+|-|\[|"|\'|:)(' + self.HOST_RE.pattern[1:-1] +
+                                    r')(?=[\s\'">\]]|-|,|}|$)')
 
                 # Remove hostnames
                 line = re.sub(hostname_pattern, '', line)
@@ -872,7 +922,6 @@ class DataDeduplicator:
             # logger.info("Remove numbers from summary since it's a traceback or analyze log")
             cleaned_lines = re.sub(r'\d+', '', cleaned_lines)           # remove numbers
         return cleaned_lines
-
 
     def cluster_summaries(self, summaries, eps=0.1, min_samples=1):
         """
@@ -938,7 +987,8 @@ class DataDeduplicator:
             target_df: DataFrame containing target test cases to be deduplicated
 
         Returns:
-            deduplicated_target_df: DataFrame with target cases that don't belong to the same clusters as reference cases
+            deduplicated_target_df: DataFrame with target cases that don't belong to the same clusters
+                                as reference cases
         """
         if reference_df.empty or target_df.empty:
             logger.info("Either reference_df or target_df is empty, returning original target_df")
@@ -982,7 +1032,8 @@ class DataDeduplicator:
                 logger.info(f"No valid failure summaries found in branch group {branch_group}")
                 continue
 
-            logger.info(f"Processing {len(reference_summaries)} reference summaries and {len(target_summaries)} target summaries for branch group {branch_group}")
+            logger.info(f"Processing {len(reference_summaries)} reference summaries and "
+                        f"{len(target_summaries)} target summaries for branch group {branch_group}")
 
             # Preprocess all summaries
             reference_summaries_processed = [self.__preprocess_summary(s) for s in reference_summaries]
@@ -990,7 +1041,8 @@ class DataDeduplicator:
 
             # Create a mapping from index to processed summary for target_df
             target_summary_mapping = {}
-            for idx, summary in zip(branch_target_df.index[branch_target_df['failure_summary'].notna()], target_summaries_processed):
+            valid_indices = branch_target_df.index[branch_target_df['failure_summary'].notna()]
+            for idx, summary in zip(valid_indices, target_summaries_processed):
                 target_summary_mapping[idx] = summary
 
             # Combine all summaries for clustering
@@ -1008,7 +1060,8 @@ class DataDeduplicator:
 
             # Create a mapping from target summary index to its cluster
             target_cluster_mapping = {}
-            for i, summary_idx in enumerate(branch_target_df.index[branch_target_df['failure_summary'].notna()]):
+            valid_target_indices = branch_target_df.index[branch_target_df['failure_summary'].notna()]
+            for i, summary_idx in enumerate(valid_target_indices):
                 if i < len(target_clusters):
                     target_cluster_mapping[summary_idx] = target_clusters[i]
 
@@ -1025,12 +1078,14 @@ class DataDeduplicator:
                     logger.debug(f"Summary: {target_row['failure_summary']}")
 
             all_indices_to_drop.extend(branch_indices_to_drop)
-            logger.info(f"Branch group {branch_group}: Removed {len(branch_indices_to_drop)} target entries with clusters matching reference cases")
+            logger.info(f"Branch group {branch_group}: Removed {len(branch_indices_to_drop)} "
+                        f"target entries with clusters matching reference cases")
 
         # Create a copy of target_df without the duplicate clusters
         deduplicated_target_df = target_df.drop(all_indices_to_drop)
 
-        logger.info(f"\nTotal removed: {len(all_indices_to_drop)} target entries with clusters matching reference cases")
+        logger.info(f"\nTotal removed: {len(all_indices_to_drop)} "
+                    f"target entries with clusters matching reference cases")
         logger.info(f"Total kept: {len(deduplicated_target_df)} unique target entries")
 
         return deduplicated_target_df
@@ -1048,22 +1103,26 @@ class DataDeduplicator:
         for item in original_icm_table:
             if item['subject'] in subject_to_summary:
                 if item['failure_summary'] == '' or not item['failure_summary']:
-                    logger.debug(f"{failure_type}: {item['subject']} summary is empty, will use the one in the aggregated_dedup_df")
+                    logger.debug(f"{failure_type}: {item['subject']} summary is empty, "
+                                 f"will use the one in the aggregated_dedup_df")
                     item['failure_summary'] = subject_to_summary[item['subject']]
                 elif item['failure_summary'] != subject_to_summary[item['subject']]:
-                    logger.debug(f"{failure_type}: {item['subject']} summary is not same as the one in the aggregated_dedup_df")
+                    logger.debug(f"{failure_type}: {item['subject']} summary is not same as "
+                                 f"the one in the aggregated_dedup_df")
                     logger.debug(f"  - Original: {item['failure_summary']}")
                     logger.debug(f"  - Updated: {subject_to_summary[item['subject']]}")
                     item['failure_summary'] = subject_to_summary[item['subject']]
 
-                if trigger_icm == False:
+                if trigger_icm is False:
                     original_trigger_icm = item.get('trigger_icm')
                     item['trigger_icm'] = False
-                    logger.debug(f"{failure_type}: {item['subject']} updating trigger_icm from {original_trigger_icm} to {item['trigger_icm']}")
+                    logger.debug(f"{failure_type}: {item['subject']} updating trigger_icm from "
+                                 f"{original_trigger_icm} to {item['trigger_icm']}")
                 else:
                     original_trigger_icm = item.get('trigger_icm')
-                    if original_trigger_icm != True:
-                        logger.error(f"{failure_type}: {item['subject']} trigger_icm is not True, which is not expected!!! Pay attention!!!")
+                    if original_trigger_icm is not True:
+                        logger.error(f"{failure_type}: {item['subject']} trigger_icm is not True, "
+                                     f"which is not expected!!! Pay attention!!!")
                 aggregated_icm_list.append(item)
 
         # Final verification: Check trigger_icm values in the result
@@ -1072,11 +1131,13 @@ class DataDeduplicator:
             for item in aggregated_icm_list:
                 val = item.get('trigger_icm', 'missing')
                 trigger_icm_counts[val] = trigger_icm_counts.get(val, 0) + 1
-            logger.debug(f"{failure_type}: Final aggregated_icm_list trigger_icm distribution: {trigger_icm_counts}")
+            logger.debug(f"{failure_type}: Final aggregated_icm_list "
+                         f"trigger_icm distribution: {trigger_icm_counts}")
 
         return aggregated_icm_list
 
-    def process_aggregated_failures(self, failure_type, original_icm_table, failure_duplicated_icm_table, analyzer, analysis_csv, aggregated_csv, dedup_csv):
+    def process_aggregated_failures(self, failure_type, original_icm_table, failure_duplicated_icm_table,
+                                    analyzer, analysis_csv, aggregated_csv, dedup_csv):
         """
         Common function to process aggregated failure dataframes and create ICM lists.
 
@@ -1102,20 +1163,27 @@ class DataDeduplicator:
             logger.info("Processing flaky failures")
             aggregated_df = self.find_similar_summaries_and_count(prepared_df, analyzer.week_flaky_testcases_df)
         aggregated_df.to_csv(aggregated_csv, index=False)
-        logger.debug("The count of {} failure cases before aggregation: {} after:{}".format(failure_type, len(prepared_df), len(aggregated_df)))
+        logger.debug("The count of {} failure cases before aggregation: {} after:{}".format(
+            failure_type, len(prepared_df), len(aggregated_df)))
         logger.info(f"=================Deduplicating {failure_type} aggregated df against active IcM=================")
-        aggregated_dedup_df, duplicated_df = self.deduplicate_summary_with_active_icm(aggregated_df, analyzer.active_icm_df)
+        aggregated_dedup_df, duplicated_df = self.deduplicate_summary_with_active_icm(
+                aggregated_df, analyzer.active_icm_df)
         aggregated_dedup_df.to_csv(dedup_csv, index=False)
-        logger.debug(f"{failure_type}: Found {len(aggregated_dedup_df)} real {failure_type} failures after deduplication")
-        logger.debug(f"{failure_type}:Found {len(duplicated_df)} duplicated {failure_type} failures after deduplication with active IcM")
+        logger.debug(f"{failure_type}: Found {len(aggregated_dedup_df)} real {failure_type} failures "
+                     f"after deduplication")
+        logger.debug(f"{failure_type}:Found {len(duplicated_df)} duplicated {failure_type} failures "
+                     f"after deduplication with active IcM")
 
         # Convert duplicated_df to list format and add to failure_duplicated_icm_table
         if not duplicated_df.empty:
-            duplicated_list = self.filter_out_icm_list(failure_type, original_icm_table, duplicated_df, trigger_icm=False)
+            duplicated_list = self.filter_out_icm_list(
+                    failure_type, original_icm_table, duplicated_df, trigger_icm=False)
             failure_duplicated_icm_table.extend(duplicated_list)
-            logger.info(f"Added {len(duplicated_list)} active ICM duplicated {failure_type} entries to failure_duplicated_icm_table")
+            logger.info(f"Added {len(duplicated_list)} active ICM duplicated {failure_type} entries "
+                        f"to failure_duplicated_icm_table")
 
         aggregated_icm_list = self.filter_out_icm_list(failure_type, original_icm_table, aggregated_dedup_df)
-        logger.info(f"Found {len(aggregated_icm_list)} aggregated {failure_type} IcMs after deduplication, before aggregation: {len(original_icm_table)}")
+        logger.info(f"Found {len(aggregated_icm_list)} aggregated {failure_type} IcMs after deduplication, "
+                    f"before aggregation: {len(original_icm_table)}")
         logger.info(f"=================End aggregation for {failure_type} failures=================")
         return aggregated_icm_list, aggregated_dedup_df

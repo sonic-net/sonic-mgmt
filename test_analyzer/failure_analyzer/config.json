@@ -14,6 +14,16 @@
     "topo": {
         "excluded_topo": []
     },
+    "ai_analysis": {
+        "deployment_name": "gpt-4o",
+        "temperature": 0.1,
+        "max_tokens": 8192,
+        "chunk_size": 10,
+        "retry_attempts": 3,
+        "retry_delay": 1,
+        "consolidation_batch_size": 8,
+        "duplicate_batch_size": 8
+    },
     "icm_decision_config": {
         "common": {
             "enable_icm": true,
@@ -258,6 +268,7 @@
         "totalcase": 100,
         "history_days": 30,
         "previous_days": 7,
+        "flaky_case_query_days": 1.2,
         "regression_success_rate_percent": 51,
         "total_case_minimum_release_version": 3,
         "total_case_minimum_internal_version": 2,
@@ -280,7 +291,8 @@
         "icm_202503_limit": 50,
         "icm_202505_limit": 100,
         "new_icm_number_limit": 30,
-        "max_icm_count_per_module": 40
+        "max_icm_count_per_module": 40,
+        "max_ai_flaky_icm_limit": 3
     },
     "auto_blame_branch": {
         "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110", "20240531", "20240510", "20241110", "20241211", "20250505", "20250510"],

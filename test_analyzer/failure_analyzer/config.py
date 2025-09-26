@@ -37,6 +37,7 @@ PARENT_ID2 = "16726166"
 
 ALL_RESUTLS_CSV = 'logs/week_results_df.csv'
 MIDDLE_FAILURES_CSV = 'logs/middle_failures_df.csv'
+ACTIVE_ICM_CSV = 'logs/active_icm_df.csv'
 LEGACY_CSV = 'logs/legacy_df.csv'
 LEGACY_AFTER_ANALYSIS_CSV = 'logs/legacy_analyzed_df.csv'
 LEGACY_AFTER_AGGREGATION_CSV = 'logs/legacy_aggregated_df.csv'
@@ -54,6 +55,13 @@ CONSISTENT_AFTER_DEDUPLICATION_ICM_CSV = 'logs/consistent_deduplicated_icm_df.cs
 CONSISTENT_AFTER_DEDUPLICATION_CSV = 'logs/consistent_deduplicated_df.csv'
 NEW_ICM_CSV = 'logs/new_icm.csv'
 DUPLICATE_CASES_CSV = 'logs/duplicate_cases.csv'
+AI_FLAKY_UNIQUE_SUMMARY_CSV = 'logs/ai_flaky_unique_summary.csv'
+AI_FLAKY_FAILURES_DATA_CSV = 'logs/ai_flaky_failures_data.csv'
+AI_FLAKY_CATEGORIZED_CSV = 'logs/ai_flaky_categorized.csv'
+AI_FLAKY_DUPLICATED_CSV = 'logs/ai_flaky_duplicated.csv'
+AI_FLAKY_ANALYSIS_CSV = 'logs/ai_flaky_analysis.csv'
+AI_FLAKY_AFTER_DEDUPLICATION_CSV = 'logs/ai_flaky_deduplicated_df.csv'
+
 
 def config_logging():
     """Configure log to rotating file
@@ -84,5 +92,6 @@ def load_config():
         logger.error("Config config doesn't exist, please check.")
         sys.exit(1)
     return configuration
+
 
 configuration = load_config()
