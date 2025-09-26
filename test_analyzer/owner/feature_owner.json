@@ -149,6 +149,14 @@
                 ],
                 "owner": "Prince Sunny",
                 "email": "prsunny@microsoft.com"
+            },
+            {
+                "scripts": [
+                    "bgp.test_bgp_aspath_prepend_internal_only",
+                    "bgp.test_bgp_establish_combo"
+                ],
+                "owner": "Zhijian Li",
+                "email": "zhijianli@microsoft.com"
             }
         ]
     },
