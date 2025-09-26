@@ -1328,7 +1328,7 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-@pytest.fixture(autouse=True, scope="module")
+@pytest.fixture(scope="module")
 def config_uhd_connect(request, duthost, tbinfo):
     """
     Fixture configures UHD connect
@@ -1344,6 +1344,8 @@ def config_uhd_connect(request, duthost, tbinfo):
             return list(csv.DictReader(f))
 
     uhd_enabled = request.config.getoption("--uhd_config")
+    save_uhd_config = request.config.getoption("--save_uhd_config")
+
     if uhd_enabled:
         # Load UHD-specific config file
         logger.info("Loading UHD-specific config file")
@@ -1368,10 +1370,9 @@ def config_uhd_connect(request, duthost, tbinfo):
             'dpu_ports': dpu_ports
         }
 
-        total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
-
         uhdSettings = NetworkConfigSettings()  # noqa: F405
         uhdSettings.set_mac_addresses(tbinfo['l47_tg_clientmac'], tbinfo['l47_tg_servermac'], tbinfo['dut_mac'])
+        total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
         subnet_mask = uhdSettings.subnet_mask
 
         ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
@@ -1396,12 +1397,18 @@ def config_uhd_connect(request, duthost, tbinfo):
         url = "https://{}/{}".format(uhdConnect_ip, uhd_post_url)  # noqa: F841
         json.dump(config, open("{}/{}".format(file_location, file_name), "w"), indent=1)
 
+        logger.info(f"Pushing created UHD configuration file {file_name} to UHD Connect")
         uhdConf_cmd = ('curl -k -X POST -H \"Content-Type: application/json\" -d @\"{}/{}\"   '
                        '{}').format(file_location, file_name, url)
         subprocess.run(uhdConf_cmd, shell=True, capture_output=True, text=True)
 
-        rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
-        subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+        if not save_uhd_config:
+            logger.info("Removing UHD config file")
+            rm_cmd_uhdconf = 'rm {}/{}'.format(file_location, file_name)
+            subprocess.run(rm_cmd_uhdconf, shell=True, capture_output=True, text=True)  # noqa: F841
+        else:
+            logger.info(f"Saving UHD config to {file_location}")
+        logger.info("UHD configuration completed")
     else:
         logger.info("UHD config not enabled, skipping config")
 

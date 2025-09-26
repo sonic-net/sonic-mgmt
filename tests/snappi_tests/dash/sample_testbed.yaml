@@ -6,6 +6,7 @@
   ptf_image_name: docker-ptf-snappi
   ptf: snappi_sonic_l47
   ptf_ip: 10.1.1.3
+  service_type: vnet2vnet
   l47_gateway: 10.1.1.3
   l47_tg_servermac: 140776176680961
   l47_tg_clientmac: 140776176680962
