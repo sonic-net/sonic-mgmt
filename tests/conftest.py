@@ -70,6 +70,8 @@ from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
+from tests.common.system_utils.docker import download_image
+from tests.common.system_utils.docker import load_docker_registry_info
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
@@ -3660,3 +3662,43 @@ def pytest_runtest_setup(item):
         if fixturedef.argname == "setup_dualtor_mux_ports":
             fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
+
+
+@pytest.fixture(scope="session", autouse=True)
+def setup_auditd_container(duthost, creds):
+    logger.info(f"Setting up auditd containers on {duthost.hostname}")
+    registry = load_docker_registry_info(duthost, creds)
+
+    containers = ["docker-auditd", "docker-auditd-watchdog"]
+    versions = ["20250818.bld-134153144", "20250818.bld-134153144"]
+    names = ["auditd", "auditd_watchdog"]
+
+    parameters = {
+        "auditd": "--privileged --pid=host --net=host "
+                  "-v /etc/audit/rules.d:/etc/audit/rules.d:rw "
+                  "-v /etc/audit/plugins.d:/etc/audit/plugins.d:rw "
+                  "-v /lib/systemd/system:/lib/systemd/system:rw "
+                  "-v /etc/audit:/etc/audit:rw "
+                  "-v /etc/localtime:/etc/localtime:ro "
+                  "-v /etc/sonic:/etc/sonic:ro",
+        "auditd_watchdog": "--privileged --pid=host --net=host "
+                           "-v /etc/localtime:/etc/localtime:ro "
+                           "-v /etc/sonic:/etc/sonic:ro"
+    }
+
+    for container, version, name in zip(containers, versions, names):
+        image = f"{registry.host}/{container}:{version}"
+        logger.info(f"Pulling {image}")
+        download_image(duthost, registry, container, version)
+        duthost.shell(f"docker stop {name}", module_ignore_errors=True)
+        duthost.shell(f"docker rm {name}", module_ignore_errors=True)
+        result = duthost.shell(f"docker run -d {parameters[name]} --name {name} {image}", module_ignore_errors=True)
+        if result['rc'] != 0:
+            pytest.fail(f"Failed to run container: {name}")
+
+    yield
+
+    logger.info("Tearing down auditd containers")
+    for name in names:
+        duthost.shell(f"docker stop {name}", module_ignore_errors=True)
+        duthost.shell(f"docker rm {name}", module_ignore_errors=True)
