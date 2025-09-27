@@ -1,9 +1,7 @@
-import tarfile
-import json
 import pytest
 import logging
 import os
-from fwutil_common import show_firmware
+from tests.common.helpers.firmware_helper import show_firmware
 
 logger = logging.getLogger(__name__)
 
@@ -43,48 +41,23 @@ def check_path_exists(duthost, path):
     return duthost.stat(path=path)["stat"]["exists"]
 
 
-def pytest_generate_tests(metafunc):
-    val = metafunc.config.getoption('--fw-pkg')
-    if 'fw_pkg_name' in metafunc.fixturenames:
-        metafunc.parametrize('fw_pkg_name', [val], scope="module")
-
-
-@pytest.fixture(scope='module')
-def fw_pkg(fw_pkg_name):
-    if fw_pkg_name is None:
-        pytest.skip("No fw package specified.")
-
-    yield extract_fw_data(fw_pkg_name)
-
-
-def extract_fw_data(fw_pkg_path):
-    """
-    Extract fw data from updated-fw.tar.gz file or firmware.json file
-    :param fw_pkg_path: the path to tar.gz file or firmware.json file
-    :return: fw_data in dictionary
-    """
-    if tarfile.is_tarfile(fw_pkg_path):
-        path = "/tmp/firmware"
-        isExist = os.path.exists(path)
-        if not isExist:
-            os.mkdir(path)
-        with tarfile.open(fw_pkg_path, "r:gz") as f:
-            f.extractall(path)
-            json_file = os.path.join(path, "firmware.json")
-            with open(json_file, 'r') as fw:
-                fw_data = json.load(fw)
-    else:
-        with open(fw_pkg_path, 'r') as fw:
-            fw_data = json.load(fw)
-
-    return fw_data
-
-
 @pytest.fixture(scope='function', params=["CPLD", "ONIE", "BIOS", "FPGA"])
 def component(request, duthost, fw_pkg):
     component_type = request.param
     chassis = list(show_firmware(duthost)["chassis"].keys())[0]
     available_components = list(fw_pkg["chassis"].get(chassis, {}).get("component", {}).keys())
+    cpld_components = [com for com in available_components if "CPLD" in com]
+    # if in the host section, the CPLD defined is different, then need to use the one defined for this host.
+    # For example: if the CPLD2 is defined for the SN3700c, and CPLD1 defined for the r-anaconda-15, then when run
+    # test for the r-anaconda-15, it will take the CPLD1 instead of CPLD2 as on of the component
+    if "host" in fw_pkg and duthost.hostname in fw_pkg["host"]:
+        host_components = list(fw_pkg["host"].get(duthost.hostname, {}).get("component", []).keys())
+        cpld_host_components = [com for com in host_components if "CPLD" in com]
+        if cpld_host_components:
+            available_components = list(set(available_components) ^ set(cpld_components) | set(host_components))
+        else:
+            available_components = list(set(available_components) | set(host_components))
+
     if len(available_components) > 0:
         for component in available_components:
             if component_type in component:
