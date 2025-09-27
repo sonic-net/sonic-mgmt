@@ -86,6 +86,8 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
@@ -3660,3 +3662,10 @@ def pytest_runtest_setup(item):
         if fixturedef.argname == "setup_dualtor_mux_ports":
             fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
+
+
+@pytest.fixture
+def mock_reporter(request, tbinfo):
+    """Provide a fresh mock reporter for each test."""
+    from tests.common.telemetry.tests.common_utils import MockReporter
+    return MockReporter(request=request, tbinfo=tbinfo)
