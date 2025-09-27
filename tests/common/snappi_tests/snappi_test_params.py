@@ -1,6 +1,7 @@
 """
 The SnappiTestParams module allows for modular pass through of test parameters for all Snappi based tests.
 """
+from typing import Optional
 
 from tests.common.snappi_tests.common_helpers import packet_capture
 from tests.common.snappi_tests.traffic_flow_config import TrafficFlowConfig
@@ -45,6 +46,11 @@ class SnappiTestParams():
                                It can be "warm", "cold", "fast", or None. If set to None, then
                                no reboot is performed. (default: None)
             localhost (pytest fixture): localhost handle
+            num_tx_links (Optional[int]): number of transmission links from Ixia chassis. If provided, this will
+                be used to configure the testbed for the specified number of links.
+            num_rx_links (Optional[int]): number of reception links from Ixia chassis. If provided, this will
+                be used to configure the testbed for the specified number of links.
+            tx_dscp_values (Optional[list[int]]): list of transmitted DSCP streams from tgen.
         """
         self.headroom_test_params = None
         self.pfc_pause_src_mac = None
@@ -61,6 +67,9 @@ class SnappiTestParams():
         self.gen_background_traffic = True
         self.poll_device_runtime = True
         self.ecn_params = None
-        self.traffic_flow_config = TrafficFlowConfig()
+        self.traffic_flow_config: TrafficFlowConfig = TrafficFlowConfig()
         self.reboot_type = None
         self.localhost = None
+        self.num_tx_links: Optional[int] = 1
+        self.num_rx_links: Optional[int] = 1
+        self.tx_dscp_values: Optional[list[int]] = []
