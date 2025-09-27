@@ -427,6 +427,7 @@ sonic_arista_7260cx3:
         '0x2E': 'Aboot-norcal7-7.2.0-pcie2x4-6128821'
         '0x2F': 'JPN2448P6EP'
         '0xFE': '0xdeadbeef'
+      msft_an_enabled: True
     bjw3-can-7260-16:
       ansible_host: 10.150.238.76
       ansible_hostv6: 2404:f801:10:16::a96:ee4c
@@ -451,6 +452,7 @@ sonic_arista_7260cx3:
         '0x2E': 'Aboot-norcal7-7.2.0-pcie2x4-6128821'
         '0x2F': 'JPN2445P4DA'
         '0xFE': '0xdeadbeef'
+      msft_an_enabled: True
 
 
 sonic_nokia_7215a1d:
