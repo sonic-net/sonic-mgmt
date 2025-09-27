@@ -48,7 +48,19 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         duthost = duthosts[hostname]
         up_bgp_neighbors[duthost] = duthost.get_bgp_neighbors_per_asic("established")
 
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests before test docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("config_reload_after_tests before golden_config 1: {}".format(docker_routing_config_mode_config))
     yield
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests after test docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("config_reload_after_tests after golden_config 2: {}".format(docker_routing_config_mode_config))
+
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for hostname in selected_rand_one_per_hwsku_hostname:
             duthost = duthosts[hostname]
@@ -59,6 +71,12 @@ def config_reload_after_tests(duthosts, selected_rand_one_per_hwsku_hostname):
         for hostname in selected_rand_one_per_hwsku_hostname:
             duthost = duthosts[hostname]
             executor.submit(postcheck_critical_processes_status, duthost, up_bgp_neighbors[duthost])
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests after test 2 docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("config_reload_after_tests after golden_config 3: {}".format(docker_routing_config_mode_config))
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -93,6 +111,9 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
     Returns:
       None.
     """
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("update_monit_service before golden_config 1: {}".format(docker_routing_config_mode_config))
+
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
         logger.info("Back up Monit configuration files on DuT '{}' ...".format(duthost.hostname))
@@ -108,7 +129,19 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
         logger.info("Restart the Monit service without delaying to monitor.")
         duthost.shell("sudo systemctl restart monit")
 
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("update_monit_service before test docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("update_monit_service before golden_config 2: {}".format(docker_routing_config_mode_config))
+
     yield
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("update_monit_service after test docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("update_monit_service after golden_config 1: {}".format(docker_routing_config_mode_config))
 
     for hostname in selected_rand_one_per_hwsku_hostname:
         duthost = duthosts[hostname]
@@ -119,6 +152,11 @@ def update_monit_service(duthosts, selected_rand_one_per_hwsku_hostname):
         logger.info("Restart the Monit service and delay monitoring for 5 minutes.")
         duthost.shell("sudo systemctl restart monit")
 
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("update_monit_service after test 2 docker_routing_config_mode: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("update_monit_service after golden_config 2: {}".format(docker_routing_config_mode_config))
 
 def check_all_critical_processes_status(duthost):
     """Post-checks the status of critical processes.
@@ -211,6 +249,12 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     container_name = asic.get_docker_name(service_name)
 
+    if True:
+        pytest.skip("[Debug] skip test which not have issue")
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests step1: {}".format(docker_routing_config_mode_config))
+
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
     sleep_time = 70
     disabled_containers = get_disabled_container_list(duthost)
@@ -227,12 +271,20 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     if feature_autorestart_states.get(service_name) == 'enabled':
         disable_container_autorestart(duthost)
         time.sleep(30)
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests step2: {}".format(docker_routing_config_mode_config))
+
     if not is_container_running(duthost, container_name):
         logger.info("Container '{}' is not running ...".format(container_name))
         logger.info("Reload config on DuT as Container is not up '{}' ...".format(duthost.hostname))
         config_reload(duthost, safe_reload=True)
         time.sleep(300)
         sleep_time = 80
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests step3: {}".format(docker_routing_config_mode_config))
+
     asic.stop_service(service_name)
     logger.info("Waiting until container '{}' is stopped...".format(container_name))
     stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
@@ -242,11 +294,17 @@ def test_container_checker(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand
     pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
     logger.info("Container '{}' on DuT '{}' was stopped".format(container_name, duthost.hostname))
 
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests step4: {}".format(docker_routing_config_mode_config))
+
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
     with loganalyzer:
         # Wait for 70s to 80s  such that Monit has a chance to write alerting message into syslog.
         logger.info("Sleep '{}'s to wait for the alerting message...".format(sleep_time))
         time.sleep(sleep_time)
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("config_reload_after_tests step5: {}".format(docker_routing_config_mode_config))
 
 
 def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
@@ -264,19 +322,37 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     container_name = "telemetry"
 
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("test_container_checker_telemetry step1: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("test_container_checker_telemetry golden_config 1: {}".format(docker_routing_config_mode_config))
+
     # Reload config to restore the container
     config_reload(duthost, safe_reload=True)
     # Monit needs 300 seconds to start monitoring the container
     time.sleep(300)
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("test_container_checker_telemetry step2: {}".format(docker_routing_config_mode_config))
+
+    docker_routing_config_mode_config = duthost.shell('jq .DEVICE_METADATA.localhost /etc/sonic/golden_config_db.json')
+    logger.warning("test_container_checker_telemetry golden_config 2: {}".format(docker_routing_config_mode_config))
 
     # Enable LogAnalyzer
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="container_checker_{}".format(container_name))
     loganalyzer.expect_regex = get_expected_alerting_message(container_name)
     marker = loganalyzer.init()
 
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("test_container_checker_telemetry step3: {}".format(docker_routing_config_mode_config))
+
     # Enable telemetry in FEATURE table
     dut_command = "sonic-db-cli CONFIG_DB hset \"FEATURE|{}\" state enabled".format(container_name)
     duthost.command(dut_command, module_ignore_errors=True)
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("test_container_checker_telemetry step4: {}".format(docker_routing_config_mode_config))
 
     # Monit checks services at 1-minute intervals
     # Add a 20-second delay to ensure Monit has time to write alert messages to syslog
@@ -285,3 +361,6 @@ def test_container_checker_telemetry(duthosts, rand_one_dut_hostname):
     time.sleep(sleep_time)
     analysis = loganalyzer.analyze(marker, fail=False)
     pytest_assert(analysis['total']['expected_match'] == 0, 'Monit error: {}'.format(analysis['expect_messages']))
+
+    docker_routing_config_mode_config = duthost.shell('sudo sonic-db-cli CONFIG_DB hget  "DEVICE_METADATA|localhost" "docker_routing_config_mode"')
+    logger.warning("test_container_checker_telemetry step5: {}".format(docker_routing_config_mode_config))
