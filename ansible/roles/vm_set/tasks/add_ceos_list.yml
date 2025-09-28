@@ -104,7 +104,7 @@
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
     topo: "{{ topology }}"
-  when: not (enable_async | default(false) | bool)
+  when: not enable_async
 
 - name: Create VMs network (async mode)
   become: yes
@@ -121,7 +121,7 @@
   poll: 0
   throttle: 50
   register: async_create_vm_network
-  when: enable_async | default(false) | bool
+  when: enable_async
 
 - name: Wait for create tasks to complete
   become: yes
@@ -134,7 +134,7 @@
   until: async_create_vm_network_poll_results.finished
   retries: 30
   delay: 60
-  when: enable_async | default(false) | bool
+  when: enable_async
 
 - name: Create net base containers
   become: yes
@@ -182,7 +182,7 @@
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
-  when: not (enable_async | default(false) | bool)
+  when: not enable_async
 
 - name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }} (async mode)
   become: yes
@@ -199,7 +199,7 @@
   poll: 0
   throttle: 50
   register: async_create_ceos_network
-  when: enable_async | default(false) | bool
+  when: enable_async
 
 - name: Wait for network tasks to complete
   become: yes
@@ -212,4 +212,4 @@
   until: async_create_ceos_network_poll_results.finished
   retries: 30
   delay: 60
-  when: enable_async | default(false) | bool
+  when: enable_async

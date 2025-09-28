@@ -54,7 +54,7 @@
       dut_interfaces: "{{ dut_interfaces | default('') }}"
       is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
-    when: not (enable_async | default(false) | bool)
+    when: not enable_async
 
   - name: Unbind topology {{ topo }} to VMs. base vm = {{ VM_base }} (async mode)
     loop: "{{ VM_hosts | flatten(levels=1) }}"
@@ -81,7 +81,7 @@
     poll: 0
     throttle: 50
     register: async_unbind_vm
-    when: enable_async | default(false) | bool
+    when: enable_async
 
   - name: Wait for unbind tasks to complete
     become: yes
@@ -94,7 +94,7 @@
     until: async_unbind_topology_poll_results.finished
     retries: 30
     delay: 60
-    when: enable_async | default(false) | bool
+    when: enable_async
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
     vm_topology:
@@ -201,7 +201,7 @@
     cmd: 'destroy'
     vm_names: "{{ VM_targets }}"
   become: yes
-  when: not (enable_async | default(false) | bool)
+  when: not enable_async
 
 - name: Destroy VMs network (async mode)
   loop: "{{ VM_targets|flatten(levels=1) }}"
@@ -215,7 +215,7 @@
   poll: 0
   throttle: 50
   register: async_destory_vm_network
-  when: enable_async | default(false) | bool
+  when: enable_async
 
 - name: Wait for destroy tasks to complete
   become: yes
@@ -228,7 +228,7 @@
   until: async_destroy_vm_network_poll_results.finished
   retries: 30
   delay: 60
-  when: enable_async | default(false) | bool
+  when: enable_async
 
 - name: Destroy DPUs network
   vm_topology:
