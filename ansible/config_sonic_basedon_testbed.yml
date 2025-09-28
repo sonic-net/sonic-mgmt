@@ -61,6 +61,10 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
+    - name: set prober_type
+      set_fact:
+        prober_type: "{{ testbed_facts['prober_type'] | default(None) }}"
+
     - name: set ptf image name
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
@@ -645,6 +649,7 @@
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
+          prober_type: "{{ prober_type | default(omit) }}"
         become: true
 
       - name: Copy macsec profile json to dut
