@@ -575,14 +575,7 @@ class GenerateGoldenConfigDBModule(object):
         elif self.topo_name in ["t1-filterleaf-lag"]:
             config = self.generate_filterleaf_golden_config_db()
         else:
-<<<<<<< HEAD
             config = "{}"
-=======
-            config = self.generate_default_init_config_db()
-
-        # update ZMQ config
-        config = self.update_zmq_config(config)
->>>>>>> 9a9b12272 (restored deleted file)
 
         # update dns config
         config = self.update_dns_config(config)
