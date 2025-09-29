@@ -1,7 +1,6 @@
 import logging
 import pytest
 
-from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
