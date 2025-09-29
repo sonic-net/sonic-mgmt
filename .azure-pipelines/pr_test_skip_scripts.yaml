@@ -27,6 +27,8 @@ t0:
   # Neighbor type must be sonic
   - ospf/test_ospf.py
   - ospf/test_ospf_bfd.py
+  # Consistent failures on vs testbed, blocking swss submdule update, github issue#17803
+  - pfcwd/test_pfcwd_warm_reboot.py
   # Test is not supported on vs testbed
   - pfc_asym/test_pfc_asym.py
   # Test is not supported on vs testbed
