@@ -305,8 +305,11 @@ def test_load_minigraph_with_traffic_shift_away(duthosts, enum_rand_one_per_hwsk
         orig_v4_routes = parse_routes_on_neighbors(duthost, nbrhosts, 4)
         orig_v6_routes = parse_routes_on_neighbors(duthost, nbrhosts, 6)
 
+        is_override_config = True if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get(
+            "is_smartswitch") else False
+
         config_reload(duthost, config_source='minigraph', safe_reload=True, check_intf_up_ports=True,
-                      traffic_shift_away=True)
+                      traffic_shift_away=True, override_config=is_override_config)
 
         # Verify DUT is in maintenance state.
         pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost),
