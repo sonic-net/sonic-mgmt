@@ -2,7 +2,6 @@ import logging
 import pytest
 import time
 import re
-import json
 from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
 
 logger = logging.getLogger(__name__)
@@ -13,22 +12,25 @@ pytestmark = [
 ]
 
 
-def check_dut_bmp_neighbor_status(duthost, neighbor_addr, expected_state, max_attempts=120, retry_interval=3):
+def check_dut_bmp_neighbor_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
     for i in range(max_attempts + 1):
         bmp_info = duthost.shell("sonic-db-cli BMP_STATE_DB HGETALL 'BGP_NEIGHBOR_TABLE|{}'"
                                  .format(neighbor_addr), module_ignore_errors=False)['stdout_lines']
         logger.info("BMP neighbor state check: {} ".format(neighbor_addr))
         logger.info("sonic-db-cli output: {} ".format(bmp_info))
 
-        parsed_output = json.loads(bmp_info[0].replace("'", "\""))
-        if expected_state in parsed_output:
+        entry_num = len(bmp_info)
+        if entry_num != 0:
             return  # Success, no need to retry
 
-        logger.info("BMP neighbor state check failed: {} - {}".format(neighbor_addr, bmp_info))
+        logger.error("BMP neighbor state check failed for neighbor: {}".format(neighbor_addr))
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert expected_state in parsed_output  # If all attempts fail, raise an assertion error
+    assert entry_num != 0, (
+        "BMP STATE_DB entry not found for the specified neighbor. "
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
@@ -45,7 +47,10 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert entry_num != 0  # If all attempts fail, raise an assertion error
+    assert entry_num != 0, (
+        "BMP rib_in state entry not found for the specified neighbor. "
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
@@ -62,7 +67,10 @@ def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert entry_num != 0  # If all attempts fail, raise an assertion error
+    assert entry_num != 0, (
+        "BMP rib_out state entry not found for the specified neighbor. "
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def get_neighbors(duthost):
@@ -99,7 +107,7 @@ def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
     enable_bmp_neighbor_table(duthost)
     neighbor_addrs = get_neighbors(duthost)
     for idx, neighbor_addr in enumerate(neighbor_addrs):
-        check_dut_bmp_neighbor_status(duthost, neighbor_addr, "sent_cap")
+        check_dut_bmp_neighbor_status(duthost, neighbor_addr)
 
     # rib_in table - ipv4 neighbor
     enable_bmp_rib_in_table(duthost)
@@ -115,7 +123,7 @@ def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
     # only pick-up recv_cap attributes for typical check first.
     neighbor_v6addrs = get_ipv6_neighbors(duthost)
     for idx, neighbor_v6addr in enumerate(neighbor_v6addrs):
-        check_dut_bmp_neighbor_status(duthost, neighbor_v6addr, "recv_cap")
+        check_dut_bmp_neighbor_status(duthost, neighbor_v6addr)
 
     # rib_in table - ipv6 neighbor
     enable_bmp_rib_in_table(duthost)

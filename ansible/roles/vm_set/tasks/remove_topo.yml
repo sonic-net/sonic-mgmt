@@ -31,14 +31,6 @@
     vars:
       ptf_portchannel_action: stop
 
-  - name: Kill exabgp and ptf_nn_agent processes in PTF container
-    ptf_control:
-      ctn_name: "ptf_{{ vm_set_name }}"
-      command: kill
-    when:
-      - topo != 'fullmesh'
-      - not 'ptf' in topo
-
   - name: Get duts ports
     include_tasks: get_dut_port.yml
     loop: "{{ duts_name.split(',') }}"
@@ -54,10 +46,13 @@
       vm_base: "{{ VM_base }}"
       vm_type: "{{ vm_type }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      is_vs_chassis: "{{ is_vs_chassis | default(false) }}"
     become: yes
 
   - name: Unbind topology {{ topo }} to DPU VMs. base vm = {{ VM_base }}
@@ -138,6 +133,8 @@
       vm_set_name: "{{ vm_set_name }}"
       topo: "{{ topology }}"
       duts_fp_ports: "{{ duts_fp_ports }}"
+      duts_midplane_ports: "{{ duts_midplane_ports }}"
+      duts_inband_ports: "{{ duts_inband_ports }}"
       duts_mgmt_port: "{{ duts_mgmt_port }}"
       duts_name: "{{ duts_name.split(',') }}"
       max_fp_num: "{{ max_fp_num }}"
@@ -163,7 +160,6 @@
     cmd: 'destroy'
     vm_names: "{{ VM_targets }}"
   become: yes
-  when: vm_type is defined and vm_type=="ceos"
 
 - name: Destroy DPUs network
   vm_topology:

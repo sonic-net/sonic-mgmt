@@ -10,8 +10,11 @@ all:
       vars:
         topologies:
           - t1
+          - t1-vpp
           - t1-lag
+          - t1-lag-vpp
           - t1-28-lag
+          - t1-48-lag
           - t1-56-lag
           - t1-64-lag
           - t1-8-lag
@@ -32,10 +35,17 @@ all:
           - t0-116
           - t0-118
           - t0-backend
+          - t0-88-o8c80
           - dualtor
           - dualtor-56
           - dualtor-120
-          - t2-vs
+          - t2
+          - t2_2lc_min_ports-masic
+          - t2_2lc_min_ports
+          - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
@@ -72,11 +82,12 @@ all:
         vlab-11:
         vlab-12:
         vlab-8k-01:
-        vlab-t2-01:
-        vlab-t2-02:
-        vlab-t2-sup:
         vlab-c-01:
+        vlab-t2-1-1:
+        vlab-t2-1-2:
+        vlab-t2-1-sup:
         vlab-c-02:
+        vlab-vpp-01:
     ptf:
       hosts:
         ptf-01:
@@ -196,34 +207,70 @@ all:
           ansible_hostv6: fec0::ffff:afa:4
           type: simx
           hwsku: MSN3700
-        vlab-t2-01:
-          ansible_host: 10.250.0.120
-          ansible_hostv6: fec0::ffff:afa:10
+        vlab-t2-1-1:
+          ansible_host: 10.250.0.123
+          mgmt_prefixlen: 24
+          mgmt_gw: 10.250.0.1
+          ansible_hostv6: fec0::ffff:afa:13
+          mgmt_gw_v6: fec0::1
           type: kvm
-          hwsku: Force10-S6000
-          serial_port: 9020
+          hwsku: Nokia-IXR7250E-36x400G
+          serial_port: 9023
           ansible_password: password
           ansible_user: admin
+          card_type: linecard
+          switch_type: voq
           slot_num: slot1
-        vlab-t2-02:
-          ansible_host: 10.250.0.121
-          ansible_hostv6: fec0::ffff:afa:11
+          num_asics: 2
+          macsec_enabled: True
+          voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+          voq_inband_type: port
+          voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+          voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+          loopback4096_ip: [8.0.0.1/32,8.0.0.2/32]
+          loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+          switchids: [0,2]
+          max_cores: 48
+          frontend_asics: [0,1]
+        vlab-t2-1-2:
+          ansible_host: 10.250.0.124
+          mgmt_prefixlen: 24
+          mgmt_gw: 10.250.0.1
+          ansible_hostv6: fec0::ffff:afa:14
+          mgmt_gw_v6: fec0::1
           type: kvm
-          hwsku: Force10-S6000
-          serial_port: 9021
+          hwsku: Nokia-IXR7250E-36x400G
+          serial_port: 9024
           ansible_password: password
           ansible_user: admin
+          card_type: linecard
+          switch_type: voq
           slot_num: slot2
-        vlab-t2-sup:
-          ansible_host: 10.250.0.122
-          ansible_hostv6: fec0::ffff:afa:12
+          num_asics: 2
+          macsec_enabled: True
+          voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+          voq_inband_type: port
+          voq_inband_ip: [3.3.3.3/32,3.3.3.4/32]
+          voq_inband_ipv6: [3333::3:3/128,3333::3:4/128]
+          loopback4096_ip: [8.0.0.3/32,8.0.0.4/32]
+          loopback4096_ipv6: [2603:10e2:400::3/128,2603:10e2:400::4/128]
+          switchids: [4,6]
+          max_cores: 48
+          frontend_asics: [0,1]
+        vlab-t2-1-sup:
+          ansible_host: 10.250.0.125
+          mgmt_prefixlen: 24
+          mgmt_gw: 10.250.0.1
+          ansible_hostv6: fec0::ffff:afa:15
+          mgmt_gw_v6: fec0::1
           type: kvm
-          hwsku: Force10-S6000
-          serial_port: 9022
+          hwsku: Nokia-IXR7250E-SUP-10
+          serial_port: 9025
           ansible_password: password
           ansible_user: admin
           card_type: supervisor
-          slot_num: slot3
+          slot_num: slot0
+          switch_type: dummy-sup
         vlab-09:
           ansible_host: 10.250.0.115
           ansible_hostv6: fec0::ffff:afb:1
@@ -289,6 +336,15 @@ all:
           ansible_user: admin
           ansible_ssh_user: admin
           ansible_altpassword: admin
+        vlab-vpp-01:
+          ansible_host: 10.250.0.92
+          ansible_hostv6: fec0::ffff:afa:70
+          type: kvm
+          hwsku: Force10-S6000
+          asic_type: vpp
+          serial_port: 9001
+          ansible_password: password
+          ansible_user: admin
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

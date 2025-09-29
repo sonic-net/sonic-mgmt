@@ -1,0 +1,8 @@
+{ "op": "add", "path": "/LOOPBACK_INTERFACE", "value": {} },
+{ "op": "add", "path": "/LOOPBACK_INTERFACE/Loopback0", "value": {} },
+{% if meta.loopback_v4 %}
+{ "op": "add", "path": "/LOOPBACK_INTERFACE/Loopback0|{{ meta.loopback_v4 | regex_replace('/', '~1') }}", "value": {} },
+{% endif %}
+{% if meta.loopback_v6 %}
+{ "op": "add", "path": "/LOOPBACK_INTERFACE/Loopback0|{{ meta.loopback_v6 | regex_replace('/', '~1') }}", "value": {} },
+{% endif %}

@@ -6,6 +6,7 @@ import random
 import re
 
 from run_events_test import run_test
+from tests.common.mellanox_data import LOSSY_ONLY_HWSKUS
 from tests.common.utilities import wait_until
 
 random.seed(10)
@@ -29,14 +30,15 @@ WAIT_TIME = 3
 
 
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
-    if duthost.topo_type.lower() in ["m0", "mx"]:
+    if duthost.topo_type.lower() in ["m0", "mx", "m1"]:
         logger.info("Skipping swss events test on MGFX topologies")
         return
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
-    run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
-             "pfc_storm.json", "sonic-events-swss:pfc-storm", tag)
+    if duthost.facts["hwsku"] not in LOSSY_ONLY_HWSKUS:
+        run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
+                 "pfc_storm.json", "sonic-events-swss:pfc-storm", tag)
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_crm_threshold_exceeded,
              "chk_crm_threshold.json", "sonic-events-swss:chk_crm_threshold", tag)
 

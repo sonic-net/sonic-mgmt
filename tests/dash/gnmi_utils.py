@@ -245,7 +245,15 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '-rcert /root/%s ' % (env.gnmi_ca_cert)
     cmd += '-pkey /root/%s ' % (env.gnmi_client_key)
     cmd += '-cchain /root/%s ' % (env.gnmi_client_cert)
-    cmd += '-m set-update '
+    if len(update_list) > 0:
+        cmd += '-m set-update '
+    elif len(delete_list) > 0:
+        cmd += '-m set-delete '
+    elif len(replace_list) > 0:
+        cmd += '-m set-replace '
+    else:
+        logger.info("PTF GNMI no items to operate on")
+        return
     xpath = ''
     xvalue = ''
     for path in delete_list:
@@ -356,7 +364,7 @@ def apply_messages(
 
 
 def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,
-                    wait_after_apply=5, max_updates_in_single_cmd=1024):
+                    wait_after_apply=5, max_updates_in_single_cmd=1024, host='localhost'):
     """
     Apply dash configuration with gnmi client
 
@@ -402,9 +410,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/dpu1/%s:$/root/%s" % (k, filename)
+                    path = "/APPL_DB/%s/%s:$/root/%s" % (host, k, filename)
                 else:
-                    path = "/APPL_DB/dpu1/%s:@/root/%s" % (k, filename)
+                    path = "/APPL_DB/%s/%s:@/root/%s" % (host, k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -412,7 +420,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/dpu1/%s" % (k)
+                path = "/APPL_DB/%s/%s" % (host, k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])

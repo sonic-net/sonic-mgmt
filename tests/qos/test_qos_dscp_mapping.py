@@ -11,13 +11,13 @@ from ptf import mask
 from scapy.all import Ether, IP
 from tabulate import tabulate
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
 from tests.common.helpers.ptf_tests_helper import downstream_links, upstream_links, select_random_link,\
-    get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown # noqa F401
+    get_stream_ptf_ports, get_dut_pair_port_from_ptf_port, apply_dscp_cfg_setup, apply_dscp_cfg_teardown  # noqa: F401
 from tests.common.utilities import get_ipv4_loopback_ip, get_dscp_to_queue_value, find_egress_queue,\
-    get_egress_queue_pkt_count_all_prio, wait_until
+    get_egress_queue_pkt_count_all_prio, wait_until, get_vlan_from_port
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module # noqa F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -153,11 +153,16 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
     """
     def _setup_test_params(self,
                            duthost,
-                           downstream_links, # noqa F811
-                           upstream_links, # noqa F811
-                           decap_mode):
+                           tbinfo,
+                           downstream_links,  # noqa: F811
+                           upstream_links,  # noqa: F811
+                           decap_mode,
+                           loganalyzer):
         """
         Set up test parameters for the DSCP to Queue mapping test for IP-IP packets.
+
+        Destination mac returned will prioritize the VLAN mac address and fallback to the router mac
+        if no VLAN is found.
 
         Args:
             duthost (fixture): DUT fixture
@@ -169,21 +174,33 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         downlink = select_random_link(downstream_links)
         uplink_ptf_ports = get_stream_ptf_ports(upstream_links)
         loopback_ip = get_ipv4_loopback_ip(duthost)
-        router_mac = duthost.facts["router_mac"]
+        ptf_downlink_port_id = downlink.get("ptf_port_id")
+
+        src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_downlink_port_id)
+        pytest_assert(src_port_name, "No port on DUT found for ptf downlink port {}".format(ptf_downlink_port_id))
+        vlan_name = get_vlan_from_port(duthost, src_port_name)
+        logger.debug("Found VLAN {} on port {}".format(vlan_name, src_port_name))
+        vlan_mac = None if vlan_name is None else duthost.get_dut_iface_mac(vlan_name)
+        if vlan_mac is not None:
+            logger.info("Using VLAN mac {} instead of router mac".format(vlan_mac))
+            dst_mac = vlan_mac
+        else:
+            logger.info("VLAN mac not found, falling back to router mac")
+            dst_mac = duthost.facts["router_mac"]
 
         # Setup DSCP decap config on DUT
-        apply_dscp_cfg_setup(duthost, decap_mode)
+        apply_dscp_cfg_setup(duthost, decap_mode, loganalyzer)
 
         pytest_assert(downlink is not None, "No downlink found")
         pytest_assert(uplink_ptf_ports is not None, "No uplink found")
         pytest_assert(loopback_ip is not None, "No loopback IP found")
-        pytest_assert(router_mac is not None, "No router MAC found")
+        pytest_assert(dst_mac is not None, "No router/vlan MAC found")
 
-        test_params["ptf_downlink_port"] = downlink.get("ptf_port_id")
+        test_params["ptf_downlink_port"] = ptf_downlink_port_id
         test_params["ptf_uplink_ports"] = uplink_ptf_ports
         test_params["outer_src_ip"] = '8.8.8.8'
         test_params["outer_dst_ip"] = loopback_ip
-        test_params["router_mac"] = router_mac
+        test_params["dst_mac"] = dst_mac
 
         return test_params
 
@@ -192,8 +209,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                   duthost,
                   tbinfo,
                   test_params,
-                  dut_qos_maps_module, # noqa F811
-                  decap_mode): # noqa F811
+                  dut_qos_maps_module,  # noqa: F811
+                  decap_mode):  # noqa: F811
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets
             Args:
@@ -213,7 +230,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             pytest.skip("Dscp-queue mapping is not supported on {}".format(tbinfo["topo"]["type"]))
 
         asic_type = duthost.facts['asic_type']
-        router_mac = test_params['router_mac']
+        dst_mac = test_params['dst_mac']
         ptf_src_port_id = test_params['ptf_downlink_port']
         ptf_dst_port_ids = test_params['ptf_uplink_ports']
         outer_dst_pkt_ip = test_params['outer_dst_ip']
@@ -229,7 +246,7 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
         logger.info("Inner Pkt Src IP: {}".format(inner_src_pkt_ip))
         logger.info("Inner Pkt Dst IP: {}".format(inner_dst_pkt_ip))
         logger.info("Pkt Src MAC: {}".format(ptf_src_mac))
-        logger.info("Pkt Dst MAC: {}".format(router_mac))
+        logger.info("Pkt Dst MAC: {}".format(dst_mac))
 
         pytest_assert(dut_qos_maps_module.get("dscp_to_tc_map") and dut_qos_maps_module.get("tc_to_queue_map"),
                       "No QoS map found on DUT")
@@ -244,8 +261,9 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                 inner_dscp = rotating_dscp
                 logger.info("Pipe mode: outer_dscp = {}, inner_dscp = {}".format(outer_dscp, inner_dscp))
 
+            # The dst_mac used may be the VLAN mac instead of the router mac depending on the topology.
             pkt, exp_pkt = create_ipip_packet(outer_src_mac=ptf_src_mac,
-                                              outer_dst_mac=router_mac,
+                                              outer_dst_mac=dst_mac,
                                               outer_src_pkt_ip=outer_src_pkt_ip,
                                               outer_dst_pkt_ip=outer_dst_pkt_ip,
                                               outer_dscp=outer_dscp,
@@ -329,35 +347,41 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         pytest_assert(not failed_once, "FAIL: Test failed. Please check table for details.")
 
-    def _teardown_test(self, duthost):
+    def _teardown_test(self, duthost, loganalyzer):
         """
         Test teardown
 
         Args:
             duthost (AnsibleHost): The DUT host
         """
-        apply_dscp_cfg_teardown(duthost)
+        apply_dscp_cfg_teardown(duthost, loganalyzer)
 
     def test_dscp_to_queue_mapping_pipe_mode(self, ptfadapter, rand_selected_dut,
-                                             toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                             toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
                                              setup_standby_ports_on_rand_unselected_tor,
-                                             tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
+                                             tbinfo,
+                                             downstream_links, upstream_links, dut_qos_maps_module,  # noqa: F811
+                                             loganalyzer):
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "pipe" mode
         """
         duthost = rand_selected_dut
-        test_params = self._setup_test_params(duthost, downstream_links, upstream_links, "pipe")
+        test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links, "pipe",
+                                              loganalyzer)
         self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps_module, "pipe")
-        self._teardown_test(duthost)
+        self._teardown_test(duthost, loganalyzer)
 
     def test_dscp_to_queue_mapping_uniform_mode(self, ptfadapter, rand_selected_dut,
-                                                toggle_all_simulator_ports_to_rand_selected_tor, # noqa F811
+                                                toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
                                                 setup_standby_ports_on_rand_unselected_tor,
-                                                tbinfo, downstream_links, upstream_links, dut_qos_maps_module): # noqa F811
+                                                tbinfo,
+                                                downstream_links, upstream_links, dut_qos_maps_module,  # noqa: F811
+                                                loganalyzer):
         """
             Test QoS SAI DSCP to queue mapping for IP-IP packets in DSCP "uniform" mode
         """
         duthost = rand_selected_dut
-        test_params = self._setup_test_params(duthost, downstream_links, upstream_links, "uniform")
+        test_params = self._setup_test_params(duthost, tbinfo, downstream_links, upstream_links, "uniform",
+                                              loganalyzer)
         self._run_test(ptfadapter, duthost, tbinfo, test_params, dut_qos_maps_module, "uniform")
-        self._teardown_test(duthost)
+        self._teardown_test(duthost, loganalyzer)

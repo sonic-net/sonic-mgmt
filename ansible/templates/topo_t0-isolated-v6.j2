@@ -43,6 +43,9 @@ configuration_properties:
     tor_asn_start: 4200000000
     failure_rate: 0
     nhipv6: FC0A::FF
+    ipv6_address_pattern: 2064:100:0::%02X%02X:%02X%02X:0/120
+    enable_ipv4_routes_generation: false
+    enable_ipv6_routes_generation: true
 
 configuration:
 {%- for vm in vm_list %}
@@ -50,7 +53,7 @@ configuration:
     properties:
     - common
     bgp:
-      router_id: {{vm.loopback_ipv4}}
+      router-id: {{vm.loopback_ipv4}}
       asn: {{vm.asn_v6}}
       peers:
         {{vm.peer_asn_v6}}:

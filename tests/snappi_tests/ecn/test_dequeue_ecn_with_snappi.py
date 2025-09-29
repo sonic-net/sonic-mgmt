@@ -9,7 +9,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     get_snappi_ports_single_dut, snappi_testbed_config, \
     get_snappi_ports_multi_dut, is_snappi_multidut, \
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config      # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa F401
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list      # noqa: F401
 
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.ecn.files.helper import run_ecn_test
@@ -52,6 +52,7 @@ def test_dequeue_ecn(request,
         N/A
     """
 
+    skip_ecn_tests(duthosts[0])
     for testbed_subtype, rdma_ports in multidut_port_info.items():
         tx_port_count = 1
         rx_port_count = 1
@@ -79,8 +80,6 @@ def test_dequeue_ecn(request,
                                                                                 snappi_api)
 
     lossless_prio = random.sample(lossless_prio_list, 1)
-    skip_ecn_tests(snappi_ports[0]['duthost'])
-    skip_ecn_tests(snappi_ports[1]['duthost'])
     lossless_prio = int(lossless_prio[0])
     snappi_extra_params = SnappiTestParams()
 
