@@ -10,6 +10,7 @@ import gzip
 import base64
 import ipaddress
 import random
+import re
 import time
 from copy import deepcopy
 from threading import Thread, Event
