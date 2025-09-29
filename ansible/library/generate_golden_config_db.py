@@ -565,6 +565,20 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps(ori_config_db, indent=4)
 
+    def update_syslog_counter_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+
+        # Older version image may not support syslog counter feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "syslog_counter" in out:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["syslog_counter"] = "true"
+
+        return json.dumps(ori_config_db, indent=4)
+
     def generate_lt2_ft2_golden_config_db(self):
         """
         Generate golden_config for FT2 to enable FEC.
@@ -614,6 +628,9 @@ class GenerateGoldenConfigDBModule(object):
 
         # update dns config
         config = self.update_dns_config(config)
+
+        # update syslog counter config
+        config = self.update_syslog_counter_config(config)
 
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
