@@ -3932,6 +3932,12 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11349
 
+tacacs/test_ro_disk.py:
+  skip:
+    reason: "Testcase skip due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/20787"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/20787
+
 #######################################
 #####           telemetry         #####
 #######################################
