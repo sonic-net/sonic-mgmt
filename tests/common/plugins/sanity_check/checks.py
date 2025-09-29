@@ -762,6 +762,10 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
                 return check_passed
 
+            # try to recover the mux config back to auto mode
+            if "'show mux config' output differs between two ToRs" in err_msg:
+                duthosts.shell("config mux mode auto all")
+
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
             duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
             wait_until(30, 5, 0, _verify_mux_simulator_status_passed)
