@@ -40,6 +40,7 @@ MAX_DOWNTIME_ONE_PORT_FLAPPING = 30  # seconds
 MAX_DOWNTIME_UNISOLATION = 300  # seconds
 MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE = 30  # seconds
 PKTS_SENDING_TIME_SLOT = 1  # seconds
+MAX_CONVERGENCE_TIME = 5  # seconds
 MAX_CONVERGENCE_WAIT_TIME = 300  # seconds
 PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
 MASK_COUNTER_WAIT_TIME = 10  # wait some seconds for mask counters processing packets
@@ -424,6 +425,57 @@ def compress_expected_routes(expected_routes):
     compressed = gzip.compress(json_str.encode('utf-8'))
     b64_str = base64.b64encode(compressed).decode('utf-8')
     return b64_str
+
+
+def test_port_flap_with_syslog(
+    duthost,
+    bgp_peers_info
+):
+    TIMESTAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    LOG_STAMP = "ONLY_ANALYSIS_LOGS_AFTER_THIS_LINE_%s" % TIMESTAMP
+    TMP_SYSLOG_FILEPATH = "/tmp/syslog_after_bgp_flapping_%s.log" % TIMESTAMP
+    bgp_neighbors = [hostname for hostname in bgp_peers_info.keys()]
+    flapping_neighbor = random.choice(bgp_neighbors)
+    flapping_ports = [bgp_peers_info[flapping_neighbor][DUT_PORT]]
+    logger.info("Flapping port: %s", flapping_ports)
+
+    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
+    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
+    nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
+    expected_routes = deepcopy(startup_routes)
+    remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
+    compressed_expected_routes = compress_expected_routes(expected_routes)
+    duthost.shell('sudo logger "%s"' % LOG_STAMP)
+    try:
+        result = check_bgp_routes_converged(
+            duthost,
+            compressed_expected_routes,
+            flapping_ports,
+            MAX_CONVERGENCE_WAIT_TIME,
+            compressed=True,
+            action='shutdown'
+        )
+
+        if not result.get("converged"):
+            pytest.fail("BGP routes are not stable in long time")
+
+        duthost.shell('sudo logger -f /var/log/swss/sairedis.rec') # merge sairedis.rec to syslog
+        duthost.shell('sudo awk "/%s/ {found=1; next} found" %s > %s' % (LOG_STAMP, '/var/log/syslog', TMP_SYSLOG_FILEPATH))
+
+        last_group_update = duthost.shell('sudo cat %s | grep "|C|SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER||" | tail -n 1' % TMP_SYSLOG_FILEPATH)['stdout']
+        last_group_update_time_str = re.search(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+', last_group_update).group(0)
+        last_group_update_time = datetime.datetime.strptime(last_group_update_time_str, "%Y-%m-%d.%H:%M:%S.%f")
+
+        port_shut_log = duthost.shell('sudo cat %s | grep "Configure %s admin status to down" | tail -n 1' % (TMP_SYSLOG_FILEPATH, flapping_ports[0]))['stdout']
+        port_shut_time_str = " ".join(port_shut_log.split()[:4])
+        port_shut_time = datetime.datetime.strptime(port_shut_time_str, "%Y %b %d %H:%M:%S.%f")
+
+        time_gap = (last_group_update_time - port_shut_time).total_seconds()
+        if time_gap > MAX_CONVERGENCE_TIME:
+            pytest.fail("Nexthop group update is too late after port shut down, from port shut to last group update is %s seconds" % time_gap)
+        logger.info("Time difference between port shut and last nexthop group update is %s seconds", time_gap)
+    finally:
+        duthost.no_shutdown_multiple(flapping_ports)
 
 
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20])
