@@ -376,6 +376,12 @@ function run_individual_tests()
                 return ${ret_code}
             fi
 
+            # rc 16 means ptfhost is unreachable
+            if [ ${ret_code} -eq 16 ]; then
+                echo "=== ptfhost has exception for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
@@ -417,7 +423,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux:w" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0

@@ -95,11 +95,13 @@ def run_cmd(module, cmd, timeout):
         err_msg = "[WARNING] timeout is not supported for command contains single quote, ran without time limit"
         timeout = 0
 
+    start = datetime.datetime.now()
     if int(timeout) == 0:
         rc, out, err = module.run_command(cmd, use_unsafe_shell=True)
     else:
         cmd_with_timeout = "echo '{}' | timeout --preserve-status {} bash".format(cmd, timeout)
         rc, out, err = module.run_command(cmd_with_timeout, use_unsafe_shell=True)
+    end = datetime.datetime.now()
 
     result = dict(
         cmd=cmd,
@@ -110,7 +112,9 @@ def run_cmd(module, cmd, timeout):
         stderr=err,
         stdout_lines=out.splitlines(),
         stderr_lines=err.splitlines(),
-        timeout=timeout
+        timeout=timeout,
+        start=str(start),
+        end=str(end)
     )
     return result
 

@@ -1,7 +1,9 @@
 import pytest
 import logging
 
-from .helper import gnmi_capabilities, gnmi_set, add_gnmi_client_common_name, del_gnmi_client_common_name, dump_gnmi_log
+from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_common_name, \
+                                            del_gnmi_client_common_name
+from .helper import gnmi_set, dump_gnmi_log
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 
