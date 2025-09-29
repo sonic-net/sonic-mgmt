@@ -155,9 +155,9 @@ def get_all_up_ports(config_facts):
     """
     split_port_alias_pattern = r"etp\d+[a-z]"
     split_up_ports = [p for p, v in list(config_facts['PORT'].items()) if v.get('admin_status', None) == 'up' and
-                      not re.match(split_port_alias_pattern, v['alias'])]
+                      not re.match(split_port_alias_pattern, v['alias']) and v.get('role', None) != 'Dpc']
     non_split_up_ports = [p for p, v in list(config_facts['PORT'].items()) if v.get('admin_status', None) == 'up' and
-                          re.match(split_port_alias_pattern, v['alias'])]
+                          re.match(split_port_alias_pattern, v['alias']) and v.get('role', None) != 'Dpc']
     return split_up_ports + non_split_up_ports
 
 
