@@ -31,7 +31,7 @@ pytestmark = [pytest.mark.topology("tgen")]
 
 
 @pytest.mark.parametrize("ip_version", ["IPv6"])
-@pytest.mark.parametrize("frame_bytes", [256])  # [86, 128, 256, 512, 1024, 1518]
+@pytest.mark.parametrize("frame_bytes", [64, 128, 256, 512, 1024, 4096, 8192])
 @pytest.mark.parametrize("rfc2889_enabled", [True, False])
 def test_packet_drop_threshold(
     request,
