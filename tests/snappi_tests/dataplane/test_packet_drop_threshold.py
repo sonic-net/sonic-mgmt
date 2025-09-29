@@ -2,7 +2,6 @@ from tests.snappi_tests.dataplane.imports import *  # noqa F403
 from snappi_tests.dataplane.files.helper import *  # noqa F403
 from tests.common.telemetry.metrics import GaugeMetric
 from tests.common.telemetry.constants import (
-    METRIC_LABEL_DEVICE_ID,
     METRIC_LABEL_TG_FRAME_BYTES,
     METRIC_LABEL_TG_RFC2889_ENABLED,
     UNIT_PERCENT,
@@ -132,7 +131,7 @@ def test_packet_drop_threshold(
     ]['Line Rate (%)'].max()
     """
     no_loss_max_rate.record(
-        best_rate, {"tg.ip_version": ip_version, "tg.frame_bytes": frame_bytes, "tg.rfc2889.enabled": rfc2889_enabled}
+        best_rate, {"tg.ip_version": ip_version, METRIC_LABEL_TG_FRAME_BYTES: frame_bytes, METRIC_LABEL_TG_RFC2889_ENABLED: rfc2889_enabled}
     )
     db_reporter.report()
     for ordering_mode, group in test_results.groupby("Frame Ordering"):
