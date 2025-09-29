@@ -17,7 +17,7 @@ parameters:
 
 - name: TEST_PLAN_STOP_ON_FAILURE
   type: string
-  default: "True"
+  default: "False"
 
 - name: RETRY_TIMES
   type: string
