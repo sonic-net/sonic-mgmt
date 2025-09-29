@@ -95,7 +95,7 @@ This table lists the transceiver flag change count DB tables that should be moni
 
 The Physical OIR API provides a set of functions for performing physical optical insertion and removal tests on the device under test (DUT). This API allows users to check OIR support status, perform optics insertion/removal operations, and clean up OIR resources.
 
-A class named `PhysicalOIR` is defined under `tests.transceiver.utils.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
+A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module. If the class can not be imported, the physical OIR tests are skipped. The class has following methods:
 
 1. **Constructor Method**
    - Description: Initializes the PhysicalOIR class.
