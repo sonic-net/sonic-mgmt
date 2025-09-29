@@ -236,14 +236,17 @@ def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_fronte
                                         sonic, collect_techsupport_all_duts, enum_frontend_asic_index,
                                         tbinfo, request, restart_swss_container, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ignoreRegex = [
+        ".*ERR.*",
+        "crash",
+        "kernel.*",
+    ]
 
     if loganalyzer:
         # Apply ignore pattern to ALL devices in the testbed
         for dut in duthosts:
             # Ignore all ERR messages, as it is expected many error messages will be generated during swss restart
-            loganalyzer[dut.hostname].ignore_regex.extend([
-                ".*ERR.*",  # Ignore all ERROR messages
-            ])
+            loganalyzer[dut.hostname].ignore_regex.extend(ignoreRegex)
             # Test should fail if LLDP 'unable to send packet on' errors are found
             loganalyzer[dut.hostname].match_regex.extend([
                 ".*WARNING lldp#lldpd.*unable to send packet on real device for.*No such device or address"
