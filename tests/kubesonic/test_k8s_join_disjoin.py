@@ -277,6 +277,10 @@ def clean_configdb_k8s_table(duthost):
 
 @pytest.fixture()
 def setup_and_teardown(duthost, vmhost, creds):
+    # Capture initial iptables
+    duthost.shell("sudo iptables-save > /tmp/iptables_rules_before")
+    duthost.shell("sudo ip6tables-save > /tmp/ip6tables_rules_before")
+
     check_image_type_supported(duthost)
     check_dut_k8s_version_supported(duthost)
     logger.info("Start to setup test environment")
@@ -346,16 +350,24 @@ def setup_and_teardown(duthost, vmhost, creds):
         remove_k8s_master(vmhost)
         remove_minikube(vmhost)
 
+    # Restore original iptables and cleanup
+    duthost.shell("sudo iptables-restore < /tmp/iptables_rules_before")
+    duthost.shell("sudo ip6tables-restore < /tmp/ip6tables_rules_before")
+    duthost.shell("rm -f /tmp/iptables_rules_before")
+    duthost.shell("rm -f /tmp/ip6tables_rules_before")
+
 
 def trigger_join_and_check(duthost, vmhost):
     logger.info("Start to join duthost to k8s cluster and check the status")
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
-    time.sleep(60)
-    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
-    pytest_assert(duthost.hostname in nodes["stdout"], "Failed to join duthost to k8s cluster")
-    pytest_assert("NotReady" not in nodes["stdout"], "The status of duthost in k8s cluster is not ready")
-    logger.info(f"Successfully joined duthost {duthost.hostname} to k8s cluster")
+    for _ in range(12):
+        time.sleep(10)
+        nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
+        if duthost.hostname in nodes["stdout"] and "NotReady" not in nodes["stdout"]:
+            logger.info("Duthost is successfully joined to k8s cluster")
+            return
+    pytest_assert(False, "Failed to join duthost to k8s cluster")
 
 
 def trigger_disjoin_and_check(duthost, vmhost):

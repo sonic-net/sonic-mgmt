@@ -12,9 +12,9 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from tests.common.port_toggle import default_port_toggle_wait_time, WAIT_TIME_AFTER_INTF_SHUTDOWN
 from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.utilities import wait_until
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa F401
-from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa F401
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts     # noqa: F401
+from tests.common.fixtures.duthost_utils import shutdown_ebgp           # noqa: F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.platform.transceiver_utils import is_sw_control_enabled,\
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 from tests.common.mellanox_data import is_mellanox_device
@@ -29,7 +29,7 @@ import sys
 if sys.version_info.major >= 3:
     STRING_TYPE = str
 else:
-    STRING_TYPE = basestring    # noqa F821
+    STRING_TYPE = basestring    # noqa: F821
 # END Remove this after we transition to Python 3
 ###################################################
 
@@ -43,7 +43,7 @@ pytestmark = [
 
 @pytest.fixture(scope="class")
 def setup(request, duthosts, enum_rand_one_per_hwsku_hostname,
-          xcvr_skip_list, conn_graph_facts, shutdown_ebgp):     # noqa F811
+          xcvr_skip_list, conn_graph_facts, shutdown_ebgp):     # noqa: F811
     sfp_setup = {}
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -114,18 +114,15 @@ class TestSfpApi(PlatformApiTestBase):
         'nominal_bit_rate',
     ]
 
-    # some new keys added for QSFP-DD and OSFP in 202205 or later branch
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS = ['host_lane_count',
-                                                'media_lane_count',
-                                                'cmis_rev',
-                                                'host_lane_assignment_option',
-                                                'media_interface_technology',
-                                                'media_interface_code',
-                                                'host_electrical_interface',
-                                                'media_lane_assignment_option']
+    # some new keys added for CMIS optics in 202205 or later branch
+    EXPECTED_XCVR_NEW_CMIS_INFO_KEYS = ['host_lane_count',
+                                        'media_lane_count',
+                                        'cmis_rev',
+                                        'media_interface_technology',
+                                        'vdm_supported']
 
-    EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS = ['active_firmware',
-                                                         'inactive_firmware']
+    EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS = ['active_firmware',
+                                                 'inactive_firmware']
 
     # These are fields which have been added in the common parsers
     # in sonic-platform-common/sonic_sfp, but since some vendors are
@@ -141,7 +138,7 @@ class TestSfpApi(PlatformApiTestBase):
         'dom_capability'
     ]
 
-    EXPECTED_XCVR_BULK_STATUS_KEYS = [
+    EXPECTED_XCVR_DOM_REAL_VALUE_KEYS = [
         'temperature',
         'voltage',
         'rx1power',
@@ -274,7 +271,34 @@ class TestSfpApi(PlatformApiTestBase):
 
     # xcvr to be skipped for lpmode test due to known issue
     LPMODE_SKIP_LIST = [
-        {'manufacturer': 'Cloud Light', 'host_electrical_interface': '400GAUI-8 C2M (Annex 120E)'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-01'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-02'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-05'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-0X'},
+        {'manufacturer': 'Cloud Light', 'model': '7123-G37-10'},
+    ]
+
+    # Keys supported for Amphenol 800G Backplane cartridge.
+    EXPECTED_AMPH_BACKPLANE_KEYS = [
+        "type",
+        "type_abbrv_name",
+        "hardware_rev",
+        "serial",
+        "cable_length",
+        "manufacturer",
+        "model",
+        "vendor_date",
+        "vendor_oui",
+        "vendor_rev",
+        "application_advertisement",
+        "host_electrical_interface",
+        "host_lane_count",
+        "host_lane_assignment_option",
+        "cable_type",
+        "cmis_rev",
+        "specification_compliance",
+        "vdm_supported",
+        "slot_id",
     ]
 
     chassis_facts = None
@@ -286,8 +310,7 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_optical(self, xcvr_info_dict):
         """Returns True if transceiver is optical, False if copper (DAC)"""
         # For QSFP-DD specification compliance will return type as passive or active
-        if xcvr_info_dict["type_abbrv_name"] == "QSFP-DD" or xcvr_info_dict["type_abbrv_name"] == "OSFP-8X" \
-                or xcvr_info_dict["type_abbrv_name"] == "QSFP+C":
+        if xcvr_info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C", "BP"]:
             if xcvr_info_dict["specification_compliance"] == "Passive Copper Cable" or \
                     xcvr_info_dict["specification_compliance"] == "passive_copper_media_interface":
                 return False
@@ -307,6 +330,10 @@ class TestSfpApi(PlatformApiTestBase):
         return True
 
     def is_xcvr_resettable(self, request, xcvr_info_dict):
+        # Amphenol 800G Backplane cartridge is not resettable.
+        if xcvr_info_dict["type"] == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
+            return False
+
         not_resettable_xcvr_type = request.config.getoption("--unresettable_xcvr_types")
         xcvr_type = xcvr_info_dict.get("type_abbrv_name")
         return xcvr_type not in not_resettable_xcvr_type
@@ -326,6 +353,10 @@ class TestSfpApi(PlatformApiTestBase):
     def is_xcvr_support_lpmode(self, xcvr_info_dict):
         """Returns True if transceiver is support low power mode, False if not supported"""
         xcvr_type = xcvr_info_dict["type"]
+        # Amphenol 800G Backplane cartridge does not support lpmode.
+        if xcvr_type == "Backplane Cartridge" and xcvr_info_dict['manufacturer'].rstrip() == "Amphenol":
+            return False
+
         ext_identifier = xcvr_info_dict["ext_identifier"]
         if ("QSFP" not in xcvr_type and "OSFP" not in xcvr_type) or "Power Class 1" in ext_identifier:
             return False
@@ -333,9 +364,9 @@ class TestSfpApi(PlatformApiTestBase):
         # Temporarily add this logic to skip lpmode test for some transceivers with known issue
         for xcvr_to_skip in self.LPMODE_SKIP_LIST:
             if (xcvr_info_dict["manufacturer"].strip() == xcvr_to_skip["manufacturer"] and
-                    xcvr_info_dict["host_electrical_interface"].strip() == xcvr_to_skip["host_electrical_interface"]):
-                logger.info("Temporarily skipping {} due to known issue".format(
-                    xcvr_info_dict["manufacturer"]))
+                    xcvr_info_dict["model"].strip() == xcvr_to_skip["model"]):
+                logger.info("Temporarily skipping {} - {} due to known issue".format(
+                    xcvr_info_dict["manufacturer"], xcvr_info_dict["model"]))
                 return False
 
         return True
@@ -346,11 +377,56 @@ class TestSfpApi(PlatformApiTestBase):
         is_valid_xcvr_type = "QSFP" in xcvr_type and xcvr_type != "QSFP-DD"
         return self.is_xcvr_optical(xcvr_info_dict) and is_valid_xcvr_type
 
+    def get_interfaces_to_flap_after_sfp_reset(self, port_index_to_info_dict, duthost):
+        interfaces_to_flap = []
+        admin_up_port_list = set(duthost.get_admin_up_ports())
+        for intf in self.sfp_setup['conn_interfaces']:
+            logger.info("Processing interface {} for flap after SFP reset".format(intf))
+            if intf not in admin_up_port_list:
+                # skip interfaces which are not in admin up state.
+                logger.info("Skipping interface {} as it is not in admin up state".format(intf))
+                continue
+
+            # skip if info_dict is not retrieved during reset, which also means reset was not performed.
+            sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
+            if sfp_port_idx not in port_index_to_info_dict:
+                logger.info(
+                    "Skipping interface {} as SFP reset was not performed on port index {}".format(intf, sfp_port_idx)
+                )
+                continue
+
+            info_dict = port_index_to_info_dict[sfp_port_idx]
+            if self.is_xcvr_support_lpmode(info_dict):
+                logger.info("Flapping interface {} - xcvr supports lpmode and needs to be flapped".format(intf))
+                interfaces_to_flap.append(intf)
+        return interfaces_to_flap
+
+    def _shutdown_and_no_shutdown_ports(self, duthost, intf_list):
+        intf_to_flap_joined = ",".join(intf_list)
+        try:
+            if duthost.is_multi_asic:
+                for intf in intf_list:
+                    duthost.shutdown_interface(intf)
+            else:
+                duthost.shutdown_interface(intf_to_flap_joined)
+        except Exception as e:
+            logger.error("Failed to shutdown interfaces: {}".format(e))
+
+        shutdown_wait_scale_factor = max(1, len(intf_list)*0.01)
+        time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN*shutdown_wait_scale_factor)
+        try:
+            if duthost.is_multi_asic:
+                for intf in intf_list:
+                    duthost.no_shutdown_interface(intf)
+            else:
+                duthost.no_shutdown_interface(intf_to_flap_joined)
+        except Exception as e:
+            logger.error("Failed to startup interfaces: {}".format(e))
     #
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_get_name(self,  duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         expected_sfp_names = self.sfp_setup["sfp_fact_names"]
         for i in self.sfp_setup["sfp_test_port_indices"]:
             name = sfp.get_name(platform_api_conn, i)
@@ -360,7 +436,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver name '{}' for PORT{} NOT found in platform.json".format(name, i))
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in self.sfp_setup["sfp_test_port_indices"]:
             presence = sfp.get_presence(platform_api_conn, i)
             if self.expect(presence is not None, "Unable to retrieve transceiver {} presence".format(i)):
@@ -368,7 +444,7 @@ class TestSfpApi(PlatformApiTestBase):
                     self.expect(presence is True, "Transceiver {} is not present".format(i))
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -378,7 +454,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "Transceiver {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -389,7 +465,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):   # noqa F811
+    def test_is_replaceable(self, duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):   # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
         for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
@@ -404,7 +480,7 @@ class TestSfpApi(PlatformApiTestBase):
     #
 
     def test_get_transceiver_info(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                  platform_api_conn):   # noqa F811
+                                  platform_api_conn):   # noqa: F811
         # TODO: Do more sanity checking on transceiver info values
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -417,13 +493,16 @@ class TestSfpApi(PlatformApiTestBase):
                     if duthost.sonic_release in ["201811", "201911", "202012", "202106", "202111"]:
                         UPDATED_EXPECTED_XCVR_INFO_KEYS = [
                             key if key != 'vendor_rev' else 'hardware_rev' for key in self.EXPECTED_XCVR_INFO_KEYS]
+                    elif info_dict["type"] == "Backplane Cartridge" and \
+                            info_dict['manufacturer'].rstrip() == "Amphenol":
+                        UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_AMPH_BACKPLANE_KEYS
                     else:
 
                         if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
                             active_apsel_hostlane_count = 8
                             UPDATED_EXPECTED_XCVR_INFO_KEYS = self.EXPECTED_XCVR_INFO_KEYS + \
-                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_INFO_KEYS + \
-                                self.EXPECTED_XCVR_NEW_QSFP_DD_OSFP_FIRMWARE_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_CMIS_INFO_KEYS + \
+                                self.EXPECTED_XCVR_NEW_CMIS_FIRMWARE_INFO_KEYS + \
                                 ["active_apsel_hostlane{}".format(n) for n in range(1, active_apsel_hostlane_count + 1)]
                             firmware_info_dict = sfp.get_transceiver_info_firmware_versions(platform_api_conn, i)
                             if self.expect(firmware_info_dict is not None,
@@ -431,7 +510,7 @@ class TestSfpApi(PlatformApiTestBase):
                                 if self.expect(isinstance(firmware_info_dict, dict),
                                                "Transceiver {} firmware info appears incorrect".format(i)):
                                     actual_keys.extend(list(firmware_info_dict.keys()))
-                            if 'ZR' in info_dict['media_interface_code']:
+                            if sfp.is_coherent_module(platform_api_conn, i):
                                 UPDATED_EXPECTED_XCVR_INFO_KEYS = UPDATED_EXPECTED_XCVR_INFO_KEYS + \
                                                                   self.QSFPZR_EXPECTED_XCVR_INFO_KEYS
                         else:
@@ -458,8 +537,8 @@ class TestSfpApi(PlatformApiTestBase):
                         self.expect(False, "Transceiver {} info contains unexpected field '{}'".format(i, key))
         self.assert_expectations()
 
-    def test_get_transceiver_bulk_status(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                         localhost, platform_api_conn, port_list_with_flat_memory): # noqa F811
+    def test_get_transceiver_dom_real_value(self, duthosts, enum_rand_one_per_hwsku_hostname,
+                                            localhost, platform_api_conn, port_list_with_flat_memory):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -468,22 +547,23 @@ class TestSfpApi(PlatformApiTestBase):
             if index_physical_port_map[i] in port_list_with_flat_memory[duthost.hostname]:
                 logger.info(f"skip test on spf {i} due to the port with flat memory")
                 continue
-            bulk_status_dict = sfp.get_transceiver_bulk_status(platform_api_conn, i)
-            if self.expect(bulk_status_dict is not None, "Unable to retrieve transceiver {} bulk status".format(i)):
-                if self.expect(isinstance(bulk_status_dict, dict),
-                               "Transceiver {} bulk status appears incorrect".format(i)):
+            dom_real_value_dict = sfp.get_transceiver_dom_real_value(platform_api_conn, i)
+            if self.expect(dom_real_value_dict is not None,
+                           "Unable to retrieve transceiver {} dom real value status".format(i)):
+                if self.expect(isinstance(dom_real_value_dict, dict),
+                               "Transceiver {} dom real value appears incorrect".format(i)):
                     # TODO: This set of keys should be present no matter how many channels are present on the xcvr
                     #       If the xcvr has multiple channels, we should adjust the fields here accordingly
-                    actual_keys = list(bulk_status_dict.keys())
+                    actual_keys = list(dom_real_value_dict.keys())
 
-                    missing_keys = set(self.EXPECTED_XCVR_BULK_STATUS_KEYS) - set(actual_keys)
+                    missing_keys = set(self.EXPECTED_XCVR_DOM_REAL_VALUE_KEYS) - set(actual_keys)
                     for key in missing_keys:
                         self.expect(
-                            False, "Transceiver {} bulk status does not contain field: '{}'".format(i, key))
+                            False, "Transceiver {} dom real value does not contain field: '{}'".format(i, key))
         self.assert_expectations()
 
     def test_get_transceiver_threshold_info(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                            localhost, platform_api_conn):      # noqa F811
+                                            localhost, platform_api_conn):      # noqa: F811
         # TODO: Do more sanity checking on transceiver threshold info values
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -504,9 +584,9 @@ class TestSfpApi(PlatformApiTestBase):
                     actual_keys = list(thold_info_dict.keys())
 
                     expected_keys = list(self.EXPECTED_XCVR_COMMON_THRESHOLD_INFO_KEYS)
-                    if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X"]:
+                    if info_dict["type_abbrv_name"] in ["QSFP-DD", "OSFP-8X", "QSFP+C"]:
                         expected_keys += self.QSFPDD_EXPECTED_XCVR_THRESHOLD_INFO_KEYS
-                        if 'ZR' in info_dict["media_interface_code"]:
+                        if sfp.is_coherent_module(platform_api_conn, i):
                             if 'INPHI CORP' in info_dict['manufacturer'] and 'IN-Q3JZ1-TC' in info_dict['model']:
                                 logger.info("INPHI CORP Transceiver is not populating the associated threshold fields \
                                              in redis TRANSCEIVER_DOM_THRESHOLD table. Skipping this transceiver")
@@ -525,7 +605,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_reset_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                              platform_api_conn):  # noqa F811
+                              platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -537,7 +617,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} reset status appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_rx_los(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_rx_los(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -558,7 +638,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} RX loss-of-signal data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_fault(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_tx_fault(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -579,7 +659,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                             platform_api_conn):   # noqa F811
+                             platform_api_conn):   # noqa: F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -598,7 +678,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(temp, float), "Transceiver {} temperature appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_voltage(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
+    def test_get_voltage(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -617,7 +697,7 @@ class TestSfpApi(PlatformApiTestBase):
                 self.expect(isinstance(voltage, float), "Transceiver {} voltage appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_bias(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
+    def test_get_tx_bias(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -636,7 +716,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX bias data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_rx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_rx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
 
@@ -661,7 +741,7 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} RX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_tx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_tx_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         # TODO: Do more sanity checking on the data we retrieve
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -692,7 +772,11 @@ class TestSfpApi(PlatformApiTestBase):
                             "Transceiver {} TX power data appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_reset(self, request, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_reset(self,
+                   request,
+                   duthosts,
+                   enum_rand_one_per_hwsku_hostname,
+                   localhost, platform_api_conn):  # noqa:F811
         # TODO: Verify that the transceiver was actually reset
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -712,40 +796,19 @@ class TestSfpApi(PlatformApiTestBase):
 
         # allow the I2C interface to recover post sfp reset
         time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
-
-        # shutdown and bring up in batch so that we don't have to add delay for each interface.
-        intfs_changed = []
-        admin_up_port_list = duthost.get_admin_up_ports()
-        for intf in self.sfp_setup['conn_interfaces']:
-            if intf not in admin_up_port_list:
-                # skip interfaces which are not in admin up state.
-                continue
-
-            sfp_port_idx = self.sfp_setup['physical_port_index_map'][intf]
-            # skip if info_dict is not retrieved during reset, which also means reset was not performed.
-            if sfp_port_idx not in port_index_to_info_dict:
-                continue
-            info_dict = port_index_to_info_dict[sfp_port_idx]
-
-            # only flap interfaces where are CMIS optics,
-            # non-CMIS optics should stay up after sfp_reset(), no need to flap.
-            if "cmis_rev" in info_dict:
-                duthost.shutdown_interface(intf)
-                intfs_changed.append(intf)
-
-        time.sleep(WAIT_TIME_AFTER_INTF_SHUTDOWN)
-
-        for intf in intfs_changed:
-            duthost.no_shutdown_interface(intf)
-
-        _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intfs_changed))
-        if not wait_until(port_up_wait_time, 10, 0,
-                          check_interface_status_of_up_ports, duthost):
-            self.expect(False, "Not all interfaces are up after reset")
-
+        intf_list = self.get_interfaces_to_flap_after_sfp_reset(port_index_to_info_dict, duthost)
+        if intf_list:
+            logger.info("Flapping interfaces: {}".format(intf_list))
+            self._shutdown_and_no_shutdown_ports(duthost, intf_list)
+            _, port_up_wait_time = default_port_toggle_wait_time(duthost, len(intf_list))
+            if not wait_until(port_up_wait_time, 10, 0,
+                              check_interface_status_of_up_ports, duthost):
+                self.expect(False, "Not all interfaces are up after reset")
+        else:
+            logger.info("No interfaces to flap after SFP reset")
         self.assert_expectations()
 
-    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_tx_disable(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         """This function tests both the get_tx_disable() and tx_disable() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx"])
@@ -773,7 +836,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_tx_disable_channel(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn):     # noqa F811
+                                platform_api_conn):     # noqa: F811
         """This function tests both the get_tx_disable_channel() and tx_disable_channel() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
@@ -826,10 +889,10 @@ class TestSfpApi(PlatformApiTestBase):
                     expected_mask = expected_mask >> 1
         self.assert_expectations()
 
-    def _check_lpmode_status(self, sfp, platform_api_conn, i, state):   # noqa F811
+    def _check_lpmode_status(self, sfp, platform_api_conn, i, state):   # noqa: F811
         return state == sfp.get_lpmode(platform_api_conn, i)
 
-    def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_lpmode(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         """This function tests both the get_lpmode() and set_lpmode() APIs"""
         for i in self.sfp_setup["sfp_test_port_indices"]:
             info_dict = sfp.get_transceiver_info(platform_api_conn, i)
@@ -869,7 +932,7 @@ class TestSfpApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_power_override(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                            platform_api_conn):    # noqa F811
+                            platform_api_conn):    # noqa: F811
         """This function tests both the get_power_override() and set_power_override() APIs"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012"], ["arista", "mlnx", "nokia"])
@@ -917,7 +980,7 @@ class TestSfpApi(PlatformApiTestBase):
 
     @pytest.mark.device_type('physical')
     def test_get_error_description(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                   platform_api_conn, passive_cable_ports, cmis_cable_ports_and_ver):  # noqa F811
+                                   platform_api_conn, passive_cable_ports, cmis_cable_ports_and_ver):  # noqa: F811
         """This function tests get_error_description() API (supported on 202106 and above)"""
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
@@ -941,10 +1004,10 @@ class TestSfpApi(PlatformApiTestBase):
                 if self.expect(isinstance(error_description, str) or isinstance(error_description, str),
                                "Transceiver {} error description appears incorrect".format(i)):
                     self.expect(error_description == expected_state,
-                                f"Transceiver {i} is not {expected_state}, actual state is:{error_description}.")
+                                f"Transceiver {i} is not {expected_state}, actual state is: {error_description}.")
         self.assert_expectations()
 
-    def test_thermals(self, platform_api_conn):     # noqa F811
+    def test_thermals(self, platform_api_conn):     # noqa: F811
         for sfp_id in self.sfp_setup["sfp_test_port_indices"]:
             try:
                 num_thermals = int(sfp.get_num_thermals(platform_api_conn, sfp_id))

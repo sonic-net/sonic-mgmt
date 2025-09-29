@@ -40,6 +40,7 @@ declare EXISTING_CONTAINER_NAME=""
 # Arguments -----------------------------------------------------------------------------------------------------------
 #
 
+ENV_VARS=""
 CONTAINER_NAME=""
 IMAGE_ID=""
 LINK_DIR=""
@@ -48,6 +49,11 @@ PUBLISH_PORTS=""
 FORCE_REMOVAL="${NO_PARAM}"
 VERBOSE_LEVEL="${VERBOSE_MIN}"
 SILENT_HOOK="&> /dev/null"
+
+# Sonic-mgmt remote debug feature
+DEBUG_PORT_START_RANGE=50000
+DEBUG_PORT_END_RANGE=60000
+DEFAULT_LOCK_FOLDER="/tmp/sonic-mgmt-locks/"
 
 #
 # Functions -----------------------------------------------------------------------------------------------------------
@@ -98,6 +104,7 @@ function show_help_and_exit() {
     echo "  -n <container_name>  set the name of the Docker container"
     echo
     echo "Other options:"
+    echo "  -e <VAR=value>      set environment variable inside the container (can be used multiple times)"
     echo "  -i <image_id>        specify Docker image to use. This can be an image ID (hashed value) or an image name."
     echo "                       If no value is provided, defaults to the following images in the specified order:"
     echo "                         1. The local image named \"docker-sonic-mgmt\""
@@ -110,6 +117,7 @@ function show_help_and_exit() {
     echo "  -v                   explain what is being done"
     echo "  -x                   show execution details"
     echo "  -h                   display this help and exit"
+    echo "  --enable-debug       enable debug mode"
     echo
     echo "Examples:"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master"
@@ -117,6 +125,7 @@ function show_help_and_exit() {
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -d /var/src"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -m /my/working/dir"
     echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master -p 192.0.2.1:8080:80/tcp"
+    echo "  ./${SCRIPT_NAME} -n sonic-mgmt-${USER}_master --enable-debug"
     echo "  ./${SCRIPT_NAME} -h"
     echo
     exit ${1}
@@ -133,6 +142,16 @@ function show_local_container_login() {
     echo "EXEC: docker exec --user ${USER} -ti ${CONTAINER_NAME} bash"
     echo "SSH:  ssh -i ~/.ssh/id_rsa_docker_sonic_mgmt ${USER}@${CONTAINER_IPV4}"
     echo "******************************************************************************"
+
+    if [[ -n ${SELECTED_DEBUG_PORT} ]]; then
+        echo
+        echo "*********************************[IMPORTANT]*********************************"
+        echo "DEBUG PORT: $SELECTED_DEBUG_PORT"
+        echo "Please use the above debug port in your vscode extensions"
+        echo "When running the test, add --enable-debug to the end of your ./run_tests.sh to use"
+        echo "You can check which port was assigned to you again by running 'docker ps' and search for your container"
+        echo "*********************************[IMPORTANT]*********************************"
+    fi
 }
 
 function pull_sonic_mgmt_docker_image() {
@@ -188,6 +207,11 @@ function setup_local_image() {
 FROM {{ IMAGE_ID }}
 
 USER root
+
+# Remove possible default ubuntu user of Ubuntu 24.04
+RUN if getent passwd ubuntu; \
+then userdel -r ubuntu; \
+fi
 
 # Group configuration
 RUN if getent group {{ GROUP_NAME }}; \
@@ -250,15 +274,21 @@ WORKDIR ${HOME}
 # 2. The user is not AzDevOps. By default python3 virtual env is installed for AzDevOps user.
 #    No need to install it again when current user is AzDevOps.
 # 3. The python3 virtual env is not installed for AzDevOps. Then, it is not required for other users either.
-RUN if ! pip3 list | grep -c pytest >/dev/null && \
-[ '{{ USER_NAME }}' != 'AzDevOps' ] && \
-[ -d /var/AzDevOps/env-python3 ]; then \
+# As of 2025, python3 is installed globally in the docker-sonic-mgmt image. So, this step is not really required.
+# Adjust the conditions to fail faster to skip this step.
+RUN if [ -d /var/AzDevOps/env-python3 ] \
+ && [ '{{ USER_NAME }}' != 'AzDevOps' ] \
+ && ! pip3 list | grep -c pytest >/dev/null; then \
 /bin/bash -c 'python3 -m venv ${HOME}/env-python3'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install pip --upgrade'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install wheel'; \
 /bin/bash -c '${HOME}/env-python3/bin/pip install $(/var/AzDevOps/env-python3/bin/pip freeze | grep -vE "distro|PyGObject|python-apt|unattended-upgrades|dbus-python")'; \
 fi
 
+# Remote debug port setup
+{% if SONIC_MGMT_DEBUG_PORT %}
+ENV SONIC_MGMT_DEBUG_PORT={{ SONIC_MGMT_DEBUG_PORT }}
+{% endif %}
 EOF
 
     log_info "prepare an environment file: ${TMP_DIR}/data.env"
@@ -272,6 +302,7 @@ GROUP_NAME=${USER}
 USER_NAME=${USER}
 USER_PASS=${USER_PASS}
 ROOT_PASS=${ROOT_PASS}
+SONIC_MGMT_DEBUG_PORT=${SELECTED_DEBUG_PORT}
 EOF
 
     log_info "generate a Dockerfile: ${TMP_DIR}/Dockerfile"
@@ -298,7 +329,7 @@ EOF
 }
 
 function container_exists() {
-    container_id=`docker ps --all --filter=name=$CONTAINER_NAME --format '{{.ID}}'`
+    container_id=`docker ps --all --filter name=^$CONTAINER_NAME\$ --format '{{.ID}}'`
     count=`echo $container_id | wc -w`
     return $count
 }
@@ -340,7 +371,7 @@ function start_local_container() {
         docker start ${CONTAINER_NAME}
     else
         log_info "creating a container: ${CONTAINER_NAME} ..."
-        eval "docker run -d -t ${PUBLISH_PORTS} -h ${CONTAINER_NAME} \
+        eval "docker run -d -t ${PUBLISH_PORTS} ${ENV_VARS} -h ${CONTAINER_NAME} \
         -v \"$(dirname "${SCRIPT_DIR}"):${LINK_DIR}:rslave\" ${MOUNT_POINTS} \
         --name \"${CONTAINER_NAME}\" \"${LOCAL_IMAGE}\" /bin/bash ${SILENT_HOOK}" || \
         exit_failure "failed to start a container: ${CONTAINER_NAME}"
@@ -387,6 +418,29 @@ function parse_arguments() {
     fi
 }
 
+function find_debug_port() {
+    mkdir -p "$DEFAULT_LOCK_FOLDER"
+    for port in $(seq $DEBUG_PORT_START_RANGE $DEBUG_PORT_END_RANGE); do
+        if ! ss -tuln | grep -q ":$port\b" && mkdir $DEFAULT_LOCK_FOLDER/$port.lock 2>/dev/null; then
+            trap "rm -rf $DEFAULT_LOCK_FOLDER/$port.lock" EXIT # Remove the port.lock file when done
+            SELECTED_DEBUG_PORT=$port
+            return 0
+        fi
+    done
+    return 1
+}
+
+
+ARGS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--enable-debug" ]]; then
+        ENABLE_DEBUG=1
+    else
+        ARGS+=("$arg")
+    fi
+done
+
+set -- "${ARGS[@]}"
 #
 # Script --------------------------------------------------------------------------------------------------------------
 #
@@ -395,10 +449,13 @@ if [[ $# -eq 0 ]]; then
     show_help_and_exit "${EXIT_SUCCESS}"
 fi
 
-while getopts "n:i:d:m:p:fvxh" opt; do
+while getopts "e:n:i:d:m:p:fvxh" opt; do
     case "${opt}" in
         n )
             CONTAINER_NAME="${OPTARG}"
+            ;;
+        e )
+            ENV_VARS+=" -e ${OPTARG}"
             ;;
         i )
             IMAGE_ID="${OPTARG}"
@@ -430,6 +487,17 @@ while getopts "n:i:d:m:p:fvxh" opt; do
             ;;
     esac
 done
+
+if [[ "$ENABLE_DEBUG" -eq 1 ]]; then
+    find_debug_port
+    if [[ -n "$SELECTED_DEBUG_PORT" ]]; then
+        PUBLISH_PORTS+=" -p \"$SELECTED_DEBUG_PORT:$SELECTED_DEBUG_PORT\""
+    else
+        echo "FAILURE: Cannot find an eligible debug port within the range [$DEBUG_PORT_START_RANGE, $DEBUG_PORT_END_RANGE]"
+        echo "Please re-run without --enable-debug option."
+        exit 1
+    fi
+fi
 
 parse_arguments
 

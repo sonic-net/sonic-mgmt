@@ -11,7 +11,7 @@ import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa F401
-from tests.common.utilities import get_upstream_neigh_type
+from tests.common.utilities import get_all_upstream_neigh_type
 from tests.common.utilities import get_neighbor_ptf_port_list
 
 logger = logging.getLogger(__name__)
@@ -251,8 +251,8 @@ def build_exp_pkt(input_pkt):
 
 
 def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
-                    setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
-                    setup_counterpoll_interval, remove_dataacl_table):   # noqa F811
+                    setup_acl_rules, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa: F811
+                    setup_counterpoll_interval, remove_dataacl_table):   # noqa: F811
     """
     The test case is to verify the functionality of custom ACL table
     Test steps
@@ -286,8 +286,9 @@ def test_custom_acl(rand_selected_dut, rand_unselected_dut, tbinfo, ptfadapter,
                     dst_port_indices.append(mg_facts_unselected_dut['minigraph_ptf_indices'][member])
     else:
         topo = tbinfo["topo"]["type"]
-        upstream_neigh_type = get_upstream_neigh_type(topo)
-        dst_port_indices = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
+        upstream_neigh_types = get_all_upstream_neigh_type(topo)
+        for upstream_neigh_type in upstream_neigh_types:
+            dst_port_indices.extend(get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo))
 
     test_pkts = build_testing_pkts(router_mac)
     for rule, pkt in list(test_pkts.items()):

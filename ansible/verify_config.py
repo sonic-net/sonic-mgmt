@@ -21,7 +21,7 @@ NOTE: For now this script only supports yaml format
 
 General Usage:
 
-To verify the entire project’s configuration:
+To verify the entire project's configuration:
 - python3 verify_config.py
 
 This will use the default testbed file (`testbed.yaml`) and the default vm file (`veos`)
@@ -37,7 +37,7 @@ To confirm connectivity with all Devices Under Test (DUTs) within a single testb
 
 This will use the default testbed file (`testbed.yaml`) and the default vm file (`veos`)
 
-To verify a single testbed’s connectivity using specific testbed and VM files:
+To verify a single testbed's connectivity using specific testbed and VM files:
 - python3 verify_config.py -t <testbed-file> -m <vm-file> -tb <testbed-name>
 
 Replace <testbed-file>, <vm-file>, and <testbed-name> with the actual file names and testbed identifier as required.

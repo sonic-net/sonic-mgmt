@@ -16,6 +16,8 @@ from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
 from tests.common.utilities import wait_until
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
+from pytest_ansible.errors import AnsibleConnectionFailure
+
 
 logger = logging.getLogger(__name__)
 
@@ -35,6 +37,7 @@ GARP_SERVICE_PY = 'garp_service.py'
 GARP_SERVICE_CONF_TEMPL = 'garp_service.conf.j2'
 PTF_TEST_PORT_MAP = '/root/ptf_test_port_map.json'
 PROBER_INTERVAL_MS = 3000
+PTFHOST_EXCEPTION_RC = 16
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -190,7 +193,7 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     for vlan, attrs in vlan_intf_config.items():
         for val in attrs:
             try:
-                if attrs[val].get('secondary') == 'true':
+                if isinstance(attrs[val], dict) and attrs[val].get('secondary') == 'true':
                     continue
                 ip = ip_interface(val)
                 if ip.version == 4:
@@ -210,15 +213,16 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     if 'dualtor' in tbinfo['topo']['name']:
         server_ip = mux_cable_server_ip(rand_selected_dut)
 
+    ip_offset = 0
     for port in vlan_members:
         ptf_index = dut_to_ptf_port_map[port]
+        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         if 'dualtor' in tbinfo['topo']['name']:
             arp_responder_cfg['eth{}'.format(ptf_index)] = [
                 server_ip[port]['server_ipv4'].split('/')[0],
                 server_ip[port]['server_ipv6'].split('/')[0]
             ]
             continue
-        ip_offset = ptf_index + 1  # Add one since PTF indices start at 0
         arp_responder_cfg['eth{}'.format(ptf_index)] = [
             str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
         ]
@@ -298,11 +302,17 @@ def ptf_portmap_file_module(rand_selected_dut, ptfhost, tbinfo):
     yield _ptf_portmap_file(rand_selected_dut, ptfhost, tbinfo)
 
 
+def pytest_sessionfinish(session, exitstatus):
+    if session.config.cache.get("ptfhost_exception", None):
+        session.config.cache.set("ptfhost_exception", None)
+        session.exitstatus = PTFHOST_EXCEPTION_RC
+
+
 icmp_responder_session_started = False
 
 
 @pytest.fixture(scope="session", autouse=True)
-def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
+def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo, request):
     """Run icmp_responder on ptfhost session-wise on dualtor testbeds with active-active ports."""
     # No vlan is available on non-t0 testbed, so skip this fixture
     if "dualtor-mixed" not in tbinfo["topo"]["name"] and "dualtor-aa" not in tbinfo["topo"]["name"]:
@@ -318,7 +328,12 @@ def run_icmp_responder_session(duthosts, duthost, ptfhost, tbinfo):
 
     duthost = duthosts[0]
     logger.debug("Copy icmp_responder.py to ptfhost '{0}'".format(ptfhost.hostname))
-    ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    try:
+        ptfhost.copy(src=os.path.join(SCRIPTS_SRC_DIR, ICMP_RESPONDER_PY), dest=OPT_DIR)
+    except AnsibleConnectionFailure as e:
+        logger.error("Failed to copy files to ptfhost.")
+        request.config.cache.set("ptfhost_exception", True)
+        pt_assert(False, "!!! ptfhost copy file failed !!! Exception: {}".format(repr(e)))
 
     logger.info("Start running icmp_responder")
     templ = Template(open(os.path.join(TEMPLATES_DIR, ICMP_RESPONDER_CONF_TEMPL)).read())
@@ -458,8 +473,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
                 server_ipv4 = str(server_ipv4_base_addr + i)
                 server_ipv6 = str(server_ipv6_base_addr + i)
                 mux_cable_table[intf] = {}
-                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa F821
-                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa F821
+                mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa: F821
+                mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa: F821
         else:
             # For physical dualtor testbed
             mux_cable_table = duthost.get_running_config_facts()['MUX_CABLE']
@@ -685,16 +700,7 @@ def skip_traffic_test(request):
 
 
 @pytest.fixture(scope='function')
-def disable_ipv6(ptfhost):
-    default_ipv6_status = ptfhost.shell("sysctl -n net.ipv6.conf.all.disable_ipv6")["stdout"]
-    changed = False
-    # Disable IPv6 on all interfaces in PTF container
-    if default_ipv6_status != "1":
-        ptfhost.shell("echo 1 > /proc/sys/net/ipv6/conf/all/disable_ipv6")
-        changed = True
-
+def iptables_drop_ipv6_tx(ptfhost):
+    ptfhost.shell("ip6tables -P OUTPUT DROP")
     yield
-
-    # Restore the original IPv6 setting on all interfaces in the PTF container
-    if changed:
-        ptfhost.shell("echo {} > /proc/sys/net/ipv6/conf/all/disable_ipv6".format(default_ipv6_status))
+    ptfhost.shell("ip6tables -P OUTPUT ACCEPT")

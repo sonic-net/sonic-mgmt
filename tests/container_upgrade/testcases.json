@@ -1,6 +1,12 @@
 {
-	"testcases": [
-		"auditd/test_auditd.py",
-		"telemetry/test_telemetry.py::test_config_db_parameters"
-	]
+    "auditd/test_auditd.py": 0,
+    "bmp/test_bmp_configdb.py": 0,
+    "bmp/test_bmp_redis_instance.py": 0,
+    "bmp/test_bmp_statedb.py": 0,
+    "bmp/test_docker_restart.py": 0,
+    "gnmi/test_gnmi.py": 0,
+    "gnmi/test_gnmi_configdb.py": 0,
+    "gnmi/test_gnmi_appldb.py": 0,
+    "telemetry/test_telemetry.py::test_config_db_parameters": 0,
+    "tacacs/test_accounting.py": 3
 }
