@@ -17,7 +17,7 @@
 This document defines the topology of the Optical Circuit Switch (OCS) to verify the basic functionality of the OCS device. 
 
 ## Physical Topology
-![ocs_topolog](img/testbed-ocs_topology.png)
+![OCS Topology](docs/testbed/img/testbed-ocs_topology.png)
 
 Key components in the physical connection: 
 * Test servers
