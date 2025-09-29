@@ -931,16 +931,21 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
     return ptf_port_list
 
 
-def get_upstream_neigh_type(topo_type, is_upper=True):
+def get_upstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in UPSTREAM_NEIGHBOR_MAP:
-        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in UPSTREAM_NEIGHBOR_MAP:
+            return UPSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
@@ -983,6 +988,19 @@ def get_all_downstream_neigh_type(topo_type, is_upper=True):
     if is_upper:
         return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
     return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def is_ipv6_only_topology(tbinfo):
+    """
+    @summary: Check if the current topology is IPv6-only based on testbed info.
+    @param tbinfo: Testbed information dictionary
+    @return: bool - True if topology is IPv6-only, False otherwise
+    """
+    return (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
