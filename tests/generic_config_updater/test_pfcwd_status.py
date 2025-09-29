@@ -159,7 +159,8 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:
         if line.strip().startswith('Ethernet'):
-            port, action, detect, restore = line.split()
+            parts = line.split()
+            port, action, detect, restore = parts[:4]
             pfcwd_config.update({port: {'action': action,
                                         'detect_time': detect,
                                         'restore_time': restore}})

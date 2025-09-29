@@ -89,7 +89,7 @@ def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     When dut is dpu, skip the case
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.get_facts().get('is_dpu'):
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
@@ -128,7 +128,7 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
+def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup, request):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
@@ -139,7 +139,7 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
     pytest_require(ACL_TABLE_NAME in acl_facts, "{} acl table not exists")
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
     loganalyzer.load_common_config()
 
     try:
@@ -213,7 +213,7 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version, request):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
@@ -243,7 +243,7 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     try:
         yield
     finally:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
         loganalyzer.load_common_config()
 
         try:
@@ -399,6 +399,11 @@ def validate_dump_file_content(duthost, dump_folder_path):
     if duthost.facts['asic_type'] in ["mellanox"]:
         sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
         assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+        if "dpu" not in duthost.hostname:
+            # sai XML dump is only support on the switch
+            sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
+                   "No SAI XML file found in sai_sdk_dump folder"
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
@@ -620,7 +625,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     :param duthosts: DUT host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not duthost.get_facts().get('is_dpu'):
+    if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
     since = str(randint(1, 5)) + " minute ago"

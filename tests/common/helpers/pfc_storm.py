@@ -1,6 +1,7 @@
 import logging
 import os
 import re
+import json
 
 from jinja2 import Template
 from tests.common.errors import MissingInputError
@@ -176,7 +177,7 @@ class PFCStorm(object):
                 chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_eos_fanout_version()[0])
             elif self.peer_device.os == 'sonic':
                 chip_name = get_chip_name_if_asic_pfc_storm_supported(self._get_sonic_fanout_hwsku())
-            if self.peer_device.os == 'eos' and chip_name:
+            if self.peer_device.os in ('eos', 'sonic') and chip_name:
                 self.pfc_gen_file = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_file_test_name = "pfc_gen_brcm_xgs.py"
                 self.pfc_gen_chip_name = chip_name
@@ -316,10 +317,13 @@ class PFCStorm(object):
                 cmds = tmpl.render(**self.extra_vars).splitlines()
             cmds = (_.strip() for _ in cmds)
             cmd = "; ".join(_ for _ in cmds if _)
+            logger.info("Running command: {}".format(cmd))
             self.peer_device.shell(cmd, module_ignore_errors=True)
         else:
             # TODO: replace this playbook execution with Mellanox
             # onyx_config/onyx_command modules
+            logger.info("Running Template: {}".format(json.dumps(self.extra_vars)))
+
             self.peer_device.exec_template(
                 ANSIBLE_ROOT, RUN_PLAYBOOK,
                 self.inventory, **self.extra_vars
