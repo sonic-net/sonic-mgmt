@@ -801,6 +801,10 @@ dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
     reason: "skip the multiple vlan test on aa dualtor as interface state is not aa after vlan split"
     conditions:
       - "'dualtor-aa' in topo_name"
+  xfail:
+    reason: "The test is expected to fail due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/20760"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20760"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap:
   skip:
