@@ -15,14 +15,52 @@ class NtpDaemon(Enum):
 @contextmanager
 def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     """setup ntp client and server"""
-    ptfhost.lineinfile(path="/etc/ntp.conf", line="server 127.127.1.0 prefer")
+    ntp_daemon_type = get_ntp_daemon_in_use(ptfhost)
+    ntp_conf_path = None
+    ntp_service_name = None
+    if ntp_daemon_type == NtpDaemon.NTPSEC:
+        ntp_conf_path = '/etc/ntpsec/ntp.conf'
+        ntp_service_name = 'ntpsec'
+    elif ntp_daemon_type == NtpDaemon.CHRONY:
+        ntp_conf_path = '/etc/chrony/chrony.conf'
+        ntp_service_name = 'chrony'
+    elif ntp_daemon_type == NtpDaemon.NTP:
+        ntp_conf_path = '/etc/ntp.conf'
+        ntp_service_name = 'ntp'
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
+
+    # Comment out the default pool configuration
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 0.debian.pool.ntp.org iburst", regexp="^pool.*0.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 1.debian.pool.ntp.org iburst", regexp="^pool.*1.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 2.debian.pool.ntp.org iburst", regexp="^pool.*2.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#pool 3.debian.pool.ntp.org iburst", regexp="^pool.*3.debian.*pool.*ntp.*org.*")
+
+    # Comment out the tos minclock minsane option line
+    # Having this option enabled can cause the NTP server to not synchronize
+    # with the PTF host, which can lead to test failures.
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="#tos minclock 4 minsane 3", regexp="^tos.*minclock.*minsane.*")
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="server 127.127.1.0 prefer")
 
     # restart ntp server
-    ntp_en_res = ptfhost.service(name="ntp", state="restarted")
+    ntp_en_res = ptfhost.service(name=ntp_service_name, state="restarted")
 
-    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, NtpDaemon.NTP),
+    pytest_assert(wait_until(120, 5, 0, check_ntp_status, ptfhost, ntp_daemon_type),
                   "NTP server was not started in PTF container {}; NTP service start result {}"
                   .format(ptfhost.hostname, ntp_en_res))
+
+    # When using Chrony as the NTP daemon on the DUT, Chrony will not use NTP sources that have a
+    # root dispersion of more than 3 seconds (configurable via /etc/chrony/chrony.conf, but we currently
+    # don't touch that setting). Therefore, block here until the root dispersion is less than 3 seconds
+    # so that we don't incorrectly fail the test.
+    pytest_assert(wait_until(180, 10, 0, check_max_root_dispersion, ptfhost, 3, ntp_daemon_type),
+                  "NTP timing hasn't converged enough in PTF container {}".format(ptfhost.hostname))
 
     # check to see if iburst option is present
     ntp_add_help = duthost.command("config ntp add --help")
@@ -42,7 +80,20 @@ def setup_ntp_context(ptfhost, duthost, ptf_use_ipv6):
     yield
 
     # stop ntp server
-    ptfhost.service(name="ntp", state="stopped")
+    ptfhost.service(name=ntp_service_name, state="stopped")
+
+    # restore the default pool configuration
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 0.debian.pool.ntp.org iburst", regexp="#pool.*0.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 1.debian.pool.ntp.org iburst", regexp="#pool.*1.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 2.debian.pool.ntp.org iburst", regexp="#pool.*2.debian.*pool.*ntp.*org.*")
+    ptfhost.lineinfile(
+        path=ntp_conf_path, line="pool 3.debian.pool.ntp.org iburst", regexp="#pool.*3.debian.*pool.*ntp.*org.*")
+
+    ptfhost.lineinfile(path=ntp_conf_path, line="", regexp="^server.*127.127.1.0.*prefer")
+
     # reset ntp client configuration
     duthost.command("config ntp del %s" % (ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip))
     for ntp_server in ntp_servers:
@@ -85,6 +136,19 @@ def check_ntp_status(host, ntp_daemon_in_use):
     elif ntp_daemon_in_use == NtpDaemon.NTP or ntp_daemon_in_use == NtpDaemon.NTPSEC:
         res = host.command("ntpstat", module_ignore_errors=True)
         return res['rc'] == 0
+    else:
+        return False
+
+
+def check_max_root_dispersion(host, max_dispersion, ntp_daemon_in_use):
+    if ntp_daemon_in_use == NtpDaemon.CHRONY:
+        res = host.command("sudo chronyc -n -c ntpdata")
+        root_dispersion = float(res["stdout"].split(",")[14]) / 100
+        return root_dispersion < max_dispersion
+    elif ntp_daemon_in_use == NtpDaemon.NTP or ntp_daemon_in_use == NtpDaemon.NTPSEC:
+        res = host.shell("ntpq -c sysinfo | grep 'root dispersion' | awk '{ print $3; }'")
+        root_dispersion = float(res["stdout"]) / 1000
+        return root_dispersion < max_dispersion
     else:
         return False
 

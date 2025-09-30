@@ -2,7 +2,6 @@ name: Enhancement Request
 description: Enhancement Request
 title: "Enhancement:"
 labels: ['Enhancement']
-projects: ["sonic-mgmt"]
 body:
   - type: markdown
     id: tc-en-contact-links

@@ -3,7 +3,9 @@ topology:
 {%- for vm in vm_list %}
     {{ vm.name }}:
       vlans:
-        - {{ vm.vlans[0] }}
+      {%- for vlan_id in vm.vlans %}
+        - {{ vlan_id }}
+      {%- endfor %}
       vm_offset: {{ vm.vm_offset }}
 {%- endfor %}
 
@@ -30,6 +32,7 @@ configuration:
     - common
     {%- if vm.role == 't0' %}
     - tor
+    tornum: {{vm.tornum}}
     {%- elif vm.role == 't2' %}
     - spine
     {%- endif %}
@@ -43,10 +46,20 @@ configuration:
       Loopback0:
         ipv4: {{vm.loopback_ipv4}}/32
         ipv6: {{vm.loopback_ipv6}}/128
+      {%- if vm.vlans|length > 1 %}
+      {%- for idx in range(vm.vlans|length) %}
+      Ethernet{{idx+1}}:
+        lacp: 1
+      {%- endfor %}
+      Port-Channel1:
+        ipv4: {{vm.pc_intf_ipv4}}/31
+        ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- else %}
       Ethernet1:
         ipv4: {{vm.pc_intf_ipv4}}/31
         ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- endif %}
     bp_interface:
-      ipv4: {{vm.bp_ipv4}}/24
+      ipv4: {{vm.bp_ipv4}}/22
       ipv6: {{vm.bp_ipv6}}/64
 {%- endfor %}

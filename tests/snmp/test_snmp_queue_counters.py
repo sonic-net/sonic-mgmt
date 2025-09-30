@@ -1,5 +1,6 @@
 import pytest
 import json
+import re
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -10,6 +11,7 @@ UNICAST_CTRS = 4
 MULTICAST_CTRS = 4
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
@@ -91,10 +93,14 @@ def test_snmp_queue_counters(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.sonichost.facts['platform_asic'] == 'broadcom':
-        ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
-            r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
-        loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
+    if loganalyzer:
+        ignore_regex_list = [
+            r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*"
+            ]
+        if duthost.sonichost.facts['platform_asic'] == 'broadcom':
+            ignore_regex_list.append(r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value \d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*")    # noqa: E501
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
     global ORIG_CFG_DB, CFG_DB_PATH
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
@@ -131,6 +137,22 @@ def test_snmp_queue_counters(duthosts,
         buffer_queue_to_del = iface_buffer_queues[0]
     else:
         pytest_assert(False, "Buffer Queue list can't be empty if valid interface is selected.")
+
+    if len(iface_buffer_queues) == 1:
+        # We are about to delete the config for all buffer queues
+        # This test has been written with the assumption that only a subset
+        # of the buffer queues will be deleted
+        # Modify the key to avoid deleting all buffer queues on config reload
+        match = re.search(rf"^{interface}\|(?P<low>[0-9]+)-(?P<high>[0-9]+)$", buffer_queue_to_del)
+        pytest_assert(match, "Unknown key format in BUFFER_QUEUE config.")
+        buffer_queue_cfg = data['BUFFER_QUEUE'][buffer_queue_to_del]
+        del data['BUFFER_QUEUE'][buffer_queue_to_del]
+        queue_num_low = match.group("low")
+        queue_num_high = match.group("high")
+        buffer_queue_to_del = "{}|{}-{}".format(interface, queue_num_low, int(queue_num_high) - 1)
+        buffer_queue_to_remain = "{}|{}".format(interface, queue_num_high)
+        data['BUFFER_QUEUE'][buffer_queue_to_del] = buffer_queue_cfg
+        data['BUFFER_QUEUE'][buffer_queue_to_remain] = buffer_queue_cfg
 
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior

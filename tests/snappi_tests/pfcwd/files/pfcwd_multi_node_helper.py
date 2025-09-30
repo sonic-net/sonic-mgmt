@@ -3,27 +3,28 @@ from math import ceil
 import logging
 
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
-    fanout_graph_facts                  # noqa F401
-from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
-from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector,\
-    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time, sec_to_nanosec
-from tests.common.snappi_tests.port import select_ports
-from tests.common.snappi_tests.snappi_helpers import wait_for_arp
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import get_dut_port_id                              # noqa: F401
+from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, \
+    start_pfcwd, enable_packet_aging, get_pfcwd_poll_interval, get_pfcwd_detect_time, \
+    sec_to_nanosec                                                                                # noqa: F401
+from tests.common.snappi_tests.port import select_ports                                           # noqa: F401
+from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
 PAUSE_FLOW_NAME = 'Pause Storm'
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
 TEST_FLOW_NAME = 'Test Flow'
-TEST_FLOW_AGGR_RATE_PERCENT = 45
 BG_FLOW_NAME = 'Background Flow'
-BG_FLOW_AGGR_RATE_PERCENT = 45
 WARM_UP_TRAFFIC_DUR = 1
 DATA_PKT_SIZE = 1024
 SNAPPI_POLL_DELAY_SEC = 2
 TOLERANCE_THRESHOLD = 0.05
+UDP_SRC_START = 5000
 
 
 def run_pfcwd_multi_node_test(api,
@@ -31,16 +32,16 @@ def run_pfcwd_multi_node_test(api,
                               port_config_list,
                               conn_data,
                               fanout_data,
-                              duthost,
                               dut_port,
                               pause_prio_list,
                               test_prio_list,
                               bg_prio_list,
                               prio_dscp_map,
                               trigger_pfcwd,
-                              pattern):
+                              pattern,
+                              snappi_extra_params=None):
     """
-    Run PFC watchdog test in a multi-node (>=3) topoology
+    Run multidut PFC watchdog test in a multi-node (>=3) topoology
 
     Args:
         api (obj): SNAPPI session
@@ -48,7 +49,6 @@ def run_pfcwd_multi_node_test(api,
         port_config_list (list): list of port configuration
         conn_data (dict): the dictionary returned by conn_graph_fact.
         fanout_data (dict): the dictionary returned by fanout_graph_fact.
-        duthost (Ansible host instance): device under test
         dut_port (str): DUT port to test
         pause_prio_list (list): priorities to pause for PFC pause storm
         test_prio_list (list): priorities of test flows
@@ -56,6 +56,7 @@ def run_pfcwd_multi_node_test(api,
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
         trigger_pfcwd (bool): if PFC watchdog is expected to be triggered
         pattern (str): traffic pattern
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
         N/A
     """
@@ -64,26 +65,46 @@ def run_pfcwd_multi_node_test(api,
         raise ValueError('invalid traffic pattern passed in "{}", must be {}'.format(
             pattern, ' or '.join(['"{}"'.format(src) for src in patterns])))
 
-    pytest_assert(testbed_config is not None,
-                  'Fail to get L2/3 testbed config')
+    if snappi_extra_params is None:
+        snappi_extra_params = SnappiTestParams()
+
+    # Traffic flow:
+    # tx_port (TGEN) --- ingress DUT --- egress DUT --- rx_port (TGEN)
+
+    # initialize the (duthost, port) set.
+    # The final list will have all the asics which needs to be configured for PFC
+    pfcwd_to_be_configured = set()
+
+    rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
+    egress_duthost = rx_port['duthost']
+    # Add the port to the set of ports to be configured for PFC
+    pfcwd_to_be_configured.add((egress_duthost, rx_port['asic_value']))
+
+    tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
+               snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
+    if pattern == 'all to all':
+        tx_port_id_list = [rx_port["port_id"], tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        rx_port_id_list = [rx_port["port_id"], tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        pfcwd_to_be_configured.add((rx_port['duthost'], rx_port['asic_value']))
+    elif pattern == 'many to one':
+        tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        rx_port_id_list = [rx_port["port_id"]]
+    # add ingress DUT into the set
+    pfcwd_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
+    pfcwd_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
+
+    pytest_assert(testbed_config is not None, 'Fail to get L2/3 testbed config')
     num_ports = len(port_config_list)
     pytest_require(num_ports >= 3, "This test requires at least 3 ports")
 
-    start_pfcwd(duthost)
-    enable_packet_aging(duthost)
+    # Enable PFC watchdog on the rx side and tx side of the DUT without duplication.
+    for duthost, asic in pfcwd_to_be_configured:
+        start_pfcwd(duthost, asic)
+        enable_packet_aging(duthost)
 
-    """ Get the ID of the port to test """
-    port_id = get_dut_port_id(dut_hostname=duthost.hostname,
-                              dut_port=dut_port,
-                              conn_data=conn_data,
-                              fanout_data=fanout_data)
-
-    pytest_assert(port_id is not None,
-                  'Fail to get ID for port {}'.format(dut_port))
-
-    poll_interval_sec = get_pfcwd_poll_interval(duthost) / 1000.0
-    detect_time_sec = get_pfcwd_detect_time(
-        host_ans=duthost, intf=dut_port) / 1000.0
+    poll_interval_sec = get_pfcwd_poll_interval(egress_duthost, rx_port['asic_value']) / 1000.0
+    detect_time_sec = get_pfcwd_detect_time(host_ans=egress_duthost, intf=rx_port['peer_port'],
+                                            asic_value=rx_port['asic_value']) / 1000.0
 
     if trigger_pfcwd:
         pfc_storm_dur_sec = poll_interval_sec + detect_time_sec
@@ -91,6 +112,16 @@ def run_pfcwd_multi_node_test(api,
         pfc_storm_dur_sec = 0.5 * detect_time_sec
 
     exp_dur_sec = ceil(pfc_storm_dur_sec + 1)
+    cisco_platform = "Cisco" in egress_duthost.facts['hwsku']
+
+    speed_str = testbed_config.layer1[0].speed
+    speed_gbps = int(speed_str.split('_')[1])
+    TEST_FLOW_AGGR_RATE_PERCENT = 45
+    BG_FLOW_AGGR_RATE_PERCENT = 45
+    # Backplane is 200G in Cisco platforms.
+    if speed_gbps > 200 and cisco_platform:
+        TEST_FLOW_AGGR_RATE_PERCENT = TEST_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
+        BG_FLOW_AGGR_RATE_PERCENT = BG_FLOW_AGGR_RATE_PERCENT * 200 / speed_gbps
 
     """ Generate traffic config """
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT /
@@ -103,7 +134,8 @@ def run_pfcwd_multi_node_test(api,
 
     __gen_traffic(testbed_config=testbed_config,
                   port_config_list=port_config_list,
-                  port_id=port_id,
+                  rx_port_id_list=rx_port_id_list,
+                  tx_port_id_list=tx_port_id_list,
                   pause_flow_name=PAUSE_FLOW_NAME,
                   pause_prio_list=pause_prio_list,
                   test_flow_name=TEST_FLOW_NAME,
@@ -127,11 +159,9 @@ def run_pfcwd_multi_node_test(api,
                                all_flow_names=all_flow_names,
                                exp_dur_sec=exp_dur_sec)
 
-    speed_str = testbed_config.layer1[0].speed
-    speed_gbps = int(speed_str.split('_')[1])
-
     """ Retrieve ASIC information for DUT """
-    asic_type = duthost.facts['asic_type']
+    asic_type = egress_duthost.facts['asic_type']
+
     rx_tx_tol_thrhlds = [0.0001, 0.0002]  # Maintain a 0.01% and 0.02% deviation between tx and rx frames
 
     __verify_results(rows=flow_stats,
@@ -144,7 +174,7 @@ def run_pfcwd_multi_node_test(api,
                      data_flow_dur_sec=exp_dur_sec,
                      data_pkt_size=DATA_PKT_SIZE,
                      trigger_pfcwd=trigger_pfcwd,
-                     pause_port_id=port_id,
+                     pause_port_id=rx_port_id_list[0],
                      rx_deviation=TOLERANCE_THRESHOLD,
                      rx_tx_deviations=rx_tx_tol_thrhlds,
                      asic_type=asic_type)
@@ -178,7 +208,7 @@ def __data_flow_src(flow_name):
     """
     words = flow_name.split()
     index = words.index('->')
-    return int(words[index-1])
+    return int(words[index - 1])
 
 
 def __data_flow_dst(flow_name):
@@ -193,12 +223,13 @@ def __data_flow_dst(flow_name):
     """
     words = flow_name.split()
     index = words.index('->')
-    return int(words[index+1])
+    return int(words[index + 1])
 
 
 def __gen_traffic(testbed_config,
                   port_config_list,
-                  port_id,
+                  rx_port_id_list,
+                  tx_port_id_list,
                   pause_flow_name,
                   pause_prio_list,
                   test_flow_name,
@@ -239,10 +270,6 @@ def __gen_traffic(testbed_config,
         N/A
     """
 
-    tx_port_id_list, rx_port_id_list = select_ports(port_config_list=port_config_list,
-                                                    pattern=traffic_pattern,
-                                                    rx_port_id=port_id)
-
     """ Warm up traffic is initially sent before any other traffic to prevent pfcwd
     fake alerts caused by idle links (non-incremented packet counters) during pfcwd detection periods """
     warm_up_traffic_dur_sec = WARM_UP_TRAFFIC_DUR
@@ -264,7 +291,7 @@ def __gen_traffic(testbed_config,
                      prio_dscp_map=prio_dscp_map)
 
     """ Generate a PFC pause storm """
-    pause_port_id = port_id
+    pause_port_id = rx_port_id_list[0]
     __gen_pause_flow(testbed_config=testbed_config,
                      port_config_list=port_config_list,
                      src_port_id=pause_port_id,
@@ -323,7 +350,7 @@ def __gen_data_flows(testbed_config,
         flow_prio_list (list): priorities of data flows
         flow_rate_percent (int): rate percentage for each flow
         flow_dur_sec (int): duration of each flow in second
-        flow_delay_sec (int): delay before starting all flows in second
+        flow_delay_sec (int): delay before starting pause flow in second
         data_pkt_size (int): packet size of data flows in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
@@ -373,17 +400,15 @@ def __gen_data_flow(testbed_config,
         flow_prio_list (list): priorities of the flow
         flow_rate_percent (int): rate percentage for the flow
         flow_dur_sec (int): duration of the flow in second
-        flow_delay_sec (int): delay before starting flow in second
+        flow_delay_sec (int): delay before starting pause flow in second
         data_pkt_size (int): packet size of the flow in byte
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
 
     Returns:
         N/A
     """
-    tx_port_config = next(
-        (x for x in port_config_list if x.id == src_port_id), None)
-    rx_port_config = next(
-        (x for x in port_config_list if x.id == dst_port_id), None)
+    tx_port_config = next((x for x in port_config_list if x.id == src_port_id), None)
+    rx_port_config = next((x for x in port_config_list if x.id == dst_port_id), None)
 
     tx_mac = tx_port_config.mac
     if tx_port_config.gateway == rx_port_config.gateway and \
@@ -403,7 +428,14 @@ def __gen_data_flow(testbed_config,
     flow.tx_rx.port.tx_name = testbed_config.ports[src_port_id].name
     flow.tx_rx.port.rx_name = testbed_config.ports[dst_port_id].name
 
-    eth, ipv4 = flow.packet.ethernet().ipv4()
+    eth, ipv4, udp = flow.packet.ethernet().ipv4().udp()
+    global UDP_SRC_START
+    src_port = UDP_SRC_START
+    UDP_SRC_START += 1
+    udp.src_port.increment.start = src_port
+    udp.src_port.increment.step = 1
+    udp.src_port.increment.count = 1
+
     eth.src.value = tx_mac
     eth.dst.value = rx_mac
     if pfcQueueGroupSize == 8:
@@ -412,7 +444,7 @@ def __gen_data_flow(testbed_config,
         eth.pfc_queue.value = pfcQueueValueDict[flow_prio]
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
     ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio]
     ipv4.priority.dscp.ecn.value = (
@@ -491,6 +523,7 @@ def __gen_pause_flow(testbed_config,
     pause_flow.rate.pps = pps
     pause_flow.size.fixed = 64
     pause_flow.duration.fixed_packets.packets = int(pkt_cnt)
+    pause_flow.duration.fixed_packets.delay.nanoseconds = 0
     pause_flow.duration.fixed_packets.delay.nanoseconds = int(
         sec_to_nanosec(flow_delay_sec))
 
@@ -517,9 +550,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(exp_dur_sec)
 
@@ -550,9 +583,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 
@@ -588,7 +621,6 @@ def __verify_results(rows,
         pause_port_id (int): ID of the port to send PFC pause frames
         rx_deviation (float): maximum allowable deviation for rx_frames relative to theoretical value
         rx_tx_deviations (list of floats): maximum allowable % deviation for rx_frames relative to tx_frames
-        asic_type (str): asic_type information for DUT
 
     Returns:
         N/A
@@ -602,13 +634,17 @@ def __verify_results(rows,
         tx_frames = row.frames_tx
         rx_frames = row.frames_rx
 
+        logger.info('Flow Name : {} , Tx Frames : {}, Rx Frames : {}'.format(flow_name, tx_frames, rx_frames))
+
         if pause_flow_name in flow_name:
             """ PFC pause storm """
+            logger.info('PFC pause storm expected to be dropped')
             pytest_assert(tx_frames > 0 and rx_frames == 0,
                           "All the PFC packets should be dropped")
 
         elif bg_flow_name in flow_name:
             """ Background flows """
+            logger.info('Background flows expected not to have any dropped packets')
             pytest_assert(tx_frames == rx_frames,
                           '{} should not have any dropped packet'.format(flow_name))
 
@@ -629,17 +665,19 @@ def __verify_results(rows,
 
             if trigger_pfcwd and dst_port_id == pause_port_id:
                 """ Once PFC watchdog is triggered, it will impact bi-directional traffic """
+                logger.info('Once PFC watchdog is triggered, it will impact bi-directional traffic')
+                logger.info('Tx and Rx should have dropped packets')
                 pytest_assert(tx_frames > rx_frames,
                               '{} should have dropped packets'.format(flow_name))
-
             elif trigger_pfcwd and src_port_id == pause_port_id:
                 if is_mlnx_device:
                     """ During a pfc storm with pfcwd triggered, Mellanox devices do not drop Rx packets """
                     pytest_assert(tx_frames == rx_frames,
                                   '{} should not have dropped packets for Mellanox device'.format(flow_name))
-
             elif not trigger_pfcwd and dst_port_id == pause_port_id:
                 """ This test flow is delayed by PFC storm """
+                logger.info('This test flow is delayed by PFC storm')
+                logger.info('Tx and Rx should not have any dropped packet')
                 pytest_assert(tx_frames == rx_frames,
                               '{} should not have any dropped packet'.format(flow_name))
                 pytest_assert(rx_frames < exp_test_flow_rx_pkts,

@@ -12,7 +12,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import wait
 from tests.common.utilities import pdu_reboot
 from tests.common.reboot import reboot
-from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.tacacs.tacacs_helper import ssh_remote_run, check_tacacs  # noqa: F401
 from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client
 from .utils import change_and_wait_aaa_config_update
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
@@ -174,7 +175,7 @@ def log_rotate(duthost):
 
 
 def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
-                 tacacs_creds, check_tacacs, pdu_controller):
+                 tacacs_creds, check_tacacs, pdu_controller):  # noqa: F811
     """test tacacs rw user
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -258,13 +259,25 @@ def test_ro_disk(localhost, ptfhost, duthosts, enum_rand_one_per_hwsku_hostname,
 
         chk_ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo find /home -ls")
 
+        mode_str = "Chassis" if duthost.is_supervisor_node() else "System"
+        expected_match_count = 1 if duthost.is_supervisor_node() else duthost.num_asics()
+        expected_tsa_res = "{} Mode: Normal -> Maintenance".format(mode_str)
+        expected_tsb_res = "{} Mode: Maintenance -> Normal".format(mode_str)
         # Verify after monit fix login issue ,remote user can run TSA/TSB command.
         res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSA")
         logger.debug("TSA res={}".format(res))
-        assert "System Mode: Normal -> Maintenance" in res["stdout_lines"], "Failed to TSA"
+        match_count = 0
+        for stdout_line in res["stdout_lines"]:
+            if expected_tsa_res in stdout_line:
+                match_count += 1
+        pytest_assert(match_count == expected_match_count, "Failed to TSA")
         res = ssh_remote_run(localhost, dutip, rw_user, rw_pass, "sudo TSB")
         logger.debug("TSB res={}".format(res))
-        assert "System Mode: Maintenance -> Normal" in res["stdout_lines"], "Failed to TSB"
+        match_count = 0
+        for stdout_line in res["stdout_lines"]:
+            if expected_tsb_res in stdout_line:
+                match_count += 1
+        pytest_assert(match_count == expected_match_count, "Failed to TSB")
 
         if not os.path.exists(DATA_DIR):
             os.makedirs(DATA_DIR)

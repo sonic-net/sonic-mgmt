@@ -99,7 +99,7 @@ def get_vlan_interfaces_dict(duthost, tbinfo):
             ip_with_prefix = f"{interface['addr']}/{interface['prefixlen']}"
             if ip_with_prefix in config_facts['VLAN_INTERFACE'][vlan]:
                 config = config_facts['VLAN_INTERFACE'][vlan][ip_with_prefix]
-                if config.get('secondary') == 'true':
+                if isinstance(config, dict) and config.get('secondary') == 'true':
                     interface_info['secondary'] = True
 
         # Add to appropriate IP version list
@@ -155,10 +155,37 @@ def get_vlan_interface_info(duthost, tbinfo, vlan_name, ip_version="ipv4"):
 
     for interface in vlan_interfaces_dict[vlan_name][ip_version]:
         # Skip secondary addresses
-        if interface.get('secondary'):
+        if isinstance(interface, dict) and interface.get('secondary'):
             continue
 
         result = interface
         break
 
     return result
+
+
+def get_secondary_subnet(duthost, tbinfo):
+    """
+    Check if any VLAN interface has a secondary subnet configured.
+
+    Args:
+        tbinfo: Testbed information dictionary
+
+    Returns:
+        tuple: (has_secondary, vlan_name, ip_version, interface_info)
+        - has_secondary: True if a secondary subnet exists
+        - vlan_name: VLAN interface name with secondary subnet
+        - ip_version: IP version ("ipv4" or "ipv6") of the secondary subnet
+        - interface_info: Configuration dict for the secondary subnet
+    """
+    vlan_interfaces_dict = get_vlan_interfaces_dict(duthost, tbinfo)
+
+    # Initialize return values
+    for vlan_name, ip_versions in vlan_interfaces_dict.items():
+        for ip_version, interfaces in ip_versions.items():
+            for interface in interfaces:
+                if interface.get('secondary'):
+                    return True, vlan_name, ip_version, interface
+
+    # No secondary subnet found
+    return False, None, None, None

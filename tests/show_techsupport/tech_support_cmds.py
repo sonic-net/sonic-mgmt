@@ -115,10 +115,10 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv4 labeled-unicast'",
     "vtysh{} -c 'show bgp ipv6 labeled-unicast'",
     "vtysh{} -c 'show bgp mac hash'",
-    re.compile(r"vtysh(\s+-Ec 'show bgp ipv4 neighbors .* advertised-routes' "
-               "-Ec 'show bgp ipv4 neighbors .* routes')+"),
-    re.compile(r"vtysh(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes' "
-               "-Ec 'show bgp ipv6 neighbors .* routes')+"),
+    re.compile(r"vtysh(?:\s+-n\s+0)?(\s+-Ec 'show bgp ipv4 neighbors .* advertised-routes'(?:\s+-n\s+0)?\s+-Ec"
+               r" 'show bgp ipv4 neighbors .* routes')+"),
+    re.compile(r"vtysh(?:\s+-n\s+0)?(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes'(?:\s+-n\s+0)?\s+-Ec"
+               r" 'show bgp ipv6 neighbors .* routes')+"),
 
 ]
 
@@ -210,7 +210,7 @@ misc_show_cmds = [
     "show interface transceiver eeprom --dom",
     "show ip interface",
     "show interface counters",
-    "{}show queue counters",
+    "show queue counters",
     "{}netstat -i",
     "{}ifconfig -a",
 ]

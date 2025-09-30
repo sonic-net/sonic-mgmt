@@ -100,16 +100,47 @@
   become: yes
   vm_topology:
     cmd:          'create'
-    vm_names:     "{{ VM_targets }}"
+    vm_names:     "{{ VM_targets  }}"
     fp_mtu:       "{{ fp_mtu_size }}"
     max_fp_num:   "{{ max_fp_num }}"
     topo: "{{ topology }}"
+  when: not enable_async
+
+- name: Create VMs network (async mode)
+  become: yes
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ vm_name }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+    topo: "{{ topology }}"
+  async: 3600
+  poll: 0
+  throttle: 50
+  register: async_create_vm_network
+  when: enable_async
+
+- name: Wait for create tasks to complete
+  become: yes
+  async_status:
+    jid: "{{ async_create_vm_network_item.ansible_job_id }}"
+  loop: "{{ async_create_vm_network.results }}"
+  loop_control:
+    loop_var: async_create_vm_network_item
+  register: async_create_vm_network_poll_results
+  until: async_create_vm_network_poll_results.finished
+  retries: 30
+  delay: 60
+  when: enable_async
 
 - name: Create net base containers
   become: yes
   docker_container:
     name: net_{{ vm_set_name }}_{{ vm_name }}
-    image: "{{ docker_registry_host }}/debian:jessie"
+    image: "{{ docker_registry_host }}/debian:bookworm"
     pull: no
     state: started
     restart: no
@@ -151,3 +182,34 @@
   loop: "{{ VM_targets|flatten(levels=1) }}"
   loop_control:
     loop_var: vm_name
+  when: not enable_async
+
+- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }} (async mode)
+  become: yes
+  ceos_network:
+    name: net_{{ vm_set_name }}_{{ vm_name }}
+    vm_name:    "{{ vm_name }}"
+    fp_mtu:     "{{ fp_mtu_size }}"
+    max_fp_num: "{{ max_fp_num }}"
+    mgmt_bridge: "{{ mgmt_bridge }}"
+  loop: "{{ VM_targets|flatten(levels=1) }}"
+  loop_control:
+    loop_var: vm_name
+  async: 3600
+  poll: 0
+  throttle: 50
+  register: async_create_ceos_network
+  when: enable_async
+
+- name: Wait for network tasks to complete
+  become: yes
+  async_status:
+    jid: "{{ async_create_ceos_network_item.ansible_job_id }}"
+  loop: "{{ async_create_ceos_network.results }}"
+  loop_control:
+    loop_var: async_create_ceos_network_item
+  register: async_create_ceos_network_poll_results
+  until: async_create_ceos_network_poll_results.finished
+  retries: 30
+  delay: 60
+  when: enable_async

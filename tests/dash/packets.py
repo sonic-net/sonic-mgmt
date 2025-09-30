@@ -71,7 +71,7 @@ def get_pl_overlay_dip(orig_dip, ol_dip, ol_mask):
     return str(ip_address(overlay_dip))
 
 
-def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
+def inbound_pl_packets(config, use_pkt_alt_attrs=False, inner_packet_type='udp', vxlan_udp_dport=4789):
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA,
         pl.PL_OVERLAY_DIP,
@@ -93,60 +93,66 @@ def inbound_pl_packets(config, inner_packet_type='udp', vxlan_udp_dport=4789):
         ipv6_dst=inner_dip,
     )
 
-    sport = inner_packet[scapy.UDP].sport
-    dport = inner_packet[scapy.UDP].dport
-    inner_packet[scapy.UDP].sport = dport
-    inner_packet[scapy.UDP].dport = sport
+    l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
+
+    sport = inner_packet[l4_protocol_key].sport
+    dport = inner_packet[l4_protocol_key].dport
+    inner_packet[l4_protocol_key].sport = dport
+    inner_packet[l4_protocol_key].dport = sport
 
     gre_packet = testutils.simple_gre_packet(
         eth_dst=config[DUT_MAC],
         ip_src=pl.PE_PA,
         ip_dst=pl.APPLIANCE_VIP,
         gre_key_present=True,
-        gre_key=int(pl.VNET1_VNI) << 8,
+        gre_key=int(pl.ENCAP_VNI) << 8,
         inner_frame=inner_packet,
     )
 
     exp_inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.ENI_MAC,
-        eth_dst=pl.REMOTE_MAC,
+        eth_src=pl.REMOTE_MAC,
+        eth_dst=pl.ENI_MAC,
         ip_src=pl.PE_CA,
         ip_dst=pl.VM1_CA,
         ip_id=0,
     )
 
-    exp_inner_packet[scapy.UDP].sport = dport
-    exp_inner_packet[scapy.UDP].dport = sport
-    exp_inner_packet[scapy.UDP].load = inner_packet[scapy.UDP].load
+    exp_inner_packet[l4_protocol_key].sport = dport
+    exp_inner_packet[l4_protocol_key].dport = sport
+    exp_inner_packet[l4_protocol_key].load = inner_packet[l4_protocol_key].load
 
     exp_vxlan_packet = testutils.simple_vxlan_packet(
         eth_src=config[DUT_MAC],
         eth_dst=config[LOCAL_PTF_MAC],
         ip_src=pl.APPLIANCE_VIP,
         ip_dst=pl.VM1_PA,
-        ip_ttl=254,
+        ip_ttl=63 if use_pkt_alt_attrs else 254,
         ip_id=0,
         udp_dport=vxlan_udp_dport,
-        vxlan_vni=int(pl.VM_VNI),
+        udp_sport=VXLAN_UDP_BASE_SRC_PORT,
+        vxlan_vni=int(pl.VNET1_VNI) if use_pkt_alt_attrs else int(pl.VM_VNI),
         inner_frame=exp_inner_packet
     )
 
     masked_exp_packet = Mask(exp_vxlan_packet)
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
-    masked_exp_packet.set_do_not_care_packet(scapy.UDP, "sport")
+    # 34 is the sport offset, 2 is the length of UDP sport field
+    masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
 
     return gre_packet, masked_exp_packet
 
 
-def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
+def outbound_pl_packets(config, outer_encap, use_pkt_alt_attrs=False,
+                        inner_packet_type='udp', vxlan_udp_dport=4789, vxlan_udp_sport=1234):
     inner_packet = generate_inner_packet(inner_packet_type)(
-        eth_src=pl.REMOTE_MAC,
-        eth_dst=pl.ENI_MAC,
+        eth_src=pl.ENI_MAC,
+        eth_dst=pl.REMOTE_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
     )
+    l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
 
     if outer_encap == 'vxlan':
         outer_packet = testutils.simple_vxlan_packet(
@@ -157,7 +163,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
             udp_dport=vxlan_udp_dport,
             udp_sport=vxlan_udp_sport,
             with_udp_chksum=False,
-            vxlan_vni=int(pl.VM_VNI),
+            vxlan_vni=int(pl.VNET1_VNI) if use_pkt_alt_attrs else int(pl.VM_VNI),
             inner_frame=inner_packet
         )
     elif outer_encap == 'gre':
@@ -167,7 +173,7 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
             ip_src=pl.VM1_PA,
             ip_dst=pl.APPLIANCE_VIP,
             gre_key_present=True,
-            gre_key=int(pl.VM_VNI) << 8,
+            gre_key=int(pl.ENCAP_VNI) << 8 if use_pkt_alt_attrs else int(pl.VM_VNI) << 8,
             inner_frame=inner_packet
         )
     else:
@@ -191,12 +197,17 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
     logger.info(f"Expecting overlay SIP: {exp_overlay_sip}")
     logger.info(f"Expecting overlay DIP: {exp_overlay_dip}")
 
-    exp_inner_packet = scapy.Ether() / scapy.IPv6() / scapy.UDP()
+    if inner_packet_type == 'tcp':
+        exp_inner_packet = scapy.Ether() / scapy.IPv6() / scapy.TCP()
+    else:
+        exp_inner_packet = scapy.Ether() / scapy.IPv6() / scapy.UDP()
     exp_inner_packet[scapy.Ether].src = pl.ENI_MAC
     exp_inner_packet[scapy.Ether].dst = pl.REMOTE_MAC
     exp_inner_packet[scapy.IPv6].src = exp_overlay_sip
     exp_inner_packet[scapy.IPv6].dst = exp_overlay_dip
     exp_inner_packet[scapy.UDP] = inner_packet[scapy.UDP]
+
+    exp_inner_packet[l4_protocol_key] = inner_packet[l4_protocol_key]
 
     exp_encap_packet = testutils.simple_gre_packet(
         eth_dst=config[REMOTE_PTF_MAC],
@@ -207,13 +218,14 @@ def outbound_pl_packets(config, outer_encap, inner_packet_type='udp', vxlan_udp_
         gre_key=pl.ENCAP_VNI << 8,
         inner_frame=exp_inner_packet,
         ip_id=0,
-        ip_ttl=254,
+        ip_ttl=63 if use_pkt_alt_attrs else 254,
     )
 
     masked_exp_packet = Mask(exp_encap_packet)
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care(336, 48)  # Inner Ether dst
 
     return outer_packet, masked_exp_packet
 
@@ -399,3 +411,52 @@ def verify_tcp_packet_drop_rst_packet_sent(ptfadapter,
         ptfadapter, ports, filter_pkt_lens, device_number, duration, timeout)
     verify_packets_not_received(drop_tcp_pkts, received_pkts_res)
     verify_each_packet_on_each_port(exp_rst_pkts, received_pkts_res, ports)
+
+
+def outbound_smartswitch_vnet_packets(dash_config_info, inner_extra_conf={},
+                                      inner_packet_type='udp', vxlan_udp_dport=4789):
+
+    inner_packet = generate_inner_packet(inner_packet_type)(
+        eth_src=dash_config_info[LOCAL_ENI_MAC],
+        eth_dst=dash_config_info[REMOTE_ENI_MAC],
+        ip_src=dash_config_info[LOCAL_CA_IP],
+        ip_dst=dash_config_info[REMOTE_CA_IP]
+    )
+    set_icmp_sub_type(inner_packet, inner_packet_type)
+
+    vxlan_packet = testutils.simple_vxlan_packet(
+        eth_src=dash_config_info[LOCAL_PTF_MAC],
+        eth_dst=dash_config_info[DUT_MAC],
+        ip_src=dash_config_info[LOCAL_PA_IP],
+        ip_dst=dash_config_info[LOOPBACK_IP],
+        udp_dport=vxlan_udp_dport,
+        with_udp_chksum=False,
+        vxlan_vni=dash_config_info[VNET1_VNI],
+        ip_ttl=64,
+        inner_frame=inner_packet
+    )
+    expected_packet = testutils.simple_vxlan_packet(
+        eth_src=dash_config_info[DUT_MAC],
+        eth_dst=dash_config_info[REMOTE_PTF_MAC],
+        ip_src=dash_config_info[LOOPBACK_IP],
+        ip_dst=dash_config_info[REMOTE_PA_IP],
+        udp_dport=vxlan_udp_dport,
+        vxlan_vni=dash_config_info[VNET1_VNI],
+        ip_ttl=63,
+        ip_id=0,
+        inner_frame=inner_packet
+    )
+
+    masked_exp_packet = Mask(expected_packet)
+    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "id")
+    masked_exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
+    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "sport")
+    masked_exp_packet.set_do_not_care_scapy(scapy.UDP, "chksum")
+    return inner_packet, vxlan_packet, masked_exp_packet
+
+
+def get_scapy_l4_protocol_key(inner_packet_type):
+    scapy_tcp = scapy.TCP
+    scapy_udp = scapy.UDP
+    l4_protocol_key = scapy_udp if inner_packet_type == 'udp' else scapy_tcp
+    return l4_protocol_key

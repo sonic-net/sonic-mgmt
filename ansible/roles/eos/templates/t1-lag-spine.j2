@@ -41,7 +41,8 @@ ip routing
 ip routing vrf MGMT
 ipv6 unicast-routing
 !
-{% if vm_mgmt_gw is defined %}
+{% if disable_ceos_mgmt_gateway is defined and disable_ceos_mgmt_gateway == 'yes'%}
+{% elif vm_mgmt_gw is defined %}
 ip route vrf MGMT 0.0.0.0/0 {{ vm_mgmt_gw }}
 {% else %}
 ip route vrf MGMT 0.0.0.0/0 {{ mgmt_gw }}
@@ -100,13 +101,14 @@ interface {{ bp_ifname }}
  no shutdown
 !
 router bgp {{ host['bgp']['asn'] }}
- router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] |  ipaddr('address') }}
+ router-id {{ host['bgp']['router-id'] if host['bgp']['router-id'] is defined else host['interfaces']['Loopback0']['ipv4'] | ansible.utils.ipaddr('address') }}
  !
 {% for asn, remote_ips in host['bgp']['peers'].items() %}
 {% for remote_ip in remote_ips %}
  neighbor {{ remote_ip }} remote-as {{ asn }}
  neighbor {{ remote_ip }} description {{ asn }}
-{% if remote_ip | ipv6 %}
+ neighbor {{ remote_ip }} next-hop-self
+{% if remote_ip | ansible.utils.ipv6 %}
  address-family ipv6
   neighbor {{ remote_ip }} activate
  exit

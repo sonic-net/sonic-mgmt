@@ -25,6 +25,7 @@
     hwsku: "{{ hostvars[dut_name].hwsku }}"
     num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
     card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
+  when: dut_name in hostvars
 
 - name: Get DUT port alias
   port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal={{ include_internal | default(false) }} sort_by_index={{ sort_by_index | default(true) }}

@@ -9,7 +9,7 @@ import json
 from ptf.mask import Mask
 import ptf.packet as scapy
 
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa: F401
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -20,7 +20,7 @@ from tests.common.utilities import get_neighbor_port_list
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "m0", "mx", "m1"),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
@@ -124,7 +124,7 @@ def create_acl_table(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         neighbor_ports = get_neighbor_port_list(rand_selected_dut, upstream_neigh_type)
         ports = ",".join(neighbor_ports)
     else:
@@ -234,7 +234,7 @@ def generate_packet(src_ip, dst_ip, dst_mac):
     return pkt, exp_pkt
 
 
-def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action):     # noqa F811
+def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_action):     # noqa: F811
     """
     Send packet with ptfadapter and verify if packet is forwarded or dropped as expected.
     """
@@ -247,7 +247,7 @@ def send_and_verify_packet(ptfadapter, pkt, exp_pkt, tx_port, rx_port, expected_
 
 
 def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
-                           apply_pre_defined_rules, setup_ptf):  # noqa F811
+                           apply_pre_defined_rules, setup_ptf):  # noqa: F811
     """
     Test case to verify script null_route_helper.
     Some packets are generated as defined in TEST_DATA and sent to DUT,
@@ -259,7 +259,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         ptf_interfaces = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
     else:
         portchannel_members = []

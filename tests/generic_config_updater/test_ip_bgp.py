@@ -8,11 +8,12 @@ from tests.common.gu_utils import apply_patch, expect_op_success, expect_op_fail
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
+from tests.common.utilities import is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1'),
 ]
 
 
@@ -211,9 +212,13 @@ def delete_ip_neighbor(duthost, namespace=None, ip_version=6):
 
 
 @pytest.mark.parametrize("ip_version", [6, 4])
-def test_ip_suite(duthost, ensure_dut_readiness, ip_version, enum_rand_one_frontend_asic_index):
+def test_ip_suite(duthost, ensure_dut_readiness, ip_version, enum_rand_one_frontend_asic_index, tbinfo):
+    # Check if this is an IPv6-only topology and skip IPv4 tests
+    if ip_version == 4 and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
-        '/asic{}'.format(enum_rand_one_frontend_asic_index)
+        'asic{}'.format(enum_rand_one_frontend_asic_index)
     add_deleted_ip_neighbor(duthost, asic_namespace, ip_version)
     add_duplicate_ip_neighbor(duthost, asic_namespace, ip_version)
     invalid_ip_neighbor(duthost, asic_namespace, ip_version)

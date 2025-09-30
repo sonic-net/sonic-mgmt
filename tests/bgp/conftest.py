@@ -24,7 +24,8 @@ from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TE
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
-
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +47,7 @@ def check_results(results):
 
 
 @pytest.fixture(scope='module')
-def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=24):
+def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo, cct=8):
     duthost = duthosts[rand_one_dut_hostname]
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
@@ -66,23 +67,53 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
             return
 
         node_results = []
+        asn = node['conf']['bgp']['asn']
         logger.info('enable graceful restart on neighbor host {}'.format(node['host'].hostname))
-        logger.info('bgp asn {}'.format(node['conf']['bgp']['asn']))
-        node_results.append(node['host'].eos_config(
-                lines=['graceful-restart restart-time 300'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn'])],
-                module_ignore_errors=True)
-            )
-        node_results.append(node['host'].eos_config(
-                lines=['graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'],
-                module_ignore_errors=True)
-            )
-        node_results.append(node['host'].eos_config(
-                lines=['graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'],
-                module_ignore_errors=True)
-            )
+        logger.info('bgp asn {}'.format(asn))
+        if isinstance(node['host'], EosHost):
+            node_results.append(node['host'].config(
+                    lines=['graceful-restart restart-time 300'],
+                    parents=['router bgp {}'.format(asn)],
+                    module_ignore_errors=True)
+                )
+            node_results.append(node['host'].config(
+                    lines=['graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv4'],
+                    module_ignore_errors=True)
+                )
+            node_results.append(node['host'].config(
+                    lines=['graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv6'],
+                    module_ignore_errors=True)
+                )
+        elif isinstance(node['host'], SonicHost):
+            node_results.append(node['host'].config(
+                lines=['bgp graceful-restart', 'bgp graceful-restart restart-time 300'],
+                parents=['router bgp {}'.format(asn)],
+                module_ignore_errors=True))
+            # enable graceful-restart for peers connected to DUT
+            bgp_peers = node['conf']['bgp']['peers']
+            dut_asn = int(next(iter(bgp_peers.keys())))
+            peers = bgp_peers[dut_asn]
+            if not peers:
+                results[node['host'].hostname] = [{'failed': True, 'msg': "DUT ASN not found in BGP peers"}]
+                return
+
+            for neighbor_ip in peers:
+                node_results.append(node['host'].config(
+                    lines=['neighbor {} graceful-restart'.format(neighbor_ip)],
+                    parents=['router bgp {}'.format(asn)],
+                    module_ignore_errors=True))
+
+            node['host'].command("sudo vtysh -c 'clear bgp ipv4 *'", module_ignore_errors=True)
+            node['host'].command("sudo vtysh -c 'clear bgp ipv6 *'", module_ignore_errors=True)
+        else:
+            logger.error(f"Unsupported host type: {type(node['host'])}")
+            node_results.append({
+                'failed': True,
+                'msg': f"Unsupported host type: {type(node['host'])}"
+            })
+
         results[node['host'].hostname] = node_results
 
     @reset_ansible_local_tmp
@@ -102,18 +133,46 @@ def setup_bgp_graceful_restart(duthosts, rand_one_dut_hostname, nbrhosts, tbinfo
         node_results = []
         node['host'].start_bgpd()
         logger.info('disable graceful restart on neighbor {}'.format(node))
-        node_results.append(node['host'].eos_config(
-                lines=['no graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv4'],
-                module_ignore_errors=True)
-            )
-        node_results.append(node['host'].eos_config(
-                lines=['no graceful-restart'],
-                parents=['router bgp {}'.format(node['conf']['bgp']['asn']), 'address-family ipv6'],
-                module_ignore_errors=True)
-            )
+        asn = (node['conf']['bgp']['asn'])
+        if isinstance(node['host'], EosHost):
+            node_results.append(node['host'].config(
+                    lines=['no graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv4'],
+                    module_ignore_errors=True)
+                )
+            node_results.append(node['host'].config(
+                    lines=['no graceful-restart'],
+                    parents=['router bgp {}'.format(asn), 'address-family ipv6'],
+                    module_ignore_errors=True)
+                )
+        elif isinstance(node['host'], SonicHost):
+            node_results.append(node['host'].config(
+                lines=['no bgp graceful-restart', 'no bgp graceful-restart restart-time 300'],
+                parents=['router bgp {}'.format(asn)],
+                module_ignore_errors=True))
+            # restore graceful-restart for peers connected to DUT
+            bgp_peers = node['conf']['bgp']['peers']
+            dut_asn = int(next(iter(bgp_peers.keys())))
+            peers = bgp_peers[dut_asn]
+            if not peers:
+                results[node['host'].hostname] = [{'failed': True, 'msg': "DUT ASN not found in BGP peers"}]
+                return
+            for neighbor_ip in peers:
+                node_results.append(node['host'].config(
+                    lines=['no neighbor {} graceful-restart'.format(neighbor_ip)],
+                    parents=['router bgp {}'.format(asn)],
+                    module_ignore_errors=True))
+            node['host'].command("sudo vtysh -c 'clear bgp ipv4 *'", module_ignore_errors=True)
+            node['host'].command("sudo vtysh -c 'clear bgp ipv6 *'", module_ignore_errors=True)
+        else:
+            logger.error(f'Unsupported host type: {type(node["host"])}')
+            node_results.append({
+                'failed': True,
+                'msg': f'Unsupported host type: {type(node["host"])}'
+            })
         results[node['host'].hostname] = node_results
 
+    # enable graceful restart on neighbors
     results = parallel_run(configure_nbr_gr, (), {}, list(nbrhosts.values()), timeout=120, concurrent_tasks=cct)
 
     check_results(results)
@@ -213,8 +272,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 return vlan_intf
         raise ValueError("No Vlan interface defined in current topo")
 
-    def _find_loopback_interface(mg_facts):
-        loopback_intf_name = "Loopback0"
+    def _find_loopback_interface(mg_facts, loopback_intf_name="Loopback0"):
         for loopback in mg_facts["minigraph_lo_interfaces"]:
             if loopback["name"] == loopback_intf_name:
                 return loopback
@@ -225,7 +283,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         try:
             connections = []
             vlan_intf = _find_vlan_intferface(mg_facts)
-            loopback_intf = _find_loopback_interface(mg_facts)
+            loopback_intf = _find_loopback_interface(mg_facts, "Loopback3")
             vlan_intf_addr = vlan_intf["addr"]
             vlan_intf_prefixlen = vlan_intf["prefixlen"]
             loopback_intf_addr = loopback_intf["addr"]
@@ -346,7 +404,6 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                         if not ipv4_interfaces:
                             ipv4_interfaces.append(intf["attachto"])
                             asic_idx = intf_asic_idx
-                            used_subnets.add(ipaddress.ip_network(intf["subnet"]))
                         else:
                             if intf_asic_idx != asic_idx:
                                 continue
@@ -359,21 +416,21 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
                 for pt in mg_facts["minigraph_portchannel_interfaces"]:
                     if _is_ipv4_address(pt["addr"]):
                         pt_members = mg_facts["minigraph_portchannels"][pt["attachto"]]["members"]
+                        pc_asic_idx = duthost.get_asic_index_for_portchannel(pt["attachto"])
                         # Only use LAG with 1 member for bgpmon session between PTF,
                         # It's because exabgp on PTF is bind to single interface
                         if len(pt_members) == 1:
                             # If first time, we record the asic index
-                            if not ipv4_lag_interfaces:
+                            if not ipv4_interfaces and not ipv4_lag_interfaces:
+                                asic_idx = pc_asic_idx
                                 ipv4_lag_interfaces.append(pt["attachto"])
-                                asic_idx = duthost.get_asic_index_for_portchannel(pt["attachto"])
-                            # Not first time, only append the portchannel that belongs to the same asic in current list
+                            # Not first time, only append the port-channel that belongs to the same asic in current list
                             else:
-                                asic = duthost.get_asic_index_for_portchannel(pt["attachto"])
-                                if asic != asic_idx:
+                                if pc_asic_idx != asic_idx:
                                     continue
                                 else:
                                     ipv4_lag_interfaces.append(pt["attachto"])
-                        used_subnets.add(ipaddress.ip_network(pt["subnet"]))
+                            used_subnets.add(ipaddress.ip_network(pt["subnet"]))
 
             vlan_sub_interfaces = []
             if is_backend_topo:
@@ -472,7 +529,7 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         setup_func = _setup_interfaces_dualtor
     elif tbinfo["topo"]["type"] in ["t0", "mx"]:
         setup_func = _setup_interfaces_t0_or_mx
-    elif tbinfo["topo"]["type"] in set(["t1", "t2"]):
+    elif tbinfo["topo"]["type"] in set(["t1", "t2", "m1", "lt2", "ft2"]):
         setup_func = _setup_interfaces_t1_or_t2
     elif tbinfo["topo"]["type"] == "m0":
         if topo_scenario == "m0_l3_scenario":
@@ -488,6 +545,8 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
         yield connections
 
     duthost.shell("sonic-clear arp")
+    duthost.shell('sudo config save -y')
+    config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
 
 @pytest.fixture(scope="module")
@@ -645,6 +704,14 @@ def pytest_addoption(parser):
         type=int,
         default=3,
         help="continuous reboot time number. default is 3"
+    )
+    parser.addoption(
+        "--max_flap_neighbor_number",
+        action="store",
+        dest="max_flap_neighbor_number",
+        type=int,
+        default=None,
+        help="Max flap neighbor number, default is None"
     )
 
 
