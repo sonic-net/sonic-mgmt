@@ -1,7 +1,7 @@
 import inspect
 import json
 import logging
-
+import pytest_ansible
 from multiprocessing.pool import ThreadPool
 
 from tests.common.errors import RunAnsibleModuleFail
@@ -36,6 +36,8 @@ class AnsibleHostBase(object):
         def default(self, obj):
             if isinstance(obj, bytes):
                 return obj.decode('utf-8')
+            elif isinstance(obj, pytest_ansible.results.ModuleResult):
+                return str(obj)
             return super().default(obj)
 
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
