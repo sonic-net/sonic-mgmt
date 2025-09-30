@@ -56,7 +56,7 @@ class ConterpollHelper:
         for counterpoll_type in counter_type_list:
             if duthost.is_multi_asic:
                 asic_index = " -n asic{}".format(asic_id.asic_index)
-                duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type,asic_index))
+                duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type, asic_index))
             else:
                 duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
 
