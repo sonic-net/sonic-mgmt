@@ -4,7 +4,6 @@ import enum
 import os
 import json
 import logging
-import getpass
 import random
 from concurrent.futures import as_completed
 import re
