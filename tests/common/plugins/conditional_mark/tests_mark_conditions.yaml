@@ -861,6 +861,12 @@ drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19920 and '-v6-' in topo_name"
 
+drop_packets/test_drop_counters.py::test_acl_egress_drop:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue with valid_ipv4"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19921 and '-v6-' in topo_name"
+
 drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with valid_ipv4"
