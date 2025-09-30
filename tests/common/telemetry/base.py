@@ -147,7 +147,7 @@ class Reporter(ABC):
         if not context.get(METRIC_LABEL_TEST_TESTBED):
             context[METRIC_LABEL_TEST_TESTBED] = os.environ.get(ENV_SONIC_MGMT_TESTBED_NAME, 'unknown')
 
-        context[METRIC_LABEL_TEST_OS_VERSION] = os.environ.get(ENV_SONIC_MGMT_BUILD_VERSION, 'unknown')
+        context[METRIC_LABEL_TEST_OS_VERSION] = duthost.os_version
         context[METRIC_LABEL_TEST_JOB_ID] = os.environ.get(ENV_SONIC_MGMT_JOB_ID, 'unknown')
 
         return context
