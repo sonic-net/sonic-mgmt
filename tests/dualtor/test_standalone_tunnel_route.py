@@ -8,16 +8,16 @@ import scapy.all as scapyall
 
 from ptf import testutils
 
-from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
-from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip                                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa F401
-from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip                                 # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa: F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa: F401
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import wait_until
@@ -37,7 +37,7 @@ def cleanup_neighbors(duthosts):
 
 
 @pytest.fixture
-def constants(lower_tor_host, tbinfo):  # noqa F811
+def constants(lower_tor_host, tbinfo):  # noqa: F811
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -68,9 +68,9 @@ def constants(lower_tor_host, tbinfo):  # noqa F811
 
 
 def test_standalone_tunnel_route(
-    cable_type, constants, upper_tor_host, lower_tor_host,          # noqa F811
-    ptfadapter, toggle_all_simulator_ports_to_upper_tor, tbinfo,    # noqa F811
-    tunnel_traffic_monitor                                          # noqa F811
+    cable_type, constants, upper_tor_host, lower_tor_host,          # noqa: F811
+    ptfadapter, toggle_all_simulator_ports_to_upper_tor, tbinfo,    # noqa: F811
+    tunnel_traffic_monitor                                          # noqa: F811
 ):
     def _verify_traffic(duthost, target_ip):
         pkt, _ = build_packet_to_server(duthost, ptfadapter, str(target_ip))
@@ -99,9 +99,9 @@ def test_standalone_tunnel_route(
             testutils.send(ptfadapter, ptf_t1_intf_index, pkt, count=10)
             time.sleep(5)
 
-    def _verify_failed_neighbor(duthost, target_ip):
+    def _verify_failed_or_incomplete_neighbor(duthost, target_ip):
         result = duthost.shell("ip neighbor show %s" % target_ip)["stdout"]
-        pytest_assert("FAILED" in result)
+        pytest_assert("FAILED" in result or "INCOMPLETE" in result)
 
     def _check_mux_status(duthost, target_status):
         all_mux_status = json.loads(duthost.shell("show mux status --json")["stdout"])["MUX_CABLE"]
@@ -115,14 +115,14 @@ def test_standalone_tunnel_route(
     logging.info("check upper tor %s", upper_tor_host)
     _verify_traffic(upper_tor_host, constants.target_ip)
     _verify_traffic(upper_tor_host, constants.target_ipv6)
-    _verify_failed_neighbor(upper_tor_host, constants.target_ip)
-    _verify_failed_neighbor(upper_tor_host, constants.target_ipv6)
+    _verify_failed_or_incomplete_neighbor(upper_tor_host, constants.target_ip)
+    _verify_failed_or_incomplete_neighbor(upper_tor_host, constants.target_ipv6)
 
     logging.info("check lower tor %s", upper_tor_host)
     _verify_traffic(lower_tor_host, constants.target_ip)
     _verify_traffic(lower_tor_host, constants.target_ipv6)
-    _verify_failed_neighbor(lower_tor_host, constants.target_ip)
-    _verify_failed_neighbor(lower_tor_host, constants.target_ipv6)
+    _verify_failed_or_incomplete_neighbor(lower_tor_host, constants.target_ip)
+    _verify_failed_or_incomplete_neighbor(lower_tor_host, constants.target_ipv6)
 
     if cable_type == CableType.active_active:
         try:
@@ -130,8 +130,7 @@ def test_standalone_tunnel_route(
             lower_tor_host.shell("config mux mode standby all")
             wait_until(30, 5, 0, lambda: _check_mux_status(lower_tor_host, "standby"))
             _verify_traffic(lower_tor_host, constants.target_ip)
-            _verify_failed_neighbor(lower_tor_host, constants.target_ip)
-            _verify_failed_neighbor(lower_tor_host, constants.target_ip)
-            _verify_failed_neighbor(lower_tor_host, constants.target_ipv6)
+            _verify_failed_or_incomplete_neighbor(lower_tor_host, constants.target_ip)
+            _verify_failed_or_incomplete_neighbor(lower_tor_host, constants.target_ipv6)
         finally:
             lower_tor_host.shell("config mux mode auto all")

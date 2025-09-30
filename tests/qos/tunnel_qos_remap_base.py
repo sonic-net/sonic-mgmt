@@ -11,11 +11,11 @@ from ptf.testutils import simple_tcp_packet, simple_ipv4ip_packet
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.system_utils import docker
-from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa F401
-from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa F401
-from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa F401
+from tests.common.dualtor.mux_simulator_control import mux_server_url, toggle_all_simulator_ports   # noqa: F401
+from tests.common.fixtures.duthost_utils import dut_qos_maps_module                                 # noqa: F401
+from tests.common.fixtures.ptfhost_utils import ptf_portmap_file_module                             # noqa: F401
 from tests.common.utilities import get_iface_ip
-from .qos_helpers import dutBufferConfig
+from .qos_helpers import dutBufferConfig, disable_voq_watchdog
 from .files.cisco.qos_param_generator import QosParamCisco
 
 logger = logging.getLogger(__name__)
@@ -136,7 +136,7 @@ def counter_poll_config(duthost, type, interval_ms):
 
 
 @pytest.fixture(scope='class')
-def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
+def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module):  # noqa: F811
     """
     Read DSCP_TO_TC_MAP/TC_TO_PRIORITY_GROUP_MAP/TC_TO_DSCP_MAP/TC_TO_QUEUE_MAP from file
     or config DB depending on the ASIC type.
@@ -178,8 +178,14 @@ def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
     # inner_dscp_to_outer_dscp_map, a map for rewriting DSCP in the encapsulated packets
     ret['inner_dscp_to_outer_dscp_map'] = {}
     if 'cisco-8000' in asic_type:
+        dscps_present = []
         for k, v in list(maps['TC_TO_DSCP_MAP'][TUNNEL_MAP_NAME].items()):
             ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(v)
+            dscps_present.append(int(k))
+        # Fill in default-values in the map to be 1-1
+        for dscp in range(64):
+            if dscp not in dscps_present:
+                ret['inner_dscp_to_outer_dscp_map'][dscp] = dscp
     else:
         for k, v in list(maps['DSCP_TO_TC_MAP'][MAP_NAME].items()):
             ret['inner_dscp_to_outer_dscp_map'][int(k)] = int(
@@ -199,7 +205,7 @@ def tunnel_qos_maps(rand_selected_dut, dut_qos_maps_module): # noqa F811
 
 
 @pytest.fixture(scope='module')
-def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_module):    # noqa F811
+def dut_config(rand_selected_dut, rand_unselected_dut, tbinfo, ptf_portmap_file_module):    # noqa: F811
     '''
     Generate a dict including test required params
     '''
@@ -311,7 +317,7 @@ def qos_config(rand_selected_dut, tbinfo, dut_config):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def disable_packet_aging(rand_selected_dut, duthosts):
+def disable_packet_aging(duthosts):
     """
         For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout. Need to disable this
         before any buffer tests.
@@ -329,9 +335,11 @@ def disable_packet_aging(rand_selected_dut, duthosts):
     for duthost in duthosts:
         asic = duthost.get_asic_name()
         if 'spc' in asic:
+            # Ignore errors if the script is not found in syncd container as it may be removed
+            # by swap_syncd
             logger.info("Enable Mellanox packet aging")
-            duthost.command("docker exec syncd python /packets_aging.py enable")
-            duthost.command("docker exec syncd rm -rf /packets_aging.py")
+            duthost.command("docker exec syncd python /packets_aging.py enable", module_ignore_errors=True)
+            duthost.command("docker exec syncd rm -rf /packets_aging.py", module_ignore_errors=True)
 
 
 def _create_ssh_tunnel_to_syncd_rpc(duthost):
@@ -387,19 +395,34 @@ def update_docker_services(rand_selected_dut, swap_syncd, disable_container_auto
 
     SERVICES = [
         {"docker": "lldp", "service": "lldp-syncd"},
-        {"docker": "lldp", "service": "lldpd"},
-        {"docker": "bgp",  "service": "bgpd"},
-        {"docker": "bgp",  "service": "bgpmon"}
+        {"docker": "lldp", "service": "lldpd"}
     ]
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="stop", **service)
+
+    rand_selected_dut.shell("sudo config bgp shutdown all")
+
+    asic = rand_selected_dut.get_asic_name()
+    if 'spc' in asic:
+        logger.info("Disable Mellanox packet aging")
+        rand_selected_dut.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        rand_selected_dut.command("docker cp /tmp/packets_aging.py syncd:/")
+        rand_selected_dut.command("docker exec syncd python /packets_aging.py disable")
 
     yield
 
     enable_container_autorestart(
         rand_selected_dut, testcase="test_tunnel_qos_remap", feature_list=feature_list)
+
+    rand_selected_dut.shell("sudo config bgp start all")
+
     for service in SERVICES:
         _update_docker_service(rand_selected_dut, action="start", **service)
+
+    if 'spc' in asic:
+        logger.info("Enable Mellanox packet aging")
+        rand_selected_dut.command("docker exec syncd python /packets_aging.py enable")
+        rand_selected_dut.command("docker exec syncd rm -rf /packets_aging.py")
 
 
 def _update_mux_feature(duthost, state):
@@ -498,6 +521,8 @@ def stop_pfc_storm(storm_handler):
     Stop sending PFC pause frames from fanout switch
     """
     storm_handler.stop_storm()
+    # Wait for PFC pause to stop
+    time.sleep(2)
 
 
 def run_ptf_test(ptfhost, test_case='', test_params={}):
@@ -505,9 +530,7 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
     A helper function to run test script on ptf host
     """
     logger.info("Start running {} on ptf host".format(test_case))
-    pytest_assert(ptfhost.shell(
-        argv=[
-            "/root/env-python3/bin/ptf",
+    argv = ["/root/env-python3/bin/ptf",
             "--test-dir",
             "saitests/py3",
             test_case,
@@ -527,7 +550,16 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
             "--log-file",
             "/tmp/{0}.log".format(test_case),
             "--test-case-timeout",
-            "1200"
-        ],
-        chdir="/root",
-    )["rc"] == 0, "Failed when running test '{0}'".format(test_case))
+            "1200"]
+    result = ptfhost.shell(argv=argv, chdir="/root")
+    pytest_assert(result["rc"] == 0, "Failed when running test '{0}'".format(test_case))
+
+
+@pytest.fixture(scope='module', autouse=True)
+def disable_voq_watchdog_dualtor(duthosts, rand_selected_dut):
+    get_src_dst_asic_and_duts = {}
+    get_src_dst_asic_and_duts["single_asic_test"] = True
+    get_src_dst_asic_and_duts["dst_dut"] = rand_selected_dut
+    get_src_dst_asic_and_duts["dst_asic"] = rand_selected_dut.asics[0]
+    with disable_voq_watchdog(duthosts, get_src_dst_asic_and_duts) as result:
+        yield result

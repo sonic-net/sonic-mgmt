@@ -28,6 +28,23 @@ TACACS_SERVER_OPTION = {
     "tcp_port": "50",
     "timeout": "10"
 }
+DEFAULT_RADIUS_SERVER = "100.127.20.22"
+
+RADIUS_ADD_CONFIG = {
+    "auth_type": "pap",
+    "timeout": "5",
+    "retransmit": "3",
+    "passkey": "testing123",
+}
+
+RADIUS_SERVER_OPTION = {
+    "auth_type": "pap",
+    "passkey": "testing123",
+    "priority": "1",
+    "auth_port": "1812",
+    "timeout": "5",
+    "retransmit": "3"
+}
 
 
 @pytest.fixture(autouse=True)
@@ -143,7 +160,66 @@ def parse_tacacs_server(duthost):
     return tacacs_servers
 
 
-def aaa_tc1_add_config(duthost):
+def radius_add_init_config_without_table(duthost):
+    """ Add initial config not containing radius table
+
+    Sample configDB without table:
+    admin@vlab-01:~/cacl$ show run all | grep -w RADIUS
+    admin@vlab-01:~$
+    """
+    cmds = 'sonic-db-cli CONFIG_DB keys "RADIUS|*" | xargs -r sonic-db-cli CONFIG_DB del'
+    output = duthost.shell(cmds)
+    pytest_assert(not output['rc'], "RADIUS init config failed")
+
+
+def get_radius_global_type_value(duthost, radius_global_type):
+    """ Get radius global config by type
+    """
+    output = duthost.shell(r'show radius | grep -Po "RADIUS global {} \K.*"'.format(radius_global_type))
+    pytest_assert(not output['rc'], "Failed to grep RADIUS {}".format(radius_global_type))
+    return output['stdout']
+
+
+def parse_radius_server(duthost):
+    """ Parse radius server configuration using show command
+
+    Sample output in kvm t0:
+    {u'10.0.0.9': {u'priority': u'1', u'auth_port': u'1812'},
+    u'10.0.0.8': {u'priority': u'1', u'auth_port': u'1812'}}
+    """
+    output = duthost.shell("show radius")
+    pytest_assert(not output['rc'])
+    lines = output['stdout']
+
+    radius_servers = {}
+    radius_server = {}
+    address = ""
+    radius_server_found = False
+
+    for line in lines.splitlines():
+        if line.startswith("RADIUS_SERVER"):
+            address = line.split(" ")[-1]
+            radius_server_found = True
+        else:
+            if not radius_server_found:
+                continue
+
+            if not line:
+                radius_servers[address] = radius_server
+                radius_server = {}
+                address = ""
+            else:
+                fields = line.strip().split(" ")
+                k, v = fields[0], fields[1]
+                radius_server[k] = v
+
+    if address:
+        radius_servers[address] = radius_server
+
+    return radius_servers
+
+
+def aaa_tc1_add_config(duthost, auth_method):
     """ Test AAA add initial config for its sub type
     """
     aaa_config = {
@@ -154,7 +230,7 @@ def aaa_tc1_add_config(duthost):
             "debug": "True",
             "failthrough": "True",
             "fallback": "True",
-            "login": "tacacs+",
+            "login": auth_method,
             "trace": "True"
         },
         "authorization": {
@@ -294,13 +370,18 @@ def aaa_tc1_remove(duthost):
 
 def test_tc1_aaa_suite(rand_selected_dut):
     """ This test is for default setting when configDB doesn't
-        contian AAA table. So we remove AAA config at first.
+        contain AAA table. So we remove AAA config at first.
     """
     aaa_add_init_config_without_table(rand_selected_dut)
     # Recent AAA YANG update that passkey in TACPLUS must exist first for authorization tacacs+
     # Since tc2 it will clean and retest TACPLUS table, we don't care TACPLUS residue after tc1
     tacacs_global_tc2_add_config(rand_selected_dut)
-    aaa_tc1_add_config(rand_selected_dut)
+    radius_global_tc4_add_config(rand_selected_dut)
+
+    # Call aaa_tc1_add_config for each auth_method explicitly
+    for auth_method in ["tacacs+", "radius"]:
+        aaa_tc1_add_config(rand_selected_dut, auth_method)
+
     aaa_tc1_replace(rand_selected_dut)
     aaa_tc1_add_duplicate(rand_selected_dut)
     aaa_tc1_remove(rand_selected_dut)
@@ -604,3 +685,67 @@ def test_tacacs_server_tc3_suite(rand_selected_dut):
     tacacs_server_tc3_replace_invalid(rand_selected_dut)
     tacacs_server_tc3_add_duplicate(rand_selected_dut)
     tacacs_server_tc3_remove(rand_selected_dut)
+
+
+def radius_global_tc4_add_config(duthost):
+    """ Test add radius global config """
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/RADIUS",
+            "value": {
+                "global": RADIUS_ADD_CONFIG
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        for radius_global_type, value in list(RADIUS_ADD_CONFIG.items()):
+            pytest_assert(get_radius_global_type_value(duthost, radius_global_type) == value,
+                          "RADIUS global {} failed to apply".format(radius_global_type))
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def radius_server_tc4_add_config(duthost):
+    """ Test radius server addition """
+    ip_address = DEFAULT_RADIUS_SERVER
+    json_patch = [
+        {
+            "op": "add",
+            "path": "/RADIUS_SERVER",
+            "value": {
+                ip_address: RADIUS_SERVER_OPTION
+            }
+        }
+    ]
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch)
+    tmpfile = generate_tmpfile(duthost)
+    logger.info("tmpfile {}".format(tmpfile))
+
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        radius_servers = parse_radius_server(duthost)
+        pytest_assert(ip_address in radius_servers,
+                      "radius server failed to add to config.")
+        options = radius_servers[ip_address]
+        for opt, value in list(RADIUS_SERVER_OPTION.items()):
+            pytest_assert(opt in options and options[opt] == value,
+                          "radius server failed to add to config completely.")
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+def test_tc4_radius_suite(rand_selected_dut):
+    """ Test suite for RADIUS configuration """
+    radius_add_init_config_without_table(rand_selected_dut)
+    radius_global_tc4_add_config(rand_selected_dut)
+    radius_server_tc4_add_config(rand_selected_dut)

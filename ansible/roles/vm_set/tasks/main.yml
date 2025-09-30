@@ -26,6 +26,10 @@
     package_installation: true
   when: package_installation is not defined or package_installation == ''
 
+- name: Initialize async flag
+  set_fact:
+    enable_async: "{{ enable_async | default(false) | bool }}"
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
@@ -69,35 +73,27 @@
 
 - block:
     - name: Install necessary packages
-      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
-      become: yes
+      apt:
+        update_cache: yes
+        cache_valid_time: 86400
+        pkg:
+          - ifupdown
+          - openvswitch-switch
+          - net-tools
+          - bridge-utils
+          - util-linux
+          - iproute2
+          - vlan
+          - apt-transport-https
+          - ca-certificates
+          - curl
+          - software-properties-common
+          - libvirt-clients
       register: apt_res
       retries: 2
       delay: 30
       until: apt_res is success
-      with_items:
-        - ifupdown
-        - qemu
-        - openvswitch-switch
-        - net-tools
-        - bridge-utils
-        - util-linux
-
-    - name: Install necessary packages
-      apt: pkg={{ item }} update_cache=yes cache_valid_time=86400
       become: yes
-      register: apt_res
-      retries: 2
-      delay: 30
-      until: apt_res is success
-      with_items:
-        - iproute2
-        - vlan
-        - apt-transport-https
-        - ca-certificates
-        - curl
-        - software-properties-common
-        - libvirt-clients
 
     - name: Install necessary packages
       register: apt_res
@@ -125,23 +121,18 @@
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
-      when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+      when: host_distribution_version.stdout >= "20.04"
   when: package_installation|bool
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip
-  when: pip_executable is not defined and host_distribution_version.stdout != "20.04" and host_distribution_version.stdout != "22.04"
+  when: pip_executable is not defined and host_distribution_version.stdout < "20.04"
 
 - name: Get default pip_executable
   set_fact:
     pip_executable: pip3
-  when: pip_executable is not defined and (host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04")
-
-- name: remove old python packages
-  pip: name=docker-py state=absent executable={{ pip_executable }}
-  environment: "{{ proxy_env | default({}) }}"
-  ignore_errors: yes
+  when: pip_executable is not defined and (host_distribution_version.stdout >= "20.04")
 
 - include_tasks: docker.yml
   when: package_installation|bool
@@ -150,7 +141,13 @@
   pip: name=requests version=2.32.3 state=present executable={{ pip_executable }}
   become: yes
   environment: "{{ proxy_env | default({}) }}"
-  when: pip_executable=="pip3"
+  when: pip_executable=="pip3" and host_distribution_version.stdout < "24.04"
+
+- name: Install requests package
+  pip: name=requests version=2.32.3 state=present virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="python3 -m venv"
+  become: yes
+  environment: "{{ proxy_env | default({}) }}"
+  when: host_distribution_version.stdout >= "24.04"
 
 - name: Ensure {{ ansible_user }} in docker,sudo group
   user:
@@ -165,7 +162,42 @@
     append: yes
     groups: libvirt
   become: yes
-  when: host_distribution_version.stdout == "20.04" or host_distribution_version.stdout == "22.04"
+  when: host_distribution_version.stdout >= "20.04"
+
+- name: Set kernel.pty.max to 8192
+  become: true
+  sysctl:
+    name: kernel.pty.max
+    value: 8192
+    state: present
+    sysctl_set: true
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-pty.conf
+
+- name: Update libvirt qemu configuration
+  block:
+  - name: Set user to root in qemu.conf
+    lineinfile:
+      path: /etc/libvirt/qemu.conf
+      regexp: '^#?user\s*=.*'
+      line: 'user = "root"'
+      state: present
+      backrefs: yes
+    become: yes
+  - name: Set group to root in qemu.conf
+    lineinfile:
+      path: /etc/libvirt/qemu.conf
+      regexp: '^#?group\s*=.*'
+      line: 'group = "root"'
+      state: present
+      backrefs: yes
+    become: yes
+  - name: Restart libvirtd to apply qemu.conf changes
+    service:
+      name: libvirtd
+      state: restarted
+    become: yes
+  when: host_distribution_version.stdout >= "24.04"
 
 - name: Install br_netfilter kernel module
   become: yes
@@ -203,6 +235,43 @@
     sysctl_set: yes
   become: yes
 
+- name: Increase neighbor gc_thresh1
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "8192"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh1
+    - net.ipv6.neigh.default.gc_thresh1
+
+- name: Increase neighbor gc_thresh2
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "16384"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh2
+    - net.ipv6.neigh.default.gc_thresh2
+
+- name: Increase neighbor gc_thresh3
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "32768"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh3
+    - net.ipv6.neigh.default.gc_thresh3
+
+- name: increase kernel pid max
+  sysctl:
+    name: "kernel.pid_max"
+    value: "4194304"
+    sysctl_set: yes
+  become: yes
+
 - name: Setup external front port
   include_tasks: external_port.yml
   when: external_port is defined
@@ -223,7 +292,7 @@
     # root_path is supposed to be absolute path.
     - set_fact:
         root_path: "{{ home_path + '/' + root_path }}"
-      when: "not '{{ root_path }}'.startswith('/')"
+      when: "not root_path.startswith('/')"
 
     - debug: msg="home_path = {{ home_path }} root_path = {{ root_path }}"
 
@@ -382,3 +451,8 @@
   loop_control:
     loop_var: dut_name
   when: duts_name is defined
+
+- name: Use virtualenv for all Python scripts on Ubuntu 24.04 and newer
+  set_fact:
+    ansible_python_interpreter: "/tmp/sonic-mgmt-virtualenv/bin/python"
+  when: host_distribution_version.stdout >= "24.04"

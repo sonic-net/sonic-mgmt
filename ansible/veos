@@ -16,6 +16,7 @@ all:
           - t1
           - t1-lag
           - t1-28-lag
+          - t1-48-lag
           - t1-32-lag
           - t1-56-lag
           - t1-64-lag
@@ -24,6 +25,16 @@ all:
           - t1-isolated-d128
           - t1-isolated-d28u1
           - t1-isolated-d224u8
+          - t1-isolated-v6-d128
+          - t1-isolated-v6-d224u8
+          - t1-isolated-v6-d28u1
+          - t1-isolated-d448u15-lag
+          - t1-isolated-d56u2
+          - t1-isolated-v6-d448u15-lag
+          - t1-isolated-v6-d56u2
+          - t1-isolated-d56u1-lag
+          - t1-isolated-v6-d56u1-lag
+          - t1-isolated-d510u2
           - t0
           - t0-d18u8s4
           - t0-16
@@ -46,6 +57,18 @@ all:
           - t0-isolated-d16u16s2
           - t0-isolated-d128u128s1
           - t0-isolated-d128u128s2
+          - t0-isolated-d2u254s1
+          - t0-isolated-d2u254s2
+          - t0-isolated-v6-d128u128s1
+          - t0-isolated-v6-d128u128s2
+          - t0-isolated-v6-d16u16s1
+          - t0-isolated-v6-d16u16s2
+          - t0-isolated-v6-d96u32s2
+          - t0-isolated-d256u256s2
+          - t0-isolated-d32u32s2
+          - t0-isolated-v6-d256u256s2
+          - t0-isolated-v6-d32u32s2
+          - t0-isolated-d96u32s2
           - dualtor
           - dualtor-56
           - cable-test
@@ -61,7 +84,14 @@ all:
           - m0-2vlan
           - mc0
           - mx
+          - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dpu-1
+          - ft2-64
+          - lt2-p32o64
+          - lt2-o128
       children:
         server_1:
         server_2:

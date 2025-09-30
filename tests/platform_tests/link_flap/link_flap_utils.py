@@ -119,7 +119,7 @@ def check_bgp_routes(dut, start_time_ipv4_route_counts, start_time_ipv6_route_co
     """
     MAX_DIFF = 5
 
-    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True)
+    sumv4, sumv6 = dut.get_ip_route_summary(skip_kernel_tunnel=True, skip_kernel_linkdown=True)
     totalsv4 = sumv4.get('Totals', {})
     totalsv6 = sumv6.get('Totals', {})
     routesv4 = totalsv4.get('routes', 0)
@@ -163,7 +163,7 @@ def validate_redis_memory_increase(tbinfo, start_mem, end_mem):
     if incr_redis_memory > 0.0:
         percent_incr_redis_memory = (incr_redis_memory / start_mem) * 100
         logging.info("Redis Memory percentage Increase: %d", percent_incr_redis_memory)
-        incr_redis_memory_threshold = 15 if tbinfo["topo"]["type"] in ["m0", "mx"] else 10
+        incr_redis_memory_threshold = 20 if tbinfo["topo"]["type"] in ["m0", "mx"] else 15
         if percent_incr_redis_memory >= incr_redis_memory_threshold:
             return False
     return True

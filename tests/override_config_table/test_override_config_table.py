@@ -7,6 +7,8 @@ from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config, get_running_config,\
     reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
     NON_USER_CONFIG_TABLES
+from tests.common import mellanox_data
+from tests.common import broadcom_data
 
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
@@ -18,6 +20,8 @@ pytestmark = [
     pytest.mark.topology('t0', 't1', 'any'),
     pytest.mark.disable_loganalyzer,
 ]
+
+LOSSY_HWSKU = mellanox_data.LOSSY_ONLY_HWSKUS + broadcom_data.LOSSY_ONLY_HWSKUS
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -50,6 +54,9 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     topo_type = tbinfo["topo"]["type"]
     if topo_type in ["m0", "mx"]:
         original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
+    hwsku = duthost.facts["hwsku"]
+    if hwsku in LOSSY_HWSKU:
+        original_pfcwd_value = update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", "disable")
     # Backup configDB
     backup_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)
     # Backup Golden Config if exists.
@@ -63,6 +70,8 @@ def setup_env(duthosts, golden_config_exists_on_dut, tbinfo, enum_rand_one_per_h
     yield running_config
 
     if topo_type in ["m0", "mx"]:
+        update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
+    if hwsku in LOSSY_HWSKU:
         update_pfcwd_default_state(duthost, "/etc/sonic/init_cfg.json", original_pfcwd_value)
     # Restore configDB after test.
     restore_config(duthost, CONFIG_DB, CONFIG_DB_BACKUP)

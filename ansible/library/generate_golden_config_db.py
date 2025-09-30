@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 # This ansible module is for generate golden_config_db.json
 # Currently, only enable dhcp_server feature and generated related configuration in MX device
@@ -10,9 +10,11 @@ from jinja2 import Template
 import logging
 import json
 import re
+import ipaddress
 
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info, multi_asic
+from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
 module: generate_golden_config_db.py
@@ -26,6 +28,7 @@ Description:
 '''
 
 GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 TEMP_DHCP_SERVER_CONFIG_PATH = "/tmp/dhcp_server.json"
 TEMP_SMARTSWITCH_CONFIG_PATH = "/tmp/smartswitch.json"
 DUMMY_QUOTA = "dummy_single_quota"
@@ -34,23 +37,19 @@ GOLDEN_CONFIG_TEMPLATE = 'golden_config_db_t2.j2'
 GOLDEN_CONFIG_TEMPLATE_PATH = '/tmp/golden_config_db_t2.j2'
 DNS_CONFIG_PATH = '/tmp/dns_config.json'
 
-smartswitch_hwsku_config = {
-    "Cisco-8102-28FH-DPU-O-T1": {
-        "dpu_num": 8,
-        "port_key": "Ethernet-BP{}",
-        "interface_key": "Ethernet-BP{}|18.{}.202.0/31",
-        "dpu_key": "dpu{}"
-    },
-    "Mellanox-SN4280-O28": {
-        "dpu_num": 4,
-        "port_key": "Ethernet{}",
-        "base": 224,
-        "step": 8,
-        "dpu_key": "dpu{}"
-    }
-}
-
 logger = logging.getLogger(__name__)
+
+LOSSY_HWSKU = frozenset({'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8',
+                         'Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8',
+                         'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16',
+                         'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16'})
+
+
+def is_full_lossy_hwsku(hwsku):
+    """
+    Return True if the platform is lossy-only and PFCWD should default to 'disable'.
+    """
+    return hwsku in LOSSY_HWSKU
 
 
 class GenerateGoldenConfigDBModule(object):
@@ -58,12 +57,16 @@ class GenerateGoldenConfigDBModule(object):
         self.module = AnsibleModule(argument_spec=dict(topo_name=dict(required=True, type='str'),
                                     port_index_map=dict(require=False, type='dict', default=None),
                                     macsec_profile=dict(require=False, type='str', default=None),
-                                    num_asics=dict(require=False, type='int', default=1)),
+                                    num_asics=dict(require=False, type='int', default=1),
+                                    hwsku=dict(require=False, type='str', default=None),
+                                    vm_configuration=dict(require=False, type='dict', default={})),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
+        self.hwsku = self.module.params['hwsku']
+        self.vm_configuration = self.module.params['vm_configuration']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -96,7 +99,7 @@ class GenerateGoldenConfigDBModule(object):
         # Generate FEATURE table from init_cfg.ini
         ori_config_db = json.loads(out)
         if "FEATURE" not in ori_config_db or "dhcp_server" not in ori_config_db["FEATURE"]:
-            return "{}"
+            return {}
 
         ori_config_db["FEATURE"]["dhcp_server"]["state"] = "enabled"
         gold_config_db = {
@@ -122,17 +125,35 @@ class GenerateGoldenConfigDBModule(object):
         gold_config_db.update(dhcp_server_config_obj)
         return gold_config_db
 
+    def generate_full_lossy_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+            if ("localhost" in golden_config_db["DEVICE_METADATA"] and
+               "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
+                golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
+                golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        return json.dumps(golden_config_db, indent=4)
+
     def check_version_for_bmp(self):
         output_version = device_info.get_sonic_version_info()
         build_version = output_version['build_version']
 
-        if re.match(r'^(\d{8})', build_version):
-            version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if version_number < 20241130:
+        if re.match(r'^(\d{6})', build_version):
+            version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if version_number < 202411:
                 return False
-        elif re.match(r'^internal-(\d{8})', build_version):
-            internal_version_number = int(re.findall(r'\d{8}', build_version)[0])
-            if internal_version_number < 20241130:
+        elif re.match(r'^internal-(\d{6})', build_version):
+            internal_version_number = int(re.findall(r'\d{6}', build_version)[0])
+            if internal_version_number < 202411:
                 return False
         else:
             return True
@@ -144,76 +165,53 @@ class GenerateGoldenConfigDBModule(object):
             self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
         return out
 
-    def get_multiasic_feature_config(self, feature_key):
+    def get_multiasic_feature_config(self):
         rc, out, err = self.module.run_command("show runningconfiguration all")
         if rc != 0:
             self.module.fail_json(msg="Failed to get config from runningconfiguration: {}".format(err))
-        running_config_db = json.loads(out)
+        config = json.loads(out)
+        # From the running configure, only keep the key "FEATURE"
+        for namespace, ns_data in config.items():
+            config[namespace] = {k: ns_data[k] for k in ns_data if k == "FEATURE"}
+        return config
 
-        feature_data = {
-            feature_key: {
-                "auto_restart": "enabled",
-                "check_up_status": "false",
-                "delayed": "False",
-                "has_global_scope": "False",
-                "has_per_asic_scope": "True",
-                "high_mem_alert": "disabled",
-                "set_owner": "local",
-                "state": "enabled",
-                "support_syslog_rate_limit": "false"
-            }
-        }
+    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key, auto_restart="enabled",
+                                                     state="enabled", feature_data=None):
+        full_config = json.loads(config)
+        if full_config == {} or "FEATURE" not in full_config.get("localhost", {}):
+            # need dump running config FEATURE + selected feature
+            gold_config_db = self.get_multiasic_feature_config()
+        else:
+            # need existing config + selected feature
+            gold_config_db = full_config
 
-        features_data = {}
-        for key, value in running_config_db.items():
-            if "FEATURE" in value:
-                updated_feature = value["FEATURE"]
-                updated_feature.update(feature_data)
-                features_data[key] = {"FEATURE": updated_feature}
-
-        return json.dumps(features_data, indent=4)
-
-    def overwrite_feature_golden_config_db_multiasic(self, config, feature_key):
-        full_config = config
-        onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
-        if config == "{}":  # FEATURE needs special handling since it does not support incremental update.
-            full_config = self.get_multiasic_feature_config(feature_key)
-
-        ori_config_db = json.loads(full_config)
-        if "FEATURE" not in ori_config_db:  # need dump running config FEATURE + selected feature
-            feature_data = json.loads(self.get_multiasic_feature_config(feature_key))
-            ori_config_db_with_feature = {}
-            for key, value in ori_config_db.items():
-                ori_config_db_with_feature = value.get("FEATURE", {})
-                ori_config_db_with_feature.update(feature_data)
-                value["FEATURE"] = ori_config_db_with_feature
-                ori_config_db_with_feature[key] = value
-            gold_config_db = ori_config_db_with_feature
-        else:  # need existing config + selected feature
-            if not onlyFeature:
-                feature_data = {
-                    feature_key: {
-                        "auto_restart": "enabled",
-                        "check_up_status": "false",
-                        "delayed": "False",
-                        "has_global_scope": "False",
-                        "has_per_asic_scope": "True",
-                        "high_mem_alert": "disabled",
-                        "set_owner": "local",
-                        "state": "enabled",
-                        "support_syslog_rate_limit": "false"
-                    }
+        if feature_data is None:
+            feature_data = {
+                feature_key: {
+                    "auto_restart": auto_restart,
+                    "check_up_status": "false",
+                    "delayed": "False",
+                    "has_global_scope": "False",
+                    "has_per_asic_scope": "True",
+                    "high_mem_alert": "disabled",
+                    "set_owner": "local",
+                    "state": state,
+                    "support_syslog_rate_limit": "false"
                 }
-                for section, section_data in ori_config_db.items():
-                    if "FEATURE" in section_data:
-                        feature_section = section_data["FEATURE"]
-                        feature_section.update(feature_data)
-                        section_data["FEATURE"] = feature_section
-            gold_config_db = ori_config_db
+            }
+
+        for namespace, ns_data in gold_config_db.items():
+            if "FEATURE" in ns_data:
+                feature_section = ns_data["FEATURE"]
+                feature_section.update(feature_data)
+                ns_data["FEATURE"] = feature_section
+            else:
+                ns_data["FEATURE"] = feature_data
 
         return json.dumps(gold_config_db, indent=4)
 
-    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key):
+    def overwrite_feature_golden_config_db_singleasic(self, config, feature_key,
+                                                      auto_restart="enabled", state="enabled"):
         full_config = config
         onlyFeature = config == "{}"  # FEATURE needs special handling since it does not support incremental update.
         if config == "{}":
@@ -227,14 +225,14 @@ class GenerateGoldenConfigDBModule(object):
 
         # Append the specified feature section to the original "FEATURE" section
         ori_config_db.setdefault("FEATURE", {}).setdefault(feature_key, {}).update({
-            "auto_restart": "enabled",
+            "auto_restart": auto_restart,
             "check_up_status": "false",
             "delayed": "False",
             "has_global_scope": "True",
             "has_per_asic_scope": "False",
             "high_mem_alert": "disabled",
             "set_owner": "local",
-            "state": "enabled",
+            "state": state,
             "support_syslog_rate_limit": "false"
         })
 
@@ -245,6 +243,151 @@ class GenerateGoldenConfigDBModule(object):
             }
         else:
             gold_config_db = ori_config_db
+
+        return json.dumps(gold_config_db, indent=4)
+
+    def get_portchannle_config(self, vm_configuration):
+        portchannel_configs = []
+
+        for device_name, device_data in vm_configuration.items():
+            # Only process T0 neighbors
+            if not device_name.endswith("T0"):
+                continue
+
+            interfaces = device_data.get("interfaces", {})
+            for intf_name, intf_config in interfaces.items():
+                if "Port-Channel" in intf_name and '.' in intf_name:
+                    base, sub_id = intf_name.split('.')
+                    base = base.replace("Port-Channel", "PortChannel")
+
+                    # Handle IPv4
+                    ipv4_addr = intf_config.get("ipv4")
+                    if ipv4_addr:
+                        try:
+                            network_v4 = ipaddress.IPv4Interface(ipv4_addr).network
+                            subinterface_ipv4 = str(network_v4)
+                            portchannel_configs.append((device_name, base, sub_id, subinterface_ipv4))
+                        except Exception as e:
+                            raise ValueError("Error parsing IPv4 on {}: {}".format(intf_name, e))
+
+                    # Handle IPv6
+                    ipv6_addr = intf_config.get("ipv6")
+                    if ipv6_addr:
+                        try:
+                            iface_v6 = ipaddress.IPv6Interface(ipv6_addr)
+                            new_ip = str(iface_v6.ip - 1)
+                            subnet = "{}/{}".format(new_ip, iface_v6.network.prefixlen)
+                            portchannel_configs.append((device_name, base, sub_id, subnet))
+                        except Exception as e:
+                            raise ValueError("Error parsing IPv6 on {}: {}".format(intf_name, e))
+
+        if not portchannel_configs:
+            raise ValueError("No valid Port-Channel subinterface found in any T0 neighbor")
+
+        return portchannel_configs
+
+    def get_bgp_config(self, vm_configuration):
+
+        vrf_name = "Vrf_Q10DDOS"
+        bgp_neighbors = {}
+        for device_name, config in self.vm_configuration.items():
+            if not device_name.endswith("T0"):
+                continue  # Skip non-T0 devices
+            interfaces = config.get("interfaces", {})
+            subintf_exists = any(
+                "Port-Channel" in intf_name and '.' in intf_name
+                for intf_name in interfaces
+            )
+            if not subintf_exists:
+                continue  # Skip if no Port-Channel subinterfaces
+
+            bgp = config.get("bgp", {})
+            local_asn = bgp.get("asn")
+            peers = bgp.get("peers", {})
+            if not peers:
+                continue  # Skip if no BGP peers
+            ipv4_count = 0
+            ipv6_count = 0
+
+            for peer_asn, neighbor_list in peers.items():
+                for idx, ip in enumerate(neighbor_list):
+                    try:
+                        ip_obj = ipaddress.ip_address(ip)
+                        local_ip = str(ip_obj)
+                        neighbor_ip = str(ip_obj + 1)
+                        if isinstance(ip_obj, ipaddress.IPv4Address):
+                            if ipv4_count == 0:
+                                neighbor_key = neighbor_ip
+                            else:
+                                neighbor_key = "{}|{}".format(vrf_name, neighbor_ip)
+                            ipv4_count += 1
+
+                        else:
+                            if ipv6_count == 0:
+                                neighbor_key = neighbor_ip
+                            else:
+                                neighbor_key = "{}|{}".format(vrf_name, neighbor_ip)
+                            ipv6_count += 1
+
+                        bgp_neighbors[neighbor_key] = {
+                            "admin_status": "up",
+                            "name": device_name,
+                            "holdtime": "10",
+                            "keepalive": "3",
+                            "rrclient": "0",
+                            "local_addr": local_ip,
+                            "asn": local_asn,
+                            "nhopself": "0"
+                        }
+                    except ipaddress.AddressValueError:
+                        print("[ERROR] Invalid IPv4 address in {}: {}".format(device_name, ip))
+        return bgp_neighbors
+
+    def generate_filterleaf_golden_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate FEATURE table from init_cfg.ini
+        ori_config_db = json.loads(out)
+        if "DEVICE_METADATA" not in ori_config_db or "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            return "{}"
+
+        if "FEATURE" not in ori_config_db \
+                or "dhcp_relay" not in ori_config_db["FEATURE"]:
+            return "{}"
+        ori_config_db["FEATURE"]["dhcp_relay"]["state"] = "disabled"
+
+        if "VRF" not in ori_config_db:
+            ori_config_db["VRF"] = {}
+        ori_config_db["VRF"]["Vrf_Q10DDOS"] = {}
+
+        if "VLAN_SUB_INTERFACE" not in ori_config_db:
+            ori_config_db["VLAN_SUB_INTERFACE"] = {}
+
+        portchannel_configs = self.get_portchannle_config(self.vm_configuration)
+
+        for device_name, base_interface, vlan, ip_subnet in portchannel_configs:
+            base_interface = base_interface + '.' + vlan
+            if vlan in ['7', '9', '11', '13']:
+                ori_config_db["VLAN_SUB_INTERFACE"][base_interface] = {}
+                ori_config_db["VLAN_SUB_INTERFACE"]["{}|{}".format(base_interface, ip_subnet)] = {}
+            else:
+                ori_config_db["VLAN_SUB_INTERFACE"][base_interface] = {
+                    "vrf_name": "Vrf_Q10DDOS"
+                }
+                ori_config_db["VLAN_SUB_INTERFACE"]["{}|{}".format(base_interface, ip_subnet)] = {}
+
+        bgp_neighbors = self.get_bgp_config(self.vm_configuration)
+        ori_config_db["BGP_NEIGHBOR"] = bgp_neighbors
+
+        gold_config_db = {
+            "DEVICE_METADATA": copy.deepcopy(ori_config_db["DEVICE_METADATA"]),
+            "FEATURE": copy.deepcopy(ori_config_db["FEATURE"]),
+            "VRF": copy.deepcopy(ori_config_db["VRF"]),
+            "VLAN_SUB_INTERFACE": copy.deepcopy(ori_config_db["VLAN_SUB_INTERFACE"]),
+            "BGP_NEIGHBOR": copy.deepcopy(ori_config_db["BGP_NEIGHBOR"]),
+        }
 
         return json.dumps(gold_config_db, indent=4)
 
@@ -285,12 +428,11 @@ class GenerateGoldenConfigDBModule(object):
 
         hwsku_config = smartswitch_hwsku_config[hwsku]
         for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
-            if "base" in hwsku_config and "step" in hwsku_config:
-                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
-            else:
-                port_key = hwsku_config["port_key"].format(i)
+            port_index = hwsku_config["base"] + i * hwsku_config["step"] \
+                if "base" in hwsku_config and "step" in hwsku_config else i
+            port_key = hwsku_config["port_key"].format(port_index)
             if "interface_key" in hwsku_config:
-                interface_key = hwsku_config["interface_key"].format(i, i)
+                interface_key = hwsku_config["interface_key"].format(port_index, i)
             dpu_key = hwsku_config["dpu_key"].format(i)
 
             if port_key in ori_config_db["PORT"]:
@@ -310,13 +452,6 @@ class GenerateGoldenConfigDBModule(object):
                 ori_config_db["DHCP_SERVER_IPV4_PORT"][key] = {}
             ori_config_db["DHCP_SERVER_IPV4_PORT"][key]["ips"] = ["169.254.200.{}".format(i + 1)]
 
-        midplane_network_config = {
-             "midplane_network": {
-                 "bridge_name": "bridge-midplane",
-                 "bridge_address": "169.254.200.254/24"
-             }
-         }
-        ori_config_db["MIDPLANE_NETWORK"] = midplane_network_config
         mid_plane_bridge_config = {
                 "GLOBAL": {
                     "bridge": "bridge-midplane",
@@ -346,7 +481,6 @@ class GenerateGoldenConfigDBModule(object):
             "CHASSIS_MODULE": copy.deepcopy(ori_config_db["CHASSIS_MODULE"]),
             "DPUS": copy.deepcopy(ori_config_db["DPUS"]),
             "DHCP_SERVER_IPV4_PORT": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4_PORT"]),
-            "MIDPLANE_NETWORK": copy.deepcopy(ori_config_db["MIDPLANE_NETWORK"]),
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
@@ -399,34 +533,113 @@ class GenerateGoldenConfigDBModule(object):
         else:
             return config
 
+    def generate_default_init_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        # Set buffer_model to traditional to prevent regression, as it is currently hardcoded here:
+        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        return json.dumps(golden_config_db, indent=4)
+
+    def update_zmq_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+
+        # Older version image may not support ZMQ feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "orch_northbond_route_zmq_enabled" in out:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
+        return json.dumps(ori_config_db, indent=4)
+
+    def generate_lt2_ft2_golden_config_db(self):
+        """
+        Generate golden_config for FT2 to enable FEC.
+        **Only PORT table is updated**.
+        """
+        SUPPORTED_TOPO = ["ft2-64", "lt2-p32o64", "lt2-o128"]
+        if self.topo_name not in SUPPORTED_TOPO:
+            return "{}"
+        SUPPORTED_PORT_SPEED = ["200000", "400000", "800000"]
+        ori_config = json.loads(self.get_config_from_minigraph())
+        port_config = ori_config.get("PORT", {})
+        for name, config in port_config.items():
+            # Enable FEC for ports with supported speed
+            if config["speed"] in SUPPORTED_PORT_SPEED and "fec" not in config:
+                config["fec"] = "rs"
+
+        return json.dumps({"PORT": port_config}, indent=4)
+
     def generate(self):
+        module_msg = "Success to generate golden_config_db.json"
         # topo check
         if self.topo_name == "mx" or "m0" in self.topo_name:
             config = self.generate_mgfx_golden_config_db()
+            module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1"]:
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"]:
             config = self.generate_smartswitch_golden_config_db()
+            module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
-        elif "t2" in self.topo_name:
+        elif "ft2" in self.topo_name or "lt2" in self.topo_name:
+            config = self.generate_lt2_ft2_golden_config_db()
+        elif "t2" in self.topo_name and self.macsec_profile:
             config = self.generate_t2_golden_config_db()
+            module_msg = module_msg + " for t2"
             self.module.run_command("sudo rm -f {}".format(MACSEC_PROFILE_PATH))
             self.module.run_command("sudo rm -f {}".format(GOLDEN_CONFIG_TEMPLATE_PATH))
+        elif self.hwsku and is_full_lossy_hwsku(self.hwsku):
+            module_msg = module_msg + " for full lossy hwsku"
+            config = self.generate_full_lossy_golden_config_db()
+        elif self.topo_name in ["t1-filterleaf-lag"]:
+            config = self.generate_filterleaf_golden_config_db()
         else:
-            config = "{}"
+            config = self.generate_default_init_config_db()
+
+        # update ZMQ config
+        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)
 
-        # To enable bmp feature
-        if self.check_version_for_bmp() is True:
+        # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
+        # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
+        if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
             if multi_asic.is_multi_asic():
+                config = self.overwrite_feature_golden_config_db_multiasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_multiasic(config, "bmp")
             else:
+                config = self.overwrite_feature_golden_config_db_singleasic(config, "frr_bmp", "disabled", "enabled")
                 config = self.overwrite_feature_golden_config_db_singleasic(config, "bmp")
+
+        # Disable dash-ha feature for all multi-asic platforms
+        if multi_asic.is_multi_asic():
+            config = self.overwrite_feature_golden_config_db_multiasic(config, "dash-ha", feature_data={
+                "dash-ha": {
+                    "auto_restart": "disabled",
+                    "state": "disabled",
+                    "has_per_asic_scope": "True",
+                }
+            })
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
-        self.module.exit_json(change=True, msg="Success to generate golden_config_db.json")
+        with open(GOLDEN_CONFIG_DB_PATH_ORI, "w") as temp_file:
+            temp_file.write(config)
+        self.module.exit_json(change=True, msg=module_msg)
 
 
 def main():

@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/python
 
 from ansible.module_utils.basic import AnsibleModule
 import jinja2
@@ -47,58 +47,51 @@ EXAMPLES = '''
 DEFAULT_BGP_LISTEN_PORT = 179
 
 http_api_py = '''\
-from flask import Flask, request
+from __future__ import print_function
+import tornado.ioloop
+import tornado.web
 import sys
-import six
 
-#Disable banner msg from app.run, or the output might be caught by exabgp and run as command
-cli = sys.modules['flask.cli']
-cli.show_server_banner = lambda *x: None
+class route_handler(tornado.web.RequestHandler):
+    def post(self):
+        # Read the form data
+        command = self.get_body_argument("command", None)
+        commands = self.get_body_argument("commands", None)
 
-app = Flask(__name__)
+        # Process and print the command values
+        if command:
+            out_str = "{}\\n".format(command)
+            sys.stdout.write(out_str)
+        if commands:
+            values = commands.split(';')
+            for value in values:
+                out_str = "{}\\n".format(value)
+                sys.stdout.write(out_str)
 
-# Setup a command route to listen for prefix advertisements
-@app.route('/', methods=['POST'])
-def run_command():
-    # code made compatible to run in Py2 or Py3 environment
-    # to support back-porting
-    request_has_commands = False
-    if six.PY2:
-        request_has_commands = request.form.has_key('commands')
-    else:
-        request_has_commands = 'commands' in request.form
+        sys.stdout.flush()
+        self.write("OK\\n")
 
-    if request_has_commands:
-        cmds = request.form['commands'].split(';')
-    else:
-        cmds = [ request.form['command'] ]
-    for cmd in cmds:
-        sys.stdout.write("%s\\n" % cmd)
-    sys.stdout.flush()
-    return "OK\\n"
+def make_app():
+    return tornado.web.Application([
+        (r"/upload", UploadHandler),
+    ])
 
-if __name__ == '__main__':
-    # with werkzeug 3.x the default size of max_form_memory_size
-    # is 500K. Routes reach a bit beyond that and the client
-    # receives HTTP 413.
-    # Configure the max size to 4 MB to be safe.
-    if not six.PY2:
-        from werkzeug import Request
-        max_content_length = 4 * 1024 * 1024
-        Request.max_content_length = max_content_length
-        Request.max_form_memory_size = max_content_length
-        Request.max_form_parts = max_content_length
-    app.run(host='0.0.0.0', port=sys.argv[1])
+if __name__ == "__main__":
+    app = tornado.web.Application([
+        ("/", route_handler),
+    ])
+    app.listen(int(sys.argv[1]))
+    tornado.ioloop.IOLoop.current().start()
 '''
 
-dump_config_tmpl = '''\
+exabgp3_dump_config_tmpl = '''\
     process dump {
+        run /usr/bin/python {{ dump_script }};
         encoder json;
         receive {
             parsed;
             update;
         }
-        run /usr/bin/python {{ dump_script }};
     }
 '''
 
@@ -132,6 +125,14 @@ group exabgp {
 # Example configs are available here
 # https://github.com/Exa-Networks/exabgp/tree/master/etc/exabgp
 # Look for sample for a given section for details
+
+exabgp4_dump_config_tmpl = '''\
+    process dump {
+        run /usr/bin/python {{ dump_script }};
+        encoder json;
+    }
+'''
+
 exabgp4_config_template = '''\
 {{ dump_config }}
 process http-api {
@@ -149,9 +150,18 @@ neighbor {{ peer_ip }} {
    passive;
    listen {{ listen_port }};
    {%- endif %}
-   api {
+   api http_api{
        processes [ http-api ];
    }
+   {%- if dump_config %}
+   api dumper {
+       processes [ dump ];
+       receive {
+           parsed;
+           update;
+       }
+   }
+   {%- endif %}
 }
 '''
 
@@ -183,8 +193,14 @@ numprocs=1
 exabgp_supervisord_conf_tmpl_p2_v3 = '''\
 command=/usr/local/bin/exabgp /etc/exabgp/{{ name }}.conf
 '''
+exabgp_supervisord_conf_tmpl_p2_v3_debug = '''\
+command=/usr/local/bin/exabgp --debug /etc/exabgp/{{ name }}.conf
+'''
 exabgp_supervisord_conf_tmpl_p2_v4 = '''\
-command=/usr/local/bin/exabgp -e /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
+command=/usr/local/bin/exabgp --env /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
+'''
+exabgp_supervisord_conf_tmpl_p2_v4_debug = '''\
+command=/usr/local/bin/exabgp --debug --env /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
 '''
 
 
@@ -250,8 +266,12 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
 
     dump_config = ""
     if dump_script:
-        dump_config = jinja2.Template(
-            dump_config_tmpl).render(dump_script=dump_script)
+        if six.PY2:
+            dump_config = jinja2.Template(
+                exabgp3_dump_config_tmpl).render(dump_script=dump_script)
+        else:
+            dump_config = jinja2.Template(
+                exabgp4_dump_config_tmpl).render(dump_script=dump_script)
 
     # backport friendly checking; not required if everything is Py3
     t = None
@@ -291,16 +311,26 @@ def remove_exabgp_conf(name):
         pass
 
 
-def setup_exabgp_supervisord_conf(name):
+def setup_exabgp_supervisord_conf(name, debug=False):
     exabgp_supervisord_conf_tmpl = None
     if six.PY2:
-        exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
-            exabgp_supervisord_conf_tmpl_p2_v3 + \
-            exabgp_supervisord_conf_tmpl_p3
+        if debug:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v3_debug + \
+                exabgp_supervisord_conf_tmpl_p3
+        else:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v3 + \
+                exabgp_supervisord_conf_tmpl_p3
     else:
-        exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
-            exabgp_supervisord_conf_tmpl_p2_v4 + \
-            exabgp_supervisord_conf_tmpl_p3
+        if debug:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v4_debug + \
+                exabgp_supervisord_conf_tmpl_p3
+        else:
+            exabgp_supervisord_conf_tmpl = exabgp_supervisord_conf_tmpl_p1 + \
+                exabgp_supervisord_conf_tmpl_p2_v4 + \
+                exabgp_supervisord_conf_tmpl_p3
     t = jinja2.Template(exabgp_supervisord_conf_tmpl)
     data = t.render(name=name)
     with open("/etc/supervisor/conf.d/exabgp-%s.conf" % name, 'w') as out_file:
@@ -336,7 +366,8 @@ def main():
             peer_asn=dict(required=False, type='int'),
             port=dict(required=False, type='int', default=5000),
             dump_script=dict(required=False, type='str', default=None),
-            passive=dict(required=False, type='bool', default=False)
+            passive=dict(required=False, type='bool', default=False),
+            debug=dict(required=False, type='bool', default=False)
         ),
         supports_check_mode=False)
 
@@ -350,6 +381,7 @@ def main():
     port = module.params['port']
     dump_script = module.params['dump_script']
     passive = module.params['passive']
+    debug = module.params['debug']
 
     setup_exabgp_processor()
     if not six.PY2:
@@ -360,24 +392,24 @@ def main():
         if state == 'started':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
             start_exabgp(module, name)
         elif state == 'restarted':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
             restart_exabgp(module, name)
         elif state == 'present':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
             refresh_supervisord(module)
         elif state == 'configure':
             setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn,
                               peer_asn, port, dump_script=dump_script, passive=passive)
-            setup_exabgp_supervisord_conf(name)
+            setup_exabgp_supervisord_conf(name, debug=debug)
         elif state == 'stopped':
             stop_exabgp(module, name)
         elif state == 'absent':

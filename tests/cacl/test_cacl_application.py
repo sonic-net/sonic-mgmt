@@ -2,6 +2,7 @@ import ipaddress
 import json
 import logging
 import pytest
+import re
 
 from tests.common.config_reload import config_reload
 from tests.common.utilities import wait_until
@@ -579,9 +580,11 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         rules_to_expect_for_dualtor = [
                                        "-A INPUT -p udp -m udp --dport 67 -j DHCP",
                                        "-A DHCP -j RETURN",
+                                       "-A INPUT -d 10.1.0.34/32 -p tcp -m tcp --dport 179 -j DROP",
                                        "-N DHCP"
                                       ]
         iptables_rules.extend(rules_to_expect_for_dualtor)
+        ip6tables_rules.append("-A INPUT -d fc00:1:0:34::/128 -p tcp -m tcp --dport 179 -j DROP")
 
     # On standby tor, it has expected dhcp mark iptables rules.
     if expected_dhcp_rules_for_standby:
@@ -591,8 +594,8 @@ def generate_expected_rules(duthost, tbinfo, docker_network, asic_index, expecte
         iptables_rules.extend(expected_dhcp_rules_for_standby)
 
     # Allow all incoming BGP traffic
-    iptables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
-    ip6tables_rules.append("-A INPUT -p tcp -m tcp --dport 179 -j ACCEPT")
+    iptables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
+    ip6tables_rules.append("-A INPUT ! -i eth0 -p tcp -m tcp --dport 179 -j ACCEPT")
 
     extra_rule_branches = ['201911', '202012', '202111']
     if any(branch in duthost.os_version for branch in extra_rule_branches):
@@ -1307,5 +1310,6 @@ def test_caclmgrd_syslog(duthosts, enum_rand_one_per_hwsku_hostname,):
     pytest_assert("iptables -P INPUT ACCEPT" in syslog_output,
                   "Syslog does not contain 'iptables -P INPUT ACCEPT' after restarting caclmgrd")
     systemctl_output = duthost.command("sudo systemctl status caclmgrd")["stdout"]
-    pytest_assert("iptables -A INPUT" in systemctl_output,
-                  "iptables rules are not applied after restarting caclmgrd")
+    match = re.search(r'(caclmgrd.*?iptables)', systemctl_output)
+    mux_match = re.search(r'(caclmgrd.*?mux)', systemctl_output)
+    pytest_assert(match or mux_match, "iptables rules are not applied after restarting caclmgrd")

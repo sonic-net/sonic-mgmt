@@ -159,7 +159,8 @@ def extract_pfcwd_config(duthost, start_pfcwd):
     pfcwd_config = defaultdict()
     for line in output['stdout_lines']:
         if line.strip().startswith('Ethernet'):
-            port, action, detect, restore = line.split()
+            parts = line.split()
+            port, action, detect, restore = parts[:4]
             pfcwd_config.update({port: {'action': action,
                                         'detect_time': detect,
                                         'restore_time': restore}})
@@ -200,7 +201,7 @@ def check_config_update(duthost, expected_count):
             pfcwd_entries_count = 0
             num_asics = duthost.facts.get('num_asic', 0)
             for asic_index in range(num_asics):
-                asic_ns = f"/asic{asic_index}"
+                asic_ns = "asic{}".format(asic_index)
                 pfcwd_entries_count += get_flex_db_count(duthost, asic_ns)
         else:
             pfcwd_entries_count = get_flex_db_count(duthost)
@@ -217,7 +218,8 @@ def check_config_update(duthost, expected_count):
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
-def test_stop_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, port):
+def test_stop_pfcwd(duthost, enum_rand_one_frontend_asic_index,
+                    extract_pfcwd_config, ensure_dut_readiness, port):
     """
     Tests GCU config for pfcwd stop scenario
         1. Covers the case for stopping pfcwd on single port and all ports
@@ -266,7 +268,8 @@ def test_stop_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, port):
 
 
 @pytest.mark.parametrize('port', ['single', 'all'])
-def test_start_pfcwd(duthost, extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port):
+def test_start_pfcwd(duthost, enum_rand_one_frontend_asic_index,
+                     extract_pfcwd_config, ensure_dut_readiness, stop_pfcwd, port):
     """
     Tests GCU config for pfcwd start scenario
         1. Covers the case for starting pfcwd on single port and all ports

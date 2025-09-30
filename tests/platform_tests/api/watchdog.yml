@@ -61,9 +61,20 @@ x86_64-nvidia_sn5600-r0:
     greater_timeout: 100
     too_big_timeout: 66000
 
+x86_64-nvidia_sn5640-r0:
+  default:
+    greater_timeout: 100
+    too_big_timeout: 66000
+
 x86_64-nvidia_sn4280-r0:
   default:
     valid_timeout: 25
+    greater_timeout: 100
+    too_big_timeout: 66000
+
+arm64-nvda_bf-bf3comdpu:
+  default:
+    valid_timeout: 45
     greater_timeout: 100
     too_big_timeout: 66000
 
@@ -106,6 +117,13 @@ arm64-nokia_ixs7215_52xb-r0:
     valid_timeout: 30
     greater_timeout: 170
     too_big_timeout: 400
+
+# Nokia IXR-7220-D4 watchdog
+x86_64-nokia_ixr7220_d4-r0:
+  default:
+    valid_timeout: 30
+    greater_timeout: 170
+    too_big_timeout: 341
 
 # Cisco-8000 watchdog
 x86_64-8102_64h_o-r0:
@@ -180,3 +198,22 @@ x86_64-8122_64eh_o-r0:
     valid_timeout: 10
     greater_timeout: 6553
     too_big_timeout: 6554
+
+x86_64-8101_32fh_o_c01-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+x86_64-8102_28fh_dpu_o-r0:
+  default:
+    valid_timeout: 10
+    greater_timeout: 6553
+    too_big_timeout: 6554
+
+# Nexthop watchdog
+x86_64-nexthop_40(1|2)0-r.*:
+  default:
+    valid_timeout: 10
+    greater_timeout: 16777
+    too_big_timeout: 16778

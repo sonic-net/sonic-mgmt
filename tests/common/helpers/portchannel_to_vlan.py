@@ -8,9 +8,9 @@ from netaddr import valid_ipv4
 import logging
 
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.fixtures.duthost_utils import ports_list   # noqa F401
-from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.fixtures.duthost_utils import ports_list   # noqa: F401
+from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add
 from tests.common.helpers.backend_acl import bind_acl_table
 from tests.common.config_reload import config_reload
@@ -21,7 +21,7 @@ from tests.common.utilities import check_skip_release
 if sys.version_info.major >= 3:
     UNICODE_TYPE = str
 else:
-    UNICODE_TYPE = unicode      # noqa F821
+    UNICODE_TYPE = unicode      # noqa: F821
 
 SETUP_ENV_CP = "test_setup_checkpoint"
 PTF_LAG_NAME = "bond1"
@@ -269,7 +269,7 @@ def get_vlan_id(cfg_facts, number_of_lag_member):
     return src_vlan_id
 
 
-def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list): # noqa F811
+def running_vlan_ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo, ports_list):    # noqa: F811
     """
     Read running config facts and get vlan ports list
 
@@ -354,7 +354,7 @@ def cfg_facts(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):        # noqa F811
+def vlan_intfs_dict(tbinfo, utils_vlan_intfs_dict_orig):        # noqa: F811
     vlan_intfs_dict = utils_vlan_intfs_dict_orig
     # For t0 topo, will add VLAN for test.
     # Need to make sure vlan id is unique, and avoid vlan ip network overlapping.
@@ -391,7 +391,7 @@ def setup_acl_table(duthost, tbinfo, acl_rule_cleanup):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, ptfadapter,
-               ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa F811
+                  ports_list, tbinfo, vlan_intfs_dict, setup_acl_table, fanouthosts):  # noqa: F811
 
     if any(topo in tbinfo["topo"]["name"] for topo in ["dualtor", "t0-backend", "t0-standalone"]):
         yield
@@ -420,6 +420,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         yield
         return
+    ptf_lag_map = None
     # --------------------- Setup -----------------------
     try:
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
@@ -431,7 +432,8 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     # --------------------- Teardown -----------------------
     finally:
         config_reload(duthost, safe_reload=True)
-        ptf_teardown(ptfhost, ptf_lag_map)
+        if ptf_lag_map is not None:
+            ptf_teardown(ptfhost, ptf_lag_map)
 
 
 def has_portchannels(duthosts, rand_one_dut_hostname):

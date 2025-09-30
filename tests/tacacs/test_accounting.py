@@ -3,8 +3,8 @@ import time
 import pytest
 from tests.common.devices.ptf import PTFHost
 from tests.common.helpers.tacacs.tacacs_helper import stop_tacacs_server, start_tacacs_server, \
-    per_command_accounting_skip_versions, remove_all_tacacs_server
-from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_line_count, \
+    per_command_accounting_skip_versions, remove_all_tacacs_server, check_tacacs  # noqa: F401
+from .utils import check_server_received, change_and_wait_aaa_config_update, get_auditd_config_reload_timestamp, \
     ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command, cleanup_tacacs_log  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -181,8 +181,9 @@ def test_accounting_tacacs_only(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
-                            rw_user_client):
+                            check_tacacs,  # noqa: F811
+                            rw_user_client,
+                            skip_in_container_test):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -200,9 +201,10 @@ def test_accounting_tacacs_only_all_tacacs_server_down(
                                                     duthosts,
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
-                                                    check_tacacs,
+                                                    check_tacacs,  # noqa: F811
                                                     rw_user_client,
-                                                    ensure_tacacs_server_running_after_ut):  # noqa: F811
+                                                    ensure_tacacs_server_running_after_ut,   # noqa: F811
+                                                    skip_in_container_test):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     change_and_wait_aaa_config_update(duthost, "sudo config aaa accounting tacacs+")
     cleanup_tacacs_log(ptfhost, rw_user_client)
@@ -238,8 +240,9 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
                                                     duthosts,
                                                     enum_rand_one_per_hwsku_hostname,
                                                     tacacs_creds,
-                                                    check_tacacs,
-                                                    rw_user_client):
+                                                    check_tacacs,  # noqa: F811
+                                                    rw_user_client,
+                                                    skip_in_container_test):
     """
         Setup multiple tacacs server for this UT.
         Tacacs server 127.0.0.1 not accessible.
@@ -251,7 +254,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     # when tacacs config change multiple time in short time
     # auditd service may been request reload during reloading
     # when this happen, auditd will ignore request and only reload once
-    last_line_count = get_auditd_config_reload_line_count(duthost)
+    last_timestamp = get_auditd_config_reload_timestamp(duthost)
 
     duthost.shell("sudo config tacacs timeout 1")
     remove_all_tacacs_server(duthost)
@@ -259,7 +262,7 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
     duthost.shell("sudo config tacacs add %s --port 59" % tacacs_server_ip)
     change_and_wait_aaa_config_update(duthost,
                                       "sudo config aaa accounting tacacs+",
-                                      last_line_count)
+                                      last_timestamp)
 
     cleanup_tacacs_log(ptfhost, rw_user_client)
 
@@ -279,8 +282,9 @@ def test_accounting_local_only(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
-                            rw_user_client):
+                            check_tacacs,  # noqa: F811
+                            rw_user_client,
+                            skip_in_container_test):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Verify syslog have user command record.
@@ -301,7 +305,7 @@ def test_accounting_tacacs_and_local(
                                     duthosts,
                                     enum_rand_one_per_hwsku_hostname,
                                     tacacs_creds,
-                                    check_tacacs,
+                                    check_tacacs,  # noqa: F811
                                     rw_user_client):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
@@ -326,9 +330,10 @@ def test_accounting_tacacs_and_local_all_tacacs_server_down(
                                                         duthosts,
                                                         enum_rand_one_per_hwsku_hostname,
                                                         tacacs_creds,
-                                                        check_tacacs,
+                                                        check_tacacs,  # noqa: F811
                                                         rw_user_client,
-                                                        ensure_tacacs_server_running_after_ut):  # noqa: F811
+                                                        ensure_tacacs_server_running_after_ut,  # noqa: F811
+                                                        skip_in_container_test):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Shutdown tacacs server
@@ -354,8 +359,9 @@ def test_send_remote_address(
                             duthosts,
                             enum_rand_one_per_hwsku_hostname,
                             tacacs_creds,
-                            check_tacacs,
-                            rw_user_client):
+                            check_tacacs,  # noqa: F811
+                            rw_user_client,
+                            skip_in_container_test):
     """
         Verify TACACS+ send remote address to server.
     """

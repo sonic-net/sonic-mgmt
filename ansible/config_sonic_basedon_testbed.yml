@@ -69,6 +69,29 @@
       set_fact:
         is_ixia_testbed: "{{ true if ptf_image == 'docker-keysight-api-server' else false }}"
 
+    - block:
+        - name: Set L1 connection script path
+          set_fact:
+            script_path: "{{ playbook_dir }}/l1_port_mapper.py"
+            csv_dir: "{{ playbook_dir }}/files"
+
+        - name: Configure L1 switches
+          include_tasks: config_l1_testbed.yml
+          vars:
+            num_ports: "{{ num_ports_to_connect | default(3) }}"
+            target_sonic_host: "{{ sonic_hostname }}"
+          loop: "{{ groups['l1_switch'] }}"
+          loop_control:
+            loop_var: target_l1_switch
+          when:
+            - is_ixia_testbed is defined
+            - is_ixia_testbed | bool
+            - configure_l1 | default(false) | bool
+      when:
+        - is_ixia_testbed is defined
+        - is_ixia_testbed | bool
+        - configure_l1 | default(false) | bool
+
     - name: set vm
       set_fact:
         vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
@@ -88,15 +111,27 @@
   - topo_facts: topo={{ topo }} hwsku={{ hwsku }} testbed_name={{ testbed_name | default(None) }} asics_present={{ asics_present | default([]) }} card_type={{ card_type | default('fixed') }}
     delegate_to: localhost
 
+  - name: override group_file for route-conv
+    set_fact:
+      conn_graph_group: "{{ testbed_facts['inv_name'] }}"
+    when: is_ixia_testbed
+
   - name: get connection graph if defined for dut (ignore any errors)
-    conn_graph_facts: host="{{ inventory_hostname }}" ignore_errors=true
+    conn_graph_facts:
+      host: "{{ inventory_hostname }}"
+      group: "{{ conn_graph_group if conn_graph_group is defined else omit }}"
+      ignore_errors: true
     delegate_to: localhost
     ignore_errors: true
+
+  - set_fact:
+      type: "unknown"
+    when: hostvars[inventory_hostname].type is not defined
 
   - name: determine whether to sort port_alias by index
     set_fact:
       sort_by_index: false
-    when: switch_type is defined and switch_type == "voq" and type is defined and type == "kvm"
+    when: switch_type is defined and switch_type == "voq" and type == "kvm"
 
   - name: find interface name mapping and individual interface speed if defined from dut
     port_alias:
@@ -220,7 +255,7 @@
   - name: enable ComputeAI deployment
     set_fact:
       enable_compute_ai_deployment: true
-    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed)"
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed) and 'isolated' in topo"
 
   - name: set default vm file path
     set_fact:
@@ -264,7 +299,7 @@
 
   - name: find all interface indexes connecting to VM
     set_fact:
-      ifindex_to_vms: "{{ ifindex_to_vms|default([]) }} + {{ item.value['interface_indexes'][dut_index|int] }}"
+      ifindex_to_vms: "{{ ifindex_to_vms|default([]) + item.value['interface_indexes'][dut_index|int] }}"
     with_dict: "{{ vm_topo_config['vm'] }}"
     when: "'cable' not in topo"
 
@@ -581,6 +616,11 @@
           hwsku: "{{ hwsku }}"
         when: topo == "mx"
 
+      - name: Preload minigraph to flush config_db for Virtual Chassis and Multi-ASIC platforms
+        shell: config load_minigraph -y && config save -y
+        become: true
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
+
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
@@ -591,7 +631,8 @@
         copy: src=golden_config_db/smartswitch_t1.json
               dest=/tmp/smartswitch.json
         become: true
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1"]
+        # t1-28-lag is smartswitch topo only
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -602,8 +643,9 @@
         generate_golden_config_db:
           topo_name: "{{ topo }}"
           port_index_map: "{{ port_index_map | default({}) }}"
+          hwsku: "{{ hwsku }}"
+          vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
         become: true
-        when: "'t2' not in topo"
 
       - name: Copy macsec profile json to dut
         copy: src=../tests/common/macsec/profile.json
@@ -671,6 +713,22 @@
 
       - name: Sync DUT system time with NTP server with ntpd
         block:
+          - name: Check if "TimeoutSec=" exists in the file
+            command: grep -q 'TimeoutSec=' /lib/systemd/system/ntpsec.service
+            register: timeoutsec_check
+            ignore_errors: yes
+            changed_when: false
+
+          - name: Add the TimeoutSec for ntp.service on DUT
+            become: true
+            shell: sed -i '/^\[Service\]/a TimeoutSec=600' /lib/systemd/system/ntpsec.service
+            when: "'t2' in topo and type == 'kvm' and timeoutsec_check.rc != 0"
+
+          - name: Reload systemd daemon
+            become: true
+            command: systemctl daemon-reload
+            when: "'t2' in topo and type == 'kvm'"
+
           - name: Wait for ntp.service restart after reload minigraph
             become: true
             service: name=ntp state=started
@@ -696,6 +754,17 @@
             service: name=ntp state=restarted enabled=true
         when: chrony_service.status.LoadState == "not-found"
 
+      - name: Remove specific PortChannel IPs from running CONFIG_DB
+        become: true
+        shell: |
+          for pc in PortChannel1 PortChannel3 PortChannel4 PortChannel6; do
+            for ip in $(redis-cli -n 4 keys "PORTCHANNEL_INTERFACE|$pc|*" | cut -d'|' -f3); do
+              echo "Removing $pc $ip"
+              config interface ip remove $pc $ip || true
+            done
+          done
+        when: topo == "t1-filterleaf-lag"
+
       - name: Sync DUT system time with NTP server with chrony
         block:
           - name: Wait for chrony.service restart after reload minigraph
@@ -718,6 +787,25 @@
             service: name=chrony state=restarted enabled=true
         when: chrony_service.status.LoadState != "not-found"
 
+      - name: Check if "config bmp" is supported
+        shell: "config -h | grep 'BMP-related configuration'"
+        register: bmp_support_check
+        ignore_errors: true
+        changed_when: false
+        failed_when: false
+
+      - name: Enable bmp relevant config dump
+        block:
+          - name: execute cli "config bmp enable bgp-neighbor-table" to enable bgp-neighbor-table
+            command: sudo config bmp enable bgp-neighbor-table
+
+          - name: execute cli "config bmp enable bgp-rib-in-table" to enable bgp-rib-in-table
+            command: sudo config bmp enable bgp-rib-in-table
+
+          - name: execute cli "config bmp enable bgp-rib-out-table" to enable bgp-rib-out-table
+            command: sudo config bmp enable bgp-rib-out-table
+        when: bmp_support_check.rc == 0
+
       - name: config static route for trex traffic passthrough
         become: true
         command: "{{ item }}"
@@ -729,6 +817,22 @@
       - name: execute cli "config bgp startup all" to bring up all bgp sessions for test
         become: true
         shell: config bgp startup all
+
+      - name: Copy smartswitch dpu config
+        copy: src=golden_config_db/smartswitch_dpu_extra.json
+              dest=/tmp/dpu_extra.json
+        become: true
+        # t1-28-lag is smartswitch topo only
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+
+      - name: Load DPU config in smartswitch
+        load_extra_dpu_config:
+          hwsku: "{{ hwsku }}"
+          host_username: "{{ sonic_login }}"
+          host_passwords: "{{ sonic_default_passwords }}"
+        become: true
+        # t1-28-lag is smartswitch topo only
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
 
       - name: Configure TACACS
         become: true
@@ -832,6 +936,11 @@
 
         when: "'dualtor-mixed' in topo or 'dualtor-aa' in topo"
 
+      - name: execute "TSB" on T2 DUTs
+        become: True
+        shell: "TSB"
+        when: "'t2' in topo"
+
       - name: execute cli "config save -y" to save current minigraph as startup-config
         become: true
         shell: config save -y
@@ -860,5 +969,12 @@
       - name: Reset sshd timeout
         become: True
         shell: sed -i "s/^ClientAliveInterval [0-9].*/ClientAliveInterval 900/g" /etc/ssh/sshd_config && systemctl restart sshd
+
+      - name: enable IPv6 on device
+        become: true
+        ansible.builtin.sysctl:
+          name: net.ipv6.conf.all.disable_ipv6
+          value: 0
+          sysctl_set: true
 
     when: deploy is defined and deploy|bool == true

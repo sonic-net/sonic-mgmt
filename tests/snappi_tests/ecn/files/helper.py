@@ -9,12 +9,13 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
 from tests.common.snappi_tests.snappi_helpers import get_dut_port_id
 from tests.common.snappi_tests.common_helpers import pfc_class_enable_vector, config_wred, \
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging,\
-    config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate  # noqa: F401
+    config_capture_pkt, traffic_flow_mode, calc_pfc_pause_flow_rate, get_pfc_frame_count  # noqa: F401
 from tests.common.snappi_tests.read_pcap import get_ipv4_pkts
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import setup_base_traffic_config, generate_test_flows, \
     generate_pause_flows, run_traffic                                       # noqa: F401
 import json
+from tests.snappi_tests.files.helper import get_fabric_mapping
 
 logger = logging.getLogger(__name__)
 
@@ -45,20 +46,100 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
 
     return dict_output
 
+#  When bp_fabric_ecn_marking_check is True
+#
+#  The traffic is flowing from short link to long link
+#
+# Step 1: Clear all counters  on egress, fabric, and ingress DUT
+# Step 2: Send traffic for the test.
+# Step 3: Verify egress port queue counter at possible congestion points.
+# Step 4: If no marking,
+# - check and log  backpressure
+# - Fail the testcase
 
-def verify_ecn_counters(ecn_counters, link_state_toggled=False):
+
+def clear_bp_fabric_queue_counters(ingress_fabric_mapping_dict, egress_fabric_mapping, supervisor_dut, test_prio_list):
+    """
+    Clears VOQ queue counters of the ingress DUT BP ports and the Fabric ports connected to the Egress DUT.
+    """
+    for priority in test_prio_list:
+        for fabric_egress_bp in egress_fabric_mapping.values():
+            get_npu_voq_queue_counters(supervisor_dut, fabric_egress_bp, priority, clear=True)
+
+        for ingress_duthost, ingress_fabric_mappings in ingress_fabric_mapping_dict.items():
+            for fabric_mapping in ingress_fabric_mappings.values():
+                for lc_egress_bp in fabric_mapping.keys():
+                    get_npu_voq_queue_counters(ingress_duthost, lc_egress_bp, priority, clear=True)
+
+    logger.info("Counters cleared for ingress DUT BP ports and Fabric Egress ports")
+
+
+def check_bp_fabric_ecn_marking(ingress_fabric_mapping_dict, egress_fabric_mapping, supervisor_dut, test_prio_list):
+    """
+    Checks for ECN marked packets across ingress and egress fabric mappings.
+    Returns True if ECN marking is found, otherwise False.
+    """
+
+    all_priorities_marked = True
+
+    for priority in test_prio_list:
+        ecn_marked_for_priority = False
+
+        ecn_marked_packets_egress = 0
+        for fabric_egress_bp in egress_fabric_mapping.values():
+            ctr_egress = get_npu_voq_queue_counters(supervisor_dut, fabric_egress_bp, priority)
+            ecn_marked_fb = ctr_egress.get('SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS', 0)
+            ecn_marked_packets_egress += ecn_marked_fb
+            if ecn_marked_fb > 0:
+                logging.info("ECN marking : {} on Fabric interface: {}, priority: {}".format(
+                    ecn_marked_fb, fabric_egress_bp, priority))
+                ecn_marked_for_priority = True
+
+        if ecn_marked_packets_egress:
+            logging.info("Total Fabric ECN marking detected: {}  on priority: {} ".format(
+                ecn_marked_packets_egress, priority))
+
+        ecn_marked_packets_ingress = 0
+        for ingress_duthost, ingress_fabric_mappings in ingress_fabric_mapping_dict.items():
+            for fabric_mapping in ingress_fabric_mappings.values():
+                for lc_egress_bp in fabric_mapping.keys():
+                    ctr_ingress = get_npu_voq_queue_counters(ingress_duthost, lc_egress_bp, priority)
+                    ecn_marked_bp = ctr_ingress.get('SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS', 0)
+                    ecn_marked_packets_ingress += ecn_marked_bp
+                    if ecn_marked_bp > 0:
+                        logging.info("ECN marking : {}  on ingress DUT {}, interface: {}, priority: {}".format(
+                            ecn_marked_bp, ingress_duthost, lc_egress_bp, priority))
+                        ecn_marked_for_priority = True
+
+                if ecn_marked_packets_ingress:
+                    logging.info("Total Ingress BP ECN marking detected: {}  on priority: {} ".format(
+                        ecn_marked_packets_ingress, priority))
+
+        if not ecn_marked_for_priority:
+            all_priorities_marked = False
+
+    if all_priorities_marked:
+        logger.info("ECN Marking detected for all priorities")
+        return True
+    else:
+        logger.info("ECN Marking missing for some priorities")
+        return False
+
+
+def verify_ecn_counters(ecn_counters, is_bp_fabric_ecn_check_required=False, link_state_toggled=False):
 
     toggle_msg = " post link state toggle" if link_state_toggled else ""
     # verify that each flow had packets
     init_ctr_3, post_ctr_3 = ecn_counters[0]
     init_ctr_4, post_ctr_4 = ecn_counters[1]
     flow3_total = post_ctr_3['SAI_QUEUE_STAT_PACKETS'] - init_ctr_3['SAI_QUEUE_STAT_PACKETS']
+    flow4_total = post_ctr_4['SAI_QUEUE_STAT_PACKETS'] - init_ctr_4['SAI_QUEUE_STAT_PACKETS']
+
+    logging.info("Flow 3 total packets: {}, Flow 4 total packets: {}".format(flow3_total, flow4_total))
 
     pytest_assert(flow3_total > 0,
                   'Queue 3 counters at start {} at end {} did not increment{}'.format(
                    init_ctr_3['SAI_QUEUE_STAT_PACKETS'], post_ctr_3['SAI_QUEUE_STAT_PACKETS'], toggle_msg))
-
-    flow4_total = post_ctr_4['SAI_QUEUE_STAT_PACKETS'] - init_ctr_4['SAI_QUEUE_STAT_PACKETS']
 
     pytest_assert(flow4_total > 0,
                   'Queue 4 counters at start {} at end {} did not increment{}'.format(
@@ -69,6 +150,17 @@ def verify_ecn_counters(ecn_counters, link_state_toggled=False):
     flow4_ecn = post_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS'] -\
         init_ctr_4['SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS']
 
+    if is_bp_fabric_ecn_check_required:
+        if flow3_ecn == 0:
+            logging.info("ECN marking check failed on flow 3 on egress port")
+            return False  # Flow 3 ECN marking failed
+        elif flow4_ecn == 0:
+            logging.info("ECN marking check failed on flow 4 on egress port")
+            return False  # Flow 4 ECN marking failed
+        else:
+            logging.info("ECN marking check passed on both flow 3 and 4 on egress port")
+            return True  # Both flows had ECN marked packets (success)
+
     pytest_assert(flow3_ecn > 0,
                   'Must have ecn marked packets on flow 3{}'.
                   format(toggle_msg))
@@ -76,9 +168,16 @@ def verify_ecn_counters(ecn_counters, link_state_toggled=False):
     pytest_assert(flow4_ecn > 0,
                   'Must have ecn marked packets on flow 4{}'.
                   format(toggle_msg))
+    return True
 
 
-def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
+def verify_ecn_counters_for_flow_percent(
+        ecn_counters,
+        test_flow_percent,
+        number_of_streams,
+        input_port_same_asic,
+        input_port_same_dut,
+        single_dut):
 
     # verify that each flow had packets
     init_ctr_3, post_ctr_3 = ecn_counters[0]
@@ -148,17 +247,54 @@ def verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent):
                             'Must not have ecn marked packets on flow 4, percent {}'.
                             format(test_flow_percent))
 
-        if test_flow_percent[0] >= 50 and test_flow_percent[1] >= 50:
+        if test_flow_percent[0] > 50 and test_flow_percent[1] > 50:
             pytest_assert(
                             flow3_ecn > 0 and flow4_ecn > 0,
                             'Must have ecn marked packets on flows 3, 4, percent {}'.
                             format(test_flow_percent))
-            flow_ecn_ratio = round(float(flow3_ecn/flow4_ecn), 2)
-            pytest_assert(
-                        round(abs(flow_ecn_ratio - 1), 3) <= 0.05,
-                        "The packet flow ecn ratio {} deviation more than tolerance for \
-                        flow percent {} flow 3 ecn -> {} flow 4 ecn -> {}".
-                        format(flow_ecn_ratio, test_flow_percent, flow3_ecn, flow4_ecn))
+            percent3_mark = round(float(flow3_ecn/flow3_total), 2) * 100
+            percent4_mark = round(float(flow4_ecn/flow4_total), 2) * 100
+            flow_mark_diff = int(abs(percent3_mark - percent4_mark))
+            logging.info(
+                "Stream count {}, inputs on {} asic, inputs on {} dut, "
+                "flow 3 percent {}, ecn {}, flow 4 percent {}, ecn {}, "
+                "flow_mark_diff {}".format(
+                    number_of_streams,
+                    "same" if input_port_same_asic else "different",
+                    "same" if input_port_same_dut else "different",
+                    test_flow_percent[0],
+                    flow3_ecn,
+                    test_flow_percent[1],
+                    flow4_ecn,
+                    flow_mark_diff))
+            if number_of_streams == 1 and input_port_same_asic and \
+                    (test_flow_percent[0] == test_flow_percent[1]):
+                pytest_assert(
+                    flow_mark_diff <= 5,
+                    "For flow rates {}: the flow marking deviation {} is more "
+                    "than 5% tolerance: flow 3 ecn: {} flow 4 ecn: {}".
+                    format(
+                        test_flow_percent,
+                        flow_mark_diff,
+                        flow3_ecn,
+                        flow4_ecn))
+            # if number_of_streams > 1, the streams will be spread across voq from backplane ports with shallow
+            #  occupancy. Restrict marking check to single dut in such a case (or relax marking check)
+            elif input_port_same_dut and (number_of_streams == 1 or (number_of_streams > 1 and single_dut)):
+                if test_flow_percent[0] > test_flow_percent[1]:
+                    pytest_assert(
+                        flow3_ecn > flow4_ecn,
+                        "For flow percent {}, ecn count {} must be higher than "
+                        "flow percent {}, ecn count {}".format(
+                            test_flow_percent[0],
+                            flow3_ecn,
+                            test_flow_percent[1],
+                            flow4_ecn))
+                elif test_flow_percent[0] < test_flow_percent[1]:
+                    pytest_assert(
+                                   flow3_ecn < flow4_ecn,
+                                   "For flow percent {}, ecn count {} must be lower than flow percent {}, ecn count {}".
+                                   format(test_flow_percent[0], flow3_ecn, test_flow_percent[1], flow4_ecn))
 
 
 def run_ecn_test(api,
@@ -214,12 +350,14 @@ def run_ecn_test(api,
     config_result = config_wred(host_ans=egress_duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
-                                pmax=snappi_extra_params.ecn_params["pmax"])
+                                pmax=snappi_extra_params.ecn_params["pmax"],
+                                asic_value=rx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
     config_result = config_wred(host_ans=ingress_duthost,
                                 kmin=snappi_extra_params.ecn_params["kmin"],
                                 kmax=snappi_extra_params.ecn_params["kmax"],
-                                pmax=snappi_extra_params.ecn_params["pmax"])
+                                pmax=snappi_extra_params.ecn_params["pmax"],
+                                asic_value=tx_port['asic_value'])
     pytest_assert(config_result is True, 'Failed to configure WRED/ECN at the DUT')
 
     # Enable ECN marking
@@ -228,11 +366,13 @@ def run_ecn_test(api,
     pytest_assert(enable_ecn(host_ans=ingress_duthost, prio=lossless_prio), 'Unable to enable ecn')
 
     config_result = config_ingress_lossless_buffer_alpha(host_ans=egress_duthost,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         asic_value=rx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
     config_result = config_ingress_lossless_buffer_alpha(host_ans=ingress_duthost,
-                                                         alpha_log2=3)
+                                                         alpha_log2=3,
+                                                         asic_value=tx_port['asic_value'])
 
     pytest_assert(config_result is True, 'Failed to configure PFC threshold to 8')
 
@@ -329,18 +469,20 @@ def toggle_dut_port_state(api):
     config = api.get_config()
     # Collect all port names
     port_names = [port.name for port in config.ports]
-    # Create a link state object for all ports
-    link_state = api.link_state()
+    # Create a control state object for all ports
+    cs = api.control_state()
+    cs.choice = cs.PORT
+    cs.port.choice = cs.port.LINK
     # Apply the state to all ports
-    link_state.port_names = port_names
+    cs.port.link.port_names = port_names
     # Set all ports down (shut)
-    link_state.state = link_state.DOWN
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.DOWN
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to DOWN")
     time.sleep(0.2)
     # Unshut all ports
-    link_state.state = link_state.UP
-    api.set_link_state(link_state)
+    cs.port.link.state = cs.port.link.UP
+    api.set_control_state(cs)
     logger.info("All Snappi ports are set to UP")
 
 
@@ -350,6 +492,7 @@ def _generate_traffic_config(testbed_config,
                              test_prio_list,
                              test_flow_percent,
                              prio_dscp_map,
+                             number_of_streams=10,
                              congested=False):
     TEST_FLOW_NAME = ['Test Flow 3', 'Test Flow 4']
     DATA_FLOW_PKT_SIZE = 1350
@@ -423,6 +566,8 @@ def run_ecn_marking_port_toggle_test(
                                     dut_port,
                                     test_prio_list,
                                     prio_dscp_map,
+                                    supervisor_dut=None,
+                                    is_bp_fabric_ecn_check_required=False,
                                     snappi_extra_params=None):
 
     """
@@ -436,6 +581,8 @@ def run_ecn_marking_port_toggle_test(
         dut_port (str): DUT port to test
         test_prio_list (list): priorities of test flows
         prio_dscp_map (dict): Priority vs. DSCP map (key = priority).
+        supervisor_dut (obj): Supervisor DUT, if ECN check is required
+        is_bp_fabric_ecn_check_required (bool): Flag to indicate if BP fabric ECN check is required
         snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
     Returns:
         N/A
@@ -460,8 +607,26 @@ def run_ecn_marking_port_toggle_test(
 
     duthost = egress_duthost
 
-    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+    tx_port_1 = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost_1 = tx_port_1['duthost']
+
+    tx_port_2 = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost_2 = tx_port_2['duthost']
+
+    # Append the duthost here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost_1)
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost_2)
+    snappi_extra_params.multi_dut_params.egress_duthosts.append(egress_duthost)
+
+    # Find fabric mapping per ASIC instance
+    ingress_fabric_mapping_dict = {}
+    for ingress_duthost, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]:
+        asic_instance = ingress_duthost.get_port_asic_instance(tx_port['peer_port'])
+        fabric_mapping = get_fabric_mapping(ingress_duthost, asic_instance)
+        ingress_fabric_mapping_dict.setdefault(ingress_duthost, {})[asic_instance] = fabric_mapping
+
+    egress_asic_instance = egress_duthost.get_port_asic_instance(rx_port['peer_port'])
+    egress_fabric_mapping = get_fabric_mapping(egress_duthost, egress_asic_instance)
 
     _generate_traffic_config(testbed_config, snappi_extra_params,
                              port_config_list, test_prio_list,
@@ -472,52 +637,62 @@ def run_ecn_marking_port_toggle_test(
     all_flow_names = [flow.name for flow in flows]
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
-    """ Run traffic """
-    _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
-                                                                duthost,
-                                                                api=api,
-                                                                config=testbed_config,
-                                                                data_flow_names=data_flow_names,
-                                                                all_flow_names=all_flow_names,
-                                                                exp_dur_sec=DATA_FLOW_DURATION_SEC +
-                                                                DATA_FLOW_DELAY_SEC,
-                                                                snappi_extra_params=snappi_extra_params)
+    link_state_toggled = False
 
-    post_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    post_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+    # Function to clear  ECN counters
+    def clear_ecn_counters():
+        if is_bp_fabric_ecn_check_required:
+            snappi_extra_params.multi_dut_params.ingress_duthosts.append(supervisor_dut)
+            clear_bp_fabric_queue_counters(ingress_fabric_mapping_dict, egress_fabric_mapping,
+                                           supervisor_dut, test_prio_list)
 
-    ecn_counters = [
-        (init_ctr_3, post_ctr_3),
-        (init_ctr_4, post_ctr_4)
-    ]
+            for priority in test_prio_list:
+                get_npu_voq_queue_counters(duthost, dut_port, priority, True)
 
-    verify_ecn_counters(ecn_counters)
+    # Function to run traffic and check ECN marking
+    def run_traffic_and_check_ecn():
+        """Run traffic and verify ECN marking"""
+        initial_counters = {priority: get_npu_voq_queue_counters(duthost, dut_port, priority)
+                            for priority in test_prio_list}
 
+        run_traffic(
+            duthost, api=api, config=testbed_config, data_flow_names=data_flow_names,
+            all_flow_names=all_flow_names, exp_dur_sec=DATA_FLOW_DURATION_SEC + DATA_FLOW_DELAY_SEC,
+            snappi_extra_params=snappi_extra_params
+        )
+
+        post_counters = {priority: get_npu_voq_queue_counters(duthost, dut_port, priority)
+                         for priority in test_prio_list}
+        ecn_counters = [(initial_counters[p], post_counters[p]) for p in test_prio_list]
+
+        return verify_ecn_counters(ecn_counters, is_bp_fabric_ecn_check_required, link_state_toggled)
+
+    def check_ecn_marking():
+        """Check ECN marking before or after port toggle"""
+        clear_ecn_counters()
+        ecn_marking_verified_on_egress = run_traffic_and_check_ecn()
+
+        if not ecn_marking_verified_on_egress:
+            if not check_bp_fabric_ecn_marking(ingress_fabric_mapping_dict, egress_fabric_mapping,
+                                               supervisor_dut, test_prio_list):
+                # Log PFC frame counts
+                for dut, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]:
+                    for priority in test_prio_list:
+                        pfc_count = get_pfc_frame_count(dut, tx_port['peer_port'], priority, True)
+                        logging.info("PFC Tx frame count for DUT {}, Port {}, Priority {}: {}".format(
+                            dut.hostname, tx_port['peer_port'], priority, pfc_count))
+                pytest_assert(False, "No ECN marking in the data path")
+
+    # Initial ECN verification
+    check_ecn_marking()
+
+    # Toggle port state
     toggle_dut_port_state(api)
 
-    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+    link_state_toggled = True
 
-    """ Run traffic """
-    _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
-                                                                duthost,
-                                                                api=api,
-                                                                config=testbed_config,
-                                                                data_flow_names=data_flow_names,
-                                                                all_flow_names=all_flow_names,
-                                                                exp_dur_sec=DATA_FLOW_DURATION_SEC +
-                                                                DATA_FLOW_DELAY_SEC,
-                                                                snappi_extra_params=snappi_extra_params)
-
-    post_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    post_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
-
-    ecn_counters = [
-        (init_ctr_3, post_ctr_3),
-        (init_ctr_4, post_ctr_4)
-    ]
-
-    verify_ecn_counters(ecn_counters, link_state_toggled=True)
+    # Post toggle ECN verification
+    check_ecn_marking()
 
 
 def run_ecn_marking_test(api,
@@ -527,6 +702,10 @@ def run_ecn_marking_test(api,
                          test_prio_list,
                          prio_dscp_map,
                          test_flow_percent,
+                         number_of_streams,
+                         input_port_same_asic,
+                         input_port_same_dut,
+                         single_dut,
                          snappi_extra_params=None):
 
     """
@@ -571,7 +750,8 @@ def run_ecn_marking_test(api,
 
     _generate_traffic_config(testbed_config, snappi_extra_params,
                              port_config_list, test_prio_list,
-                             test_flow_percent, prio_dscp_map)
+                             test_flow_percent, prio_dscp_map,
+                             number_of_streams=number_of_streams)
 
     flows = testbed_config.flows
 
@@ -597,7 +777,13 @@ def run_ecn_marking_test(api,
         (init_ctr_4, post_ctr_4)
     ]
 
-    verify_ecn_counters_for_flow_percent(ecn_counters, test_flow_percent)
+    verify_ecn_counters_for_flow_percent(
+        ecn_counters,
+        test_flow_percent,
+        number_of_streams,
+        input_port_same_asic,
+        input_port_same_dut,
+        single_dut)
 
 
 def run_ecn_marking_with_pfc_quanta_variance(
@@ -786,6 +972,8 @@ def run_ecn_marking_ect_marked_pkts(
                                     dut_port,
                                     test_prio_list,
                                     prio_dscp_map,
+                                    supervisor_dut=None,
+                                    is_bp_fabric_ecn_check_required=False,
                                     snappi_extra_params=None):
 
     """
@@ -820,11 +1008,39 @@ def run_ecn_marking_ect_marked_pkts(
 
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
     egress_duthost = rx_port['duthost']
-
     duthost = egress_duthost
 
-    init_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    init_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+    tx_port_1 = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost_1 = tx_port_1['duthost']
+
+    tx_port_2 = snappi_extra_params.multi_dut_params.multi_dut_ports[1]
+    ingress_duthost_2 = tx_port_2['duthost']
+
+    # Append the duthost here for run_traffic to clear its counters
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost_1)
+    snappi_extra_params.multi_dut_params.ingress_duthosts.append(ingress_duthost_2)
+    snappi_extra_params.multi_dut_params.egress_duthosts.append(egress_duthost)
+
+    # Find fabric mapping per ASIC instance
+    ingress_fabric_mapping_dict = {}
+    for ingress_duthost, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]:
+        asic_instance = ingress_duthost.get_port_asic_instance(tx_port['peer_port'])
+        fabric_mapping = get_fabric_mapping(ingress_duthost, asic_instance)
+        ingress_fabric_mapping_dict.setdefault(ingress_duthost, {})[asic_instance] = fabric_mapping
+
+    egress_asic_instance = egress_duthost.get_port_asic_instance(rx_port['peer_port'])
+    egress_fabric_mapping = get_fabric_mapping(egress_duthost, egress_asic_instance)
+
+    if is_bp_fabric_ecn_check_required:
+        snappi_extra_params.multi_dut_params.ingress_duthosts.append(supervisor_dut)
+        clear_bp_fabric_queue_counters(ingress_fabric_mapping_dict,
+                                       egress_fabric_mapping, supervisor_dut, test_prio_list)
+
+        for priority in test_prio_list:
+            get_npu_voq_queue_counters(duthost, dut_port, priority, True)
+
+    initial_counters = {priority: get_npu_voq_queue_counters(duthost, dut_port, priority)
+                        for priority in test_prio_list}
 
     _generate_traffic_config(testbed_config, snappi_extra_params,
                              port_config_list, test_prio_list,
@@ -837,22 +1053,29 @@ def run_ecn_marking_ect_marked_pkts(
     data_flow_names = [flow.name for flow in flows if PAUSE_FLOW_NAME not in flow.name]
 
     """ Run traffic """
-    _tgen_flow_stats, _switch_flow_stats, _in_flight_flow_metrics = run_traffic(
-                                                                duthost,
-                                                                api=api,
-                                                                config=testbed_config,
-                                                                data_flow_names=data_flow_names,
-                                                                all_flow_names=all_flow_names,
-                                                                exp_dur_sec=DATA_FLOW_DURATION_SEC +
-                                                                DATA_FLOW_DELAY_SEC,
-                                                                snappi_extra_params=snappi_extra_params)
+    _, _, _ = run_traffic(
+                            duthost,
+                            api=api,
+                            config=testbed_config,
+                            data_flow_names=data_flow_names,
+                            all_flow_names=all_flow_names,
+                            exp_dur_sec=DATA_FLOW_DURATION_SEC +
+                            DATA_FLOW_DELAY_SEC,
+                            snappi_extra_params=snappi_extra_params)
 
-    post_ctr_3 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[0])
-    post_ctr_4 = get_npu_voq_queue_counters(duthost, dut_port, test_prio_list[1])
+    post_counters = {priority: get_npu_voq_queue_counters(duthost, dut_port, priority)
+                     for priority in test_prio_list}
+    ecn_counters = [(initial_counters[p], post_counters[p]) for p in test_prio_list]
 
-    ecn_counters = [
-        (init_ctr_3, post_ctr_3),
-        (init_ctr_4, post_ctr_4)
-    ]
+    ecn_marking_verified_on_egress = verify_ecn_counters(ecn_counters, is_bp_fabric_ecn_check_required)
+    if not ecn_marking_verified_on_egress:
+        if not check_bp_fabric_ecn_marking(ingress_fabric_mapping_dict, egress_fabric_mapping,
+                                           supervisor_dut, test_prio_list):
+            # Log PFC frame counts
+            for dut, tx_port in [(ingress_duthost_1, tx_port_1), (ingress_duthost_2, tx_port_2)]:
+                for priority in test_prio_list:
+                    pfc_count = get_pfc_frame_count(dut, tx_port['peer_port'], priority, True)
+                    logging.info("PFC Tx frame count for DUT {}, Port {}, Priority {}: {}".format(
+                        dut.hostname, tx_port['peer_port'], priority, pfc_count))
 
-    verify_ecn_counters(ecn_counters)
+            pytest_assert(False, "No ECN marking in the data path")

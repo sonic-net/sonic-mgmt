@@ -39,11 +39,11 @@ from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
 # Module-level fixtures
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "m2", "m3")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -58,11 +58,29 @@ _COPPTestParameters = namedtuple("_COPPTestParameters",
                                   "nn_target_namespace",
                                   "send_rate_limit",
                                   "nn_target_vlanid",
-                                  "topo_type"])
+                                  "topo_type",
+                                  "neighbor_miss_trap_supported"])
 
 _TOR_ONLY_PROTOCOL = ["DHCP", "DHCP6"]
 _TEST_RATE_LIMIT_DEFAULT = 600
 _TEST_RATE_LIMIT_MARVELL = 625
+
+# Protocol to trap ID mapping indicating which trap
+# being for which protocol. Trap ID is used to verify
+# the trap installation status.
+PROTOCOL_TO_TRAP_ID = {
+    "ARP": ["arp_req", "arp_resp", "neigh_discovery"],
+    "IP2ME": ["ip2me"],
+    "SNMP": ["ip2me"],
+    "SSH": ["ip2me"],
+    "DHCP": ["dhcp"],
+    "DHCP6": ["dhcpv6"],
+    "BGP": ["bgp", "bgpv6"],
+    "LACP": ["lacp"],
+    "LLDP": ["lldp"],
+    "UDLD": ["udld"],
+    "Default": ["default"]
+}
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +112,24 @@ class TestCOPP(object):
             that have a set rate limit.
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        # Skip the check if the protocol is "Default"
+        if protocol != "Default":
+            trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
+            is_always_enabled, feature_name = copp_utils.get_feature_name_from_trap_id(duthost, trap_ids[0])
+            if is_always_enabled:
+                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0]),
+                              f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
+            else:
+                feature_list, _ = duthost.get_feature_status()
+                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0])
+                if feature_name in feature_list and feature_list[feature_name] == "enabled":
+                    pytest_assert(trap_installed,
+                                  f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
+                else:
+                    pytest_assert(not trap_installed,
+                                  f"Trap {trap_ids[0]} for protocol {protocol} is unexpectedly installed")
+
         _copp_runner(duthost,
                      ptfhost,
                      protocol,
@@ -103,12 +139,26 @@ class TestCOPP(object):
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                 ptfhost, check_image_version, copp_testbed, dut_type,
-                                ip_versions, packet_type):    # noqa F811
+                                ip_versions, packet_type):    # noqa: F811
         """
         Validates that neighbor miss (subnet hit) packets are rate-limited
 
         """
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+        # Access test_params from the class-level variable
+        test_params = self.test_params
+
+        trap_status = copp_utils.is_trap_installed(duthost, "neighbor_miss")
+        if test_params.neighbor_miss_trap_supported:
+            logger.info("neighbor_miss trap is supported by DUT")
+            pytest_assert(trap_status,
+                          "neighbor_miss trap is supported but not installed")
+        else:
+            logger.info("neighbor_miss trap is not supported by DUT")
+            pytest_assert(not trap_status,
+                          "neighbor_miss trap is not supported but installed")
+
         logger.info("Verify IPV{} {} packets are rate limited".format(ip_versions, packet_type))
         pytest_assert(
             wait_until(60, 20, 0, _copp_runner, duthost, ptfhost, packet_type, copp_testbed, dut_type,
@@ -129,6 +179,9 @@ class TestCOPP(object):
 
         logger.info("Uninstall trap {}".format(self.trap_id))
         copp_utils.uninstall_trap(duthost, self.feature_name, self.trap_id)
+        pytest_assert(not copp_utils.is_trap_installed(duthost, self.trap_id),
+                      "Trap {} is still installed, expected to be uninstalled".format(self.trap_id))
+
         # remove ip2me because bgp traffic can fall back to ip2me trap then interfere following traffic tests
         if self.trap_id == "bgp":
             logger.info("Uninstall trap ip2me")
@@ -144,6 +197,10 @@ class TestCOPP(object):
 
         logger.info("Set always_enabled of {} to true".format(self.trap_id))
         copp_utils.configure_always_enabled_for_trap(duthost, self.trap_id, "true")
+
+        logging.info("Verify trap installed through CLI")
+        pytest_assert(copp_utils.is_trap_installed(duthost, self.trap_id),
+                      "Trap {} is not installed, expected to be installed".format(self.trap_id))
 
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
         pytest_assert(
@@ -182,6 +239,10 @@ class TestCOPP(object):
             logger.info("Disable {} in feature table".format(self.feature_name))
             copp_utils.disable_feature_entry(duthost, self.feature_name)
 
+        logging.info("Verify {} trap is uninstalled through CLI".format(self.trap_id))
+        pytest_assert(not copp_utils.is_trap_installed(duthost, self.trap_id),
+                      "Trap {} is not uninstalled".format(self.trap_id))
+
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
@@ -191,7 +252,7 @@ class TestCOPP(object):
     @pytest.mark.disable_loganalyzer
     def test_trap_config_save_after_reboot(self, duthosts, localhost, enum_rand_one_per_hwsku_frontend_hostname,
                                            ptfhost, check_image_version, copp_testbed, dut_type,
-                                           backup_restore_config_db, request):   # noqa F811
+                                           backup_restore_config_db, request):   # noqa: F811
         """
         Validates that the trap configuration is saved or not after reboot(reboot, fast-reboot, warm-reboot)
 
@@ -218,10 +279,47 @@ class TestCOPP(object):
         time.sleep(180)
         logger.info("Verify always_enable of {} == {} in config_db".format(self.trap_id, "true"))
         copp_utils.verify_always_enable_value(duthost, self.trap_id, "true")
+
+        logging.info("Verify {} trap is installed through CLI".format(self.trap_id))
+        pytest_assert(copp_utils.is_trap_installed(duthost, self.trap_id),
+                      "Trap {} is not installed, expected to be installed".format(self.trap_id))
+
         logger.info("Verify {} trap status is installed by sending traffic".format(self.trap_id))
         pytest_assert(
             wait_until(200, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(), copp_testbed, dut_type),
             "Installing {} trap fail".format(self.trap_id))
+
+
+@pytest.mark.disable_loganalyzer
+def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    """
+    Verifies the `show copp configuration` output with copp_cfg.json and hw_status in STATE_DB.
+    """
+
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    trap, trap_group, copp_group_cfg = copp_utils.get_random_copp_trap_config(duthost)
+    hw_status = copp_utils.get_trap_hw_status(duthost)
+    show_copp_config = copp_utils.parse_show_copp_configuration(duthost)
+
+    pytest_assert(trap in show_copp_config,
+                  f"Trap {trap} not found in show copp configuration output")
+    pytest_assert(trap_group == show_copp_config[trap]["trap_group"],
+                  f"Trap group mismatch for trap {trap} (expected: \
+                  {trap_group}, actual: {show_copp_config[trap]['trap_group']})")
+
+    logging.info("Verifying trap {} configuration with CLI".format(trap))
+    for field in ["trap_action", "cbs", "cir", "meter_type", "mode"]:
+        expected_value = copp_group_cfg.get(field, "").strip()
+        actual_value = show_copp_config[trap].get(field, "").strip()
+        pytest_assert(expected_value == actual_value,
+                      f"Field {field} mismatch for trap {trap} (expected: {expected_value}, actual: {actual_value})")
+
+    logging.info("Verifying trap {} installation status between CLI and STATE_DB".format(trap))
+    expected_hw_status = hw_status.get(trap, "not-installed")
+    actual_hw_status = show_copp_config[trap]["hw_status"]
+    pytest_assert(expected_hw_status == actual_hw_status,
+                  f"hw_status mismatch for trap {trap} (expected: {expected_hw_status}, actual: {actual_hw_status})")
 
 
 @pytest.fixture(scope="class")
@@ -257,11 +355,14 @@ def copp_testbed(
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     test_params = _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts)
 
+    # Store test_params in the TestCOPP class
+    TestCOPP.test_params = test_params
+
     if not is_backend_topology:
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
         if 't2' in tbinfo["topo"]["name"]:
-            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo), tbinfo)
         else:
             upStreamDuthost = duthost
 
@@ -296,7 +397,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4"):    # noqa F811
+                 ip_version="4"):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
@@ -315,11 +416,17 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "asic_type": dut.facts["asic_type"],
               "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
-              "ip_version": ip_version}
+              "ip_version": ip_version,
+              "neighbor_miss_trap_supported": test_params.neighbor_miss_trap_supported}
 
     dut_ip = dut.mgmt_ip
     device_sockets = ["0-{}@tcp://127.0.0.1:10900".format(test_params.nn_target_port),
                       "1-{}@tcp://{}:10900".format(test_params.nn_target_port, dut_ip)]
+
+    # Check the dut reachability from ptf host, this is to make sure the socket for ptf_nn_agent
+    # can be established successfully. If the socket cannot be established, the ptf test command
+    # could hang there forever.
+    ptf.shell(f"ping {dut_ip} -c 5 -i 0.2")
 
     # NOTE: debug_level can actually slow the PTF down enough to fail the test cases
     # that are not rate limited. Until this is addressed, do not use this flag as part of
@@ -392,6 +499,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                 peerip6 = bgp_peer["peer_addr"]
                 break
 
+    neighbor_miss_trap_supported = "neighbor_miss" in copp_utils.get_copp_trap_capabilities(duthost)
+
     logging.info("nn_target_port {} nn_target_interface {} nn_target_namespace {} nn_target_vlanid {}"
                  .format(nn_target_port, nn_target_interface, nn_target_namespace, nn_target_vlanid))
 
@@ -406,7 +515,8 @@ def _gather_test_params(tbinfo, duthost, request, duts_minigraph_facts):
                                nn_target_namespace=nn_target_namespace,
                                send_rate_limit=send_rate_limit,
                                nn_target_vlanid=nn_target_vlanid,
-                               topo_type=topo_type)
+                               topo_type=topo_type,
+                               neighbor_miss_trap_supported=neighbor_miss_trap_supported)
 
 
 def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_backend_topology):
@@ -421,7 +531,7 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
         rate_limit = _TEST_RATE_LIMIT_MARVELL
 
     logging.info("Update the rate limit for the COPP policer")
-    copp_utils.limit_policer(dut, rate_limit, test_params.nn_target_namespace)
+    copp_utils.limit_policer(dut, rate_limit, test_params.nn_target_namespace, test_params.neighbor_miss_trap_supported)
 
     # Multi-asic will not support this mode as of now.
     if test_params.swap_syncd:
@@ -523,7 +633,7 @@ def backup_restore_config_db(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     copp_utils.restore_config_db(duthost)
 
 
-def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa F811
+def pre_condition_install_trap(ptfhost, duthost, copp_testbed, trap_id, feature_name):   # noqa: F811
     copp_utils.install_trap(duthost, feature_name)
     logger.info("Set always_enabled of {} to false".format(trap_id))
     copp_utils.configure_always_enabled_for_trap(duthost, trap_id, "false")
