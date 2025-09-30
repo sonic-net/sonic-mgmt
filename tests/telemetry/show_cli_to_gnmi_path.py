@@ -57,14 +57,14 @@ class ShowCliToGnmiPathConverter:
             raise OptionException(INVALID_COMMAND_ERROR)
 
         tokens = tokens[1:]  # drop 'show'
-        out = []
+        out = ["SHOW"]
 
         for tok in tokens:
             if tok.startswith("-") and not tok.startswith("--"):
                 raise OptionException(f"{SHORT_OPTION_ERROR}: '{tok}'")
 
             if tok.startswith("--"):
-                if not out:
+                if len(out) == 1:
                     raise ValueError("Option before first path segment")
                 key, val = self.parseLongOption(tok)
                 out.append(f"[{key}={val}]")
