@@ -481,7 +481,8 @@ def test_port_flap_with_syslog(
             pytest.fail("BGP routes are not stable in long time")
 
         duthost.shell('sudo logger -f /var/log/swss/sairedis.rec')
-        duthost.shell('sudo awk "/%s/ {found=1; next} found" %s > %s' % (LOG_STAMP, '/var/log/syslog', TMP_SYSLOG_FILEPATH))
+        duthost.shell('sudo awk "/%s/ {found=1; next} found" %s > %s'
+                      % (LOG_STAMP, '/var/log/syslog', TMP_SYSLOG_FILEPATH))
 
         last_group_update = duthost.shell('sudo cat %s | grep "|C|SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER||" | tail -n 1'
                                           % TMP_SYSLOG_FILEPATH)['stdout']
