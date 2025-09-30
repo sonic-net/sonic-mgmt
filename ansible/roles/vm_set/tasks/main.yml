@@ -26,6 +26,10 @@
     package_installation: true
   when: package_installation is not defined or package_installation == ''
 
+- name: Initialize async flag
+  set_fact:
+    enable_async: "{{ enable_async | default(false) | bool }}"
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
