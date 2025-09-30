@@ -5,7 +5,7 @@
       "commands": [{"op" : "add", "name" : "new_scheduler",
                     "value" : {"type" : "DWRR", "priority" : "9",
                                "weight" : "50",
-                               "meter-type" : "packets", "cir" : "100",
+                               "meter-type" : "bytes", "cir" : "100",
                                "pir" : "1000", "cbs" : "100", "pbs" : "400"}},
                    {"op" : "update", "name" : "new_scheduler",
                     "value" : {"type" : "STRICT"}},
@@ -18,7 +18,8 @@
                    {"op" : "add", "name" : "new_map2",
                     "value" : {"0": "2", "1": "4", "2": "6", "3": "0", "4": "1", "5": "3", "6": "5", "7": "7"}},
                    {"op" : "update", "name" : "new_map1", "value" : {"0": "0", "1": "2"}},
-                   {"op" : "delete", "name" : "new_map2"}]
+                   {"op" : "delete", "name" : "new_map2"},
+                   {"op" : "delete", "name" : "new_map1"}]
   },
   "map-pfc-priority-to-queue" : {
       "key_name": "MAP_PFC_PRIORITY_TO_QUEUE",

@@ -35,6 +35,7 @@
 # 0:10:16	cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
 # 0:10:13	cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
 # 0:06:51	cisco/tortuga/vxlan/test_bfd_lla.py
+# 0:06:00	cisco/tortuga/qos/test_qos_cli.py
 # 0:08:21	cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
 # 0:05:44	cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
 # 0:05:11	cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py
@@ -67,6 +68,7 @@
 +file:cisco/tortuga/bgp/bgp_auth/test_bgp_auth_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_set_2.py
 +file:cisco/tortuga/vxlan/test_bfd_lla.py
++file:cisco/tortuga/qos/test_qos_cli.py
 +file:cisco/tortuga/vxlan/test_bgp_bfd_evpn.py
 +file:cisco/tortuga/bgp_vrf/test_bgp_vrf_l3vpn.py
 +file:cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp.py

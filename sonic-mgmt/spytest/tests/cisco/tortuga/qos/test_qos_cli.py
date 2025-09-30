@@ -1,5 +1,4 @@
 import os
-import pdb
 import json
 import time
 import sys
@@ -163,11 +162,14 @@ def qos_cfg_scheduler_handler(cli_dict, op, tag_name, user_data):
     return 'Unknown op {}'.format(op), {}
 
 def test_single_map_add_update_del(env_config):
-    if 'pfc_input_file' not in env_config:
-        st.report_fail('spytest command line is missing env var PFC_INPUT_FILE')
-    input_file = env_config['pfc_input_file']
+    if env_config['pfc_input_file'] == None:
+        input_file = os.path.join(os.path.dirname(__file__),
+                         'qos_test_input1.json')
+    else:
+        input_file = env_config['pfc_input_file']
     if not os.path.exists(input_file):
         st.report_fail("Failed to input file {}".format(input_file))
+        return
 
     test_dict = {}
     with open(input_file, "r") as file_obj:
@@ -175,6 +177,7 @@ def test_single_map_add_update_del(env_config):
         test_dict = json.loads(content, object_pairs_hook=OrderedDict)
     if 'CLI_TESTS' not in test_dict:
         st.report_fail("Qos tests input file{} has no test blocks".format(input_file))
+        return
 
     test_dict = test_dict['CLI_TESTS']
     for cmd_name, val in test_dict.items():
@@ -192,7 +195,12 @@ def test_single_map_add_update_del(env_config):
             op = cmd_dict['op']
             tag_name = cmd_dict['name']
             if 'value' in cmd_dict:
-                user_data = cmd_dict['value']
+                # For comparison purposes, we need to copy this OrderedDict to
+                # regular dictionary
+                tmp = cmd_dict['value']
+                user_data = {}
+                for k, v in tmp.items():
+                    user_data[k] = v
             else:
                 user_data = ''
             st.log('cmd {} key {} tag {} data {}'.format(cmd_name, \
@@ -216,11 +224,14 @@ def test_single_map_add_update_del(env_config):
                 new_dict = new_dict[key_name]
                 if curr_dict != new_dict:
                     st.report_fail('Test failed and cli corrupt {}'.format(rv))
+                    return
                 if 'bad_input' in cmd_dict and cmd_dict['bad_input']:
                     st.banner('PASS: Dict {} rejected as EXPECTED {}'.format(cmd_dict, rv))
                 else:
                     st.report_fail('Test dict {} FAILED {}'.format(cmd_dict, rv))
+                    return
             else:
                 st.banner('PASS: Dict {}'.format(cmd_dict))
             curr_dict = new_dict
+    st.config(dut1, "config qos clear")
     st.report_pass('test_case_passed')
