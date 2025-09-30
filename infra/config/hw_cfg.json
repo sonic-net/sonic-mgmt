@@ -69,6 +69,7 @@
             "skip_tests": "platform_tests/test_sim_reboot.py platform_tests/test_serviceability_basic.py test_serviceability_pfc.py bgp/test_bgp_stress_link_flap.py",
             "skip_folder":"pfc pfc_asym ixia cisco ",
             "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202505": "cicd_prod_202505",
             "sonic_mgmt_container_202305": "cicd_prod_202305",
             "sonic_mgmt_container_202311": "cicd_prod_202311",
             "sonic_mgmt_container_202411": "cicd_prod_202411",
