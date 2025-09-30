@@ -404,7 +404,7 @@ def get_tx(counters): #helper function to get forwarded packets and interface
     return result
 
 def get_weights(routes, target_ip):
-    result = {}
+    weights = {}
     lines = routes.strip().splitlines()
     collecting = False
     route_exists = False
@@ -427,11 +427,21 @@ def get_weights(routes, target_ip):
                 weight_index = parts.index("weight") + 1
                 iface = parts[iface_index]
                 weight = int(parts[weight_index])
-                result[iface] = weight
+                weights[iface] = weight
             except (ValueError, IndexError):
                 continue
     if not route_exists:
         st.report_fail("test_case_failed", "No route information found for IP {target_ip}")
+
+    total_weight = sum(weights.values())
+    result = {}
+
+    if total_weight > 0:
+        for iface, weight in weights.items():
+            percentage = (float(weight) / float(total_weight)) * 100.0
+            result[iface] = percentage
+    else:
+        st.report_fail("test_case_failed", "Total weight is 0 - no valid weights found for IP {}".format(target_ip))
 
     return result
 
