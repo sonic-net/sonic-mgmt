@@ -267,7 +267,13 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
 
-bgp/test_bgp_sentinel.py:
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv6:
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
@@ -301,11 +307,11 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
-bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes:
-  xfail:
-    reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry"
+bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes[:
+  skip:
+    reason: "Skip for IPv6-only topologies"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
+      - "'-v6-' in topo_name"
 
 bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6:
   xfail:
@@ -1552,11 +1558,13 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
     reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
-             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated."
+             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated.
+             Skip for IPv6-only topologies"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t0-120' in topo_name and asic_type in ['mellanox']"
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2055,6 +2063,12 @@ generic_config_updater/test_dynamic_acl.py:
       - "topo_name in ['m0-2vlan']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
 
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_arp_rule_creation[IPV4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
   skip:
     reason: "DHCP is not enabled in isolated topo"
@@ -2247,9 +2261,12 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 #######################################
 hash/test_generic_hash.py:
   skip:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup
+             Skip for IPv6-only topologies"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+      - "'-v6-' in topo_name"
   xfail:
     reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
     conditions:
