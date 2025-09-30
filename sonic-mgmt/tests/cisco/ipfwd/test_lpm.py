@@ -19,6 +19,7 @@ from tests.cisco.common.utils import Arp
 from tests.cisco.common.utils import IPRoutes
 from tests.cisco.common.utils import get_crm_info
 from tests.cisco.common.utils import combinations
+from tests.cisco.common.utils import get_asic_type
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
@@ -55,14 +56,28 @@ class LPM:
         self.duthost = duthost
 
     def get_lpm_report(self):
-        cmd = "show platform npu lpm-db -n asic{}".format(self.asic.asic_index)
+        if self.duthost.sonichost.is_multi_asic :
+            cmd="show platform npu lpm-db -n asic{}".format(self.asic.asic_index)
+        else:
+            cmd = "show platform npu lpm-db"
         self.lpm_report = self.duthost.shell(cmd)["stdout_lines"] 
 
     def get_lpm_resource_usage_stats(self):
-        keys = ['IPv4 Entries', 'IPv6 Entries', "IPv4 SRAM Entries", "IPv4 HBM Entries", "IPv6 SRAM Entries", "IPv6 HBM Entries",
-                "TCAM Occupied Rows", "TCAM Free Rows", "IPv4 TCAM Entries", "IPv6 double TCAM Entries", "IPv6 quad TCAM Entries",
-                'L1 Rows', "L1 Entries", "L2 SRAM Rows", "L2 HBM Rows", "L2 SRAM Single Entries", "L2 SRAM Wide Entries",
-                "L2 HBM Single Entries", "L2 HBM Wide Entries"]
+        asic_type = get_asic_type(self,self.duthost)
+        if asic_type=='Gr2':
+            keys = ['Entries', 'IPv4 Entries', 'IPv6 Entries', 'IPv4 SRAM Entries', 'IPv6 SRAM Entries', 'TCAM Occupied Rows', 'TCAM Free Rows',
+                    'IPv4 TCAM Entries', 'IPv6 single TCAM Entries', 'IPv6 double TCAM Entries', 'IPv6 quad TCAM Entries', 'L1 Rows',
+                    'L1 Entries', 'L2 SRAM Rows', 'L2 SRAM Single Entries', 'L2 SRAM Wide Entries', 'TCAM Occupancy', 'L1 Occupancy (% Rows used)',
+                    'L2 SRAM Occupancy (% Rows used)', 'TCAM Entries Utilization (of occupied single entries)', 'L1 Utilization (of occupied buckets)',
+                    'L2 SRAM Entries Utilization (of occupied buckets)', 'L2 SRAM Space Utilization (of occupied buckets)',
+                    'Total Entries Utilization (% used out of max potential)']
+        else:
+            keys = ['Entries', 'IPv4 Entries', 'IPv6 Entries', 'IPv4 SRAM Entries', 'IPv6 SRAM Entries', 'TCAM Occupied Rows', 'TCAM Free Rows',
+                    'IPv4 TCAM Entries', 'IPv6 single TCAM Entries', 'IPv6 double TCAM Entries', 'IPv6 quad TCAM Entries', 'L1 Rows',
+                    'L1 Entries', 'L2 SRAM Rows', 'L2 SRAM Single Entries', 'L2 SRAM Wide Entries', 'L2 SRAM pinned entries', 'TCAM Occupancy',
+                    'L1 Occupancy (% Rows used)', 'L2 SRAM Occupancy (% Rows used)', 'TCAM Entries Utilization (of occupied single entries)',
+                    'L1 Utilization (of occupied buckets)', 'L2 SRAM Entries Utilization (of occupied buckets)',
+                    'L2 SRAM Space Utilization (of occupied buckets)', 'Total Entries Utilization (% used out of max potential)']
 
         self.get_lpm_report()
         result = {}
@@ -70,13 +85,14 @@ class LPM:
         for line in self.lpm_report:
             if line:
                 line = line.split('|')
-                if len(line) < 18:
-                    continue 
-                line = list(map(str.strip, line))
-                if line[1] in keys:
-                    counters = line[18]
-                    result[line[1]] = counters
-                    keys.remove(line[1])
+                if len(line) < 3:
+                    continue
+                line = [col.strip() for col in line if col.strip()]
+                if line[0] in keys:
+                    # Use the last column (Tot/Avg) which works for both Gr2 and other platforms
+                    counters = line[-1]
+                    result[line[0]] = counters
+                    keys.remove(line[0])
                     if not keys:
                         break
         pytest_assert(keys == [], "Failed to get LPM resource for {}".format(str(keys)))
@@ -127,7 +143,7 @@ def test_basic_lpm_output(duthost, tbinfo, skip_if_sim):
     # Generate ARP entries
     arp_count = 8
     arplist = Arp(duthost, asic, arp_count, eth_if)
-    #arplist.arps_add()
+    arplist.arps_add()
 
     # indices
     indices = list(range(arp_count))
@@ -245,9 +261,9 @@ def test_lpm_update_with_new_prefix(duthost, tbinfo, skip_if_sim):
 
     result = lpm.get_lpm_resource_usage_stats()
 
-    before_ipv4_entries = result["IPv4 Entries"]
-    before_l2_rows = result["L2 SRAM Rows"]
-    before_l1_rows = result["L1 Rows"]
+    before_ipv4_entries = int(result.get("IPv4 Entries", 0) or 0)
+    before_l2_rows = int(result.get("L2 SRAM Rows", 0) or 0)
+    before_l1_rows = int(result.get("L1 Rows", 0) or 0)
 
     logger.info("Adding {} next hops on {}".format(nhop_group_count, eth_if))
     # create nexthop group
@@ -267,9 +283,9 @@ def test_lpm_update_with_new_prefix(duthost, tbinfo, skip_if_sim):
         time.sleep(sleep_time)
 
         result = lpm.get_lpm_resource_usage_stats()
-        after_ipv4_entries = result["IPv4 Entries"]
-        after_l2_rows = result["L2 SRAM Rows"]
-        after_l1_rows = result["L1 Rows"]
+        after_ipv4_entries = int(result.get("IPv4 Entries", 0) or 0)
+        after_l2_rows = int(result.get("L2 SRAM Rows", 0) or 0)
+        after_l1_rows = int(result.get("L1 Rows", 0) or 0)
 
     finally:
         nhop.delete_routes()
@@ -281,4 +297,3 @@ def test_lpm_update_with_new_prefix(duthost, tbinfo, skip_if_sim):
     pytest_assert(after_ipv4_entries > before_ipv4_entries and after_l2_rows > before_l2_rows and after_l1_rows > before_l1_rows,
             "after_ipv4_entries {}, before_ipv4_entries {}, after_l2_rows {}, before_l2_rows {}, after_l1_rows {}, before_l1_rows {}".
             format(after_ipv4_entries, before_ipv4_entries, after_l2_rows, before_l2_rows, after_l1_rows, before_l1_rows))
-
