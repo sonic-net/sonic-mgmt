@@ -36,6 +36,7 @@ from tests.common.cache import FactsCache
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.portstat_utilities import parse_column_positions
 from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
@@ -930,16 +931,21 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
     return ptf_port_list
 
 
-def get_upstream_neigh_type(topo_type, is_upper=True):
+def get_upstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in UPSTREAM_NEIGHBOR_MAP:
-        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in UPSTREAM_NEIGHBOR_MAP:
+            return UPSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
@@ -982,6 +988,19 @@ def get_all_downstream_neigh_type(topo_type, is_upper=True):
     if is_upper:
         return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
     return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def is_ipv6_only_topology(tbinfo):
+    """
+    @summary: Check if the current topology is IPv6-only based on testbed info.
+    @param tbinfo: Testbed information dictionary
+    @return: bool - True if topology is IPv6-only, False otherwise
+    """
+    return (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
@@ -1231,7 +1250,8 @@ def capture_and_check_packet_on_dut(
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
     pkts_validator_args=[],
     pkts_validator_kwargs={},
-    wait_time=1
+    wait_time=1,
+    tcpdump_buffer_size=102400
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1245,8 +1265,8 @@ def capture_and_check_packet_on_dut(
         wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
-        % (interface, pcap_save_path, pkts_filter)
+    cmd_capture_pkts = ("nohup tcpdump --buffer-size=%s --immediate-mode -U -i %s -w %s" +
+                        ">/dev/null 2>&1 %s & echo $!") % (tcpdump_buffer_size, interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
     pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
@@ -1549,3 +1569,50 @@ def cleanup_prev_images(duthost):
     current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
     duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
     duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
+
+
+def parse_rif_counters(output_lines):
+    """Parse the output of "show interfaces counters rif" command
+    Args:
+        output_lines (list): The output lines of "show interfaces counters rif" command
+    Returns:
+        list: A dictionary, key is interface name, value is a dictionary of fields/values
+    """
+
+    header_line = ''
+    separation_line = ''
+    separation_line_number = 0
+    for idx, line in enumerate(output_lines):
+        if line.find('----') >= 0:
+            header_line = output_lines[idx - 1]
+            separation_line = output_lines[idx]
+            separation_line_number = idx
+            break
+
+    try:
+        positions = parse_column_positions(separation_line)
+    except Exception:
+        logger.error('Possibly bad command output')
+        return {}
+
+    headers = []
+    for pos in positions:
+        header = header_line[pos[0]:pos[1]].strip().lower()
+        headers.append(header)
+
+    if not headers:
+        return {}
+
+    results = {}
+    for line in output_lines[separation_line_number + 1:]:
+        portstats = []
+        for pos in positions:
+            portstat = line[pos[0]:pos[1]].strip()
+            portstats.append(portstat)
+
+        intf = portstats[0]
+        results[intf] = {}
+        for idx in range(1, len(portstats)):  # Skip the first column interface name
+            results[intf][headers[idx]] = portstats[idx].replace(',', '')
+
+    return results

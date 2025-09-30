@@ -124,7 +124,7 @@ def create_acl_table(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         neighbor_ports = get_neighbor_port_list(rand_selected_dut, upstream_neigh_type)
         ports = ",".join(neighbor_ports)
     else:
@@ -259,7 +259,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         ptf_interfaces = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
     else:
         portchannel_members = []

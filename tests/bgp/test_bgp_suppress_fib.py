@@ -66,6 +66,18 @@ BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
+# Returns True if the topology has a spine layer, else returns False
+def topo_has_spine_layer(tbinfo):
+    if not tbinfo:
+        return False
+
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        if 'spine' in v['properties']:
+            return True
+
+    return False
+
+
 @pytest.fixture(scope="module")
 def generate_route_and_traffic_data():
     """
@@ -177,6 +189,11 @@ def prepare_param(duthost, tbinfo, get_exabgp_ptf_ports):
     """
     Prepare parameters
     """
+
+    # Skip test if t1 topo does not have a spine layer
+    if not topo_has_spine_layer(tbinfo):
+        pytest.skip('This test is not applicable to topologies with no SPINE layer')
+
     router_mac = duthost.facts["router_mac"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_ip = tbinfo['ptf_ip']
@@ -317,7 +334,7 @@ def get_port_connected_with_vm(duthost, nbrhosts, vm_type='T0'):
     return port_list
 
 
-def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
+def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo, loganalyzer):
     """
     Config vrf based configuration
     """
@@ -354,11 +371,11 @@ def setup_vrf_cfg(duthost, cfg_facts, nbrhosts, tbinfo):
     duthost.template(src="bgp/vrf_config_db.j2", dest="/tmp/config_db_vrf.json")
     duthost.shell("cp -f /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
-    config_reload(duthost, safe_reload=True)
+    config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
     wait_until(120, 10, 0, check_interface_status, duthost)
 
 
-def setup_vrf(duthost, nbrhosts, tbinfo):
+def setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer):
     """
     Prepare vrf based environment
     """
@@ -366,7 +383,7 @@ def setup_vrf(duthost, nbrhosts, tbinfo):
     duthost.shell("mv /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
 
     cfg_t1 = get_cfg_facts(duthost)
-    setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo)
+    setup_vrf_cfg(duthost, cfg_t1, nbrhosts, tbinfo, loganalyzer)
 
 
 def install_route_from_exabgp(operation, ptfip, route_list, port):
@@ -690,13 +707,6 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
             wait_until(300, 20, 0, duthost.critical_services_fully_started),
             (
                 "Not all critical services started within the allotted time after reboot or config reload. "
-                "Hostname: {}\n"
-                "Platform: {}\n"
-                "HWSKU: {}\n"
-            ).format(
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
             )
         )
 
@@ -704,18 +714,11 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
             wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
             (
                 "Not all admin-up ports are operationally up after reboot or config reload.\n"
-                "Hostname: {}\n"
-                "Platform: {}\n"
-                "HWSKU: {}"
-            ).format(
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
             )
         )
 
 
-def param_reboot(request, duthost, localhost):
+def param_reboot(request, duthost, localhost, loganalyzer):
     """
     Read reboot_type from option bgp_suppress_fib_reboot_type
     If reboot_type is reload, do config reload
@@ -729,7 +732,7 @@ def param_reboot(request, duthost, localhost):
         logger.info("Randomly choose {} from reload, cold, warm, fast".format(reboot_type))
 
     if reboot_type == "reload":
-        config_reload(duthost, safe_reload=True)
+        config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
         wait_until(120, 10, 0, check_interface_status, duthost)
     else:
         do_and_wait_reboot(duthost, localhost, reboot_type)
@@ -822,7 +825,7 @@ def perf_sniffer_prepare(tcpdump_sniffer, duthost, nbrhosts, mg_facts, recv_port
 @pytest.mark.parametrize("vrf_type", VRF_TYPES)
 def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhost, restore_bgp_suppress_fib,
                                  prepare_param, vrf_type, continuous_boot_times, generate_route_and_traffic_data,
-                                 request):
+                                 request, loganalyzer):
     asic_name = duthost.get_asic_name()
     if vrf_type == USER_DEFINED_VRF and asic_name == 'th5':
         pytest.xfail("vrf testing not supported on TH5")
@@ -830,7 +833,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
     try:
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Configure user defined vrf"):
-                setup_vrf(duthost, nbrhosts, tbinfo)
+                setup_vrf(duthost, nbrhosts, tbinfo, loganalyzer)
 
         with allure.step("Prepare needed parameters"):
             router_mac, mg_facts, ptf_ip, exabgp_port_list, exabgp_port_list_v6, recv_port_list = prepare_param
@@ -852,7 +855,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
                             format(continous_boot_index+1))
 
             with allure.step("Do reload"):
-                param_reboot(request, duthost, localhost)
+                param_reboot(request, duthost, localhost, loganalyzer)
 
             for exabgp_port, exabgp_port_v6, recv_port in zip(exabgp_port_list, exabgp_port_list_v6, recv_port_list):
                 try:
@@ -906,7 +909,7 @@ def test_bgp_route_with_suppress(duthost, tbinfo, nbrhosts, ptfadapter, localhos
         if vrf_type == USER_DEFINED_VRF:
             with allure.step("Clean user defined vrf"):
                 duthost.shell("cp -f /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-                config_reload(duthost, safe_reload=True)
+                config_reload(duthost, safe_reload=True, ignore_loganalyzer=loganalyzer)
                 wait_until(120, 10, 0, check_interface_status, duthost)
 
 
@@ -1080,8 +1083,8 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
 
             with allure.step("Restore orchagent process"):
                 assert is_orchagent_stopped(duthost), (
-                    "Orchagent process is not in the expected 'stop' state on DUT '{}'."
-                ).format(duthost.hostname)
+                    "Orchagent process is not in the expected 'stop' state on DUT "
+                )
 
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 
@@ -1143,8 +1146,8 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
 
             with allure.step("Restore orchagent process"):
                 assert is_orchagent_stopped(duthost), (
-                    "Orchagent process is not in the expected 'stop' state on DUT '{}'."
-                ).format(duthost.hostname)
+                    "Orchagent process is not in the expected 'stop' state on DUT ."
+                )
 
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 

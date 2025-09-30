@@ -9,6 +9,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
     fetch_vendor_specific_diagnosis_re
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
 
@@ -227,9 +228,12 @@ class TestPfcwdAllPortStorm(object):
                 storm_hndle.stop_pfc_storm()
             time.sleep(5)
 
-    def test_all_port_storm_restore(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                    storm_test_setup_restore, setup_pfc_test, ptfhost,
-                                    set_pfc_time_cisco_8000):
+    def test_all_port_storm_restore(
+            self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+            storm_test_setup_restore, setup_pfc_test, ptfhost,
+            setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m_unconditionally,     # noqa: F811
+            toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m,                  # noqa: F811
+            set_pfc_time_cisco_8000):
         """
         Tests PFC storm/restore on all ports
 

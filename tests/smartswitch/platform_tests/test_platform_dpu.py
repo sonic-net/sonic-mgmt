@@ -8,12 +8,13 @@ from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
+from tests.common.mellanox_data import is_mellanox_device
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
-    check_dpu_health_status, num_dpu_modules  # noqa: F401
+    check_dpu_health_status, check_midplane_status, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
@@ -198,15 +199,29 @@ def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
         if rc:
             continue
 
-        command = ('sudo python -c "import pexpect; '
-                   'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
-                   'child.expect(r\' \'); '
-                   'child.sendline(\'\\r\\r\'); '
-                   'child.expect(r\' \'); '
-                   'child.sendline(\'exit\\rexit\\r\'); '
-                   'child.expect(r\'sonic login: \'); '
-                   'print(child.after.decode()); child.close()"'
-                   % (index))
+        # Check if it's a Mellanox ASIC
+        if is_mellanox_device(duthost):
+            command = ('sudo python -c "import pexpect; '
+                       'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'\\r\\r\'); '
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'exit\\rexit\\r\'); '
+                       'child.expect(r\'Terminal\'); '
+                       'child.sendline(\'\'); '
+                       'child.expect(r\'sonic login: \'); '
+                       'print(child.after.decode()); child.close()"'
+                       % (index))
+        else:
+            command = ('sudo python -c "import pexpect; '
+                       'child = pexpect.spawn(\'python /usr/local/bin/dpu-tty.py -n dpu%s\'); '  # noqa: E501
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'\\r\\r\'); '
+                       'child.expect(r\' \'); '
+                       'child.sendline(\'exit\\rexit\\r\'); '
+                       'child.expect(r\'sonic login: \'); '
+                       'print(child.after.decode()); child.close()"'
+                       % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
@@ -225,7 +240,8 @@ def test_npu_dpu_date(duthosts, dpuhosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    date_format = "%a %b %d %I:%M:%S %p %Z %Y"
+    # output ISO format and UTC timezone
+    date_cmd = "date --iso-8601=s -u"
 
     for index in range(num_dpu_modules):
         dpu_name = module.get_name(platform_api_conn, index)
@@ -234,13 +250,13 @@ def test_npu_dpu_date(duthosts, dpuhosts,
             continue
 
         logging.info("Checking date and time on {}".format(dpu_name))
-        dpu_date = dpuhosts[index].command("date")['stdout']
+        dpu_date = dpuhosts[index].command(date_cmd)['stdout'].strip()
 
         logging.info("Checking date and time on switch")
-        switch_date = duthost.command("date")['stdout_lines']
+        switch_date = duthost.command(date_cmd)['stdout'].strip()
 
-        date1 = datetime.strptime(switch_date[0], date_format)
-        date2 = datetime.strptime(dpu_date, date_format)
+        date1 = datetime.fromisoformat(switch_date)
+        date2 = datetime.fromisoformat(dpu_date)
 
         time_difference = abs((date1 - date2).total_seconds())
 
@@ -323,31 +339,34 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(duthosts,
-                                     enum_rand_one_per_hwsku_hostname,
-                                     platform_api_conn, num_dpu_modules):  # noqa: F811
+def test_data_control_mid_plane_sync(dpu_setup):
     """
     @summary: To verify data, control and mid planes are in sync
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Executing pre-test check")
-    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
-        duthost, platform_api_conn, num_dpu_modules)
+    duthost, ip_address_list, dpu_on_list, dpu_off_list = dpu_setup
 
-    logging.info("Bringing DOWN DPUs midplane")
-    duthost.shell("sudo ip link set bridge-midplane down")
+    for index, dpu in enumerate(dpu_on_list):
+        dpu_ip = ip_address_list[index]
+        interface_name = dpu.lower()
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Offline', 'down')
+        logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
+        duthost.shell(f"sudo ip link set {interface_name} down")
 
-    logging.info("Bringing UP DPUs midplane")
-    duthost.shell("sudo ip link set bridge-midplane up")
+        pytest_assert(wait_until(120, 20, 0, check_midplane_status,
+                      duthost, dpu_ip, "False"),
+                      f"Timeout: {dpu} did not show midplane reachability as False")
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Online', 'up')
+        check_dpu_health_status(duthost, dpu, 'Offline', 'down')
+
+        logging.info(f"Bringing UP {dpu} ({dpu_ip})")
+        duthost.shell(f"sudo ip link set {interface_name} up")
+
+        pytest_assert(wait_until(120, 20, 0, check_midplane_status,
+                      duthost, dpu_ip, "True"),
+                      f"Timeout: {dpu} did not show midplane reachability as True")
+
+        check_dpu_health_status(duthost, dpu, 'Online', 'up')
 
 
 def test_watchdog_status_check(duthosts, dpuhosts,

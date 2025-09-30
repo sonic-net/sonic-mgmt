@@ -12,7 +12,7 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc
     get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
-    get_pfcwd_stats
+    get_pfcwd_stats, get_interface_counters_detailed
 from tests.common.snappi_tests.port import select_ports, select_tx_port
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp, fetch_snappi_flow_metrics
 from .variables import pfcQueueGroupSize, pfcQueueValueDict
@@ -34,7 +34,9 @@ UDP_PORT_START = 5000
 
 def setup_base_traffic_config(testbed_config,
                               port_config_list,
-                              port_id):
+                              port_id,
+                              num_tx_ports=1,
+                              num_rx_ports=1):
     """
     Generate base configurations of flows, including test flows, background flows and
     pause storm. Test flows and background flows are also known as data flows.
@@ -42,63 +44,114 @@ def setup_base_traffic_config(testbed_config,
         testbed_config (obj): testbed L1/L2/L3 configuration
         port_config_list (list): list of port configuration
         port_id (int): ID of DUT port to test
+        num_tx_ports (int): Number of TX ports to select (default: 1)
+        num_rx_ports (int): Number of RX ports to select (default: 1)
 
     Returns:
         base_flow_config (dict): base flow configuration containing dut_port_config, tx_mac,
             rx_mac, tx_port_config, rx_port_config, tx_port_name, rx_port_name
             dict key-value pairs (all keys are strings):
-                tx_port_id (int): ID of ixia TX port ex. 1
-                rx_port_id (int): ID of ixia RX port ex. 2
-                tx_port_config (SnappiPortConfig): port config obj for ixia TX port
-                rx_port_config (SnappiPortConfig): port config obj for ixia RX port
-                tx_mac (str): MAC address of ixia TX port ex. '00:00:fa:ce:fa:ce'
-                rx_mac (str): MAC address of ixia RX port ex. '00:00:fa:ce:fa:ce'
-                tx_port_name (str): name of ixia TX port ex. 'Port 1'
-                rx_port_name (str): name of ixia RX port ex. 'Port 2'
-                dut_port_config (list): a list of two dictionaries of tx and rx ports on the peer (switch) side,
-                                        and the associated test priorities
-                                        ex. [{'Ethernet4':[3, 4]}, {'Ethernet8':[3, 4]}]
+                tx_port_id (int or list): ID(s) of ixia TX port(s) ex. 1 or [1, 2]
+                rx_port_id (int or list): ID(s) of ixia RX port(s) ex. 2 or [2, 3]
+                tx_port_config (SnappiPortConfig or list): port config obj(s) for ixia TX port(s)
+                rx_port_config (SnappiPortConfig or list): port config obj(s) for ixia RX port(s)
+                tx_mac (str or list): MAC address(es) of ixia TX port(s) ex. '00:00:fa:ce:fa:ce' or
+                                    ['00:00:fa:ce:fa:ce', '00:00:fa:ce:fa:ce']
+                rx_mac (str or list): MAC address(es) of ixia RX port(s) ex. '00:00:fa:ce:fa:ce' or
+                                    ['00:00:fa:ce:fa:ce', '00:00:fa:ce:fa:ce']
+                tx_port_name (str or list): name(s) of ixia TX port(s) ex. 'Port 1' or ['Port 1', 'Port 2']
+                rx_port_name (str or list): name(s) of ixia RX port(s) ex. 'Port 2' or ['Port 2', 'Port 3']
+                dut_port_config (dict): a dictionary with "Tx" and "Rx" keys, each containing a list of dictionaries
+                                        of tx and rx ports on the peer (switch) side, and the associated test
+                                        priorities ex. {"Tx": [{'Ethernet4':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]} for single port
+                                        or {"Tx": [{'Ethernet4':[3, 4]}, {'Ethernet12':[3, 4]}],
+                                        "Rx": [{'Ethernet8':[3, 4]}]} for multiple ports
                 test_flow_name_dut_rx_port_map (dict): Mapping of test flow name to DUT RX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
                 test_flow_name_dut_tx_port_map (dict): Mapping of test flow name to DUT TX port(s)
                                                   ex. {'flow1': [Ethernet4, Ethernet8]}
     """
     base_flow_config = {}
-    rx_port_id = port_id
-    tx_port_id_list, _ = select_ports(port_config_list=port_config_list,
-                                      pattern="many to one",
-                                      rx_port_id=rx_port_id)
 
-    pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
-    tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
-                                rx_port_id=rx_port_id)
-    pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
-    base_flow_config["rx_port_id"] = rx_port_id
-    base_flow_config["tx_port_id"] = tx_port_id
+    if num_rx_ports == 1:
+        rx_port_id = port_id
+        rx_port_id_list = [rx_port_id]
+    else:
+        rx_port_id = port_id
+        rx_port_id_list = [rx_port_id]
 
-    tx_port_config = next((x for x in port_config_list if x.id == tx_port_id), None)
-    rx_port_config = next((x for x in port_config_list if x.id == rx_port_id), None)
-    base_flow_config["tx_port_config"] = tx_port_config
-    base_flow_config["rx_port_config"] = rx_port_config
+    if num_tx_ports == 1:
+        tx_port_id_list, _ = select_ports(port_config_list=port_config_list,
+                                          pattern="many to one",
+                                          rx_port_id=rx_port_id)
+        pytest_assert(len(tx_port_id_list) > 0, "Cannot find any TX ports")
+        tx_port_id = select_tx_port(tx_port_id_list=tx_port_id_list,
+                                    rx_port_id=rx_port_id)
+        pytest_assert(tx_port_id is not None, "Cannot find a suitable TX port")
+        tx_port_id_list = [tx_port_id]
+    else:
+        tx_port_id_list, _ = select_ports(port_config_list=port_config_list,
+                                          pattern="many to one",
+                                          rx_port_id=rx_port_id)
+        pytest_assert(len(tx_port_id_list) >= num_tx_ports,
+                      f"Cannot find enough TX ports. Need {num_tx_ports}, found {len(tx_port_id_list)}")
+        tx_port_id_list = select_tx_port(tx_port_id_list=tx_port_id_list,
+                                         rx_port_id=rx_port_id,
+                                         num_tx_ports=num_tx_ports)
+        pytest_assert(tx_port_id_list is not None, "Cannot find suitable TX ports")
 
-    # Instantiate peer ports in dut_port_config
-    dut_port_config = []
-    tx_dict = {str(tx_port_config.peer_port): []}
-    rx_dict = {str(rx_port_config.peer_port): []}
-    dut_port_config.append(tx_dict)
-    dut_port_config.append(rx_dict)
+    base_flow_config["rx_port_id"] = rx_port_id_list if num_rx_ports > 1 else rx_port_id
+    base_flow_config["tx_port_id"] = tx_port_id_list if num_tx_ports > 1 else tx_port_id_list[0]
+
+    tx_port_configs = [next((x for x in port_config_list if x.id == tx_id), None) for tx_id in tx_port_id_list]
+    rx_port_configs = [next((x for x in port_config_list if x.id == rx_id), None) for rx_id in rx_port_id_list]
+
+    base_flow_config["tx_port_config"] = tx_port_configs if num_tx_ports > 1 else tx_port_configs[0]
+    base_flow_config["rx_port_config"] = rx_port_configs if num_rx_ports > 1 else rx_port_configs[0]
+
+    dut_port_config = {"Tx": [], "Rx": []}
+
+    for tx_config in tx_port_configs:
+        tx_dict = {str(tx_config.peer_port): []}
+        dut_port_config["Tx"].append(tx_dict)
+
+    for rx_config in rx_port_configs:
+        rx_dict = {str(rx_config.peer_port): []}
+        dut_port_config["Rx"].append(rx_dict)
+
     base_flow_config["dut_port_config"] = dut_port_config
 
-    base_flow_config["tx_mac"] = tx_port_config.mac
-    if tx_port_config.gateway == rx_port_config.gateway and \
-       tx_port_config.prefix_len == rx_port_config.prefix_len:
-        """ If soruce and destination port are in the same subnet """
-        base_flow_config["rx_mac"] = rx_port_config.mac
+    if num_tx_ports == 1:
+        base_flow_config["tx_mac"] = tx_port_configs[0].mac
     else:
-        base_flow_config["rx_mac"] = tx_port_config.gateway_mac
+        base_flow_config["tx_mac"] = [config.mac for config in tx_port_configs]
 
-    base_flow_config["tx_port_name"] = testbed_config.ports[tx_port_id].name
-    base_flow_config["rx_port_name"] = testbed_config.ports[rx_port_id].name
+    if num_rx_ports == 1:
+        if tx_port_configs[0].gateway == rx_port_configs[0].gateway and \
+           tx_port_configs[0].prefix_len == rx_port_configs[0].prefix_len:
+            base_flow_config["rx_mac"] = rx_port_configs[0].mac
+        else:
+            base_flow_config["rx_mac"] = tx_port_configs[0].gateway_mac
+    else:
+        rx_macs = []
+        for rx_config in rx_port_configs:
+            if tx_port_configs[0].gateway == rx_config.gateway and \
+               tx_port_configs[0].prefix_len == rx_config.prefix_len:
+                rx_macs.append(rx_config.mac)
+            else:
+                rx_macs.append(tx_port_configs[0].gateway_mac)
+        base_flow_config["rx_mac"] = rx_macs
+
+    if num_tx_ports == 1:
+        base_flow_config["tx_port_name"] = testbed_config.ports[tx_port_id_list[0]].name
+    else:
+        base_flow_config["tx_port_name"] = [testbed_config.ports[tx_id].name for tx_id in tx_port_id_list]
+
+    if num_rx_ports == 1:
+        base_flow_config["rx_port_name"] = testbed_config.ports[rx_port_id].name
+    else:
+        base_flow_config["rx_port_name"] = [testbed_config.ports[rx_id].name for rx_id in rx_port_id_list]
 
     return base_flow_config
 
@@ -189,8 +242,21 @@ def generate_test_flows(testbed_config,
 
         """ Set flow port config values """
         dut_port_config = base_flow_config["dut_port_config"]
-        dut_port_config[0][str(base_flow_config["tx_port_config"].peer_port)].append(int(prio))
-        dut_port_config[1][str(base_flow_config["rx_port_config"].peer_port)].append(int(prio))
+
+        # Find the TX port config entry and append priority
+        tx_peer_port = str(base_flow_config["tx_port_config"].peer_port)
+        for tx_port_dict in dut_port_config["Tx"]:
+            if tx_peer_port in tx_port_dict:
+                tx_port_dict[tx_peer_port].append(int(prio))
+                break
+
+        # Find the RX port config entry and append priority
+        rx_peer_port = str(base_flow_config["rx_port_config"].peer_port)
+        for rx_port_dict in dut_port_config["Rx"]:
+            if rx_peer_port in rx_port_dict:
+                rx_port_dict[rx_peer_port].append(int(prio))
+                break
+
         base_flow_config["dut_port_config"] = dut_port_config
 
         # Save flow name to TX and RX port mapping for DUT
@@ -211,6 +277,7 @@ def generate_background_flows(testbed_config,
                               bg_flow_prio_list,
                               prio_dscp_map,
                               snappi_extra_params,
+                              number_of_streams=1,
                               flow_index=None):
     """
     Generate background configurations of flows. Test flows and background flows are also known as data flows.
@@ -244,7 +311,14 @@ def generate_background_flows(testbed_config,
         bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
         bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        eth, ipv4 = bg_flow.packet.ethernet().ipv4()
+        eth, ipv4, udp = bg_flow.packet.ethernet().ipv4().udp()
+        global UDP_PORT_START
+        src_port = UDP_PORT_START
+        UDP_PORT_START += number_of_streams
+        udp.src_port.increment.start = src_port
+        udp.src_port.increment.step = 1
+        udp.src_port.increment.count = number_of_streams
+
         eth.src.value = base_flow_config["tx_mac"]
         eth.dst.value = base_flow_config["rx_mac"]
         if pfcQueueGroupSize == 8:
@@ -434,7 +508,7 @@ def run_traffic(duthost,
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
-    switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"][1].values(), [])
+    switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"]["Tx"][0].values(), [])
     switch_rx_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
     switch_tx_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
     switch_device_results = None
@@ -694,7 +768,7 @@ def verify_in_flight_buffer_pkts(egress_duthost,
                       "Total TX bytes {} should exceed DUT buffer size {}".
                       format(tx_bytes_total, dut_buffer_size))
 
-        for peer_port, prios in dut_port_config[0].items():
+        for peer_port, prios in dut_port_config["Tx"][0].items():
             for prio in prios:
                 dropped_packets = get_pg_dropped_packets(egress_duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets > 0,
@@ -705,7 +779,7 @@ def verify_in_flight_buffer_pkts(egress_duthost,
                       "Total TX bytes {} should be smaller than DUT buffer size {}".
                       format(tx_bytes_total, dut_buffer_size))
 
-        for peer_port, prios in dut_port_config[0].items():
+        for peer_port, prios in dut_port_config["Tx"][0].items():
             for prio in prios:
                 dropped_packets = get_pg_dropped_packets(egress_duthost, peer_port, prio, asic_value)
                 pytest_assert(dropped_packets == 0,
@@ -734,7 +808,7 @@ def verify_pause_frame_count_dut(rx_dut,
     dut_port_config = snappi_extra_params.base_flow_config["dut_port_config"]
     pytest_assert(dut_port_config is not None, 'Flow port config is not provided')
 
-    for peer_port, prios in dut_port_config[1].items():  # PFC pause frames received on DUT's egress port
+    for peer_port, prios in dut_port_config["Rx"][0].items():  # PFC pause frames received on DUT's egress port
         for prio in prios:
             pfc_pause_rx_frames = get_pfc_frame_count(tx_dut, peer_port, prio, is_tx=False)
             # For now, all PFC pause test cases send out PFC pause frames from the TGEN RX port to the DUT TX port,
@@ -757,7 +831,7 @@ def verify_pause_frame_count_dut(rx_dut,
                     pytest_assert(pfc_pause_rx_frames > 0,
                                   "PFC pause frames should be received and counted in RX PFC counters for priority {}"
                                   .format(prio))
-    for peer_port, prios in dut_port_config[0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
+    for peer_port, prios in dut_port_config["Tx"][0].items():  # PFC pause frames sent by DUT's ingress port to TGEN
         for prio in prios:
             pfc_pause_tx_frames = get_pfc_frame_count(rx_dut, peer_port, prio, is_tx=True)
             if test_traffic_pause:
@@ -793,7 +867,7 @@ def verify_tx_frame_count_dut(duthost,
     test_flow_name_dut_tx_port_map = snappi_extra_params.base_flow_config["test_flow_name_dut_tx_port_map"]
 
     # RX frames on DUT must TX once DUT stops receiving PFC pause frames
-    for peer_port, _ in dut_port_config[1].items():
+    for peer_port, _ in dut_port_config["Rx"][0].items():
         # Collect metrics from TGEN once all flows have stopped
         test_flow_name = next((test_flow_name for test_flow_name, dut_tx_ports in test_flow_name_dut_tx_port_map.items()
                                if peer_port in dut_tx_ports), None)
@@ -832,7 +906,7 @@ def verify_rx_frame_count_dut(duthost,
     test_flow_name_dut_rx_port_map = snappi_extra_params.base_flow_config["test_flow_name_dut_rx_port_map"]
 
     # TX on TGEN is RX on DUT
-    for peer_port, _ in dut_port_config[0].items():
+    for peer_port, _ in dut_port_config["Tx"][0].items():
         # Collect metrics from TGEN once all flows have stopped
         test_flow_name = next((test_flow_name for test_flow_name, dut_rx_ports in test_flow_name_dut_rx_port_map.items()
                                if peer_port in dut_rx_ports), None)
@@ -865,7 +939,7 @@ def verify_unset_cev_pause_frame_count(duthost,
     set_class_enable_vec = snappi_extra_params.set_pfc_class_enable_vec
 
     if not set_class_enable_vec:
-        for peer_port, prios in dut_port_config[1].items():
+        for peer_port, prios in dut_port_config["Rx"][0].items():
             for prio in prios:
                 pfc_pause_rx_frames = get_pfc_frame_count(duthost, peer_port, prio)
                 pytest_assert(pfc_pause_rx_frames == 0,
@@ -912,7 +986,7 @@ def verify_egress_queue_frame_count(duthost,
                           "Egress queue frame count should not increase when test traffic is paused")
 
     if not set_class_enable_vec and not test_traffic_pause:
-        for peer_port, prios in dut_port_config[1].items():
+        for peer_port, prios in dut_port_config["Rx"][0].items():
             for prio in range(len(prios)):
                 total_egress_packets, _ = get_egress_queue_count(duthost, peer_port, prios[prio])
                 pytest_assert(total_egress_packets == test_tx_frames[prio],
@@ -1013,7 +1087,8 @@ def run_traffic_and_collect_stats(rx_duthost,
         else:
             dutport_list.append([snappi_extra_params.multi_dut_params.duthost2, m['peer_port']])
 
-    switch_tx_lossless_prios = sum(snappi_extra_params.base_flow_config_list[0]["dut_port_config"][1].values(), [])
+    rx_port_config_values = snappi_extra_params.base_flow_config_list[0]["dut_port_config"]["Rx"][0].values()
+    switch_tx_lossless_prios = sum(rx_port_config_values, [])
     # Generating list with lossless priorities starting with keyword 'prio_'
     prio_list = ['prio_{}'.format(num) for num in switch_tx_lossless_prios]
 
@@ -1056,9 +1131,10 @@ def run_traffic_and_collect_stats(rx_duthost,
         while retry > 0 and not stormed:
             for dut, port in dutport_list:
                 for pri in switch_tx_lossless_prios:
-                    if dut == tx_duthost:
-                        stormed = clear_pfc_counter_after_storm(dut, port, pri)
+                    stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
+                        clear_dut_pfc_counters(rx_duthost)
+                        clear_dut_pfc_counters(tx_duthost)
                         logger.info("PFC storm detected on {}:{}".format(dut.hostname, port))
                         break  # break inner for
                 if stormed:
@@ -1096,6 +1172,7 @@ def run_traffic_and_collect_stats(rx_duthost,
         f_stats = update_dict(m, f_stats, tgen_curr_stats(traf_metrics, flow_metrics, data_flow_names))
         for dut, port in dutport_list:
             f_stats = update_dict(m, f_stats, flatten_dict(get_interface_stats(dut, port)))
+            f_stats = update_dict(m, f_stats, flatten_dict(get_interface_counters_detailed(dut, port)))
             f_stats = update_dict(m, f_stats, flatten_dict(get_pfc_count(dut, port)))
             f_stats = update_dict(m, f_stats, flatten_dict(get_queue_count_all_prio(dut, port)))
 

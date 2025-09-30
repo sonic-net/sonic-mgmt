@@ -885,11 +885,27 @@ platform_tests/broadcom/test_ser.py:
       - "asic_type not in ['broadcom']"
       - "platform in ['x86_64-arista_720dt_48s']"
       - "asic_subtype in ['broadcom-dnx'] and https://github.com/sonic-net/sonic-mgmt/issues/7546"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17459 and hwsku in ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arista-7060X6-64DE-O128S2', 'Arista-7060X6-64DE-256x200G', 'Arista-7060X6-64PE', 'Arista-7060X6-64PE-64x400G', 'Arista-7060X6-64PE-O128S2', 'Arista-7060X6-64PE-256x200G', 'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-16PE-384C-O128S2-COPPER', 'Arista-7060X6-16PE-384C-O128S2']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20568 and 'Arista-7060X6-64PE-B' in hwsku"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20568 and 'Arista-7060X6-16PE-384C-B' in hwsku"
   xfail:
     reason: "Testcase consistently fails, CSP raised to follow up"
     conditions:
       - "release in ['202412','202503'] and 'Arista-7060X6' in hwsku"
+
+##############################################
+#####  cli/test_show_chassis_module.py  #####
+##############################################
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_midplane_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
+platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
+  skip:
+    reason: "Not supported on T2 single node topology"
+    conditions:
+      - "'t2_single_node' in topo_name"
 
 #######################################
 #####  cli/test_show_platform.py  #####
@@ -1055,7 +1071,14 @@ platform_tests/test_advanced_reboot.py:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "asic_type in ['vs']"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
+
+platform_tests/test_advanced_reboot.py::test_fast_reboot:
+  skip:
+    reason: "Skip for smartswitch topology"
+    conditions:
+      - "is_smartswitch==True"
+      - "'isolated' in topo_name"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
   skip:
@@ -1066,7 +1089,7 @@ platform_tests/test_advanced_reboot.py::test_fast_reboot_from_other_vendor:
       - "https://github.com/sonic-net/sonic-mgmt/issues/6794"
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot:
   skip:
@@ -1074,7 +1097,7 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and 't0' not in topo_name"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
       - "is_smartswitch==True"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
@@ -1083,15 +1106,16 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_mac_jump:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
 
 platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
   skip:
-    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 / Skip for smartswitch topology."
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
+      - "is_smartswitch==True"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
@@ -1102,7 +1126,7 @@ platform_tests/test_cont_warm_reboot.py:
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
 
 #######################################
 #####       test_intf_fec.py      #####
@@ -1121,15 +1145,6 @@ platform_tests/test_kdump.py:
     reason: "Not supported on Nokia-7215 platform"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
-
-#######################################
-########   test_link_down.py   ########
-#######################################
-platform_tests/test_link_down.py::test_link_down_on_sup_reboot:
-  skip:
-    reason: "Skip for non T2"
-    conditions:
-      - "topo_type not in ['t2']"
 
 #######################################
 ####  test_memory_exhaustion.py   #####
@@ -1222,7 +1237,7 @@ platform_tests/test_reboot.py::test_fast_reboot:
     conditions:
       - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
-      - "release in ['202412']"
+      - "'isolated' in topo_name"
       - "is_smartswitch==True"
   xfail:
     reason: "case failed and waiting for fix"
@@ -1249,6 +1264,7 @@ platform_tests/test_reboot.py::test_warm_reboot:
       - "topo_type in ['m0', 'mx', 'm1', 't1', 't2']"
       - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/16502"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
+      - "'isolated' in topo_name"
   xfail:
     reason: "case failed and waiting for fix"
     conditions:
@@ -1329,3 +1345,12 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+#######################################
+#####   test_platform_dpu.py   #####
+#######################################
+smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+  skip:
+    reason: "Test case is skipped on Nvidia smartswitch due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/19675"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/19675 and 'sn4280' in platform"

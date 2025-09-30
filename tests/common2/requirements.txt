@@ -13,10 +13,42 @@ pyenchant>=3.2.0
 # Additional dependencies that may be needed for the hooks
 black>=22.0.0
 mypy>=1.0.0
-reorder-python-imports>=3.9.0
-flake8>=5.0.0
+isort>=6.0.1
+flake8==6.0.0
 
 # Type stubs for better mypy support
 types-PyYAML
 types-six
 types-paramiko
+types-requests
+
+# Testing framework
+pytest>=6.0.0
+pytest-cov>=3.0.0
+pytest-ansible
+
+# Network libraries
+requests>=2.25.0
+netaddr
+scapy
+paramiko
+pysnmp
+
+# Data processing and templating
+jinja2
+PyYAML
+
+# Text processing and parsing
+tabulate
+six
+natsort
+
+# System management
+pexpect
+ansible
+
+# Reporting (allure-pytest includes allure-commons)
+allure-pytest
+
+# Coverage tools
+coverage>=6.0.0

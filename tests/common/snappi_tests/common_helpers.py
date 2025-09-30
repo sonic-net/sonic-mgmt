@@ -24,6 +24,8 @@ from random import getrandbits
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait_until
 
 
 def increment_ip_address(ip, incr=1):
@@ -255,16 +257,16 @@ def get_peer_snappi_chassis(conn_data, dut_hostname):
     dut_device_conn = device_conn[dut_hostname]
     peer_devices = [dut_device_conn[port]['peerdevice'] for port in dut_device_conn]
     peer_devices = list(set(peer_devices))
-    if len(peer_devices) == 1:
-        return peer_devices[0]
+    # in case there are other fanout devices (Arista, SONiC, etc) defined in the inventory file,
+    # try to filter out the other device based on the name for now.
+    peer_snappi_devices = list(filter(
+        lambda dut_name: ('ixia' in dut_name or 'snappi' in dut_name), peer_devices)
+    )
+
+    if len(peer_snappi_devices) == 1:
+        return peer_snappi_devices[0]
     else:
-        # in case there are other fanout devices (Arista, SONiC, etc) defined in the inventory file,
-        # try to filter out the other device based on the name for now.
-        peer_snappi_devices = list(filter(lambda dut_name: ('ixia' in dut_name), peer_devices))
-        if len(peer_snappi_devices) == 1:
-            return peer_snappi_devices[0]
-        else:
-            return None
+        return None
 
 
 def get_peer_port(conn_data, dut_hostname, dut_intf):
@@ -915,6 +917,16 @@ def sec_to_nanosec(secs):
     return secs * 1e9
 
 
+def check_pfc_counters(duthost, port, priority, is_tx=False):
+    if is_tx:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
+    else:
+        raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
+    if raw_out.split()[priority + 1].replace(',', '') == 'N/A':
+        return False
+    return True
+
+
 def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     """
     Get the PFC frame count for a given port and priority from SONiC CLI
@@ -926,14 +938,15 @@ def get_pfc_frame_count(duthost, port, priority, is_tx=False):
     Returns:
         int: PFC pause frame count
     """
+    pytest_assert(wait_until(120, 5, 0, check_pfc_counters, duthost, port, priority, is_tx),
+                  "Unable to fetch PFC counters from DUT")
     if is_tx:
         raw_out = duthost.shell("show pfc counters | sed -n '/Port Tx/,/^$/p' | grep {}".format(port))['stdout']
     else:
         raw_out = duthost.shell("show pfc counters | sed -n '/Port Rx/,/^$/p' | grep {}".format(port))['stdout']
 
-    pause_frame_count = raw_out.split()[priority + 1]
-
-    return int(pause_frame_count.replace(',', ''))
+    pause_frame_count = raw_out.split()[priority + 1].replace(',', '')
+    return int(pause_frame_count)
 
 
 def get_all_port_stats(duthost):
@@ -1195,6 +1208,32 @@ def get_interface_stats(duthost, port):
     i_stats[duthost.hostname][port]['tx_fail'] = tx_fail
 
     return i_stats
+
+
+def get_interface_counters_detailed(duthost, port):
+    """
+    Runs 'show interface counters detailed <interface>' on the device and parses the output.
+    Args:
+        duthost (Ansible host instance): device under test
+        port (str): interface name, e.g., 'Ethernet0'
+    Returns:
+        counters (dict): key-value pairs of interface counters, where key is the counter name
+                            and value is the counter value as a string.
+    """
+    cmd = f"show interface counters detailed {port}"
+    output = duthost.command(cmd)["stdout"]
+
+    counters = {}
+    for line in output.splitlines():
+        line = line.strip()
+        if not line:
+            continue
+        # Split on the last space in the line
+        parts = line.rsplit(' ', 1)
+        if len(parts) == 2:
+            key, value = parts
+            counters[key.strip()] = value.strip()
+    return counters
 
 
 def get_queue_count_all_prio(duthost, port):

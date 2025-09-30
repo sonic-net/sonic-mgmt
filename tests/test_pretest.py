@@ -3,6 +3,7 @@ import logging
 import os
 import pytest
 import random
+import re
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -221,7 +222,8 @@ def test_update_snappi_testbed_metadata(duthosts, tbinfo, request):
     Prepare metadata json for snappi tests, will be stored in metadata/snappi_tests/<tb>.json
     """
     is_ixia_testbed = "tgen" in (request.config.getoption("--topology") or "") \
-        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"]
+        or "tgen" in tbinfo["topo"]["name"] or "ixia" in tbinfo["topo"]["name"] \
+        or "nut" in tbinfo["topo"]["name"]
 
     pytest_require(is_ixia_testbed,
                    "Skip snappi metadata generation for non-tgen testbed")
@@ -375,15 +377,141 @@ def test_collect_pfc_pause_delay_params(duthosts, tbinfo):
         logger.warning('Unable to create file {}: {}'.format(filepath, e))
 
 
-def test_update_saithrift_ptf(request, ptfhost):
+def get_asic_and_branch_name(duthost):
+    """
+    Extract asic and branch_name from duthost.
+    Returns (asic, branch_name), or fails if not found.
+
+    Supported image version patterns:
+    1. Master: SONiC Software Version: SONiC.master.921927-18199d73f
+    2. Internal: SONiC Software Version: SONiC.internal.135691748-dbb8d29985
+    3. Official feature branch: SONiC Software Version: SONiC.20250510.14
+    4. Private image: SONiC Software Version: SONiC.20250902_202505_counters.135706687-5bc1f6cba6
+
+    For the first 3 types, strict pattern matching is applied and URL reconstruction will proceed.
+    For private images (type 4) or any unmatched patterns, 'private' is returned and URL remains unchanged.
+    """
+    output = duthost.shell("show version", module_ignore_errors=True)['stdout']
+    version_reg = re.compile(r"sonic software version: +([^\s]+)\s", re.IGNORECASE)
+    asic_reg = re.compile(r"asic: +([^\s]+)\s", re.IGNORECASE)
+
+    version = version_reg.findall(output)[0] if version_reg.search(output) else ""
+    # only broadcom, cisco-8000, mellanox support qos sai tests
+    asic = asic_reg.findall(output)[0] if asic_reg.search(output) else ""
+
+    # Strict pattern matching for official images
+    # Pattern 1: Master - SONiC.master.XXXXXX-XXXXXXXX
+    master_pattern = re.compile(r'^SONiC\.master\.\d+-[a-f0-9]+$', re.IGNORECASE)
+    if master_pattern.match(version):
+        branch_name = "master"
+    # Pattern 2: Internal - SONiC.internal.XXXXXXXXX-XXXXXXXXXX
+    elif re.match(r'^SONiC\.internal\.\d+-[a-f0-9]+$', version, re.IGNORECASE):
+        branch_name = "internal"
+    # Pattern 3: Official feature branch - SONiC.YYYYMMDD.XX
+    elif re.match(r'^SONiC\.\d{8}\.\d+$', version, re.IGNORECASE):
+        # Extract year/month from version string to determine branch
+        date_match = re.search(r'^SONiC\.(\d{4})(\d{2})\d{2}\.\d+$', version, re.IGNORECASE)
+        if date_match:
+            year, month = date_match.groups()
+            branch_name = f"internal-{year}{month}"
+        else:
+            # This should not happen if regex above matched, but fallback to private
+            branch_name = "private"
+    else:
+        # Pattern 4: Private image or any unmatched pattern
+        # No strict matching - anything else is considered private
+        # This includes patterns like: SONiC.20250902_202505_counters.135706687-5bc1f6cba6
+        branch_name = "private"
+
+    return asic, branch_name
+
+
+def get_debian_codename_from_syncd(duthost):
+    # Get debian codename from syncd container (not host OS)
+    # This applies to: master branch and internal branches >= 202405 (except 202411)
+    try:
+        # Try to get codename from syncd container
+        codename_cmd = (
+            "grep VERSION_CODENAME /etc/os-release | "
+            "cut -d= -f2 | tr -d '\"'"
+        )
+
+        syncd_codename_result = duthost.containers().syncd().random().exec(codename_cmd,
+                                                                           shell=True,
+                                                                           module_ignore_errors=True)
+        if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
+            return syncd_codename_result['stdout'].strip()
+        else:
+            pytest.fail("Failed to get debian codename from syncd container. RC: {}, Output: '{}'".format(
+                syncd_codename_result['rc'], syncd_codename_result['stdout']))
+    except Exception as e:
+        pytest.fail("Exception while getting debian codename from syncd container: {}".format(str(e)))
+
+
+def is_msft_url(url):
+    """
+    Check if the URL is a MSFT URL that should be reconstructed.
+    MSFT URLs contain specific patterns that indicate they are from MSFT build system.
+    Vendor URLs (like Arista) have completely different structure and should not be modified.
+    """
+    msft_patterns = [
+        "/mssonic-public-pipelines/",
+        "/pipelines/Networking-acs-buildimage-Official/"
+    ]
+    return any(pattern in url for pattern in msft_patterns)
+
+
+def test_update_saithrift_ptf(request, ptfhost, duthosts, enum_dut_hostname):
     '''
     Install the correct python saithrift package on the ptf
     '''
     py_saithrift_url = request.config.getoption("--py_saithrift_url")
     if not py_saithrift_url:
         pytest.skip("No URL specified for python saithrift package")
+
     pkg_name = py_saithrift_url.split("/")[-1]
     ptfhost.shell("rm -f {}".format(pkg_name))
+
+    # Check if this is a MSFT URL that should be reconstructed
+    # Vendor URLs (like Arista) have different structure and should not be modified
+    if is_msft_url(py_saithrift_url):
+        duthost = duthosts[enum_dut_hostname]
+
+        # This is a MSFT URL - proceed with reconstruction logic
+        asic, branch_name = get_asic_and_branch_name(duthost)
+
+        # Only reconstruct URL for official images (master, internal, internal-YYYYMM)
+        # Type 4: Private images keep original URL unchanged to let user handle URL correctness
+        if branch_name != "private":
+            # Apply special codename overrides for specific internal branches
+            if branch_name == "internal-202411" and asic != "mellanox":
+                # internal-202411 has saithrift URL hardcoded to bullseye for non-mellanox platform
+                debian_codename = "bullseye"
+            elif (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+                # For internal branches older than 202405, use the original URL without modification
+                # No need to get debian_codename as URL won't be modified
+                debian_codename = None
+            else:
+                debian_codename = get_debian_codename_from_syncd(duthost)
+
+            host_addr = py_saithrift_url.split("/")[2]  # can be IP or hostname
+
+            # Reconstruct MSFT URL based on branch
+            if branch_name == "master":
+                # Type 1: Master image - SONiC.master.XXXXXX-XXXXXXXX
+                base_url = "http://{}".format(host_addr)
+                py_saithrift_url = (f"{base_url}/mssonic-public-pipelines/"
+                                    f"Azure.sonic-buildimage.official.{asic}/master/{asic}/"
+                                    f"latest/target/debs/{debian_codename}/{pkg_name}")
+            elif not (branch_name.startswith("internal-") and branch_name < "internal-202405"):
+                # Type 2: Internal image - SONiC.internal.XXXXXXXXX-XXXXXXXXXX
+                # Type 3: Official feature branch image - SONiC.YYYYMMDD.XX (internal-YYYYMM)
+                base_url = "http://{}".format(host_addr)
+                py_saithrift_url = (f"{base_url}/pipelines/Networking-acs-buildimage-Official/"
+                                    f"{asic}/{branch_name}/latest/target/debs/{debian_codename}/{pkg_name}")
+            # For old internal branches (< internal-202405), use the original URL without modification
+    # If not MSFT URL (vendor URL), use it as-is without any reconstruction
+
     # Retry download of saithrift library
     retry_count = 5
     while retry_count > 0:
@@ -394,7 +522,7 @@ def test_update_saithrift_ptf(request, ptfhost):
         retry_count -= 1
 
     if result["failed"] or "OK" not in result["msg"]:
-        pytest.skip("Download failed/error while installing python saithrift package")
+        pytest.fail("Download failed/error while installing python saithrift package: {}".format(py_saithrift_url))
     ptfhost.shell("dpkg -i {}".format(os.path.join("/root", pkg_name)))
     # In 202405 branch, the switch_sai_thrift package is inside saithrift-0.9-py3.11.egg
     # We need to move it out to the correct location

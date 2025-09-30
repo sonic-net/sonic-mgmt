@@ -10,7 +10,8 @@ from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from tests.common.helpers.dut_utils import is_mellanox_fanout
-from tests.ip.ip_util import parse_interfaces, parse_rif_counters, sum_ifaces_counts, random_mac
+from tests.common.utilities import parse_rif_counters
+from tests.ip.ip_util import parse_interfaces, sum_ifaces_counts, random_mac
 
 
 pytestmark = [
