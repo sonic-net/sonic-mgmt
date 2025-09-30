@@ -11,19 +11,24 @@ SHORT_OPTION_ERROR = "Short options are not supported"
 INVALID_OPTION_TOKEN_ERROR = "Invalid option token: --"
 INVALID_LONG_OPTION_ERROR = "Invalid long option '--'"
 
+
 class OptionException(Exception):
     pass
 
+
 def has_special_char(text: str) -> bool:
     return "=" in text or "]" in text or "[" in text
+
 
 def escape_gnmi(text: str) -> str:
     # Escape only '/' → '\/'
     return text.replace("/", r"\/")
 
+
 class ShowCliToGnmiPathConverter:
     def __init__(self, tokens):
         self.tokens = tokens
+
 
     def parseLongOption(self, token: str):
         # --flag         -> ('flag', 'True')
@@ -44,6 +49,7 @@ class ShowCliToGnmiPathConverter:
             return name, escape_gnmi(value)
 
         return body, "True"
+
 
     def convert(self) -> str:
         tokens = self.tokens
@@ -76,6 +82,7 @@ class ShowCliToGnmiPathConverter:
         if not out:
             raise OptionException(NO_PATH_ERROR)
         return "".join(out)
+
 
 def main():
     parser = argparse.ArgumentParser(add_help=True)
@@ -111,6 +118,7 @@ def main():
         sys.exit(2)
 
     sys.exit(1 if had_error else 0)
+
 
 if __name__ == "__main__":
     main()
