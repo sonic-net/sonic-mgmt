@@ -1,5 +1,5 @@
 [duts]
-str3-smartswitch-01 ansible_host=10.1.1.3 ansible_user=cisco
+str3-smartswitch-01 ansible_host=10.1.1.3 ansible_user=cisco ansible_password=password
 
 [duts:vars]
 hwsku="Cisco-8102-28FH-DPU-O-T1"

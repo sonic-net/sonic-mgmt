@@ -320,10 +320,6 @@ def analyze_tcp_retries_resets(stats_client_result, stats_server_result):
 
 def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
 
-    collector = ContinuousMetricsCollector(collection_interval=1)
-    clientStat_req = api.metrics_request()
-    serverStat_req = api.metrics_request()
-
     error_threshold = 0.01  # noqa: F841
     MAX_CPS = 30000000
     MIN_CPS = 0
@@ -336,6 +332,11 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
     testRuns = []
 
     while ((MAX_CPS - MIN_CPS) > threshold):
+
+        collector = ContinuousMetricsCollector(collection_interval=1)
+        clientStat_req = api.metrics_request()
+        serverStat_req = api.metrics_request()
+
         test_result = ""
         logger.info(
             "----Test Iteration %d------------------------------------------------------------------"
