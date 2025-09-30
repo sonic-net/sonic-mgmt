@@ -448,7 +448,8 @@ def compress_expected_routes(expected_routes):
 def test_port_flap_with_syslog(
     request,
     duthost,
-    bgp_peers_info
+    bgp_peers_info,
+    setup_routes_before_test
 ):
     global current_test, test_results
     current_test = request.node.name
@@ -461,7 +462,6 @@ def test_port_flap_with_syslog(
     logger.info("Flapping port: %s", flapping_ports)
 
     startup_routes = get_all_bgp_ipv6_routes(duthost, True)
-    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
     nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
     expected_routes = deepcopy(startup_routes)
     remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
@@ -480,22 +480,24 @@ def test_port_flap_with_syslog(
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
 
-        duthost.shell('sudo logger -f /var/log/swss/sairedis.rec') # merge sairedis.rec to syslog
+        duthost.shell('sudo logger -f /var/log/swss/sairedis.rec')
         duthost.shell('sudo awk "/%s/ {found=1; next} found" %s > %s' % (LOG_STAMP, '/var/log/syslog', TMP_SYSLOG_FILEPATH))
 
-        last_group_update = duthost.shell('sudo cat %s | grep "|C|SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER||" | tail -n 1' % TMP_SYSLOG_FILEPATH)['stdout']
+        last_group_update = duthost.shell('sudo cat %s | grep "|C|SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER||" | tail -n 1'
+                                          % TMP_SYSLOG_FILEPATH)['stdout']
         last_group_update_time_str = re.search(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+', last_group_update).group(0)
         last_group_update_time = datetime.datetime.strptime(last_group_update_time_str, "%Y-%m-%d.%H:%M:%S.%f")
 
-        port_shut_log = duthost.shell('sudo cat %s | grep "Configure %s admin status to down" | tail -n 1' % (TMP_SYSLOG_FILEPATH, flapping_ports[0]))['stdout']
+        port_shut_log = duthost.shell('sudo cat %s | grep "Configure %s admin status to down" | tail -n 1'
+                                      % (TMP_SYSLOG_FILEPATH, flapping_ports[0]))['stdout']
         port_shut_time_str = " ".join(port_shut_log.split()[:4])
         port_shut_time = datetime.datetime.strptime(port_shut_time_str, "%Y %b %d %H:%M:%S.%f")
 
         time_gap = (last_group_update_time - port_shut_time).total_seconds()
         if time_gap > MAX_CONVERGENCE_TIME:
-            pytest.fail("Nexthop group update is too late after port shut down, from port shut to last group update is %s seconds" % time_gap)
+            pytest.fail("Time is too long, from port shut to last group update is %s seconds" % time_gap)
         logger.info("Time difference between port shut and last nexthop group update is %s seconds", time_gap)
-        test_results[current_test] = "Time difference between port shut and last nexthop group update is %s seconds" % time_gap
+        test_results[current_test] = "Time between port shut and last nexthop group update is %s seconds" % time_gap
     finally:
         duthost.no_shutdown_multiple(flapping_ports)
 
