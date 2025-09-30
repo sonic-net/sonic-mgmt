@@ -2,7 +2,6 @@ import json
 import time
 import logging
 import pytest
-from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
@@ -16,6 +15,7 @@ VXLAN_SRC_IP = "10.1.0.32"
 pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
+
 
 def get_cfg_facts(duthost):
     # return config db contents(running-config)
@@ -31,7 +31,8 @@ def apply_config_to_dut(duthost, config, cfg_type):
         json.dump(config, f, indent=4)
 
     duthost.copy(src=config_path, dest=config_path)
-    duthost.shell(f"sonic-cfggen -j {config_path} --write-to-db")
+    result = duthost.shell(f"sonic-cfggen -j {config_path} --write-to-db")
+    assert result["rc"] == 0, f"Failed to apply config {config_path}: {result['stderr']}"
 
 
 def generate_ip_pair(vnet_id, iface_index):
@@ -118,9 +119,12 @@ def configure_neighbor(nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn, cou
     else:
         for nbr in nbrhosts:
             nbrhosts[nbr].shell(
-                "iptables -nL BGPSACL || iptables -N BGPSACL; "
-                "iptables -C BGP -s 10.1.0.0/16 -j BGPSACL || "
-                "iptables -I BGP 1 -s 10.1.0.0/16 -j BGPSACL"
+                "(iptables-save | grep -q ':EOS_BGP' && "
+                "(iptables -C EOS_BGP -s 10.1.0.0/16 -j EOS_BGPSACL || "
+                "iptables -I EOS_BGP 1 -s 10.1.0.0/16 -j EOS_BGPSACL)) || "
+                "(iptables-save | grep -q ':BGP' && "
+                "(iptables -C BGP -s 10.1.0.0/16 -j BGPSACL || "
+                "iptables -I BGP 1 -s 10.1.0.0/16 -j BGPSACL))"
             )
 
     for vnet_id in range(1, count + 1):
