@@ -1,0 +1,76 @@
+# Set hostname first
+sudo config hostname SD7-DC2-LEAF1
+
+# Intra-DC interfaces (IPv6 link-local only)
+sudo config interface ipv6 enable use-link-local-only Ethernet1_1
+sudo config interface ipv6 enable use-link-local-only Ethernet1_2
+
+# Host-facing interface (access port)
+sudo config interface startup Ethernet1_12
+sudo config interface ip add Loopback0 fd28::233:d0c6:fed7/128
+sudo config vlan add 10
+sudo config vlan member add -u 10 Ethernet1_12
+sudo config vxlan add vxlan-local fd28::233:d0c6:fed7
+sudo config vxlan evpn_nvo add NVO vxlan-local
+sudo config vxlan map add vxlan-local 10 7010
+sudo counterpoll tunnel enable
+sudo counterpoll tunnel interval 2000
+sudo config interface ip add Vlan10 10.212.10.10/24
+sudo config interface ip add Vlan10 10:212:10::10/64
+sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
+sudo config vlan static-anycast-gateway enable 10
+vtysh
+debug zebra kernel
+debug zebra kernel msgdump
+debug zebra rib
+debug zebra rib detailed
+debug zebra vxlan
+debug zebra evpn mh mac
+debug bgp evpn mh route
+debug bgp evpn mh es
+debug bgp zebra
+debug zebra evpn mh neigh
+debug zebra dplane detailed
+config t
+log stdout
+log syslog
+hostname SD7-DC2-LEAF1
+evpn mh redirect-off
+router bgp 65107
+bgp router-id 100.100.100.7
+no bgp ebgp-requires-policy
+no bgp default ipv4-unicast
+bgp disable-ebgp-connected-route-check
+bgp bestpath as-path multipath-relax
+neighbor OVERLAY peer-group
+neighbor OVERLAY remote-as external
+neighbor OVERLAY disable-connected-check
+neighbor OVERLAY ebgp-multihop 255
+neighbor OVERLAY update-source Loopback0
+neighbor TRANSIT_DC peer-group
+neighbor TRANSIT_DC remote-as external
+neighbor TRANSIT_DC ebgp-multihop 1
+neighbor fd28::233:d0c6:fed3 peer-group OVERLAY
+neighbor fd28::233:d0c6:fed3 description "dc2-gw1-sd3-evpn"
+
+# Intra-DC Transit Neighbors (single interface to SD3 and one to full spine with interface names in descriptions)
+neighbor Ethernet1_2 interface peer-group TRANSIT_DC
+neighbor Ethernet1_2 description "dc2-gw1-sd3-1_2"
+neighbor Ethernet1_5 interface peer-group TRANSIT_DC
+neighbor Ethernet1_5 description "dc2-spine-sd1-1_5"
+address-family ipv4 unicast
+redistribute connected
+neighbor TRANSIT_DC activate
+exit-address-family
+address-family ipv6 unicast
+redistribute connected
+neighbor TRANSIT_DC activate
+exit-address-family
+address-family l2vpn evpn
+no use-es-l3nhg
+neighbor OVERLAY activate
+advertise-all-vni
+advertise ipv4 unicast
+advertise ipv6 unicast
+exit-address-family
+exit

@@ -1,0 +1,91 @@
+# SD6 Complete Configuration (DC1 Leaf2)
+
+# Set hostname first
+sudo config hostname SD6-DC1-LEAF2
+
+# SONiC Configuration
+# Intra-DC interfaces (IPv6 link-local only)
+sudo config interface ipv6 enable use-link-local-only Ethernet1_1
+sudo config interface ipv6 enable use-link-local-only Ethernet1_2
+sudo config interface ipv6 enable use-link-local-only Ethernet1_5
+sudo config interface ipv6 enable use-link-local-only Ethernet1_6
+
+# Host-facing interface (access port)
+sudo config interface startup Ethernet1_13
+sudo config interface ip add Loopback0 fd27::233:d0c6:fed6/128
+sudo config vlan add 10
+sudo config portchannel add PortChannel2
+sudo config portchannel member add PortChannel2 Ethernet1_13
+sudo config vlan member add -u 10 PortChannel2
+sudo config vxlan add vxlan-local fd27::233:d0c6:fed6
+sudo config vxlan evpn_nvo add NVO vxlan-local
+sudo config vxlan map add vxlan-local 10 5010
+sudo counterpoll tunnel enable
+sudo counterpoll tunnel interval 2000
+sudo config interface ip add Vlan10 10.212.10.10/24
+sudo config interface ip add Vlan10 10:212:10::10/64
+sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
+sudo config vlan static-anycast-gateway enable 10
+sudo config interface sys-mac add PortChannel2 00:44:33:22:11:00
+sudo config interface evpn-esi add PortChannel2 auto-system-mac
+vtysh
+debug zebra kernel
+debug zebra kernel msgdump
+debug zebra rib
+debug zebra rib detailed
+debug zebra vxlan
+debug zebra evpn mh mac
+debug bgp evpn mh route
+debug bgp evpn mh es
+debug bgp zebra
+debug zebra evpn mh neigh
+debug zebra dplane detailed
+conf t
+log stdout
+log syslog
+hostname SD6-DC1-LEAF2
+evpn mh redirect-off
+router bgp 65106
+bgp router-id 100.100.100.6
+no bgp ebgp-requires-policy
+no bgp default ipv4-unicast
+bgp disable-ebgp-connected-route-check
+bgp bestpath as-path multipath-relax
+neighbor OVERLAY peer-group
+neighbor OVERLAY remote-as external
+neighbor OVERLAY disable-connected-check
+neighbor OVERLAY ebgp-multihop 255
+neighbor OVERLAY update-source Loopback0
+neighbor TRANSIT_DC peer-group
+neighbor TRANSIT_DC remote-as external
+neighbor TRANSIT_DC ebgp-multihop 1
+neighbor fd27::233:d0c6:fed1 peer-group OVERLAY
+neighbor fd27::233:d0c6:fed1 description "dc1-gw1-sd1-evpn"
+neighbor fd27::233:d0c6:fed2 peer-group OVERLAY
+neighbor fd27::233:d0c6:fed2 description "dc1-gw2-sd2-evpn"
+neighbor fd27::233:d0c6:fed5 peer-group OVERLAY
+neighbor fd27::233:d0c6:fed5 description "dc1-leaf1-sd5-evpn"
+neighbor Ethernet1_1 interface peer-group TRANSIT_DC
+neighbor Ethernet1_1 description "dc1-gw1-sd1-1_1"
+neighbor Ethernet1_2 interface peer-group TRANSIT_DC
+neighbor Ethernet1_2 description "dc1-gw1-sd1-1_2"
+neighbor Ethernet1_5 interface peer-group TRANSIT_DC
+neighbor Ethernet1_5 description "dc1-gw2-sd2-1_5"
+neighbor Ethernet1_6 interface peer-group TRANSIT_DC
+neighbor Ethernet1_6 description "dc1-gw2-sd2-1_6"
+address-family ipv4 unicast
+redistribute connected
+neighbor TRANSIT_DC activate
+exit-address-family
+address-family ipv6 unicast
+redistribute connected
+neighbor TRANSIT_DC activate
+exit-address-family
+address-family l2vpn evpn
+no use-es-l3nhg
+neighbor OVERLAY activate
+advertise-all-vni
+advertise ipv4 unicast
+advertise ipv6 unicast
+exit-address-family
+exit

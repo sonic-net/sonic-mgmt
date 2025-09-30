@@ -1,0 +1,158 @@
+# SD4 Complete Configuration (DC3 Spine + DCI Gateway)
+# Based on SD3 configuration with DC3 specific parameters
+
+# Set hostname first
+sudo config hostname SD4-DC3-GW1
+
+# ================================
+# SONiC Configuration  
+# ================================
+
+# Intra-DC interfaces (IPv6 link-local only)
+sudo config interface ipv6 enable use-link-local-only Ethernet1_1
+sudo config interface ipv6 enable use-link-local-only Ethernet1_2
+
+# Inter-DC interfaces (IPv4 + IPv6 link-local)
+sudo config interface startup Ethernet1_8
+sudo config interface startup Ethernet1_9
+sudo config interface startup Ethernet1_10
+sudo config interface startup Ethernet1_11
+sudo config interface ip add Ethernet1_8 51.54.1.54/24
+sudo config interface ip add Ethernet1_9 51.54.2.54/24
+sudo config interface ip add Ethernet1_10 52.54.1.54/24
+sudo config interface ip add Ethernet1_11 52.54.2.54/24
+sudo config interface ip add Ethernet1_12 53.54.1.54/24
+sudo config interface ip add Ethernet1_13 53.54.2.54/24
+
+# Loopback Interfaces
+sudo config interface ip add Loopback0 fd29::233:d0c6:fed4/128
+sudo config interface ip add Loopback0 200.200.200.4/32
+
+# DCI Loopback (IPv4 for inter-DC)
+sudo config interface ip add Loopback100 40.40.40.40/32
+sudo config interface ip add Loopback11 103.103.103.103/32
+
+# VXLAN Configuration
+sudo config vlan add 10
+sudo config vxlan add vxlan-local fd29::233:d0c6:fed4
+sudo config vxlan evpn_nvo add NVO vxlan-local
+sudo config vxlan add vxlan-remote 103.103.103.103
+sudo config vxlan evpn_nvo add NVO vxlan-remote
+sudo config vxlan map add vxlan-local 10 8010  
+sudo config vxlan map add vxlan-remote 10 5011
+sudo counterpoll tunnel enable
+sudo counterpoll tunnel interval 2000
+
+# ================================
+# FRR BGP Configuration
+# ================================
+
+vtysh
+debug zebra kernel
+debug zebra kernel msgdump
+debug zebra rib
+debug zebra rib detailed
+debug zebra vxlan
+debug zebra evpn mh mac
+debug bgp evpn mh route
+debug bgp evpn mh es
+debug bgp zebra
+debug zebra evpn mh neigh
+debug zebra dplane detailed
+configure terminal
+log stdout
+log syslog
+hostname SD4-DC3-GW1
+
+router bgp 65004
+bgp router-id 200.200.200.4
+no bgp ebgp-requires-policy
+no bgp default ipv4-unicast
+bgp disable-ebgp-connected-route-check
+bgp bestpath as-path multipath-relax
+
+# Peer Groups for Intra-DC (IPv6)
+neighbor TRANSIT_DC peer-group
+neighbor TRANSIT_DC remote-as external
+neighbor TRANSIT_DC ebgp-multihop 1
+
+# Peer Groups for Inter-DC (IPv4)
+neighbor TRANSIT_WAN peer-group
+neighbor TRANSIT_WAN remote-as external
+neighbor TRANSIT_WAN ebgp-multihop 1
+
+# Peer Groups for Intra-DC EVPN
+neighbor OVERLAY_DC peer-group
+neighbor OVERLAY_DC remote-as external
+neighbor OVERLAY_DC disable-connected-check
+neighbor OVERLAY_DC ebgp-multihop 255
+neighbor OVERLAY_DC update-source Loopback0
+neighbor OVERLAY_DC domain vxlan-local
+neighbor OVERLAY_DC reoriginate vxlan-remote
+
+# Peer Groups for Inter-DC EVPN
+neighbor OVERLAY_WAN peer-group
+neighbor OVERLAY_WAN remote-as external
+neighbor OVERLAY_WAN disable-connected-check
+neighbor OVERLAY_WAN ebgp-multihop 255
+neighbor OVERLAY_WAN update-source Loopback100
+neighbor OVERLAY_WAN domain vxlan-remote
+neighbor OVERLAY_WAN reoriginate vxlan-local
+
+# Intra-DC Neighbors (IPv6)
+neighbor fd29::233:d0c6:fed8 peer-group OVERLAY_DC
+neighbor fd29::233:d0c6:fed8 remote-as 65108
+neighbor fd29::233:d0c6:fed8 description "dc3-leaf1-sd8-evpn"
+
+# Intra-DC Transit Neighbors (Both physical interfaces to SD8)
+neighbor Ethernet1_1 interface peer-group TRANSIT_DC
+neighbor Ethernet1_1 description "dc3-leaf1-sd8-1_1"
+neighbor Ethernet1_2 interface peer-group TRANSIT_DC
+neighbor Ethernet1_2 description "dc3-leaf1-sd8-1_2"
+
+# Inter-DC Neighbors (IPv4 DCI Loopbacks)
+neighbor 10.10.10.10 peer-group OVERLAY_WAN
+neighbor 10.10.10.10 description "dc1-gw1-evpn-sd1"
+neighbor 20.20.20.20 peer-group OVERLAY_WAN
+neighbor 20.20.20.20 description "dc1-gw2-evpn-sd2"
+neighbor 30.30.30.30 peer-group OVERLAY_WAN
+neighbor 30.30.30.30 description "dc2-gw1-evpn-sd3"
+
+# WAN Transit Neighbors (IPv4 Physical - Both links to each DC)
+neighbor 51.54.1.51 peer-group TRANSIT_WAN
+neighbor 51.54.1.51 description "dc1-gw1-sd1-1_8"  
+neighbor 51.54.2.51 peer-group TRANSIT_WAN
+neighbor 51.54.2.51 description "dc1-gw1-sd1-1_9"
+neighbor 52.54.1.52 peer-group TRANSIT_WAN
+neighbor 52.54.1.52 description "dc1-gw2-sd2-1_10"
+neighbor 52.54.2.52 peer-group TRANSIT_WAN
+neighbor 52.54.2.52 description "dc1-gw2-sd2-1_11"
+neighbor 53.54.1.53 peer-group TRANSIT_WAN
+neighbor 53.54.1.53 description "dc2-gw1-sd4-1_12"
+neighbor 53.54.2.53 peer-group TRANSIT_WAN
+neighbor 53.54.2.53 description "dc2-gw1-sd4-1_13"
+
+# Address Families
+address-family ipv4 unicast
+redistribute connected
+neighbor TRANSIT_WAN activate
+neighbor OVERLAY_WAN activate
+network 200.200.200.4/32
+network 40.40.40.40/32
+exit-address-family
+
+address-family ipv6 unicast
+redistribute connected
+neighbor TRANSIT_DC activate
+exit-address-family
+
+address-family l2vpn evpn
+no use-es-l3nhg
+neighbor OVERLAY_DC activate
+neighbor OVERLAY_WAN activate
+advertise-all-vni
+advertise ipv4 unicast
+advertise ipv6 unicast
+exit-address-family
+exit
+exit

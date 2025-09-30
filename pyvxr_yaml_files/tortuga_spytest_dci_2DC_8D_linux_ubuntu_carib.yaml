@@ -22,9 +22,11 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
+        ConfigS1NplPath: /auto/vxr1/sonic-images/yucgu/202405/npl
+        ConfigS1NpsuiteVer: 1.184.1  
     linux_password: cisco123
     linux_username: cisco
-    onie-install: /auto/vxr1/sonic-images/yadeng/sonic-cisco-8000.bin.202405c 
+    onie-install:  /auto/vxr1/sonic-images/mrghosh/sonic-cisco-8000_dci_9_24.bin
     os_type: sonic
     memory: 12GB
     vcpu: 8
@@ -148,7 +150,4 @@ connections:
       - HOST3.eth1
     hub16:
       - SD8.Ethernet12
-      - HOST3.eth2
-    hub17:
-      - SD8.Ethernet13
       - HOST4.eth1

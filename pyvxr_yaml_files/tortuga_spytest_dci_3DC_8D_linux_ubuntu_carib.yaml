@@ -22,9 +22,11 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
+        ConfigS1NplPath: /auto/vxr1/sonic-images/yucgu/202405/npl
+        ConfigS1NpsuiteVer: 1.184.1  
     linux_password: cisco123
     linux_username: cisco
-    onie-install: /auto/vxr1/sonic-images/yadeng/sonic-cisco-8000.bin.202405c 
+    onie-install:  /auto/vxr1/sonic-images/mrghosh/sonic-cisco-8000_dci_9_24.bin
     os_type: sonic
     memory: 12GB
     vcpu: 8
@@ -42,6 +44,9 @@ devices:
   SD3:
       <<: *sonic_router
 
+  SD4:
+      <<: *sonic_router
+
   SD5:
       <<: *sonic_router
 
@@ -51,6 +56,8 @@ devices:
   SD7:
       <<: *sonic_router
 
+  SD8:
+      <<: *sonic_router
 
   HOST1: &host
     data_ports:
@@ -93,6 +100,7 @@ devices:
 
 connections:
   ovs_hubs:
+    # DC1 Intra-fabric (SD1/SD2 <-> SD5/SD6) - Same for both 6D and 8D
     hub0:
       - SD1.Ethernet[0..1]
       - SD5.Ethernet[0..1]
@@ -105,24 +113,51 @@ connections:
     hub3:
       - SD2.Ethernet[4..5]
       - SD6.Ethernet[4..5]
+    
+    # DC2 Intra-fabric (SD3 <-> SD7) - Same for both 6D and 8D
     hub4:
       - SD3.Ethernet[0..1]
       - SD7.Ethernet[0..1]
-    hub8:
+    
+    # DC1-DC2 Inter-DC WAN links - Same for both 6D and 8D
+    hub6:
       - SD1.Ethernet[7..8]
       - SD3.Ethernet[7..8]
-    hub10:
+    hub8:
       - SD2.Ethernet[7..8]
       - SD3.Ethernet[9..10]
-    hub12:
+    
+    # DC3 Intra-fabric (SD4 <-> SD8) - Only for 8D topology
+    hub5:
+      - SD4.Ethernet[0..1]
+      - SD8.Ethernet[0..1]
+    
+    # DC1-DC3 Inter-DC WAN links - Only for 8D topology
+    hub7:
+      - SD1.Ethernet[9..10]
+      - SD4.Ethernet[7..8]
+    hub9:
+      - SD2.Ethernet[9..10]
+      - SD4.Ethernet[9..10]
+    
+    # DC2-DC3 Inter-DC WAN links - Only for 8D topology
+    hub10:
+      - SD3.Ethernet[11..12]
+      - SD4.Ethernet[11..12]
+    
+    # Host connections - Consistent for both topologies
+    hub11:
       - SD5.Ethernet12
       - HOST1.eth1
-    hub13:
+    hub12:
       - SD5.Ethernet13
       - HOST2.eth1
-    hub14:
+    hub13:
       - SD6.Ethernet12
       - HOST2.eth2
-    hub15:
+    hub14:
       - SD7.Ethernet12
       - HOST3.eth1
+    hub15:
+      - SD8.Ethernet12
+      - HOST4.eth1
