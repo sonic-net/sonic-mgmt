@@ -73,8 +73,7 @@ class ShowCliToGnmiPathConverter:
             if has_special_char(tok):
                 raise ValueError("Invalid characters inside of non option")
 
-            if out:
-                out.append("/")
+            out.append("/")
             out.append(escape_gnmi(tok))
 
         if not out:
