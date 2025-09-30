@@ -29,7 +29,6 @@ class ShowCliToGnmiPathConverter:
     def __init__(self, tokens):
         self.tokens = tokens
 
-
     def parseLongOption(self, token: str):
         # --flag         -> ('flag', 'True')
         # --key=value    -> ('key',  'value')
@@ -49,7 +48,6 @@ class ShowCliToGnmiPathConverter:
             return name, escape_gnmi(value)
 
         return body, "True"
-
 
     def convert(self) -> str:
         tokens = self.tokens
