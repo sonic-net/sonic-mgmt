@@ -187,3 +187,41 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
         logging.error(result)
 
     assert not result_list, "One or more show platform npu commands failed {}".format(result_list)
+
+# Test for 'show platform npu packet-path CLI using pre-programmed IPv6 route'
+def test_show_platform_npu_packet_path_ipv6(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of 'show platform npu packet-path -dip 20c1:bf8:0:80:: -sif PortChannel101 --ipv6'
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    check_dshell_client(duthost)
+    # Check if the IPv6 route exists
+    route_check_cmd = "ip -6 route show | grep '20c1:bf8:0:80::'"
+    route_result = duthost.shell(route_check_cmd, module_ignore_errors=True)
+    if not route_result["stdout"].strip():
+        logging.info("IPv6 route 20c1:bf8:0:80:: not present on DUT, skipping CLI test.")
+        return
+    cmd = "sudo show platform npu packet-path -dip 20c1:bf8:0:80:: -sif PortChannel101 --ipv6"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    logging.info(result["stdout"])
+    assert result is not None, f"No output for CLI: {cmd}"
+    assert "Traceback" not in result["stdout"], f"Traceback found in CLI: {cmd}"
+
+# Test for 'show platform npu packet-path CLI using pre-programmed IPv4 route'
+def test_show_platform_npu_packet_path_ipv4(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    @summary: Verify output of 'show platform npu packet-path -dip 193.11.32.128 -sif PortChannel101 --ipv4'
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    check_dshell_client(duthost)
+    # Check if the IPv4 route exists
+    route_check_cmd = "ip route show | grep '193.11.32.128'"
+    route_result = duthost.shell(route_check_cmd, module_ignore_errors=True)
+    if not route_result["stdout"].strip():
+        logging.info("IPv4 route 193.11.32.128 not present on DUT, skipping CLI test.")
+        return
+    cmd = "sudo show platform npu packet-path -dip 193.11.32.128 -sif PortChannel101 --ipv4"
+    result = duthost.shell(cmd, module_ignore_errors=True)
+    logging.info(result["stdout"])
+    assert result is not None, f"No output for CLI: {cmd}"
+    assert "Traceback" not in result["stdout"], f"Traceback found in CLI: {cmd}"
