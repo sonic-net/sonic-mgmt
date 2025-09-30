@@ -1,0 +1,8 @@
+#######################################
+#####test_po_voq.py #####
+#######################################
+pc/test_po_voq.py:
+  skip:
+    reason: "Skipped as the test applies to chassis only"
+    conditions:
+      - "is_chassis==False"
