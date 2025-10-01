@@ -252,7 +252,7 @@ acl/test_acl.py::TestAclWithPortToggle::test_udp_source_ip_match_dropped[ipv6-eg
 
 acl/test_acl.py::TestAclWithReboot:
   skip:
-    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds"
+    reason: "Skip in t1-lag KVM test due to test time too long and t0 would cover this testbeds, or for isolated-v6 topology"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['t1'] and asic_type in ['vs']"
