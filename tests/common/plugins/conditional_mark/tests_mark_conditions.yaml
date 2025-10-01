@@ -53,6 +53,10 @@ acl/custom_acl_table/test_custom_acl_table.py:
     conditions:
       - "release in ['201811', '201911', '202012']"
       - "'dualtor' in topo_name"
+  xfail:
+    reason: "Test case skipped due to issue: https://github.com/sonic-net/sonic-mgmt/issues/18061"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18061 and 't0-isolated-d32u32s2' in topo_name"
 
 #######################################
 #####            acl              #####
@@ -3535,9 +3539,11 @@ route/test_default_route.py::test_default_route_set_src:
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
   xfail:
-    reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need add support for IPv6-only; or due to https://github.com/sonic-net/sonic-mgmt/issues/18061"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/18061 and ('t0-isolated-d16u16s2' in topo_name or 't0-isolated-d32u32s2' in topo_name)"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
