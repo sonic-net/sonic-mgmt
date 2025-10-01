@@ -672,6 +672,8 @@ def run_traffic(duthost,
     ptype = "--snappi_macsec" in sys.argv
     if ptype:
         ixnet = api._ixnetwork
+        dp = ixnet.Topology.find().DeviceGroup.find().Ethernet.find().Mka.find().DelayProtect
+        dp.Single(False)
         for ti in ixnet.Traffic.TrafficItem.find():
             ti.EnableMacsecEgressOnlyAutoConfig = False
             ti.Tracking.find()[0].TrackBy = []
@@ -712,6 +714,19 @@ def run_traffic(duthost,
         for row in protocolsSummary.Rows:
             if row['Sessions Not Started'] != '0' or row['Sessions Down'] != '0':
                 pytest_assert(False, "Not all protocol sessions are up")
+        rx_dut_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
+        if duthost.facts["num_asic"] > 1:
+            asic_value = duthost.get_port_asic_instance(rx_dut_port).namespace
+            for i in range(7):
+                address = config.devices[i].ethernets[0].ipv4_addresses[0].address
+                duthost.command(f"sudo ip netns exec {asic_value} ping {address} -c 2")
+                logger.info(f"sudo ip netns exec {asic_value} ping {address} -c 2")
+        else:
+            for i in range(7):
+                address = config.devices[i].ethernets[0].ipv4_addresses[0].address
+                duthost.command(f"sudo ping {address} -c 2 \n")
+                logger.info(f"sudo ping {address} -c 2")
+
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
     switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"]["Tx"][0].values(), [])
@@ -733,10 +748,20 @@ def run_traffic(duthost,
         clear_dut_que_counters(host)
         clear_dut_pfc_counters(host)
 
-    logger.info("Starting transmit on all flows ...")
-    cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
-    api.set_control_state(cs)
+    if not ptype:
+        logger.info("Starting transmit on all flows ...")
+        cs = api.control_state()
+        cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+        api.set_control_state(cs)
+    else:
+        print('Generating Traffic Item')
+        trafficItems = ixnet.Traffic.TrafficItem.find()
+        for trafficItem in trafficItems:
+            trafficItem.Generate()
+        print('Applying Traffic')
+        ixnet.Traffic.Apply()
+        print('Starting Traffic')
+        ixnet.Traffic.StartStatelessTrafficBlocking()
 
     if snappi_extra_params.reboot_type:
         logger.info(f"Issuing a {snappi_extra_params.reboot_type} reboot on the dut {duthost.hostname}")
