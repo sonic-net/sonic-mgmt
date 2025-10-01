@@ -668,7 +668,6 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
         pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]),
                   'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
 
-    
     yield connection
     # Cleanup bgp monitor
     asichost.run_sonic_db_cli_cmd("CONFIG_DB DEL 'BGP_MONITORS|{}'".format(peer_addr))
