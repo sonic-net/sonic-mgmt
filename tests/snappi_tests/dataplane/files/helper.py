@@ -250,7 +250,7 @@ def create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params):
             layer1.auto_negotiation.rs_fec = port_data['fec']
             layer1.auto_negotiation.link_training = False
             layer1.auto_negotiate = port_data['autoneg']
-            if pconfig['is_rdma']:
+            if pconfig.get("is_rdma", False):
                 pfc = layer1.flow_control.ieee_802_1qbb
                 pfc.pfc_delay = 0
                 if pfcQueueGroupSize == 8:
@@ -283,7 +283,7 @@ def create_snappi_config(snappi_api, get_snappi_ports):
                 )
                 snappi_obj_handles[role]["ip"].append(ip_layer.name)
 
-                if pconfig['protocol_type'] == "bgp":
+                if pconfig.get("protocol_type", False) and pconfig['protocol_type'] == "bgp":
                     bgp = device.bgp
                     bgp.router_id = port_data["ipGateway"] if is_ipv4 else '1.1.1.1'
                     iface = bgp.ipv4_interfaces.add() if is_ipv4 else bgp.ipv6_interfaces.add()
@@ -294,13 +294,13 @@ def create_snappi_config(snappi_api, get_snappi_ports):
                         peer_address=port_data["ipGateway"],
                         as_number=port_data["asn"]
                     )
-                    if pconfig['network_group'] and 'route_ranges' in pconfig:
-                        route_range = pconfig['route_ranges']
+
+                    if pconfig.get("route_ranges", []):
                         if is_ipv4:
-                            routes = peer.v4_routes.add(name=f"Network_Group_{index}")
+                            routes = peer.v4_routes.add(name=f"{role}_Network_Group_{index}")
                         else:
-                            routes = peer.v6_routes.add(name=f"Network_Group_{index}")
-                        for rr in route_range:
+                            routes = peer.v6_routes.add(name=f"{role}_Network_Group_{index}")
+                        for rr in pconfig['route_ranges']:
                             routes.addresses.add(
                                 address=rr[0],
                                 prefix=rr[1],
@@ -313,185 +313,34 @@ def create_snappi_config(snappi_api, get_snappi_ports):
 
 def create_traffic_items(config, snappi_extra_params):
     tconfigs = snappi_extra_params.traffic_flow_config
-    for traffic in tconfigs:
-        test_flow = config.flows.flow(name="{}".format(traffic["flow_name"]))[-1]
+    for indx, traffic in enumerate(tconfigs):
+        test_flow = config.flows.flow(name=traffic.get("flow_name", "Flow {}".format(indx)))[-1]
         test_flow.tx_rx.device.tx_names = traffic["tx_names"]
         test_flow.tx_rx.device.rx_names = traffic["rx_names"]
         test_flow.metrics.enable = True
         test_flow.metrics.loss = True
+        if "mesh_type" in traffic:
+            test_flow.tx_rx.device.mode = traffic["mesh_type"]         # "mesh", one_to_one
+
+        # Default: "continuous" Enum: "fixed_packets" "fixed_seconds" "burst" "continuous"
+        if "traffic_duration_fixed_seconds" in traffic:
+            test_flow.duration.fixed_seconds.seconds = traffic["traffic_duration_fixed_seconds"]
+        elif "traffic_duration_fixed_packets" in traffic:
+            test_flow.duration.fixed_packets.packets = traffic["traffic_duration_fixed_packets"]
         test_flow.size.fixed = traffic["frame_size"]
         test_flow.rate.percentage = traffic["line_rate"]
-        if traffic["is_rdma"]:
+        if traffic.get("is_rdma", False):
             _, ipv4 = test_flow.packet.ethernet().ipv4()
             ipv4.priority.dscp.phb.values = [
                 ipv4.priority.dscp.phb.DEFAULT,
             ]
             ipv4.priority.dscp.phb.value = 4
             ipv4.priority.dscp.ecn.value = ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1
+        if traffic.get("latency", False):
+            # Latency Config
+            test_flow.metrics.latency.enable = True
+            test_flow.metrics.latency.mode = test_flow.metrics.latency.STORE_FORWARD
     return config
-
-
-def setup_ixnetwork_config(ixnet, port_config_list, port_distrbution, config: IxNetConfigParams):
-    # Assign Ports
-    port_list = [
-        {"xpath": f"/vport[{i+1}]", "location": port['location'], "name": f"Port-{i:02d}"}
-        for i, port in enumerate(port_config_list)
-    ]
-    logger.info("Assigning Ports...")
-    ixnet.ResourceManager.ImportConfig(json.dumps(port_list), False)
-
-    # Assign IPs
-    vports = ixnet.Vport.find()
-    port_w, port_e = port_distrbution
-    eth_w = (
-        ixnet.Topology.add(Name="West", Vports=vports[port_w])
-        .DeviceGroup.add(Name="Device West", Multiplier="1")
-        .Ethernet.add()
-    )
-    eth_e = (
-        ixnet.Topology.add(Name="East", Vports=vports[port_e])
-        .DeviceGroup.add(Name="Device East", Multiplier="1")
-        .Ethernet.add()
-    )
-    if config.traffic_type == "ipv4":
-        ip_w = eth_w.Ipv4.add(Name="Ipv4 West")
-        ip_e = eth_e.Ipv4.add(Name="Ipv4 East")
-        bgp_w = ip_w.BgpIpv4Peer.add(Name='BGP W')
-        bgp_e = ip_e.BgpIpv4Peer.add(Name='BGP E')
-    else:
-        ip_w = eth_w.Ipv6.add(Name="Ipv6 West")
-        ip_e = eth_e.Ipv6.add(Name="Ipv6 East")
-        bgp_w = ip_w.BgpIpv6Peer.add(Name='BGP+ W')
-        bgp_e = ip_e.BgpIpv6Peer.add(Name='BGP+ E')
-    ip, gw, asn = map(list, zip(*[[pc['ipAddress'], pc['ipGateway'], pc['asn']] for pc in port_config_list]))
-    ip_w.Address.ValueList(ip[port_w])
-    ip_w.GatewayIp.ValueList(gw[port_w])
-    ip_e.Address.ValueList(ip[port_e])
-    ip_e.GatewayIp.ValueList(gw[port_e])
-    bgp_w.DutIp.ValueList(gw[port_w])
-    bgp_w.Type.Single('external')
-    bgp_w.LocalAs2Bytes.ValueList(asn[port_w])
-    bgp_e.DutIp.ValueList(gw[port_e])
-    bgp_e.Type.Single('external')
-    bgp_e.LocalAs2Bytes.ValueList(asn[port_e])
-    # Start protocols
-    logger.info("Starting protocols...")
-    start_protocols(ixnet)
-
-    # Create traffic
-    ixnet.Traffic.FrameOrderingMode = config.frame_ordering_mode
-    trafficItem = ixnet.Traffic.TrafficItem.add(
-        Name=config.traffic_name,
-        BiDirectional=config.bidirectional,
-        SrcDestMesh=config.traffic_mesh,
-        TrafficType=config.traffic_type,
-    )
-
-    if config.bidirectional:
-        trafficItem.EndpointSet.add(Sources=ixnet.Topology.find(), Destinations=ixnet.Topology.find())
-    else:
-        trafficItem.EndpointSet.add(
-            Sources=ixnet.Topology.find(Name="East"),
-            Destinations=ixnet.Topology.find(Name="West")
-        )
-
-    configElement = trafficItem.ConfigElement.find()[0]
-    configElement.FrameRate.update(Rate=config.frame_rate, Type="percentLineRate")
-    configElement.TransmissionControl.update(Duration=20, Type="continous")
-    configElement.FrameRateDistribution.PortDistribution = "applyRateToAll"
-    configElement.FrameSize.FixedSize = config.frame_size
-
-    tracking = trafficItem.Tracking.find()[0]
-    tracking.TrackBy = ["sourceDestPortPair0"]
-
-    if config.latency_bins:
-        lbin = tracking.LatencyBin.find()
-        lbin.Enabled = True
-        lbin.NumberOfBins = config.latency_bins.get("NumberOfBins")
-        lbin.BinLimits = config.latency_bins.get("BinLimits")
-        start_traffic(ixnet, generate_apply_traffic=True)
-        logger.info("Creating Traffic Flow Latency Bin Filtering View...")
-        # bin_view = ixnet.Statistics.View.add(
-        #     Caption=config.latency_bins.get("Caption", "Bin Statistics"),
-        #     Visible=True,
-        #     Type="layer23TrafficFlow"
-        # )
-        # Configure the Layer23 Traffic Flow Filter
-        fdd = binView.Layer23TrafficFlowFilter.find()
-        fdd.update(
-            AggregatedAcrossPorts=False,
-            PortFilterIds=binView.AvailablePortFilter.find(),
-            TrafficItemFilterId=binView.AvailableTrafficItemFilter.find()[0],
-            EgressLatencyBinDisplayOption="showLatencyBinStats",
-        )
-        fdd.EnumerationFilter.add(
-            SortDirection="ascending",
-            TrackingFilterId=binView.AvailableTrackingFilter.find()[0],
-        )
-        [
-            setattr(stat, "Enabled", True)
-            for stat in binView.Statistic.find()
-            if "Store-Forward Avg Latency (ns)" in stat.Caption
-        ]
-        binView.Enabled = True
-        stop_traffic(ixnet)
-
-
-def start_protocols(ixnet):
-    try:
-        ixnet.StartAllProtocols(Arg1="sync")
-        logger.info("Verifying protocols...")
-        view = StatViewAssistant(ixnet, "Protocols Summary")
-        view.CheckCondition("Sessions Not Started", StatViewAssistant.EQUAL, 0, 180)
-        view.CheckCondition("Sessions Down", StatViewAssistant.EQUAL, 0, 180)
-        logger.info("Protocols up and running.")
-    except Exception as e:
-        logger.info("ERROR:Protocols session are down.")
-        raise Exception(str(e))
-
-
-def stop_protocols(ixnet):
-    ixnet.StopAllProtocols(Arg1="sync")
-    try:
-        logger.info("Verify protocol sessions stopped")
-        protocolsSummary = StatViewAssistant(ixnet, "Protocols Summary")
-        protocolsSummary.CheckCondition("Sessions Down", StatViewAssistant.EQUAL, 0, 180)
-        protocolsSummary.CheckCondition("Sessions Up", StatViewAssistant.EQUAL, 0, 180)
-    except Exception as e:
-        logger.info("ERROR:Protocols session are down.")
-        raise Exception(str(e))
-
-
-def start_traffic(ixnet, generate_apply_traffic=False):
-    """Starts the traffic and ensures frames are being transmitted."""
-    if generate_apply_traffic:
-        logger.info("Generating Traffic")
-        ixnet.Traffic.TrafficItem.find()[0].Generate()
-        logger.info("Applying Traffic")
-        ixnet.Traffic.Apply()
-
-    logger.info("\tStarting traffic...")
-    ixnet.Traffic.StartStatelessTrafficBlocking()
-    ti = StatViewAssistant(ixnet, "Traffic Item Statistics")
-
-    if not ti.CheckCondition("Tx Frames", StatViewAssistant.GREATER_THAN, 0):
-        raise Exception("Traffic did not start properly.")
-    logger.info("\tTraffic started successfully.")
-
-
-def stop_traffic(ixnet, timeout=180, interval=3):
-    """Stops traffic and ensures it is fully stopped within the timeout period."""
-    if ixnet.Traffic.IsTrafficRunning:
-        logger.info("\tStopping traffic...")
-        ixnet.Traffic.StopStatelessTrafficBlocking()
-
-        for _ in range(0, timeout, interval):
-            if not ixnet.Traffic.IsTrafficRunning:
-                logger.info("\tTraffic successfully stopped.")
-                return
-            time.sleep(interval)
-
-        raise TimeoutError("\tTraffic did not stop within the timeout period.")
 
 
 def wait_with_message(message, duration):
@@ -588,52 +437,42 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
     Args:
         api (pytest fixture): Snappi API
     """
+    def deep_getattr(obj, attr, default=None):
+        try:
+            for part in attr.split('.'):
+                obj = getattr(obj, part)
+            return obj
+        except AttributeError:
+            return default
     request = api.metrics_request()
+    if stat_name == "Data Plane Port Statistics":
+        ixnet = api._ixnetwork
+        dp_metrics = StatViewAssistant(ixnet, stat_name)
+        df = pd.DataFrame(dp_metrics.Rows.RawData, columns=dp_metrics.ColumnHeaders)
+        df = df[columns] if columns else df
+        cols = ['Tx Frame Rate', 'Rx Frame Rate']
+        df[cols] = df[cols].apply(pd.to_numeric, errors='coerce')
+        if return_type == 'print':
+            logger.info("\n%s" % tabulate(df, headers="keys", tablefmt="psql"))
+        elif return_type == 'df':
+            return df
     if stat_name == "Traffic Item Statistics":
         request.flow.flow_names = []
         stat_obj = api.get_metrics(request).flow_metrics
         column_headers = [
-            "bytes_rx",
-            "bytes_tx",
-            "frames_rx",
-            "frames_rx_rate",
-            "frames_tx",
-            "frames_tx_rate",
-            "loss",
-            "name",
-            "port_rx",
-            "port_tx",
-            "rx_l1_rate_bps",
-            "rx_rate_bps",
-            "rx_rate_bytes",
-            "rx_rate_kbps",
-            "rx_rate_mbps",
-            "transmit",
-            "tx_l1_rate_bps",
-            "tx_rate_bps",
-            "tx_rate_bytes",
-            "tx_rate_kbps",
-            "tx_rate_mbps",
+            "bytes_rx", "bytes_tx", "frames_rx", "frames_rx_rate", "frames_tx", "frames_tx_rate",
+            "loss", "name", "port_rx", "port_tx", "rx_l1_rate_bps", "rx_rate_bps", "rx_rate_bytes", "rx_rate_kbps",
+            "rx_rate_mbps", "transmit", "tx_l1_rate_bps", "tx_rate_bps", "tx_rate_bytes", "tx_rate_kbps",
+            "tx_rate_mbps", "latency.average_ns", "latency.maximum_ns", "latency.minimum_ns"
         ]
     elif stat_name == "Port Statistics":
         request.port.port_names = []
         stat_obj = api.get_metrics(request).port_metrics
         column_headers = [
-            "bytes_rx",
-            "bytes_rx_rate",
-            "bytes_tx",
-            "bytes_tx_rate",
-            "capture",
-            "frames_rx",
-            "frames_rx_rate",
-            "frames_tx",
-            "frames_tx_rate",
-            "link",
-            "location",
-            "name"
-        ]
+            "bytes_rx", "bytes_rx_rate", "bytes_tx", "bytes_tx_rate", "capture", "frames_rx", "frames_rx_rate",
+            "frames_tx", "frames_tx_rate", "link", "location", "name"]
     rows = [
-        [getattr(stat, column, None) for column in column_headers]
+        [deep_getattr(stat, column, None) for column in column_headers]
         for stat in stat_obj
     ]
     tdf = pd.DataFrame(rows, columns=column_headers)
@@ -647,7 +486,74 @@ def get_stats(api, stat_name, columns=None, return_type='stat_obj'):
         return stat_obj
 
 
-def start_stop(snappi_api, operation="start", op_type="protocols"):
+def seconds_elapsed(start_seconds):
+    return int(round(time.time() - start_seconds))
+
+
+def timed_out(start_seconds, timeout):
+    return seconds_elapsed(start_seconds) > timeout
+
+
+def wait_for(func, condition_str, interval_seconds=None, timeout_seconds=None):
+    """
+    Keeps calling the `func` until it returns true or `timeout_seconds` occurs
+    every `interval_seconds`. `condition_str` should be a constant string
+    implying the actual condition being tested.
+    Usage
+    -----
+    If we wanted to poll for current seconds to be divisible by `n`, we would
+    implement something similar to following:
+    ```
+    import time
+    def wait_for_seconds(n, **kwargs):
+        condition_str = 'seconds to be divisible by %d' % n
+        def condition_satisfied():
+            return int(time.time()) % n == 0
+        poll_until(condition_satisfied, condition_str, **kwargs)
+    ```
+    """
+    if interval_seconds is None:
+        interval_seconds = settings.interval_seconds
+    if timeout_seconds is None:
+        timeout_seconds = settings.timeout_seconds
+    start_seconds = int(time.time())
+
+    print("\n\nWaiting for %s ..." % condition_str)
+    while True:
+        res = func()
+        if res:
+            print("Done waiting for %s" % condition_str)
+            break
+        if res is None:
+            raise Exception("Wait aborted for %s" % condition_str)
+        if timed_out(start_seconds, timeout_seconds):
+            msg = "Time out occurred while waiting for %s" % condition_str
+            raise Exception(msg)
+
+        time.sleep(interval_seconds)
+
+
+def is_traffic_running(snappi_api, flow_names=[]):
+    """
+    Returns true if traffic in start state
+    """
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    return all([int(fs.frames_rx_rate) > 0 for fs in flow_stats])
+
+
+def is_traffic_stopped(snappi_api, flow_names=[]):
+    """
+    Returns true if traffic in stop state
+    """
+    fq = snappi_api.metrics_request()
+    fq.flow.flow_names = flow_names
+    metrics = snappi_api.get_metrics(fq).flow_metrics
+    return all([m.transmit == "stopped" for m in metrics])
+
+
+def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
     logger.info("%s %s", operation.capitalize(), op_type)
 
     cs = snappi_api.control_state()
@@ -668,17 +574,23 @@ def start_stop(snappi_api, operation="start", op_type="protocols"):
         cs.traffic.flow_transmit.state = state_map[(op_type, operation)]
 
     snappi_api.set_control_state(cs)
-    wait(20, f"For {op_type} To {operation}")
+
+    if op_type == "traffic" and operation == "stop":
+        wait_for(lambda: is_traffic_stopped(snappi_api), "Traffic to Stop", interval_seconds=1, timeout_seconds=180)
+    elif op_type == "traffic" and operation == "start":
+        wait_for(lambda: is_traffic_running(snappi_api), "Traffic to Start", interval_seconds=5, timeout_seconds=180)
+    else:
+        wait(waittime, f"For {op_type} To {operation}")
 
 
-def check_bgp_state(snappi_api, type):
+def check_bgp_state(snappi_api, subnet_type):
     req = snappi_api.metrics_request()
-    if type == "bgpv4":
+    if subnet_type == "IPv4":
         req.bgpv4.peer_names = []
         bgpv4_metrics = snappi_api.get_metrics(req).bgpv4_metrics
         assert bgpv4_metrics[-1].session_state == "up", "BGP v4 Session State is not UP"
         logger.info("BGP v4 Session State is UP")
-    elif type == "bgpv6":
+    elif subnet_type == "IPv6":
         req.bgpv6.peer_names = []
         bgpv6_metrics = snappi_api.get_metrics(req).bgpv6_metrics
         assert bgpv6_metrics[-1].session_state == "up", "BGP v6 Session State is not UP"
