@@ -43,8 +43,62 @@ The test suite covers:
 Validate basic HFT functionality for port counters.
 
 **Test Steps**
-1. Set up a HFT profile with 10ms poll interval (10000 μs).
-2. Configures specific ports and counters to monitor.
-3. Run countersyncd for 120 seconds to capture telemetry data.
-4. Validate telemetry output.
+1. Get available ports from topology (try for 2 ports, min 1 required).
+2. Set up a HFT profile with 10ms poll interval (10000 μs).
+3. Configure port group with test ports monitoring `IF_IN_OCTETS`.
+4. Run countersyncd for 120 seconds to capture telemetry data.
+5. Parse and validate port counter output.
+
+#### Test Case: Test HFT Queue Counters *Currently Skipped*
+**Objective**
+
+Validate HFT for queue counters. This test demonstrates a different configuration with queue objects.
+
+**Skip Reason**
+
+Queue-based HFT not yet supported.
+
+**Test Steps**
+1. Get available ports from topology (try for 2 ports, min 1 required).
+2. Set up a HFT profile with different poll intervals.
+3. Configure queue group with format `{port}|{queue_index}`.
+4. Monitor `QUEUE_STAT_PACKETS` counter.
+5. Run countersyncd for 120 seconds to capture telemetry data.
+6. Parse and validate queue counter output.
+
+#### Test Case: Test HFT Full Port Counters *Currently Skipped*
+**Objective**
+
+Validate HFT with all available port counters.
+
+**Skip Reason**
+
+Some PORT stats not yet supported.
+
+**Monitored Counters**:
+- `IF_IN_OCTETS`
+- `IF_IN_UCAST_PKTS`
+- `IF_IN_DISCARDS`
+- `IF_IN_ERRORS`
+- `IN_CURR_OCCUPANCY_BYTES`
+- `IF_OUT_OCTETS`
+- `IF_OUT_DISCARDS`
+- `IF_OUT_ERRORS`
+- `IF_OUT_UCAST_PKTS`
+- `OUT_CURR_OCCUPANCY_BYTES`
+- `TRIM_PACKETS`
+
+### State Transition Tests
+#### Test Case: Test HFT Disabled Stream
+**Objective**
+
+Validate HFT with disabled stream state transitions (enabled → disabled → enabled).
+
+**Test Phases**:
+1. **Phase 1** (60s): Stream enabled, active telemetry stream
+   - Expected: Msg/s > 0, counters reporting
+2. **Phase 2** (60s): Stream disabled
+   - Expected: Msg/s = 0, no new data, silent stream
+3. **Phase 3** (60s): Stream re-enabled, stream recovery with active data flow
+   - Expected: Msg/s > 0, counters resume
 
