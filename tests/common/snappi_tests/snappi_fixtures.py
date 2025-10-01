@@ -1214,7 +1214,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                             )
             port_config_list.append(port_config)
         else:
-            mac_values = get_macs("000022334401", num_of_non_macsec_snappi_devices)
+            mac_values = get_macs("000022335501", num_of_non_macsec_snappi_devices)
             ip_values = get_ip_addresses(tgenIp, num_of_non_macsec_snappi_devices)
             for nd in range(0, num_of_non_macsec_snappi_devices):
                 device = config.devices.device(name='Device Port {}_{}'.format(port_id, nd))[-1]
