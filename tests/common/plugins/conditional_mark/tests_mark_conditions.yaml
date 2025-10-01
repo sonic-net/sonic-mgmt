@@ -42,9 +42,11 @@ test_pretest.py:
 #######################################
 acl:
   skip:
-    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "macsec_en==True"
+      - "topo_type in ['m1-128']"
 
 acl/custom_acl_table/test_custom_acl_table.py:
   skip:
@@ -876,6 +878,12 @@ drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dualtor/test_bgp_block_loopback1.py:
   skip:
     reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
@@ -1072,6 +1080,12 @@ dualtor_io/test_tor_failure.py:
     reason: "This script would toggle PDU, which is not supported on KVM."
     conditions:
       - "asic_type in ['vs']"
+
+dualtor_mgmt:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
 
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
@@ -2082,8 +2096,8 @@ generic_config_updater/test_dhcp_relay.py:
 generic_config_updater/test_dynamic_acl.py:
   skip:
     reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-    on m0-2vlan testbed causes consistent failures
-    / Dynamic ACL is not supported in Cisco Q200 based platforms"
+     on m0-2vlan testbed causes consistent failures
+     / Dynamic ACL is not supported in Cisco Q200 based platforms"
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
@@ -2451,7 +2465,7 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2497,7 +2511,7 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_SRC_MAC-ip
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2541,7 +2555,7 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2580,7 +2594,7 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2734,9 +2748,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
 #######################################
 ixia:
   skip:
-    reason: "Ixia test only support on physical ixia testbed"
+    reason: "Ixia test only support on physical ixia testbed and it is not tested for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "True"
 
 #######################################
 #####            k8s              #####
@@ -2984,6 +3000,12 @@ pfc/test_unknown_mac.py:
 #######################################
 #####         pfc_asym            #####
 #######################################
+pfc_asym:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
 pfc_asym/test_pfc_asym.py:
   skip:
     reason: 'pfc_asym test skip except for on Barefoot platforms'
@@ -2995,11 +3017,12 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
+    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies and '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
+      - "release in ['202412']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -3300,8 +3323,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
-      and asic_type in ['cisco-8000']"
+       and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
+       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
       - "asic_type in ['vs']"
@@ -3858,11 +3881,13 @@ ssh/test_ssh_stress.py::test_ssh_stress:
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "Unsupported platform or asic"
+    reason: "Unsupported platform or asic and not supported on this DUT topology"
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
       - "asic_type in ['mellanox', 'nvidia']"
+      - "'dualtor' in topo_name"
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7060CX-32S-C32','Arista-7060CX-32S-D48C8','Arista-7260CX3-C64','Arista-7260CX3-D108C8','Arista-7260CX3-D108C10']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -4054,9 +4079,11 @@ vlan/test_vlan_ping.py:
 #######################################
 voq:
   skip:
-    reason: "Cisco 8800 doesn't support voq tests"
+    reason: "Cisco 8800 doesn't support voq tests and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name"
 
 voq/test_fabric_cli_and_db.py:
   skip:
@@ -4337,6 +4364,15 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+#######################################
+#####             wol            #####
+#######################################
+wol:
+  skip:
+    reason: "Not supported on this DUT topology"
+    conditions:
+      - "topo_type not in ['mx', 'm0']"
 
 #######################################
 #####             zmq             #####
