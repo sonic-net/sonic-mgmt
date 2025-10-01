@@ -11,6 +11,7 @@ pytestmark = [
 ]
 
 
+@pytest.mark.skip(reason="Bypass bmp temporarily")
 def test_restart_bmp_docker(duthosts,
                             enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]

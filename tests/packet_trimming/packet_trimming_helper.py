@@ -493,19 +493,27 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     logger.info(f"Buffer size for queue {target_queue} is approximately {buffer_size} bytes")
     logger.info(f"Sending {fill_packet_count} packets of size {fill_packet_size} bytes to fill the buffer")
 
-    # Create packet for buffer filling
-    fill_packet = testutils.simple_udp_packet(
-        eth_dst=duthost.facts["router_mac"],
-        eth_src=DUMMY_MAC,
-        ip_src=DUMMY_IP,
-        ip_dst=dst_ipv4_addr,
-        udp_sport=DEFAULT_SRC_PORT,
-        udp_dport=DEFAULT_DST_PORT,
-        ip_ttl=DEFAULT_TTL,
-        ip_dscp=dscp_value,
-        ip_ecn=ECN,
-        pktlen=fill_packet_size
-    )
+    interface_packets = {}
+    for interface_index, interface in enumerate(interfaces):
+        # Use different source port for each interface to ensure proper hash distribution
+        # This helps ensure packets go to the intended interface in PortChannel scenarios
+        src_port = DEFAULT_SRC_PORT + interface_index
+
+        # Create packet for this specific interface
+        fill_packet = testutils.simple_udp_packet(
+            eth_dst=duthost.facts["router_mac"],
+            eth_src=DUMMY_MAC,
+            ip_src=DUMMY_IP,
+            ip_dst=dst_ipv4_addr,
+            udp_sport=src_port,
+            udp_dport=DEFAULT_DST_PORT,
+            ip_ttl=DEFAULT_TTL,
+            ip_dscp=dscp_value,
+            ip_ecn=ECN,
+            pktlen=fill_packet_size
+        )
+        interface_packets[interface] = fill_packet
+        logger.info(f"Created packet for interface {interface} with src_port={src_port}")
 
     # Send packets to fill the buffer in batches to avoid connection timeout
     ptfadapter.dataplane.flush()
@@ -528,13 +536,17 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         while not batch_success and retries < max_retries:
             try:
                 logger.info(f"Sending batch {batch_index + 1}/{num_batches} ({BATCH_PACKET_COUNT} packets)")
-                testutils.send(
-                    ptfadapter,
-                    port_id=port_id,
-                    pkt=fill_packet,
-                    count=BATCH_PACKET_COUNT
-                )
-                total_sent_packets += BATCH_PACKET_COUNT
+                for interface in interfaces:
+                    fill_packet = interface_packets[interface]
+                    testutils.send(
+                        ptfadapter,
+                        port_id=port_id,
+                        pkt=fill_packet,
+                        count=BATCH_PACKET_COUNT
+                    )
+                    logger.info(f"Sent {BATCH_PACKET_COUNT} packets for {interface}")
+
+                total_sent_packets += BATCH_PACKET_COUNT * len(interfaces)
                 batch_success = True
 
             except Exception as e:
@@ -553,13 +565,16 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     if remaining_packets > 0 and batch_index >= num_batches:
         try:
             logger.info(f"Sending remaining {remaining_packets} packets")
-            testutils.send(
-                ptfadapter,
-                port_id=port_id,
-                pkt=fill_packet,
-                count=remaining_packets
-            )
-            total_sent_packets += remaining_packets
+            for interface in interfaces:
+                fill_packet = interface_packets[interface]
+                testutils.send(
+                    ptfadapter,
+                    port_id=port_id,
+                    pkt=fill_packet,
+                    count=remaining_packets
+                )
+                logger.info(f"Sent {remaining_packets} remaining packets for {interface}")
+            total_sent_packets += remaining_packets * len(interfaces)
         except Exception as e:
             logger.warning(f"Failed to send remaining packets: {e}")
             # Not critical if we've already sent most packets
@@ -603,11 +618,14 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
     Raises:
         Exception: If packet verification fails
     """
-    logger.info(f"Verifying trim packet on {egress_port}")
+    logger.info(f"Verifying trim packet on {egress_port['name']}")
     try:
+        trimmed_ports = egress_port['dut_members']
+        port_compute_buffer = egress_port['dut_members'][0]
+
         trimming_context = ConfigTrimming(
             duthost,
-            egress_port['name'],
+            trimmed_ports,
             block_queue
         )
 
@@ -617,7 +635,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                 # Get buffer configuration and size to calculate how many packets to send
                 buffer_size = compute_buffer_threshold(
                     duthost,
-                    egress_port['name'],
+                    port_compute_buffer,
                     block_queue
                 )
 
@@ -630,7 +648,7 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     block_queue,
                     egress_port['ipv4'],
                     send_pkt_dscp,
-                    egress_port['name']
+                    trimmed_ports
                 )
 
             # Test each packet type for trimming
@@ -668,30 +686,30 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                     count=packet_count
                 )
 
-                # Get port info
-                verify_port = egress_port['ptf_id']
-                device = ptfadapter.dataplane.port_device_map[verify_port]
-                port_tuple = (device, verify_port)
+                if isinstance(egress_port['ptf_id'], list):
+                    verify_ports = egress_port['ptf_id']
+                else:
+                    verify_ports = [egress_port['ptf_id']]
 
                 # Verify packet based on expectation
                 if expect_packets:
                     logger.info(
-                        f"Expecting packets on ports {verify_port} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
-                    testutils.verify_packet(
+                        f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
+                    testutils.verify_packet_any_port(
                         ptfadapter,
                         exp_pkt,
-                        port_id=port_tuple,
+                        ports=verify_ports,
                         timeout=timeout
                     )
                     logger.info(
                         f"Successfully verified {packet_type} packet trimming with size {recv_pkt_size} "
                         f"and DSCP {recv_pkt_dscp}")
                 else:
-                    logger.info(f"Expecting NO packets on ports {verify_port}")
-                    testutils.verify_no_packet(
+                    logger.info(f"Expecting NO packets on any of ports {verify_ports}")
+                    testutils.verify_no_packet_any(
                         ptfadapter,
                         exp_pkt,
-                        port_id=verify_port,
+                        ports=verify_ports,
                         timeout=timeout
                     )
                     logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
@@ -728,9 +746,12 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
         Exception: If packet verification fails
     """
     try:
+        trimmed_ports = egress_port['dut_members']
+        port_compute_buffer = egress_port['dut_members'][0]
+
         trimming_context = ConfigTrimming(
             duthost,
-            egress_port['name'],
+            trimmed_ports,
             block_queue
         )
 
@@ -740,7 +761,7 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
                 # Get buffer configuration and size to calculate how many packets to send
                 buffer_size = compute_buffer_threshold(
                     duthost,
-                    egress_port['name'],
+                    port_compute_buffer,
                     block_queue
                 )
 
@@ -753,7 +774,7 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
                     block_queue,
                     egress_port['ipv4'],
                     send_pkt_dscp,
-                    egress_port['name']
+                    trimmed_ports
                 )
 
             validate_srv6_function(duthost, ptfadapter, config_setup, ingress_port, egress_port, send_pkt_size,
@@ -1432,7 +1453,128 @@ def update_service_port_qos_map(duthost, service_port):
     logger.info(f"Service port {service_port} QoS map configuration updated successfully")
 
 
-def get_test_ports(upstream_links, downstream_links, peer_links):
+def is_portchannel_member(interface_name, mg_facts):
+    """
+    Check if an interface is a member of any PortChannel.
+
+    Args:
+        interface_name (str): Interface name to check (e.g., "Ethernet100")
+        mg_facts (dict): Minigraph facts containing PortChannel information (required)
+
+    Returns:
+        bool: True if interface is a PortChannel member, False otherwise
+    """
+    if 'minigraph_portchannels' not in mg_facts:
+        return False
+
+    portchannels = mg_facts['minigraph_portchannels']
+    for pc_name, pc_info in portchannels.items():
+        if interface_name in pc_info.get('members', []):
+            logger.info(f"Interface {interface_name} is a member of {pc_name}")
+            return True
+
+    logger.info(f"Interface {interface_name} is not a PortChannel member")
+    return False
+
+
+def get_portchannel_info(interface_name, mg_facts):
+    """
+    Get PortChannel information for a given interface.
+
+    Args:
+        interface_name (str): Interface name to check (e.g., "Ethernet100")
+        mg_facts (dict): Minigraph facts containing PortChannel information (required)
+
+    Returns:
+        tuple: (portchannel_name, portchannel_info) if interface is a PortChannel member,
+               (None, None) otherwise
+    """
+    if 'minigraph_portchannels' not in mg_facts:
+        return None, None
+
+    portchannels = mg_facts['minigraph_portchannels']
+    for pc_name, pc_info in portchannels.items():
+        if interface_name in pc_info.get('members', []):
+            return pc_name, pc_info
+
+    return None, None
+
+
+def get_portchannel_member_ptf_ids(portchannel_members, mg_facts):
+    """
+    Get PTF port IDs for all PortChannel members from mg_facts.
+
+    Args:
+        portchannel_members (list): List of PortChannel member interface names
+        mg_facts (dict): Minigraph facts containing port indices information
+
+    Returns:
+        list: List of PTF port IDs for all PortChannel members
+    """
+    ptf_ids = []
+    port_indices = mg_facts.get('minigraph_port_indices', {})
+
+    for member in portchannel_members:
+        if member in port_indices:
+            ptf_ids.append(port_indices[member])
+        else:
+            logger.warning(f"PTF port ID not found for PortChannel member {member}")
+
+    logger.info(f"Collected PTF IDs for PortChannel members {portchannel_members}: {ptf_ids}")
+    return ptf_ids
+
+
+def update_port_info_for_portchannel(port_dict, portchannel_name, portchannel_members, member_ptf_ids):
+    """
+    Update port information to PortChannel format.
+
+    Args:
+        port_dict (dict): Original port dictionary with interface name as key
+        portchannel_name (str): Name of the PortChannel
+        portchannel_members (list): List of PortChannel member interface names
+        member_ptf_ids (list): List of PTF port IDs for all PortChannel members
+
+    Returns:
+        dict: Updated port dictionary with PortChannel name as key and enhanced information
+    """
+    interface_name = list(port_dict.keys())[0]
+    port_info = port_dict[interface_name]
+
+    # Create new port info with PortChannel as key
+    new_port_info = port_info.copy()
+    new_port_info['ptf_port_id'] = member_ptf_ids
+    new_port_info['dut_members'] = portchannel_members
+
+    logger.info(f"Updated port info for PortChannel {portchannel_name}: ptf_port_ids={member_ptf_ids},"
+                f"dut_members={portchannel_members}")
+
+    return {portchannel_name: new_port_info}
+
+
+def update_port_with_portchannel_info(port_dict, interface_name, mg_facts):
+    """
+    Update port information with PortChannel details and all member interfaces.
+
+    Args:
+        port_dict (dict): Port dictionary with interface name as key
+        interface_name (str): Interface name that is a PortChannel member
+        mg_facts (dict): Minigraph facts containing PortChannel information
+
+    Returns:
+        dict: Updated port dict with PortChannel name as key and all member information
+    """
+    logger.info(f"The interface {interface_name} is a PortChannel member")
+    pc_name, pc_info = get_portchannel_info(interface_name, mg_facts)
+
+    # Get PTF port IDs for all PortChannel members from mg_facts
+    member_ptf_ids = get_portchannel_member_ptf_ids(pc_info['members'], mg_facts)
+
+    updated_port = update_port_info_for_portchannel(port_dict, pc_name, pc_info['members'], member_ptf_ids)
+    logger.info(f"The interface {interface_name} is reorganized to PortChannel format: {updated_port}")
+    return updated_port
+
+
+def get_test_ports(upstream_links, downstream_links, peer_links, mg_facts):
     """
     Select test ports for packet trimming test.
 
@@ -1440,6 +1582,7 @@ def get_test_ports(upstream_links, downstream_links, peer_links):
         upstream_links (dict): Dictionary of upstream links with interfaces as keys
         downstream_links (dict): Dictionary of downstream links with interfaces as keys
         peer_links (dict): Dictionary of service links with interfaces as keys
+        mg_facts (dict): Minigraph facts containing PortChannel information
 
     Returns:
         dict: Dictionary containing selected test ports:
@@ -1448,21 +1591,46 @@ def get_test_ports(upstream_links, downstream_links, peer_links):
             - 'egress_port_2': dict, randomly selected from all interfaces in downstream_links except the first one
 
     Example:
-        uplink_port:
+        uplink_port (Physical interface):
         {'Ethernet96': {'name': 'ARISTA01T2', 'ptf_port_id': 48, 'local_ipv4_addr': '10.0.0.97',
-                         'peer_ipv4_addr': '10.0.0.96', 'upstream_port': 'Ethernet1', 'host': <EosHost VM3807>}}
+                         'peer_ipv4_addr': '10.0.0.96', 'upstream_port': 'Ethernet1', 'dut_members': ['Ethernet96']}}
+
+        uplink_port (PortChannel member):
+        {'PortChannel102': {'name': 'ARISTA01T2', 'ptf_port_id': [96, 97], 'local_ipv4_addr': '10.0.0.193',
+                            'peer_ipv4_addr': '10.0.0.192', 'upstream_port': 'Ethernet2',
+                            'dut_members': ['Ethernet96', 'Ethernet100']}}
 
         downlink_port:
-        {'Ethernet192': {'name': 'ARISTA81T0', 'ptf_port_id': 84, 'downstream_port': 'Ethernet1'}}
+        {'Ethernet192': {'name': 'ARISTA81T0', 'ptf_port_id': 84, 'downstream_port': 'Ethernet1',
+        'dut_members': ['Ethernet192']}}
     """
     logger.info("Selecting test ports")
     logger.info(f"upstream_links: {upstream_links}")
     logger.info(f"downstream_links: {downstream_links}")
     logger.info(f"peer_links: {peer_links}")
 
+    def add_dut_members_to_port(port_dict, mg_facts):
+        """
+        Add dut_members field to port dictionary.
+        For PortChannel members: use all member interfaces
+        For regular Ethernet interfaces: use the interface itself as a single-item list
+        """
+        interface_name = list(port_dict.keys())[0]
+        port_info = port_dict[interface_name].copy()
+
+        if is_portchannel_member(interface_name, mg_facts):
+            # If it's a PortChannel member, update to PortChannel format
+            updated_port = update_port_with_portchannel_info(port_dict, interface_name, mg_facts)
+            return updated_port
+        else:
+            # For regular Ethernet interfaces, add dut_members field with the interface itself
+            port_info['dut_members'] = [interface_name]
+            return {interface_name: port_info}
+
     # ingress_port: the first downlink
     ingress_key = list(downstream_links.keys())[0]
     ingress_port = {ingress_key: downstream_links[ingress_key]}
+    ingress_port = add_dut_members_to_port(ingress_port, mg_facts)
     logger.info(f"Selected ingress_port: {ingress_port}")
 
     # egress_port_1: all interfaces in upstream_links and peer_links are combined and randomly selected
@@ -1472,6 +1640,7 @@ def get_test_ports(upstream_links, downstream_links, peer_links):
         raise ValueError("No available interfaces in upstream_links and peer_links for egress_port_1")
     egress1_key = random.choice(combined_keys)
     egress_port_1 = {egress1_key: combined_links[egress1_key]}
+    egress_port_1 = add_dut_members_to_port(egress_port_1, mg_facts)
     logger.info(f"Selected egress_port_1: {egress_port_1}")
 
     # egress_port_2: all interfaces in downstream_links except the first interface are randomly selected
@@ -1481,6 +1650,7 @@ def get_test_ports(upstream_links, downstream_links, peer_links):
         raise ValueError("No available downstream_links for egress_port_2 except ingress_port")
     egress2_key = random.choice(candidate_downstream_keys)
     egress_port_2 = {egress2_key: downstream_links[egress2_key]}
+    egress_port_2 = add_dut_members_to_port(egress_port_2, mg_facts)
     logger.info(f"Selected egress_port_2: {egress_port_2}")
 
     return {
@@ -1510,7 +1680,21 @@ def get_interface_peer_addresses(mg_facts, interface_name):
     ipv4_peer_addr = None
     ipv6_peer_addr = None
 
-    for interface in mg_facts['minigraph_interfaces']:
+    if "PortChannel" in interface_name:
+        # Search in PortChannel interfaces
+        interface_list_key = 'minigraph_portchannel_interfaces'
+        logger.info(f"Searching for PortChannel interface {interface_name} in {interface_list_key}")
+    else:
+        # Search in regular interfaces
+        interface_list_key = 'minigraph_interfaces'
+        logger.info(f"Searching for regular interface {interface_name} in {interface_list_key}")
+
+    # Check if the required interface list exists in mg_facts
+    if interface_list_key not in mg_facts:
+        logger.warning(f"Interface list '{interface_list_key}' not found in minigraph facts")
+        return ipv4_peer_addr, ipv6_peer_addr
+
+    for interface in mg_facts[interface_list_key]:
         if interface.get('attachto') == interface_name:
             # Check if this is an IPv4 or IPv6 address
             if 'peer_addr' in interface:
@@ -1621,9 +1805,10 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
             exp_pkt_len=actual_recv_pkt_size
         )
 
-        verify_port = egress_port['ptf_id']
-        device = ptfadapter.dataplane.port_device_map[verify_port]
-        port_tuple = (device, verify_port)
+        if isinstance(egress_port['ptf_id'], list):
+            verify_ports = egress_port['ptf_id']
+        else:
+            verify_ports = [egress_port['ptf_id']]
 
         send_verify_srv6_packet_for_trimming(
             ptfadapter=ptfadapter,
@@ -1631,7 +1816,7 @@ def validate_srv6_function(duthost, ptfadapter, dscp_mode, ingress_port, egress_
             exp_pkt=exp_pkt,
             exp_pro=srv6_packet["exp_process_result"],
             ptf_src_port_id=ingress_port['ptf_id'],
-            ptf_dst_port_ids=port_tuple,
+            ptf_dst_port_ids=verify_ports,
             packet_num=PACKET_COUNT
         )
 
@@ -1863,10 +2048,10 @@ def send_verify_srv6_packet_for_trimming(
 
     try:
         if exp_pro == 'forward':
-            testutils.verify_packet(ptfadapter, exp_pkt, port_id=ptf_dst_port_ids)
+            testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
             logger.info('Successfully received packets')
         elif exp_pro == 'drop':
-            testutils.verify_no_packet(ptfadapter, exp_pkt, port_id=ptf_dst_port_ids)
+            testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=ptf_dst_port_ids)
             logger.info(f'No packet received on {ptf_dst_port_ids}')
         else:
             logger.error(f'Wrong expected process result: {exp_pro}')
@@ -1940,11 +2125,22 @@ def configure_tc_to_dscp_map(duthost, egress_ports):
     logger.info("Configuring TC_TO_DSCP_MAP for asymmetric DSCP")
 
     tc_to_dscp_map = {"spine_trim_map": {ASYM_TC: ASYM_PORT_1_DSCP}}
-    port_qos_map = {egress_ports[0]['name']: {"tc_to_dscp_map": "spine_trim_map"}}
+    port_qos_map = {}
+
+    # Handle first egress port (spine_trim_map)
+    # Apply to all member interfaces
+    for member_interface in egress_ports[0]['dut_members']:
+        port_qos_map[member_interface] = {"tc_to_dscp_map": "spine_trim_map"}
+    logger.info(f"Applied spine_trim_map to interfaces: {egress_ports[0]['dut_members']}")
 
     if len(egress_ports) == 2:
         tc_to_dscp_map["host_trim_map"] = {ASYM_TC: ASYM_PORT_2_DSCP}
-        port_qos_map[egress_ports[1]['name']] = {"tc_to_dscp_map": "host_trim_map"}
+
+        # Handle second egress port (host_trim_map)
+        # Apply to all member interfaces
+        for member_interface in egress_ports[1]['dut_members']:
+            port_qos_map[member_interface] = {"tc_to_dscp_map": "host_trim_map"}
+        logger.info(f"Applied host_trim_map to interfaces: {egress_ports[1]['dut_members']}")
 
     if len(egress_ports) not in (1, 2):
         raise ValueError("egress_ports should have 1 or 2 ports")
@@ -2100,26 +2296,27 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
         )
 
         # Get verify port
-        verify_port = egress_port['ptf_id']
-        device = ptfadapter.dataplane.port_device_map[verify_port]
-        port_tuple = (device, verify_port)
+        if isinstance(egress_port['ptf_id'], list):
+            verify_ports = egress_port['ptf_id']
+        else:
+            verify_ports = [egress_port['ptf_id']]
 
         # Verify packet
         if expect_packets:
-            logger.info(f"Expecting packets on ports {verify_port} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
-            testutils.verify_packet(
+            logger.info(f"Expecting packets on ports {verify_ports} with size {recv_pkt_size} and DSCP {recv_pkt_dscp}")
+            testutils.verify_packet_any_port(
                 ptfadapter,
                 exp_pkt,
-                port_id=port_tuple,
+                ports=verify_ports,
                 timeout=timeout
             )
             logger.info(f"Successfully verified normal packet with size {recv_pkt_size}")
         else:
-            logger.info(f"Expecting NO packets on ports {verify_port}")
-            testutils.verify_no_packet(
+            logger.info(f"Expecting NO packets on ports {verify_ports}")
+            testutils.verify_no_packet_any(
                 ptfadapter,
                 exp_pkt,
-                port_id=verify_port,
+                ports=verify_ports,
                 timeout=timeout
             )
             logger.info(f"Successfully verified NO {packet_type} packets were received as expected")

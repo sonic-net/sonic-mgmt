@@ -325,11 +325,8 @@ r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communica
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
 
-# Ignore auditd error
-r, ".* ERR auditd\[\d*\]: Error receiving audit netlink packet \(No buffer space available\)"
-
-# Ignore ACMS bootstrap error
-r, ".* ERR acms#start.py: start: ACMS bootstrap command failed.*"
+# Ignore for reboot on arista platform
+r, ".* NOTICE kernel:.*Kernel command line:.*Aboot=.*"
 
 # ignore SAI_API_BUFFER for DNX platforms
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
@@ -363,6 +360,10 @@ r, ".* ERR gbsyncd#syncd: /arsonic/packages/broncos-sai/build/PAI_\d+\.\d+/src/b
 r, ".* ERR swss#orchagent:.*queryAttributeEnumValuesCapability:.*returned value \d+ is not allowed on SAI_NEXT_HOP_GROUP_ATTR_TYPE"
 # Ignore unsupported enumerated attribute
 r, ".*ERR swss#orchagent: :- queryAttributeEnumValuesCapability: returned value \d+ is not allowed on SAI_SWITCH_ATTR_.*_DEFAULT_HASH_ALGORITHM.*"
+
+# Ignore SRV6 error
+r, ".* ERR syncd#syncd: .* SAI_API_SRV6:_brcm_sai_srv6_config_get:\d+ SRV6 unsupported or not enabled on this device"
+r, ".* ERR syncd#syncd: .* SAI_API_SWITCH:sai_object_type_get_availability:\d+ availablity my_sid failed with error -2."
 
 # Ignore SRV6 error
 r, ".* ERR syncd#syncd: .* SAI_API_SRV6:_brcm_sai_srv6_config_get:\d+ SRV6 unsupported or not enabled on this device"
