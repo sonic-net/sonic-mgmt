@@ -24,9 +24,6 @@ from copy import deepcopy
 from rich import print as pr
 from tabulate import tabulate
 from natsort import natsorted
-import influxdb_client
-from influxdb_client import InfluxDBClient, Point, WritePrecision, WriteOptions
-from influxdb_client.client.write_api import SYNCHRONOUS
 from dataclasses import dataclass, field
 from typing import Optional, Dict, List, Any
 import ipaddress
