@@ -2785,7 +2785,7 @@ lldp/test_lldp.py::test_lldp_neighbor:
     conditions:
       - "'standalone' in topo_name"
 
-lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
+lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
   skip:
     reason: "Not M0/Mx/M1 scenario"
     conditions:
