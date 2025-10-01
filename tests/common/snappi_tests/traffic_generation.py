@@ -368,27 +368,27 @@ def generate_background_flows(testbed_config,
             bg_flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"]
             bg_flow.tx_rx.port.rx_name = base_flow_config["rx_port_name"]
 
-        eth, ipv4, udp = bg_flow.packet.ethernet().ipv4().udp()
-        global UDP_PORT_START
-        src_port = UDP_PORT_START
-        UDP_PORT_START += number_of_streams
-        udp.src_port.increment.start = src_port
-        udp.src_port.increment.step = 1
-        udp.src_port.increment.count = number_of_streams
+            eth, ipv4, udp = bg_flow.packet.ethernet().ipv4().udp()
+            global UDP_PORT_START
+            src_port = UDP_PORT_START
+            UDP_PORT_START += number_of_streams
+            udp.src_port.increment.start = src_port
+            udp.src_port.increment.step = 1
+            udp.src_port.increment.count = number_of_streams
 
-        eth.src.value = base_flow_config["tx_mac"]
-        eth.dst.value = base_flow_config["rx_mac"]
-        if pfcQueueGroupSize == 8:
-            eth.pfc_queue.value = prio
-        else:
-            eth.pfc_queue.value = pfcQueueValueDict[prio]
+            eth.src.value = base_flow_config["tx_mac"]
+            eth.dst.value = base_flow_config["rx_mac"]
+            if pfcQueueGroupSize == 8:
+                eth.pfc_queue.value = prio
+            else:
+                eth.pfc_queue.value = pfcQueueValueDict[prio]
 
-            ipv4.src.value = base_flow_config["tx_port_config"].ip
-            ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
-            ipv4.priority.choice = ipv4.priority.DSCP
-            ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
-            ipv4.priority.dscp.ecn.value = (
-                ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
+                ipv4.src.value = base_flow_config["tx_port_config"].ip
+                ipv4.dst.value = gen_data_flow_dest_ip(base_flow_config["rx_port_config"].ip)
+                ipv4.priority.choice = ipv4.priority.DSCP
+                ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
+                ipv4.priority.dscp.ecn.value = (
+                    ipv4.priority.dscp.ecn.CAPABLE_TRANSPORT_1)
 
         bg_flow.size.fixed = bg_flow_config["flow_pkt_size"]
         bg_flow.rate.percentage = bg_flow_config["flow_rate_percent"]
