@@ -47,18 +47,19 @@ class ConterpollHelper:
         for counterpoll_type in counter_type_list:
             if duthost.is_multi_asic:
                 asic_index = " -n asic{}".format(asic_id.asic_index)
-                duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type, asic_index))
             else:
-                duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
+                asic_index = ""
+            duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type, asic_index))
 
     @staticmethod
     def enable_counterpoll(duthost, asic_id, counter_type_list):
         for counterpoll_type in counter_type_list:
             if duthost.is_multi_asic:
                 asic_index = " -n asic{}".format(asic_id.asic_index)
-                duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type, asic_index))
             else:
-                duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
+                asic_index = ""
+            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type, asic_index))
+
 
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):
