@@ -161,9 +161,13 @@ def is_margin_eq(value, expected, percent):
     return (100 * abs(value - expected) / float(expected)) <= percent
 
 
-def pytest_assert_eq(a, b, msg=""):
+def pytest_assert_eq(a, b, msg="", suggestions=[]):
     if msg != "":
         msg = ": " + msg
+    if len(suggestions) > 0:
+        for i in range(len(suggestions)):
+            suggestion = suggestions[i]
+            msg += "\n Suggestion {}: {}".format(i + 1, suggestion)
     pytest_assert(a == b, "Failed eq check: {} == {}{}".format(a, b, msg))
 
 
@@ -395,6 +399,8 @@ def sanitize_flow_stats(delta_int_stats, non_trivial_count_threshold):
     pytest_assert(non_trivial_count_threshold >= 1000,
                   "Flow traversal RX=TX sanitization cannot be done with small packet count {}".format(
                       non_trivial_count_threshold))
+
+    failures = []
     for hostname in delta_int_stats:
         rx_total = 0
         tx_total = 0
@@ -404,8 +410,10 @@ def sanitize_flow_stats(delta_int_stats, non_trivial_count_threshold):
         if rx_total < non_trivial_count_threshold and tx_total < non_trivial_count_threshold:
             # Ignore check for small counts
             continue
-        pytest_assert(is_margin_eq(tx_total, rx_total, SANITIZATION_MARGIN_PERCENT),
-                      "DUT {} received {} packets but transmitted {}".format(hostname, rx_total, tx_total))
+        if not is_margin_eq(tx_total, rx_total, SANITIZATION_MARGIN_PERCENT):
+            failures.append("DUT {} received {} packets but transmitted {}".format(hostname, rx_total, tx_total))
+
+    pytest_assert(len(failures) == 0, "Flow stats sanitization failures: {}".format(failures))
 
 
 def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, snappi_ports, conn_graph):
@@ -448,7 +456,9 @@ def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, snappi_ports, conn_g
     # Validate source is present to start pathfinding
     pytest_assert(src_hostport in rx_hostports,
                   "Flow source port was not received on the appropriate hostport {}".format(src_hostport))
-    pytest_assert_eq(len(rx_hostports), len(tx_hostports), "There should be the same number of TX and RX ports")
+    suggestions = ["Are default routes configured on both ToRs to the T1?"]
+    pytest_assert_eq(len(rx_hostports), len(tx_hostports),
+                     "There should be the same number of TX and RX ports", suggestions)
     pytest_assert(len(rx_hostports) > 0, "No port stat traversal found")
     stat_ports_traversed = len(rx_hostports) + len(tx_hostports)
     # Visit first node
@@ -499,6 +509,10 @@ def pathfinder(src_dev_name, dst_dev_name, delta_int_stats, snappi_ports, conn_g
         logger.warning("Unexpectedly was able to find another possible path for this flow, " +
                        "path detection and usage may be errant. Returning first path.")
     # After pathfinding, validate destination. If destination fails, report the actual path taken.
+    # If this fails with 2 path elements, RX then TX both on the T1, then it is likely dropping the packet on one
+    # of the T0s. This is likely because the mux mode isn't being correctly set to 'active'.
+    #
+    # TODO: Abstract the 'suggestion' framework for all assertions, similar to pytest_assert_eq
     pytest_assert(dst_hostport in tx_hostports,
                   "Flow dest port was not transmitted from the appropriate hostport {}, actual path {}".format(
                       dst_hostport, paths[0]))
