@@ -1061,12 +1061,15 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                                     format(port['asic_value'], port['peer_port'],
                                            dut_ip_for_non_macsec_port, static_prefix_length))
                 subnet = [dut_ip_for_non_macsec_port + '/' + str(static_prefix_length)]
-            port['ipAddress'] = get_addrs_in_subnet(subnet[0], 2)[1]
+            port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1)[0]
             if not subnet:
                 pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
             port['ipGateway'], port['prefix'] = subnet[0].split("/")
             port['subnet'] = subnet[0]
-    ports = [port for port in snappi_ports if port['peer_device'] == duthost.hostname]
+    ports = []
+    for port in snappi_ports:
+        if port['peer_device'] == duthost.hostname:
+            ports.append(port)
     if ptype:
         macsec_var_file = os.path.expanduser("../tests/snappi_tests/macsec_profile.json")
         with open(macsec_var_file, "r") as f:
@@ -1109,7 +1112,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             ip1 = ethernet.ipv4_addresses.add()
             ip1.name = "ip2"
             ip1.address = tgenIp
-            ip1.prefix = prefix_length
+            ip1.prefix = int(prefix_length)
             ip1.gateway = dutIp
             ip1.gateway_mac.choice = "value"
             ip1.gateway_mac.value = duthost.get_dut_iface_mac(port['peer_port'])
@@ -1134,7 +1137,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
 
             # Data plane Tx SC PN
             secy1_dataplane_txsc1 = secy1_crypto_engine_enc_only.secure_channels.add()
-            secy1_dataplane_txsc1.tx_pn.choice = all_values['macsec_mka_info']['tx']['tx_pn']
+            secy1_dataplane_txsc1.tx_pn.choice = all_values['snappi']['tx_pn_choice']
 
             ####################
             # MKA
@@ -1144,8 +1147,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             kay1 = secy1_key_gen_proto.mka
             kay1.name = "mka1"
             # Basic properties
-            kay1.basic.key_derivation_function = all_values['macsec_mka_info']['tx']['key_derivation_function']
-            kay1.basic.actor_priority = all_values['macsec_mka_info']['tx']['actor_priority']
+            kay1.basic.key_derivation_function = all_values['snappi']['key_derivation_function']
+            kay1.basic.actor_priority = all_values['snappi']['actor_priority']
             # Key source: PSK
             kay1_key_src = kay1.basic.key_source
             kay1_key_src.choice = "psk"
@@ -1153,8 +1156,8 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
 
             # PSK 1
             kay1_psk1 = kay1_psk_chain.add()
-            kay1_psk1.cak_name = all_values['macsec_mka_info']['tx']['cak_name']
-            kay1_psk1.cak_value = all_values['macsec_mka_info']['tx']['cak_value']
+            kay1_psk1.cak_name = all_values['snappi']['cak_name']
+            kay1_psk1.cak_value = all_values['snappi']['cak_value']
 
             kay1_psk1.start_offset_time.hh = 0
             kay1_psk1.start_offset_time.mm = 22
@@ -1163,25 +1166,23 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             kay1_psk1.end_offset_time.hh = 0
 
             # Rekey mode
-            kay1_rekey_mode = kay1.basic.rekey_mode
-            kay1_rekey_mode.choice = all_values['macsec_mka_info']['tx']['mka_rekey_mode_choice']
-            # kay1_rekey_mode.choice = kay2_rekey_mode.choice = "timer_based"
-            # kay1_rekey_timer_based, kay2_rekey_timer_based = kay1_rekey_mode.timer_based, kay2_rekey_mode.timer_based
-            # kay1_rekey_timer_based.choice = kay2_rekey_timer_based.choice = "fixed_count"
-            # kay1_rekey_timer_based.fixed_count = kay2_rekey_timer_based.fixed_count = 20
-            # kay1_rekey_timer_based.interval = kay2_rekey_timer_based.interval = 200
+            kay_rekey_mode = kay1.basic.rekey_mode
+            kay_rekey_mode.choice = all_values['snappi']['mka_rekey_mode_choice']
+            kay_rekey_timer_based = kay_rekey_mode.timer_based
+            kay_rekey_timer_based.choice = all_values['snappi']['mka_rekey_timer_choice']
+            kay_rekey_timer_based.interval = all_values['snappi']['mka_rekey_timer_interval']
 
             # Remaining basic properties autofilled
             # Key server
             kay1_key_server = kay1.key_server
-            kay1_key_server.cipher_suite = all_values['macsec_mka_info']['tx']['cipher_suite']
-            kay1_key_server.confidentialty_offset = all_values['macsec_mka_info']['tx']['confidentialty_offset']
+            kay1_key_server.cipher_suite = all_values['snappi']['cipher_suite']
+            kay1_key_server.confidentialty_offset = all_values['snappi']['confidentiality_offset']
 
             # Tx SC
             kay1_tx = kay1.tx
             kay1_txsc1 = kay1_tx.secure_channels.add()
             kay1_txsc1.name = "txsc1"
-            kay1_txsc1.system_id = ip1.gateway_mac.value
+            kay1_txsc1.system_id = __gen_mac(port_id)
             # Remaining Tx SC settings autofilled
             eotr = config.egress_only_tracking
             eotr1 = eotr.add()
@@ -1221,7 +1222,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                 ip_stack = ethernet.ipv4_addresses.add()
                 ip_stack.name = 'Ipv4 Port {}_{}'.format(port_id, nd)
                 ip_stack.address = ip_values[nd]
-                ip_stack.prefix = prefix_length
+                ip_stack.prefix = int(prefix_length)
                 ip_stack.gateway = dutIp
             # ip_stack.gateway_mac.choice = "value"
             # ip_stack.gateway_mac.value = "4c:71:0d:26:61:27"    # get this mac address from the dut.
