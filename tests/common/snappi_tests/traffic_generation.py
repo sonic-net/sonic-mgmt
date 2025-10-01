@@ -598,6 +598,11 @@ def run_traffic(duthost,
     if not ptype:
         logger.info("Wait for Arp to Resolve ...")
         wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
+    else:
+        protocolsSummary = StatViewAssistant(ixnet, 'Protocols Summary')
+        for row in protocolsSummary.Rows:
+            if row['Sessions Not Started'] != '0' or row['Sessions Down'] != '0':
+                pytest_assert(False, "Not all protocol sessions are up")
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
     switch_tx_lossless_prios = sum(base_flow_config["dut_port_config"]["Tx"][0].values(), [])

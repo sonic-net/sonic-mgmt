@@ -1082,7 +1082,17 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         dutIp = port['ipGateway']
         tgenIp = port['ipAddress']
         prefix_length = int(port['prefix'])
-        mac = __gen_mac(port_id)
+        mac = __gen_mac(port_id+num_of_non_macsec_snappi_devices)
+        if port['asic_value'] is None:
+            duthost.command("sudo arp -i {} -s {} {} \n".
+                            format(port['peer_port'], tgenIp, mac))
+            logger.info("sudo arp -i {} -s {} {}".
+                        format(port['peer_port'], tgenIp, mac))
+        else:
+            duthost.command("sudo ip netns exec {} arp -i {} -s {} {} \n".
+                            format(port['asic_value'], port['peer_port'], tgenIp, mac))
+            logger.info("sudo ip netns exec {} arp -i {} -s {} {}".
+                        format(port['asic_value'], port['peer_port'], tgenIp, mac))
         if not setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup:
@@ -1185,7 +1195,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             kay1_tx = kay1.tx
             kay1_txsc1 = kay1_tx.secure_channels.add()
             kay1_txsc1.name = "txsc1"
-            kay1_txsc1.system_id = __gen_mac(port_id)
+            kay1_txsc1.system_id = mac
             # Remaining Tx SC settings autofilled
             eotr = config.egress_only_tracking
             eotr1 = eotr.add()
@@ -1213,50 +1223,48 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
                                 peer_port=port['peer_port']
                             )
             port_config_list.append(port_config)
-        else:
-            mac_values = get_macs("000022335501", num_of_non_macsec_snappi_devices)
+        elif ptype and port_id == 0:
             ip_values = get_ip_addresses(tgenIp, num_of_non_macsec_snappi_devices)
             for nd in range(0, num_of_non_macsec_snappi_devices):
                 device = config.devices.device(name='Device Port {}_{}'.format(port_id, nd))[-1]
                 ethernet = device.ethernets.add()
                 ethernet.name = 'Ethernet Port {}_{}'.format(port_id, nd)
                 ethernet.connection.port_name = config.ports[port_id].name
-                ethernet.mac = mac_values[nd]
+                ethernet.mac = __gen_mac(nd)
                 ip_stack = ethernet.ipv4_addresses.add()
                 ip_stack.name = 'Ipv4 Port {}_{}'.format(port_id, nd)
                 ip_stack.address = ip_values[nd]
                 ip_stack.prefix = int(prefix_length)
                 ip_stack.gateway = dutIp
+                port_config = SnappiPortConfig(
+                    id=port_id,
+                    ip=ip_values[nd],
+                    mac=__gen_mac(nd),
+                    gw=dutIp,
+                    gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
+                    prefix_len=prefix_length,
+                    port_type=SnappiPortType.IPInterface,
+                    peer_port=port['peer_port']
+                )
+                port_config_list.append(port_config)
             # ip_stack.gateway_mac.choice = "value"
             # ip_stack.gateway_mac.value = "4c:71:0d:26:61:27"    # get this mac address from the dut.
-            if ptype and port_id == 0:
-                # Rx Port
-                # egress only tracking(eotr)
-                eotr = config.egress_only_tracking
-                eotr1 = eotr.add()
-                eotr1.port_name = config.ports[port_id].name
+            # Rx Port
+            # egress only tracking(eotr)
+            eotr = config.egress_only_tracking
+            eotr1 = eotr.add()
+            eotr1.port_name = config.ports[port_id].name
 
-                # eotr filter
-                eotr1_filter1 = eotr1.filters.add()
-                eotr1_filter1.choice = "auto_macsec"
-                # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
-                eotr1_mt1 = eotr1.metric_tags.add()
-                eotr1_mt1.name = "ipv4_dscp"
-                eotr1_mt1.rx_offset = 0
-                eotr1_mt1.length = 8
-                eotr1_mt1.tx_offset.choice = "custom"
-                eotr1_mt1.tx_offset.custom.value = 0
-            port_config = SnappiPortConfig(
-                                            id=port_id,
-                                            ip=tgenIp,
-                                            mac=mac,
-                                            gw=dutIp,
-                                            gw_mac=duthost.get_dut_iface_mac(port['peer_port']),
-                                            prefix_len=prefix_length,
-                                            port_type=SnappiPortType.IPInterface,
-                                            peer_port=port['peer_port']
-                                        )
-            port_config_list.append(port_config)
+            # eotr filter
+            eotr1_filter1 = eotr1.filters.add()
+            eotr1_filter1.choice = "auto_macsec"
+            # eotr metric tag for destination MAC 3rd byte from MSB: LS 4 bits
+            eotr1_mt1 = eotr1.metric_tags.add()
+            eotr1_mt1.name = "ipv4_dscp"
+            eotr1_mt1.rx_offset = 0
+            eotr1_mt1.length = 8
+            eotr1_mt1.tx_offset.choice = "custom"
+            eotr1_mt1.tx_offset.custom.value = 0
     return True
 
 
