@@ -732,7 +732,7 @@ class BaseEverflowTest(object):
                 command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' \
                             'dscp' '{session_info['session_dscp']}' 'dst_ip' '{session_info['session_dst_ipv6']}' \
                             'gre_type' '{session_info['session_gre']}' 'src_ip' '{session_info['session_src_ipv6']}' \
-                            'ttl' '{session_info['session_ttl']}'"
+                            'ttl' '{session_info['session_ttl']}' 'type' 'ERSPAN'"
                 if policer:
                     command += f" 'policer' {policer}"
 
