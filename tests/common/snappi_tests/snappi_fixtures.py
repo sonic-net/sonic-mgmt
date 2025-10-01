@@ -21,8 +21,12 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
-from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port
+from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
+    delete_macsec_profile
 
+
+macsec_enabled_port = {}
+macsec_profile_name = ""
 
 logger = logging.getLogger(__name__)
 DEST_TO_GATEWAY_MAP = {}
@@ -1034,6 +1038,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     Returns:
         True if we successfully configure the interfaces or False
     """
+    global macsec_enabled_port, macsec_profile_name
     ptype = "--snappi_macsec" in sys.argv
     num_of_non_macsec_snappi_devices = 7
     static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices))
@@ -1080,16 +1085,6 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
         tgenIp = port['ipAddress']
         prefix_length = int(port['prefix'])
         mac = __gen_mac(port_id+num_of_non_macsec_snappi_devices)
-        if port['asic_value'] is None:
-            duthost.command("sudo arp -i {} -s {} {} \n".
-                            format(port['peer_port'], tgenIp, mac))
-            logger.info("sudo arp -i {} -s {} {}".
-                        format(port['peer_port'], tgenIp, mac))
-        else:
-            duthost.command("sudo ip netns exec {} arp -i {} -s {} {} \n".
-                            format(port['asic_value'], port['peer_port'], tgenIp, mac))
-            logger.info("sudo ip netns exec {} arp -i {} -s {} {}".
-                        format(port['asic_value'], port['peer_port'], tgenIp, mac))
         if not setup:
             gen_data_flow_dest_ip(tgenIp, duthost, port['peer_port'], port['asic_value'], setup)
         if setup:
@@ -1104,20 +1099,30 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
             # Configure MACsec on DUT
-            profile_name = '256_XPN_SCI'
-            cipher = all_values[profile_name]['cipher_suite']
-            primary_cak = all_values[profile_name]['primary_cak']
-            primary_ckn = all_values[profile_name]['primary_ckn']
-            priority = all_values[profile_name]['priority']
-            policy = all_values[profile_name]['policy']
-            rekey_period = all_values[profile_name]['rekey_period']
-            send_sci = all_values[profile_name]['send_sci']
+            macsec_enabled_port = port
+            macsec_profile_name = '256_XPN_SCI'
+            cipher = all_values[macsec_profile_name]['cipher_suite']
+            primary_cak = all_values[macsec_profile_name]['primary_cak']
+            primary_ckn = all_values[macsec_profile_name]['primary_ckn']
+            priority = all_values[macsec_profile_name]['priority']
+            policy = all_values[macsec_profile_name]['policy']
+            rekey_period = all_values[macsec_profile_name]['rekey_period']
+            send_sci = all_values[macsec_profile_name]['send_sci']
             logger.info('Configuring DUTHOST:{}'.format(port['duthost'].hostname))
             logger.info('Configuring MACSEC on DUT Interfaces: {}'.format(port['peer_port']))
-            set_macsec_profile(port['duthost'], port['peer_port'], profile_name, priority,
+            set_macsec_profile(port['duthost'], port['peer_port'], macsec_profile_name, priority,
                                cipher, primary_cak, primary_ckn, policy, send_sci, rekey_period)
-            enable_macsec_port(port['duthost'], port['peer_port'], profile_name)
-
+            enable_macsec_port(port['duthost'], port['peer_port'], macsec_profile_name)
+            if port['asic_value'] is None:
+                duthost.command("sudo arp -i {} -s {} {} \n".
+                                format(port['peer_port'], tgenIp, mac))
+                logger.info("sudo arp -i {} -s {} {}".
+                            format(port['peer_port'], tgenIp, mac))
+            else:
+                duthost.command("sudo ip netns exec {} arp -i {} -s {} {} \n".
+                                format(port['asic_value'], port['peer_port'], tgenIp, mac))
+                logger.info("sudo ip netns exec {} arp -i {} -s {} {}".
+                            format(port['asic_value'], port['peer_port'], tgenIp, mac))
             # Tx Port
             ip1 = ethernet.ipv4_addresses.add()
             ip1.name = "ip2"
@@ -1293,45 +1298,55 @@ def create_ip_list(value, count, mask=32, incr=0):
 
 
 def cleanup_config(duthost_list, snappi_ports):
+    ptype = "--snappi_macsec" in sys.argv
+    if not ptype:
+        if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
+                duthost_list[0].get_facts().get("modular_chassis", None)):
+            global DEST_TO_GATEWAY_MAP  # noqa: F824
+            copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
+            for addr in copy_DEST_TO_GATEWAY_MAP:
+                gen_data_flow_dest_ip(
+                    addr,
+                    dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
+                    intf=None,
+                    namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
+                    setup=False)
 
-    if (duthost_list[0].facts['asic_type'] == "cisco-8000" and
-            duthost_list[0].get_facts().get("modular_chassis", None)):
-        global DEST_TO_GATEWAY_MAP  # noqa: F824
-        copy_DEST_TO_GATEWAY_MAP = copy(DEST_TO_GATEWAY_MAP)
-        for addr in copy_DEST_TO_GATEWAY_MAP:
-            gen_data_flow_dest_ip(
-                addr,
-                dut=DEST_TO_GATEWAY_MAP[addr]['dut'],
-                intf=None,
-                namespace=DEST_TO_GATEWAY_MAP[addr]['asic'],
-                setup=False)
+            time.sleep(4)
 
-        time.sleep(4)
-
-    for index, duthost in enumerate(duthost_list):
-        port_count = len(snappi_ports)
-        dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
-        for port in snappi_ports:
-            if port['peer_device'] == duthost.hostname and port['intf_config_changed']:
-                port_id = port['port_id']
-                dutIp = dutIps[port_id]
-                logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(
-                                                                                                   duthost.hostname,
-                                                                                                   port['peer_port'],
-                                                                                                   dutIp,
-                                                                                                   prefix_length))
-                if port['asic_value'] is None:
-                    duthost.command('sudo config interface ip remove {} {}/{} \n' .format(
-                                                                                          port['peer_port'],
-                                                                                          dutIp,
-                                                                                          prefix_length))
-                else:
-                    duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .format(
-                                                                                                port['asic_value'],
-                                                                                                port['peer_port'],
-                                                                                                dutIp,
-                                                                                                prefix_length))
-                port['intf_config_changed'] = False
+        for index, duthost in enumerate(duthost_list):
+            port_count = len(snappi_ports)
+            dutIps = create_ip_list(dut_ip_start, port_count, mask=prefix_length)
+            for port in snappi_ports:
+                if port['peer_device'] == duthost.hostname and port['intf_config_changed']:
+                    port_id = port['port_id']
+                    dutIp = dutIps[port_id]
+                    logger.info('Removing Configuration on Dut: {} with port {} with ip :{}/{}'.format(
+                                                                                                       duthost.hostname,
+                                                                                                       port['peer_port'],
+                                                                                                       dutIp,
+                                                                                                       prefix_length))
+                    if port['asic_value'] is None:
+                        duthost.command('sudo config interface ip remove {} {}/{} \n' .format(
+                                                                                              port['peer_port'],
+                                                                                              dutIp,
+                                                                                              prefix_length))
+                    else:
+                        duthost.command('sudo config interface -n {} ip remove {} {}/{} \n' .format(
+                                                                                                    port['asic_value'],
+                                                                                                    port['peer_port'],
+                                                                                                    dutIp,
+                                                                                                    prefix_length))
+                    port['intf_config_changed'] = False
+    else:
+        logger.info('Disabling MACsec on {} port {}'.
+                    format(macsec_enabled_port['duthost'].hostname,
+                           macsec_enabled_port['peer_port']))
+        disable_macsec_port(macsec_enabled_port['duthost'],  macsec_enabled_port['peer_port'])
+        logger.info('Deleting macsec profile {} on {} port {}'.format(macsec_profile_name,
+                                                                      macsec_enabled_port['duthost'].hostname,
+                                                                      macsec_enabled_port['peer_port']))
+        delete_macsec_profile(macsec_enabled_port['duthost'], macsec_enabled_port['peer_port'], macsec_profile_name)
 
 
 def pre_configure_dut_interface(duthost, snappi_ports, type):
