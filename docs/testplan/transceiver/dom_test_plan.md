@@ -77,6 +77,43 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 | consistency_check_enabled | boolean | True | ✗ | platform | Whether to verify DOM data consistency between STATE_DB and CLI interfaces |
 | data_max_age_min | integer | 5 | ✗ | platform | Maximum age in minutes for DOM data to be considered fresh (last_update_time validation) |
 
+## Example `dom.json` File
+
+The following example demonstrates a complete `dom.json` file focusing on `temperature_threshold_range` for different transceiver types:
+
+```json
+{
+  "transceivers": {
+    "vendors": {
+      "finisar": {
+        "part_numbers": {
+          "FTLX8571D3BCL-10GSFP": {
+            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -5.0, "highwarning": 75.0, "highalarm": 85.0}
+          }
+        }
+      },
+      "mellanox": {
+        "part_numbers": {
+          "MCP1600-C003-100G": {
+            "temperature_threshold_range": {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
+          },
+          "MMA1T00-VS-400G": {
+            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0}
+          }
+        }
+      },
+      "marvell": {
+        "part_numbers": {
+          "88X7120-800G": {
+            "temperature_threshold_range": {"lowalarm": -30.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 80.0}
+          }
+        }
+      }
+    }
+  }
+}
+```
+
 ## Dynamic Field Mapping Algorithm
 
 The DOM test framework uses an attribute-driven approach to dynamically determine which fields to validate based on the configuration present in `dom.json`. This eliminates the need for hardcoded field lists and provides flexible, maintainable test execution.
