@@ -108,6 +108,7 @@ class ConterpollHelper:
                             counterpoll_type,
                             result.get('rc', -1)))
 
+
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):
         duthost.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(counterpoll_type, interval))
