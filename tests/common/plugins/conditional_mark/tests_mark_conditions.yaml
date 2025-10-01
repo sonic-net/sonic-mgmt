@@ -2669,6 +2669,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_dr
       - "asic_type in ['broadcom', 'cisco-8000', 'marvell', 'barefoot', 'marvell-teralynx', 'marvell-prestera'] and asic_subtype not in ['broadcom-dnx']"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
       - "topo_name in ['t2_2lc_36p-masic', 't2_2lc_min_ports-masic', 't2_5lc-mixed-96']"
+      - "hwsku in group_vars['broadcom_q3d_hwskus']"
 
 ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_tolerant:
   skip:
@@ -2676,7 +2677,7 @@ ip/test_ip_packet.py::TestIPPacket::test_forward_ip_packet_with_0xffff_chksum_to
             / Skipping ip packet test since can't provide enough interfaces"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['mellanox'] or asic_subtype in ['broadcom-dnx']"
+      - "asic_type in ['mellanox'] or ((asic_subtype in ['broadcom-dnx']) and (hwsku not in group_vars['broadcom_q3d_hwskus']))"
       - "len(minigraph_interfaces) < 2 and len(minigraph_portchannels) < 2"
 
 ip/test_mgmt_ipv6_only.py:
