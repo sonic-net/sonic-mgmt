@@ -876,12 +876,21 @@ def fetch_and_delete_pcap_file(bgp_pcap, log_dir, duthost, request):
     return local_pcap_filename
 
 
+def is_chassis(duthost):
+    return duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_chassis")
+
+
 def get_tsa_chassisdb_config(duthost):
     """
     @summary: Returns the dut's CHASSIS_APP_DB value for BGP_DEVICE_GLOBAL.STATE.tsa_enabled flag
     """
-    tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
-    return tsa_conf
+    if is_chassis(duthost):
+        tsa_conf = duthost.shell('sonic-db-cli CHASSIS_APP_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
+        return tsa_conf
+    else:
+        # Linecards and non-chassis systems: read from local CONFIG_DB
+        return duthost.shell(
+            'sonic-db-cli CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' tsa_enabled')['stdout']
 
 
 def get_sup_cfggen_tsa_value(suphost):
@@ -898,11 +907,21 @@ def verify_dut_configdb_tsa_value(duthost):
     """
     tsa_config = list()
     tsa_enabled = False
-    for asic_index in duthost.get_frontend_asic_ids():
-        prefix = "-n asic{}".format(asic_index) if asic_index != DEFAULT_ASIC_ID else ''
-        output = duthost.shell('sonic-db-cli {} CONFIG_DB HGET \'BGP_DEVICE_GLOBAL|STATE\' \'tsa_enabled\''.
-                               format(prefix))['stdout']
+
+    if is_chassis(duthost):
+        # On chassis supervisor, check CHASSIS_APP_DB
+        output = duthost.shell(
+            "sonic-db-cli CHASSIS_APP_DB HGET 'BGP_DEVICE_GLOBAL|STATE' 'tsa_enabled'"
+        )["stdout"]
         tsa_config.append(output)
+    else:
+        # On non-chassis systems and linecards, check CONFIG_DB for each ASIC
+        for asic_index in duthost.get_frontend_asic_ids():
+            prefix = "" if asic_index == DEFAULT_ASIC_ID else "-n asic{}".format(asic_index)
+            output = duthost.shell(
+                "sonic-db-cli {} CONFIG_DB HGET 'BGP_DEVICE_GLOBAL|STATE' 'tsa_enabled'".format(prefix)
+            )["stdout"]
+            tsa_config.append(output)
     if 'true' in tsa_config:
         tsa_enabled = True
 

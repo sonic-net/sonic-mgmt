@@ -155,9 +155,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     # Retrieve the enable_macsec passed by user for this test run
     # If macsec is enabled, use the override option to get macsec profile from golden config
-    request = sonic_host.duthosts.request
-    if request:
-        macsec_en = request.config.getoption("--enable_macsec", default=False)
+    if hasattr(sonic_host, "duthosts"):
+        request = sonic_host.duthosts.request
+        if request:
+            macsec_en = request.config.getoption("--enable_macsec", default=False)
 
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
@@ -253,7 +254,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
     if exec_tsb:
         sonic_host.shell("TSB")
 
-    if yang_validate:
+    if yang_validate and hasattr(sonic_host, 'yang_validate'):
         pytest_assert(
             wait_until(120, 30, 0, sonic_host.yang_validate),
             "Yang validation failed after config_reload"

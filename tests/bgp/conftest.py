@@ -20,7 +20,7 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common import config_reload
 from bgp_helpers import define_config, apply_default_bgp_config, DUT_TMP_DIR, TEMPLATE_DIR, BGP_PLAIN_TEMPLATE,\
     BGP_NO_EXPORT_TEMPLATE, DUMP_FILE, CUSTOM_DUMP_SCRIPT, CUSTOM_DUMP_SCRIPT_DEST,\
-    BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
+    BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT, is_chassis
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
@@ -661,9 +661,14 @@ def bgpmon_setup_teardown(ptfhost, duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     pt_assert(wait_tcp_connection(localhost, ptfhost.mgmt_ip, BGP_MONITOR_PORT, timeout_s=60),
               "Failed to start bgp monitor session on PTF")
-    pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]),
-              'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
+    if is_chassis(duthost):
+        # the BGPMON session comes up when its a chassis. currently for
+        # t2 topo non-chassis with single asic voq it is not applicable as
+        # loopback4096 isn't present
+        pt_assert(wait_until(20, 5, 0, duthost.check_bgp_session_state, [peer_addr]),
+                  'BGP session {} on duthost is not established'.format(BGP_MONITOR_NAME))
 
+    
     yield connection
     # Cleanup bgp monitor
     asichost.run_sonic_db_cli_cmd("CONFIG_DB DEL 'BGP_MONITORS|{}'".format(peer_addr))

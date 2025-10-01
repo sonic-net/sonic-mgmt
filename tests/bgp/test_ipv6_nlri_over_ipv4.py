@@ -96,7 +96,8 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     logger.debug(duthost.shell('show ip bgp summary')['stdout'])
     logger.debug(duthost.shell('show ipv6 bgp summary')['stdout'])
 
-    cmd = "show ipv6 bgp neighbor {} received-routes -n {}".format(neigh_ip_v6, namespace)
+    dut_namespace = " -n " + namespace if duthost.is_multi_asic else ""
+    cmd = "show ipv6 bgp neighbor {} received-routes  {}".format(neigh_ip_v6, dut_namespace)
     dut_received_routes = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     dut_nlri_routes = parse_dut_received_routes(dut_received_routes)
     dut_nlri_route = dut_nlri_routes[2]
@@ -104,10 +105,16 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     neigh_host = nbrhosts[neigh_name]["host"]
     if is_sonic_neigh:
+        cmd = "vtysh -c 'config' -c 'router bgp {}' -c 'address-family ipv6 unicast'\
+               -c 'neighbor {} soft-reconfiguration inbound'".format(
+                neigh_asn[neigh_name], dut_ip_v6)
+        neigh_host.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
         logger.debug(neigh_host.shell('vtysh -n {} vtysh -c "clear bgp * soft"'.format(neigh_namespace)))
         cmd = "show ipv6 bgp neighbor {} received-routes".format(dut_ip_v6)
         neigh_nlri_routes = neigh_host.shell(cmd, module_ignore_errors=True)['stdout'].split('\n')
-        logger.debug("neighbor routes: {}".format(neigh_nlri_routes[len(neigh_nlri_routes) - 3]))
+        neigh_nlri_route = ""
+        routes = neigh_nlri_routes[len(neigh_nlri_routes) - 3]
+        logger.debug("neighbor routes: {}".format(routes))
         neigh_nlri_route = neigh_nlri_routes[len(neigh_nlri_routes) - 3].split()[1]
     else:
         logger.debug(neigh_host.eos_command(commands=["clear bgp * soft"]))
@@ -133,7 +140,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
         'dut_nlri_route': dut_nlri_route,
         'neigh_nlri_route': neigh_nlri_route,
         'neigh_namespace': neigh_namespace,
-        'dut_namespace': namespace,
+        'dut_namespace': dut_namespace,
         'asic_index': asic_index,
         'neigh_asic_index': neigh_asic_index,
         'is_sonic_neigh': is_sonic_neigh,
@@ -164,7 +171,7 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
 def test_nlri(setup):
     # show current adjacency
-    cmd = "show ipv6 route {} -n {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
+    cmd = "show ipv6 route {} {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
     logger.debug("DUT Route from neighbor: {}".format(setup['duthost'].shell(cmd)['stdout']))
     cmd = "show ipv6 route {}".format(setup['neigh_nlri_route'])
     if setup['is_sonic_neigh']:
@@ -232,7 +239,7 @@ def test_nlri(setup):
 
     # verify route is no longer shared
     time.sleep(30)
-    cmd = "show ipv6 route {} -n {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
+    cmd = "show ipv6 route {} {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
     dut_route_out = setup['duthost'].shell(cmd)['stdout']
     pytest_assert(
         setup['neigh_ip_v6'] not in get_addresses_from_show_route(dut_route_out),
@@ -324,7 +331,7 @@ def test_nlri(setup):
                   "Neighbor IPv4 state is no established.")
 
     # verify route is shared
-    cmd = "show ipv6 route {} -n {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
+    cmd = "show ipv6 route {} {}".format(setup['dut_nlri_route'], setup['dut_namespace'])
     pytest_assert(
         wait_until(
             180,
