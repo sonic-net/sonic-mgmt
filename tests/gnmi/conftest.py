@@ -35,12 +35,12 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
         return
 
-    with setup_ntp_context(ptfhost, duthost, False):
+    with setup_ntp_context(ptfhost, duthost, True):
         yield
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, setup_gnmi_ntp_client_server):
     '''
     Setup GNMI server with client certificates
     '''
