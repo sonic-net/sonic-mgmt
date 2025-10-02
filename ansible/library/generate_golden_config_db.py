@@ -284,6 +284,7 @@ class GenerateGoldenConfigDBModule(object):
 
             if port_key in ori_config_db["PORT"]:
                 ori_config_db["PORT"][port_key]["admin_status"] = "up"
+                ori_config_db["PORT"][port_key]["role"] = "Dpc"
                 if "interface_key" in hwsku_config:
                     ori_config_db["INTERFACE"][port_key] = {}
                     ori_config_db["INTERFACE"][interface_key] = {}
