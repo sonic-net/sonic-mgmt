@@ -1,0 +1,238 @@
+simulation:
+  no_image_copy: false
+  sim_rel: /auto/vxr/vxr2-private/vxr2_06868_pvt_ssetools
+  slurm_flags:
+    pending_timeout: 60
+    hours: 20
+    partition: regression
+    cluster: rch-slurm-m1
+
+devices:
+  docker_ptf:
+    platform: linux
+    image: /auto/vxr/vxr_images/onie-sonic/ptf_docker_v4.qcow2
+    linux_username: root
+    linux_password: lab
+    linux_prompt: root@docker-ptf:~#
+    xr_port_redir: [22]
+    extended_pci_bus: True
+    vcpu: 4
+    memory: '8G'
+    mgmt_intf_name: mgmt
+    data_ports:
+      - eth[0..32]
+      - backplane
+
+  sonic_dut:
+    platform: spitfire_f
+    os_type: sonic
+    pre_cli: |
+      sudo bash -c "echo 'net.core.rmem_default = 16777216' >> /etc/sysctl.conf"
+      sudo bash -c "echo 'net.core.wmem_default = 16777216' >> /etc/sysctl.conf"
+      sudo sysctl -p
+    xr_port_redir: [22]
+    linux_username: "cisco"
+    linux_password: "cisco123"
+    vcpu: 10
+    memory: '20G'
+    linecard_types: ['8223-64EF-MO']
+    npu_asic_versions: [A0]
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
+    onie-install: /auto/vxr1/aaktiwar/sonic-cisco-8000.bin
+    vxr_sim_config:
+      shelf:
+         ConfigS1SdkVer: 25.8.0.1128
+         ConfigS1NpsuiteVer: 1.203.2
+         ConfigS1DsimBase: /auto/vxr1/aaktiwar/palladium2/npl/
+    port_breakout:
+       lc0:
+          0..63: 2x400
+
+  sonic_mgmt :
+    platform: linux
+    xr_port_redir: [22]
+    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    linux_username: 'vxr'
+    linux_password : 'cisco123'
+    linux_prompt: 'vxr@vxr-vm:~\$'
+    vcpu: 10
+    memory: '20G'
+
+device_groups:
+  veos:
+    devices:
+    - "veos[1..32]"
+    platform: veos
+    xr_port_redir: [22]
+    image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
+    disks:
+    - hda:
+        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+        type: reference
+
+connections:
+    custom:
+      ptf_injected1:
+        ports:
+        - docker_ptf.eth0
+        - sonic_dut.Ethernet0/0
+        - veos1.Ethernet1
+      ptf_injected2:
+        ports:
+        - docker_ptf.eth1
+        - sonic_dut.Ethernet0/1
+        - veos2.Ethernet1
+      ptf_injected3:
+        ports:
+        - docker_ptf.eth2
+        - sonic_dut.Ethernet1/0
+        - veos3.Ethernet1
+      ptf_injected4:
+        ports:
+        - docker_ptf.eth3
+        - sonic_dut.Ethernet1/1
+        - veos4.Ethernet1
+      ptf_injected5:
+        ports:
+        - docker_ptf.eth4
+        - sonic_dut.Ethernet2/0
+        - veos5.Ethernet1
+      ptf_injected6:
+        ports:
+        - docker_ptf.eth5
+        - sonic_dut.Ethernet2/1
+        - veos6.Ethernet1
+      ptf_injected7:
+        ports:
+        - docker_ptf.eth6
+        - sonic_dut.Ethernet3/0
+        - veos7.Ethernet1
+      ptf_injected8:
+        ports:
+        - docker_ptf.eth7
+        - sonic_dut.Ethernet3/1
+        - veos8.Ethernet1
+      ptf_injected9:
+        ports:
+        - docker_ptf.eth8
+        - sonic_dut.Ethernet4/0
+        - veos9.Ethernet1
+      ptf_injected10:
+        ports:
+        - docker_ptf.eth9
+        - sonic_dut.Ethernet4/1
+        - veos10.Ethernet1
+      ptf_injected11:
+        ports:
+        - docker_ptf.eth10
+        - sonic_dut.Ethernet5/0
+        - veos11.Ethernet1
+      ptf_injected12:
+        ports:
+        - docker_ptf.eth11
+        - sonic_dut.Ethernet5/1
+        - veos12.Ethernet1
+      ptf_injected13:
+        ports:
+        - docker_ptf.eth12
+        - sonic_dut.Ethernet6/0
+        - veos13.Ethernet1
+      ptf_injected14:
+        ports:
+        - docker_ptf.eth13
+        - sonic_dut.Ethernet6/1
+        - veos14.Ethernet1
+      ptf_injected15:
+        ports:
+        - docker_ptf.eth14
+        - sonic_dut.Ethernet7/0
+        - veos15.Ethernet1
+      ptf_injected16:
+        ports:
+        - docker_ptf.eth15
+        - sonic_dut.Ethernet7/1
+        - veos16.Ethernet1
+      ptf_injected17:
+        ports:
+        - docker_ptf.eth16
+        - sonic_dut.Ethernet8/0
+        - veos17.Ethernet1
+      ptf_injected18:
+        ports:
+        - docker_ptf.eth17
+        - sonic_dut.Ethernet8/1
+        - veos18.Ethernet1
+      ptf_injected19:
+        ports:
+        - docker_ptf.eth18
+        - sonic_dut.Ethernet9/0
+        - veos19.Ethernet1
+      ptf_injected20:
+        ports:
+        - docker_ptf.eth19
+        - sonic_dut.Ethernet9/1
+        - veos20.Ethernet1
+      ptf_injected21:
+        ports:
+        - docker_ptf.eth20
+        - sonic_dut.Ethernet10/0
+        - veos21.Ethernet1
+      ptf_injected22:
+        ports:
+        - docker_ptf.eth21
+        - sonic_dut.Ethernet10/1
+        - veos22.Ethernet1
+      ptf_injected23:
+        ports:
+        - docker_ptf.eth22
+        - sonic_dut.Ethernet11/0
+        - veos23.Ethernet1
+      ptf_injected24:
+        ports:
+        - docker_ptf.eth23
+        - sonic_dut.Ethernet11/1
+        - veos24.Ethernet1
+      ptf_injected25:
+        ports:
+        - docker_ptf.eth24
+        - sonic_dut.Ethernet12/0
+        - veos25.Ethernet1
+      ptf_injected26:
+        ports:
+        - docker_ptf.eth25
+        - sonic_dut.Ethernet12/1
+        - veos26.Ethernet1
+      ptf_injected27:
+        ports:
+        - docker_ptf.eth26
+        - sonic_dut.Ethernet13/0
+        - veos27.Ethernet1
+      ptf_injected28:
+        ports:
+        - docker_ptf.eth27
+        - sonic_dut.Ethernet13/1
+        - veos28.Ethernet1
+      ptf_injected29:
+        ports:
+        - docker_ptf.eth28
+        - sonic_dut.Ethernet14/0
+        - veos29.Ethernet1
+      ptf_injected30:
+        ports:
+        - docker_ptf.eth29
+        - sonic_dut.Ethernet14/1
+        - veos30.Ethernet1
+      ptf_injected31:
+        ports:
+        - docker_ptf.eth30
+        - sonic_dut.Ethernet15/0
+        - veos31.Ethernet1
+      ptf_injected32:
+        ports:
+        - docker_ptf.eth31
+        - sonic_dut.Ethernet15/1
+        - veos32.Ethernet1
+      backplane:
+        ports:
+        - veos[1..32].Ethernet9
+        - docker_ptf.backplane

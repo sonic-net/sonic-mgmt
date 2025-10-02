@@ -716,6 +716,8 @@ def main():
         dut_name = 'siren-01'
     elif device_type == 'crocodile':
         dut_name = 'crocodile-01'
+    elif device_type == 'mustang':
+        dut_name = 'mustang-01'
     else:
         dut_name = 'mathilda-01'
 
