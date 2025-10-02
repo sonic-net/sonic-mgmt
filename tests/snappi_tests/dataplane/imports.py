@@ -30,6 +30,7 @@ import ipaddress
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from datetime import datetime
 from netaddr import IPNetwork
+from typing import Final
 
 # ==============================
 #  Packet Processing & Networking
@@ -54,6 +55,7 @@ from tests.common.reboot import reboot        # noqa: F403, F401, F405
 from tests.common.platform.processes_utils import wait_critical_processes    # noqa: F403, F401, F405
 from tests.common.utilities import wait_until, wait            # noqa: F403, F401, F405
 from tests.common.helpers.assertions import pytest_assert, pytest_require      # noqa: F403, F401, F405
+from tests.common.telemetry.metrics import GaugeMetric
 
 # ==============================
 #  SONiC & Fanout Topology
