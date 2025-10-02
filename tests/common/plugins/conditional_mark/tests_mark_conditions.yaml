@@ -170,14 +170,16 @@ bgp/test_bgp_allow_list.py:
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported.
-             Skip for IPv6-only topologies"
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
-      - "'-v6-' in topo_name"
+  xfail:
+    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
