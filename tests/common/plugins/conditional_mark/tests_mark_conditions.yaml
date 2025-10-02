@@ -1914,7 +1914,7 @@ fib/test_fib.py::test_ipinip_hash:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
-fib/test_fib.py::test_ipinip_hash[ipv4]:
+fib/test_fib.py::test_ipinip_hash[ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
