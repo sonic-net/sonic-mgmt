@@ -2262,7 +2262,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 hash/test_generic_hash.py:
   skip:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup
-             Skip for IPv6-only topologies"
+             or Skip for IPv6-only topologies"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
