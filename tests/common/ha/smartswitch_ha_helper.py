@@ -1,6 +1,32 @@
+import logging
 import pytest
 import re
-from common.plugins.ptfadapter import PtfTestAdapter
+
+
+@pytest.fixture(scope="session")
+def npu_zero(duthosts):
+    """
+    Returns the first NPU in the testbed.
+    """
+    if not duthosts:
+        raise ValueError("No DUT hosts provided")
+
+    dut = duthosts[0]
+    logging.info("Using {} as the 1st NPU".format(dut.hostname))
+    return dut
+
+
+@pytest.fixture(scope="session")
+def npu_one(duthosts):
+    """
+    Returns the second NPU in the testbed.
+    """
+    if len(duthosts) < 2:
+        raise ValueError("Not enough DUT hosts provided")
+
+    dut = duthosts[1]
+    logging.info("Using {} as the 2nd NPU".format(dut.hostname))
+    return dut
 
 
 def add_port_to_namespace(ptfhost, name_of_namespace, port_name, port_ip):
@@ -111,20 +137,3 @@ def check_namespace(ptfhost, name_of_namespace):
 @pytest.fixture(scope="module")
 def dpu_index():
     return 1
-
-
-class PtfTcpTestAdapter(PtfTestAdapter):
-    def __init__(self, base_adapter: PtfTestAdapter):
-        self.__dict__.update(base_adapter.__dict__)
-
-    def start_tcp_server(self, namespace=None):
-        cmd = "python3 /root/tcp_server.py &"
-        if namespace:
-            cmd = f"ip netns exec {namespace} {cmd}"
-        self.ptfhost.shell(cmd)
-
-    def start_tcp_client(self, namespace=None):
-        cmd = "python3 /root/tcp_client.py "
-        if namespace:
-            cmd = f"ip netns exec {namespace} {cmd}"
-        self.ptfhost.shell(cmd)
