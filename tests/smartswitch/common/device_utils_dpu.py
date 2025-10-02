@@ -239,8 +239,8 @@ def check_dpu_reboot_cause(duthost, dpu_name, reason):
     output_reboot_cause = duthost.shell(
             'show reboot-cause all | grep %s' % (dpu_name))
 
-    output_str = output_reboot_cause["stdout"]
-    if reason in output_str.strip():
+    output_str = output_reboot_cause["stdout"].strip()
+    if (isinstance(reason, re.Pattern) and reason.search(output_str)) or reason in output_str:
         logging.info("'{}' - reboot cause is {} as expected".format(dpu_name,
                                                                     reason))
         return True
