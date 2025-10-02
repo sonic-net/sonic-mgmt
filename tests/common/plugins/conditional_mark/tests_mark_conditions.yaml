@@ -347,9 +347,11 @@ bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend"
+    reason: "Not supported on T2 topology or topology backend
+             or Skip for IPv6-only topologies, since there are v6 verison of the test"
     conditions:
       - "'backend' in topo_name or 't2' in topo_name"
+      - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
