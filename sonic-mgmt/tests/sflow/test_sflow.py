@@ -61,8 +61,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
 
     upstream_ports = []
     if len(mg_facts["minigraph_portchannels"]) == 0:
-        topo = tbinfo["topo"]["type"]
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         upstream_ports = get_neighbor_port_list(duthost, upstream_neigh_type)
     else:
         for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):

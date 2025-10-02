@@ -41,6 +41,7 @@ DOM_ENABLED = "enabled"
 DOM_POLLING_CONFIG_VALUES = [DOM_DISABLED, DOM_ENABLED]
 
 WAIT_TIME_AFTER_LPMODE_SET = 3  # in seconds
+PARTIAL_INTERFACES_MAX_COUNT = 64
 
 logger = logging.getLogger(__name__)
 
@@ -305,7 +306,7 @@ def check_interface_status(duthost, ports, expect_up=True, wait_time=None):
 def get_phy_intfs_to_test_per_asic(duthost,
                                    conn_graph_facts,
                                    enum_frontend_asic_index,
-                                   xcvr_skip_list):
+                                   xcvr_skip_list, limited_ports):
     """
     Get the interfaces to test for given asic, excluding the skipped ones.
 
@@ -314,9 +315,13 @@ def get_phy_intfs_to_test_per_asic(duthost,
         value: dict of logical interfaces under this physical port whose value
         is True if the interface is admin-up)
     """
-    _, dev_conn = get_dev_conn(duthost,
-                               conn_graph_facts,
-                               enum_frontend_asic_index)
+    portmap, dev_conn = get_dev_conn(duthost,
+                                     conn_graph_facts,
+                                     enum_frontend_asic_index)
+    if limited_ports and len(portmap) > PARTIAL_INTERFACES_MAX_COUNT:
+        # Take first PARTIAL_INTERFACES_MAX_COUNT interfaces from portmap if there are more
+        partial_interfaces = list(portmap.keys())[:PARTIAL_INTERFACES_MAX_COUNT]
+        dev_conn = {k: dev_conn[k] for k in partial_interfaces if k in dev_conn}
     physical_port_idx_map = get_physical_port_indices(duthost, logical_intfs=dev_conn)
     phy_intfs_to_test_per_asic = {}
 
@@ -487,7 +492,7 @@ def test_check_sfputil_eeprom_hexdump(duthosts, enum_rand_one_per_hwsku_frontend
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_frontend_asic_index, conn_graph_facts,
-                             tbinfo, xcvr_skip_list, shutdown_ebgp):    # noqa: F811
+                             tbinfo, xcvr_skip_list, shutdown_ebgp, limited_ports):    # noqa: F811
     """
     @summary: Check SFP reset using 'sfputil reset'
     """
@@ -497,7 +502,7 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     phy_intfs_to_test_per_asic = get_phy_intfs_to_test_per_asic(duthost,
                                                                 conn_graph_facts,
                                                                 enum_frontend_asic_index,
-                                                                xcvr_skip_list)
+                                                                xcvr_skip_list, limited_ports)
     for phy_intf, logical_intfs_dict in phy_intfs_to_test_per_asic.items():
         # Only reset the first logical interface, since sfputil command acts on this physical port entirely.
         logical_intf = list(logical_intfs_dict.keys())[0]
