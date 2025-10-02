@@ -204,7 +204,7 @@ def remove_node_ip_param(duthost):
         return
     logger.info("Detected SKU which requires removal of '--node-ip=::' from kubelet config")
     duthost.shell(f"sudo cp {KUBELET_DEFAULT_CONFIG} {KUBELET_DEFAULT_CONFIG_BAK}", module_ignore_errors=True)
-    duthost.shell(f"sudo sed -i 's/ --node-ip=:://g' {KUBELET_DEFAULT_CONFIG}")
+    duthost.shell(f"sudo sed -i 's/--node-ip=::/--node-ip={duthost.mgmt_ip}/g' {KUBELET_DEFAULT_CONFIG}")
     duthost.shell("sudo systemctl daemon-reload")
     logger.info("Kubelet config '--node-ip=::' parameter removed")
 
