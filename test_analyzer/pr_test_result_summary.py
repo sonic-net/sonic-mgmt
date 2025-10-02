@@ -81,9 +81,18 @@ def get_pr_test_plans(kusto_client, start_time, end_time):
     | where TestPlanName !contains "optional"
     | where TestPlanName contains "Baseline" or TestPlanName contains "PullRequest"
     | where EndTime between (datetime({start_time}) .. datetime({end_time}))
-    | join kind=leftouter TestBeds on TestPlanId
+    | extend CheckerType = case(
+    TestPlanName matches regex ("kvmtest-t0_"), "t0_checker",
+    TestPlanName matches regex ("kvmtest-t0-sonic_"), "t0-sonic_checker",
+    TestPlanName matches regex ("kvmtest-t0-2vlans_"), "t0-2vlans_checker",
+    TestPlanName matches regex ("kvmtest-t1-lag_"), "t1_checker",
+    TestPlanName matches regex ("kvmtest-multi-asic-t1-lag_"), "t1-multi-asic_checker",
+    TestPlanName matches regex ("kvmtest-dualtor-t0_"), "dualtor_checker",
+    TestPlanName matches regex ("kvmtest-dpu_"), "dpu_checker",
+    TestPlanName matches regex ("kvmtest-t2_"), "t2_checker", "other")
+    | where CheckerType != "other"
     | extend RunDate = todatetime(format_datetime(EndTime, "yyyy-MM-dd"))
-    | distinct TestPlanId, TriggerType, TestbedName, Topology, TestBranch, SourceRepo, RunDate
+    | distinct TestPlanId, TriggerType, CheckerType, Topology, TestBranch, SourceRepo, RunDate
     '''
     query_result = kusto_client.execute_query(DATABASE, query)
     testplans_df = dataframe_from_result_table(query_result.primary_results[0])
@@ -117,7 +126,7 @@ def merge_test_data(testplans_df, testcases_df):
     # Group by the specified keys and count the Result occurrences
     agg_df = (
         merged_df.groupby([
-            "TestBranch", "TriggerType", "TestbedName", "FilePath", "ModulePath", "TestCase", "RunDate", "SourceRepo"
+            "TestBranch", "TriggerType", "CheckerType", "FilePath", "ModulePath", "TestCase", "RunDate", "SourceRepo"
             ])["Result"]
         .value_counts()
         .unstack(fill_value=0)
