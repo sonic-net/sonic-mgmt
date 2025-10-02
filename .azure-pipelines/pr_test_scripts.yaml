@@ -710,7 +710,6 @@ t1-lag-vpp:
   - route/test_route_flap.py
   - route/test_route_perf.py
   - route/test_route_bgp_ecmp.py
-  - vxlan/test_vxlan_bfd_tsa.py
   - vxlan/test_vxlan_ecmp.py
   - vxlan/test_vxlan_decap.py
   - vxlan/test_vnet_decap.py
