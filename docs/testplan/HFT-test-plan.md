@@ -7,7 +7,12 @@
   - [Platform Support](#platform-support)
 - [Test Cases](#test-cases)
   - [Basic Functionality Tests](#basic-functionality-tests)
-	- [Test HFT Port Counters](Test-hft-port-counters)
+    - [Test HFT Port Counters](#test-hft-port-counters)
+    - [Test HFT Queue Counters](#test-hft-queue-counters)
+    - [Test HFT Full Port Counters](#test-hft-full-port-counters)
+  - [State Transition Tests](#state-transition-tests)
+    - [Test HFT Disabled Stream](#test-hft-disabled-stream)
+    - [Test HFT Config Deletion Stream](#test-hft-config-deletion-stream)
 
 ## Overview
 
@@ -94,11 +99,24 @@ Some PORT stats not yet supported.
 
 Validate HFT with disabled stream state transitions (enabled → disabled → enabled).
 
-**Test Phases**:
-1. **Phase 1** (60s): Stream enabled, active telemetry stream
+**Test Phases** (60s each):
+1. Phase 1: Stream enabled, active telemetry stream
    - Expected: Msg/s > 0, counters reporting
-2. **Phase 2** (60s): Stream disabled
+2. Phase 2: Stream disabled
    - Expected: Msg/s = 0, no new data, silent stream
-3. **Phase 3** (60s): Stream re-enabled, stream recovery with active data flow
+3. Phase 3: Stream re-enabled, stream recovery with active data flow
    - Expected: Msg/s > 0, counters resume
 
+#### Test Case: Test HFT Config Deletion Stream 
+**Objective**
+
+Validate HFT configuration lifecycle (create → delete → recreate) and verify countersyncd correctly responds to dynamic CONFIG_DB changes without requiring process restart.
+
+**Test Phases** (60s each):
+
+1. Phase 1: Configuration created
+   - Expected: Msg/s > 0, counters reporting
+2. Phase 2: Configuration deleted
+   - Expected: Msg/s = 0, no telemetry
+3. Phase 3: Configuration re-created
+   - Expected: Msg/s > 0, counters resume
