@@ -206,7 +206,7 @@ def verify_host_rate_limit(rand_selected_dut):
                                          'syslog_rate_limit_host_interval_{}_burst_{}'.format(RATE_LIMIT_INTERVAL,
                                                                                               RATE_LIMIT_BURST),
                                          [LOG_EXPECT_LAST_MESSAGE.format('')],
-                                         RATE_LIMIT_BURSTgit add ,
+                                         RATE_LIMIT_BURST,
                                          is_host=True)
 
     with expect_host_rsyslog_restart(rand_selected_dut):
