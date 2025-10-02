@@ -80,6 +80,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
@@ -110,6 +111,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - job: impacted_area_t1_lag_elastictest
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
@@ -139,6 +141,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
@@ -168,6 +171,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - job: impacted_area_multi_asic_elastictest
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
@@ -198,6 +202,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - job: impacted_area_t0_sonic_elastictest
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
@@ -232,6 +237,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
@@ -264,6 +270,7 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   # - job: impacted_area_multi_asic_t1_elastictest
@@ -324,3 +331,4 @@ jobs:
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
