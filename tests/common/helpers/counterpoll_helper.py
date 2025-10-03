@@ -63,6 +63,7 @@ class ConterpollHelper:
 
     @staticmethod
     def disable_counterpoll(duthost, counter_type_list):
+
         for counterpoll_type in counter_type_list:
             result = ConterpollHelper._run_command_ignore_errors(
                 duthost,
@@ -86,7 +87,7 @@ class ConterpollHelper:
 
 
     @staticmethod
-    def enable_counterpoll(duthost, asic_id, counter_type_list):
+    def enable_counterpoll(duthost, counter_type_list, asic_id=None):
         for counterpoll_type in counter_type_list:
             result = ConterpollHelper._run_command_ignore_errors(
                 duthost,
