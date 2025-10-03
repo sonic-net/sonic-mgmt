@@ -43,7 +43,7 @@ class ConterpollHelper:
                         counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
 
     @staticmethod
-    def disable_counterpoll(duthost, asic_id, counter_type_list):
+    def disable_counterpoll(duthost, counter_type_list, asic_id=None):
         for counterpoll_type in counter_type_list:
             if duthost.is_multi_asic:
                 asic_index = " -n asic{}".format(asic_id.asic_index)
@@ -52,7 +52,7 @@ class ConterpollHelper:
             duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type, asic_index))
 
     @staticmethod
-    def enable_counterpoll(duthost, asic_id, counter_type_list):
+    def enable_counterpoll(duthost, counter_type_list, asic_id=None):
         for counterpoll_type in counter_type_list:
             if duthost.is_multi_asic:
                 asic_index = " -n asic{}".format(asic_id.asic_index)
