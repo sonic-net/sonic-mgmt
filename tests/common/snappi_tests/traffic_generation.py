@@ -610,13 +610,15 @@ def run_traffic(duthost,
             asic_value = duthost.get_port_asic_instance(rx_dut_port).namespace
             for i in range(7):
                 address = config.devices[i].ethernets[0].ipv4_addresses[0].address
-                duthost.command(f"sudo ip netns exec {asic_value} ping {address} -c 2")
-                logger.info(f"sudo ip netns exec {asic_value} ping {address} -c 2")
+                duthost.command("sudo ip netns exec {} ping {} -c 2".
+                                format(asic_value, address))
+                logger.info("sudo ip netns exec {} ping {} -c 2".
+                            format(asic_value, address))
         else:
             for i in range(7):
                 address = config.devices[i].ethernets[0].ipv4_addresses[0].address
-                duthost.command(f"sudo ping {address} -c 2 \n")
-                logger.info(f"sudo ping {address} -c 2")
+                duthost.command("sudo ping {} -c 2 \n".format(address))
+                logger.info("sudo ping {} -c 2".format(address))
 
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
