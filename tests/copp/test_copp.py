@@ -536,7 +536,6 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
     if not is_backend_topology:
         # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
         upStreamDuthost.command("sudo config bgp shutdown all")
-        time.sleep(30)
         # save BGP shutdown into config, so backup_restore_config_db won't bring it back up
         # without shutting down, background BGP traffic can consume significant COPP bandwidth on large topos
         if dut == upStreamDuthost:
@@ -587,6 +586,7 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
+
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
     """
