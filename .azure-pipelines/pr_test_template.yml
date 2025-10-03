@@ -50,7 +50,6 @@ jobs:
       - template: impacted_area_testing/get-impacted-area.yml
         parameters:
           BUILD_BRANCH: $(BUILD_BRANCH)
-          IMPACT_AREA_INFO: ${{ parameters.IMPACT_AREA_INFO }}
 
   - job: impacted_area_t0_elastictest
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
