@@ -674,6 +674,9 @@ def run_traffic(duthost,
         ixnet = api._ixnetwork
         dp = ixnet.Topology.find().DeviceGroup.find().Ethernet.find().Mka.find().DelayProtect
         dp.Single(False)
+        sci_id = ixnet.Topology.find()[1].DeviceGroup.find()[0].Ethernet.find()[0].StaticMacsec.find()[0].DutSciMac
+        dut_port = snappi_extra_params.base_flow_config["tx_port_config"].peer_port
+        sci_id.Single(duthost.get_dut_iface_mac(dut_port))
         for ti in ixnet.Traffic.TrafficItem.find():
             ti.EnableMacsecEgressOnlyAutoConfig = False
             ti.Tracking.find()[0].TrackBy = []
@@ -719,13 +722,15 @@ def run_traffic(duthost,
             asic_value = duthost.get_port_asic_instance(rx_dut_port).namespace
             for i in range(7):
                 address = config.devices[i].ethernets[0].ipv4_addresses[0].address
-                duthost.command(f"sudo ip netns exec {asic_value} ping {address} -c 2")
-                logger.info(f"sudo ip netns exec {asic_value} ping {address} -c 2")
+                duthost.command("sudo ip netns exec {} ping {} -c 2".
+                                format(asic_value, address))
+                logger.info("sudo ip netns exec {} ping {} -c 2".
+                            format(asic_value, address))
         else:
             for i in range(7):
                 address = config.devices[i].ethernets[0].ipv4_addresses[0].address
-                duthost.command(f"sudo ping {address} -c 2 \n")
-                logger.info(f"sudo ping {address} -c 2")
+                duthost.command("sudo ping {} -c 2 \n".format(address))
+                logger.info("sudo ping {} -c 2".format(address))
 
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
