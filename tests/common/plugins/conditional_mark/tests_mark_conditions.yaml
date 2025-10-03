@@ -142,12 +142,13 @@ arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
 
 arp/test_wr_arp.py:
   skip:
-    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412"
+    reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412 and this test is not run on this asic type or version or topology currently"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
       - "'isolated' in topo_name"
+      - "topo_type not in ['t0']"
 
 #######################################
 #####            bfd              #####
@@ -326,9 +327,11 @@ bgp/test_bgp_session.py::test_bgp_session_interface_down:
 
 bgp/test_bgp_slb.py:
   skip:
-    reason: "Skip over topologies which doesn't support slb."
+    reason: "Skip over topologies which doesn't support slb and this test is not run on this topology currently"
+    conditions_logical_operator: or
     conditions:
      - "'backend' in topo_name or 'mgmttor' in topo_name"
+     - "topo_type not in ['t0']"
 
 bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
   skip:
@@ -2082,8 +2085,8 @@ generic_config_updater/test_dhcp_relay.py:
 generic_config_updater/test_dynamic_acl.py:
   skip:
     reason: "Device SKUs do not support the custom ACL_TABLE_TYPE that we use in this test.  Known log error unrelated to test
-    on m0-2vlan testbed causes consistent failures
-    / Dynamic ACL is not supported in Cisco Q200 based platforms"
+     on m0-2vlan testbed causes consistent failures
+     / Dynamic ACL is not supported in Cisco Q200 based platforms"
     conditions_logical_operator: "OR"
     conditions:
       - "platform in ['armhf-nokia_ixs7215_52x-r0']"
@@ -2451,7 +2454,7 @@ hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_lag_member_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field.  For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2497,7 +2500,7 @@ hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-INNER_SRC_MAC-ip
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, LAG hash not supported in broadcom SAI."
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2541,7 +2544,7 @@ hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_nexthop_flap[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI. "
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -2580,7 +2583,7 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-INNER_IP_PROTOCOL:
 hash/test_generic_hash.py::test_reboot[CRC_CCITT-IN_PORT:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, when ecmp and lag hash at the same time, it would not support
-    setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
+     setting ecmp hash as CRC_CCITT and lag hash as CRC on ingress port hash field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
@@ -3155,6 +3158,14 @@ qos/test_pfc_counters.py:
       - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                    'Mellanox-SN5640-C448O16']"
 
+qos/test_pfc_pause.py:
+  skip:
+    reason: "This test is not run on this asic type or version or topology currently"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t0']"
+      - "release in ['202412']"
+
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
   # The fanout needs to send PFC frames fast enough so that the queue remains completely paused for the entire duration
@@ -3300,8 +3311,8 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolSize:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/12292 and hwsku in ['Force10-S6100']
-      and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
-      and asic_type in ['cisco-8000']"
+       and topo_type in ['t1-64-lag'] and hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060CX-32S-D48C8'] and asic_type not in ['mellanox']
+       and asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
       - "asic_type in ['vs']"
@@ -3614,9 +3625,11 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 sflow/test_sflow.py:
   skip:
-    reason: "Sflow feature is default disabled on vs platform"
+    reason: "Sflow feature is default disabled on vs platform and it is not tested for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "True"
 
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
@@ -4133,9 +4146,11 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 vrf/test_vrf.py:
   skip:
-    reason: "Vrf tests are skipped both in nightly and PR testing, not supported on mellanox and nvidia asic from 202411 and later"
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
+      - "topo_type not in ['t0']"
 
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
@@ -4159,9 +4174,11 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later"
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
+      - "topo_type not in ['t0']"
 
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
