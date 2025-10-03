@@ -1363,15 +1363,13 @@ def run_traffic_and_collect_stats(rx_duthost,
         f.write('Total DUT Loss Pkts:{} \n'.format(test_stats['dut_loss_pkts']))
         test_stats['dut_lossless_pkts'] = 0
         test_stats['dut_lossy_pkts'] = 0
-        prio_key = ['_prio_']
         for dut, port in dutport_list:
-            new_key = (dut.hostname + '_' + port).lower()
+            new_key = (dut.hostname + '_' + port).lower() + '_prio_'
             prio_dict = {}
             for item in results:
-                for key in prio_key:
-                    if (new_key in item and key in item.split(new_key)[1]):
-                        prio_dict[item.split(new_key)[1]] = df_t[item].max()
-            f.write('Egress Queue Count for {} : \n'.format(new_key))
+                if (new_key in item):
+                    prio_dict[item] = df_t[item].max()
+            f.write('Egress Queue Count for {} : \n'.format((dut.hostname + '_' + port).lower()))
             for key, val in prio_dict.items():
                 if val != 0:
                     # Checking for lossless priorities in the key.
