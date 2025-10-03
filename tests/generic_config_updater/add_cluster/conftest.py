@@ -72,11 +72,3 @@ def setup_env(duthosts, rand_one_dut_front_end_hostname):
         rollback_or_reload(duthost)
     finally:
         delete_checkpoint(duthost)
-
-
-# -----------------------------
-# Test Parametrization Fixtures
-# -----------------------------
-@pytest.fixture(scope="module", params=["standalone", "aggregated"])
-def apply_patch_scenario(request):
-    return request.param
