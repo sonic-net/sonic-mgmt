@@ -10,7 +10,7 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="function", autouse=True)
 def teardown(duthost):
     yield
     config_reload(duthost, safe_reload=True)
