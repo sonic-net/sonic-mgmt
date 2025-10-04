@@ -211,12 +211,6 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
-bgp/test_bgp_allow_list_m0_olt.py:
-  skip:
-    reason: "Only supported on m0 topo."
-    conditions:
-      - "'m0' not in topo_type"
-
 bgp/test_bgp_bbr.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
@@ -2848,16 +2842,6 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[async_storm:
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16233"
         - "release in ['202412']"
         - *lossyTopos
-
-#######################################
-#####         pretest             #####
-#######################################
-test_pretest.py::test_disable_rsyslog_rate_limit:
-  skip:
-    reason: "Skip test for KVM dualtor memory leak with syslog rate-limit-feature enable"
-    conditions:
-      - "asic_type in ['vs']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/15843
 
 #######################################
 #####     process_monitoring      #####
