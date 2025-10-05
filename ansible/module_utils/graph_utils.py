@@ -333,16 +333,27 @@ class LabGraph(object):
 
             if l1_name not in from_l1_links:
                 from_l1_links[l1_name] = {}
-            from_l1_links[l1_name][l1_port] = {
-                "peerdevice": device_name,
-                "peerport": device_port,
-            }
+
+            if "|" in l1_port:
+                lanes = l1_port.split("|")
+
+                for lane in lanes:
+                    from_l1_links[l1_name][lane] = {
+                        "peerdevice": device_name,
+                        "peerport": device_port
+                    }
+            else:
+                from_l1_links[l1_name][l1_port] = {
+                    "peerdevice": device_name,
+                    "peerport": device_port,
+                }
 
             if device_name not in to_l1_links:
                 to_l1_links[device_name] = {}
+
             to_l1_links[device_name][device_port] = {
                 "peerdevice": l1_name,
-                "peerport": l1_port,
+                "peerport": l1_port if "|" not in l1_port else l1_port.split("|"),
             }
 
         logging.debug("Found L1 links from L1 switches to devices: {}".format(from_l1_links))
@@ -561,6 +572,11 @@ class LabGraph(object):
                     l1_cross_connects[l1_start_device] = {}
 
                 l1_port_pair = sorted([l1_start_port, l1_end_port])
-                l1_cross_connects[l1_start_device][l1_port_pair[0]] = l1_port_pair[1]
+
+                if isinstance(l1_port_pair[0], list) and isinstance(l1_port_pair[1], list):
+                    for l1_port_start, l1_port_end in zip(l1_port_pair[0], l1_port_pair[1]):
+                        l1_cross_connects[l1_start_device][l1_port_start] = l1_port_end
+                else:
+                    l1_cross_connects[l1_start_device][l1_port_pair[0]] = l1_port_pair[1]
 
         return l1_cross_connects
