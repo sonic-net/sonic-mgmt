@@ -15,8 +15,8 @@ devices:
     port_breakout:
        lc0:
           0..63: 2x400
-    linux_password: cisco123
-    linux_username: cisco
+    linux_password: password
+    linux_username: admin
     onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
     os_type: sonic
     memory: 32GB

@@ -129,6 +129,12 @@
             "pyvxr_yaml_file": "../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml"
         }
     },
+    "t0-t1-5d": {
+        "lightning": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightning.yaml",
+            "topo_file": "../spytest_tb_files/g200_udf_qpid_vxlan_topo.yaml"
+        }
+    },
     "tortuga-controller-2x2": {
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x2.yaml"
