@@ -9,7 +9,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from scapy.all import Ether, IPv6, ICMPv6ND_NS, ICMPv6NDOptSrcLLAddr, in6_getnsmac, \
                       in6_getnsma, inet_pton, inet_ntop, socket
 from ipaddress import ip_address, ip_network
-from tests.common.utilities import wait_until, increment_ipv6_addr
+from tests.common.utilities import wait_until, increment_ipv6_addr, is_ipv6_only_topology
 from tests.common.errors import RunAnsibleModuleFail
 
 
@@ -22,8 +22,7 @@ TEST_INCOMPLETE_NEIGHBOR_CNT = 10
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0'),
-    pytest.mark.dualtor_active_standby_toggle_to_enum_tor
+    pytest.mark.topology('t0')
 ]
 
 LOOP_TIMES_LEVEL_MAP = {
@@ -36,9 +35,10 @@ LOOP_TIMES_LEVEL_MAP = {
 
 
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthost):
+def arp_cache_fdb_cleanup(duthost, tbinfo):
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     try:
-        clear_dut_arp_cache(duthost)
+        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
         fdb_cleanup(duthost)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
@@ -52,7 +52,7 @@ def arp_cache_fdb_cleanup(duthost):
 
     # Ensure clean test environment even after failing
     try:
-        clear_dut_arp_cache(duthost)
+        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
         fdb_cleanup(duthost)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
@@ -91,15 +91,13 @@ def genrate_ipv4_ip():
     return list(ptf_intf_ipv4_hosts)
 
 
-def test_ipv4_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                  garp_enabled, ip_and_intf_info, intfs_for_test,
+def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
                   ptfadapter, get_function_completeness_level):
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
 
     The DUT should learn the (previously unseen) ARP info from the packet
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
@@ -109,12 +107,6 @@ def test_ipv4_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pytest_assert(ipv4_available > 0 and fdb_available > 0, "Entries have been filled")
 
     arp_available = min(min(ipv4_available, fdb_available), ENTRIES_NUMBERS)
-    # Neighbor support is dependant on NH scale  for some cisco platforms.
-    # Limit ARP scale based on available NH entries
-    asic_type = duthost.facts["asic_type"]
-    if 'cisco-8000' in asic_type:
-        ipv4_nh_available = get_crm_resources(duthost, "ipv4_nexthop", "available")
-        arp_available = min(arp_available, ipv4_nh_available)
 
     pytest_require(garp_enabled, 'Gratuitous ARP not enabled for this device')
     ptf_intf_ipv4_hosts = genrate_ipv4_ip()
@@ -190,10 +182,9 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available):
     logger.info("Sending {} ipv6 neighbor entries".format(nd_available))
 
 
-def test_ipv6_nd(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                 ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                  ptfadapter, get_function_completeness_level, proxy_arp_enabled):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -209,10 +200,7 @@ def test_ipv6_nd(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     pytest_assert(ipv6_available > 0 and fdb_available > 0, "Entries have been filled")
 
     nd_available = min(min(ipv6_available, fdb_available), ENTRIES_NUMBERS)
-    asic_type = duthost.facts["asic_type"]
-    if 'cisco-8000' in asic_type:
-        ipv6_nh_available = get_crm_resources(duthost, "ipv6_nexthop", "available")
-        nd_available = min(nd_available, ipv6_nh_available)
+
     while loop_times > 0:
         loop_times -= 1
         try:
@@ -227,7 +215,7 @@ def test_ipv6_nd(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                               "Neighbor Table Add failed")
         finally:
             try:
-                clear_dut_arp_cache(duthost)
+                clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
                 fdb_cleanup(duthost)
             except RunAnsibleModuleFail as e:
                 if 'Failed to send flush request: No such file or directory' in str(e):
@@ -256,12 +244,11 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
         testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
 
 
-def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                             ptfadapter, get_function_completeness_level, proxy_arp_enabled):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
     pytest_require(ptf_intf_ipv6_addr is not None, 'No IPv6 VLAN address configured on device')
 
@@ -288,7 +275,7 @@ def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     logger.info("original nf_conntrack_icmpv6_timeout: {}".format(orig_conntrack_icmpv6_timeout))
 
     try:
-        clear_dut_arp_cache(duthost)
+        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
 
         duthost.command("conntrack -F")
 
@@ -302,7 +289,7 @@ def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         conntrack_cnt_post = int(duthost.command("cat /proc/sys/net/netfilter/nf_conntrack_count")["stdout"])
         logger.info("nf_conntrack_count post test: {}".format(conntrack_cnt_post))
 
-        pytest_assert((conntrack_cnt_post - conntrack_cnt_pre) < tgt_conntrack_cnt,
+        pytest_assert((conntrack_cnt_post - conntrack_cnt_pre) < tgt_conntrack_cnt * 0.1,
                       "{} echo requests cause large increase in conntrack entries".format(tgt_conntrack_cnt))
 
         pytest_assert("[UNREPLIED]" not in duthost.command("conntrack -f ipv6 -L dying")["stdout"],
@@ -318,4 +305,5 @@ def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
         duthost.command("conntrack -F")
 
-        clear_dut_arp_cache(duthost)
+        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
+

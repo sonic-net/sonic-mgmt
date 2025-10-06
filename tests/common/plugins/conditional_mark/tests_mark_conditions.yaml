@@ -140,6 +140,12 @@ arp/test_unknown_mac.py::TestUnknownMac::test_unknown_mac:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19906 and '-v6-' in topo_name"
 
+arp/test_stress_arp.py::test_ipv4_arp:
+  xfail:
+    reason: "skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 arp/test_wr_arp.py:
   skip:
     reason: "Warm reboot is broken on dualtor topology. Device fails to recover by sanity check. Skipping for now. Not supported in standalone topos / Warm reboot is not required for 202412"
