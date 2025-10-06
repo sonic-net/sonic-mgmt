@@ -91,15 +91,17 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
             for k, v in bgp_neighbors.items()
         }
         peer_to_gateway = {}
+        subnet_type = subnet_type.lower()
+        for port, int_info in interfaces.items():
+            for ip_cidr in int_info:
+                try:
+                    ip_obj = ipaddress.ip_interface(ip_cidr)
+                except ValueError:
+                    continue  # skip non-IP keys
 
-        for port, ip_info in interfaces.items():
-            for ip in ip_info:
-                if subnet_type == 'IPv4' and not ipaddress.ip_address(ip.split('/')[0]).version == 4:
-                    continue
-                ip_obj = ipaddress.ip_interface(ip)
-                ip_address = str(ip_obj.ip)
-                prefix_length = ip_obj.network.prefixlen
-                peer_to_gateway[port] = (ip_address, prefix_length)
+                if ((subnet_type == 'ipv4' and ip_obj.version == 4) or
+                        (subnet_type == 'ipv6' and ip_obj.version == 6)):
+                    peer_to_gateway[port] = (str(ip_obj.ip), ip_obj.network.prefixlen)
         mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
         for index, port in enumerate(get_snappi_ports):
             if port['duthost'] == duthost:
