@@ -338,38 +338,38 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
     logging.info("Deploying MG is finished")
     ssh.close()
 
-def untar_cisco_dir(data):
-    ssh = paramiko.SSHClient()
-    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    connect_with_retries(ssh, data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
-    chan = ssh.invoke_shell()
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("utf-8", errors="replace")
-        logging.info(resp.decode("utf-8", errors="replace"))
-    time.sleep(3)
+# def untar_cisco_dir(data):
+#     ssh = paramiko.SSHClient()
+#     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+#     connect_with_retries(ssh, data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
+#     chan = ssh.invoke_shell()
+#     buff = ''
+#     while not buff.endswith(':~$ '):
+#         resp = chan.recv(9999)
+#         buff += resp.decode("utf-8", errors="replace")
+#         logging.info(resp.decode("utf-8", errors="replace"))
+#     time.sleep(3)
 
-    chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
-    buff = ''
-    while not buff.endswith(':~$ '):
-        resp = chan.recv(9999)
-        buff += resp.decode("utf-8", errors="replace")
-        logging.info(resp.decode("utf-8", errors="replace"))
-    time.sleep(3)
+#     chan.send('docker exec -it docker-sonic-mgmt /bin/bash \n')
+#     buff = ''
+#     while not buff.endswith(':~$ '):
+#         resp = chan.recv(9999)
+#         buff += resp.decode("utf-8", errors="replace")
+#         logging.info(resp.decode("utf-8", errors="replace"))
+#     time.sleep(3)
 
-    chan.send('cd /data/tests \n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    logging.info(resp.decode("utf-8", errors="replace"))
+#     chan.send('cd /data/tests \n')
+#     time.sleep(3)
+#     resp = chan.recv(9999)
+#     logging.info(resp.decode("utf-8", errors="replace"))
 
-    chan.send('tar -xf cisco.tar\n')
-    time.sleep(3)
-    resp = chan.recv(9999)
-    if DEBUG:
-        logging.info(resp.decode("utf-8", errors="replace"))
+#     chan.send('tar -xf cisco.tar\n')
+#     time.sleep(3)
+#     resp = chan.recv(9999)
+#     if DEBUG:
+#         logging.info(resp.decode("utf-8", errors="replace"))
 
-    ssh.close()
+#     ssh.close()
 
 def vEOS_inital_cfg(data,vEOS_count):
     # Specify the connection timeout in seconds for blocking operations, like connection attempt
@@ -608,8 +608,8 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
     ftp_client=ssh.open_sftp()
     ftp_client.put('run_scripts.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts.py')
     ftp_client.put('../sonic-mgmt/tests/allure_server.py','golden-code/sonic-test/sonic-mgmt/tests/allure_server.py')
-    os.system("tar -cvf cisco.tar -C ./../sonic-mgmt/tests cisco")
-    ftp_client.put('cisco.tar', 'golden-code/sonic-test/sonic-mgmt/tests/cisco.tar')
+    #os.system("tar -cvf cisco.tar -C ./../sonic-mgmt/tests cisco")
+    #ftp_client.put('cisco.tar', 'golden-code/sonic-test/sonic-mgmt/tests/cisco.tar')
     #ftp_client.put('sanity_scripts.txt','sonic-test/sonic-mgmt/tests/sanity_scripts.txt')
     ftp_client.put(base_topo_file,'golden-code/sonic-test/sonic-mgmt/ansible/{}'.format(base_topo_file))
     ftp_client.put('testbed_add_vm_topology.yml','golden-code/sonic-test/sonic-mgmt/ansible/testbed_add_vm_topology.yml')
@@ -1094,10 +1094,10 @@ def configure_vxr(data, topo_type, base_topo_file, vEOS_count, dut_platform, dev
     upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code,add_sim_patches, bgp_hold_time_patch)
     logging.info("********** Upload testbed specific files to sonic mgmt container is finished ***********")
 
-    # Untar cisco directory
-    logging.info("********** Untar the uploaded cisco directory **********")
-    untar_cisco_dir(data)
-    logging.info("********** Untar the uploaded cisco directory is finished ********")
+    # # Untar cisco directory
+    # logging.info("********** Untar the uploaded cisco directory **********")
+    # untar_cisco_dir(data)
+    # logging.info("********** Untar the uploaded cisco directory is finished ********")
 
     # Change DUT password and set mgmt ip address
 
