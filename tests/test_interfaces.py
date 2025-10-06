@@ -15,7 +15,7 @@ def test_interfaces(duthosts, enum_frontend_dut_hostname, tbinfo, enum_asic_inde
     """compare the interfaces between observed states and target state"""
 
     duthost = duthosts[enum_frontend_dut_hostname]
-    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),\
             "Pmon docker is not ready for test")
     asic_host = duthost.asic_instance(enum_asic_index)
     host_facts = asic_host.interface_facts()['ansible_facts']['ansible_interface_facts']
