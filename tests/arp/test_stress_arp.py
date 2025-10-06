@@ -91,6 +91,7 @@ def genrate_ipv4_ip():
     ptf_intf_ipv4_hosts = ipv4_addr.hosts()
     return list(ptf_intf_ipv4_hosts)
 
+
 def test_ipv4_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   garp_enabled, ip_and_intf_info, intfs_for_test,
                   ptfadapter, get_function_completeness_level):
