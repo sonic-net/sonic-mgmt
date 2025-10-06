@@ -643,7 +643,6 @@ t1-lag-vpp:
   - arp/test_unknown_mac.py
   - arp/test_arp_extended.py
   - arp/test_tagged_arp.py
-  - arp/test_neighbor_mac.py
   - arp/test_wr_arp.py
   - arp/test_arp_dualtor.py
   - arp/test_stress_arp.py
