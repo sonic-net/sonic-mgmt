@@ -71,4 +71,3 @@ def fdb_cleanup(duthost):
         duthost.command('fdbclear')
         pytest_assert(wait_until(200, 2, 0, lambda: fdb_table_has_no_dynamic_macs(duthost) is True),
                       "FDB Table Cleanup failed")
-
