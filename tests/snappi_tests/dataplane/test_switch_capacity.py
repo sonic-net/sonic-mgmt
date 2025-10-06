@@ -1,7 +1,6 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401
 from snappi_tests.dataplane.files.helper import *
 from itertools import product
-from copy import deepcopy
 from tests.common.telemetry import (
     METRIC_LABEL_DEVICE_ID,
     METRIC_LABEL_DEVICE_PORT_ID,
@@ -19,7 +18,6 @@ from tests.common.telemetry.metrics.device import DevicePortMetrics
 from tests.common.telemetry.metrics.device import DevicePSUMetrics
 from tests.common.telemetry.metrics.device import DeviceQueueMetrics
 from tests.common.telemetry.metrics.device import DeviceTemperatureMetrics
-from tests.common.telemetry.metrics.device import DeviceFanMetrics
 
 logger = logging.getLogger(__name__)
 POLL_INTERVAL_SEC = 30
@@ -38,7 +36,7 @@ capacity_param_names = ",".join(capacity_param_values.keys())
 capacity_param_product = list(product(*capacity_param_values.values()))
 
 
-pytestmark = [pytest.mark.topology("tgen")]
+pytestmark = [pytest.mark.topology("nut")]
 
 
 @pytest.mark.parametrize(capacity_param_values, capacity_param_product)
@@ -79,8 +77,9 @@ def test_switch_capacity(
     """
     logger.info("XXX" * 50)
     logger.info(
-        f"Testing {subnet_type} traffic at {traffic_rate}% line rate for {test_duration} seconds with frame size {frame_size} bytes"
-    )
+        f"Testing {subnet_type} traffic at {traffic_rate}% line rate "
+        f"for {test_duration} seconds with frame size {frame_size} bytes"
+        )
     snappi_extra_params = SnappiTestParams()
     snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
 
@@ -116,7 +115,7 @@ def test_switch_capacity(
             "is_rdma": False,
             "flow_name": "Switch_Capacity_Test",
             "tx_names": snappi_obj_handles["Tx"]["network_group"] + snappi_obj_handles["Rx"]["network_group"],
-            "rx_names": snappi_obj_handles["Rx"]["network_group"] + snappi_obj_handles["Tx"]["network_group"] ,
+            "rx_names": snappi_obj_handles["Rx"]["network_group"] + snappi_obj_handles["Tx"]["network_group"],
             "mesh_type": "mesh",
         }
     ]
