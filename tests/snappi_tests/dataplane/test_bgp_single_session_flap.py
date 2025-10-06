@@ -1,8 +1,11 @@
-import sys
-sys.path.append('../test_reporting/telemetry')    # noqa: F401, F403, F405
+from tests.common.telemetry import (
+    UNIT_SECONDS,       # noqa: F401, F403, F405, E402
+)
+from tests.common.telemetry.constants import (
+    METRIC_LABEL_TG_TRAFFIC_RATE,
+    METRIC_LABEL_TG_FRAME_BYTES,
+)
 from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
-from metric_definitions import *   # noqa: F401, F403, F405
-from metrics import GaugeMetric     # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import (
     set_primary_chassis,    # noqa: F401, F403, F405, E402
     create_snappi_config,     # noqa: F401, F403, F405, E402
@@ -13,37 +16,16 @@ from snappi_tests.dataplane.files.helper import (
     get_stats,
     check_bgp_state
 )  # noqa: F401, F403, F405, E402
-from reporter_factory import TelemetryReporterFactory   # noqa: F401, F403, F405
 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
-METRIC_LABEL_TG_TRAFFIC_RATE: Final[str] = "tg.traffic_rate"
 METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
-METRIC_LABEL_TG_FRAME_SIZE: Final[str] = "tg.frame_size"
 METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"
 METRIC_NAME_BGP_CONVERGENCE_ROUTE_TIME_MS: Final[str] = "bgp.convergence.route.time.ms"
 METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS: Final[str] = "bgp.convergence.dataplane.time.ms"
-common_labels = [
-    Point("Test_Info")
-    .tag("METRIC_LABEL_TESTBED", "TB-XYZ")
-    .tag("METRIC_LABEL_TEST_BUILD", "2024.1103")
-    .tag("METRIC_LABEL_TEST_CASE", os.path.basename(__file__))
-    .tag("METRIC_LABEL_TEST_FILE", os.path.basename(__file__))
-    .tag(
-        "METRIC_LABEL_TEST_JOBID",
-        f'{os.path.basename(__file__)}_{datetime.now().strftime("%Y%m%d")}_{datetime.now().strftime("%H:%M:%S")}',
-    )
-]
-
-final_reporter = TelemetryReporterFactory.create_final_metrics_reporter(common_labels)
-convergence_dataplane_time = GaugeMetric(name=METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS,
-                                         description="convergence time for port down/Route withdrawl event",
-                                         unit="s",
-                                         reporter=final_reporter)
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
 TIMEOUT = 20
 # Mention the details of the port that needs to be flapped and the corresponding BT0 device
-# NOTE: Withdraw not supported currently for heterogeneous route ranges
 ROUTE_RANGES = {
     "IPv6": [["777:777:777::1", 64, 10000], ["666:666:666::1", 64, 10000]],
     "IPv4": [['100.1.1.1', 24, 5000]]
@@ -59,9 +41,10 @@ def test_bgp_sessions(
     snappi_api,
     get_snappi_ports,
     fanout_graph_facts_multidut,
-    set_primary_chassis,   # noqa: F811
-    create_snappi_config,  # noqa: F811
+    set_primary_chassis,   # noqa: F811, F401
+    create_snappi_config,  # noqa: F811, F401
     subnet_type,
+    db_reporter,
     tbinfo,
     frame_rate,
     frame_size,
@@ -122,6 +105,7 @@ def test_bgp_sessions(
         subnet_type,
         snappi_obj_handles,
         event_type,
+        db_reporter,
         snappi_extra_params
     )
 
@@ -135,11 +119,16 @@ def get_convergence_for_single_session_flap(
     subnet_type,
     snappi_obj_handles,
     event_type,
+    db_reporter,
     snappi_extra_params
 ):
     """
     Get the packet loss duration
     """
+    convergence_dataplane_time = GaugeMetric(METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS,
+                                             "convergence time for port down/Route withdrawl event",
+                                             UNIT_SECONDS,
+                                             db_reporter)
     if event_type == "Port Flap":
         logger.info("Starting Port Flap Test")
         snappi_api.set_config(snappi_config)
@@ -193,14 +182,15 @@ def get_convergence_for_single_session_flap(
             logger.info("Convergence Time for Single Port Flap      : {} (ms)".format(pkt_loss_duration))
             logger.info('--------------------------------------------------------------------------------------')
             start_stop(snappi_api, operation="stop", op_type="traffic")
-            labels = {
+            test_labels = {
                 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
                 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[subnet_type][0][0][-1],
                 METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]['line_rate'],
-                METRIC_LABEL_TG_FRAME_SIZE: snappi_extra_params.traffic_flow_config[0]['frame_size'],
+                METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]['frame_size'],
                 METRIC_LABEL_TG_IP_VERSION: subnet_type,
             }
-            convergence_dataplane_time.record(labels, pkt_loss_duration)
+            convergence_dataplane_time.record(pkt_loss_duration, test_labels)
+            db_reporter.report()
         except Exception as e:
             logger.error("Error during packet loss duration calculation: {}".format(e))
             pytest.fail("Test failed due to exception: {}".format(e))
@@ -272,15 +262,15 @@ def get_convergence_for_single_session_flap(
             logger.info('--------------------------------------------------------------------------------------')
             start_stop(snappi_api, operation="stop", op_type="traffic")
             # Create metrics
-            labels = {
+            test_labels = {
                 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: event_type,
                 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: ROUTE_RANGES[subnet_type][0][0][-1],
                 METRIC_LABEL_TG_TRAFFIC_RATE: snappi_extra_params.traffic_flow_config[0]['line_rate'],
-                METRIC_LABEL_TG_FRAME_SIZE: snappi_extra_params.traffic_flow_config[0]['frame_size'],
+                METRIC_LABEL_TG_FRAME_BYTES: snappi_extra_params.traffic_flow_config[0]['frame_size'],
                 METRIC_LABEL_TG_IP_VERSION: subnet_type,
             }
-            convergence_dataplane_time.record(labels, pkt_loss_duration)
-            final_reporter.report()
+            convergence_dataplane_time.record(pkt_loss_duration, test_labels)
+            db_reporter.report()
         except Exception as e:
             logger.error("Error during packet loss duration calculation: {}".format(e))
             pytest.fail("Test failed due to exception: {}".format(e))
