@@ -2,7 +2,10 @@ import time
 import logging
 import pytest
 import json
+from tests.common.helpers.dut_utils import get_dpu_names_and_ssh_ports
+from tests.common.reboot import wait_for_startup
 from tests.common.utilities import wait_until
+from tests.common.platform.device_utils import check_dpu_reachable_from_npu, get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
                                             dump_gnmi_log, dump_system_status
 from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
@@ -457,3 +460,60 @@ def extract_gnoi_response(output):
     except json.JSONDecodeError:
         logging.error("Failed to parse JSON: {}".format(response_line))
         return None
+
+
+def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_data):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+
+    ip = get_dpu_ip(duthost, dpu_index)
+    if ip is None:
+        return -1, "Failed to get DPU IP address"
+
+    port = get_dpu_port(duthost, dpu_index)
+    if port is None:
+        return -1, "Failed to get DPU gNMI port"
+
+    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-notls "
+    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
+    cmd += f'-jsonin \'{request_json_data}\''
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    if output['stderr']:
+        logger.error(output['stderr'])
+        return -1, output['stderr']
+    else:
+        return 0, output['stdout']
+
+
+def handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc):
+    logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
+    duthost.command(f"sudo reboot -d dpu{dpu_index}")
+
+    # Get the SSH port for the specified DPU index
+    dpu_names_and_ports = get_dpu_names_and_ssh_ports(duthost, [dpuhost_name], ansible_adhoc)
+    if not dpu_names_and_ports:
+        pytest.fail(f"Failed to retrieve SSH port for DPU {dpuhost_name}")
+
+    dpu_key = f"dpu{dpu_index}"
+    dpu_ssh_port = dpu_names_and_ports.get(dpu_key)
+    if not dpu_ssh_port:
+        pytest.fail(
+            f"Failed to retrieve SSH port for DPU {dpuhost_name} (key: {dpu_key}). "
+            f"Available keys: {list(dpu_names_and_ports.keys())}"
+        )
+
+    logging.info(f"SSH port for DPU {dpuhost_name}: {dpu_ssh_port}")
+
+    # Wait until the DPU is down
+    wait_until(60, 3, 0, lambda: not check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index))
+
+    # Wait until the system is back up
+    wait_for_startup(duthost, localhost, delay=20, timeout=300, port=dpu_ssh_port)
+    logging.info("System is back up after reboot")
+
+    is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
+    if not is_dpu_reachable:
+        pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")

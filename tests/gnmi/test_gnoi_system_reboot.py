@@ -2,12 +2,12 @@ import pytest
 import logging
 import json
 
-from .helper import gnoi_request, extract_gnoi_response, apply_cert_config
+from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, handle_dpu_reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
-from tests.common.platform.device_utils import create_npu_host_based_on_dpu_info
+from tests.conftest import get_specified_dpus
 
 
 pytestmark = [
@@ -43,11 +43,14 @@ def is_gnmi_container_running(duthost):
     return duthost.is_container_running("gnmi")
 
 
-def check_reboot_status(duthost, localhost, expected_active, expected_reason, expected_method):
+def check_reboot_status(duthost, localhost, dpu_index, expected_active, expected_reason, expected_method):
     """
     Call gNOI System.RebootStatus and assert the fields and values of the response.
     """
-    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
+    if expected_method == RebootMethod["HALT"]:
+        ret, msg = gnoi_request_dpu(duthost, localhost, dpu_index, "System", "RebootStatus", "")
+    else:
+        ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
     pytest_assert(ret == 0, "System.RebootStatus API reported failure (rc = {}) with message: {}".format(ret, msg))
     logging.info("System.RebootStatus API returned msg: {}".format(msg))
 
@@ -82,10 +85,6 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Skip the test if duthost is DPU only
-    if duthost.is_dpu():
-        pytest.skip("Test is not applicable for DPU hosts")
-
     reboot_args = {
         "message": REBOOT_MESSAGE,
         "method": RebootMethod["COLD"]
@@ -98,7 +97,7 @@ def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
     check_reboot_status(
-        duthost, localhost,
+        duthost, localhost, dpu_index=None,
         expected_active=True,
         expected_reason=REBOOT_MESSAGE,
         expected_method=RebootMethod["COLD"]
@@ -132,10 +131,6 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Skip the test if duthost is DPU only
-    if duthost.is_dpu():
-        pytest.skip("Test is not applicable for DPU hosts")
-
     reboot_args = {
         "message": REBOOT_MESSAGE,
         "method": RebootMethod["WARM"]
@@ -146,65 +141,11 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     logging.info("System.Reboot API returned msg: {}".format(msg))
 
     check_reboot_status(
-        duthost, localhost,
+        duthost, localhost, dpu_index=None,
         expected_active=True,
         expected_reason=REBOOT_MESSAGE,
         expected_method=RebootMethod["WARM"]
     )
-
-    # Wait until the system is back up
-    wait_for_startup(duthost, localhost, delay=20, timeout=600)
-    logging.info("System is back up after reboot")
-
-    # Wait for critical processes before ending
-    wait_critical_processes(duthost)
-
-    # This is an adhoc workaround because the cert config is cleared after reboot.
-    # We should refactor the test to always use the default config.
-    apply_cert_config(duthost)
-
-
-def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbinfo, ansible_adhoc, request):
-    """
-    Test gNOI System.Reboot API with HALT method.
-    Verifies that the reboot is triggered, RebootStatus is correct before reboot,
-    and the system recovers with all critical processes running.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-
-    reboot_args = {
-        "message": REBOOT_MESSAGE,
-        "method": RebootMethod["HALT"]
-    }
-
-    # Proceed only if duthost is DPU only
-    if not duthost.is_dpu():
-        pytest.skip("Test is applicable only for DPU hosts")
-
-    ret, msg = gnoi_request(duthost, localhost, "System", "Reboot", json.dumps(reboot_args))
-    pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
-    logging.info("System.Reboot API returned msg: {}".format(msg))
-
-    check_reboot_status(
-        duthost, localhost,
-        expected_active=True,
-        expected_reason=REBOOT_MESSAGE,
-        expected_method=RebootMethod["HALT"]
-    )
-
-    wait_until(120, 10, 0, is_reboot_inactive)
-    logging.info("HALT reboot is completed")
-
-    npu_host = create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost)
-
-    # Extract the last number from the duthost name
-    dpu_number = int(duthost.hostname.split('-')[-1])
-
-    # Validate dpu_number and log error if out of range
-    if not (0 <= dpu_number <= 8):
-        pytest.fail(f"Invalid dpu_number {dpu_number}, must be between 0 and 8")
-
-    npu_host.command(f"sudo reboot -d DPU{dpu_number}")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=600)
@@ -219,3 +160,48 @@ def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbi
     # This is an adhoc workaround because the cert config is cleared after reboot.
     # We should refactor the test to always use the default config.
     apply_cert_config(duthost)
+
+
+def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbinfo, ansible_adhoc, request):
+    """
+    Test gNOI System.Reboot API with HALT method.
+    Verifies that the reboot is triggered, RebootStatus is correct before reboot,
+    and the system recovers with all critical processes running.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    dpuhost_names = get_specified_dpus(request)
+    if dpuhost_names:
+        logging.info(f"dpuhost_names: {dpuhost_names}")
+    else:
+        pytest.skip("No DPUs specified, skipping HALT reboot test.")
+
+    reboot_args = {
+        "message": REBOOT_MESSAGE,
+        "method": RebootMethod["HALT"]
+    }
+
+    for dpuhost_name in dpuhost_names:
+        # Extract the last number from the duthost name
+        dpu_index = int(dpuhost_name.split('-')[-1])
+
+        # Validate dpu_index and log error if out of range
+        if not (0 <= dpu_index <= 8):
+            pytest.fail(f"Invalid dpu_index {dpu_index}, must be between 0 and 8")
+
+        ret, msg = gnoi_request_dpu(duthost, localhost, dpu_index, "System", "Reboot", json.dumps(reboot_args))
+        pytest_assert(ret == 0, "System.Reboot API reported failure (rc = {}) with message: {}".format(ret, msg))
+        logging.info("System.Reboot API returned msg: {}".format(msg))
+
+        check_reboot_status(
+            duthost, localhost, dpu_index,
+            expected_active=True,
+            expected_reason=REBOOT_MESSAGE,
+            expected_method=RebootMethod["HALT"]
+        )
+
+        wait_until(120, 10, 0, is_reboot_inactive)
+        logging.info("HALT reboot is completed")
+
+        dpu_reboot_status = handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc)
+        pytest.fail(dpu_reboot_status, f"DPU {dpuhost_name} did not come back up after reboot")
