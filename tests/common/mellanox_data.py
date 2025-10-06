@@ -1,7 +1,4 @@
 import functools
-import pytest
-import logging
-logger = logging.getLogger(__name__)
 
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
