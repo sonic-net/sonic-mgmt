@@ -9,7 +9,6 @@ import sys
 import random
 import json
 from copy import copy
-from tests.common.helpers.assertions import pytest_require
 from tests.common.errors import RunAnsibleModuleFail
 from ipaddress import ip_address, IPv4Address, IPv6Address
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts     # noqa: F401
@@ -1212,10 +1211,6 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
 
     duthost = duthosts[rand_one_dut_hostname]
 
-    dut_hostname, dut_port = rand_one_dut_portname_oper_up.split('|')
-    pytest_require(rand_one_dut_hostname == dut_hostname,
-                   "{} Port is not mapped to the expected DUT".format(rand_one_dut_portname_oper_up))
-
     """ Generate L1 config """
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
@@ -1438,7 +1433,7 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-DEST_TO_GATEWAY_MAP = {}
+DEST_TO_GATEWAY_MAP = {}  # noqa: F824
 
 
 # Add static routes using CLI WAY.
