@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "tbtk5-t0-2700-1,tbtk5-t0-2700-3"
+    default: "tbtk5-t0-2700-3"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
