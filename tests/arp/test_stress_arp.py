@@ -319,4 +319,3 @@ def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_
         duthost.command("conntrack -F")
 
         clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
-
