@@ -485,6 +485,9 @@ class GenerateGoldenConfigDBModule(object):
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
 
+        # Set buffer_model to traditional by default
+        gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
         # Generate dhcp_server related configuration
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
