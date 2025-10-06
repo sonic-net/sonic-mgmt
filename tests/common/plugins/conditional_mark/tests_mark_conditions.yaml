@@ -232,6 +232,12 @@ bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
     conditions:
       - "'-v6-' in topo_name"
 
+bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[enabled]:
+  xfail:
+    reason: "Testcase ignored due to issue https://github.com/sonic-net/sonic-buildimage/issues/23642"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23642 and hwsku in ['Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C256S1','Mellanox-SN5600-C224O8']"
+
 bgp/test_bgp_gr_helper.py:
   skip:
     reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
