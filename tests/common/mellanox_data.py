@@ -1,7 +1,4 @@
 import functools
-import pytest
-import logging
-logger = logging.getLogger(__name__)
 
 
 SPC1_HWSKUS = ["ACS-MSN2700", "Mellanox-SN2700", "Mellanox-SN2700-D48C8", "ACS-MSN2740", "ACS-MSN2100", "ACS-MSN2410",
@@ -1253,79 +1250,3 @@ def get_hardware_version(duthost, platform):
 def get_hw_management_version(duthost):
     full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
     return full_version[len('1.mlnx.'):]
-
-
-def is_innolight_cable(port_info):
-    """ Check if the given port info indicates an Innolight cable and handle known issues """
-    return 'PINEWAVE' in port_info.get('manufacturer', '')
-
-
-def is_unsupported_module(port_info, port_number):
-    if is_innolight_cable(port_info):
-        logger.info(f"Port {port_number} has an unsupported module, skipping it and continue to check other ports")
-        return True
-    return False
-
-
-def skip_on_unsupported_module():
-    pytest.skip("All ports are with unsupported modules, skipping the test due to Github issue #21878")
-
-
-def is_cmis_version_supported(cmis_version, min_required_version=5.0, failed_api_ports=None, port_name=None):
-    """
-    Check if a CMIS version supports a specific feature by comparing it to a minimum required version
-    @param: cmis_version: CMIS version string (e.g., "5.0", "4.0", etc.)
-    @param: min_required_version: Minimum required CMIS version (default: 5.0)
-    @param: failed_api_ports: List to append failed ports to (optional)
-    @param: port_name: Port name to append to failed list if version check fails (optional)
-    @return: bool: True if CMIS version is supported, False otherwise
-    """
-    try:
-        cmis_version_float = float(cmis_version)
-        return cmis_version_float >= min_required_version
-    except (ValueError, TypeError):
-        if failed_api_ports is not None and port_name is not None:
-            failed_api_ports.append(port_name)
-        return False
-
-
-def get_supported_available_optical_interfaces(eeprom_infos, parsed_presence,
-                                               min_cmis_version=5.0, return_failed_api_ports=False):
-    """
-    Filter available optical interfaces based on presence, EEPROM detection, media type, and CMIS version support
-    @param: eeprom_infos: Dictionary containing EEPROM information for each port
-    @param: parsed_presence: Dictionary containing presence status for each port
-    @param: min_cmis_version: Minimum required CMIS version (default: 5.0)
-    @param: return_failed_api_ports: If True, return both available_optical_interfaces and failed_api_ports.
-                                     If False, return only available_optical_interfaces (default: False)
-    @return: list or tuple: If return_failed_api_ports=False, returns list of available optical interface names.
-                            If return_failed_api_ports=True, returns (available_optical_interfaces, failed_api_ports)
-    """
-    available_optical_interfaces = []
-    failed_api_ports = []
-
-    for port_name, eeprom_info in eeprom_infos.items():
-        if parsed_presence.get(port_name) != "Present":
-            continue
-        if "SFP EEPROM detected" not in eeprom_info[port_name]:
-            continue
-        media_technology = eeprom_info.get("Media Interface Technology", "N/A").upper()
-        if "COPPER" in media_technology:
-            continue
-        if "N/A" in media_technology:
-            failed_api_ports.append(port_name)
-            continue
-        cmis_version = eeprom_info.get("CMIS Revision", "N/A")
-        if "N/A" in cmis_version:
-            failed_api_ports.append(port_name)
-            continue
-        elif not is_cmis_version_supported(cmis_version, min_cmis_version, failed_api_ports, port_name):
-            logging.info(f"Port {port_name} skipped: CMIS not supported on this port.")
-            continue
-
-        available_optical_interfaces.append(port_name)
-
-    if return_failed_api_ports:
-        return available_optical_interfaces, failed_api_ports
-    else:
-        return available_optical_interfaces
