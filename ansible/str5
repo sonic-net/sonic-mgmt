@@ -27,6 +27,12 @@ all:
         vms91-5:
           ansible_host: 10.64.247.174
           ansible_hostv6: 2a01:111:e210:b000::a40:f7ae
+        vms91-6:
+          ansible_host: 10.64.247.176
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7b0
+        vms91-7:
+          ansible_host: 10.64.247.177
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7b1
         vms92-2:
           ansible_host: 10.64.247.152
           ansible_hostv6: 2a01:111:e210:b000::a40:f798
@@ -171,6 +177,12 @@ all:
         pdu-242:
           ansible_host: 10.3.154.242
           protocol: snmp
+        pdu-129:
+          ansible_host: 10.3.155.127
+          protocol: snmp
+        pdu-131:
+          ansible_host: 10.3.155.126
+          protocol: snmp
 
 fanout:
   hosts:
@@ -240,6 +252,21 @@ fanout:
       ansible_host: 10.64.246.206
       ansible_hostv6: 2a01:111:e210:b000::a40:f6ce
       os: sonic
+    str5-7260cx3-acs-fan-20:
+      ansible_host: 10.3.155.81
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b51
+    str5-7260cx3-acs-fan-21:
+      ansible_host: 10.3.155.82
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b52
+    str5-z9332f-01:
+      ansible_host: 10.3.155.83
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b53
+      os: sonic
+    str5-z9332f-02:
+      ansible_host: 10.3.155.84
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b54
+      os: sonic
+
 
 sonic:
   vars:
@@ -248,6 +275,7 @@ sonic:
   children:
     sonic_arista_7060x6_512:
     sonic_nvidia_sn5640:
+    sonic_arista_7280dr3_400G:
 
 sonic_arista_7060x6_512:
   hosts:
@@ -471,6 +499,70 @@ sonic_arista_7060x6_512:
         "0x2B": "Arista Networks"
         "0x2D": "Arista Networks"
         "0x2F": "SSN25202318"
+
+sonic_arista_7280dr3_400G:
+  vars:
+    max_cores: 4
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0,Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0,1]
+    macsec_card: True
+    mgmt_subnet_mask_length: 26
+  hosts:
+    str5-7280dr3-2:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3a_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN235007EM
+      base_mac:  a4:3f:68:11:c5:86
+      ansible_host: 10.3.155.69
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b45
+      model: 'DCS-7280DR3AM-36'
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN235007EM"
+        "0x24": "a4:3f:68:11:c5:86"
+        "0x25": "2023/12/15 19:08:28"
+        "0x26": "03.00"
+        "0x27": "11.13"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN235007EM"
+    str5-7280dr3-3:
+      hwsku: Arista-7280DR3AM-36
+      sonic_hwsku: Arista-7280DR3AM-36
+      sonic_hw_platform: x86_64-arista_7280dr3a_36
+      switchids: [0,2]
+      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
+      serial: FGN2340026T
+      base_mac: 38:38:a6:a4:53:04
+      ansible_host: 10.3.155.70
+      ansible_hostv6: 2a01:111:e210:8a::a03:9b46
+      model: 'DCS-7280DR3AM-36'
+      syseeprom_info:
+        "0x21": "DCS-7280DR3AM-36"
+        "0x22": "ASY0614404A0"
+        "0x23": "FGN2340026T"
+        "0x24": "38:38:a6:a4:53:04"
+        "0x25": "2023/10/04 08:35:14"
+        "0x26": "03.00"
+        "0x27": "11.13"
+        "0x28": "x86_64-arista_7280dr3am_36"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
+        "0x2F": "FGN2340026T"
 
 sonic_nvidia_sn5640:
   hosts:

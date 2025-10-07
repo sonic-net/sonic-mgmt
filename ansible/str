@@ -608,6 +608,7 @@ sonic_arista_7280dr3_400G:
     num_asics: 2
     frontend_asics: [0,1]
     macsec_card: True
+    mgmt_subnet_mask_length: 26
   hosts:
     str-7280dr3-1:
       hwsku: Arista-7280DR3AM-36
@@ -639,58 +640,6 @@ sonic_arista_7280dr3_400G:
         "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
         "0x2F": "FGN2340035U"
         "0xFE": "0xdeadbeef"
-    str-7280dr3-2:
-      hwsku: Arista-7280DR3AM-36
-      sonic_hwsku: Arista-7280DR3AM-36
-      sonic_hw_platform: x86_64-arista_7280dr3a_36
-      switchids: [0,2]
-      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
-      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
-      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
-      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
-      serial: FGN235007EM
-      base_mac:  a4:3f:68:11:c5:86
-      ansible_host: 10.3.155.69
-      ansible_hostv6: 2a01:111:e210:8a::145
-      model: 'DCS-7280DR3AM-36'
-      syseeprom_info:
-        "0x21": "DCS-7280DR3AM-36"
-        "0x22": "ASY0614404A0"
-        "0x23": "FGN235007EM"
-        "0x24": "a4:3f:68:11:c5:86"
-        "0x25": "2023/12/15 19:08:28"
-        "0x26": "03.00"
-        "0x27": "11.13"
-        "0x28": "x86_64-arista_7280dr3am_36"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
-        "0x2F": "FGN235007EM"
-    str-7280dr3-3:
-      hwsku: Arista-7280DR3AM-36
-      sonic_hwsku: Arista-7280DR3AM-36
-      sonic_hw_platform: x86_64-arista_7280dr3a_36
-      switchids: [0,2]
-      voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
-      voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
-      loopback4096_ip: [192.0.0.1/32,192.0.0.2/32]
-      loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
-      serial: FGN2340026T
-      base_mac: 38:38:a6:a4:53:04
-      ansible_host: 10.3.155.70
-      ansible_hostv6: 2a01:111:e210:8a::146
-      model: 'DCS-7280DR3AM-36'
-      syseeprom_info:
-        "0x21": "DCS-7280DR3AM-36"
-        "0x22": "ASY0614404A0"
-        "0x23": "FGN2340026T"
-        "0x24": "38:38:a6:a4:53:04"
-        "0x25": "2023/10/04 08:35:14"
-        "0x26": "03.00"
-        "0x27": "11.13"
-        "0x28": "x86_64-arista_7280dr3am_36"
-        "0x2D": "Arista Networks"
-        "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
-        "0x2F": "FGN2340026T"
     str-7280dr3-4:
       hwsku: Arista-7280DR3AM-36
       sonic_hwsku: Arista-7280DR3AM-36
@@ -716,7 +665,7 @@ sonic_arista_7280dr3_400G:
         "0x28": "x86_64-arista_7280dr3am_36"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
-        "0x2F": "FGN235005R8"    
+        "0x2F": "FGN235005R8"
 
 sonic_mlnx_4700:
   vars:

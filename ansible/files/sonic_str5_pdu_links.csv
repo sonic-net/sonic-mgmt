@@ -14,3 +14,15 @@ pdu-83,4,str5-7060x6-512-5,PSU1
 pdu-85,4,str5-7060x6-512-5,PSU2
 pdu-83,5,str5-7060x6-512-fan-5,PSU1
 pdu-85,5,str5-7060x6-512-fan-5,PSU2
+pdu-131,17,str5-7280dr3-2,PSU1
+pdu-129,17,str5-7280dr3-2,PSU2
+pdu-131,18,str5-7280dr3-3,PSU1
+pdu-129,18,str5-7280dr3-3,PSU2
+pdu-131,2,str5-7260cx3-acs-fan-20,PSU1
+pdu-129,2,str5-7260cx3-acs-fan-20,PSU2
+pdu-131,4,str5-7260cx3-acs-fan-21,PSU1
+pdu-129,4,str5-7260cx3-acs-fan-21,PSU2
+pdu-131,1,str5-z9332f-01,PSU1
+pdu-129,1,str5-z9332f-01,PSU2
+pdu-131,3,str5-z9332f-02,PSU1
+pdu-129,3,str5-z9332f-02,PSU2

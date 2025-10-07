@@ -236,14 +236,14 @@ all:
         pdu-127:
           ansible_host: 10.3.154.244
           protocol: snmp
-        pdu-128:
-          ansible_host: 10.3.155.82
+        pdu-82:
+          ansible_host: 10.3.154.82
           protocol: snmp
-        pdu-129:
-          ansible_host: 10.3.155.83
+        pdu-83:
+          ansible_host: 10.3.154.83
           protocol: snmp
-        pdu-130:
-          ansible_host: 10.3.155.84
+        pdu-85:
+          ansible_host: 10.3.154.84
           protocol: snmp
         pdu-242:
           ansible_host: 10.3.154.242
