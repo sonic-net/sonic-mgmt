@@ -290,6 +290,14 @@ INFRA:
         - ntp
         - portstat
         - ssh
+  t1-64-lag:
+    mth64:
+      hw:
+        - system_health
+        - minigraph
+        - ntp
+        - portstat
+        - ssh
   t2-min:
     sfd:
       sim:
