@@ -4331,7 +4331,7 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
   skip:
     reason: "Skip for AI backend, as this feature is not been used"
     conditions:
-      - "'t1-isolated-d56u1-lag' in topo_name"
+      - "'t1-isolated' in topo_name"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
