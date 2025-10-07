@@ -3,7 +3,7 @@ The SnappiTestParams module allows for modular pass through of test parameters f
 """
 from typing import Optional
 
-from tests.common.snappi_tests.common_helpers import packet_capture
+from tests.common.snappi_tests.common_helpers import IPCaptureFilter, packet_capture
 from tests.common.snappi_tests.traffic_flow_config import TrafficFlowConfig
 from tests.common.snappi_tests.multi_dut_params import MultiDUTParams
 
@@ -21,6 +21,7 @@ class SnappiTestParams():
             packet_capture_type (ENUM): packet capture type ex. packet_capture.IP_CAPTURE
             packet_capture_file (str): packet capture file ex. 'capture.pcapng'
             packet_capture_ports (list): packet capture ports on ixia chassis ex. ['Port 1', 'Port 2']
+            packet_capture_size (int): packet capture size in bytes
             is_snappi_ingress_port_cap (bool): whether or not the packet capture is on the tgen ingress port, if False,
                                              then pcap is on the tgen egress port
             base_flow_config (dict): base flow configuration
@@ -58,6 +59,8 @@ class SnappiTestParams():
         self.packet_capture_type = packet_capture.NO_CAPTURE
         self.packet_capture_file = None
         self.packet_capture_ports = None
+        self.packet_capture_packet_size = None
+        self.ip_capture_filter: Optional[IPCaptureFilter] = None
         self.is_snappi_ingress_port_cap = True
         self.base_flow_config = None
         self.base_flow_config_list = []

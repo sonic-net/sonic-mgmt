@@ -11,9 +11,11 @@ in .csv format etc.
 """
 
 from argparse import ArgumentParser
+from dataclasses import dataclass
 from enum import Enum
+import logging
 from functools import lru_cache
-from typing import List
+from typing import List, Optional
 import sys
 import ipaddr
 import json
@@ -27,6 +29,8 @@ from collections import defaultdict
 from tests.conftest import parse_override
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+
+logger = logging.getLogger(__name__)
 
 
 def increment_ip_address(ip, incr=1):
@@ -1118,11 +1122,13 @@ class packet_capture(Enum):
     ENUM of packet capture settings
     NO_CAPTURE - No capture
     PFC_CAPTURE - PFC capture enabled
-    IP_CAPTURE - IP capture enabled
+    IP_CAPTURE - IPv4 capture enabled
+    IP_V6_CAPTURE - IPv6 capture enabled
     """
     NO_CAPTURE = "No_Capture"
     PFC_CAPTURE = "PFC_Capture"
-    IP_CAPTURE = "IP_Capture"
+    IP_CAPTURE = "ipv4"
+    IP_V6_CAPTURE = "ipv6"
 
 
 class traffic_flow_mode(Enum):
@@ -1143,7 +1149,100 @@ class traffic_flow_mode(Enum):
     FIXED_DURATION = -97
 
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, format="pcapng"):
+@dataclass
+class IPCaptureFilter:
+    """
+    Represents an IP-based capture filter for Snappi captures.
+    Each field maps to the corresponding Capture.Field subobject.
+    """
+    max_whole_packet_size: Optional[int] = None
+    min_whole_packet_size: int = 0
+
+    version_value: Optional[str] = None
+    version_mask: Optional[str] = None
+    version_negate: bool = False
+
+    traffic_class_value: Optional[str] = None
+    traffic_class_mask: Optional[str] = None
+    traffic_class_negate: bool = False
+
+    flow_label_value: Optional[str] = None
+    flow_label_mask: Optional[str] = None
+    flow_label_negate: bool = False
+
+    payload_length_value: Optional[str] = None
+    payload_length_mask: Optional[str] = None
+    payload_length_negate: bool = False
+
+    next_header_value: Optional[str] = None
+    next_header_mask: Optional[str] = None
+    next_header_negate: bool = False
+
+    hop_limit_value: Optional[str] = None
+    hop_limit_mask: Optional[str] = None
+    hop_limit_negate: bool = False
+
+    src_value: Optional[str] = None
+    src_mask: Optional[str] = None
+    src_negate: bool = False
+
+    dst_value: Optional[str] = None
+    dst_mask: Optional[str] = None
+    dst_negate: bool = False
+
+
+def to_hex16(value: int) -> str:
+    """
+    Convert an integer to a 4-digit zero-padded lowercase hex string.
+    Example: 88 -> "0058"
+    """
+    if not (0 <= value <= 0xFFFF):
+        raise ValueError("Value must fit into 16 bits (0-65535)")
+    return format(value, "04x")
+
+
+def config_capture_settings(api,
+                            port_names: List[str],
+                            capture_type: packet_capture,
+                            ip_filter: IPCaptureFilter,
+                            ):
+    """
+    Use the IxNetwork API to configure custom packet capture settings and filters on specified ports.
+
+    Args:
+        api: Snappi API object
+        port_names (list of string): names of ixia ports to capture packets on
+        capture_type (packet_capture Enum): Type of packet to capture
+        ip_filter (IPCaptureFilter or None): Optional IP-based filter settings for IP captures
+    Returns:
+        N/A
+    """
+    if not port_names:
+        raise ValueError("At least one port name must be provided to configure port capture settings")
+    elif ip_filter is None:
+        raise ValueError("ip_filter object must be provided")
+    elif capture_type == packet_capture.NO_CAPTURE or capture_type == packet_capture.PFC_CAPTURE:
+        return
+    
+    ixnet_session = api._ixnetwork
+    for port_name in port_names:
+        port = ixnet_session.Vport.find(Name=port_name)
+        if not port:
+            raise ValueError(f"Port '{port_name}' not found in IxNetwork session")
+
+        port.Capture.HardwareEnabled = True  # enables data plane capture
+        port.Capture.Filter.CaptureFilterEnable = True
+        # For now we only support frame size filtering since it is not reliable through snappi
+        # This function can be extended later to add other types of filtering through ixnetwork
+        if ip_filter.min_whole_packet_size and ip_filter.max_whole_packet_size:
+            port.Capture.Filter.CaptureFilterFrameSizeEnable = True
+            port.Capture.Filter.CaptureFilterFrameSizeFrom = ip_filter.min_whole_packet_size
+            port.Capture.Filter.CaptureFilterFrameSizeTo = ip_filter.max_whole_packet_size
+            logger.debug(f"Configured frame size filter with min size: {ip_filter.min_whole_packet_size} \
+                         bytes and max size: {ip_filter.max_whole_packet_size} bytes")
+
+
+def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, capture_overwrite=True, format="pcapng"):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
@@ -1152,6 +1251,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         port_names (list of string): names of ixia ports to capture packets on
         capture_type (Enum): Type of packet to capture
         capture_name (str): Name of the capture
+        capture_overwrite (bool): Whether to overwrite existing capture files when capture buffer gets full
         format (str): Format of the capture (default pcapng), either pcap or pcapng
     Returns:
         N/A
@@ -1165,6 +1265,7 @@ def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=No
         cap.format = format
     else:
         raise Exception("Unsupported capture format")
+    cap.overwrite = capture_overwrite
 
 
 def calc_pfc_pause_flow_rate(port_speed, oversubscription_ratio=2):

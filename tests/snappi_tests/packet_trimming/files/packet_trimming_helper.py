@@ -1,3 +1,4 @@
+import inspect
 import time
 import logging
 
@@ -8,6 +9,8 @@ from tests.common.snappi_tests.packet_trim_helpers import (
     apply_trim_mode,
     TrimMode,
     verify_trimmed_traffic,
+    TRIM_SIZE_DEFAULT,
+    TRIM_DSCP_DEFAULT,
 )
 from tests.common.snappi_tests.traffic_generation import (
     setup_base_traffic_config,
@@ -17,9 +20,13 @@ from tests.common.snappi_tests.traffic_generation import (
     clear_dut_que_counters,
 )
 from tests.common.snappi_tests.common_helpers import (
+    IPCaptureFilter,
+    config_capture_pkt,
     traffic_flow_mode,
     check_tx_drp_counts,
+    packet_capture,
 )
+from tests.common.snappi_tests.read_pcap import validate_trim_pkt_dscp
 
 logger = logging.getLogger(__name__)
 
@@ -68,6 +75,11 @@ def run_packet_trimming_test(
     if snappi_test_params is None:
         snappi_test_params = SnappiTestParams()
 
+    caller_name = inspect.stack()[1].function
+    snappi_test_params.packet_capture_file = f'packet_trimming_{caller_name}'  # will be saved as .pcapng
+    snappi_test_params.packet_capture_type = packet_capture.IP_V6_CAPTURE
+    snappi_test_params.packet_capture_packet_size = TRIM_SIZE_DEFAULT
+
     # Get the ID of the port to test
     port_id = 0
     if duthost and dut_port:
@@ -109,10 +121,21 @@ def run_packet_trimming_test(
             "flow_traffic_type": traffic_flow_mode.FIXED_DURATION,
         }
 
-    generate_srv6_encap_flow(
-        testbed_config=testbed_config,
-        snappi_test_params=snappi_test_params,
-    )
+    generate_srv6_encap_flow(testbed_config=testbed_config,
+                             snappi_test_params=snappi_test_params,
+                             )
+
+    snappi_test_params.ip_capture_filter = IPCaptureFilter(
+        max_whole_packet_size=snappi_test_params.packet_capture_packet_size + 100,
+        min_whole_packet_size=snappi_test_params.packet_capture_packet_size - 50,
+        )
+    config_capture_pkt(testbed_config=testbed_config,
+                       port_names=snappi_test_params.packet_capture_ports,
+                       capture_type=snappi_test_params.packet_capture_type,
+                       capture_name=snappi_test_params.packet_capture_file,
+                       capture_overwrite=False,
+                       )
+    logger.info(f"Packet capture file: {snappi_test_params.packet_capture_file}.pcapng")
 
     # Clear all counters before running traffic
     clear_dut_que_counters(duthost=duthost)
@@ -123,15 +146,14 @@ def run_packet_trimming_test(
     flows = testbed_config.flows
     all_flow_names = [flow.name for flow in flows]
 
-    tgen_flow_stats, _ = run_basic_traffic(
-        duthost=duthost,
-        api=api,
-        config=testbed_config,
-        data_flow_names=all_flow_names,
-        all_flow_names=all_flow_names,
-        exp_dur_sec=EXP_FLOW_DUR_SEC,
-        snappi_extra_params=snappi_test_params,
-    )
+    tgen_flow_stats, _ = run_basic_traffic(duthost=duthost,
+                                           api=api,
+                                           config=testbed_config,
+                                           data_flow_names=all_flow_names,
+                                           all_flow_names=all_flow_names,
+                                           exp_dur_sec=EXP_FLOW_DUR_SEC,
+                                           snappi_extra_params=snappi_test_params,
+                                           )
 
     if isinstance(snappi_test_params.base_flow_config["rx_port_config"].peer_port, str):
         switch_egress_ports = [
@@ -154,9 +176,17 @@ def run_packet_trimming_test(
         f"Expected TX drops on egress port(s) {switch_egress_ports} but none seen",
     )
 
-    verify_trimmed_traffic(
-        duthost=duthost,
-        switch_egress_ports=switch_egress_ports,
-        snappi_extra_params=snappi_test_params,
-        trim_mode=trim_mode,
-    )
+    verify_trimmed_traffic(duthost=duthost,
+                           switch_egress_ports=switch_egress_ports,
+                           snappi_extra_params=snappi_test_params,
+                           trim_mode=trim_mode,
+                           )
+
+    # Validate DSCP in captured packets
+    pcap_file = f"{snappi_test_params.packet_capture_file}.pcapng"
+    trim_dscp_validated = validate_trim_pkt_dscp(pcap_file=pcap_file,
+                                                 expected_dscp=TRIM_DSCP_DEFAULT,
+                                                 min_pct=0.99,
+                                                 )
+    pytest_assert(trim_dscp_validated, f"DSCP validation failed in captured packets in {pcap_file}")
+    logger.info(f"DSCP validation passed in captured packets in {pcap_file}")

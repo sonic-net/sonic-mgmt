@@ -8,8 +8,8 @@ import pandas as pd
 from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
-    get_lossless_buffer_size, get_pg_dropped_packets, \
+from tests.common.snappi_tests.common_helpers import config_capture_settings, get_egress_queue_count, \
+    pfc_class_enable_vector, get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
     get_pfcwd_stats, get_interface_counters_detailed
@@ -33,6 +33,7 @@ SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
 UDP_PORT_START = 5000
+ECN_CAPABLE_TRANSPORT_1 = 1
 
 
 def setup_base_traffic_config(testbed_config,
@@ -391,6 +392,7 @@ def generate_srv6_encap_flow(testbed_config,
 
     # Split flow rate equally amongst each dscp stream
     per_dscp_stream_flow_rate = data_flow_config['flow_rate_percent'] // len(snappi_test_params.tx_dscp_values)
+    unique_tgen_rx_ports = set()
 
     if isinstance(base_flow_config["tx_port_id"], int):
         # If tx_port_id is an int, force a list type for easier access
@@ -411,6 +413,7 @@ def generate_srv6_encap_flow(testbed_config,
                 flow.tx_rx.port.rx_name = rx_port_names
 
             eth, outer_ipv6, inner_ipv6 = flow.packet.ethernet().ipv6().ipv6()
+            unique_tgen_rx_ports.add(flow.tx_rx.port.rx_name)
 
             # Ethernet addressing (reuse existing base flow macs)
             eth.src.value = base_flow_config["tx_mac"] if isinstance(base_flow_config["tx_mac"], str) else \
@@ -423,7 +426,7 @@ def generate_srv6_encap_flow(testbed_config,
             pytest_assert(outer_ipv6.src.value is not None, "Outer IPv6 source address is None")
             outer_ipv6.dst.value = base_flow_config["rx_port_config"].ipv6
             pytest_assert(outer_ipv6.dst.value is not None, "Outer IPv6 destination address is None")
-            ecn = 1  # ECN ECT(1)=1 ECN-capable
+            ecn = ECN_CAPABLE_TRANSPORT_1  # ECN ECT(1)=1 ECN-capable
             outer_ipv6.traffic_class.value = (tx_dscp << 2) | ecn
             outer_ipv6.flow_label.value = getrandbits(20)
 
@@ -445,6 +448,9 @@ def generate_srv6_encap_flow(testbed_config,
                                                                     (data_flow_config["flow_delay_sec"]))
             flow.metrics.enable = True
             flow.metrics.loss = True
+
+    if snappi_test_params.packet_capture_type != packet_capture.NO_CAPTURE:
+        snappi_test_params.packet_capture_ports = list(unique_tgen_rx_ports)
 
 
 def clear_dut_interface_counters(duthost):
@@ -672,6 +678,13 @@ def run_basic_traffic(
     pcap_type = snappi_extra_params.packet_capture_type
 
     if pcap_type != packet_capture.NO_CAPTURE:
+        if snappi_extra_params.ip_capture_filter:
+            logger.info("Configuring packet capture filters with IP filter")
+            config_capture_settings(api=api,
+                                    port_names=snappi_extra_params.packet_capture_ports,
+                                    capture_type=snappi_extra_params.packet_capture_type,
+                                    ip_filter=snappi_extra_params.ip_capture_filter,
+                                    )
         logger.info("Starting packet capture ...")
         cs = api.control_state()
         cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
