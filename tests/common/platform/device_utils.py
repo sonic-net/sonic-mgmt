@@ -51,7 +51,7 @@ FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
-IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+IP6TABLES_PREPEND_RULE_CMD = 'ip6tables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 
 test_report = dict()
 
@@ -1103,6 +1103,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
             'autorestart=True',
             'stdout_logfile=syslog',
             'stderr_logfile=syslog',
+            'startsec=0',
         ]
         dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
         pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
@@ -1116,7 +1117,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+        duthost.command(IP6TABLES_PREPEND_RULE_CMD)
 
         # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
