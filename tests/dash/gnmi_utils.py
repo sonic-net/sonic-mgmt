@@ -400,9 +400,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 update_cnt += 1
                 filename = "update%u" % update_cnt
                 if proto_utils.ENABLE_PROTO:
-                    message = proto_utils.json_to_proto(k, v)
+                    message = proto_utils.parse_dash_proto(k, v)
                     with open(env.work_dir+filename, "wb") as file:
-                        file.write(message)
+                        file.write(message.SerializeToString())
                 else:
                     text = json.dumps(v)
                     with open(env.work_dir+filename, "w") as file:

@@ -6,15 +6,17 @@ import importlib
 from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.eni_pb2 import Eni, State  # noqa: F401
+from dash_api.eni_pb2 import Eni
 from dash_api.eni_route_pb2 import EniRoute
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_type_pb2 import RoutingType, ActionType, RouteType, RouteTypeItem, EncapType  # noqa: F401
+from dash_api.route_type_pb2 import ActionType, RouteType, RouteTypeItem
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
+from dash_api.tunnel_pb2 import Tunnel
+from dash_api.route_rule_pb2 import RouteRule
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
@@ -45,6 +47,8 @@ PB_CLASS_MAP = {
     "ENI_ROUTE": EniRoute,
     "METER_POLICY": MeterPolicy,
     "METER_RULE": MeterRule,
+    "TUNNEL": Tunnel,
+    "ROUTE_RULE": RouteRule
 }
 
 
@@ -66,6 +70,20 @@ def parse_guid(guid_str):
     return {"value": parse_byte_field(uuid.UUID(guid_str).hex)}
 
 
+def parse_value_or_range(orig):
+    if isinstance(orig, list):
+        if len(orig) == 1:
+            val = int(orig[0])
+            return {"value": val}
+        elif len(orig) == 2:
+            min = int(orig[0])
+            max = int(orig[1])
+            return {"range": {"min": min, "max": max}}
+    else:
+        val = int(orig)
+        return {"value": val}
+
+
 def parse_dash_proto(key: str, proto_dict: dict):
     """
     Custom parser for DASH configs to allow writing configs
@@ -79,11 +97,16 @@ def parse_dash_proto(key: str, proto_dict: dict):
         if field_map[key].type == field_map[key].TYPE_MESSAGE:
 
             if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
+                if field_map[key].label == FieldDescriptor.LABEL_REPEATED:
+                    new_dict[key] = [parse_ip_address(val) for val in value]
+                else:
+                    new_dict[key] = parse_ip_address(value)
             elif field_map[key].message_type.name == "IpPrefix":
                 new_dict[key] = parse_ip_prefix(value)
             elif field_map[key].message_type.name == "Guid":
                 new_dict[key] = parse_guid(value)
+            elif field_map[key].message_type.name == "ValueOrRange":
+                new_dict[key] = parse_value_or_range(value)
 
         elif field_map[key].type == field_map[key].TYPE_BYTES:
             new_dict[key] = parse_byte_field(value)
