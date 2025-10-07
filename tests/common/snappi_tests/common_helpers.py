@@ -1223,7 +1223,7 @@ def config_capture_settings(api,
         raise ValueError("ip_filter object must be provided")
     elif capture_type == packet_capture.NO_CAPTURE or capture_type == packet_capture.PFC_CAPTURE:
         return
-    
+
     ixnet_session = api._ixnetwork
     for port_name in port_names:
         port = ixnet_session.Vport.find(Name=port_name)
