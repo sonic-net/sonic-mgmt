@@ -33,6 +33,8 @@ r, ".* sonic systemd.* kdump-tools.service - Kernel crash dump capture service.*
 r, ".* ERR swss#orchagent: :- getPort: Failed to get cached bridge port ID.*"
 r, ".* ERR syncd#syncd: .* SAI_API_PORT:brcm_sai_get_port_attribute:\d+ Error -2 processing  port attribute ID: 17.*"
 r, ".* ERR mux#linkmgrd: MuxManager\.cpp:.*Unsupported link failure detection type for : software.*"
+r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_attribute_capability:\d* Acl (entry|table) attribute capabilities failed with error -2."
+r, ".* ERR syncd#syncd: \[none\] SAI_API_SWITCH:sai_query_attribute_enum_values_capability:\d* Error in enum \d* capability query for obj type .* rv=-8"
 
 # Errors for config reload on broadcom platform on 202405
 r, ".* ERR syncd\d*#syncd.*_attribute_enum_values_capability.*count.*greater than capability-count 0.*"
@@ -309,6 +311,9 @@ r, ".* ERR syncd#SDK:.*\[SX_API_INTERNAL.ERR\].*Failed command read at communica
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute ecmp_hash_offset.*"
 r, ".* ERR swss#orchagent:.*doAppSwitchTableTask.*Unsupported Attribute lag_hash_offset.*"
 
+# Ignore for reboot on arista platform
+r, ".* NOTICE kernel:.*Kernel command line:.*Aboot=.*"
+
 # ignore SAI_API_BUFFER for DNX platforms
 r, ".* ERR syncd\d*#syncd.*SAI_API_BUFFER.*Unsupported buffer pool.*"
 
@@ -318,6 +323,9 @@ r, ".* ERR sshd\[\d*\]: auth fail.*"
 # ignore NTP nss_tacplus error, which will happen when reload config, because ntpd and chrony will invoke getpwnap API but nss_tacplus will re-render during reload config
 r, ".* ERR ntpd\[\d*\]: nss_tacplus: .*"
 r, ".* ERR chronyd\[\d*\]: nss_tacplus: .*"
+
+# ignore iptable nss_tacplus error, some change iptable operations may temporarily disrupt the DUT-to-PTF network connection, which triggers the error. It is safe to ignore this message during such transitions.
+r, ".* ERR iptables: nss_tacplus: failed to connect TACACS+ server .*"
 
 # ignore leap second file NTP daemon (ntpd) is using has passed its expiration date
 r, ".* ERR ntpd\[\d*\]:.*leapsecond file \('/usr/share/zoneinfo/leap-seconds\.list'\): expired.*"
@@ -376,17 +384,17 @@ r, ".* INFO audisp-tacplus: Audisp-tacplus: Accounting: user: .*, tty: .*, host:
 r, ".* ERR container: docker cmd: stop for lldp failed with 500 Server Error.*"
 
 #Ignore Packet Trimming attribute feature error temporarily (no impact)
-r, ".* ERR swss#orchagent: :- queryTrimSizeAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_SIZE\\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimDscpAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_VALUE\\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimModeEnumCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\\) enum value capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimModeAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\\) capabilities.*
-r, ".* ERR swss#orchagent: :- queryTrimDscpModeEnumCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\\) enum value capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimDscpModeAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimTcAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_TC_VALUE\\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimQueueModeEnumCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\\) enum value capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimQueueModeAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\\) capabilities.*"
-r, ".* ERR swss#orchagent: :- queryTrimQueueIndexAttrCapabilities: Failed to get attribute\\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimSizeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_SIZE\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimDscpAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_VALUE\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimQueueAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimDscpModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\) enum value capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimDscpModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_DSCP_RESOLUTION_MODE\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimTcAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_TC_VALUE\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimQueueModeEnumCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) enum value capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimQueueModeAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_RESOLUTION_MODE\) capabilities.*"
+r, ".* ERR swss#orchagent: :- queryTrimQueueIndexAttrCapabilities: Failed to get attribute\(SAI_SWITCH_ATTR_PACKET_TRIM_QUEUE_INDEX\) capabilities.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/22795
 r, ".* ERR\s+dockerd:\s+tac_connect_single:\s+connection\s+failed\s+with\s+\d+\.[\d+a-fA-F]+\.\d+\.[\d+a-fA-F]+:\d+:\s+Transport\s+endpoint\s+is\s+not\s+connected.*"
@@ -405,6 +413,9 @@ r, ".* ERR dhcp_relay\#supervisor-proc-exit-listener: Exception:.*len.*trace: Tr
 # https://github.com/sonic-net/sonic-buildimage/issues/23426
 r, ".*ERR pmon.*Failed to confirm VDM freeze status for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
-r, ".*ERR pmon.*DOM-INFO-UPDATE: Failed to freeze VDM stats for port.*"
+r, ".*ERR pmon.*Failed to freeze VDM stats for port.*"
 r, ".*ERR pmon.*Failed to confirm VDM unfreeze status for port.*"
 r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
+
+# https://github.com/sonic-net/sonic-buildimage/issues/21186
+r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
