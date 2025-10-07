@@ -53,6 +53,7 @@ def get_dut_type(host):
         logger.info("DUT type file doesn't exist.")
     return "Unknown"
 
+
 def get_asic_type(host):
     asic_type_stat = host.stat(path="/sonic/asic_type.txt")
     if asic_type_stat["stat"]["exists"]:
@@ -65,6 +66,7 @@ def get_asic_type(host):
     else:
         logger.info("ASIC type file doesn't exist.")
     return "Unknown"
+
 
 def get_ptf_image_type(host):
     """
