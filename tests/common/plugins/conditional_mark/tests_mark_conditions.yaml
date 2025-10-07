@@ -4329,7 +4329,7 @@ vxlan/test_vxlan_ecmp_switchover.py:
 
 vxlan/test_vxlan_ecmp_vnet_ping.py:
   skip:
-    reason: "Skip for Fairwater AI backend, as this feature is not been used"
+    reason: "Skip for AI backend, as this feature is not been used"
     conditions:
       - "'t1-isolated-d56u1-lag' in topo_name"
 
