@@ -2056,7 +2056,6 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "JPA2312P0EZ"
-      msft_an_enabled: True
     str3-7260cx3-acs-2:
       ansible_host: 10.3.146.181
       ansible_hostv6: 2a01:111:e210:3000::a03:92b5
@@ -2077,7 +2076,6 @@ sonic_arista64_100:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal7-7.2.0-pcie2x4-6128821"
         "0x2F": "FGN224303HG"
-      msft_an_enabled: True
     str3-7260cx3-acs-14:
       ansible_host: 10.3.146.94
       ansible_hostv6: 2a01:111:e210:3000::a03:925e
