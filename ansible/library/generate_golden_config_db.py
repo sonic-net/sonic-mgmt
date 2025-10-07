@@ -485,6 +485,9 @@ class GenerateGoldenConfigDBModule(object):
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
 
+        # Set buffer_model to traditional by default
+        gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
         # Generate dhcp_server related configuration
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
         if rc != 0:
@@ -544,6 +547,10 @@ class GenerateGoldenConfigDBModule(object):
         golden_config_db = {}
         if "DEVICE_METADATA" in ori_config_db:
             golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        # Set buffer_model to traditional to prevent regression, as it is currently hardcoded here:
+        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         return json.dumps(golden_config_db, indent=4)
 
