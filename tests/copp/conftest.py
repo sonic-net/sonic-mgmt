@@ -60,7 +60,7 @@ def is_backend_topology(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbi
     return is_backend_topology
 
 
-@pytest.fixture(params=[64, 1518, 4096])
+@pytest.fixture(params=[64, 1514, 4096])
 def packet_size(request):
     """
     Parameterized fixture for packet sizes.
