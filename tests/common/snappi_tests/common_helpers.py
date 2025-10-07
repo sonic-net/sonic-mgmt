@@ -1242,7 +1242,13 @@ def config_capture_settings(api,
                          bytes and max size: {ip_filter.max_whole_packet_size} bytes")
 
 
-def config_capture_pkt(testbed_config, port_names, capture_type, capture_name=None, capture_overwrite=True, format="pcapng"):
+def config_capture_pkt(testbed_config,
+                       port_names,
+                       capture_type,
+                       capture_name=None,
+                       capture_overwrite=True,
+                       format="pcapng"
+                       ):
     """
     Generate the configuration to capture packets on a port for a specific type of packet
 
