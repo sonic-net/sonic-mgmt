@@ -8,6 +8,16 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 import time
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    """
+    Backport of Python 3.11's StrEnum
+    Makes enum members also behave like strings.
+    """
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 class SnappiFanoutManager():
