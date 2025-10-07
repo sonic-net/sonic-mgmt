@@ -26,7 +26,7 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module", autouse=True)
-def add_npu_static_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts):
+def setup_npu_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts):
     dpuhost = dpuhosts[dpu_index]
     if not skip_config:
         cmds = []
