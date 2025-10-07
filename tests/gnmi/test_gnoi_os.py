@@ -5,9 +5,7 @@ import json
 from .helper import gnoi_request, extract_gnoi_response
 from tests.common.helpers.assertions import pytest_assert
 
-pytestmark = [
-    pytest.mark.topology('any')
-]
+pytestmark = [pytest.mark.topology("any")]
 
 """
 This module contains tests for the gNOI OS API.
@@ -69,3 +67,48 @@ def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, localhost
     logging.info("OS.Activate API returned msg: {}".format(msg))
     # Assert that the response contains "ActivateOk"
     pytest_assert("ActivateOk" in msg, "OS.Activate API did not return 'ActivateOk' as expected")
+
+
+@pytest.mark.disable_loganalyzer
+def test_gnoi_os_install_valid_image(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Verify that gNOI OS Install RPC is returning Unimplimented Error
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Get the Valid image SONiC OS Version
+    os_version_ansible = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+    request_json = json.dumps({"transferRequest": {"version": os_version_ansible, "standby_supervisor": False}})
+
+    # Creating a dummy OS file and copying it to the host
+    dummy_creation = duthost.shell(
+        "dd if=/dev/urandom of=dummy-SONiC-OS.tar.gz bs=1M count=5", module_ignore_errors=True
+    )
+    copy_file = duthost.shell("docker cp dummy-SONiC-OS.tar.gz gnmi:SONiC-OS.tar.gz", module_ignore_errors=True)
+
+    input_file = ' --input_file="SONiC-OS.tar.gz"'
+    ret, msg = gnoi_request(duthost, localhost, "OS", "Install", request_json, input_file)
+    pytest_assert(ret == -1, f"OS.Install RPC failed: rc = {ret}, msg = {msg}")
+
+    logging.info("OS.Install API returned msg: {}".format(msg))
+    # Assert that the response contains "Unimplimented Error"
+    pytest_assert("Unimplemented" in msg, "Expected method unimplemented error")
+
+
+@pytest.mark.disable_loganalyzer
+def test_gnoi_os_install_without_valid_image(duthosts, rand_one_dut_hostname, localhost):
+    """
+    Verify that gNOI OS Install RPC is returning Unimplimented Error
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Get the Valid image SONiC OS Version
+    os_version_ansible = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+    request_json = json.dumps({"transferRequest": {"version": os_version_ansible, "standby_supervisor": False}})
+
+    ret, msg = gnoi_request(duthost, localhost, "OS", "Install", request_json)
+    pytest_assert(ret == -1, f"OS.Install RPC failed: rc = {ret}, msg = {msg}")
+
+    logging.info("OS.Install API returned msg: {}".format(msg))
+    # Assert that the response contains "--input_file is required error"
+    pytest_assert("--input_file is required" in msg, "Expected input_file parameter required error")
