@@ -136,18 +136,16 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
 
     duthost_vlan_interface = {}
 
-    # subnet_tracker is for ip address generator to know how many ip addresses to provide
-    subnet_tracker = set()
-
-    # Keep track of all gateway IP addresses to exclude from generating src ip addresses
-    all_vlan_gateway_ip = set()
-
     duthost_vlan_interface = {
         dut.hostname: {"vlan_id": "", "vlan_ip": "", "subnet": "", "ip_prefix": ""}
         for dut in duthosts
     }
-
-    for dut in duthosts:
+    port_list = []
+    for dut_index, dut in enumerate(duthosts):
+        # subnet_tracker is for ip address generator to know how many ip addresses to provide
+        subnet_tracker = set()
+        # Keep track of all gateway IP addresses to exclude from generating src ip addresses
+        all_vlan_gateway_ip = set()
         # NOTE! This only gets the first vlan interface
         facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
         duthost_configdb_vlan_interface = facts["VLAN_INTERFACE"]
@@ -166,49 +164,48 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
         all_vlan_gateway_ip.add(vlan_ipaddr)
         # subnet_tracker is for ip address generator
         subnet_tracker.add(subnet)
-
-    subnet_tracker = list(subnet_tracker)
-    all_vlan_gateway_ip = list(all_vlan_gateway_ip)
-    mac_address_generator = get_macs("AA0000000000", count=len(get_snappi_ports))
-    ip_addresses = get_addrs_in_subnet(
-        subnet_tracker[0],
-        number_of_ip=len(get_snappi_ports),
-        exclude_ips=all_vlan_gateway_ip,
-    )
-    port_list = []
-    snappi_ports = natsorted(get_snappi_ports, key=lambda x: x['location'])
-
-    for index, port in enumerate(snappi_ports):
-        speed = port["speed"]
-        src_mac_address = mac_address_generator[index]
-
-        # The src port's gateway mac is the router_mac for ALL VLANs
-        router_mac_address = port["duthost"].facts["router_mac"]
-
-        hostname = port["duthost"].hostname
-        vlan_details = duthost_vlan_interface[hostname]
-        port_list.append(
-            {
-                "ipAddress": ip_addresses[index],
-                "ipGateway": vlan_details["vlan_ip"],
-                "prefix": vlan_details["ip_prefix"],
-                "subnet": vlan_details["subnet"],
-                "src_mac_address": src_mac_address,
-                "router_mac_address": router_mac_address,
-                "speed": speed,
-                "snappi_speed_type": port["snappi_speed_type"],
-                "peer_port": port["peer_port"],
-                "location": port["location"],
-                "duthost": port["duthost"],
-                "api_server_ip": port["api_server_ip"],
-                "asic_type": port["asic_type"],
-                "asic_value": port["asic_value"],
-                "port_id": port["port_id"],
-                "fec": port["fec"],
-                "autoneg": port["autoneg"]
-            }
+        subnet_tracker = list(subnet_tracker)
+        all_vlan_gateway_ip = list(all_vlan_gateway_ip)
+        mac_address_generator = get_macs("AA0%d00000000" % dut_index, count=len(get_snappi_ports))
+        ip_addresses = get_addrs_in_subnet(
+            subnet_tracker[0],
+            number_of_ip=len(get_snappi_ports),
+            exclude_ips=all_vlan_gateway_ip,
         )
+        snappi_ports = get_snappi_ports
+        for index, port in enumerate(snappi_ports):
+            if port['duthost'] == dut:
+                speed = port["speed"]
+                src_mac_address = mac_address_generator[index]
 
+                # The src port's gateway mac is the router_mac for ALL VLANs
+                router_mac_address = port["duthost"].facts["router_mac"]
+
+                hostname = port["duthost"].hostname
+                vlan_details = duthost_vlan_interface[hostname]
+                port_list.append(
+                    {
+                        "ipAddress": ip_addresses[index],
+                        "ipGateway": vlan_details["vlan_ip"],
+                        "prefix": vlan_details["ip_prefix"],
+                        "subnet": vlan_details["subnet"],
+                        "src_mac_address": src_mac_address,
+                        "router_mac_address": router_mac_address,
+                        "speed": speed,
+                        "snappi_speed_type": port["snappi_speed_type"],
+                        "peer_port": port["peer_port"],
+                        "location": port["location"],
+                        "duthost": port["duthost"],
+                        "api_server_ip": port["api_server_ip"],
+                        "asic_type": port["asic_type"],
+                        "asic_value": port["asic_value"],
+                        "port_id": port["port_id"],
+                        "fec": port["fec"],
+                        "autoneg": port["autoneg"]
+                    }
+                )
+            else:
+                continue
     return port_list
 
 
