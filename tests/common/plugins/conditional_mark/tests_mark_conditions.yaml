@@ -1567,7 +1567,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
     reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
              For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated.
-             Skip for IPv6-only topologies"
+             Or Skip for IPv6-only topologies"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
@@ -1908,7 +1908,7 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
     conditions:
       - "'-v6-' in topo_name"
 
-fib/test_fib.py::test_hash[ipv4]:
+fib/test_fib.py::test_hash[ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -1928,7 +1928,7 @@ fib/test_fib.py::test_ipinip_hash[ipv4:
     conditions:
       - "'-v6-' in topo_name"
 
-fib/test_fib.py::test_ipinip_hash_negative[ipv4]:
+fib/test_fib.py::test_ipinip_hash_negative[ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -1946,7 +1946,7 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
-fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
+fib/test_fib.py::test_nvgre_hash[ipv4-ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -2270,7 +2270,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 hash/test_generic_hash.py:
   skip:
     reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup
-             or Skip for IPv6-only topologies"
+             Or Skip for IPv6-only topologies"
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
