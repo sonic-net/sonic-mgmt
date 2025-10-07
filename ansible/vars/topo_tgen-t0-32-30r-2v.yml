@@ -1,0 +1,731 @@
+topology:
+  host_interfaces:
+    - 24
+    - 25
+  VMs:
+    ARISTA01T1:
+      vlans:
+        - 0
+      vm_offset: 0
+    ARISTA02T1:
+      vlans:
+        - 1
+      vm_offset: 1
+    ARISTA03T1:
+      vlans:
+        - 2
+      vm_offset: 2
+    ARISTA04T1:
+      vlans:
+        - 3
+      vm_offset: 3
+    ARISTA05T1:
+      vlans:
+        - 4
+      vm_offset: 4
+    ARISTA06T1:
+      vlans:
+        - 5
+      vm_offset: 5
+    ARISTA07T1:
+      vlans:
+        - 6
+      vm_offset: 6
+    ARISTA08T1:
+      vlans:
+        - 7
+      vm_offset: 7
+    ARISTA09T1:
+      vlans:
+        - 8
+      vm_offset: 8
+    ARISTA10T1:
+      vlans:
+        - 9
+      vm_offset: 9
+    ARISTA11T1:
+      vlans:
+        - 10
+      vm_offset: 10
+    ARISTA12T1:
+      vlans:
+        - 11
+      vm_offset: 11
+    ARISTA13T1:
+      vlans:
+        - 12
+      vm_offset: 12
+    ARISTA14T1:
+      vlans:
+        - 13
+      vm_offset: 13
+    ARISTA15T1:
+      vlans:
+        - 14
+      vm_offset: 14
+    ARISTA16T1:
+      vlans:
+        - 15
+      vm_offset: 15
+    ARISTA17T1:
+      vlans:
+        - 16
+      vm_offset: 16
+    ARISTA18T1:
+      vlans:
+        - 17
+      vm_offset: 17
+    ARISTA19T1:
+      vlans:
+        - 18
+      vm_offset: 18
+    ARISTA20T1:
+      vlans:
+        - 19
+      vm_offset: 19
+    ARISTA21T1:
+      vlans:
+        - 20
+      vm_offset: 20
+    ARISTA22T1:
+      vlans:
+        - 21
+      vm_offset: 21
+    ARISTA23T1:
+      vlans:
+        - 22
+      vm_offset: 22
+    ARISTA24T1:
+      vlans:
+        - 23
+      vm_offset: 23
+    ARISTA27T1:
+      vlans:
+        - 26
+      vm_offset: 26
+    ARISTA28T1:
+      vlans:
+        - 27
+      vm_offset: 27
+    ARISTA29T1:
+      vlans:
+        - 28
+      vm_offset: 28
+    ARISTA30T1:
+      vlans:
+        - 29
+      vm_offset: 29
+    ARISTA31T1:
+      vlans:
+        - 30
+      vm_offset: 30
+    ARISTA32T1:
+      vlans:
+        - 31
+      vm_offset: 31
+  DUT:
+    vlan_configs:
+      default_vlan_config: one_vlan_a
+      one_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [24, 25]
+          prefix: 192.168.0.1/21
+          prefix_v6: fc02:1000::1/64
+          tag: 1000
+      two_vlan_a:
+        Vlan1000:
+          id: 1000
+          intfs: [25]
+          prefix: 192.168.0.1/22
+          prefix_v6: fc02:100::1/64
+          tag: 1000
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: ToRRouter
+    swrole: leaf
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+    podset_number: 200
+    tor_number: 16
+    tor_subnet_number: 2
+    max_tor_subnet_number: 16
+    tor_subnet_size: 128
+    spine_asn: 65534
+    leaf_asn_start: 64600
+    tor_asn_start: 65500
+    failure_rate: 0
+
+configuration:
+  ARISTA01T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.1.1
+          - 2001:db8:1::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.65/32
+        ipv6: 2064:100:0:41::/128
+      Ethernet1:
+        ipv4: 10.10.1.2/24
+        ipv6: 2001:db8:1::2/64
+    bp_interface:
+      ipv4: 10.10.246.66/22
+      ipv6: fc0a::42/64
+  ARISTA02T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.2.1
+          - 2001:db8:2::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.73/32
+        ipv6: 2064:100:0:49::/128
+      Ethernet1:
+        ipv4: 10.10.2.2/24
+        ipv6: 2001:db8:2::2/64
+    bp_interface:
+      ipv4: 10.10.246.74/22
+      ipv6: fc0a::4a/64
+  ARISTA03T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.3.1
+          - 2001:db8:3::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.81/32
+        ipv6: 2064:100:0:51::/128
+      Ethernet1:
+        ipv4: 10.10.3.2/24
+        ipv6: 2001:db8:3::2/64
+    bp_interface:
+      ipv4: 10.10.246.82/22
+      ipv6: fc0a::52/64
+  ARISTA04T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.4.1
+          - 2001:db8:4::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.89/32
+        ipv6: 2064:100:0:59::/128
+      Ethernet1:
+        ipv4: 10.10.4.2/24
+        ipv6: 2001:db8:4::2/64
+    bp_interface:
+      ipv4: 10.10.246.90/22
+      ipv6: fc0a::5a/64
+  ARISTA05T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.5.1
+          - 2001:db8:5::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.97/32
+        ipv6: 2064:100:0:61::/128
+      Ethernet1:
+        ipv4: 10.10.5.2/24
+        ipv6: 2001:db8:5::2/64
+    bp_interface:
+      ipv4: 10.10.246.98/22
+      ipv6: fc0a::62/64
+  ARISTA06T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.6.1
+          - 2001:db8:6::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.105/32
+        ipv6: 2064:100:0:69::/128
+      Ethernet1:
+        ipv4: 10.10.6.2/24
+        ipv6: 2001:db8:6::2/64
+    bp_interface:
+      ipv4: 10.10.246.106/22
+      ipv6: fc0a::6a/64
+  ARISTA07T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.7.1
+          - 2001:db8:7::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.113/32
+        ipv6: 2064:100:0:71::/128
+      Ethernet1:
+        ipv4: 10.10.7.2/24
+        ipv6: 2001:db8:7::2/64
+    bp_interface:
+      ipv4: 10.10.246.114/22
+      ipv6: fc0a::72/64
+  ARISTA08T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.8.1
+          - 2001:db8:8::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.121/32
+        ipv6: 2064:100:0:79::/128
+      Ethernet1:
+        ipv4: 10.10.8.2/24
+        ipv6: 2001:db8:8::2/64
+    bp_interface:
+      ipv4: 10.10.246.122/22
+      ipv6: fc0a::7a/64
+  ARISTA09T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.9.1
+          - 2001:db8:9::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.129/32
+        ipv6: 2064:100:0:81::/128
+      Ethernet1:
+        ipv4: 10.10.9.2/24
+        ipv6: 2001:db8:9::2/64
+    bp_interface:
+      ipv4: 10.10.246.130/22
+      ipv6: fc0a::82/64
+  ARISTA10T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.10.1
+          - 2001:db8:10::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.137/32
+        ipv6: 2064:100:0:89::/128
+      Ethernet1:
+        ipv4: 10.10.10.2/24
+        ipv6: 2001:db8:10::2/64
+    bp_interface:
+      ipv4: 10.10.246.138/22
+      ipv6: fc0a::8a/64
+  ARISTA11T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.11.1
+          - 2001:db8:11::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.145/32
+        ipv6: 2064:100:0:91::/128
+      Ethernet1:
+        ipv4: 10.10.11.2/24
+        ipv6: 2001:db8:11::2/64
+    bp_interface:
+      ipv4: 10.10.246.146/22
+      ipv6: fc0a::92/64
+  ARISTA12T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.12.1
+          - 2001:db8:12::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.153/32
+        ipv6: 2064:100:0:99::/128
+      Ethernet1:
+        ipv4: 10.10.12.2/24
+        ipv6: 2001:db8:12::2/64
+    bp_interface:
+      ipv4: 10.10.246.154/22
+      ipv6: fc0a::9a/64
+  ARISTA13T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.13.1
+          - 2001:db8:13::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.161/32
+        ipv6: 2064:100:0:a1::/128
+      Ethernet1:
+        ipv4: 10.10.13.2/24
+        ipv6: 2001:db8:13::2/64
+    bp_interface:
+      ipv4: 10.10.246.162/22
+      ipv6: fc0a::a2/64
+  ARISTA14T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.14.1
+          - 2001:db8:14::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.169/32
+        ipv6: 2064:100:0:a9::/128
+      Ethernet1:
+        ipv4: 10.10.14.2/24
+        ipv6: 2001:db8:14::2/64
+    bp_interface:
+      ipv4: 10.10.246.170/22
+      ipv6: fc0a::aa/64
+  ARISTA15T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.15.1
+          - 2001:db8:15::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.177/32
+        ipv6: 2064:100:0:b1::/128
+      Ethernet1:
+        ipv4: 10.10.15.2/24
+        ipv6: 2001:db8:15::2/64
+    bp_interface:
+      ipv4: 10.10.246.178/22
+      ipv6: fc0a::b2/64
+  ARISTA16T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.16.1
+          - 2001:db8:16::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.185/32
+        ipv6: 2064:100:0:b9::/128
+      Ethernet1:
+        ipv4: 10.10.16.2/24
+        ipv6: 2001:db8:16::2/64
+    bp_interface:
+      ipv4: 10.10.246.186/22
+      ipv6: fc0a::ba/64
+  ARISTA17T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.17.1
+          - 2001:db8:17::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.65/32
+        ipv6: 2064:100:0:141::/128
+      Ethernet1:
+        ipv4: 10.10.17.2/24
+        ipv6: 2001:db8:17::2/64
+    bp_interface:
+      ipv4: 10.10.247.66/22
+      ipv6: fc0a::142/64
+  ARISTA18T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.18.1
+          - 2001:db8:18::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.73/32
+        ipv6: 2064:100:0:149::/128
+      Ethernet1:
+        ipv4: 10.10.18.2/24
+        ipv6: 2001:db8:18::2/64
+    bp_interface:
+      ipv4: 10.10.247.74/22
+      ipv6: fc0a::14a/64
+  ARISTA19T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.19.1
+          - 2001:db8:19::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.81/32
+        ipv6: 2064:100:0:151::/128
+      Ethernet1:
+        ipv4: 10.10.19.2/24
+        ipv6: 2001:db8:19::2/64
+    bp_interface:
+      ipv4: 10.10.247.82/22
+      ipv6: fc0a::152/64
+  ARISTA20T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.20.1
+          - 2001:db8:20::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.89/32
+        ipv6: 2064:100:0:159::/128
+      Ethernet1:
+        ipv4: 10.10.20.2/24
+        ipv6: 2001:db8:20::2/64
+    bp_interface:
+      ipv4: 10.10.247.90/22
+      ipv6: fc0a::15a/64
+  ARISTA21T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.21.1
+          - 2001:db8:21::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.97/32
+        ipv6: 2064:100:0:161::/128
+      Ethernet1:
+        ipv4: 10.10.21.2/24
+        ipv6: 2001:db8:21::2/64
+    bp_interface:
+      ipv4: 10.10.247.98/22
+      ipv6: fc0a::162/64
+  ARISTA22T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.22.1
+          - 2001:db8:22::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.105/32
+        ipv6: 2064:100:0:169::/128
+      Ethernet1:
+        ipv4: 10.10.22.2/24
+        ipv6: 2001:db8:22::2/64
+    bp_interface:
+      ipv4: 10.10.247.106/22
+      ipv6: fc0a::16a/64
+  ARISTA23T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.23.1
+          - 2001:db8:23::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.113/32
+        ipv6: 2064:100:0:171::/128
+      Ethernet1:
+        ipv4: 10.10.23.2/24
+        ipv6: 2001:db8:23::2/64
+    bp_interface:
+      ipv4: 10.10.247.114/22
+      ipv6: fc0a::172/64
+  ARISTA24T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.24.1
+          - 2001:db8:24::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.121/32
+        ipv6: 2064:100:0:179::/128
+      Ethernet1:
+        ipv4: 10.10.24.2/24
+        ipv6: 2001:db8:24::2/64
+    bp_interface:
+      ipv4: 10.10.247.122/22
+      ipv6: fc0a::17a/64
+  ARISTA27T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.27.1
+          - 2001:db8:27::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.129/32
+        ipv6: 2064:100:0:181::/128
+      Ethernet1:
+        ipv4: 10.10.27.2/24
+        ipv6: 2001:db8:27::2/64
+    bp_interface:
+      ipv4: 10.10.247.130/22
+      ipv6: fc0a::182/64
+  ARISTA28T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.28.1
+          - 2001:db8:28::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.137/32
+        ipv6: 2064:100:0:189::/128
+      Ethernet1:
+        ipv4: 10.10.28.2/24
+        ipv6: 2001:db8:28::2/64
+    bp_interface:
+      ipv4: 10.10.247.138/22
+      ipv6: fc0a::18a/64
+  ARISTA29T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.29.1
+          - 2001:db8:29::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.145/32
+        ipv6: 2064:100:0:191::/128
+      Ethernet1:
+        ipv4: 10.10.29.2/24
+        ipv6: 2001:db8:29::2/64
+    bp_interface:
+      ipv4: 10.10.247.146/22
+      ipv6: fc0a::192/64
+  ARISTA30T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.30.1
+          - 2001:db8:30::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.153/32
+        ipv6: 2064:100:0:199::/128
+      Ethernet1:
+        ipv4: 10.10.30.2/24
+        ipv6: 2001:db8:30::2/64
+    bp_interface:
+      ipv4: 10.10.247.154/22
+      ipv6: fc0a::19a/64
+  ARISTA31T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.31.1
+          - 2001:db8:31::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.161/32
+        ipv6: 2064:100:0:1a1::/128
+      Ethernet1:
+        ipv4: 10.10.31.2/24
+        ipv6: 2001:db8:31::2/64
+    bp_interface:
+      ipv4: 10.10.247.162/22
+      ipv6: fc0a::1a2/64
+  ARISTA32T1:
+    properties:
+    - common
+    bgp:
+      asn: 64600
+      peers:
+        65100:
+          - 10.10.32.1
+          - 2001:db8:32::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.1.169/32
+        ipv6: 2064:100:0:1a9::/128
+      Ethernet1:
+        ipv4: 10.10.32.2/24
+        ipv6: 2001:db8:32::2/64
+    bp_interface:
+      ipv4: 10.10.247.170/22
+      ipv6: fc0a::1aa/64

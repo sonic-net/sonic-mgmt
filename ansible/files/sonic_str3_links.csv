@@ -1227,9 +1227,9 @@ str3-7260cx3-acs-1,Ethernet20,str3-7260cx3-acs-fan-09,Ethernet6/1,100000,2276,Ac
 str3-7260cx3-acs-1,Ethernet24,str3-7260cx3-acs-fan-09,Ethernet7/1,100000,2277,Access,
 str3-7260cx3-acs-1,Ethernet28,str3-7260cx3-acs-fan-09,Ethernet8/1,100000,2278,Access,
 str3-7260cx3-acs-1,Ethernet32,str3-7260cx3-acs-fan-09,Ethernet9/1,100000,2279,Access,
-str3-7260cx3-acs-1,Ethernet36,str3-7260cx3-acs-fan-09,Ethernet10/1,100000,2280,Access,
-str3-7260cx3-acs-1,Ethernet40,str3-7260cx3-acs-fan-09,Ethernet11/1,100000,2281,Access,
-str3-7260cx3-acs-1,Ethernet44,str3-7260cx3-acs-fan-09,Ethernet12/1,100000,2282,Access,
+str3-7260cx3-acs-1,Ethernet36,str3-7260cx3-acs-fan-09,Ethernet10/1,100000,2280,Access
+str3-7260cx3-acs-1,Ethernet40,str3-7260cx3-acs-fan-09,Ethernet11/1,100000,2281,Access
+str3-7260cx3-acs-1,Ethernet44,str3-7260cx3-acs-fan-09,Ethernet12/1,100000,2282,Access
 str3-7260cx3-acs-1,Ethernet48,str3-7260cx3-acs-fan-09,Ethernet13/1,100000,2283,Access,
 str3-7260cx3-acs-1,Ethernet52,str3-7260cx3-acs-fan-09,Ethernet14/1,100000,2284,Access,
 str3-7260cx3-acs-1,Ethernet56,str3-7260cx3-acs-fan-09,Ethernet15/1,100000,2285,Access,
