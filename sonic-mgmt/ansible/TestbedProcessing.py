@@ -1182,7 +1182,7 @@ def main():
     print("\tCREATING LAB FILE: " + args.basedir + lab_file)
     if args.yaml:
         # Generate lab in YAML file format (LAB)
-        makeLabYAML(device_groups, devices, testbed, args.basedir + lab_file)
+        makeLab(device_groups, devices, testbed, args.basedir + lab_file)
     else:
         makeLab(device_groups, devices, testbed, args.basedir +
                 lab_file)  # Generate lab in INI file format (LAB)
