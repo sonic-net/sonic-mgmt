@@ -324,7 +324,7 @@ def deploy_mg(data, topo_type, base_topo_file, lc_topo_code):
         logging.info("Pre-processing done")
 
     logging.info("Processing Testbed")
-    testbed_processing_cmd = f"cd /data/ansible; python TestbedProcessing.py -i {base_topo_file}"
+    testbed_processing_cmd = f"cd /data/ansible; python TestbedProcessing.py -i {base_topo_file} -y"
     _run_cmd_in_ssh_container(ssh, DEFAULT_SONIC_MGMT_DOCKER_CONTAINER_NAME, testbed_processing_cmd)
     logging.info("Processing Testbed is finished")
 

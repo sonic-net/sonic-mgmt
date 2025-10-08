@@ -1,5 +1,8 @@
 device_groups:
   fanout:
+    children:
+    - fanout_cisco
+  fanout_cisco:
     host:
     - nexus-5
   lab:
@@ -20,6 +23,7 @@ device_groups:
     vars:
       hwsku: Cisco-8102-C64
       iface_speed: '100000'
+
 devices:
   mathilda-01:
     alias: null
