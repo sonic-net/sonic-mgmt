@@ -238,6 +238,12 @@ bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
     conditions:
       - "'-v6-' in topo_name"
 
+bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[enabled]:
+  xfail:
+    reason: "Testcase ignored due to issue https://github.com/sonic-net/sonic-buildimage/issues/23642"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23642 and hwsku in ['Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C256S1','Mellanox-SN5600-C224O8']"
+
 bgp/test_bgp_gr_helper.py:
   skip:
     reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
@@ -446,6 +452,20 @@ bgp/test_traffic_shift_sup.py:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "skip test_cacl_application in PR test temporarily"
+    conditions:
+      - "asic_type in ['vs']"
+
+cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
+  skip:
+    reason: "test_cacl_acl_loader_commands_internal is only supported on t0/t1 testbed"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t1', 't0']"
+      - "'dualtor' in topo_name"
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -584,7 +604,7 @@ dash/test_dash_privatelink.py:
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40']"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
 dash/test_dash_smartswitch_vnet.py:
   skip:
@@ -592,7 +612,7 @@ dash/test_dash_smartswitch_vnet.py:
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40']"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_vnet.py:
   skip:
@@ -601,6 +621,22 @@ dash/test_dash_vnet.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "platform in ['x86_64-nvidia_sn4280-r0']"
+
+dash/test_fnic.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+
+dash/test_plnsg.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
 dash/test_relaxed_match_negative.py:
   skip:
@@ -3491,18 +3527,6 @@ restapi/test_restapi.py:
     reason: "Only supported on Mellanox"
     conditions:
       - "asic_type not in ['mellanox']"
-
-restapi/test_restapi.py::test_create_interface:
-  xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
-
-restapi/test_restapi.py::test_create_interface_sad:
-  xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi.py::test_create_vrf:
   skip:
