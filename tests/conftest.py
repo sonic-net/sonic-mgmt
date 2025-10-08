@@ -2176,7 +2176,7 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    upstream_nbr_type = get_upstream_neigh_type(tbinfo["topo"]["type"], is_upper=True)
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
     if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
