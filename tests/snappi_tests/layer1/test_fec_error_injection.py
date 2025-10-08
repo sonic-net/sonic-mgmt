@@ -1,4 +1,4 @@
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403
+from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import (
     get_duthost_vlan_details,
     create_snappi_config,
@@ -7,7 +7,7 @@ from snappi_tests.dataplane.files.helper import (
     create_traffic_items,
     start_stop,
     get_stats,
-)     # noqa: F401
+)     # noqa: F401, F05
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)  # noqa: F405
@@ -33,7 +33,7 @@ ErrorTypes = [
 # if its 200G then fanout_per_port is 4, if its 100G then fanout_per_port is 8
 
 
-@pytest.mark.parametrize("fanout_per_port", [8])
+@pytest.mark.parametrize("fanout_per_port", [2])
 @pytest.mark.parametrize("error_type", ErrorTypes)
 @pytest.mark.parametrize("subnet_type", ["IPv4"])
 @pytest.mark.parametrize("frame_rate", [20])
@@ -83,14 +83,12 @@ def test_fec_error_injection(
         logger.info("\n")
         snappi_extra_params.protocol_config = {
             "Tx": {
-                "network_group": False,
                 "protocol_type": "vlan",
                 "ports": Tx_ports,
                 "subnet_type": subnet_type,
                 "is_rdma": False,
             },
             "Rx": {
-                "network_group": False,
                 "protocol_type": "vlan",
                 "ports": Rx_ports,
                 "subnet_type": subnet_type,
@@ -122,12 +120,14 @@ def test_fec_error_injection(
             for snappi_port in Tx_ports:
                 if str(port.Location) == str(snappi_port["location"]):
                     tx_ports.append(port)
-            logger.info(
-                "Setting FEC Error Type to : {} on Snappi ports :-".format(error_type)
-            )
+        logger.info(
+            "Setting FEC Error Type to : {} on Tx Snappi ports :-".format(error_type)
+        )
         for port in tx_ports:
             port.L1Config.FecErrorInsertion.ErrorType = error_type
-            logger.info(port.Name)
+            for snappi_port in fanout_port_group:
+                if port.Location == snappi_port["location"]:
+                    logger.info('{} --- {}'.format(port.Name, snappi_port["peer_port"]))
             if error_type == "codeWords":
                 port.L1Config.FecErrorInsertion.PerCodeword = 16
             port.L1Config.FecErrorInsertion.Continuous = True
@@ -147,7 +147,7 @@ def test_fec_error_injection(
                             or error_type == "laneMarkers"
                         ):
                             pytest_assert(
-                                duthost.links_status_down(port["peer_port"]) is True,
+                                port["duthost"].links_status_down(port["peer_port"]) is True,
                                 "FAIL: {} is still up after injecting FEC Error".format(
                                     port["peer_port"]
                                 ),
@@ -161,7 +161,7 @@ def test_fec_error_injection(
                             error_type == "maxConsecutiveUncorrectableWithoutLossOfLink"
                         ):
                             pytest_assert(
-                                duthost.links_status_down(port["peer_port"]) is False,
+                                port["duthost"].links_status_down(port["peer_port"]) is False,
                                 "FAIL: {} went down after injecting FEC Error".format(
                                     port["peer_port"]
                                 ),
@@ -191,7 +191,7 @@ def test_fec_error_injection(
                             or error_type == "laneMarkers"
                         ):
                             pytest_assert(
-                                duthost.links_status_down(port["peer_port"]) is False,
+                                port["duthost"].links_status_down(port["peer_port"]) is False,
                                 "FAIL: {} is still down after stopping FEC Error".format(
                                     port["peer_port"]
                                 ),
@@ -214,5 +214,5 @@ def test_fec_error_injection(
             )
             start_stop(snappi_api, operation="stop", op_type="traffic")
         finally:
-            logger.info("....Finally Block")
+            logger.info("....Finally Block, Stopping FEC Error Insertion....")
             [port.StopFecErrorInsertion() for port in tx_ports]
