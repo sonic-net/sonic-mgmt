@@ -675,12 +675,12 @@ sonic_nvidia_sn5640:
       hwsku: Mellanox-SN5640-C512S2
       model: MSN5640
       serial: MT2516600JFW
-      base_mac: 50:00:E6:01:D8:0C
+      base_mac: 50:00:E6:E6:38:C2
       syseeprom_info:
         "0x21": "SN5640"
         "0x22": "920-9N52F-09RB-7S0"
         "0x23": "MT2516600JFW"
-        "0x24": "50:00:E6:01:D8:0C"
+        "0x24": "50:00:E6:E6:38:C2"
         "0x25": "03/18/2025 17:10:24"
         "0x26": "16"
         "0x27": "02.00"
