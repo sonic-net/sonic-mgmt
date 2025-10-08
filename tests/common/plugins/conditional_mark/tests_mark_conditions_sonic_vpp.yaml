@@ -449,18 +449,10 @@ fib/test_fib.py::test_ecmp_group_member_flap:
     conditions:
       - "asic_type in ['vpp']"
 
-fib/test_fib.py::test_hash:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 fib/test_fib.py::test_ipinip_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -468,7 +460,7 @@ fib/test_fib.py::test_ipinip_hash:
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -476,7 +468,7 @@ fib/test_fib.py::test_nvgre_hash:
 fib/test_fib.py::test_vxlan_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -753,7 +745,7 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 #####         LLDP                #####
 #######################################
-lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
+lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
   skip:
     reason: >
             Failed/Errored: To be included

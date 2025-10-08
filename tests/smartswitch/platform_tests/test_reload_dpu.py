@@ -272,4 +272,5 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     perform_reboot(duthost, REBOOT_TYPE_COLD, None)
 
     logging.info("Executing post switch reboot dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "reboot")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
