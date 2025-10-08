@@ -17,27 +17,38 @@ SCRIPT_FILE = "/opt/cisco/silicon-one/res/script.txt"
 
 npu_cli_dict_general = {
         #feature cli keyword : list of options under the cli (for all topologies)
+        "acl" : ["summary"],
         "asic-errors": " ",
+        "bfd" : ["summary"],
         "counters": " ",
         "ecmp": " ",
         "event-trap": " ",
         "global": " ",
-        "lag": ["members"],
+        "hash" : " ",
+        "l3-interface": " ",
+        "l3-table" : " ",
+        "lag": ["entries", "members"],
         "lpts": " ",
+        "multipath": " ",
         "next-hop": ["entries", "usage"],
+        "packet-debug": ["capture", "status"],
         "port": ["counters", "entries"],
         "rate-check": " ",
         "resource": " ",
-        "router": ["route-table", "entries", "ports", "port-counters", "details"],
+        "router": ["route-table", "entries", "ports", "details"],
+        "sdk-debug": ["status"],
         "switch": ["entries", "ports"],
-        "temperatures": " ",
         "trap": " ",
+        "trap-list": " ",
         "script": [f"-s {SCRIPT_FILE} -t 60"],
-        "acl" : ["summary"],
-        "hash" : " ",
-        "bfd" : ["summary"],
         #"ars": ["info","flows"]
-        "l3-table" : " "
+}
+
+npu_cli_dict_q200 = {
+        #feature cli keyword : list of options under the cli (only for q200)
+        "acl" : ["key-profile"],
+        "router": ["port-counters"],
+        "temperatures": " "
 }
 
 npu_cli_dict_t2 = {
@@ -159,6 +170,10 @@ def test_show_platform_npu_all(duthosts, enum_rand_one_per_hwsku_hostname, tbinf
 
     result_list = []
     npu_cli_dict = npu_cli_dict_general.copy()
+
+    if duthost.facts["platform"] in ["x86_64-8101_32h_o-r0",
+            "x86_64-8102_64h_o-r0", "x86_64-8101_32fh_o-r0"]:
+        npu_cli_dict.update(npu_cli_dict_q200)
 
     if 't2' in tbinfo['topo']['name']:
         npu_cli_dict.update(npu_cli_dict_t2)
