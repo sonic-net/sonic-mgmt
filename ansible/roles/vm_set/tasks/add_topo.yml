@@ -195,6 +195,13 @@
       - hostvars[duts_name.split(',')[0]].type is defined
     become: yes
 
+  - name: Create file to store asic type in PTF
+    command: docker exec -i ptf_{{ vm_set_name }} sh -c 'echo {{ hostvars[duts_name.split(',')[0]]['asic_type'] }} > /sonic/asic_type.txt'
+    when:
+      - hostvars[duts_name.split(',')[0]] is defined
+      - hostvars[duts_name.split(',')[0]].asic_type is defined
+    become: yes
+
   - name: Get dut ports
     include_tasks: get_dut_port.yml
     loop: "{{ duts_name.split(',') }}"
