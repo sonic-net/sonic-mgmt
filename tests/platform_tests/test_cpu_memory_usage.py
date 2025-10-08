@@ -2,10 +2,10 @@ import logging
 import pytest
 
 from collections import namedtuple, Counter
-from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll     # noqa F401
-from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa F401
-from tests.platform_tests.counterpoll.counterpoll_helper import ConterpollHelper
-from tests.platform_tests.counterpoll.counterpoll_constants import CounterpollConstants
+from tests.platform_tests.counterpoll.cpu_memory_helper import restore_counter_poll     # noqa: F401
+from tests.platform_tests.counterpoll.cpu_memory_helper import counterpoll_type         # noqa: F401
+from tests.common.constants import CounterpollConstants
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -35,12 +35,12 @@ def setup_thresholds(duthosts, enum_rand_one_per_hwsku_hostname):
     memory_threshold = 60
     high_cpu_consume_procs = {}
     is_asan = is_asan_image(duthosts, enum_rand_one_per_hwsku_hostname)
-    if ('arista_7800' in duthost.facts['platform'].lower()):
+    if ('arista_7800' in duthost.facts['platform'].lower()) or duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0'):
         memory_threshold = 75
     if duthost.facts['platform'] in ('x86_64-arista_7050_qx32', 'x86_64-kvm_x86_64-r0', 'x86_64-arista_7050_qx32s',
                                      'x86_64-cel_e1031-r0', 'x86_64-arista_7800r3a_36dm2_lc') or is_asan:
         memory_threshold = 90
-    if duthost.facts['platform'] in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn3800-r0',
+    if duthost.facts['platform'] in ('x86_64-mlnx_msn3800-r0',
                                      'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn3420-r0'):
         memory_threshold = 70
     if duthost.facts['platform'] in ('x86_64-8800_rp_o-r0', 'x86_64-8800_rp-r0'):
@@ -82,7 +82,6 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
                 cpu_threshold = high_cpu_consume_procs[proc['name']]
             check_cpu_usage(cpu_threshold, outstanding_procs,
                             outstanding_procs_counter, proc)
-
     analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
                                outstanding_procs_counter, persist_threshold)
 
@@ -90,20 +89,25 @@ def test_cpu_memory_usage(duthosts, enum_rand_one_per_hwsku_hostname, setup_thre
 def analyse_monitoring_results(cpu_threshold, memory_threshold, outstanding_mem_polls, outstanding_procs,
                                outstanding_procs_counter, persist_threshold):
     persist_outstanding_procs = []
+    reason = []
     for pid, freq in outstanding_procs_counter.most_common():
         if freq <= persist_threshold:
-            break
-        persist_outstanding_procs.append(pid)
+            continue
+        persist_outstanding_procs.append({"pid": pid, "freq": freq})
     if outstanding_mem_polls or persist_outstanding_procs:
         if outstanding_mem_polls:
             logging.error("system memory usage exceeds %d%%", memory_threshold)
+            all_mem_usage = [f"{per['used_percent']}%" for per in outstanding_mem_polls.values()]
+            reason.append(f"system memory usage is [{', '.join(all_mem_usage)}], threshold is {memory_threshold}%")
         if persist_outstanding_procs:
             logging.error(
                 "processes that persistently exceeds cpu usage %d%%: %s",
                 cpu_threshold,
-                [outstanding_procs[p] for p in persist_outstanding_procs]
+                [outstanding_procs[p['pid']] for p in persist_outstanding_procs]
             )
-        pytest.fail("system cpu and memory usage check fails")
+            all_freqs = [f"{proc['freq']}%" for proc in persist_outstanding_procs]
+            reason.append(f"system cpu usage is [{', '.join(all_freqs)}], cpu threshold is {cpu_threshold}%")
+        pytest.fail("system cpu and memory usage check fails due to " + "; ".join(reason))
 
 
 @pytest.fixture(scope='module')
@@ -130,7 +134,7 @@ def disable_pfcwd(duthosts, enum_rand_one_per_hwsku_hostname):
 
 
 def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname,
-                                      setup_thresholds, restore_counter_poll, counterpoll_type,     # noqa F811
+                                      setup_thresholds, restore_counter_poll, counterpoll_type,     # noqa: F811
                                       counterpoll_cpu_threshold, disable_pfcwd):
     """Check DUT memory usage and process cpu usage are within threshold.
     Disable all counterpoll types except tested one
@@ -168,14 +172,14 @@ def test_cpu_memory_usage_counterpoll(duthosts, enum_rand_one_per_hwsku_hostname
     cpu_usage_average = caculate_cpu_usge_average_value(extract_valid_cpu_usage_data(
         cpu_usage_program_to_check, poll_interval), cpu_usage_program_to_check)
     logging.info("Average cpu_usage is {}".format(cpu_usage_average))
-    assert cpu_usage_average < counterpoll_cpu_usage_threshold,\
+    assert cpu_usage_average < counterpoll_cpu_usage_threshold, \
         "cpu_usage_average of {} exceeds the cpu threshold:{}"\
         .format(program_to_check, counterpoll_cpu_usage_threshold)
     assert not outstanding_mem_polls, " Memory {} exceeds the memory threshold {} ".format(
         outstanding_mem_polls, memory_threshold)
 
 
-def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):      # noqa F811
+def log_cpu_usage_by_vendor(cpu_usage_program_to_check, counterpoll_type):      # noqa: F811
     if cpu_usage_program_to_check:
         logging.info('CPU usage for counterpoll type {} : {}'.format(
             counterpoll_type, cpu_usage_program_to_check))
@@ -274,7 +278,7 @@ def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
         outstanding_mem_polls[i] = monit_result.memory
 
 
-def disable_all_counterpoll_type_except_tested(duthost, counterpoll_type):      # noqa F811
+def disable_all_counterpoll_type_except_tested(duthost, counterpoll_type):      # noqa: F811
     available_types = ConterpollHelper.get_available_counterpoll_types(duthost)
     available_types.remove(counterpoll_type)
     ConterpollHelper.disable_counterpoll(duthost, available_types)

@@ -13,14 +13,13 @@ from tests.common.fixtures.ptfhost_utils import remove_ip_addresses  # noqa: F40
 import ptf.testutils as testutils
 from tests.common.helpers.assertions import pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import get_upstream_neigh_type
-from tests.common.utilities import get_neighbor_ptf_port_list
-from tests.common.utilities import get_neighbor_port_list
+from tests.common.utilities import get_upstream_neigh_type, get_neighbor_ptf_port_list, \
+    get_neighbor_port_list, is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology("t0", "m0", "mx", "m1", "m2", "m3"),
+    pytest.mark.topology("t0", "m0", "mx", "m1"),
     pytest.mark.disable_loganalyzer,  # Disable automatic loganalyzer, since we use it for the test
 ]
 
@@ -124,7 +123,7 @@ def create_acl_table(rand_selected_dut, tbinfo):
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         neighbor_ports = get_neighbor_port_list(rand_selected_dut, upstream_neigh_type)
         ports = ",".join(neighbor_ports)
     else:
@@ -194,7 +193,7 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
             except Exception:
                 continue
     for key, value in vlans.items():
-        if len(value.keys()) == 2:
+        if len(value.keys()) in [1, 2]:
             vlan_name = key
             for ip_ver, value in value.items():
                 dst_ports[ip_ver] = value
@@ -205,11 +204,13 @@ def setup_ptf(rand_selected_dut, ptfhost, tbinfo):
     dst_ports['port'] = mg_facts['minigraph_ptf_indices'][vlan_port]
 
     logger.info("Setting up ptf for testing")
-    ptfhost.shell("ifconfig eth{} {}".format(dst_ports['port'], dst_ports[4]))
+    if not is_ipv6_only_topology(tbinfo):
+        ptfhost.shell("ifconfig eth{} {}".format(dst_ports['port'], dst_ports[4]))
     ptfhost.shell("ifconfig eth{} inet6 add {}".format(dst_ports['port'], dst_ports[6]))
 
     yield dst_ports
-    ptfhost.shell("ifconfig eth{} 0.0.0.0".format(dst_ports['port']))
+    if not is_ipv6_only_topology(tbinfo):
+        ptfhost.shell("ifconfig eth{} 0.0.0.0".format(dst_ports['port']))
     ptfhost.shell("ifconfig eth{} inet6 del {}".format(dst_ports['port'], dst_ports[6]))
 
 
@@ -259,7 +260,7 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     topo = tbinfo["topo"]["type"]
     if topo == "mx" or len(mg_facts["minigraph_portchannels"]) == 0:
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         ptf_interfaces = get_neighbor_ptf_port_list(rand_selected_dut, upstream_neigh_type, tbinfo)
     else:
         portchannel_members = []
@@ -276,6 +277,8 @@ def test_null_route_helper(rand_selected_dut, tbinfo, ptfadapter,
         action = test_item[1]
         expected_result = test_item[2]
         ip_ver = ipaddress.ip_network(src_ip.encode().decode(), False).version
+        if ip_ver == 4 and is_ipv6_only_topology(tbinfo):
+            continue
         logger.info("Testing with src_ip = {} action = {} expected_result = {}"
                     .format(src_ip, action, expected_result))
         pkt, exp_pkt = generate_packet(src_ip, ptf_port_info[ip_ver].split("/")[0], router_mac)

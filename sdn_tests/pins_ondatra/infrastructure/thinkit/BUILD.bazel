@@ -27,7 +27,6 @@ go_library(
     cgo = True,
     importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/thinkit/thinkit",
     deps = [
-        "//infrastructure/binding:pinsbackend",
         "//infrastructure/binding:pinsbind",
         "@com_github_golang_glog//:glog",
         "@com_github_openconfig_gnmi//errlist",

@@ -204,7 +204,7 @@ def test_check_routes(duthosts, rand_one_dut_hostname, nbrhosts):
     check_routes(nbrhost, dut2_ips, ["10.10.246.254"], "Vrf1")
     # Check core routes
     check_routes(
-        nbrhost, ["fd00:201:201:fff1:11::", "fd00:202:202:fff2:22::"],
+        nbrhost, ["fd00:201:201:11::", "fd00:202:202:22::"],
         ["fc08::2", "fc06::2"], global_route, is_v6
     )
 

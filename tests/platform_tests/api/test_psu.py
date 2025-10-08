@@ -8,7 +8,7 @@ from tests.platform_tests.cli.util import get_skip_mod_list
 from .platform_api_test_base import PlatformApiTestBase
 from tests.common.utilities import skip_release_for_platform, wait_until
 from tests.platform_tests.api.conftest import skip_absent_psu
-from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 
 
 ###################################################
@@ -42,7 +42,7 @@ class TestPsuApi(PlatformApiTestBase):
     chassis_facts = None
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname): # noqa F811
+    def setup(self, platform_api_conn, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
         if self.num_psus is None:
             try:
                 self.num_psus = int(chassis.get_num_psus(platform_api_conn))
@@ -97,7 +97,7 @@ class TestPsuApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_psus):
             if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
@@ -108,7 +108,7 @@ class TestPsuApi(PlatformApiTestBase):
                 self.compare_value_with_platform_facts(duthost, 'name', name, i)
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in range(self.num_psus):
             presence = psu.get_presence(platform_api_conn, i)
             name = psu.get_name(platform_api_conn, i)
@@ -121,7 +121,7 @@ class TestPsuApi(PlatformApiTestBase):
                     #       that the psu is not present when in the skip list
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         for i in range(self.num_psus):
             if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
@@ -130,7 +130,7 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(isinstance(model, STRING_TYPE), "PSU {} model appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in range(self.num_psus):
             if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
@@ -139,7 +139,7 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(isinstance(serial, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_revision(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release(duthost, ["201811", "201911", "202012"])
         for i in range(self.num_psus):
@@ -150,7 +150,7 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(isinstance(revision, STRING_TYPE), "PSU {} serial number appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in range(self.num_psus):
             if skip_absent_psu(i, platform_api_conn, self.psu_skip_list, logger):
                 continue
@@ -159,7 +159,7 @@ class TestPsuApi(PlatformApiTestBase):
                 self.expect(isinstance(status, bool), "PSU {} status appears incorrect".format(i))
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):     # noqa F811
+    def test_get_position_in_parent(self, platform_api_conn):     # noqa: F811
         for psu_id in range(self.num_psus):
             if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
@@ -170,7 +170,7 @@ class TestPsuApi(PlatformApiTestBase):
                             "Position value must be an integer value for psu id {}".format(psu_id))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):     # noqa F811
+    def test_is_replaceable(self, platform_api_conn):     # noqa: F811
         for psu_id in range(self.num_psus):
             if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
@@ -185,7 +185,7 @@ class TestPsuApi(PlatformApiTestBase):
     # Functions to test methods defined in PsuBase class
     #
 
-    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_fans(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         ''' PSU fan test '''
         for psu_id in range(self.num_psus):
             try:
@@ -204,7 +204,7 @@ class TestPsuApi(PlatformApiTestBase):
                     self.expect(fan and fan == fan_list[i], "Fan {} of PSU {} is incorrect".format(i, psu_id))
         self.assert_expectations()
 
-    def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
+    def test_power(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         ''' PSU power test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
@@ -265,7 +265,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa F811
+    def test_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):   # noqa: F811
         ''' PSU temperature test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
@@ -300,7 +300,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa F811
+    def test_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa: F811
         ''' PSU status led test '''
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         FAULT_LED_COLOR_LIST = [
@@ -391,7 +391,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_thermals(self, platform_api_conn):   # noqa F811
+    def test_thermals(self, platform_api_conn):   # noqa: F811
         for psu_id in range(self.num_psus):
             if skip_absent_psu(psu_id, platform_api_conn, self.psu_skip_list, logger):
                 continue
@@ -412,7 +412,7 @@ class TestPsuApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_master_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_master_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         FAULT_LED_COLOR_LIST = [
             STATUS_LED_COLOR_AMBER,

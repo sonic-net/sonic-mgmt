@@ -15,6 +15,8 @@
 
 - name: backup config_db.json
   shell: cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak
+  become: yes
+  ignore_errors: yes
 
 - name: generate config_db.json
   shell: sonic-cfggen -H -j /tmp/base_config.json --print-data > /etc/sonic/config_db.json
@@ -35,23 +37,23 @@
       block:
         - name: disable feature teamd
           shell: config feature state teamd disabled
-          become: true
+          become: yes
         - name: ensure teamd container is stopped
           docker_container:
             name: teamd
             state: stopped
-          become: true
+          become: yes
           ignore_errors: yes
         - name: remove teamd container
           docker_container:
             name: teamd
             state: absent
-          become: true
+          become: yes
       when: teamd_container.stdout != ""
 
 - name: SONiC update config db
   shell: config reload -y -f
-  become: true
+  become: yes
 
 - name: wait for SONiC update config db finish
   pause:

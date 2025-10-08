@@ -23,6 +23,8 @@ MINIKUBE_DOWNLOAD_TIMEOUT_SECOND = 360
 MINIKUBE_SETUP_CHECK_INTERVAL = 10
 KUBERNETES_VERSION = "v1.22.2"
 KUBELET_CONFIGMAP = "kubelet-config-1.22"
+KUBELET_DEFAULT_CONFIG = "/etc/default/kubelet"
+KUBELET_DEFAULT_CONFIG_BAK = f"{KUBELET_DEFAULT_CONFIG}.bak"
 DAEMONSET_NODE_LABEL = "deployDaemonset"
 DAEMONSET_POD_LABEL = "test-ds-pod"
 DAEMONSET_CONTAINER_NAME = "mock-ds-container"
@@ -184,6 +186,44 @@ def remove_minikube_vip_dns(duthost, vmhost):
     logger.info("Minikube vip dns is removed")
 
 
+def is_the_sku_need_to_remove_node_ip_param(duthost):
+    hwsku = duthost.facts.get("hwsku") if hasattr(duthost, "facts") else None
+    if not hwsku:
+        # Fallback query (ignore errors gracefully)
+        result = duthost.shell("sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku", module_ignore_errors=True)
+        hwsku = result.get("stdout", "").strip()
+    return hwsku == "Arista-7060X6-16PE-384C-B-O128S2"
+
+
+def remove_node_ip_param(duthost):
+    """Remove '--node-ip=::' from kubelet config.
+    Creates a backup of the original file once (if not already present) so it can be restored.
+    A series of sed patterns is used to safely eliminate the token with or without surrounding spaces.
+    """
+    if not is_the_sku_need_to_remove_node_ip_param(duthost):
+        return
+    logger.info("Detected SKU which requires removal of '--node-ip=::' from kubelet config")
+    duthost.shell(f"sudo cp {KUBELET_DEFAULT_CONFIG} {KUBELET_DEFAULT_CONFIG_BAK}", module_ignore_errors=True)
+    duthost.shell(f"sudo sed -i 's/--node-ip=::/--node-ip={duthost.mgmt_ip}/g' {KUBELET_DEFAULT_CONFIG}")
+    duthost.shell("sudo systemctl daemon-reload")
+    logger.info("Kubelet config '--node-ip=::' parameter removed")
+
+
+def restore_node_ip_param(duthost):
+    """Restore kubelet config from backup."""
+    if not is_the_sku_need_to_remove_node_ip_param(duthost):
+        return
+    logger.info("Restoring kubelet config to original state if backup exists")
+    restore_cmd = (
+        f"if [ -f {KUBELET_DEFAULT_CONFIG_BAK} ]; then "
+        f"sudo mv {KUBELET_DEFAULT_CONFIG_BAK} {KUBELET_DEFAULT_CONFIG}; "
+        f"fi"
+    )
+    duthost.shell(restore_cmd)
+    duthost.shell("sudo systemctl daemon-reload")
+    logger.info("Kubelet config node ip param restore completed")
+
+
 def deploy_test_daemonset(vmhost):
     logger.info("Start to deploy daemonset and check the status")
     daemonset_yaml = "/tmp/daemonset.yaml"
@@ -330,6 +370,9 @@ def setup_and_teardown(duthost, vmhost, creds):
     # Prepare dns for minikube vip
     prepare_minikube_vip_dns(duthost, vmhost)
 
+    # Remove node-ip param if the sku is needed
+    remove_node_ip_param(duthost)
+
     yield
 
     # Clean up the k8s table in configdb
@@ -340,6 +383,9 @@ def setup_and_teardown(duthost, vmhost, creds):
 
     # Restore certs for duthost join
     restore_cert(duthost)
+
+    # Restore node-ip param if the sku is needed
+    restore_node_ip_param(duthost)
 
     if asic_type == "vs":
 
@@ -361,11 +407,13 @@ def trigger_join_and_check(duthost, vmhost):
     logger.info("Start to join duthost to k8s cluster and check the status")
     duthost.shell(f"sudo config kube server ip {vmhost.mgmt_ip}")
     duthost.shell("sudo config kube server disable off")
-    time.sleep(60)
-    nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
-    pytest_assert(duthost.hostname in nodes["stdout"], "Failed to join duthost to k8s cluster")
-    pytest_assert("NotReady" not in nodes["stdout"], "The status of duthost in k8s cluster is not ready")
-    logger.info(f"Successfully joined duthost {duthost.hostname} to k8s cluster")
+    for _ in range(12):
+        time.sleep(10)
+        nodes = vmhost.shell(f"{NO_PROXY} minikube kubectl -- get nodes {duthost.hostname}", module_ignore_errors=True)
+        if duthost.hostname in nodes["stdout"] and "NotReady" not in nodes["stdout"]:
+            logger.info("Duthost is successfully joined to k8s cluster")
+            return
+    pytest_assert(False, "Failed to join duthost to k8s cluster")
 
 
 def trigger_disjoin_and_check(duthost, vmhost):

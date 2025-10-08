@@ -7,7 +7,7 @@ import pytest
 import time
 
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import wait, wait_until, is_ipv4_address
+from tests.common.utilities import wait, wait_until, is_ipv4_address, is_ipv6_address
 from tests.common.dualtor.mux_simulator_control import get_mux_status, reset_simulator_port     # noqa: F401
 from tests.common.dualtor.mux_simulator_control import restart_mux_simulator                    # noqa: F401
 from tests.common.dualtor.nic_simulator_control import restart_nic_simulator                    # noqa: F401
@@ -63,9 +63,13 @@ def _find_down_phy_ports(dut, phy_interfaces):
     return down_phy_ports
 
 
-def _find_down_ip_ports(dut, ip_interfaces):
+def _find_down_ip_ports(dut, ip_interfaces, use_ipv6=False):
     down_ip_ports = []
-    ip_intf_facts = dut.show_ip_interface()['ansible_facts']['ip_interfaces']
+    if use_ipv6:
+        ip_intf_facts = dut.show_ipv6_interface()['ansible_facts']['ipv6_interfaces']
+    else:
+        ip_intf_facts = dut.show_ip_interface()['ansible_facts']['ip_interfaces']
+
     for intf in ip_interfaces:
         try:
             if ip_intf_facts[intf]['oper_state'] == 'down':
@@ -75,26 +79,27 @@ def _find_down_ip_ports(dut, ip_interfaces):
     return down_ip_ports
 
 
-def _find_down_ports(dut, phy_interfaces, ip_interfaces):
+def _find_down_ports(dut, phy_interfaces, ip_interfaces, use_ipv6=False):
     """Finds the ports which are operationally down
 
     Args:
         dut (object): The sonichost/sonicasic object
         phy_interfaces (list): List of all phyiscal operation in 'admin_up'
         ip_interfaces (list): List of the L3 interfaces
+        use_ipv6 (bool): Whether to use IPv6 interface check instead of IPv4
 
     Returns:
         [list]: list of the down ports
     """
     down_ports = []
-    down_ports = _find_down_ip_ports(dut, ip_interfaces) + \
+    down_ports = _find_down_ip_ports(dut, ip_interfaces, use_ipv6) + \
         _find_down_phy_ports(dut, phy_interfaces)
 
     return down_ports
 
 
 @pytest.fixture(scope="module")
-def check_interfaces(duthosts):
+def check_interfaces(duthosts, tbinfo):
     init_result = {"failed": False, "check_item": "interfaces"}
 
     def _check(*args, **kwargs):
@@ -118,6 +123,14 @@ def check_interfaces(duthosts):
 
         down_ports = []
         check_result = {"failed": True, "check_item": "interfaces", "host": dut.hostname}
+
+        # Determine if we should use IPv6 interface checking
+        use_ipv6 = (
+            "-v6-" in tbinfo["topo"]["name"]
+            if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+            else False
+        )
+
         for asic in dut.asics:
             ip_interfaces = []
             cfg_facts = asic.config_facts(host=dut.hostname,
@@ -128,22 +141,29 @@ def check_interfaces(duthosts):
                 ip_interfaces = list(cfg_facts["PORTCHANNEL_INTERFACE"].keys())
             if "VLAN_INTERFACE" in cfg_facts:
                 for vlan in cfg_facts["VLAN_INTERFACE"]:
-                    # check for IPv4 address only for now.
-                    if any(is_ipv4_address(addr) for addr in cfg_facts["VLAN_INTERFACE"][vlan]):
-                        ip_interfaces.append(vlan)
+                    if use_ipv6:
+                        # check for IPv6 address.
+                        if any(is_ipv6_address(addr) for addr in cfg_facts["VLAN_INTERFACE"][vlan]):
+                            ip_interfaces.append(vlan)
+                    else:
+                        # check for IPv4 address.
+                        if any(is_ipv4_address(addr) for addr in cfg_facts["VLAN_INTERFACE"][vlan]):
+                            ip_interfaces.append(vlan)
 
             logger.info(json.dumps(phy_interfaces, indent=4))
             logger.info(json.dumps(ip_interfaces, indent=4))
+            if use_ipv6:
+                logger.info("Using IPv6 interface checking for topology: %s" % tbinfo["topo"]["name"])
 
             if timeout == 0:  # Check interfaces status, do not retry.
-                down_ports += _find_down_ports(asic, phy_interfaces, ip_interfaces)
+                down_ports += _find_down_ports(asic, phy_interfaces, ip_interfaces, use_ipv6)
                 check_result["failed"] = True if len(down_ports) > 0 else False
                 check_result["down_ports"] = down_ports
             else:  # Retry checking interface status
                 start = time.time()
                 elapsed = 0
                 while elapsed < timeout:
-                    down_ports = _find_down_ports(asic, phy_interfaces, ip_interfaces)
+                    down_ports = _find_down_ports(asic, phy_interfaces, ip_interfaces, use_ipv6)
                     check_result["failed"] = True if len(down_ports) > 0 else False
                     check_result["down_ports"] = down_ports
 
@@ -185,7 +205,12 @@ def check_bgp(duthosts, tbinfo):
         def _restart_bgp(dut):
             # Restart BGP service
             try:
-                dut.command("systemctl restart bgp.service")
+                if dut.is_multi_asic:
+                    with SafeThreadPoolExecutor(max_workers=8) as executor:
+                        for asic in range(dut.num_asics()):
+                            executor.submit(dut.command, f"systemctl restart bgp@{asic}.service")
+                else:
+                    dut.command("systemctl restart bgp.service")
             except RunAnsibleModuleFail as e:
                 logger.error("Failed to restart BGP service on %s: %s" % (dut.hostname, str(e)))
                 return False
@@ -193,7 +218,12 @@ def check_bgp(duthosts, tbinfo):
 
         def _check_bgp_status_helper():
             asic_check_results = []
-            bgp_facts = dut.bgp_facts(asic_index='all')
+            try:
+                bgp_facts = dut.bgp_facts(asic_index='all')
+            except Exception as e:
+                logger.error("Failed to get BGP status on host %s: %s", dut.hostname, repr(e))
+                check_result['failed'] = True
+                return False
 
             # Conditions to fail BGP check
             #   1. No BGP neighbor.
@@ -728,6 +758,10 @@ def check_mux_simulator(tbinfo, duthosts, duts_minigraph_facts, get_mux_status, 
                 nonlocal check_passed, err_msg, duts_mux_status
                 check_passed, err_msg, duts_mux_status = _check_dut_mux_status(duthosts, duts_minigraph_facts, **kwargs)
                 return check_passed
+
+            # try to recover the mux config back to auto mode
+            if "'show mux config' output differs between two ToRs" in err_msg:
+                duthosts.shell("config mux mode auto all")
 
             logger.warning('Mux state check failed, trying to recover via linkmgrd restart')
             duthosts.shell("docker exec mux supervisorctl restart linkmgrd")
