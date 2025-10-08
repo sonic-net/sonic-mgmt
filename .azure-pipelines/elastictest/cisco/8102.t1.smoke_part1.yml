@@ -1,0 +1,149 @@
+name: SmokeTest_Part1_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 3 * * 1,3,5"  # Mon/Wed/Fri
+    displayName: Part1 Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "testbed-bjw2-can-t1-8102-5,testbed-bjw2-can-t1-8102-6"
+    displayName: "Testbed Name"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(BJW_IMAGE_CISCO_202505)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-stage
+
+  - name: RETRY_TIMES
+    type: string
+    default: "0"
+
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: "platform_tests, pfcwd, qos, snmp, copp, container_checker, gnmi, \
+              crm, telemetry, autorestart, show_techsupport, cacl, memory_checker, \
+              test_pretest, configlet, iface_namingmode, arp, ssh, dut_console, \
+              passw_hardening, drop_packets, golden_config_infra, stress, test_posttest, \
+              system_health, container_hardening, zmq, decap, http, test_pktgen, test_features, \
+              scp, radv, clock, dash"
+    displayName: "Features to be executed"
+
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: "vrf/test_vrf.py, vrf/test_vrf_attr.py, mvrf/test_mgmtvrf.py, \
+              platform_tests/test_auto_negotiation.py, sflow/test_sflow.py, \
+              nat/test_dynamic_nat.py, nat/test_static_nat.py"
+    displayName: "Scripts to be excluded"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: "ptftests, acstests, saitests, scripts, k8s, sai_qualify"
+    displayName: "Features to be excluded"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202505)"
+    displayName: "Common test parameters"
+
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 3600
+
+  - name: MIN_PASSING_RATE
+    type: number
+    default: 60
+    displayName: "Minimum passing rate"
+
+  - name: PASSING_RATE_TOLERANCE
+    type: number
+    default: 3
+    displayName: "Allowed passing rate drop"
+
+  - name: SKIP_MERGE_GITHUB
+    type: boolean
+    default: false
+
+stages:
+- stage: Test
+  variables:
+    - group: SONiC-Elastictest
+    - group: KUSTO_SECRETS
+
+  jobs:
+  - job: ValidateTestCases
+    displayName: "Validate test cases"
+    timeoutInMinutes: 30
+    continueOnError: false
+    steps:
+      - template: ../../pytest-collect-only.yml
+        parameters:
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+
+  - job: SmokeTest
+    displayName: 8102.t1.SmokeTest_by_Elastictest_Part1
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    dependsOn:
+      - ValidateTestCases
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+      - template: ../../run-test-nightly-elastictest-template.yml
+        parameters:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          SCRIPTS: ${{ parameters.SCRIPTS }}
+          FEATURES: ${{ parameters.FEATURES }}
+          SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+          FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+          COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          IMAGE_URL: ${{ parameters.IMAGE_URL }}
+          PTF_IMAGE_TAG: "internal"
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+
+      - template: ../../repo_mgmt/elastictest-analyze-test-results.yml
+        parameters:
+          MIN_PASSING_RATE: ${{ parameters.MIN_PASSING_RATE }}
+          PASSING_RATE_TOLERANCE: ${{ parameters.PASSING_RATE_TOLERANCE }}
+
+  - job: PushSonicMgmt
+    displayName: "Push sonic-mgmt"
+    dependsOn:
+      - ValidateTestCases
+      - SmokeTest
+    continueOnError: false
+    condition: and(eq('${{ parameters.SKIP_MERGE_GITHUB }}', 'false'), in(dependencies.SmokeTest.result, 'Succeeded','SucceededWithIssues'), in(dependencies.ValidateTestCases.result, 'Succeeded','SucceededWithIssues'))
+    steps:
+      - template: ../../repo_mgmt/push-sonic-mgmt.yml
+        parameters:
+          MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+          FORCE_PUSH: NO
