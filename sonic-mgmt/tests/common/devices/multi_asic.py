@@ -98,6 +98,9 @@ class MultiAsicSonicHost(object):
         if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
 
+        if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu' and 'snmp' in service_list:
+            service_list.remove('snmp')
+
         # Update the asic service based on feature table state and asic flag
         for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
             if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':

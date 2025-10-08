@@ -387,6 +387,11 @@ def hash_keys(duthost):
             hash_keys.remove('src-port')
         if 'dst-port' in hash_keys:
             hash_keys.remove('dst-port')
+    if duthost.facts['asic_type'] in ["vpp"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+        if 'ingress-port' in hash_keys:
+            hash_keys.remove('ingress-port')
     if duthost.facts['asic_type'] in ["mellanox"]:
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
