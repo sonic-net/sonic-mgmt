@@ -279,6 +279,10 @@ def record_property(request):
 
 @pytest.fixture(scope="session", autouse=True)
 def initial_setup(duthosts, creds, tbinfo):
+    if 'route_conv' not in tbinfo['topo']['name']:
+        yield
+        return
+
     """Perform initial DUT configurations (T1, Fanout) for convergence tests (runs once per test session)."""
     patch_facts = patch_conn_graph_facts(duthosts, tbinfo)
     patch_facts.patch()

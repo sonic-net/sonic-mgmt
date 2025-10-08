@@ -659,18 +659,23 @@ class Test_VNET_BGP_route_Precedence():
             community = "6789:9876"
         self.create_bgp_profile(profile, community)
 
+        asic_type = duthost.facts["asic_type"]
         # Determine the prefix type and mask based on encap_type and route_type
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
             self.prefix_mask = 24
             self.adv_mask = 24
-            if monitor_type == 'custom':
+            if monitor_type == 'custom' and asic_type in ["cisco-8000", "mellanox"]:
+                self.adv_mask = 24
+            elif monitor_type == 'custom':
                 self.adv_mask = 16
         else:
             self.prefix_type = 'v6'
             self.adv_mask = 64
             self.prefix_mask = 64
-            if monitor_type == 'custom':
+            if monitor_type == 'custom' and asic_type in ["cisco-8000", "mellanox"]:
+                self.adv_mask = 64
+            elif monitor_type == 'custom':
                 self.adv_mask = 60
 
         # generate routes

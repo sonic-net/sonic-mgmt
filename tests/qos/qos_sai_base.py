@@ -1093,7 +1093,7 @@ class QosSaiBase(QosBase):
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
-                testPortIps.update(dutPortIps)
+                testPortIps[src_dut_index][src_asic_index].update(dutPortIps[src_dut_index][src_asic_index])
 
             if is_supported_per_dir:
                 for portIndex, _ in testPortIps[src_dut_index][src_asic_index].items():

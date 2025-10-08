@@ -663,32 +663,56 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
     return crm_stats_route_available
 
 
+def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = mg_facts['minigraph_neighbors']
+    if port_channel := mg_facts['minigraph_portchannels'].get(dut_interface):
+        dut_interface = port_channel['members'][0]
+    neighbor_name = vm_neighbors[dut_interface]
+    neighbor_name, neighbor_interface = neighbor_name['name'], neighbor_name['port']
+    neighbor = nbrhosts[neighbor_name]
+    lacp_num = neighbor['conf']['interfaces'][neighbor_interface].get('lacp')
+    neighbor_interface = f'po{lacp_num}' if lacp_num else neighbor_interface
+    return neighbor['host'], neighbor_interface
+
+
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface,
+                     ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo, nbrhosts):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
-        if ip_ver == "4":
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
-            ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
-            nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
-            nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+    # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
+    get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
+                            crm_stats_ipv{ip_ver}_nexthop_used \
+                            crm_stats_ipv{ip_ver}_nexthop_available"\
+                                .format(db_cli=asichost.sonic_db_cli,
+                                        ip_ver=ip_ver)
+    crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
+        dut_interface = crm_interface[0] if duthost.facts["asic_type"] == "mellanox" else "Ethernet1"
+        mask = "24" if ip_ver == "4" else "64"
+        dut_interface_ip = "2.2.2.1" if ip_ver == "4" else "2001::2"
+        route_prefix = "99.99.99.0" if ip_ver == "4" else "3001::0"
+
+        ip_add_cmd = f"config interface ip add {dut_interface} {dut_interface_ip}/{mask}"
+        ip_remove_cmd = f"config interface ip remove {dut_interface} {dut_interface_ip}/{mask}"
+        nexthop_add_cmd = f"config route add prefix {route_prefix}/{mask} nexthop {nexthop}"
+        nexthop_del_cmd = f"config route del prefix {route_prefix}/{mask} nexthop {nexthop}"
+
+        if duthost.facts["asic_type"] == "mellanox":
+            vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
+            vmhost.shell(f"ip addr add {nexthop}/{mask} dev {vm_interface}")
+            vmhost.shell(f"ip link set {vm_interface} up")
         else:
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/96')
+            ptfhost.add_ip_to_dev('eth1', nexthop + '/' + mask)
             ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
-            nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
-            nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
-        asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+            asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+
         asichost.shell(ip_add_cmd)
-        asichost.shell("config interface startup Ethernet1")
+        asichost.shell(f"config interface startup {dut_interface}")
     else:
         nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -700,13 +724,6 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                             .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-    # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
-    get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
-                            crm_stats_ipv{ip_ver}_nexthop_used \
-                            crm_stats_ipv{ip_ver}_nexthop_available"\
-                                .format(db_cli=asichost.sonic_db_cli,
-                                        ip_ver=ip_ver)
-    crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
     # Add nexthop
     asichost.shell(nexthop_add_cmd)
 
@@ -722,10 +739,14 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
         asichost.shell(ip_remove_cmd)
-        asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
-        ptfhost.remove_ip_addresses()
+        if duthost.facts["asic_type"] == "mellanox":
+            vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
+            vmhost.shell(f"ip addr del {nexthop}/{mask} dev {vm_interface}")
+        else:
+            asichost.sonichost.add_member_to_vlan(1000, dut_interface, is_tagged=False)
+            ptfhost.remove_ip_addresses()
     crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost,
                                    crm_stats_nexthop_used, crm_stats_nexthop_available,
                                    skip_stats_check=skip_stats_check)
