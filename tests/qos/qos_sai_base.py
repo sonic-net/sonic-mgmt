@@ -17,6 +17,7 @@ from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from tests.common.cisco_data import is_cisco_device, copy_dshell_script_cisco_8000, run_dshell_command
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.dualtor.dual_tor_common import active_standby_ports  # noqa: F401
 from tests.common.dualtor.dual_tor_utils \
     import upper_tor_host, lower_tor_host, dualtor_ports, is_tunnel_qos_remap_enabled  # noqa: F401
@@ -57,7 +58,7 @@ class QosBase:
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
     SUPPORTED_PTF_TOPOS = ['ptf32', 'ptf64']
     SUPPORTED_ASIC_LIST = ["pac", "gr", "gr2", "gb", "td2", "th", "th2", "spc1", "spc2", "spc3", "spc4", "spc5",
-                           "td3", "th3", "j2c+", "jr2", "th5"]
+                           "td3", "th3", "j2c+", "jr2", "th5", "tl7", "tl10"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
 
@@ -1685,7 +1686,7 @@ class QosSaiBase(QosBase):
 
     @pytest.fixture(scope='class', autouse=True)
     def dutQosConfig(
-        self, duthosts, get_src_dst_asic_and_duts,
+        self, request, duthosts, get_src_dst_asic_and_duts,
         dutConfig, ingressLosslessProfile, ingressLossyProfile,
         egressLosslessProfile, egressLossyProfile, sharedHeadroomPoolSize,
         tbinfo, lower_tor_host  # noqa: F811
@@ -1694,6 +1695,7 @@ class QosSaiBase(QosBase):
             Prepares DUT host QoS configuration
 
             Args:
+                request (Fixture): pytest request object
                 duthost (AnsibleHost): Device Under Test (DUT)
                 ingressLosslessProfile (Fxiture): ingressLosslessProfile fixture is required to run prior to collecting
                     QoS configuration
@@ -1832,6 +1834,24 @@ class QosSaiBase(QosBase):
                       portSpeedCableLength)
 
             qosParams = qpm.run()
+
+        elif is_marvell_teralynx_device(duthost):
+            current_file_dir = os.path.dirname(os.path.realpath(__file__))
+            sub_folder_dir = os.path.join(current_file_dir, "files/marvell-teralynx/")
+            if sub_folder_dir not in sys.path:
+                sys.path.append(sub_folder_dir)
+            import qos_param_generator
+            qpm = qos_param_generator.QosParamMarvell(dutConfig, duthost, dut_asic,
+                                                      request,
+                                                      portSpeedCableLength,
+                                                      ingressLosslessProfile,
+                                                      ingressLossyProfile,
+                                                      egressLosslessProfile,
+                                                      egressLossyProfile,
+                                                      get_src_dst_asic_and_duts['src_dut_index'],
+                                                      get_src_dst_asic_and_duts['src_asic_index'])
+            qosParams = qpm.run()
+
         elif dutAsic == 'vs':
             with open(r"qos/files/vs/dutQosConfig.json") as file:
                 dutQosConfig = json.load(file)
