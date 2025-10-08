@@ -1,13 +1,11 @@
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401
-from snappi_tests.dataplane.files.helper_pr import (
+from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
+from snappi_tests.dataplane.files.helper import (
     get_duthost_vlan_details,
-    create_snappi_config,
+    create_snappi_config,     # noqa: F401
     get_snappi_stats,
-    create_snappi_l1config,
-    get_fanout_port_groups,
-    set_primary_chassis,
+    set_primary_chassis,      # noqa: F401
     create_traffic_items,
-)  # noqa: F401
+)  # noqa: F401, F403, F405, E402
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
@@ -19,8 +17,8 @@ def test_ecn_marking(
     snappi_api,                   # noqa: F811
     get_snappi_ports,             # noqa: F811
     set_primary_chassis,   # noqa: F811
+    create_snappi_config,    # noqa: F811
     subnet_type,
-    create_snappi_l1config,  # noqa: F811
     fanout_graph_facts_multidut,
 ):
     """
@@ -34,20 +32,19 @@ def test_ecn_marking(
     pytest_assert(len(snappi_ports) >= 3, "Not enough ports for the test, Need at least 3 ports")
     tx_ports = snappi_ports[:2]
     rx_ports = [snappi_ports[2]]
-    config = create_snappi_l1config
     snappi_extra_params.protocol_config = {
-        "Tx": {"network_group": False, "protocol_type": "vlan", "ports": tx_ports,
+        "Tx": {"protocol_type": "vlan", "ports": tx_ports,
                "subnet_type": subnet_type, 'is_rdma': True},
-        "Rx": {"network_group": False, "protocol_type": "vlan",
+        "Rx": {"protocol_type": "vlan",
                "ports": rx_ports, "subnet_type": subnet_type, 'is_rdma': True},
     }
-    config, snappi_obj_handles = create_snappi_config(config, snappi_extra_params)
+    config, snappi_obj_handles = create_snappi_config(snappi_extra_params)
     api = snappi_api
     snappi_extra_params.traffic_flow_config = [
         {
             "line_rate": 55,
             "frame_size": 1024,
-            "is_rdma": False,
+            "is_rdma": True,
             "flow_name": "Traffic Flow",
             "tx_names": snappi_obj_handles["Tx"]["ip"],
             "rx_names": snappi_obj_handles["Rx"]["ip"],
@@ -55,7 +52,6 @@ def test_ecn_marking(
     ]
     config = create_traffic_items(config, snappi_extra_params)
     api.set_config(config)
-
     packet_capture_file = "ECN_capture"
     logger.info("Packet capture file: {}.pcapng".format(packet_capture_file))
     packet_capture_ports = [config.ports[-1].name]
