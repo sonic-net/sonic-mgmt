@@ -18,7 +18,8 @@ pid_sku = [{"x86_64-8102_64h_o-r0" : ["Cisco-8102-C64"]},
            {"x86_64-88_lc0_36fh_o-r0" : [("Cisco-88-LC0-36FH-O36", [0,1,2])]},
            {"x86_64-88_lc0_36fh-r0" : [("Cisco-88-LC0-36FH-O36", [0,1,2])]},
            {"x86_64-8101_32fh_o-r0" : ["32x400Gb", "Cisco-8101-C64", "Cisco-8101-O32", "Cisco-8101-O8C48", "Cisco-DSF-8101-32FH"]},
-           {"x86_64-8800_rp_o-r0" : [""]}
+           {"x86_64-8800_rp_o-r0" : [""]},
+           {"x86_64-8102_28fh_dpu_o-r0": ["Cisco-8102-28FH-DPU-C28", "Cisco-8102-28FH-DPU-O", "Cisco-8102-28FH-DPU-O12C16", "Cisco-8102-28FH-DPU-O8C20", "Cisco-8102-28FH-DPU-O8C40", "Cisco-8102-28FH-DPU-O8V40"]}
            ]
 
 def print_rc(cmd, rc):
