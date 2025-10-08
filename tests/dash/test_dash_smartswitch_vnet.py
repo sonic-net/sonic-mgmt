@@ -14,7 +14,7 @@ ENABLE_GNMI_API = True
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t1'),
+    pytest.mark.topology('smartswitch'),
     pytest.mark.disable_loganalyzer,
     pytest.mark.skip_check_dut_health
 ]
