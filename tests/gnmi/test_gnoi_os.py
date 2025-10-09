@@ -14,6 +14,16 @@ This module contains tests for the gNOI OS API.
 """
 
 
+@pytest.fixture
+def prepare_os_transfer_payload(duthost):
+
+    # Get the Valid image SONiC OS Version
+    os_version_ansible = duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+    request_json = json.dumps({"transferRequest": {"version": os_version_ansible, "standby_supervisor": False}})
+
+    return os_version_ansible, request_json
+
+
 @pytest.mark.disable_loganalyzer
 def test_gnoi_os_verify(duthosts, rand_one_dut_hostname, localhost):
     """
@@ -69,3 +79,59 @@ def test_gnoi_os_activate_valid_image(duthosts, rand_one_dut_hostname, localhost
     logging.info("OS.Activate API returned msg: {}".format(msg))
     # Assert that the response contains "ActivateOk"
     pytest_assert("ActivateOk" in msg, "OS.Activate API did not return 'ActivateOk' as expected")
+
+
+@pytest.mark.disable_loganalyzer
+def test_gnoi_os_install_valid_image(duthosts, rand_one_dut_hostname, localhost, prepare_os_transfer_payload):
+    """
+    Verify that gNOI OS Install RPC is returning Unimplemented Error
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Get the Valid image SONiC OS Version from the fixture
+    os_version_ansible, request_json = prepare_os_transfer_payload
+
+    # Creating a dummy OS file and copying it to the host
+    dummy_creation = duthost.shell(
+        "dd if=/dev/urandom of=dummy-SONiC-OS.tar.gz bs=1M count=5", module_ignore_errors=True
+    )
+    copy_file = duthost.shell("docker cp dummy-SONiC-OS.tar.gz gnmi:SONiC-OS.tar.gz", module_ignore_errors=True)
+
+    if dummy_creation["rc"] != 0 or copy_file["rc"] != 0:
+        pytest.fail("Failed to create or copy dummy OS file")
+
+    input_file = ' --input_file="SONiC-OS.tar.gz"'
+    ret, msg = gnoi_request(duthost, localhost, "OS", "Install", request_json, input_file)
+
+    # clean up
+    logging.info("Removing the generated image file")
+    file_dut_rm_result = duthost.shell(
+        "rm -f dummy-SONiC-OS.tar.gz", module_ignore_errors=True
+    )
+    file_container_rm_result = duthost.shell("docker exec gnmi rm -f SONiC-OS.tar.gz", module_ignore_errors=True)
+
+    if file_dut_rm_result["rc"] != 0 or file_container_rm_result["rc"] != 0:
+        pytest.fail("Failed to remove the OS file")
+    pytest_assert(ret == -1, f"OS.Install RPC failed: rc = {ret}, msg = {msg}")
+
+    logging.info("OS.Install API (with valid file) returned msg: {}".format(msg))
+    # Assert that the response contains "Unimplemented Error"
+    pytest_assert("Unimplemented" in msg, "Expected method unimplemented error")
+
+
+@pytest.mark.disable_loganalyzer
+def test_gnoi_os_install_without_valid_image(duthosts, rand_one_dut_hostname, localhost, prepare_os_transfer_payload):
+    """
+    Verify that gNOI OS Install RPC without an input file returns a parameter required error.
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Get the Valid image SONiC OS Version from the fixture
+    os_version_ansible, request_json = prepare_os_transfer_payload
+
+    ret, msg = gnoi_request(duthost, localhost, "OS", "Install", request_json)
+    pytest_assert(ret == -1, f"OS.Install RPC failed: rc = {ret}, msg = {msg}")
+
+    logging.info("OS.Install API (without a valid file) returned msg: {}".format(msg))
+    # Assert that the response contains the required input file error message"
+    pytest_assert("--input_file is required" in msg, "Expected input_file parameter required error")
