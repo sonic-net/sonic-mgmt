@@ -81,7 +81,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 
 #######################################
-#####             mvrf         #####
+#####    Managment Test Cases     #####
 #######################################
 mvrf/test_mgmtvrf.py::TestReboot:
   skip:
@@ -90,6 +90,10 @@ mvrf/test_mgmtvrf.py::TestReboot:
 mvrf/test_mgmtvrf.py::TestServices::test_ntp:
   skip:
     reason: "Skip NTP test on sim as it always fails, test requires analysis and fix"
+
+dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports:
+  skip:
+    reason: "Disabling Test case which are only for T2 Chassis but running for T0/T1."
 
 #######################################
 #####           pc               #####
