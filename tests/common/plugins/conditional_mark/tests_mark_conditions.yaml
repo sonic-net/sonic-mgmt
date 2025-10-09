@@ -304,6 +304,33 @@ bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
       - https://github.com/sonic-net/sonic-mgmt/issues/6471
 
 #######################################
+#####           bmp              #####
+#######################################
+bmp/test_bmp_configdb.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202505']"
+
+bmp/test_bmp_redis_instance.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202505']"
+
+bmp/test_bmp_statedb.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202505']"
+
+bmp/test_docker_restart.py:
+  skip:
+    reason: "https://github.com/sonic-net/sonic-buildimage/issues/23777"
+    conditions:
+      - "release in ['202505']"
+
+#######################################
 #####            cacl             #####
 #######################################
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
