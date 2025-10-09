@@ -50,13 +50,13 @@ arp/test_arpall.py::test_arp_unicast_reply:
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac[1]:
+arp/test_neighbor_mac.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Failed/Errored: https://github.com/sonic-net/sonic-sairedis/issues/1662 / Race condition between setting ip on Ethernet0 and remove Ethernet0 from portchannel
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/1662"
 
 arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
   skip:
