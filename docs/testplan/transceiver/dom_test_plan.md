@@ -33,8 +33,8 @@ Before executing the system tests, ensure the following pre-requisites are met:
 Before starting tests, verify the following system conditions:
 
 1. **System Health Check**
-   - All critical services are running (xcvrd, pmon, swss, syncd)
-   - No existing system errors in logs
+   - All critical services are running (xcvrd, pmon, swss, syncd) for at least 5 minutes
+   - No existing system errors in logs (specific error patterns can be added here)
 
 2. **Transceiver Baseline Verification**
    - All expected transceivers are present and detected
@@ -59,20 +59,20 @@ The following table summarizes the key attributes used in DOM testing. This tabl
 | Attribute Name | Type | Default Value | Mandatory | Override Levels | Description |
 |----------------|------|---------------|-----------|-----------------|-------------|
 | temperature_operational_range | dict | {"min": 20.0, "max": 70.0} | ✗ | transceivers | Realistic operational temperature range in Celsius during normal operation (typical: room temp to moderate heat) |
-| temperature_threshold_range | dict | {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0} | ✗ | transceivers | Absolute threshold temperature range in Celsius (alarm/warning limits from EEPROM) |
+| temperature_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | ✗ | transceivers | Absolute threshold temperature range in Celsius (must define all four keys; no implicit defaults) |
 | voltage_operational_range | dict | {"min": 3.20, "max": 3.40} | ✗ | transceivers | Realistic operational voltage range in volts during normal operation (typical: 3.3V ±3%) |
-| voltage_threshold_range | dict | {"lowalarm": 2.97, "lowwarning": 3.135, "highwarning": 3.465, "highalarm": 3.63} | ✗ | transceivers | Absolute threshold voltage range in volts (alarm/warning limits: 3.3V ±10%) |
+| voltage_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | ✗ | transceivers | Absolute threshold voltage range in volts (provide EEPROM alarm/warn limits; skip to disable voltage threshold validation) |
 | laser_temperature_operational_range | dict | {"min": 20.0, "max": 70.0} | ✗ | transceivers | Realistic operational laser temperature range in Celsius during normal operation |
-| laser_temperature_threshold_range | dict | {"lowalarm": -40.0, "lowwarning": -10.0, "highwarning": 75.0, "highalarm": 85.0} | ✗ | transceivers | Absolute threshold laser temperature range in Celsius (alarm/warning limits) |
+| laser_temperature_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | ✗ | transceivers | Absolute threshold laser temperature range in Celsius (specify all four; omit to skip laser temperature threshold checks) |
 | txLANE_NUMbias_operational_range | dict | {"min": 50.0, "max": 180.0} | ✗ | transceivers | Realistic operational TX bias current range in mA for lane LANE_NUM during normal operation |
-| tx_bias_threshold_range | dict | {"lowalarm": 0.0, "lowwarning": 10.0, "highwarning": 190.0, "highalarm": 200.0} | ✗ | transceivers | Absolute threshold TX bias current range in mA (alarm/warning limits from EEPROM) |
+| tx_bias_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | ✗ | transceivers | Absolute threshold TX bias current range in mA (EEPROM limits; skip attribute to disable bias threshold validation) |
 | txLANE_NUMpower_operational_range | dict | {"min": -3.0, "max": 3.0} | ✗ | transceivers | Realistic operational TX power range in dBm for lane LANE_NUM during normal operation |
-| tx_power_threshold_range | dict | {"lowalarm": -10.0, "lowwarning": -6.0, "highwarning": 6.0, "highalarm": 8.0} | ✗ | transceivers | Absolute threshold TX power range in dBm (alarm/warning limits from EEPROM) |
+| tx_power_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | ✗ | transceivers | Absolute threshold TX power range in dBm (define all four for TX power threshold validation) |
 | rxLANE_NUMpower_operational_range | dict | {"min": -8.0, "max": 2.0} | ✗ | transceivers | Realistic operational RX power range in dBm for lane LANE_NUM during normal operation |
-| rx_power_threshold_range | dict | {"lowalarm": -15.0, "lowwarning": -12.0, "highwarning": 4.0, "highalarm": 5.0} | ✗ | transceivers | Absolute threshold RX power range in dBm (alarm/warning limits from EEPROM) |
+| rx_power_threshold_range | dict | (format) {"lowalarm": <float>, "lowwarning": <float>, "highwarning": <float>, "highalarm": <float>} | ✗ | transceivers | Absolute threshold RX power range in dBm (omit attribute to skip RX power threshold validation) |
 | max_update_time_sec | integer | 60 | ✗ | platform | Maximum expected time in seconds between DOM data updates for continuous monitoring validation |
 | consistency_check_poll_count | integer | 3 | ✗ | transceivers or platform | Number of polling cycles to perform when validating DOM data consistency and variation patterns |
-| shutdown_tx_bias_threshold | float | 1.0 | ✗ | transceivers | Maximum TX bias current in mA expected when interface is shutdown |
+| shutdown_tx_bias_threshold | float | 0 | ✗ | transceivers | Maximum TX bias current in mA expected when interface is shutdown |
 | shutdown_tx_power_threshold | float | -30.0 | ✗ | transceivers | Minimum TX power in dBm expected when interface is shutdown |
 | consistency_check_enabled | boolean | True | ✗ | platform | Whether to verify DOM data consistency between STATE_DB and CLI interfaces |
 | data_max_age_min | integer | 5 | ✗ | platform | Maximum age in minutes for DOM data to be considered fresh (last_update_time validation) |
