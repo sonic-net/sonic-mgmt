@@ -1,8 +1,10 @@
 device_groups:
   fanout:
+    children:
+    - fanout_cisco
+  fanout_cisco:
     host:
     - nexus-5
-    - str-7260-11
   lab:
     children:
     - sonic
