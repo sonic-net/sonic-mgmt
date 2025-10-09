@@ -396,7 +396,7 @@ def restore_config_db(dut):
     """
     dut.command("sudo cp {} {}".format(_TEMP_CONFIG_DB, _CONFIG_DB))
     dut.command("sudo rm -f {}".format(_TEMP_CONFIG_DB))
-    config_reload(dut)
+    config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
 
 def uninstall_trap(dut, feature_name, trap_id):
