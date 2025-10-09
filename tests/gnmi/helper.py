@@ -462,6 +462,14 @@ def extract_gnoi_response(output):
         return None
 
 
+def is_reboot_inactive(duthost, localhost):
+    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
+    if ret != 0:
+        return False
+    status = extract_gnoi_response(msg)
+    return status and not status.get("active", True)
+
+
 def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_data):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
 
@@ -495,22 +503,25 @@ def handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc
     # Get the SSH port for the specified DPU index
     dpu_names_and_ports = get_dpu_names_and_ssh_ports(duthost, [dpuhost_name], ansible_adhoc)
     if not dpu_names_and_ports:
-        pytest.fail(f"Failed to retrieve SSH port for DPU {dpuhost_name}")
+        logging.error(f"Failed to retrieve SSH port for DPU {dpuhost_name}")
+        return False
 
     dpu_key = f"dpu{dpu_index}"
     dpu_ssh_port = dpu_names_and_ports.get(dpu_key)
     if not dpu_ssh_port:
-        pytest.fail(
+        logging.error(
             f"Failed to retrieve SSH port for DPU {dpuhost_name} (key: {dpu_key}). "
             f"Available keys: {list(dpu_names_and_ports.keys())}"
         )
+        return False
 
     logging.info(f"SSH port for DPU {dpuhost_name}: {dpu_ssh_port}")
 
     # Wait until the DPU is down
     wait_until(60, 3, 0, lambda: not check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index))
     if check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
-        pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is still reachable from NPU after reboot command")
+        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is still reachable from NPU after reboot command")
+        return False
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=300, port=dpu_ssh_port)
@@ -518,4 +529,7 @@ def handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc
 
     is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
     if not is_dpu_reachable:
-        pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")
+        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")
+        return False
+
+    return True

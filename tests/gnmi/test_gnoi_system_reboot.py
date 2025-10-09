@@ -2,7 +2,7 @@ import pytest
 import logging
 import json
 
-from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, handle_dpu_reboot
+from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, handle_dpu_reboot, is_reboot_inactive
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -67,14 +67,6 @@ def check_reboot_status(duthost, localhost, dpu_index, expected_active, expected
     pytest_assert(status["method"] == expected_method, f"'method' should be {expected_method}")
     pytest_assert(isinstance(status["when"], int) and status["when"] > 0, "'when' should be a positive integer")
     pytest_assert(isinstance(status["count"], int) and status["count"] >= 1, "'count' should be >= 1")
-
-
-def is_reboot_inactive(duthost, localhost):
-    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
-    if ret != 0:
-        return False
-    status = extract_gnoi_response(msg)
-    return status and not status.get("active", True)
 
 
 def test_gnoi_system_reboot_cold(duthosts, rand_one_dut_hostname, localhost):
@@ -204,4 +196,7 @@ def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbi
         logging.info("HALT reboot is completed")
 
         dpu_reboot_status = handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc)
-        pytest.fail(f"DPU {dpuhost_name} did not come back up after reboot: {dpu_reboot_status}")
+        if not dpu_reboot_status:
+            pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) failed to reboot properly")
+
+        logging.info(f"DPU {dpuhost_name} (DPU index: {dpu_index}) rebooted successfully")
