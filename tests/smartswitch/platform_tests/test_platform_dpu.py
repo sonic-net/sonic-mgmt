@@ -12,7 +12,7 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
-    pre_test_check, post_test_dpus_check,\
+    pre_test_check, post_test_dpus_check, dpu_setup,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
     check_dpu_health_status, check_midplane_status, num_dpu_modules  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
