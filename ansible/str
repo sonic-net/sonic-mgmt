@@ -289,7 +289,7 @@ all:
           ansible_host: 10.3.154.123
           protocol: snmp
         pdu-242:
-          ansible_host: 10.3.154.242
+          ansible_host: 10.3.154.131
           protocol: snmp
 
 sonic:
