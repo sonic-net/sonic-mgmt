@@ -60,8 +60,8 @@ class GrpcClientBase(ABC):
         """Call unary RPC (single request → single response).
 
         Args:
-            service: Service name (e.g., "system", "file", "os")
-            method: Method name (e.g., "Time", "Reboot")
+            service: Full service path (e.g., "gnoi.system.System", "gnmi.gNMI")
+            method: Method name (e.g., "Time", "Get")
             request: Request data as dict (optional)
 
         Returns:
@@ -77,7 +77,7 @@ class GrpcClientBase(ABC):
         """Call server-streaming RPC (single request → stream of responses).
 
         Args:
-            service: Service name
+            service: Full service path (e.g., "gnoi.system.System")
             method: Method name
             request: Request data as dict (optional)
 
@@ -95,7 +95,7 @@ class GrpcClientBase(ABC):
         """Call client-streaming RPC (stream of requests → single response).
 
         Args:
-            service: Service name
+            service: Full service path (e.g., "gnoi.file.File")
             method: Method name
             request_stream: Iterable/generator of request dicts
 
@@ -113,7 +113,7 @@ class GrpcClientBase(ABC):
         """Call bidirectional-streaming RPC (stream ↔ stream).
 
         Args:
-            service: Service name
+            service: Full service path (e.g., "gnoi.file.File")
             method: Method name
             request_stream: Iterable/generator of request dicts
 
@@ -195,8 +195,8 @@ class GrpcCliClient(GrpcClientBase):
         """Build grpcurl command with appropriate flags.
 
         Args:
-            service: Service name (e.g., "system")
-            method: Method name (e.g., "Time")
+            service: Full service path (e.g., "gnoi.system.System", "gnmi.gNMI")
+            method: Method name (e.g., "Time", "Get")
             data: Optional request data as dict
 
         Returns:
@@ -205,22 +205,17 @@ class GrpcCliClient(GrpcClientBase):
         insecure_flag = "-plaintext" if self.insecure else ""
         data_flag = f"-d '{json.dumps(data)}'" if data else "-d '{}'"
 
-        # Map service name to full proto path
-        # e.g., "system" -> "gnoi.system.System"
-        service_class = service.capitalize()
-        full_service = f"gnoi.{service}.{service_class}"
-
         return (
             f"{self.GRPCURL_PATH} {insecure_flag} {data_flag} "
-            f"{self.target}:{self.port} {full_service}/{method}"
+            f"{self.target}:{self.port} {service}/{method}"
         )
 
     def call_unary(self, service, method, request=None):
         """Call unary RPC via grpcurl.
 
         Args:
-            service: Service name (e.g., "system")
-            method: Method name (e.g., "Time")
+            service: Full service path (e.g., "gnoi.system.System", "gnmi.gNMI")
+            method: Method name (e.g., "Time", "Get")
             request: Request data as dict (optional)
 
         Returns:

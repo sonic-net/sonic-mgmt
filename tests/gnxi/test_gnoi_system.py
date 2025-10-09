@@ -27,7 +27,8 @@ def test_system_time(grpc_client):
     logger.info("Calling System.Time RPC")
 
     # Call System.Time (unary RPC with empty request)
-    response = grpc_client.call_unary("system", "Time")
+    # Full service path: gnoi.system.System
+    response = grpc_client.call_unary("gnoi.system.System", "Time")
 
     logger.info(f"System.Time response: {response}")
 
