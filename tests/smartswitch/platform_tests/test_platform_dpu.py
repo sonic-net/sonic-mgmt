@@ -339,7 +339,7 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(dpu_setup):
+def test_data_control_mid_plane_sync(dpu_setup):  # noqa: F811
     """
     @summary: To verify data, control and mid planes are in sync
     """
