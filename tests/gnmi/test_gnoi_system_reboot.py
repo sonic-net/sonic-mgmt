@@ -2,7 +2,8 @@ import pytest
 import logging
 import json
 
-from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, handle_dpu_reboot, is_reboot_inactive
+from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, handle_dpu_reboot, \
+                    is_reboot_inactive
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
