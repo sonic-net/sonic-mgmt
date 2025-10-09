@@ -1205,28 +1205,28 @@ def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): 
 def get_dpu_ip(duthost, dpu_index):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     if not config_facts:
-        logger.error("Failed to retrieve config_facts from DUT")
+        logging.error("Failed to retrieve config_facts from DUT")
         return None
 
     dhcp_server_ipv4_port = config_facts.get('DHCP_SERVER_IPV4_PORT', {})
     if not dhcp_server_ipv4_port:
-        logger.error("DHCP_SERVER_IPV4_PORT not found in config_facts")
+        logging.error("DHCP_SERVER_IPV4_PORT not found in config_facts")
         return None
 
     # Navigate through the nested structure: bridge-midplane -> dpu{index} -> ips
     bridge_midplane = dhcp_server_ipv4_port.get('bridge-midplane', {})
     if not bridge_midplane:
-        logger.error("bridge-midplane not found in DHCP_SERVER_IPV4_PORT")
+        logging.error("bridge-midplane not found in DHCP_SERVER_IPV4_PORT")
         return None
 
     dpu_config = bridge_midplane.get('dpu{}'.format(dpu_index), {})
     if not dpu_config:
-        logger.error("dpu{} not found in bridge-midplane".format(dpu_index))
+        logging.error("dpu{} not found in bridge-midplane".format(dpu_index))
         return None
 
     ips = dpu_config.get('ips', [])
     if not ips:
-        logger.error("IP address not found in config_facts for dpu_index {}".format(dpu_index))
+        logging.error("IP address not found in config_facts for dpu_index {}".format(dpu_index))
         return None
 
     # Take the first IP and remove any CIDR notation

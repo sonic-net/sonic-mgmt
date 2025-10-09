@@ -200,8 +200,8 @@ def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbi
             expected_method=RebootMethod["HALT"]
         )
 
-        wait_until(120, 10, 0, is_reboot_inactive)
+        wait_until(120, 10, 0, is_reboot_inactive, duthost, localhost)
         logging.info("HALT reboot is completed")
 
         dpu_reboot_status = handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc)
-        pytest.fail(dpu_reboot_status, f"DPU {dpuhost_name} did not come back up after reboot")
+        pytest.fail(f"DPU {dpuhost_name} did not come back up after reboot: {dpu_reboot_status}")
