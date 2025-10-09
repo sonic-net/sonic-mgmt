@@ -1237,6 +1237,7 @@ def config_capture_settings(api,
         port.Capture.Filter.CaptureFilterEnable = True
         # For now we only support frame size filtering since it is not reliable through snappi
         # This function can be extended later to add other types of filtering through ixnetwork
+        # TODO: Replace with snappi when bug fix for packet capture filtering is provided.
         if ip_filter.min_whole_packet_size and ip_filter.max_whole_packet_size:
             port.Capture.Filter.CaptureFilterFrameSizeEnable = True
             port.Capture.Filter.CaptureFilterFrameSizeFrom = ip_filter.min_whole_packet_size
