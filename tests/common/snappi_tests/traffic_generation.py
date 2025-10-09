@@ -1,6 +1,7 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
+import pytest
 import time
 import logging
 import re
@@ -568,6 +569,24 @@ def clear_pfc_counter_after_storm(dut, port, pri):
     return False
 
 
+def check_for_crc_errors(api, snappi_extra_params):
+    """
+    Check for CRC errors in port statistics.
+    Args:
+        api (obj): snappi session
+    Returns:
+        None
+    """
+    ixnetwork = api._ixnetwork
+    port_metrics = StatViewAssistant(ixnetwork, 'Port Statistics')
+    for row in port_metrics.Rows:
+        if int(row['CRC Errors']) > 0:
+            for m_port in snappi_extra_params.multi_dut_params.multi_dut_ports:
+                if row['Stat Name'] == m_port['location']:
+                    pytest.fail("{} CRC Errors detected on Peer Port: {}, Peer Device: {}, snappi port: {}".format(
+                                row['CRC Errors'], m_port['peer_port'], m_port['peer_device'], row['Port Name']))
+
+
 def run_traffic(duthost,
                 api,
                 config,
@@ -707,7 +726,7 @@ def run_traffic(duthost,
     cs = api.control_state()
     cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
     api.set_control_state(cs)
-
+    check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
 
 
@@ -1602,7 +1621,7 @@ def run_traffic_and_collect_stats(rx_duthost,
     fname = fname + '.csv'
     logger.info('Writing statistics to file : {}'.format(fname))
     df_t.to_csv(fname, index=False)
-
+    check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, test_stats
 
 
