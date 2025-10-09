@@ -1265,9 +1265,11 @@ def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
     logging.info("Checking DPU ping status")
     dpu_ip = get_dpu_ip(duthost, dpu_index)
     if not dpu_ip:
-        pytest.fail(f"Failed to retrieve IP address for DPU {dpuhost_name}")
+        logging.error(f"Failed to retrieve IP address for DPU {dpuhost_name}")
+        return False
 
     ping_status = duthost.command(f"ping -c 3 {dpu_ip}", module_ignore_errors=True)
     if ping_status['rc'] != 0:
-        pytest.fail(f"Failed to ping DPU {dpuhost_name} at IP {dpu_ip}")
-    return ping_status
+        logging.error(f"Failed to ping DPU {dpuhost_name} at IP {dpu_ip}")
+        return False
+    return True

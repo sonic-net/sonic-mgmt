@@ -509,7 +509,8 @@ def handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc
 
     # Wait until the DPU is down
     wait_until(60, 3, 0, lambda: not check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index))
-    pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is still reachable from NPU after reboot command")
+    if check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
+        pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is still reachable from NPU after reboot command")
 
     # Wait until the system is back up
     wait_for_startup(duthost, localhost, delay=20, timeout=300, port=dpu_ssh_port)

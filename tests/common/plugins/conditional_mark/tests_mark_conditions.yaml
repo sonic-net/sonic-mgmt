@@ -2346,6 +2346,12 @@ gnmi/test_gnoi_killprocess.py:
   skip:
     reason: "Test noisy due to restart issue not relevant to GNOI. Disabling them to rewrite."
 
+gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
+  skip:
+    reason: "Halt reboot should not be running on non-smartswitch"
+    conditions:
+      - "is_smartswitch == False"
+
 gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
   skip:
     reason: "Warm reboot should only run on t0 topology but not on dualtor"
@@ -2354,12 +2360,6 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "release in ['202412']"
-
-gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt:
-  skip:
-    reason: "Halt reboot should not be running on non-smartswitch"
-    conditions:
-      - "is_smartswitch == False"
 
 #######################################
 #####           hash              #####
