@@ -419,7 +419,7 @@ def gnoi_reboot(duthost, method, delay, message):
         return 0, output['stdout']
 
 
-def gnoi_request(duthost, localhost, module, rpc, request_json_data):
+def gnoi_request(duthost, localhost, module, rpc, request_json_data, input_data=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
@@ -429,6 +429,10 @@ def gnoi_request(duthost, localhost, module, rpc, request_json_data):
     cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
     cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
     cmd += f'-jsonin \'{request_json_data}\''
+
+    if input_data:
+      cmd += input_data
+
     output = duthost.shell(cmd, module_ignore_errors=True)
     if output['stderr']:
         logger.error(output['stderr'])
