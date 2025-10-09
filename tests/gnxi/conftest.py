@@ -63,17 +63,21 @@ def restart_gnmi_process(duthost):
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnxi_environment(duthosts, rand_one_dut_hostname):
     """
-    Setup clean gNxI test environment.
+    Setup clean gNxI test environment (runs automatically for all gnxi tests).
+
+    This fixture runs automatically for every test in the gnxi module to ensure
+    a clean environment. Tests should use standard framework fixtures (duthost,
+    grpc_client) rather than referencing this fixture directly.
 
     Setup:
     1. Create checkpoint of current configuration
     2. Delete GNMI|gnmi and GNMI|certs tables
-    3. Restart gnmi container
+    3. Restart gnmi process
     4. Verify gnmi is running with default settings (port 8080, noTLS, insecure)
 
     Teardown:
     1. Rollback to checkpoint
-    2. Restart gnmi container to apply restored config
+    2. Restart gnmi process to apply restored config
     """
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -103,7 +107,7 @@ def setup_gnxi_environment(duthosts, rand_one_dut_hostname):
 
     logger.info("gNxI test environment setup complete - gnmi running on port 8080 with noTLS")
 
-    yield duthost
+    yield
 
     # Teardown: Rollback configuration
     logger.info("Tearing down gNxI test environment")
@@ -116,9 +120,12 @@ def setup_gnxi_environment(duthosts, rand_one_dut_hostname):
 
 
 @pytest.fixture(scope="module")
-def grpc_client(duthosts, rand_one_dut_hostname, localhost):
+def grpc_client(setup_gnxi_environment, duthosts, rand_one_dut_hostname, localhost):
     """
     Create and initialize gRPC client for testing.
+
+    This fixture depends on setup_gnxi_environment to ensure a clean test
+    environment before creating the gRPC client.
 
     This fixture:
     1. Creates CLI-based gRPC client using grpcurl
@@ -128,6 +135,7 @@ def grpc_client(duthosts, rand_one_dut_hostname, localhost):
     5. Closes client on teardown
 
     Args:
+        setup_gnxi_environment: Ensures clean environment (implicit dependency)
         duthosts: DUT host objects
         rand_one_dut_hostname: Selected DUT hostname
         localhost: VM host where grpcurl will run

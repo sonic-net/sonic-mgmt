@@ -14,7 +14,7 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 
-def test_gnmi_default_config(setup_gnxi_environment):
+def test_gnmi_default_config(duthost):
     """
     Verify gnmi container is running with default configuration.
 
@@ -24,7 +24,6 @@ def test_gnmi_default_config(setup_gnxi_environment):
     - telemetry process is listening on port 8080
     - telemetry process has --allow_no_client_auth flag
     """
-    duthost = setup_gnxi_environment
 
     # Get telemetry process info
     output = duthost.shell("docker exec gnmi ps aux | grep telemetry | grep -v grep")
@@ -43,7 +42,7 @@ def test_gnmi_default_config(setup_gnxi_environment):
     logger.info("✓ gnmi container is running with default configuration")
 
 
-def test_gnmi_config_tables_empty(setup_gnxi_environment):
+def test_gnmi_config_tables_empty(duthost):
     """
     Verify GNMI config tables are empty after setup.
 
@@ -51,7 +50,6 @@ def test_gnmi_config_tables_empty(setup_gnxi_environment):
     - GNMI|gnmi table does not exist
     - GNMI|certs table does not exist
     """
-    duthost = setup_gnxi_environment
 
     # Check GNMI|gnmi table
     output = duthost.shell("sonic-db-cli CONFIG_DB get 'GNMI|gnmi'", module_ignore_errors=True)
@@ -66,7 +64,7 @@ def test_gnmi_config_tables_empty(setup_gnxi_environment):
     logger.info("✓ GNMI config tables are empty")
 
 
-def test_gnmi_container_running(setup_gnxi_environment):
+def test_gnmi_container_running(duthost):
     """
     Verify gnmi container is running and healthy.
 
@@ -74,7 +72,6 @@ def test_gnmi_container_running(setup_gnxi_environment):
     - gnmi container is in running state
     - All expected processes are running (supervisord, telemetry, dialout_client_cli)
     """
-    duthost = setup_gnxi_environment
 
     # Check container is running
     output = duthost.shell("docker ps | grep gnmi | grep -v grep")
