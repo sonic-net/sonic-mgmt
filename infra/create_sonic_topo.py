@@ -607,6 +607,7 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
     connect_with_retries(ssh, data['sonic_mgmt']['HostAgent'], data['sonic_mgmt']['xr_redir22'], "vxr", "cisco123", timeout=120, banner_timeout=120)
     ftp_client=ssh.open_sftp()
     ftp_client.put('run_scripts.py','golden-code/sonic-test/sonic-mgmt/tests/run_scripts.py')
+    ftp_client.put('TestbedProcessing.py','golden-code/sonic-test/sonic-mgmt/ansible/TestbedProcessing.py')
     ftp_client.put('../sonic-mgmt/tests/allure_server.py','golden-code/sonic-test/sonic-mgmt/tests/allure_server.py')
     #os.system("tar -cvf cisco.tar -C ./../sonic-mgmt/tests cisco")
     #ftp_client.put('cisco.tar', 'golden-code/sonic-test/sonic-mgmt/tests/cisco.tar')
