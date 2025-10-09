@@ -1159,16 +1159,7 @@ def test_gcu_acl_arp_rule_creation(rand_selected_dut,
 
     ip_address_for_test, _, ptf_intf_index, port_name = prepare_ptf_intf_and_ip
 
-    is_ipv4_test = False
-    try:
-        is_ipv4_test = type(ip_network(ip_address_for_test, strict=False)) is IPv4Network
-    except ValueError as err:
-        if is_ipv6_only_topology(tbinfo):
-            pytest.skip("IPv6 only topology, skipping test")
-        else:
-            raise err
-    if is_ipv4_test and is_ipv6_only_topology(tbinfo):
-        pytest.skip("IPv4 test in IPv6 only topology, skipping test")
+    is_ipv4_test = type(ip_network(ip_address_for_test, strict=False)) is IPv4Network
 
     if is_ipv4_test:
         show_cmd = "show arp"
