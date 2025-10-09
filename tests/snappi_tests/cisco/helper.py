@@ -31,5 +31,6 @@ def modify_voq_watchdog_cisco_8000(duthost, enable):
     if not wait_until(300, 20, 0, check_dshell_ready, duthost):
         raise RuntimeError("Debug shell is not ready on {}".format(duthost.hostname))
     for asic in asics:
+        asic_opt = "" if len(asics) <= 1 else f"-n asic{asic}"
         copy_set_voq_watchdog_script_cisco_8000(duthost, asic, enable=enable)
-        duthost.shell(f"sudo show platform npu script -n asic{asic} -s set_voq_watchdog.py")
+        duthost.shell(f"sudo show platform npu script {asic_opt} -s set_voq_watchdog.py")

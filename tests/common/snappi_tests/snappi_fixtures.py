@@ -4,6 +4,7 @@ This module contains the snappi fixture in the snappi_tests directory.
 import pytest
 import time
 import logging
+import os
 import snappi
 import sys
 import random
@@ -70,9 +71,14 @@ def snappi_api(snappi_api_serv_ip,
     # Going forward, we should be able to specify extension
     # from command line while running pytest.
     api = snappi.api(location=location, ext="ixnetwork")
-    # TODO - Uncomment to use. Prefer to use environment vars to retrieve this information
-    # api._username = "<please mention the username if other than default username>"
-    # api._password = "<please mention the password if other than default password>"
+    USERNAME_ENV = "TGEN_USERNAME"
+    PASSWORD_ENV = "TGEN_PASSWORD"
+    pytest_assert(USERNAME_ENV in os.environ,
+                  "Please specify the TGEN username in the environment variable {}".format(USERNAME_ENV))
+    pytest_assert(PASSWORD_ENV in os.environ,
+                  "Please specify the TGEN password in the environment variable {}".format(PASSWORD_ENV))
+    api._username = os.environ.get(USERNAME_ENV)
+    api._password = os.environ.get(PASSWORD_ENV)
     yield api
 
     if getattr(api, 'assistant', None) is not None:
@@ -1329,7 +1335,9 @@ def is_snappi_multidut(duthosts):
     if duthosts is None or len(duthosts) == 0:
         return False
 
-    return duthosts[0].get_facts().get("modular_chassis")
+    if len(duthosts) == 1:
+        return duthosts[0].get_facts().get("modular_chassis")
+    return len(duthosts) > 1
 
 
 @pytest.fixture(scope="module")
