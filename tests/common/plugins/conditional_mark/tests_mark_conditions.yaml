@@ -84,7 +84,7 @@ arp/test_wr_arp.py::test_wr_arp:
   xfail:
     reason: "This testcase fails due to known issue 'https://github.com/sonic-net/sonic-buildimage/issues/21844'"
     conditions:
-      - "asic_type in ['marvell-teralynx']"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/21844 and 't0' in topo_name"
 
 #######################################
 #####            bfd              #####
