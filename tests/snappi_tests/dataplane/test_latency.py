@@ -10,7 +10,6 @@ from tests.common.telemetry.constants import (
 )
 
 from tests.common.telemetry.metrics import GaugeMetric
-from copy import deepcopy
 from itertools import product
 
 
@@ -390,9 +389,6 @@ def poll_latency_metrics(
     rfc2889_enabled,
     tx_port_count=None,
 ):
-    latency_average_ns = GaugeMetric("test.latency.l3.avg.ns", "Avg Latency", UNIT_SECONDS, db_reporter)
-    latency_minimum_ns = GaugeMetric("test.latency.l3.min.ns", "Min Latency", UNIT_SECONDS, db_reporter)
-    latency_maximum_ns = GaugeMetric("test.latency.l3.max.ns", "Max Latency", UNIT_SECONDS, db_reporter)
     test_labels = {
         "tg.ip_version": ip_version,
         METRIC_LABEL_TG_TRAFFIC_RATE: traffic_rate,
@@ -404,7 +400,10 @@ def poll_latency_metrics(
         **({"test.params.oversubscription_ratio": tx_port_count} if tx_port_count is not None else {}),
     }
 
-    flwStats = StatViewAssistant(ixnet, "Flow Statistics")
+    latency_average_ns = GaugeMetric("test.latency.l3.avg.ns", "Avg Latency", UNIT_SECONDS, db_reporter, test_labels)
+    latency_minimum_ns = GaugeMetric("test.latency.l3.min.ns", "Min Latency", UNIT_SECONDS, db_reporter, test_labels)
+    latency_maximum_ns = GaugeMetric("test.latency.l3.max.ns", "Max Latency", UNIT_SECONDS, db_reporter, test_labels)
+
     selected_columns = [
         "Source/Dest Port Pair",
         "Tx Frames",
@@ -416,20 +415,18 @@ def poll_latency_metrics(
     ]
     end_time = time.time() + duration_sec
     interval_sec = 30
-    logger.info(f"Started polling Flow Statistics every {interval_sec:.2f}s for {duration_sec}s")
-
+    logger.info(f"Started polling Flow Statistics every {interval_sec}s for {duration_sec}s")
+    flwStats = StatViewAssistant(ixnet, "Flow Statistics")
     while time.time() < end_time:
         logger.info("Polling Stats")
         poll_start = time.time()
         flow_df = pd.DataFrame(flwStats.Rows.RawData, columns=flwStats.ColumnHeaders)
         logger.info("\nFlow Statistics:\n" + tabulate(flow_df[selected_columns], headers="keys", tablefmt="psql"))
         for _, row in flow_df.iterrows():
-            labels_copy = deepcopy(test_labels)
-            labels_copy["test.tx_port"] = row["Tx Port"]
-            labels_copy["test.rx_port"] = row["Rx Port"]
-            latency_average_ns.record(row["Store-Forward Avg Latency (ns)"], labels_copy)
-            latency_maximum_ns.record(row["Store-Forward Max Latency (ns)"], labels_copy)
-            latency_minimum_ns.record(row["Store-Forward Min Latency (ns)"], labels_copy)
+            labels = {"tg.tx_port.id": row["Tx Port"],"tg.rx_port.id": row["Rx Port"]}
+            latency_average_ns.record(row["Store-Forward Avg Latency (ns)"], labels )
+            latency_maximum_ns.record(row["Store-Forward Max Latency (ns)"], labels)
+            latency_minimum_ns.record(row["Store-Forward Min Latency (ns)"], labels)
         elapsed = time.time() - poll_start
         time.sleep(max(0, interval_sec - elapsed))
     db_reporter.report()
