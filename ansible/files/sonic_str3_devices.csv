@@ -174,7 +174,7 @@ str3-msn4700-fanout-12,10.3.146.124/24,Mellanox-SN4700-V64,FanoutLeafSonic,,soni
 str3-t2-aresone-ixia,10.3.145.74/32,SNAPPI-tester,DevSnappiApiServ,,
 str3-t2-aresone-ixia-api-serv,10.64.246.189/32,SNAPPI-tester,DevSnappiApiServ,,ixia
 str3-t0-8102-smartswitch-01,10.3.147.207/24,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic
-str3-t0-8101-fanout-01,10.3.147.206/24,Cisco-8101-32FH-O,FanoutLeafSonic,,sonic
+str3-t0-8101-fanout-01,10.3.147.206/24,32x400Gb,FanoutLeafSonic,,sonic
 str3-t0-8102-smartswitch-02,10.3.147.210/24,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic
-str3-t0-8101-fanout-02,10.3.147.208/24,Cisco-8101-32FH-O,FanoutLeafSonic,,sonic
+str3-t0-8101-fanout-02,10.3.147.208/24,32x400Gb,FanoutLeafSonic,,sonic
 str3-d03u28-8101-01,10.64.246.196/23,Cisco-8101-32FH-O,DevSonic,,sonic

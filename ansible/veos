@@ -285,6 +285,7 @@ all:
           - t0
           - t0-d18u8s4
           - t0-16
+          - t0-28
           - t0-35
           - t0-56
           - t0-56-po2vlan
@@ -2409,22 +2410,6 @@ vms_13:
       ansible_host: 172.16.132.126
     VM13095:
       ansible_host: 172.16.132.127
-    VM13096:
-      ansible_host: 172.16.132.128
-    VM13097:
-      ansible_host: 172.16.132.129
-    VM13098:
-      ansible_host: 172.16.132.130
-    VM13099:
-      ansible_host: 172.16.132.131
-    VM13100:
-      ansible_host: 172.16.132.132
-    VM13101:
-      ansible_host: 172.16.132.133
-    VM13102:
-      ansible_host: 172.16.132.134
-    VM13103:
-      ansible_host: 172.16.132.135
 vms_16:
   hosts:
     VM16000:
@@ -5300,6 +5285,22 @@ vms_68:
       ansible_host: 172.16.151.157
     VM68148:
       ansible_host: 172.16.151.158
+    VM68149:
+      ansible_host: 172.16.151.159
+    VM68150:
+      ansible_host: 172.16.151.160
+    VM68151:
+      ansible_host: 172.16.151.161
+    VM68152:
+      ansible_host: 172.16.151.162
+    VM68153:
+      ansible_host: 172.16.151.163
+    VM68154:
+      ansible_host: 172.16.151.164
+    VM68155:
+      ansible_host: 172.16.151.165
+    VM68156:
+      ansible_host: 172.16.151.166
 
 vms_69:
   hosts:
