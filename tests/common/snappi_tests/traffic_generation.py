@@ -1,6 +1,7 @@
 """
 This module allows various snappi based tests to generate various traffic configurations.
 """
+import pytest
 import time
 import logging
 import re
@@ -8,8 +9,8 @@ import pandas as pd
 from datetime import datetime
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.snappi_tests.common_helpers import get_egress_queue_count, pfc_class_enable_vector, \
-    get_lossless_buffer_size, get_pg_dropped_packets, \
+from tests.common.snappi_tests.common_helpers import config_capture_settings, get_egress_queue_count, \
+    pfc_class_enable_vector, get_lossless_buffer_size, get_pg_dropped_packets, \
     sec_to_nanosec, get_pfc_frame_count, packet_capture, get_tx_frame_count, get_rx_frame_count, \
     traffic_flow_mode, get_pfc_count, clear_counters, get_interface_stats, get_queue_count_all_prio, \
     get_pfcwd_stats, get_interface_counters_detailed
@@ -19,9 +20,12 @@ from .variables import pfcQueueGroupSize, pfcQueueValueDict
 from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 from tests.common.cisco_data import is_cisco_device
 from tests.common.reboot import reboot
+from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.common.snappi_tests.port import SnappiPortConfig
 
 # Imported to support rest_py in ixnetwork
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
+from random import getrandbits
 
 
 logger = logging.getLogger(__name__)
@@ -30,6 +34,7 @@ SNAPPI_POLL_DELAY_SEC = 2
 CONTINUOUS_MODE = -5
 ANSIBLE_POLL_DELAY_SEC = 4
 UDP_PORT_START = 5000
+ECN_CAPABLE_TRANSPORT_1 = 1
 
 
 def setup_base_traffic_config(testbed_config,
@@ -429,6 +434,92 @@ def generate_pause_flows(testbed_config,
     pause_flow.metrics.loss = True
 
 
+def _rand_ipv6():
+    # 2007:db8::/32 is documentation range
+    return "2007:db8:%x:%x:%x:%x:%x:%x" % tuple(getrandbits(16) for _ in range(6))
+
+
+def generate_srv6_encap_flow(testbed_config,
+                             snappi_test_params: SnappiTestParams):
+    """
+    Create a single or multiple SRv6 (IPv6-in-IPv6) encapsulated flow based
+    on the snappi_test_params passed in.
+    Outer IPv6 header encapsulates an inner IPv6 packet.
+
+    Args:
+        testbed_config (obj): testbed L1/L2/L3 configuration
+        snappi_test_params (SnappiTestParams obj): additional parameters for Snappi
+                                                    traffic
+    """
+
+    base_flow_config = snappi_test_params.base_flow_config
+    pytest_assert(base_flow_config is not None, "Cannot find base flow configuration")
+    data_flow_config = snappi_test_params.traffic_flow_config.data_flow_config
+    pytest_assert(data_flow_config is not None, "Cannot find data flow configuration")
+
+    # Split flow rate equally amongst each dscp stream
+    per_dscp_stream_flow_rate = data_flow_config['flow_rate_percent'] // len(snappi_test_params.tx_dscp_values)
+    unique_tgen_rx_ports = set()
+
+    if isinstance(base_flow_config["tx_port_id"], int):
+        # If tx_port_id is an int, force a list type for easier access
+        base_flow_config["tx_port_id"] = [base_flow_config["tx_port_id"]]
+    if isinstance(base_flow_config["tx_port_config"], SnappiPortConfig):
+        base_flow_config["tx_port_config"] = [base_flow_config["tx_port_config"]]
+
+    for tx_config_idx in range(len(base_flow_config["tx_port_config"])):
+        for tx_dscp in snappi_test_params.tx_dscp_values:
+            tx_port_config = base_flow_config["tx_port_config"][tx_config_idx]
+            flow_name = f"{tx_port_config.peer_port} SRv6 Flow DSCP {tx_dscp}"
+            flow = testbed_config.flows.flow(name=flow_name)[-1]
+            flow.tx_rx.port.tx_name = base_flow_config["tx_port_name"][tx_config_idx]
+            rx_port_names = base_flow_config["rx_port_name"]
+            if isinstance(rx_port_names, list):
+                flow.tx_rx.port.rx_name = rx_port_names[tx_config_idx % len(rx_port_names)]
+            else:
+                flow.tx_rx.port.rx_name = rx_port_names
+
+            eth, outer_ipv6, inner_ipv6 = flow.packet.ethernet().ipv6().ipv6()
+            unique_tgen_rx_ports.add(flow.tx_rx.port.rx_name)
+
+            # Ethernet addressing (reuse existing base flow macs)
+            eth.src.value = base_flow_config["tx_mac"] if isinstance(base_flow_config["tx_mac"], str) else \
+                base_flow_config["tx_mac"][tx_config_idx]
+            eth.dst.value = base_flow_config["rx_mac"] if isinstance(base_flow_config["rx_mac"], str) else \
+                base_flow_config["rx_mac"][tx_config_idx]
+
+            # Outer IPv6 (SRv6 transport)
+            outer_ipv6.src.value = tx_port_config.ipv6
+            pytest_assert(outer_ipv6.src.value is not None, "Outer IPv6 source address is None")
+            outer_ipv6.dst.value = base_flow_config["rx_port_config"].ipv6
+            pytest_assert(outer_ipv6.dst.value is not None, "Outer IPv6 destination address is None")
+            ecn = ECN_CAPABLE_TRANSPORT_1  # ECN ECT(1)=1 ECN-capable
+            outer_ipv6.traffic_class.value = (tx_dscp << 2) | ecn
+            outer_ipv6.flow_label.value = getrandbits(20)
+
+            # Inner IPv6
+            inner_ipv6.src.value = _rand_ipv6()
+            inner_ipv6.dst.value = _rand_ipv6()
+            inner_ipv6.traffic_class.value = 0
+            inner_ipv6.flow_label.value = getrandbits(20)
+
+            flow.size.fixed = data_flow_config["flow_pkt_size"]
+            flow.rate.percentage = per_dscp_stream_flow_rate
+            if data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_DURATION:
+                flow.duration.fixed_seconds.seconds = data_flow_config["flow_dur_sec"]
+                flow.duration.fixed_seconds.delay.nanoseconds = int(sec_to_nanosec
+                                                                    (data_flow_config["flow_delay_sec"]))
+            elif data_flow_config["flow_traffic_type"] == traffic_flow_mode.FIXED_PACKETS:
+                flow.duration.fixed_packets.packets = data_flow_config["flow_pkt_count"]
+                flow.duration.fixed_packets.delay.nanoseconds = int(sec_to_nanosec
+                                                                    (data_flow_config["flow_delay_sec"]))
+            flow.metrics.enable = True
+            flow.metrics.loss = True
+
+    if snappi_test_params.packet_capture_type != packet_capture.NO_CAPTURE:
+        snappi_test_params.packet_capture_ports = list(unique_tgen_rx_ports)
+
+
 def clear_dut_interface_counters(duthost):
     """
     Clears the dut interface counter.
@@ -476,6 +567,24 @@ def clear_pfc_counter_after_storm(dut, port, pri):
         clear_dut_pfc_counters(dut)
         return True
     return False
+
+
+def check_for_crc_errors(api, snappi_extra_params):
+    """
+    Check for CRC errors in port statistics.
+    Args:
+        api (obj): snappi session
+    Returns:
+        None
+    """
+    ixnetwork = api._ixnetwork
+    port_metrics = StatViewAssistant(ixnetwork, 'Port Statistics')
+    for row in port_metrics.Rows:
+        if int(row['CRC Errors']) > 0:
+            for m_port in snappi_extra_params.multi_dut_params.multi_dut_ports:
+                if row['Stat Name'] == m_port['location']:
+                    pytest.fail("{} CRC Errors detected on Peer Port: {}, Peer Device: {}, snappi port: {}".format(
+                                row['CRC Errors'], m_port['peer_port'], m_port['peer_device'], row['Port Name']))
 
 
 def run_traffic(duthost,
@@ -617,8 +726,116 @@ def run_traffic(duthost,
     cs = api.control_state()
     cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
     api.set_control_state(cs)
-
+    check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, in_flight_flow_metrics
+
+
+def run_basic_traffic(
+    duthost,
+    api,
+    config,
+    data_flow_names,
+    all_flow_names,
+    exp_dur_sec,
+    snappi_extra_params,
+):
+    """
+    Run a basic traffic and return per-flow statistics, and capture packets if needed.
+    Suitable for T0/T1 topologies.
+
+    Args:
+        duthost (obj): DUT host object
+        api (obj): snappi session
+        config (obj): experiment config (testbed config + flow config)
+        data_flow_names (list): list of names of data (test and background) flows
+        all_flow_names (list): list of names of all the flows
+        exp_dur_sec (int): experiment duration in second
+        snappi_extra_params (SnappiTestParams obj): additional parameters for Snappi traffic
+    Returns:
+        flow_metrics (snappi metrics object): per-flow statistics from TGEN (right after flows end)
+        switch_device_results (dict): statistics from DUT on both TX and RX and per priority
+        in_flight_flow_metrics (snappi metrics object): in-flight statistics per flow from TGEN
+                                                        (right before flows end)
+    """
+    api.set_config(config)
+    logger.info("Wait for Arp to Resolve ...")
+    wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
+    pcap_type = snappi_extra_params.packet_capture_type
+
+    if pcap_type != packet_capture.NO_CAPTURE:
+        if snappi_extra_params.ip_capture_filter:
+            logger.info("Configuring packet capture filters with IP filter")
+            config_capture_settings(api=api,
+                                    port_names=snappi_extra_params.packet_capture_ports,
+                                    capture_type=snappi_extra_params.packet_capture_type,
+                                    ip_filter=snappi_extra_params.ip_capture_filter,
+                                    )
+        logger.info("Starting packet capture ...")
+        cs = api.control_state()
+        cs.port.capture.port_names = snappi_extra_params.packet_capture_ports
+        cs.port.capture.state = cs.port.capture.START
+        api.set_control_state(cs)
+
+    logger.info("Starting transmit on all flows ...")
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
+
+    time.sleep(exp_dur_sec * (2 / 5))
+    logger.info("Polling TGEN for in-flight traffic statistics...")
+    tgen_in_flight_flow_metrics = fetch_snappi_flow_metrics(
+        api, all_flow_names
+    )  # fetch in-flight metrics from TGEN
+    time.sleep(exp_dur_sec * (3 / 5))
+
+    attempts = 0
+    max_attempts = 20
+
+    while attempts < max_attempts:
+        logger.info(
+            "Checking if all flows have stopped. Attempt #{}".format(attempts + 1)
+        )
+        flow_metrics = fetch_snappi_flow_metrics(api, data_flow_names)
+
+        # If all the data flows have stopped
+        transmit_states = [metric.transmit for metric in flow_metrics]
+        if len(flow_metrics) == len(data_flow_names) and list(set(transmit_states)) == [
+            "stopped"
+        ]:
+            logger.info("All test and background traffic flows stopped")
+            time.sleep(SNAPPI_POLL_DELAY_SEC)
+            break
+        else:
+            time.sleep(1)
+            attempts += 1
+
+    pytest_assert(
+        attempts < max_attempts, "Flows do not stop in {} seconds".format(max_attempts)
+    )
+
+    if pcap_type != packet_capture.NO_CAPTURE:
+        logger.info("Stopping packet capture ...")
+        request = api.capture_request()
+        request.port_name = snappi_extra_params.packet_capture_ports[0]
+        cs = api.control_state()
+        cs.port.capture.state = cs.port.capture.STOP
+        api.set_control_state(cs)
+        logger.info(
+            f"Retrieving and saving packet capture to {snappi_extra_params.packet_capture_file}.pcapng"
+        )
+        pcap_bytes = api.get_capture(request)
+        with open(snappi_extra_params.packet_capture_file + ".pcapng", "wb") as fid:
+            fid.write(pcap_bytes.getvalue())
+
+    # Dump per-flow statistics
+    logger.info("Dumping per-flow statistics")
+    tgen_flow_metrics = fetch_snappi_flow_metrics(api, all_flow_names)
+    logger.info("Stopping transmit on all remaining flows")
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
+
+    return tgen_flow_metrics, tgen_in_flight_flow_metrics
 
 
 def verify_pause_flow(flow_metrics,
@@ -1404,7 +1621,7 @@ def run_traffic_and_collect_stats(rx_duthost,
     fname = fname + '.csv'
     logger.info('Writing statistics to file : {}'.format(fname))
     df_t.to_csv(fname, index=False)
-
+    check_for_crc_errors(api, snappi_extra_params)
     return flow_metrics, switch_device_results, test_stats
 
 

@@ -1349,8 +1349,14 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
 #######################################
 #####   test_platform_dpu.py   #####
 #######################################
-smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+smartswitch/platform_tests/test_platform_dpu.py:
   skip:
-    reason: "Test case is skipped on Nvidia smartswitch due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/19675"
+    reason: "Skip for non-smartswitch topology"
     conditions:
-    - "https://github.com/sonic-net/sonic-mgmt/issues/19675 and 'sn4280' in platform"
+      - "is_smartswitch==False"
+
+smartswitch/platform_tests/test_reload_dpu.py:
+  skip:
+    reason: "Skip for non-smartswitch topology"
+    conditions:
+      - "is_smartswitch==False"
