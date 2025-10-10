@@ -131,7 +131,11 @@ def test_packet_drop_threshold(
     ]['Line Rate (%)'].max()
     """
     no_loss_max_rate.record(
-        best_rate, {"tg.ip_version": ip_version, METRIC_LABEL_TG_FRAME_BYTES: frame_bytes, METRIC_LABEL_TG_RFC2889_ENABLED: rfc2889_enabled}
+        best_rate, {
+                    "tg.ip_version": ip_version,
+                    METRIC_LABEL_TG_FRAME_BYTES: frame_bytes,
+                    METRIC_LABEL_TG_RFC2889_ENABLED: rfc2889_enabled
+                }
     )
     db_reporter.report()
     for ordering_mode, group in test_results.groupby("Frame Ordering"):
