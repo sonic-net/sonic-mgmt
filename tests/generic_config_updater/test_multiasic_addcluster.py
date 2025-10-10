@@ -45,13 +45,20 @@ def create_table_if_not_exist(duthost, tables):
     :param tables: List of table names to check and create
     """
     for table in tables:
-        result = duthost.shell(f"sonic-db-cli -n {ASICID} CONFIG_DB keys '{table}|*'")["stdout"]
+        # Use namespace option only for multi-ASIC devices
+        ns_option = f"-n {ASICID} " if getattr(duthost, 'is_multi_asic', False) else ""
+        result = duthost.shell(f"sonic-db-cli {ns_option}CONFIG_DB keys '{table}|*'")["stdout"]
         if not result:
             logger.info(f"Table {table} does not exist, creating it")
             json_patch = [
                 {
                     "op": "add",
-                    "path": "/{}/{}".format(ASICID, table),
+                    # For single-ASIC devices the path should be '/<table>'
+                    "path": (
+                        "/{}/{}".format(ASICID, table)
+                        if getattr(duthost, 'is_multi_asic', False)
+                        else "/{}".format(table)
+                    ),
                     "value": {}
                 }
             ]
@@ -59,13 +66,15 @@ def create_table_if_not_exist(duthost, tables):
             try:
                 apply_patch_result = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
                 if (apply_patch_result['rc'] != 0 or
-                        "Patch applied successfully"not in apply_patch_result['stdout']):
+                        "Patch applied successfully" not in apply_patch_result['stdout']):
                     pytest.fail(f"Failed to apply patch: {apply_patch_result['stdout']}")
             finally:
                 delete_tmpfile(duthost, tmpfile)
 
 
 def test_addcluster_workflow(duthost):
+    # Compute namespace option and ASIC prefix depending on whether DUT is multi-ASIC
+    ns_option = f"-n {ASICID} " if getattr(duthost, 'is_multi_asic', False) else ""
     # Step 1: Backup minigraph
     logger.info(f"Backing up current minigraph from {MINIGRAPH} to {MINIGRAPH_BACKUP}")
     if not duthost.stat(path=MINIGRAPH)["stat"]["exists"]:
@@ -147,36 +156,45 @@ def test_addcluster_workflow(duthost):
         'PORTCHANNEL_MEMBER': set(),
         'DEVICE_NEIGHBOR': set()
     }
+
+    # Determine prefix for paths created by generate_config_patch.
+    # For multi-ASIC devices patches will be under '/<asicid>/...'; for single-ASIC they start with '/'.
+    def _prefix():
+        return f"/{ASICID}" if getattr(duthost, 'is_multi_asic', False) else ""
+
+    prefix = _prefix()
+
     for patch_entry in json_patch:
         path = patch_entry.get('path', '')
-        if path.startswith(f'/{ASICID}/PORT/'):
+        # Normalize checks to account for optional ASIC prefix
+        if path.startswith(f'{prefix}/PORT/') or path.startswith('/PORT/'):
             port = path.split('/')[-1]
             ports_to_check.add(port)
-        elif path.startswith(f'/{ASICID}/PORTCHANNEL/'):
+        elif path.startswith(f'{prefix}/PORTCHANNEL/') or path.startswith('/PORTCHANNEL/'):
             portchannel = path.split('/')[-1]
             portchannels_to_check.add(portchannel)
-        elif path.startswith(f'/{ASICID}/PORTCHANNEL_MEMBER/'):
+        elif path.startswith(f'{prefix}/PORTCHANNEL_MEMBER/') or path.startswith('/PORTCHANNEL_MEMBER/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PORTCHANNEL_MEMBER'].add(f"PORTCHANNEL_MEMBER|{entry}")
-        elif path.startswith(f'/{ASICID}/BGP_NEIGHBOR/'):
+        elif path.startswith(f'{prefix}/BGP_NEIGHBOR/') or path.startswith('/BGP_NEIGHBOR/'):
             neighbor = path.split('/')[-1]
             bgp_neighbors_to_check.add(neighbor)
-        elif path.startswith(f'/{ASICID}/DEVICE_NEIGHBOR_METADATA/'):
+        elif path.startswith(f'{prefix}/DEVICE_NEIGHBOR_METADATA/') or path.startswith('/DEVICE_NEIGHBOR_METADATA/'):
             entry = path.split('/')[-1]
             config_entries_to_check['DEVICE_NEIGHBOR_METADATA'].add(f"DEVICE_NEIGHBOR_METADATA|{entry}")
-        elif path.startswith(f'/{ASICID}/DEVICE_NEIGHBOR/'):
+        elif path.startswith(f'{prefix}/DEVICE_NEIGHBOR/') or path.startswith('/DEVICE_NEIGHBOR/'):
             entry = path.split('/')[-1]
             config_entries_to_check['DEVICE_NEIGHBOR'].add(f"DEVICE_NEIGHBOR|{entry}")
-        elif path.startswith(f'/{ASICID}/CABLE_LENGTH/AZURE/'):
+        elif path.startswith(f'{prefix}/CABLE_LENGTH/AZURE/') or path.startswith('/CABLE_LENGTH/AZURE/'):
             entry = path.split('/')[-1]
             config_entries_to_check['CABLE_LENGTH'].add(f"{entry}")
-        elif path.startswith(f'/{ASICID}/BUFFER_PG/'):
+        elif path.startswith(f'{prefix}/BUFFER_PG/') or path.startswith('/BUFFER_PG/'):
             entry = '|'.join(path.split('/')[-2:])
             config_entries_to_check['BUFFER_PG'].add(f"{entry}")
-        elif path.startswith(f'/{ASICID}/PORT_QOS_MAP/'):
+        elif path.startswith(f'{prefix}/PORT_QOS_MAP/') or path.startswith('/PORT_QOS_MAP/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PORT_QOS_MAP'].add(f"PORT_QOS_MAP|{entry}")
-        elif path.startswith(f'/{ASICID}/PFC_WD/'):
+        elif path.startswith(f'{prefix}/PFC_WD/') or path.startswith('/PFC_WD/'):
             entry = path.split('/')[-1]
             config_entries_to_check['PFC_WD'].add(f"PFC_WD|{entry}")
 
@@ -247,7 +265,7 @@ def test_addcluster_workflow(duthost):
 
     # Step 10: Check PortChannel exists
     if portchannels_to_check:
-        result = duthost.shell(f"show interfaces portchannel -n {ASICID}", module_ignore_errors=False)["stdout"]
+        result = duthost.shell(f"show interfaces portchannel {ns_option}", module_ignore_errors=False)["stdout"]
         for portchannel in portchannels_to_check:
             logger.info(f"Checking portchannel {portchannel}")
 
@@ -265,9 +283,9 @@ def test_addcluster_workflow(duthost):
     # Step 11: Check BGP sessions
     if bgp_neighbors_to_check:
         # Check IPv4 BGP sessions
-        result_v4 = duthost.shell(f"show ip bgp summary -n {ASICID}", module_ignore_errors=False)["stdout"]
+        result_v4 = duthost.shell(f"show ip bgp summary {ns_option}", module_ignore_errors=False)["stdout"]
         # Check IPv6 BGP sessions
-        result_v6 = duthost.shell(f"show ipv6 bgp summary -n {ASICID}", module_ignore_errors=False)["stdout"]
+        result_v6 = duthost.shell(f"show ipv6 bgp summary {ns_option}", module_ignore_errors=False)["stdout"]
 
         def check_bgp_status(output, neighbor):
             """Helper function to check BGP neighbor status.
@@ -317,14 +335,14 @@ def test_addcluster_workflow(duthost):
     for table, entries in config_entries_to_check.items():
         for entry in entries:
             if table == 'CABLE_LENGTH':
-                redis_cmd = f'sonic-db-cli -n {ASICID} CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
+                redis_cmd = f'sonic-db-cli {ns_option}CONFIG_DB hgetall "CABLE_LENGTH|AZURE"'
                 redis_output = duthost.shell(redis_cmd, module_ignore_errors=False)['stdout']
                 cable_lengths = json.loads(redis_output.replace("'", '"'))
 
                 if entry not in cable_lengths:
                     pytest.fail(f"Key {entry} missing in CONFIG_DB. Got: {cable_lengths}")
             else:
-                redis_key = f'sonic-db-cli -n {ASICID} CONFIG_DB keys "{entry}"'
+                redis_key = f'sonic-db-cli {ns_option}CONFIG_DB keys "{entry}"'
                 redis_value = duthost.shell(redis_key, module_ignore_errors=False)['stdout'].strip()
                 pytest_assert(redis_value == entry,
                               f"Key {entry} missing or incorrect in CONFIG_DB. Got: {redis_value}")
@@ -345,16 +363,23 @@ def test_addcluster_workflow(duthost):
     logger.info("Comparing specific tables before and after applying addcluster.json")
 
     def get_table_data(config, table):
-        """Extract table data from config."""
-        return config.get(ASICID, {}).get(table, {})
+        """Extract table data from config. For multi-ASIC config is nested under ASICID, for single-ASIC top-level."""
+        if getattr(duthost, 'is_multi_asic', False):
+            return config.get(ASICID, {}).get(table, {})
+        else:
+            return config.get(table, {})
 
     # Get list of tables to compare from the patch
     tables_to_compare = set()
     for patch_entry in json_patch:
         path = patch_entry.get('path', '')
-        parts = path.split('/')
-        if len(parts) > 2:
-            tables_to_compare.add(parts[2])
+        parts = [p for p in path.split('/') if p]
+        # parts: ['asic0','PORT','Ethernet0'] for multi-asic or ['PORT','Ethernet0'] for single-asic
+        if not parts:
+            continue
+        table_idx = 1 if getattr(duthost, 'is_multi_asic', False) else 0
+        if len(parts) > table_idx:
+            tables_to_compare.add(parts[table_idx])
 
     # Load configurations
     with open(full_config_path, 'r') as file:
