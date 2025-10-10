@@ -8,6 +8,16 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 import time
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    """
+    Backport of Python 3.11's StrEnum
+    Makes enum members also behave like strings.
+    """
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 class SnappiFanoutManager():
@@ -192,7 +202,12 @@ class SnappiFanoutManager():
                     'port_id': info_list[2].replace('Port', ''),
                     'peer_port': info_list[3],
                     'peer_device': info_list[4],
-                    'speed': info_list[5]
+                    'speed': info_list[5],
+                    'location': "{};{};{}".format(
+                        info_list[0],
+                        info_list[1].replace('Card', ''),
+                        info_list[2].replace('Port', '')
+                    )
                 }
 
                 if peer_device is None or info_list[4] == peer_device:
@@ -203,7 +218,8 @@ class SnappiFanoutManager():
                     'port_id': info_list[1].replace('Port', ''),
                     'peer_port': info_list[2],
                     'peer_device': info_list[3],
-                    'speed': info_list[4]
+                    'speed': info_list[4],
+                    'location': "{}/{}".format(info_list[0], info_list[1].replace('Port', ''))
                 }
 
                 if peer_device is None or info_list[3] == peer_device:
