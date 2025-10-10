@@ -155,7 +155,7 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     apply_cert_config(duthost)
 
 
-def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, request):
+def test_gnoi_system_reboot_halt_dpus(duthosts, rand_one_dut_hostname, localhost, request):
     """
     Test gNOI System.Reboot API with HALT method.
     Verifies that the reboot is triggered, RebootStatus is correct before reboot,
