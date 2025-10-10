@@ -1,0 +1,81 @@
+root@sonic:~# show interfaces status Ethernet0
+  Interface    Lanes    Speed    MTU     Alias    Vlan    Oper    Admin            Type    Asym PFC
+-----------  -------  -------  -----  --------  ------  ------  -------  --------------  ----------
+  Ethernet0       13      N/A   9100  tenGigE0  routed      up       up  SFP/SFP+/SFP28         N/A
+root@sonic:~# show interfaces status Ethernet1
+  Interface    Lanes    Speed    MTU     Alias    Vlan    Oper    Admin    Type    Asym PFC
+-----------  -------  -------  -----  --------  ------  ------  -------  ------  ----------
+  Ethernet1       14      N/A   9100  tenGigE1  routed    down     down     N/A         N/A
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# chef-client
+[2019-05-20T12:40:24+00:00] INFO: Forking chef instance to converge...
+Starting Chef Client, version 12.14.60
+[2019-05-20T12:40:24+00:00] INFO: *** Chef 12.14.60 ***
+[2019-05-20T12:40:24+00:00] INFO: Platform: x86_64-linux-gnu
+[2019-05-20T12:40:24+00:00] INFO: Chef-client pid: 13056
+[2019-05-20T12:40:29+00:00] INFO: Run List is [recipe[sonic::interface], recipe[sonic], role[sonic]]
+[2019-05-20T12:40:29+00:00] INFO: Run List expands to [sonic::interface, sonic]
+[2019-05-20T12:40:29+00:00] INFO: Starting Chef Run for sonic
+[2019-05-20T12:40:29+00:00] INFO: Running start handlers
+[2019-05-20T12:40:29+00:00] INFO: Start handlers complete.
+[2019-05-20T12:40:29+00:00] INFO: HTTP Request Returned 404 Object Not Found: 
+resolving cookbooks for run list: ["sonic::interface", "sonic"]
+[2019-05-20T12:40:30+00:00] INFO: Loading cookbooks [sonic@0.1.0]
+Synchronizing Cookbooks:
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/attributes/default.rb in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/recipes/interface.rb in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/resources/interface.rb in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/CHANGELOG.md in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/providers/interface.rb in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/recipes/default.rb in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/metadata.rb in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/metadata.json in the cache.
+[2019-05-20T12:40:30+00:00] INFO: Storing updated cookbooks/sonic/README.md in the cache.
+  - sonic (0.1.0)
+Installing Cookbook Gems:
+Compiling Cookbooks...
+[2019-05-20T12:40:30+00:00] INFO: My hostname is sonic
+[2019-05-20T12:40:30+00:00] INFO: My provider is sonic_interface
+[2019-05-20T12:40:30+00:00] INFO: Processing interface Ethernet0
+[2019-05-20T12:40:30+00:00] INFO: Processing interface Ethernet1
+Converging 2 resources
+Recipe: sonic::interface
+  * sonic_interface[Ethernet0] action set[2019-05-20T12:40:30+00:00] INFO: Processing sonic_interface[Ethernet0] action set (sonic::interface line 33)
+[2019-05-20T12:40:30+00:00] INFO: Admin status 'down'
+[2019-05-20T12:40:30+00:00] INFO: Speed '10000'
+
+    - setting interface 'Ethernet0' properties
+  * sonic_interface[Ethernet1] action set[2019-05-20T12:40:31+00:00] INFO: Processing sonic_interface[Ethernet1] action set (sonic::interface line 33)
+[2019-05-20T12:40:31+00:00] INFO: Admin status 'up'
+[2019-05-20T12:40:31+00:00] INFO: Speed '10000'
+
+    - setting interface 'Ethernet1' properties
+[2019-05-20T12:40:33+00:00] INFO: Chef Run complete in 3.559603537 seconds
+
+Running handlers:
+[2019-05-20T12:40:33+00:00] INFO: Running report handlers
+Running handlers complete
+[2019-05-20T12:40:33+00:00] INFO: Report handlers complete
+
+Deprecated features used!
+  Using an LWRP provider by its name (SonicInterface) directly is no longer supported in Chef 12 and will be removed.  Use Chef::ProviderResolver.new(node, resource, action) instead. at 1 location:
+    - /var/cache/chef/cookbooks/sonic/recipes/interface.rb:34:in `block (2 levels) in from_file'
+
+Chef Client finished, 2/2 resources updated in 09 seconds
+root@sonic:/# 
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# show interfaces status Ethernet0
+  Interface    Lanes    Speed    MTU     Alias    Vlan    Oper    Admin            Type    Asym PFC
+-----------  -------  -------  -----  --------  ------  ------  -------  --------------  ----------
+  Ethernet0       13      10G   9100  tenGigE0  routed    down     down  SFP/SFP+/SFP28         N/A
+root@sonic:~# 
+root@sonic:~# 
+root@sonic:~# show interfaces status Ethernet1
+  Interface    Lanes    Speed    MTU     Alias    Vlan    Oper    Admin    Type    Asym PFC
+-----------  -------  -------  -----  --------  ------  ------  -------  ------  ----------
+  Ethernet1       14      10G   9100  tenGigE1   trunk    down       up     N/A         N/A
+root@sonic:~# 
+root@sonic:~#
