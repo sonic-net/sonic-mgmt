@@ -423,8 +423,8 @@ def poll_latency_metrics(
         flow_df = pd.DataFrame(flwStats.Rows.RawData, columns=flwStats.ColumnHeaders)
         logger.info("\nFlow Statistics:\n" + tabulate(flow_df[selected_columns], headers="keys", tablefmt="psql"))
         for _, row in flow_df.iterrows():
-            labels = {"tg.tx_port.id": row["Tx Port"],"tg.rx_port.id": row["Rx Port"]}
-            latency_average_ns.record(row["Store-Forward Avg Latency (ns)"], labels )
+            labels = {"tg.tx_port.id": row["Tx Port"], "tg.rx_port.id": row["Rx Port"]}
+            latency_average_ns.record(row["Store-Forward Avg Latency (ns)"], labels)
             latency_maximum_ns.record(row["Store-Forward Max Latency (ns)"], labels)
             latency_minimum_ns.record(row["Store-Forward Min Latency (ns)"], labels)
         elapsed = time.time() - poll_start
