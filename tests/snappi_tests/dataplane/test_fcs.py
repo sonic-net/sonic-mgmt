@@ -1,18 +1,10 @@
-import collections
-import json
-import logging
-import pandas as pd
-import pytest
-from copy import deepcopy
-from tabulate import tabulate
-from functools import wraps
-
-from tests.snappi_tests.dataplane.imports import *
-from snappi_tests.dataplane.files.helper import *
+from tests.snappi_tests.dataplane.imports import *  # noqa F403
+from snappi_tests.dataplane.files.helper import *  # noqa F403
 from tests.common.telemetry.constants import UNIT_PERCENT, METRIC_LABEL_TG_FRAME_BYTES
 from tests.common.telemetry.metrics import GaugeMetric
 from tests.common.telemetry.metrics.device import DevicePortMetrics
 from tests.common.telemetry import METRIC_LABEL_DEVICE_ID, METRIC_LABEL_DEVICE_PORT_ID
+from functools import wraps
 
 pytestmark = [pytest.mark.topology("nut-single-dut")]
 logger = logging.getLogger(__name__)
