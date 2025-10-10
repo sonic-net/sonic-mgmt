@@ -46,6 +46,9 @@ all:
         bjw3-5-2:
           ansible_host: 10.150.239.11
           ansible_hostv6: 2404:f801:10:16::a96:ef0a
+        bjw3-8-1:
+          ansible_host: 10.150.239.12
+          ansible_hostv6: 2404:f801:10:16::a96:ef0b
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -90,6 +93,12 @@ all:
           protocol: snmp
         bjw3-pdu-126-75:  # R408S
           ansible_host: 10.150.126.75
+          protocol: snmp
+        bjw3-pdu-126-76:  # R409M
+          ansible_host: 10.150.126.76
+          protocol: snmp
+        bjw3-pdu-126-77:  # R409S
+          ansible_host: 10.150.126.77
           protocol: snmp
         bjw3-pdu-126-78:  # R40AM
           ansible_host: 10.150.126.78
@@ -150,6 +159,18 @@ fanout:
       ansible_host: 10.150.238.90
       ansible_hostv6: 2404:f801:10:16::a96:ee5a
       os: sonic
+    bjw3-can-7260-leaf-39:
+      ansible_host: 10.150.238.91
+      ansible_hostv6: 2404:f801:10:16::a96:ee5b
+    bjw3-can-7260-leaf-40:
+      ansible_host: 10.150.238.92
+      ansible_hostv6: 2404:f801:10:16::a96:ee5c
+    bjw3-can-7260-leaf-41:
+      ansible_host: 10.150.238.93
+      ansible_hostv6: 2404:f801:10:16::a96:ee5d
+    bjw3-can-7260-leaf-42:
+      ansible_host: 10.150.238.94
+      ansible_hostv6: 2404:f801:10:16::a96:ee5e
 
 
 sonic:
@@ -288,6 +309,29 @@ sonic_arista_7050C_S128:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.10-38648278"
         "0x2F": "HBG2435008C"
+        "0xFE": "0xdeadbeef"
+    bjw3-can-7050c-11:
+      ansible_host: 10.150.238.95
+      ansible_hostv6: 2404:f801:10:16::a96:ee5f
+      mgmt_subnet_mask_length: 23
+      model: DCS-7050CX3-32C
+      serial: HBG24350078
+      base_mac: 68:bf:6c:ad:e7:90
+      syseeprom_info:
+        "0x21": "DCS-7050CX3-32C"
+        "0x22": "ASY0746402C0"
+        "0x23": "HBG24350078"
+        "0x24": "68:bf:6c:ad:e7:90"
+        "0x25": "2024/09/06 18:57:53"
+        "0x26": "01"
+        "0x27": "01.00"
+        "0x28": "x86_64-arista_7050cx3_32c"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal11-11.0.10-38648278"
+        "0x2F": "HBG24350078"
         "0xFE": "0xdeadbeef"
 
 
