@@ -281,13 +281,13 @@ def setup_base_config_plus_test_scenario(
     snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
     if scenario == "line_rate_fcs_error":
         tx_ports = snappi_ports[:-1] if tx_port_count == "max" else snappi_ports[:tx_port_count]
-        rx_ports = snappi_ports[-1:] if tx_port_count == "max" else snappi_ports[tx_port_count : tx_port_count + 1]
+        rx_ports = snappi_ports[-1:] if tx_port_count == "max" else snappi_ports[tx_port_count:tx_port_count + 1]
     else:
         tx_count = 2 * (len(snappi_ports) // 3) if tx_port_count == "max" else 2 * tx_port_count
         rx_count = len(snappi_ports) - tx_count if tx_port_count == "max" else tx_port_count
 
         tx_ports = snappi_ports[:tx_count]
-        rx_ports = snappi_ports[tx_count : tx_count + rx_count]
+        rx_ports = snappi_ports[tx_count:tx_count + rx_count]
 
     base_proto = {"network_group": False, "protocol_type": "bgp", "subnet_type": subnet_type}
     snappi_params.protocol_config = {
@@ -306,7 +306,7 @@ def setup_base_config_plus_test_scenario(
     else:
         # Build TX-RX pairs: every 2 TX ports map to 1 RX port
         tx_rx_pairs = [
-            (tx_names[i * 2 : (i * 2) + 2], [rx_names[i]]) for i in range(min(len(tx_names) // 2, len(rx_names)))
+            (tx_names[i * 2:(i * 2) + 2], [rx_names[i]]) for i in range(min(len(tx_names) // 2, len(rx_names)))
         ]
     # Configure traffic flows
     snappi_params.traffic_flow_config = [
