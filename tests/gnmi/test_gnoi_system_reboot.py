@@ -2,13 +2,13 @@ import pytest
 import logging
 import json
 
-from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, handle_dpu_reboot, \
-                    is_reboot_inactive
+from .helper import gnoi_request, extract_gnoi_response, apply_cert_config, gnoi_request_dpu, is_reboot_inactive
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.conftest import get_specified_dpus
+from tests.common.platform.device_utils import handle_dpu_reboot
 
 
 pytestmark = [
@@ -155,7 +155,7 @@ def test_gnoi_system_reboot_warm(duthosts, rand_one_dut_hostname, localhost):
     apply_cert_config(duthost)
 
 
-def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbinfo, ansible_adhoc, request):
+def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, request):
     """
     Test gNOI System.Reboot API with HALT method.
     Verifies that the reboot is triggered, RebootStatus is correct before reboot,
@@ -196,7 +196,7 @@ def test_gnoi_system_reboot_halt(duthosts, rand_one_dut_hostname, localhost, tbi
         wait_until(120, 10, 0, is_reboot_inactive, duthost, localhost)
         logging.info("HALT reboot is completed")
 
-        dpu_reboot_status = handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc)
+        dpu_reboot_status = handle_dpu_reboot(duthost, dpuhost_name, dpu_index)
         if not dpu_reboot_status:
             pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) failed to reboot properly")
 

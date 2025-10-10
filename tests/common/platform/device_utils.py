@@ -1273,3 +1273,23 @@ def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
         logging.error(f"Failed to ping DPU {dpuhost_name} at IP {dpu_ip}")
         return False
     return True
+
+
+def handle_dpu_reboot(duthost, dpuhost_name, dpu_index):
+    logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
+    reboot_status = duthost.command(f"sudo reboot -d dpu{dpu_index}")
+    if reboot_status['rc'] != 0:
+        logging.error(f"Failed to initiate reboot for DPU {dpuhost_name} (DPU index: {dpu_index}). "
+                      f"Command output: {reboot_status}")
+        return False
+
+    logging.info(f"DPU {dpuhost_name} (DPU index: {dpu_index}) reboot initiated successfully")
+
+    # Wait until the system is back up
+    wait_until(180, 15, 0, check_dpu_reachable_from_npu, duthost, dpuhost_name, dpu_index)
+    is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
+    if not is_dpu_reachable:
+        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")
+        return False
+
+    return True
