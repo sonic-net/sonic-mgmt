@@ -1,5 +1,5 @@
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401
-from snappi_tests.dataplane.files.helper import *
+from tests.snappi_tests.dataplane.imports import *  # noqa F403
+from snappi_tests.dataplane.files.helper import *  # noqa F403
 from itertools import product
 from tests.common.telemetry import (
     METRIC_LABEL_DEVICE_ID,
