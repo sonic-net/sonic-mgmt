@@ -2,6 +2,7 @@ import argparse
 import inspect
 import json
 import os
+import socket
 import sys
 import syslog
 
@@ -16,6 +17,10 @@ import sonic_platform
 SYSLOG_IDENTIFIER = os.path.basename(__file__)
 
 platform = sonic_platform.platform.Platform()
+
+
+class HTTPServerV6(HTTPServer):
+    address_family = socket.AF_INET6
 
 
 def obj_serialize(obj):
@@ -107,7 +112,7 @@ if __name__ == '__main__':
 
     syslog.openlog(SYSLOG_IDENTIFIER)
 
-    httpd = HTTPServer(('', args.port), PlatformAPITestService)
+    httpd = HTTPServerV6(('::', args.port), PlatformAPITestService)
     httpd.serve_forever()
 
     syslog.closelog()
