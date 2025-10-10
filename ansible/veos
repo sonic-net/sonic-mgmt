@@ -491,6 +491,10 @@ vm_host_96:
   hosts:
     STR5-ACS-SERV-96:
       ansible_host: 10.64.247.196
+vm_host_97:
+  hosts:
+    STR5-ACS-SERV-97:
+      ansible_host: 10.64.247.197
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -23388,6 +23392,12 @@ server_96:
   children:
     vm_host_96:
     vms_96:
+server_97:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-97.yml
+  children:
+    vm_host_97:
+    vms_97:
 server_tk5_6:
   vars:
     host_var_file: host_vars/STRTK5-SERV-06.yml

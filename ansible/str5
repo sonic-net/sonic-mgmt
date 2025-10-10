@@ -709,7 +709,9 @@ server:
     str5-acs-serv-96:
       ansible_host: 10.64.247.196
       ansible_hostv6: 2a01:111:e210:b000::a40:f7c4
-
+    str5-acs-serv-97:
+      ansible_host: 10.64.247.197
+      ansible_hostv6: 2a01:111:e210:b000::a40:f7c5
 # designated nightly agents
 self_hosted_azure_agents:
   hosts:

@@ -7,6 +7,7 @@ str5-acs-serv-93,10.64.247.193/23,TestServ,Server,,
 str5-acs-serv-94,10.64.247.194/23,TestServ,Server,,
 str5-acs-serv-95,10.64.247.195/23,TestServ,Server,,
 str5-acs-serv-96,10.64.247.196/23,TestServ,Server,,
+str5-acs-serv-97,10.64.247.197/23,TestServ,Server,,
 str5-7060x6-64pe-shared-fan-1,10.64.247.25/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str5-7060x6-512-3,10.64.247.131/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str5-7060x6-512-fan-3,10.64.247.132/23,Arista-7060X6-64PE-B-C512S2,FanoutLeafSonic,,sonic
