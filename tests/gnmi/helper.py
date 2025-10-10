@@ -498,7 +498,11 @@ def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_da
 
 def handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc):
     logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
-    duthost.command(f"sudo reboot -d dpu{dpu_index}")
+    reboot_status = duthost.command(f"sudo reboot -d dpu{dpu_index}")
+    if reboot_status['rc'] != 0:
+        logging.error(f"Failed to initiate reboot for DPU {dpuhost_name} (DPU index: {dpu_index}). "
+                      f"Command output: {reboot_status}")
+        return False
 
     # Get the SSH port for the specified DPU index
     dpu_names_and_ports = get_dpu_names_and_ssh_ports(duthost, [dpuhost_name], ansible_adhoc)
@@ -517,15 +521,8 @@ def handle_dpu_reboot(duthost, localhost, dpuhost_name, dpu_index, ansible_adhoc
 
     logging.info(f"SSH port for DPU {dpuhost_name}: {dpu_ssh_port}")
 
-    # Wait until the DPU is down
-    wait_until(60, 3, 0, lambda: not check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index))
-    if check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
-        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is still reachable from NPU after reboot command")
-        return False
-
     # Wait until the system is back up
-    wait_for_startup(duthost, localhost, delay=20, timeout=300, port=dpu_ssh_port)
-    logging.info("System is back up after reboot")
+    wait_until(180, 15, 0, check_dpu_reachable_from_npu, duthost, dpuhost_name, dpu_index)
 
     is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
     if not is_dpu_reachable:
