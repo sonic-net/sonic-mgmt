@@ -1,7 +1,6 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa F403
 from snappi_tests.dataplane.files.helper import *  # noqa F403
 from tests.common.telemetry import (
-    METRIC_LABEL_DEVICE_PORT_ID,
     UNIT_SECONDS,
 )
 from tests.common.telemetry.constants import (
@@ -83,7 +82,8 @@ def test_latency_measurement(
     - Reports the measured latency for each traffic item in the test.
 
     Parameters:
-    - Depends on the test scenario; typical parameters include traffic_rate, rfc2889_enabled, frame_size, ip_version, duration_sec.
+    - Depends on the test scenario; typical parameters include
+        - traffic_rate,rfc2889_enabled, frame_size, ip_version, duration_sec.
 
     Steps:
     1. Set up traffic on the traffic generator according to test case settings.
@@ -185,7 +185,8 @@ def test_latency_oversubscription(
     logger.info("XXX" * 50)
     logger.info(
         f"Testing {ip_version} traffic at {traffic_rate}% line rate for {test_duration} seconds "
-        f"with frame size {frame_size} bytes | Frame Ordering: {rfc2889_enabled}, Iterations: {num_iterations}, tx_port_count: {tx_port_count}, rx_port_index: {rx_port_index}"
+        f"with frame size {frame_size} bytes | Frame Ordering: {rfc2889_enabled},"
+        f"Iterations: {num_iterations}, tx_port_count: {tx_port_count}, rx_port_index: {rx_port_index}"
     )
     snappi_config, snappi_obj_handles, snappi_extra_params, snappi_ports, tx_ports, rx_ports = setup_snappi_test(
         duthosts,
@@ -319,8 +320,9 @@ def setup_snappi_test(
         create_snappi_config: Callable to create and return a Snappi config and handles.
         ip_version (str): 'ipv4' or 'ipv6', selects address family for test and route range.
         route_ranges (dict): Dict keyed by IP version, specifying route ranges for protocol config.
-        port_selector (str): Determines how to split/assign TX and RX ports: 'half_split' splits ports list in half, 'oversubscription' uses helper logic.
-        tx_port_count (int, optional): How many ports to use for transmit side (default 1). Used for 'oversubscription'.
+        port_selector (str): Determines how to split/assign TX and RX ports: 'half_split'
+                            splits ports list in half, 'oversubscription' uses helper logic.
+        tx_port_count (int, optional): How many ports to use for transmit side default 1). Used for 'oversubscription'.
         rx_port_index (int, optional): Index or selection logic for RX port in 'oversubscription' case.
         protocol_type (str, optional): Protocol to configure on test ports ('bgp', etc).
         is_rdma (bool, optional): If True, configure extra params for RDMA flows.
@@ -340,8 +342,10 @@ def setup_snappi_test(
 
     Notes:
         - Supports multiple deployment topologies based on port_selector.
-        - This function is intended for building parametrized traffic/protocol tests for pytest or framework-based workflows.
-        - Protocol configuration (BGP, RDMA, etc.) is embedded into snappi_extra_params for use downstream by the test or config factory.
+        - This function is intended for building parametrized traffic/protocol
+        tests for pytest or framework-based workflows.
+        - Protocol configuration (BGP, RDMA, etc.)
+        is embedded into snappi_extra_params for use downstream by the test or config factory.
     """
 
     snappi_extra_params = SnappiTestParams()
@@ -401,7 +405,6 @@ def poll_latency_metrics(
     }
 
     flwStats = StatViewAssistant(ixnet, "Flow Statistics")
-    tdf = pd.DataFrame(flwStats.Rows.RawData, columns=flwStats.ColumnHeaders)
     selected_columns = [
         "Source/Dest Port Pair",
         "Tx Frames",
