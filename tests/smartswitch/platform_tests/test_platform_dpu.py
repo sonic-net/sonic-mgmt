@@ -14,7 +14,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
-    check_dpu_health_status, check_midplane_status, num_dpu_modules  # noqa: F401
+    check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
@@ -30,7 +30,7 @@ DPU_TIME_INT = 30
 DPU_MEMORY_THRESHOLD = 90
 
 
-def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa F811
+def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
     """
     @summary: Verify `Midplane ip address between NPU and DPU`
     """
@@ -52,7 +52,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
 
 
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):    # noqa F811
+                      platform_api_conn, num_dpu_modules):    # noqa: F811
     """
     @summary: Verify `Reboot Cause` using parallel execution.
     """
@@ -81,7 +81,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
 
 def test_pcie_link(duthosts, dpuhosts,
                    enum_rand_one_per_hwsku_hostname,
-                   platform_api_conn, num_dpu_modules):   # noqa F811
+                   platform_api_conn, num_dpu_modules):   # noqa: F811
     """
     @summary: Verify `PCIe link`
     """
@@ -339,7 +339,7 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(dpu_setup):
+def test_data_control_mid_plane_sync(dpu_setup):  # noqa: F811
     """
     @summary: To verify data, control and mid planes are in sync
     """
