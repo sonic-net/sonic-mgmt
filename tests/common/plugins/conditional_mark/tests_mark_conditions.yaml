@@ -4255,11 +4255,11 @@ vxlan/test_vnet_route_leak.py:
 
 vxlan/test_vnet_vxlan.py:
   skip:
-    reason: "1. Enable tests only for: mellanox, barefoot
+    reason: "1. Enable tests only for: mellanox, barefoot and marvell-teralynx
              2. Test skipped due to issue #8374"
     conditions_logical_operator: OR
     conditions:
-      - "asic_type not in ['mellanox', 'barefoot', 'vs']"
+      - "asic_type not in ['mellanox', 'barefoot', 'vs', 'marvell-teralynx']"
       - https://github.com/sonic-net/sonic-mgmt/issues/8374
 
 vxlan/test_vxlan_bfd_tsa.py:
@@ -4314,15 +4314,21 @@ vxlan/test_vxlan_crm.py:
   skip:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']) and (asic_type not in ['marvell-teralynx'])"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v4_in_v6]:
   skip:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions_logical_operator: OR
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']) and (asic_type not in ['marvell-teralynx'])"
       - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v4]:
+  skip:
+    reason: "IPv6 VxLAN CRM test is not yet supported on marvell-teralynx platform - IPv4 VxLAN tunnel is supported"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_128_group_members[v6_in_v6]:
   skip:
@@ -4337,8 +4343,14 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v4_in_v6]:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions_logical_operator: OR
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']) and (asic_type not in ['marvell-teralynx'])"
       - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v4]:
+  skip:
+    reason: "IPv6 VxLAN CRM test is not yet supported on marvell-teralynx platform - IPv4 VxLAN tunnel is supported"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_16k_routes[v6_in_v6]:
   skip:
@@ -4353,8 +4365,14 @@ vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v4_in_v6]:
     reason: "VxLAN crm test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. On Mellanox spc1 platform, due to HW limitation, vxlan ipv6 tunnel is not supported"
     conditions_logical_operator: OR
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0']) and (asic_type not in ['marvell-teralynx'])"
       - "asic_gen == 'spc1'"
+
+vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v4]:
+  skip:
+    reason: "IPv6 VxLAN CRM test is not yet supported on marvell-teralynx platform - IPv4 VxLAN tunnel is supported"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
 
 vxlan/test_vxlan_crm.py::Test_VxLAN_Crm::test_crm_512_nexthop_groups[v6_in_v6]:
   skip:
@@ -4386,7 +4404,19 @@ vxlan/test_vxlan_ecmp_switchover.py:
   skip:
     reason: "VxLAN ECMP switchover test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
     conditions:
-      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'] and (asic_type not in ['marvell-teralynx']))"
+
+vxlan/test_vxlan_ecmp_switchover.py::Test_VxLAN_ECMP_Priority_endpoints::test_vxlan_priority_multi_pri_sec_switchover[v4_in_v4]:
+  skip:
+    reason: "Test is not supported on marvell-teralynx"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
+
+vxlan/test_vxlan_ecmp_switchover.py::Test_VxLAN_ECMP_Priority_endpoints::test_vxlan_priority_multi_pri_sec_switchover[v6_in_v4]:
+  skip:
+    reason: "Test is not supported on marvell-teralynx"
+    conditions:
+      - "asic_type in ['marvell-teralynx']"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
