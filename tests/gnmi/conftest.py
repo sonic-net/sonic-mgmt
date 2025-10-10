@@ -62,10 +62,13 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
 
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
-    # Save the configuration
-    cmd = "config save -y"
-    duthost.shell(cmd, module_ignore_errors=True)
-    recover_cert_config(duthost)
+    # Get the skip_gnmi_check flag from duthost options
+    skip_gnmi_check = duthost.host.options.get('skip_gnmi_check', False)
+    # Skip GNMI restart if the reboot flag is set
+    if not skip_gnmi_check:
+        recover_cert_config(duthost)
+    else:
+        logging.info("Skipping GNMI restart due to skip_gnmi_check flag")
 
 
 @pytest.fixture(scope="module", autouse=True)

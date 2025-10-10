@@ -17,6 +17,7 @@ def test_gnmi_appldb_01(duthosts, rand_one_dut_hostname, ptfhost):
     Update DASH_VNET_TABLE
     '''
     duthost = duthosts[rand_one_dut_hostname]
+    duthost.host.options['skip_gnmi_check'] = True
     file_name = "vnet.txt"
     text = "{\"Vnet1\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
     with open(file_name, 'w') as file:
