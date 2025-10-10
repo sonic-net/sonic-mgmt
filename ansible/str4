@@ -199,10 +199,10 @@ all:
           ansible_host: 10.3.154.126
           protocol: snmp
         pdu-126:
-          ansible_host: 10.3.154.243
+          ansible_host: 10.3.154.133
           protocol: snmp
         pdu-127:
-          ansible_host: 10.3.154.244
+          ansible_host: 10.3.154.134
           protocol: snmp
         pdu-128:
           ansible_host: 10.3.154.97
@@ -211,7 +211,7 @@ all:
           ansible_host: 10.3.154.189
           protocol: snmp
         pdu-242:
-          ansible_host: 10.3.154.242
+          ansible_host: 10.3.154.131
           protocol: snmp
 
 fanout:

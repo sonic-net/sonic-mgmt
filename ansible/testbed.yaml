@@ -3544,33 +3544,33 @@
   auto_recover: 'False'
   comment: yatishkoul
 
-- conf-name: vmstr-ut2-7280dr3-2
-  group-name:
+- conf-name: vmstr5-t2-7280dr3-2
+  group-name: vms91-6
   topo: t2_single_node_max
   ptf_image_name: docker-ptf
-  ptf:
-  ptf_ip:
-  ptf_ipv6:
-  server:
-  vm_base:
+  ptf: vms91-6
+  ptf_ip: 10.64.247.176/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f7b0/64
+  server: server_91
+  vm_base: VM91204
   dut:
-  - str-7280dr3-2
-  inv_name: str
+  - str5-7280dr3-2
+  inv_name: str5
   auto_recover: 'False'
   comment: yatishkoul
 
-- conf-name: vmstr-ut2-7280dr3-3
-  group-name:
+- conf-name: vmstr5-t2-7280dr3-3
+  group-name: vms91-7
   topo: t2_single_node_max
   ptf_image_name: docker-ptf
-  ptf:
-  ptf_ip:
-  ptf_ipv6:
-  server:
-  vm_base:
+  ptf: vms91-7
+  ptf_ip: 10.64.247.177/23
+  ptf_ipv6: 2a01:111:e210:b000::a40:f7b1/64
+  server: server_91
+  vm_base: VM91236
   dut:
-  - str-7280dr3-3
-  inv_name: str
+  - str5-7280dr3-3
+  inv_name: str5
   auto_recover: 'False'
   comment: yatishkoul
 
@@ -4806,3 +4806,20 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.146/17
+
+- conf-name: testbed-bjw3-can-7050c-11
+  group-name: bjw3-8-1
+  topo: m1-128
+  ptf_image_name: docker-ptf
+  ptf: bjw3-8-1
+  ptf_ip: 10.150.239.12/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef0b/64
+  server: server_bjw3_8
+  vm_base: VM00000
+  dut:
+    - bjw3-can-7050c-11
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.147/17
