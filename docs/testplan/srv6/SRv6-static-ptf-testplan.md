@@ -20,6 +20,7 @@ and meets the diversified requirements of more new services.
 |:---:|:-----------:|:----------------------------:|-----------------------------------|
 | 0.1 | March 2025  | Changrong Wu / Abhishek Dosi | Initial Draft                     |
 | 0.2 | Apr 2025    | Chuan Wu                     | Add the comprehensive test case and techsupport test case |
+| 0.3 | Oct 2025    | Baorong Liu                  | Add test case for uA |
 
 ## Test Plan
 
@@ -32,6 +33,7 @@ and meets the diversified requirements of more new services.
 | SRH  | Segment Routing Header  |
 | uSID | Micro Segment |
 | uN   | SRv6 instantiation of a prefix SID |
+| uA   | SRv6 adjacency SID, END.X with Next |
 | USD | Ultimate Segment Decapsulation |
 
 ### Scope
@@ -43,6 +45,11 @@ Max number of MY_SID entries is 10, it would be covered in this test plan.
 ### Control-plane Test
 #### uN Config
 - Setup a SRv6 locator and a uN SID configuration in CONFIG_DB.
+- Verify that the corresponding configuration appears in FRR configuration.
+- Verify that the APPL_DB is programmed correctly according to the configuration.
+
+#### uA Config
+- Setup a SRv6 locator and a uA SID configuration in CONFIG_DB.
 - Verify that the corresponding configuration appears in FRR configuration.
 - Verify that the APPL_DB is programmed correctly according to the configuration.
 
@@ -111,3 +118,40 @@ Max number of MY_SID entries is 10, it would be covered in this test plan.
   a. Configure all of the SRV6_MY_SIDS as __pipe__ mode <br>
 2. Collect techsupport dump files
 3. SRv6 related configuration should be revealed in dump files
+
+#### Test for SRv6 dataplane basic uA function
+1. Configure SRV6_MY_SIDS with uA action <br>
+  a. Configure SRV6_MY_SIDS as __pipe__ mode <br>
+2. Send IPv6 packets from downstream to upstream neighbors <br>
+  a. Including IPv6 packets with reduced SRH(no SRH header) for uA action <br>
+  b. For uA action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
+  c. For uA action, the packet should be forwarded thru the assigned interface <br>
+3. Remove all the configured SRV6_MY_SIDS <br>
+
+#### Test for SRv6 dataplane uSID with uN action plus uSID with uA action
+1. Configure one SRV6_MY_SIDS with uN action and one SRV6_MY_SIDS with uA action (same locator) <br>
+  a. Configure SRV6_MY_SIDS as __pipe__ mode <br>
+2. Send IPv6 packets from downstream to upstream neighbors <br>
+  a. Including IPv6 packets with reduced SRH(no SRH header) for uN and uA action <br>
+  b. For uN action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
+  d. For uA action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
+  e. For uA action, the packet should be forwarded thru the assigned interface <br>
+3. Remove all the configured SRV6_MY_SIDS <br>
+
+#### Test SRv6 uA forwarding function and control-plane integrity after configuration reload
+- Set up SRv6 configuration and relevant static-route configuration in CONFIG_DB
+- Verify the DUT’s uA forwarding functions by running the traffic test
+- Perform a config reload and verify that APPL_DB gets reprogrammed
+- Verify the DUT’s uA forwarding functions by running the traffic test again
+
+#### Test SRv6 uA forwarding function and control-plane integrity after BGP container restart
+- Set up SRv6 uA configuration and relevant static-route configuration in CONFIG_DB
+- Verify the DUT’s uA forwarding functions by running the traffic test
+- Restart the BGP systemd service and verify that APPL_DB gets reprogrammed
+- Verify the DUT’s uA forwarding functions by running the traffic test again
+
+#### Test SRv6 uA forwarding function and control-plane integrity after reboot
+- Set up SRv6 uA configuration and relevant static-route configuration in CONFIG_DB
+- Verify the DUT’s uA forwarding functions by running the traffic test
+- Reboot the DUT and verifies that APPL_DB gets reprogrammed
+- Verify the DUT’s uA forwarding functions by running the traffic test again
