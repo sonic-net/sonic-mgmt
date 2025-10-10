@@ -18,7 +18,6 @@ class Sniffer(object):
         scapyall.sniff(
             filter=self.filter,
             prn=self.process_pkt,
-            netns=self.namespace,
             timeout=self.timeout)
         logging.debug("Scapy sniffer ended")
 
