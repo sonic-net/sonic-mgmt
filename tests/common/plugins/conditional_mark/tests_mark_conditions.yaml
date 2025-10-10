@@ -83,6 +83,12 @@ acl/test_acl_outer_vlan.py:
     conditions:
       - "'dualtor' in topo_name"
 
+acl/test_stress_acl.py:
+  skip:
+    reason: "skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 #######################################
 #####            arp              #####
 #######################################
@@ -220,6 +226,18 @@ bgp/test_bgp_bbr.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
+bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[enabled]:
+  xfail:
+    reason: "Testcase ignored due to issue https://github.com/sonic-net/sonic-buildimage/issues/23642"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23642 and hwsku in ['Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C256S1','Mellanox-SN5600-C224O8']"
+
+bgp/test_bgp_bbr_default_state.py::test_bbr_disabled_constants_yml_default:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -306,7 +324,13 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
 
-bgp/test_bgp_sentinel.py:
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv6:
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
@@ -340,11 +364,11 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
-bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes:
-  xfail:
-    reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry"
+bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes[:
+  skip:
+    reason: "Skip for IPv6-only topologies"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
+      - "'-v6-' in topo_name"
 
 bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6:
   xfail:
@@ -380,9 +404,11 @@ bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend"
+    reason: "Not supported on T2 topology or topology backend
+             or Skip for IPv6-only topologies, since there are v6 verison of the test"
     conditions:
       - "'backend' in topo_name or 't2' in topo_name"
+      - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
@@ -434,6 +460,20 @@ bgp/test_traffic_shift_sup.py:
 #######################################
 #####            cacl             #####
 #######################################
+cacl/test_cacl_application.py:
+  skip:
+    reason: "skip test_cacl_application in PR test temporarily"
+    conditions:
+      - "asic_type in ['vs']"
+
+cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
+  skip:
+    reason: "test_cacl_acl_loader_commands_internal is only supported on t0/t1 testbed"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t1', 't0']"
+      - "'dualtor' in topo_name"
+
 cacl/test_cacl_application.py::test_cacl_application_dualtor:
   skip:
     reason: "test_cacl_application_dualtor is only supported on dualtor topology"
@@ -572,7 +612,7 @@ dash/test_dash_privatelink.py:
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40']"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
 dash/test_dash_smartswitch_vnet.py:
   skip:
@@ -580,7 +620,7 @@ dash/test_dash_smartswitch_vnet.py:
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40']"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
 
 dash/test_dash_vnet.py:
   skip:
@@ -589,6 +629,22 @@ dash/test_dash_vnet.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "platform in ['x86_64-nvidia_sn4280-r0']"
+
+dash/test_fnic.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+
+dash/test_plnsg.py:
+  skip:
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    conditions:
+      - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
 dash/test_relaxed_match_negative.py:
   skip:
@@ -801,6 +857,10 @@ dhcp_relay/test_dhcpv6_relay.py::TestDhcpv6RelayWithMultipleVlan:
     reason: "skip the multiple vlan test on aa dualtor as interface state is not aa after vlan split"
     conditions:
       - "'dualtor-aa' in topo_name"
+  xfail:
+    reason: "The test is expected to fail due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/20760"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20760"
 
 dhcp_relay/test_dhcpv6_relay.py::test_dhcp_relay_after_link_flap:
   skip:
@@ -850,6 +910,12 @@ drop_packets/test_configurable_drop_counters.py::test_neighbor_link_down:
     reason: "xfail for IPv6-only topologies, issue with python max size"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19920 and '-v6-' in topo_name"
+
+drop_packets/test_drop_counters.py::test_acl_egress_drop:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue with valid_ipv4"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19921 and '-v6-' in topo_name"
 
 drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
   xfail:
@@ -1584,11 +1650,13 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
     reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
-             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated."
+             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated.
+             Or Skip for IPv6-only topologies"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t0-120' in topo_name and asic_type in ['mellanox']"
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1924,7 +1992,7 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
     conditions:
       - "'-v6-' in topo_name"
 
-fib/test_fib.py::test_hash[ipv4]:
+fib/test_fib.py::test_hash[ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -1938,6 +2006,18 @@ fib/test_fib.py::test_ipinip_hash:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
+fib/test_fib.py::test_ipinip_hash[ipv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+fib/test_fib.py::test_ipinip_hash_negative[ipv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos'
@@ -1950,7 +2030,7 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
-fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
+fib/test_fib.py::test_nvgre_hash[ipv4-ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -2074,6 +2154,12 @@ generic_config_updater/test_dynamic_acl.py:
       - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_arp_rule_creation[IPV4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
 
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
   skip:
@@ -2274,9 +2360,12 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 #######################################
 hash/test_generic_hash.py:
   skip:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup
+             Or Skip for IPv6-only topologies"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+      - "'-v6-' in topo_name"
   xfail:
     reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
     conditions:
@@ -2631,6 +2720,12 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
 
+iface_namingmode/test_iface_namingmode.py::test_show_ip_route_v4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 iface_namingmode/test_iface_namingmode.py::test_show_pfc_counters:
   skip:
     reason: "Not supported on SKU"
@@ -2769,11 +2864,7 @@ lldp/test_lldp.py::test_lldp_neighbor:
     conditions:
       - "'standalone' in topo_name"
 
-lldp/test_lldp.py::test_lldp_neighbor_post_orchagent_reboot:
-  xfail:
-    reason: "Xfail the test due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/19658"
-    conditions:
-    - "https://github.com/sonic-net/sonic-mgmt/issues/19658 and asic_type in ['mellanox', 'nvidia']"
+lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
   skip:
     reason: "Not M0/Mx/M1 scenario"
     conditions:
@@ -3038,6 +3129,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
         - "https://github.com/sonic-net/sonic-mgmt/issues/15942 and asic_type in ['broadcom', 'mellanox']"
         - "is_smartswitch==True"
+        - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/20675"
 
 pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv4-async_storm:
    skip:
@@ -3472,18 +3564,6 @@ restapi/test_restapi.py:
     reason: "Only supported on Mellanox"
     conditions:
       - "asic_type not in ['mellanox']"
-
-restapi/test_restapi.py::test_create_interface:
-  xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
-
-restapi/test_restapi.py::test_create_interface_sad:
-  xfail:
-    reason: "Skipped due to community issue https://github.com/sonic-net/sonic-mgmt/issues/17997 on SN5 devices"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/17997 and 'SN5' in hwsku"
 
 restapi/test_restapi.py::test_create_vrf:
   skip:
@@ -3934,6 +4014,12 @@ tacacs/test_authorization.py::test_authorization_tacacs_and_local:
     reason: "Testcase ignored due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/11349"
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/11349
+
+tacacs/test_ro_disk.py:
+  skip:
+    reason: "Testcase skip due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/20787"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/20787
 
 #######################################
 #####           telemetry         #####
