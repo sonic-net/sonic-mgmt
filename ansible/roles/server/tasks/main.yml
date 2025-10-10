@@ -420,11 +420,6 @@
 
 # Miscellaneous
 
-- name: Create directory
-  file:
-    path: /home/azure/veos-vm/images
-    state: directory
-
 - set_fact:
     sysinfo_path: "/etc/update-motd.d/50-landscape-sysinfo"
 
