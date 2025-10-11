@@ -41,6 +41,38 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
+def get_sample_ports_for_pg_profiles(duthost, pg_lossless_profiles, cli_namespace_prefix):
+    """
+    Retrieves sample ports for each pg_lossless buffer profile.
+
+    Args:
+        duthost: DUT host object
+        pg_lossless_profiles: list of pg_lossless buffer profiles
+        cli_namespace_prefix: fixture for the formatted cli namespace
+
+    Returns:
+        list: sample ports with pg_lossless_profile in format "port_name:queue_number"
+    """
+    sample_ports_with_pg_lossless_profile = []
+    for pg_lossless_profile in pg_lossless_profiles:
+        keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BUFFER_PG|*"'
+                             .format(cli_namespace_prefix))["stdout_lines"]
+        for key in keys:
+            port_pg_profile = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" profile'
+                                            .format(cli_namespace_prefix, key))["stdout"]
+            if port_pg_profile == pg_lossless_profile:
+                # Found port with pg_lossless_profile. key format - BUFFER_PG|EthernetX|X-X.
+                parts = key.split("|")
+                port_name = parts[1]
+                queue_number = parts[2].split("-")[0]
+
+                sample_ports_with_pg_lossless_profile.append(port_name + ":" + queue_number)
+                # Use only one port/queue pair per profile; validating every pair would increases test time.
+                break
+
+    return sample_ports_with_pg_lossless_profile
+
+
 def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
                                          ip_netns_namespace_prefix,
                                          cli_namespace_prefix):
@@ -62,25 +94,16 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
                                                   .format(cli_namespace_prefix,
                                                           pg_lossless_profile))["stdout"]
             if dynamic_th_in_appl_db != value:
+                logger.error("Unexpected dynamic threshold value {} in APPL_DB for profile {}".format(
+                    dynamic_th_in_appl_db, pg_lossless_profile))
                 return False
 
-        sample_ports_with_pg_lossless_profile = []
-        for pg_lossless_profile in pg_lossless_profiles:
-            keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BUFFER_PG|*"'
-                                 .format(cli_namespace_prefix))["stdout_lines"]
-            for key in keys:
-                port_pg_profile = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" profile'
-                                                .format(cli_namespace_prefix, key))["stdout"]
-                if port_pg_profile == pg_lossless_profile:
-                    # Found port with pg_lossless_profile. key format - BUFFER_PG|EthernetX|X-X.
-                    parts = key.split("|")
-                    port_name = parts[1]
-                    queue_number = parts[2].split("-")[0]
-
-                    sample_ports_with_pg_lossless_profile.append(port_name + ":" + queue_number)
-                    break
+        sample_ports_with_pg_lossless_profile = get_sample_ports_for_pg_profiles(
+            duthost, pg_lossless_profiles, cli_namespace_prefix)
 
         if len(sample_ports_with_pg_lossless_profile) != len(pg_lossless_profiles):
+            logger.error("Ports with pg lossless profile(s) not found. profiles: {} number of ports found: {}"
+                         .format(len(pg_lossless_profiles), len(sample_ports_with_pg_lossless_profile)))
             return False
 
         for port in sample_ports_with_pg_lossless_profile:
@@ -98,6 +121,8 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
                                                   "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
                                                   .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
             if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
+                logger.error("Unexpected dynamic threshold value {} or xoff_val {} in ASIC_DB for port {}".format(
+                    dynamic_th_in_asic_db, xoff_val, port))
                 return False
 
         return True
