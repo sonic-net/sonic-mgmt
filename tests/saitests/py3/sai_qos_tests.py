@@ -5025,6 +5025,8 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                 if platform_asic and platform_asic == "broadcom-dnx":
                     assert (pg_shared_wm_res[pg] <=
                             ((pkts_num_leak_out + pkts_num_fill_min) * (packet_length + internal_hdr_size)))
+                elif platform_asic and platform_asic == "marvell-teralynx":
+                    assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 elif 'Arista-7060X6' in hwsku:
                     assert (pg_shared_wm_res[pg] <= margin * cell_size)
                 else:
