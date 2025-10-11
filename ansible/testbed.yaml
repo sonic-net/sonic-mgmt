@@ -1219,7 +1219,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1734/52
   ptf_extra_mgmt_ip: ["172.16.188.52/17"]
   server: server_bjw_13
-  vm_base: VM74000  # 4 VMs
+  vm_base: VM79000  # 4 VMs
   dut:
   - bjw-can-2700-1
   inv_name: bjw
@@ -1650,7 +1650,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1735/52
   ptf_extra_mgmt_ip: ["172.16.188.53/17"]
   server: server_bjw_13
-  vm_base: VM74008
+  vm_base: VM79008
   dut:
   - bjw-can-2700-4
   inv_name: bjw
@@ -1666,7 +1666,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1748/52
   ptf_extra_mgmt_ip: ["172.16.188.72/17"]
   server: server_bjw_13
-  vm_base: VM74032
+  vm_base: VM79032
   dut:
   - bjw-can-7260-8
   inv_name: bjw
@@ -2960,7 +2960,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1749/52
   ptf_extra_mgmt_ip: ["172.16.188.73/17"]
   server: server_bjw_13
-  vm_base: VM74056
+  vm_base: VM79056
   dut:
   - bjw-can-7260-11
   inv_name: bjw
@@ -2976,7 +2976,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:174a/52
   ptf_extra_mgmt_ip: ["172.16.188.74/17"]
   server: server_bjw_13
-  vm_base: VM74060
+  vm_base: VM79060
   dut:
     - bjw-can-7260-12
   inv_name: bjw
