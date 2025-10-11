@@ -43,6 +43,9 @@ all:
         vm_host_94:
         vm_host_95:
         vm_host_96:
+        vm_host_97:
+        vm_host_98:
+        vm_host_99:
         vm_svc_host_1:
         vm_svc_host_3:
         vm_svc_host_5:
@@ -129,6 +132,9 @@ all:
         vms_94:
         vms_95:
         vms_96:
+        vms_97:
+        vms_98:
+        vms_99:
         vms_svc_1:
         vms_svc_3:
         vms_svc_5:
@@ -213,6 +219,9 @@ all:
         server_94:
         server_95:
         server_96:
+        server_97:
+        server_98:
+        server_99:
         server_svc_1:
         server_svc_3:
         server_svc_5:
@@ -499,6 +508,14 @@ vm_host_97:
   hosts:
     STR5-ACS-SERV-97:
       ansible_host: 10.64.247.197
+vm_host_98:
+  hosts:
+    STR5-ACS-SERV-97:
+      ansible_host: 10.64.247.198
+vm_host_99:
+  hosts:
+    STR5-ACS-SERV-97:
+      ansible_host: 10.64.247.199
 vm_host_18:
   hosts:
     STR2-ACS-SERV-18:
@@ -21721,6 +21738,21 @@ vms_96:
     # Server-96 is reserved for vms94-t0-sn5640-1 (t0-isolated-d2u510s2) multi-server mode.
     # Please don't deploy other testbed on this server.
 
+vms_97:
+  hosts:
+    VM97000:
+      ansible_host: 172.16.227.10
+
+vms_98:
+  hosts:
+    VM98000:
+      ansible_host: 172.16.228.10
+
+vms_99:
+  hosts:
+    VM99000:
+      ansible_host: 172.16.229.10
+
 vms_bjw3_1:
   hosts:
     VM19011:  # First VM of testbed-bjw3-can-7050-9 M1-128
@@ -23661,6 +23693,18 @@ server_97:
   children:
     vm_host_97:
     vms_97:
+server_98:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-98.yml
+  children:
+    vm_host_98:
+    vms_98:
+server_99:
+  vars:
+    host_var_file: host_vars/STR5-ACS-SERV-99.yml
+  children:
+    vm_host_99:
+    vms_99:
 server_tk5_6:
   vars:
     host_var_file: host_vars/STRTK5-SERV-06.yml
