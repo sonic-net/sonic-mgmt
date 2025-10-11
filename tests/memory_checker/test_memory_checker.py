@@ -475,7 +475,8 @@ class MemoryCheckerContainer(object):
         cap_name = self.name.capitalize()
         if self.name == "gnmi":
             cap_name = "GNMI"
-        if "bookworm" in self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
+        debian_version = self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
+        if "bookworm" in debian_version or "trixie" in debian_version:
             return [
                 r".*restart_service.*Restarting service '{}'.*".format(self.name),
                 r".*Stopping {}.service - {} container.*".format(self.name, cap_name),
