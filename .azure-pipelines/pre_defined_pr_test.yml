@@ -1,3 +1,8 @@
+name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
+
+pr: none
+trigger: none
+
 parameters:
 - name: BUILD_REASON
   type: string
