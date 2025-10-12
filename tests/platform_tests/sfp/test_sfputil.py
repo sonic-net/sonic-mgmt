@@ -16,10 +16,9 @@ from .util import get_dev_conn
 from tests.common.utilities import skip_release, wait_until
 from tests.common.fixtures.duthost_utils import shutdown_ebgp   # noqa: F401
 from tests.common.port_toggle import default_port_toggle_wait_time
-from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET
 from tests.common.platform.interface_utils import get_physical_port_indices
 from tests.common.mellanox_data import is_mellanox_device
-from tests.common.platform.transceiver_utils import is_sw_control_enabled, \
+from tests.common.platform.transceiver_utils import I2C_WAIT_TIME_AFTER_SFP_RESET, \
     get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled
 
 
@@ -29,6 +28,8 @@ cmd_sfp_eeprom_hexdump = "sudo sfputil show eeprom-hexdump"
 cmd_sfp_reset = "sudo sfputil reset"
 cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
 cmd_sfp_set_lpmode = "sudo sfputil lpmode"
+cmd_int_shutdown = "sudo config interface shutdown {IFACE_NAME}"
+cmd_int_startup = "sudo config interface startup {IFACE_NAME}"
 cmd_config_intf_dom = "config interface {} transceiver dom {} {}"
 cmd_config_intf_action = "config interface {} {} {}"
 cmd_intf_startup = "startup"
@@ -343,6 +344,132 @@ def get_phy_intfs_to_test_per_asic(duthost,
     return phy_intfs_to_test_per_asic
 
 
+def parse_sfp_type_output(lines, cmd_type="SFP_TYPE"):
+    result = {}
+    current_port = None
+    for line in lines:
+        line = line.strip()
+        if line.startswith(f"=== {cmd_type} "):
+            # Line is a header like "=== SFP_TYPE Ethernet104 ==="
+            parts = line.split()
+            if len(parts) >= 3:
+                current_port = parts[2]  # "Ethernet104"
+        elif current_port and line:
+            result[current_port] = line
+            current_port = None  # Reset for next block
+    return result
+
+
+def get_sfp_types(duthost, dev_conn):
+    ports_str = " ".join(dev_conn)
+    cmd_type = "SFP_TYPE"
+    sfp_type_cmd = 'redis-cli -n 6 --raw hget "TRANSCEIVER_INFO|$port" type'
+    cmd = f"""for port in {ports_str}; do echo "=== {cmd_type} $port ==="; {sfp_type_cmd}; echo; done"""
+    result = duthost.shell(cmd)
+    return parse_sfp_type_output(result["stdout_lines"], cmd_type)
+
+
+def get_power_class(duthost, dev_conn):
+    ports_str = " ".join(dev_conn)
+    cmd_type = "POWER_CLASS"
+    cmd_power_class = 'redis-cli -n 6 --raw hget "TRANSCEIVER_INFO|$port" ext_identifier'
+    cmd = f"""for port in {ports_str}; do echo "=== {cmd_type} $port ==="; {cmd_power_class}; echo; done"""
+    result = duthost.shell(cmd)
+    return parse_sfp_type_output(result["stdout_lines"], cmd_type)
+
+
+def parse_control_file_output(grep_lines):
+    """
+    Parse the output of the command "ls /sys/module/sx_core/asic0/module*/control" for all interfaces of the next format:
+    ['Ethernet0|1', 'control', 'Ethernet1|1', 'control', 'Ethernet2|1', 'missing']
+    and return a set of interfaces with control file.
+    If command failed for an interface, it will be skipped.
+    """
+    intfs_with_control = set()
+    current_interface = None
+    for line in grep_lines:
+        line = line.strip()
+        if not line:
+            continue
+        if "|" in line:
+            if "missing" in line:
+                continue  # skip, command failed for this interface
+            current_interface = line.split("|")[0]
+        elif line == "control" and current_interface:
+            intfs_with_control.add(current_interface)
+            current_interface = None
+        else:
+            current_interface = None
+    return intfs_with_control
+
+
+def get_control_paths(duthost, intfs_with_control, control_checks):
+    """
+    Get the control paths and all interfaces with control file.
+    """
+    control_paths = []
+    all_intf_with_control = []
+    for intf, intf_index, _, control_path in control_checks:
+        if intf in intfs_with_control:
+            control_paths.append(control_path)
+            all_intf_with_control.append((intf, intf_index))
+    return control_paths, all_intf_with_control
+
+
+def get_control_values_all_intfs(duthost, control_paths):
+    """
+    read all control files and return the control values of all interfaces.
+    """
+    if control_paths:
+        cat_all_control_files_cmd = f"sudo cat {' '.join(control_paths)}"
+        cat_all_control_files_result = duthost.shell(cat_all_control_files_cmd, module_ignore_errors=True)
+        all_intfs_control_values = cat_all_control_files_result.get("stdout", "").strip().splitlines()
+    else:
+        all_intfs_control_values = []
+    return all_intfs_control_values
+
+
+def get_sw_control_enabled_map(duthost, port_index_map):
+    """
+    Returns a dictionary mapping each interface name to a dict of {intf_index: sw_control_enabled}.
+    This function replicates the logic of is_sw_control_enabled for multiple ports efficiently.
+    Example:
+    {
+        "Ethernet0": {1: True},
+        "Ethernet4": {2: False},
+        ...
+    }
+    """
+    intfs_sw_control_map = {}
+    control_checks = []
+    index_to_intf = {}
+    for intf, intf_index in port_index_map.items():
+        module_index = int(intf_index) - 1
+        module_path = f'/sys/module/sx_core/asic0/module{module_index}'
+        control_file = f'{module_path}/control'
+        control_checks.append((intf, intf_index, module_path, control_file))
+        index_to_intf[intf] = intf_index
+    existence_cmd = " && ".join([
+        f'echo "{intf}|{intf_index}" && ls {module_path} | grep control || echo "{intf}|{intf_index}|missing"'
+        for intf, intf_index, module_path, _ in control_checks
+    ])
+    existence_result = duthost.shell(existence_cmd, module_ignore_errors=True)
+    existence_lines = existence_result['stdout'].strip().splitlines()
+    intfs_with_control = parse_control_file_output(existence_lines)
+    control_paths, all_intf_with_control = get_control_paths(duthost, intfs_with_control, control_checks)
+    all_intfs_control_values = get_control_values_all_intfs(duthost, control_paths)
+    for idx, (intf, intf_index) in enumerate(all_intf_with_control):
+        control_value = all_intfs_control_values[idx].strip()
+        sw_enabled = control_value == "1"
+        logging.info(f'The sw control enable of {intf} (index {intf_index}) is {sw_enabled}')
+        intfs_sw_control_map[intf] = {int(intf_index): sw_enabled}
+    for intf, intf_index in port_index_map.items():
+        if intf not in intfs_sw_control_map:
+            logging.info(f'The sw control enable of {intf} (index {intf_index}) is False (no control file)')
+            intfs_sw_control_map[intf] = {int(intf_index): False}
+    return intfs_sw_control_map
+
+
 def test_check_sfputil_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                 enum_frontend_asic_index, conn_graph_facts, xcvr_skip_list):
     """
@@ -406,12 +533,15 @@ def test_check_sfputil_error_status(duthosts, enum_rand_one_per_hwsku_frontend_h
         pytest.skip("Skip test as error status isn't supported")
     parsed_presence = parse_output(sfp_error_status["stdout_lines"][2:])
     physical_port_index_map = get_physical_port_indices(duthost, conn_graph_facts["device_conn"][duthost.hostname])
+    check_sw_control_enabled_intfs = {intf: physical_port_index_map[intf] for intf in dev_conn}
+    all_intf_sw_control_status = get_sw_control_enabled_map(duthost, check_sw_control_enabled_intfs)
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             expected_state = 'OK'
             intf_index = physical_port_index_map[intf]
+            is_intf_sw_control_enabled = all_intf_sw_control_status[intf][intf_index]
             if cmd_sfp_error_status == "sudo sfputil show error-status --fetch-from-hardware"\
-                    and is_mellanox_device(duthost) and is_sw_control_enabled(duthost, intf_index):
+                    and is_mellanox_device(duthost) and is_intf_sw_control_enabled:
                 expected_state = get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
                     intf, passive_cable_ports[duthost.hostname], cmis_cable_ports_and_ver[duthost.hostname])
             elif "Not supported" in sfp_error_status['stdout']:
@@ -502,75 +632,96 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
     phy_intfs_to_test_per_asic = get_phy_intfs_to_test_per_asic(duthost,
                                                                 conn_graph_facts,
                                                                 enum_frontend_asic_index,
-                                                                xcvr_skip_list, limited_ports)
-    for phy_intf, logical_intfs_dict in phy_intfs_to_test_per_asic.items():
-        # Only reset the first logical interface, since sfputil command acts on this physical port entirely.
-        logical_intf = list(logical_intfs_dict.keys())[0]
-        with DisablePhysicalInterface(duthost, enum_frontend_asic_index, phy_intf, logical_intfs_dict):
-            cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(logical_intf)
+                                                                xcvr_skip_list, get_sw_control_ports,limited_ports)
+    try:
+        for phy_intf, logical_intfs_dict in phy_intfs_to_test_per_asic.items():
+            # Only reset the first logical interface, since sfputil command acts on this physical port entirely.
+            logical_intf = list(logical_intfs_dict.keys())[0]
+            with DisablePhysicalInterface(duthost, enum_frontend_asic_index, phy_intf, logical_intfs_dict):
+                cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(logical_intf)
 
-            cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, logical_intf)
-            logging.info("resetting {} physical interface {}".format(logical_intf, phy_intf))
-            reset_result = duthost.command(cmd_sfp_reset_intf)
-            assert reset_result["rc"] == 0, (
-                "'{}' failed."
-            ).format(cmd_sfp_reset_intf)
+                cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, logical_intf)
+                logging.info("resetting {} physical interface {}".format(logical_intf, phy_intf))
+                if get_sw_control_ports and phy_intf in get_sw_control_ports:
+                    # Do interface shutdown
+                    duthost.command(cmd_int_shutdown.format(IFACE_NAME=phy_intf))
+                reset_result = duthost.command(cmd_sfp_reset_intf)
+                assert reset_result["rc"] == 0, (
+                    "'{}' failed."
+                ).format(cmd_sfp_reset_intf)
 
-            time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
+                assert reset_result["rc"] == 0, "'{}' failed".format(cmd_sfp_reset_intf)
+                time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
 
-            if not is_cmis_module(duthost, enum_frontend_asic_index, logical_intf) and \
-                    not is_power_class_1_module(duthost, enum_frontend_asic_index, logical_intf):
-                # On platforms where LowPwrRequestHW=DEASSERTED, module will not get reset to low power.
-                logging.info("Force {} (physical interface {}) to go through the sequence of lpmode on/off".format(
-                    logical_intf, phy_intf))
-                set_lpmode(duthost, logical_intf, "on")
-                time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
-                set_lpmode(duthost, logical_intf, "off")
-                time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
+                if get_sw_control_ports and phy_intf in get_sw_control_ports:
+                    # Do interface startup
+                    duthost.command(cmd_int_startup.format(IFACE_NAME=phy_intf))
 
-            logging.info("Check sfp presence again after reset")
-            sfp_presence = duthost.command(cmd_sfp_presence_per_intf, module_ignore_errors=True)
+                if not is_cmis_module(duthost, enum_frontend_asic_index, logical_intf) and \
+                        not is_power_class_1_module(duthost, enum_frontend_asic_index, logical_intf):
+                    # On platforms where LowPwrRequestHW=DEASSERTED, module will not get reset to low power.
+                    logging.info("Force {} (physical interface {}) to go through the sequence of lpmode on/off".format(
+                        logical_intf, phy_intf))
+                    set_lpmode(duthost, logical_intf, "on")
+                    time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
+                    set_lpmode(duthost, logical_intf, "off")
+                    time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
 
-            # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-            if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
-                pass
-            else:
-                assert sfp_presence['rc'] == 0, (
-                    "Run command '{}' failed with return code {}."
-                ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
+                logging.info("Check sfp presence again after reset")
+                sfp_presence = duthost.command(cmd_sfp_presence_per_intf, module_ignore_errors=True)
 
-            parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-            assert logical_intf in parsed_presence, (
-                "Interface '{}' is not in output of '{}'. "
-                "- Parsed Presence Output: {}\n"
-            ).format(
-                logical_intf,
-                cmd_sfp_presence_per_intf,
-                parsed_presence
-            )
+                # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+                if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
+                    pass
+                else:
+                    assert sfp_presence['rc'] == 0, (
+                        "Run command '{}' failed with return code {}."
+                    ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
 
-            assert parsed_presence[logical_intf] == "Present", (
-                "Interface presence is not 'Present' for '{}'. Got: '{}'."
-            ).format(
-                logical_intf,
-                parsed_presence[logical_intf]
-            )
+                parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
+                assert logical_intf in parsed_presence, (
+                    "Interface '{}' is not in output of '{}'. "
+                    "- Parsed Presence Output: {}\n"
+                ).format(
+                    logical_intf,
+                    cmd_sfp_presence_per_intf,
+                    parsed_presence
+                )
 
-    # Check interface status for all interfaces in the end just in case
-    assert check_interface_status(
-        duthost,
-        [logical_intf
-         for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
-         for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up],
-        expect_up=True
-    ), (
-        "Not all interfaces that are admin up transitioned to the 'up' state after SFP reset.\n"
-        "Checked interfaces: {}"
-    ).format(
-        [logical_intf
-         for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
-         for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up]
-    )
+                assert parsed_presence[logical_intf] == "Present", (
+                    "Interface presence is not 'Present' for '{}'. Got: '{}'."
+                ).format(
+                    logical_intf,
+                    parsed_presence[logical_intf]
+                )
+
+        # Check interface status for all interfaces in the end just in case
+        assert check_interface_status(
+            duthost,
+            [logical_intf
+            for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
+            for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up],
+            expect_up=True
+        ), (
+            "Not all interfaces that are admin up transitioned to the 'up' state after SFP reset.\n"
+            "Checked interfaces: {}"
+        ).format(
+            [logical_intf
+            for logical_intfs_dict in phy_intfs_to_test_per_asic.values()
+            for logical_intf, is_admin_up in logical_intfs_dict.items() if is_admin_up]
+        )
+    finally:
+         if get_sw_control_ports:
+            interfaces_list = [interface for logical_intfs in phy_intfs_to_test_per_asic.values()
+                               for interface in logical_intfs]
+            startup_intfs = []
+            for intf in get_sw_control_ports:
+                if intf in interfaces_list:
+                    startup_intfs.append(intf)
+            # Do interface startup
+            interfaces_str = ",".join(startup_intfs)
+            cmd_int_startup_str = f"sudo config interface startup {interfaces_str}"
+            duthost.command(cmd_int_startup_str)
 
 
 def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -618,6 +769,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
     tested_physical_ports = set()
 
     not_supporting_lpm_physical_ports = set()
+    sfp_type_data = get_sfp_types(duthost, dev_conn)
+    power_class_data = get_power_class(duthost, dev_conn)
     for intf in dev_conn:
         if intf not in xcvr_skip_list[duthost.hostname]:
             phy_intf = portmap[intf][0]
@@ -625,15 +778,8 @@ def test_check_sfputil_low_power_mode(duthosts, enum_rand_one_per_hwsku_frontend
                 logging.info(
                     "skip tested SFPs {} to avoid repeating operating physical interface {}".format(intf, phy_intf))
                 continue
-
-            sfp_type_cmd = 'redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" type'.format(intf)
-            sfp_type_docker_cmd = asichost.get_docker_cmd(sfp_type_cmd, "database")
-            sfp_type = duthost.command(sfp_type_docker_cmd)["stdout"]
-
-            power_class_cmd = 'redis-cli -n 6 hget "TRANSCEIVER_INFO|{}" ext_identifier'.format(intf)
-            power_class_docker_cmd = asichost.get_docker_cmd(power_class_cmd, "database")
-            power_class = duthost.command(power_class_docker_cmd)["stdout"]
-
+            sfp_type = sfp_type_data[intf]
+            power_class = power_class_data[intf]
             if ("QSFP" not in sfp_type and "OSFP" not in sfp_type) or "Power Class 1" in power_class:
                 logging.info("skip testing port {} which doesn't support LPM".format(intf))
                 not_supporting_lpm_physical_ports.add(phy_intf)
