@@ -232,9 +232,10 @@ def adaptive_temporary_interface(vm_set_name, interface_name, reserved_space=0):
 
 class VMTopology(object):
 
-    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+    def __init__(self, vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, current_vm_name=None,
                  is_dpu=False, is_vs_chassis=False, dut_interfaces=None):
         self.vm_names = vm_names
+        self.current_vm_name = current_vm_name
         self.vm_properties = vm_properties
         self.fp_mtu = fp_mtu
         self.max_fp_num = max_fp_num
@@ -269,9 +270,17 @@ class VMTopology(object):
                 if self.dut_interfaces:
                     topo_vms = MultiServersUtils.get_vms_by_dut_interfaces(topo_vms, self.dut_interfaces)
 
-                for k, v in topo_vms.items():
-                    if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
-                        self.VMs[k] = v
+                # This parameter is used for parallel
+                if self.current_vm_name:
+                    for k, v in topo_vms.items():
+                        expected_vm_name = self.vm_names[self.vm_base_index + v['vm_offset']]
+                        if expected_vm_name == self.current_vm_name:
+                            self.VMs[k] = v
+                            break
+                else:
+                    for k, v in topo_vms.items():
+                        if self.vm_base_index + v['vm_offset'] < len(self.vm_names):
+                            self.VMs[k] = v
         else:
             if 'DPUs' in self.topo and len(self.topo['DPUs']) > 0:
                 self.vm_base = vm_base
@@ -2180,6 +2189,7 @@ def main():
             vm_set_name=dict(required=False, type='str'),
             topo=dict(required=False, type='dict'),
             vm_names=dict(required=True, type='list'),
+            current_vm_name=dict(required=False, type='str'),
             vm_base=dict(required=False, type='str'),
             vm_type=dict(required=False, type='str'),
             vm_properties=dict(required=False, type='dict', default={}),
@@ -2213,6 +2223,7 @@ def main():
     cmd = module.params['cmd']
     vm_set_name = module.params['vm_set_name']
     vm_names = module.params['vm_names']
+    current_vm_name = module.params['current_vm_name']
     fp_mtu = module.params['fp_mtu']
     max_fp_num = module.params['max_fp_num']
     vm_properties = module.params['vm_properties']
@@ -2230,7 +2241,7 @@ def main():
     try:
         topo = module.params['topo']
         worker = VMTopologyWorker(use_thread_worker, thread_worker_count)
-        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker,
+        net = VMTopology(vm_names, vm_properties, fp_mtu, max_fp_num, topo, worker, current_vm_name,
                          is_dpu, is_vs_chassis, dut_interfaces)
 
         if cmd == 'create':

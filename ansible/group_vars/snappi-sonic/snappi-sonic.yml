@@ -48,3 +48,6 @@ bgp_slb_passive_range: 10.255.0.0/25
 #fanout_admin_password: ""
 
 snappi_api_server: {user: admin, password: admin, rest_port: 443, session_id: "None"}
+
+# Please mention the primary chassis ip incase of chassis chain configuration
+chassis_chain_primary: "10.36.84.31"

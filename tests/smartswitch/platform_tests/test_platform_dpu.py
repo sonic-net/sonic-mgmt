@@ -14,7 +14,7 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
     pre_test_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
-    check_dpu_health_status, num_dpu_modules  # noqa: F401
+    check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
@@ -30,7 +30,7 @@ DPU_TIME_INT = 30
 DPU_MEMORY_THRESHOLD = 90
 
 
-def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa F811
+def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_conn):  # noqa: F811
     """
     @summary: Verify `Midplane ip address between NPU and DPU`
     """
@@ -52,7 +52,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
 
 
 def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
-                      platform_api_conn, num_dpu_modules):    # noqa F811
+                      platform_api_conn, num_dpu_modules):    # noqa: F811
     """
     @summary: Verify `Reboot Cause` using parallel execution.
     """
@@ -81,7 +81,7 @@ def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
 
 def test_pcie_link(duthosts, dpuhosts,
                    enum_rand_one_per_hwsku_hostname,
-                   platform_api_conn, num_dpu_modules):   # noqa F811
+                   platform_api_conn, num_dpu_modules):   # noqa: F811
     """
     @summary: Verify `PCIe link`
     """
@@ -339,31 +339,34 @@ def test_system_health_summary(duthosts, dpuhosts,
                       .format(dpu_name))
 
 
-def test_data_control_mid_plane_sync(duthosts,
-                                     enum_rand_one_per_hwsku_hostname,
-                                     platform_api_conn, num_dpu_modules):  # noqa: F811
+def test_data_control_mid_plane_sync(dpu_setup):  # noqa: F811
     """
     @summary: To verify data, control and mid planes are in sync
     """
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    logging.info("Executing pre-test check")
-    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
-        duthost, platform_api_conn, num_dpu_modules)
+    duthost, ip_address_list, dpu_on_list, dpu_off_list = dpu_setup
 
-    logging.info("Bringing DOWN DPUs midplane")
-    duthost.shell("sudo ip link set bridge-midplane down")
+    for index, dpu in enumerate(dpu_on_list):
+        dpu_ip = ip_address_list[index]
+        interface_name = dpu.lower()
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Offline', 'down')
+        logging.info(f"Bringing DOWN {dpu} ({dpu_ip})")
+        duthost.shell(f"sudo ip link set {interface_name} down")
 
-    logging.info("Bringing UP DPUs midplane")
-    duthost.shell("sudo ip link set bridge-midplane up")
+        pytest_assert(wait_until(120, 20, 0, check_midplane_status,
+                      duthost, dpu_ip, "False"),
+                      f"Timeout: {dpu} did not show midplane reachability as False")
 
-    for index in range(len(dpu_on_list)):
-        check_dpu_health_status(duthost, dpu_on_list[index],
-                                'Online', 'up')
+        check_dpu_health_status(duthost, dpu, 'Offline', 'down')
+
+        logging.info(f"Bringing UP {dpu} ({dpu_ip})")
+        duthost.shell(f"sudo ip link set {interface_name} up")
+
+        pytest_assert(wait_until(120, 20, 0, check_midplane_status,
+                      duthost, dpu_ip, "True"),
+                      f"Timeout: {dpu} did not show midplane reachability as True")
+
+        check_dpu_health_status(duthost, dpu, 'Online', 'up')
 
 
 def test_watchdog_status_check(duthosts, dpuhosts,
