@@ -8,7 +8,7 @@ from tests.common.telemetry.constants import (
 )
 
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology("tgen")]
+pytestmark = [pytest.mark.topology("nut")]
 
 test_results = pd.DataFrame(
     columns=[
@@ -24,10 +24,6 @@ test_results = pd.DataFrame(
 )
 
 route_ranges = {"IPv6": [["777:777:777::1", 64, 5000]], "IPv4": [["100.1.1.1", 24, 5000]]}
-
-
-pytestmark = [pytest.mark.topology("tgen")]
-
 
 @pytest.mark.parametrize("ip_version", ["IPv6"])
 @pytest.mark.parametrize("frame_bytes", [64, 128, 256, 512, 1024, 4096, 8192])
