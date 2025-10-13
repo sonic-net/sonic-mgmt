@@ -71,7 +71,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_MLNX_202506)"
+    default: "--topology t1,any,smartswitch --py_saithrift_url=$(SAITHRIFT_MLNX_202506) --host-pattern=str3-msn4280-02 --dpu-pattern=str3-msn4280-02-dpu-0,str3-msn4280-02-dpu-1"
     displayName: "Common test parameters"
 
   # Test timeout
@@ -81,7 +81,7 @@ parameters:
 
   - name: RETRY_TIMES
     type: string
-    default: 2
+    default: 1
 
   # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
   - name: RETRY_CASES_INCLUDE
