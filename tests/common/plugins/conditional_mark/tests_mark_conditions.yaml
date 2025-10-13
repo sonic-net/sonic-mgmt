@@ -147,7 +147,6 @@ arp/test_wr_arp.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
-      - "release in ['202412']"
       - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
       - "'isolated' in topo_name"
 
@@ -2348,6 +2347,7 @@ gnmi/test_gnmi_configdb.py:
     conditions:
       - "'t2' in topo_name"
       - "is_multi_asic==True"
+      - "release in ['202412']"
 
 gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
   skip:
