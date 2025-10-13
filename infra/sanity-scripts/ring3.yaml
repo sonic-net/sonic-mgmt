@@ -292,6 +292,12 @@ INFRA:
         - ssh
   t1-64-lag:
     mth64:
+      sim:
+        - system_health
+        - minigraph
+        - ntp
+        - portstat
+        - ssh
       hw:
         - system_health
         - minigraph
