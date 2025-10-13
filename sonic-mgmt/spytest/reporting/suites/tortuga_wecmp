@@ -1,5 +1,7 @@
 # Modules
 +file:cisco/tortuga/vxlan/test_evpn_vxlan_wecmp.py
++file:cisco/tortuga/vxlan/test_udf_qpid_l3vni.py
++file:cisco/tortuga/vxlan/test_udf_qpid_l2vni.py
 
 #Runtime Arguments
 +args:--skip-init-config
