@@ -1350,3 +1350,18 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
       - https://github.com/sonic-net/sonic-buildimage/issues/18231
+
+#######################################
+######   test_platform_dpu.py   #######
+#######################################
+smartswitch/platform_tests/test_platform_dpu.py:
+  skip:
+    reason: "Skip for non-smartswitch topology"
+    conditions:
+      - "is_smartswitch==False"
+
+smartswitch/platform_tests/test_reload_dpu.py:
+  skip:
+    reason: "Skip for non-smartswitch topology"
+    conditions:
+      - "is_smartswitch==False"
