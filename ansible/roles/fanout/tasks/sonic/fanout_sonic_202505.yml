@@ -36,6 +36,21 @@
   become: yes
   when: "'mellanox' in fanout_sonic_version.asic_type"
 
+- name: Ensure TPID enabled in SAI
+  lineinfile:
+    path: /usr/share/sonic/device/{{ fanout_platform }}/{{ fanout_hwsku }}/ivm.sai.config.yaml
+    line: 'IVM_SAI_PARAM_A0057: "TRUE"'
+    state: present
+  become: yes
+  when: "'marvell-teralynx' in fanout_sonic_version.asic_type"
+
+- name: Override topo.conf file with def_lossy content
+  copy:
+    content: "def_lossy\n"
+    dest: "/usr/share/sonic/device/{{ fanout_platform }}/topo.conf"
+  become: yes
+  when: "'marvell-teralynx' in fanout_sonic_version.asic_type"
+
 - name: Disable software control module function
   block:
     - name: Disable software control module function in SAI
@@ -82,7 +97,7 @@
     content: "{}"
     dest: "/usr/share/sonic/templates/copp_cfg.j2"
   become: yes
-  when: "'mellanox' not in fanout_sonic_version.asic_type"
+  when: "fanout_sonic_version.asic_type not in ['marvell-teralynx', 'mellanox']"
 
 - name: Overwrite copp rules for Mellanox FanoutLeaf
   copy:
@@ -90,6 +105,13 @@
     dest: "/usr/share/sonic/templates/copp_cfg.j2"
   become: yes
   when: "'mellanox' in fanout_sonic_version.asic_type"
+
+- name: Overwrite copp rules for Marvell-Teralynx FanoutLeaf
+  copy:
+    src: "copp_cfg_mrvl_teralynx.j2"
+    dest: "/usr/share/sonic/templates/copp_cfg.j2"
+  become: yes
+  when: "'marvell-teralynx' in fanout_sonic_version.asic_type"
 
 - name: Disable feature teamd and remove teamd container (avoid swss crash after config reload)
   block:
@@ -123,6 +145,12 @@
   pause:
     seconds: 180
 
+- name: Save configurations back to config db
+  shell: config save -y
+  become: true
+  when: "'marvell-teralynx' in fanout_sonic_version.asic_type"
+
+
 - name: Shutdown arp_update process in swss (avoid fanout broadcasting it's MAC address)
   shell: docker exec -i swss supervisorctl stop arp_update
   become: yes
@@ -153,4 +181,24 @@
     shell: "sysctl -p"
     become: yes
 
-  when: "'mellanox' in fanout_sonic_version.asic_type"
+  when: "fanout_sonic_version.asic_type in ['marvell-teralynx', 'mellanox']"
+
+- name: Stop lldp container
+  block:
+    - name: Check if lldp container exists
+      shell: "docker ps -a -q -f name=lldp"
+      register: lldp_container
+
+    - name: Stop lldp and remove container
+      block:
+        - name: ensure lldp container is stopped
+          docker_container:
+            name: lldp
+            state: stopped
+          become: true
+        - name: remove lldp container
+          docker_container:
+            name: lldp
+            state: absent
+          become: true
+      when: lldp_container.stdout != "" and "marvell-teralynx" in fanout_sonic_version.asic_type
