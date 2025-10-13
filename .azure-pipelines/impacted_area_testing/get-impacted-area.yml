@@ -1,25 +1,34 @@
 steps:
 - script: |
     echo "##vso[task.setvariable variable=BUILD_BRANCH]${{ parameters.BUILD_BRANCH }}"
-    echo "##vso[task.setvariable variable=IMPACT_AREA_INFO]${{ parameters.IMPACT_AREA_INFO }}"
+
+    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+    IMPACT_AREA_INFO='${{ convertToJson(parameters.IMPACT_AREA_INFO) }}'
+    echo "Input impact area info: $IMPACT_AREA_INFO"
     TEST_SCRIPTS=""
     PR_CHECKERS=""
-    if [[ -n "${{ parameters.IMPACT_AREA_INFO }}" ]]; then
+    if [[ -n "$IMPACT_AREA_INFO" && "$IMPACT_AREA_INFO" != "{}" ]]; then
       echo "Impact area was pre-defined."
-      TEST_SCRIPTS=$(echo "${{ parameters.IMPACT_AREA_INFO }}")
+      echo "Impact area info: $IMPACT_AREA_INFO"
+      TEST_SCRIPTS=$(echo "$IMPACT_AREA_INFO" | jq -c '.')
       PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+      echo "Pre-defined test scripts: ${TEST_SCRIPTS}"
+      echo "Pre-defined PR checkers: ${PR_CHECKERS}"
     else
       echo "Impact area was not pre-defined."
     fi
-    echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
-    echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
+    echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]${PR_CHECKERS}"
+    echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]${TEST_SCRIPTS}"
+  name: VerifyParams
   displayName: "Verify input parameters"
 
 
 - script: |
     set -x
 
-    if [[ -n "${TEST_SCRIPTS}" && -n "${PR_CHECKERS}" ]]; then
+    TEST_SCRIPTS='$(VerifyParams.TEST_SCRIPTS)'
+    PR_CHECKERS='$(VerifyParams.PR_CHECKERS)'
+    if [[ -n "$TEST_SCRIPTS" && -n "$PR_CHECKERS" && "$TEST_SCRIPTS" != "null" && "$PR_CHECKERS" != "null" ]]; then
       echo "Impact area was pre-defined, skip get diff step."
       exit 0
     fi
@@ -32,21 +41,22 @@ steps:
     else
       echo -n "##vso[task.setvariable variable=DIFF_FOLDERS]$DIFF_FOLDERS"
     fi
-
   continueOnError: false
   displayName: "Get diff folders"
 
 - script: |
     set -x
 
-    if [[ -n "${TEST_SCRIPTS}" && -n "${PR_CHECKERS}" ]]; then
+    TEST_SCRIPTS='$(VerifyParams.TEST_SCRIPTS)'
+    PR_CHECKERS='$(VerifyParams.PR_CHECKERS)'
+    if [[ -n "$TEST_SCRIPTS" && -n "$PR_CHECKERS" && "$TEST_SCRIPTS" != "null" && "$PR_CHECKERS" != "null" ]]; then
       echo "Impact area was pre-defined, skip get impacted area step."
+      echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
+      echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
       exit 0
     fi
     pip install PyYAML
     pip install natsort
-
-    sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     FINAL_FEATURES=""
     IFS=' ' read -ra FEATURES_LIST <<< "$(DIFF_FOLDERS)"
@@ -102,6 +112,6 @@ steps:
 
     echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]$PR_CHECKERS"
     echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]$TEST_SCRIPTS"
-  name: SetVariableTask
+  name: GetImpactArea
   continueOnError: false
   displayName: "Get impacted area"
