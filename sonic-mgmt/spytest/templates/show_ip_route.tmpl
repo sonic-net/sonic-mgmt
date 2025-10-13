@@ -15,6 +15,7 @@ Value weight (\d+)
 
 Start
   ^\s*VRF ${vrf_name}:
+  ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*is directly connected,\s*${INTERFACE},\s*weight ${weight},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*is directly connected,\s*${INTERFACE},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*via\s*${NEXTHOP},\s*${INTERFACE}\s*onlink,\s*weight\s*${weight},\s*${DURATION}\s*$$ -> Record
   ^\s*${TYPE}${SELECTED}${FIB}\s*${IP_ADDRESS}\s*\[${DISTANCE}\/${COST}\]\s*is directly connected,\s*${INTERFACE}\(vrf\s${dest_vrf_name}\),\s*${DURATION}\s*$$ -> Record
