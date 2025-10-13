@@ -307,8 +307,6 @@ def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
     """
     physical_port_indices = get_physical_port_indices(duthost, logical_intfs)
     pport_to_lport_mapping = get_physical_to_logical_port_mapping(physical_port_indices)
-    for sub_ports_list in pport_to_lport_mapping.values():
-        sub_ports_list.sort(key=lambda x: int(x.replace("Ethernet", "")))
     first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
     logging.debug("First subports mapping: {}".format(first_subport_dict))
     return first_subport_dict
