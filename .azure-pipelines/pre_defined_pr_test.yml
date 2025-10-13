@@ -6,11 +6,11 @@ trigger: none
 parameters:
 - name: BUILD_REASON
   type: string
-  default: "PullRequest"
+  default: "Manual"
 
 - name: BUILD_BRANCH
   type: string
-  default: " "
+  default: ""
 
 - name: TEST_PLAN_NUM
   type: string
