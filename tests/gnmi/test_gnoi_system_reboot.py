@@ -8,7 +8,7 @@ from tests.common.reboot import wait_for_startup
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
 from tests.conftest import get_specified_dpus
-from tests.common.platform.device_utils import handle_dpu_reboot
+from tests.common.platform.device_utils import reboot_dpu_and_wait_for_start_up
 
 
 pytestmark = [
@@ -196,7 +196,7 @@ def test_gnoi_system_reboot_halt_dpus(duthosts, rand_one_dut_hostname, localhost
         wait_until(120, 10, 0, is_reboot_inactive, duthost, localhost)
         logging.info("HALT reboot is completed")
 
-        dpu_reboot_status = handle_dpu_reboot(duthost, dpuhost_name, dpu_index)
+        dpu_reboot_status = reboot_dpu_and_wait_for_start_up(duthost, dpuhost_name, dpu_index)
         if not dpu_reboot_status:
             pytest.fail(f"DPU {dpuhost_name} (DPU index: {dpu_index}) failed to reboot properly")
 

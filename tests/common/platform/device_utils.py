@@ -1275,7 +1275,7 @@ def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
     return True
 
 
-def handle_dpu_reboot(duthost, dpuhost_name, dpu_index):
+def reboot_dpu_and_wait_for_start_up(duthost, dpuhost_name, dpu_index):
     logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
     reboot_status = duthost.command(f"sudo reboot -d dpu{dpu_index}")
     if reboot_status['rc'] != 0:
