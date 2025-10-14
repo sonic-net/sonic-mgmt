@@ -344,6 +344,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - dut_console/test_idle_timeout.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
+        - tacacs/test_authorization.py
 
   t0-64:
     mth64:
