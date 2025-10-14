@@ -28,6 +28,9 @@ from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestCon
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 
+# packet count for traffic test
+COUNT = 10
+
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
     pytest.mark.device_type('vs')
@@ -122,7 +125,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     upstream_name = UPSTREAM_NEIGHBOR_MAP[topo_type]
     ptf_upstream_intf = random.choice(get_neighbor_ptf_port_list(duthost, upstream_name, tbinfo))
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, ptf_upstream_intf, pkt, count=10)
+    testutils.send(ptfadapter, ptf_upstream_intf, pkt, count=COUNT)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
 
 
@@ -255,7 +258,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             duthost.shell("dualtor_neighbor_check.py")
 
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
-                                         duthost, [prefix], {prefix: {'packets': '1'}}):
+                                         duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
 
         # Check the route is advertised to the neighbors
@@ -284,7 +287,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
             for nexthop_addr in nexthop_addrs:
                 duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
             with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost,
-                                             [prefix], {prefix: {'packets': '1'}}):
+                                             [prefix], {prefix: {'packets': COUNT}}):
                 generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
