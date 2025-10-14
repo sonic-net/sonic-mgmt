@@ -402,12 +402,12 @@ sonic_mlnx_100:
       ansible_hostv6: 2a01:111:e210:b000::a40:f7eb
       hwsku: Mellanox-SN2700-D48C8
       model: MSN2700-CS2FO
-      serial: MT1648X06682
+      serial: MT2028X35361
       base_mac: 24:8a:07:80:6c:80
       syseeprom_info:
         "0x21": "MSN2700"
         "0x22": "MSN2700-CS2FO"
-        "0x23": "MT1648X06682"
+        "0x23": "MT2028X35361"
         "0x24": "24:8A:07:80:6C:80"
         "0x25": "12/07/2016"
         "0x26": "0"
