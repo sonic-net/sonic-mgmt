@@ -494,7 +494,7 @@ def test_check_sfputil_eeprom_hexdump(duthosts, enum_rand_one_per_hwsku_frontend
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_frontend_asic_index, conn_graph_facts,
-                             tbinfo, xcvr_skip_list, shutdown_ebgp, get_sw_control_ports, limited_ports):    # noqa: F811
+                             tbinfo, xcvr_skip_list, shutdown_ebgp, get_sw_control_ports, limited_ports):  # noqa: F811
     """
     @summary: Check SFP reset using 'sfputil reset'
     """
