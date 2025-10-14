@@ -162,7 +162,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         rand_selected_dut.command("sudo config bgp shutdown all")
 
     @pytest.fixture()
-    def restore_setup_info(self, setup_info, rand_unselected_dut):      # noqa F811
+    def restore_setup_info(self, setup_info, rand_unselected_dut):  # noqa: F811
         """
         In everflow test cases, the bgp session would be shutdown at active tor
         It would affects the basic function of dualtor muxcable
@@ -224,9 +224,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_multi_binding_acl(self, setup_info, setup_mirror_session,              # noqa F811
                                         dest_port_type, ptfadapter, tbinfo,
                                         toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
-                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
-                                        erspan_ip_ver, upstream_links_for_unselected_dut,            # noqa F811
-                                        is_multi_binding_acl_enabled, restore_setup_info, restore_bgp, duthosts):  # noqa F811
+                                        erspan_ip_ver, upstream_links_for_unselected_dut,    # noqa F811
+                                        is_multi_binding_acl_enabled, restore_setup_info, duthosts, request):  # noqa F811
         """
         Verify multi-binding ACL scenarios for the Everflow feature.
         """
@@ -235,6 +234,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         if dest_port_type == UP_STREAM:
             pytest.skip("Multi-binding ACL is not supported for up stream direction")
+        request.getfixturevalue('restore_bgp')
 
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
@@ -251,6 +251,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         pytest_assert(wait_until(30, 10, 0, everflow_utils.validate_mirror_session_up,
                                  remote_dut, setup_mirror_session["session_name"]))
 
+        request.getfixturevalue('setup_standby_ports_on_rand_unselected_tor_unconditionally')
         # Verify that mirrored traffic is sent along the route we installed
         random_upstream_intf = random.choice(list(upstream_links_for_unselected_dut.keys()))
         rx_port_ptf_id = upstream_links_for_unselected_dut[random_upstream_intf]["ptf_port_id"]
