@@ -6,11 +6,11 @@ import importlib
 from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.eni_pb2 import Eni, State # noqa: F401
+from dash_api.eni_pb2 import Eni, State  # noqa: F401
 from dash_api.eni_route_pb2 import EniRoute
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_type_pb2 import ActionType, RouteType, RouteTypeItem, EncapType, RoutingType # noqa: F401
+from dash_api.route_type_pb2 import ActionType, RouteType, RouteTypeItem, EncapType, RoutingType  # noqa: F401
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
