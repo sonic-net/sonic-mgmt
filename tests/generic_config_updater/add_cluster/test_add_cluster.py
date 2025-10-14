@@ -4,7 +4,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
-from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.gu_utils import delete_tmpfile, expect_op_success, generate_tmpfile
 from tests.common.gu_utils import apply_patch
@@ -706,9 +705,9 @@ def setup_add_cluster(tbinfo,
         wait_until(5, 1, 0, verify_routev4_existence, duthost,
                    enum_rand_one_frontend_asic_index, STATIC_DST_IP, should_exist=False)
 
-    with allure.step("Reload the system with cold reboot"):
+    with allure.step("Reload the system with config reload"):
         duthost.shell("config save -y")
-        reboot(duthost, localhost)
+        config_reload(duthost, config_source='config_db', safe_reload=True)
         pytest_assert(wait_until(300, 20, 0, duthost.critical_services_fully_started),
                       "All critical services should be fully started!")
         pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost),
@@ -743,7 +742,6 @@ def setup_add_cluster(tbinfo,
 # Test Definitions
 # -----------------------------
 
-@pytest.mark.disable_loganalyzer
 def test_add_cluster(tbinfo,
                      duthosts,
                      initialize_random_variables,
