@@ -104,7 +104,10 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         #
         # Since we don't care about logs from swss for this test case, stop rsyslogd in
         # the swss container completely.
-        duthost.command("docker exec swss supervisorctl stop rsyslogd")
+        for asic_id in duthost.get_asic_ids():
+            if asic_id is None:
+                asic_id = ""
+            duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
 
         with loganalyzer:
             logging.info("Reloading config..")
