@@ -639,6 +639,48 @@
                   dest=/tmp/dns_config.json
         become: true
 
+      - name: Adjust BCM DNX soc properties to set STAN_ALN mode correctly
+        block:
+          - name: Get active fabric links
+            block:
+            - name: Get online fabric cards
+              shell: show chassis module status | grep "FABRIC-CARD" | grep "Online" | wc -l
+              register: active_fabric_cards
+
+            - name: Set fabric links based on active fabric cards
+              set_fact:
+                fabric_links: "{{ active_fabric_cards.stdout | int * 24 }}"
+
+            when: inventory_hostname == sup_dut
+
+          - name: Adjust SOC properties if appl_param_active_links_thr_high is greater than fabric links
+            block:
+              - name: Set SOC properties locations
+                set_fact:
+                  device_config_path: "/usr/share/sonic/device/{{ sonic_hw_platform }}/{{ hwsku }}/*"
+
+              - name: Get appl_param_active_links_thr_high
+                shell: grep -ir appl_param_active_links_thr_high {{ device_config_path }} | sed -n 's/.*appl_param_active_links_thr_high=\([0-9]*\).*/\1/p'
+                register: high_active_links_grep
+
+              - name: Get highest appl_param_active_links_thr_high value
+                set_fact:
+                  high_active_links: "{{ high_active_links_grep.stdout_lines | map('int') | max }}"
+
+              - name: Set new appl_param_active_links_thr_high value
+                set_fact:
+                  new_active_links: "{{ ((2/3)*(hostvars[sup_dut]['fabric_links'] | int)) | int }}"
+
+              - name: Adjust appl_param_active_links_thr_high to match active fabric links
+                shell: grep -rl appl_param_active_links_thr_high {{ device_config_path }} | xargs sudo sed -i 's/appl_param_active_links_thr_high=.*/appl_param_active_links_thr_high={{ new_active_links }}/g'
+                when: high_active_links | int > hostvars[sup_dut]['fabric_links'] | int
+                # Needs to be followed by config reload to take affect
+
+            when: inventory_hostname != sup_dut
+        when: ("t2" in topo) and (switch_type is defined and (switch_type == "voq" or switch_type == "fabric")) and (hwsku is defined and 'Nokia-IXR7250' in hwsku)
+        rescue:
+          - debug: msg="SOC properties may not be defined in the device config file. Skipping adjustment of SOC properties."
+
       - name: Generate golden_config_db.json
         generate_golden_config_db:
           topo_name: "{{ topo }}"
