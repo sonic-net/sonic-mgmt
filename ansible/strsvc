@@ -21,10 +21,10 @@ all:
         svc1-2:
           ansible_host: 10.206.144.20
           ansible_hostv6: 2a01:111:e205:100::ace:9014
-        svc3-3:
+        svc1-3:
           ansible_host: 10.206.144.140
           ansible_hostv6: 2a01:111:e205:100::ace:908c
-        svc3-4:
+        svc1-4:
           ansible_host: 10.206.144.142
           ansible_hostv6: 2a01:111:e205:100::ace:908e
         svc3-1:
