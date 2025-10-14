@@ -140,7 +140,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         everflow_utils.remove_route(duthost, dst_mask, nexthop_ip, ns)
 
     def test_everflow_basic_forwarding(self, setup_info, setup_mirror_session,              # noqa F811
-                                       dest_port_type, ptfadapter, tbinfo, mux_config,
+                                       dest_port_type, ptfadapter, tbinfo, mux_config,      # noqa F811
                                        toggle_all_simulator_ports_to_rand_selected_tor,     # noqa F811
                                        setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                        erspan_ip_ver):                                              # noqa F811
@@ -252,7 +252,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
             setup_info[dest_port_type]["remote_namespace"]))
 
     def test_everflow_neighbor_mac_change(self, setup_info, setup_mirror_session,               # noqa F811
-                                          dest_port_type, ptfadapter, tbinfo, mux_config,
+                                          dest_port_type, ptfadapter, tbinfo, mux_config,       # noqa F811
                                           toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                           setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                           erspan_ip_ver):                                              # noqa F811
@@ -331,7 +331,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
     def test_everflow_remove_unused_ecmp_next_hop(self, setup_info, setup_mirror_session,               # noqa F811
-                                                  dest_port_type, ptfadapter, tbinfo, mux_config,
+                                                  dest_port_type, ptfadapter, tbinfo, mux_config,       # noqa F811
                                                   toggle_all_simulator_ports_to_rand_selected_tor,      # noqa F811
                                                   setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                                   erspan_ip_ver):                                              # noqa F811
@@ -434,7 +434,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
         )
 
     def test_everflow_remove_used_ecmp_next_hop(self, setup_info, setup_mirror_session,                 # noqa F811
-                                                dest_port_type, ptfadapter, tbinfo, mux_config,
+                                                dest_port_type, ptfadapter, tbinfo, mux_config,         # noqa F811
                                                 toggle_all_simulator_ports_to_rand_selected_tor,        # noqa F811
                                                 setup_standby_ports_on_rand_unselected_tor_unconditionally,  # noqa F811
                                                 erspan_ip_ver):                                              # noqa F811
@@ -682,7 +682,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
     def test_everflow_frwd_with_bkg_trf(self,
                                         setup_info,  # noqa F811
                                         setup_mirror_session,
-                                        dest_port_type, ptfadapter, tbinfo, mux_config,
+                                        dest_port_type, ptfadapter, tbinfo, mux_config,  # noqa F811
                                         erspan_ip_ver, toggle_all_simulator_ports_to_rand_selected_tor,  # noqa F811
                                         setup_standby_ports_on_rand_unselected_tor_unconditionally):  # noqa F811
         """
@@ -973,7 +973,7 @@ class EverflowIPv4Tests(BaseEverflowTest):
                 "vtysh -c \"configure terminal\" -c \"ip nht resolve-via-default\"",
                 setup_info[dest_port_type]["remote_namespace"]))
 
-    def _run_everflow_test_scenarios(self, ptfadapter, setup, mux_config, mirror_session, duthost, rx_port,
+    def _run_everflow_test_scenarios(self, ptfadapter, setup, mux_config, mirror_session, duthost, rx_port,  # noqa F811
                                      tx_ports, direction, expect_recv=True, valid_across_namespace=True,
                                      erspan_ip_ver=4):  # noqa F811
         # FIXME: In the ptf_runner version of these tests, LAGs were passed down to the tests
