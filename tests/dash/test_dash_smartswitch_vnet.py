@@ -7,6 +7,7 @@ from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE
 from gnmi_utils import apply_gnmi_file
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.dash.conftest import get_interface_ip
+from tests.common import config_reload
 
 APPLIANCE_VIP = "10.1.0.5"
 ENABLE_GNMI_API = True
@@ -21,47 +22,57 @@ pytestmark = [
 
 """
 Test prerequisites:
-- DPU needs the Appliance VIP configured as its loopback IP
 - Assign IPs to DPU-NPU dataplane interfaces
-- Default route on DPU to NPU
 """
 
+@pytest.fixture(scope="module", autouse=True)
+def dpu_setup_vnet(duthost, dpuhosts, dpu_index, skip_config):
+    if skip_config:
+
+        return
+    dpuhost = dpuhosts[dpu_index]
+    # explicitly add mgmt IP route so the default route doesn't disrupt SSH access
+    dpuhost.shell(f'ip route replace {duthost.mgmt_ip}/32 via 169.254.200.254')
+    intfs = dpuhost.shell("show ip int")["stdout"]
+    dpu_cmds = list()
+    if "Loopback0" not in intfs:
+        dpu_cmds.append("config loopback add Loopback0")
+        dpu_cmds.append(f"config int ip add Loopback0 {APPLIANCE_VIP}/32")
+
+    dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
+    dpuhost.shell_cmds(cmds=dpu_cmds)
 
 @pytest.fixture(scope="module", autouse=True)
-def add_dpu_static_route(duthost, dpu_ip):
-    cmd = f"ip route replace {APPLIANCE_VIP}/32 via {dpu_ip}"
-    duthost.shell(cmd)
-
-    yield
-
-    duthost.shell(f"ip route del {APPLIANCE_VIP}/32 via {dpu_ip}")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def add_npu_static_routes(duthost, dpu_ip, dash_smartswitch_vnet_config, skip_config, skip_cleanup):
+def add_npu_static_routes_vnet(duthost, dash_smartswitch_vnet_config, skip_config, skip_cleanup, dpu_index, dpuhosts):
     if not skip_config:
+        dpuhost = dpuhosts[dpu_index]
         cmds = []
         pe_nexthop_ip = get_interface_ip(duthost, dash_smartswitch_vnet_config[REMOTE_DUT_INTF]).ip + 1
         cmds.append(f"ip route replace {dash_smartswitch_vnet_config[REMOTE_PA_IP]}/32 via {pe_nexthop_ip}")
+        cmds.append(f"ip route replace {APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         logger.info(f"Adding static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
 
     yield
 
     if not skip_config and not skip_cleanup:
+        dpuhost = dpuhosts[dpu_index]
         cmds = []
         cmds.append(f"ip route del {dash_smartswitch_vnet_config[REMOTE_PA_IP]}/32 via {pe_nexthop_ip}")
+        cmds.append(f"ip route del {APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
         logger.info(f"Removing static routes: {cmds}")
         duthost.shell_cmds(cmds=cmds)
 
 
-@pytest.fixture(autouse=True)
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswitch_vnet_config, skip_config):
+@pytest.fixture(scope="module", autouse=True)
+def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswitch_vnet_config, skip_config, dpuhosts, add_npu_static_routes_vnet, dpu_setup_vnet):
     if skip_config:
         return
 
-    host = f"dpu{dpu_index}"
+    dpuhost = dpuhosts[dpu_index]
+    host = f"dpu{dpuhost.dpu_index}"
     op = "SET"
+    import time; time.sleep(60)
     for i in range(0, 4):
         config = f"dash_smartswitch_vnet_{i}"
         template_name = "{}.j2".format(config)
@@ -72,31 +83,26 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswit
         else:
             apply_swssconfig_file(duthost, dest_path)
 
+    if 'pensando' in dpuhost.facts['asic_type']:
+        logger.warning("Appling Pensando DPU VXLAN sport workaround")
+        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
 
-    op = "DEL"
-    for i in reversed(range(0, 4)):
-        config = f"dash_smartswitch_vnet_{i}"
-        template_name = "{}.j2".format(config)
-        dest_path = "/tmp/{}.json".format(config)
-        render_template_to_host(template_name, duthost, dest_path, dash_smartswitch_vnet_config, op=op)
-        if ENABLE_GNMI_API:
-            apply_gnmi_file(localhost, duthost, ptfhost, dest_path, None, 5, 1024, host)
-        else:
-            apply_swssconfig_file(duthost, dest_path)
+     # Route rule removal is broken so config reload to cleanup for now
+    # https://github.com/sonic-net/sonic-buildimage/issues/23590
+    config_reload(dpuhost, wait=30, safe_reload=False, yang_validate=False)
+
 
 
 def test_smartswitch_outbound_vnet(
         ptfadapter,
         dash_smartswitch_vnet_config,
         skip_dataplane_checking,
-        inner_packet_type,
-        vxlan_udp_dport):
+        inner_packet_type):
 
     if skip_dataplane_checking:
         return
     _, vxlan_packet, expected_packet = packets.outbound_smartswitch_vnet_packets(dash_smartswitch_vnet_config,
-                                                                                 vxlan_udp_dport=vxlan_udp_dport,
                                                                                  inner_packet_type=inner_packet_type)
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, dash_smartswitch_vnet_config[LOCAL_PTF_INTF], vxlan_packet, 1)

@@ -6,11 +6,11 @@ import importlib
 from ipaddress import ip_address
 
 from dash_api.appliance_pb2 import Appliance
-from dash_api.eni_pb2 import Eni
+from dash_api.eni_pb2 import Eni, State
 from dash_api.eni_route_pb2 import EniRoute
 from dash_api.route_group_pb2 import RouteGroup
 from dash_api.route_pb2 import Route
-from dash_api.route_type_pb2 import ActionType, RouteType, RouteTypeItem
+from dash_api.route_type_pb2 import ActionType, RouteType, RouteTypeItem, EncapType, RoutingType
 from dash_api.vnet_mapping_pb2 import VnetMapping
 from dash_api.vnet_pb2 import Vnet
 from dash_api.meter_policy_pb2 import MeterPolicy
@@ -92,6 +92,11 @@ def parse_dash_proto(key: str, proto_dict: dict):
     table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
     message = PB_CLASS_MAP[table_name]()
     field_map = message.DESCRIPTOR.fields_by_name
+
+    if table_name == "ROUTING_TYPE":
+        pb = routing_type_from_json(proto_dict)
+        return pb
+
     new_dict = {}
     for key, value in proto_dict.items():
         if field_map[key].type == field_map[key].TYPE_MESSAGE:
@@ -110,6 +115,12 @@ def parse_dash_proto(key: str, proto_dict: dict):
 
         elif field_map[key].type == field_map[key].TYPE_BYTES:
             new_dict[key] = parse_byte_field(value)
+
+        elif field_map[key].type == field_map[key].TYPE_ENUM:
+            if isinstance(value, int):
+                new_dict[key] = value
+            else:
+                new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
 
         elif field_map[key].type in PB_INT_TYPES:
             new_dict[key] = int(value)
@@ -137,6 +148,8 @@ def get_enum_type_from_str(enum_type_str, enum_name_str):
         raise Exception(f"Cannot find enum type {enum_type_str}")
 
 
+
+'''
 def routing_type_from_json(json_obj):
     pb = RouteType()
     if isinstance(json_obj, list):
@@ -157,6 +170,27 @@ def routing_type_from_json(json_obj):
             pbi.encap_type = get_enum_type_from_str('EncapType', json_obj.get("encap_type"))
         if json_obj.get("vni") is not None:
             pbi.vni = int(json_obj["vni"])
+        pb.items.append(pbi)
+    return pb
+'''
+
+def routing_type_from_json(json_obj):
+    pb = RouteType()
+    route_type_items = json_obj['items']
+    for item in route_type_items:
+        pbi = RouteTypeItem()
+        pbi.action_name = item["action_name"]
+        if isinstance(item.get("action_type"), int):
+            pbi.action_type = item.get("action_type")
+        else:
+            pbi.action_type = get_enum_type_from_str('ActionType', item.get("action_type"))
+        if item.get("encap_type") is not None:
+            if isinstance(item.get("encap_type"), int):
+                pbi.encap_type = item.get("encap_type")
+            else:
+                pbi.encap_type = get_enum_type_from_str('EncapType', item.get("encap_type"))
+        if item.get("vni") is not None:
+            pbi.vni = int(item["vni"])
         pb.items.append(pbi)
     return pb
 
