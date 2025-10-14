@@ -24,15 +24,18 @@ def generate_ips(num, prefix, exclude_ips):
     return generated_ips
 
 
-def route_through_default_routes(host, ip_addr, ip_ver):
+def route_through_default_routes(host, ip_addr):
     """
     @summary: Check if a given ip targets to default route
     @param host: The duthost
     @param ip_addr: The ip address to check
     @return: True if the given up goes to default route, False otherwise
     """
-    v6_str = "v6" if ip_ver == 6 else ''
-    output = host.shell("show ip{} route {} json".format(v6_str, ip_addr))['stdout']
+    ip_cmd_suffix = ""
+    if ":" in ip_addr:
+        ip_cmd_suffix = "v6"
+
+    output = host.shell("show ip{} route {} json".format(ip_cmd_suffix, ip_addr))['stdout']
     routes_info = json.loads(output)
     ret = True
 
@@ -53,7 +56,7 @@ def generate_ip_through_default_route(host, exclude_ips=None):
     exclude_ips = exclude_ips if exclude_ips is not None else []
     for leading in range(11, 255):
         ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), exclude_ips)[0]
-        if route_through_default_routes(host, ip_addr, 4):
+        if route_through_default_routes(host, ip_addr):
             return ip_addr
     return None
 
@@ -68,6 +71,6 @@ def generate_ip_through_default_v6_route(host, exclude_ips=None):
     exclude_ips = exclude_ips if exclude_ips is not None else []
     for random_byte in range(0, 9):
         ip_addr = generate_ips(1, "2603:10b{}::1/120".format(random_byte), exclude_ips)[0]
-        if route_through_default_routes(host, ip_addr, 6):
+        if route_through_default_routes(host, ip_addr):
             return ip_addr
     return None
