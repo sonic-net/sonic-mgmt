@@ -1055,15 +1055,15 @@
   comment: genhwa
 
 - conf-name: vmsvc1-dual-t0-7050-1
-  group-name: svc3-3
+  group-name: svc1-3
   topo: dualtor-aa
   ptf_image_name: docker-ptf
-  ptf: svc3-3
+  ptf: svc1-3
   ptf_ip: 10.206.144.140/24
   ptf_ipv6: 2a01:111:e205:100::ace:908c/64
   netns_mgmt_ip: 10.206.144.141/24
-  server: server_svc_3
-  vm_base: VM30080
+  server: server_svc_1
+  vm_base: VM10048
   dut:
   - svcstr-7050-acs-1
   - svcstr-7050-acs-2
@@ -1072,15 +1072,15 @@
   comment: v-saidia
 
 - conf-name: vmsvc1-dual-t0-7050-2
-  group-name: svc3-4
+  group-name: svc1-4
   topo: dualtor
   ptf_image_name: docker-ptf
-  ptf: svc3-4
+  ptf: svc1-4
   ptf_ip: 10.206.144.142/24
   ptf_ipv6: 2a01:111:e205:100::ace:908e/64
   netns_mgmt_ip: 10.206.144.143/24
-  server: server_svc_3
-  vm_base: VM30084
+  server: server_svc_1
+  vm_base: VM10052
   dut:
   - svcstr-7050-acs-3
   - svcstr-7050-acs-4
