@@ -1,6 +1,7 @@
 import logging
 import pytest
 import time
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
@@ -152,25 +153,45 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
 
     def skip_fec_flr_counters_test(intf_status: dict) -> bool:
         """
-        Check whether the FEC_FLR Field exists in the
-        "show interfaces counters fec-stats"
+        Check whether the Observed FLR field FLR(O) exists
+        in the "show interfaces counters fec-stats"
         CLI output
         """
-        if intf_status.get('fec_flr') is None:
-            pytest.skip("Fec-Flr field is missing on interface. intf_status: {}".format(intf_status))
+        if intf_status.get('flr(o)') is None:
+            pytest.skip("FLR(O) field is missing on interface. intf_status: {}".format(intf_status))
             return True
         return False
 
     def skip_predicted_flr_counters_test(intf_status: dict) -> bool:
         """
-        Check whether the FEC_FLR_PREDICTED Field exists in the
-        "show interfaces counters fec-stats"
+        Check whether the Predicted FLR field FLR(P) exists
+        in the "show interfaces counters fec-stats"
         CLI output
         """
-        if intf_status.get('fec_flr_predicted') is None:
-            pytest.skip("Fec-Flr-Predicted field is missing on interface. intf_status: {}".format(intf_status))
+        if intf_status.get('flr(p) (accuracy)') is None:
+            pytest.skip("FLR(P) field is missing on interface. intf_status: {}".format(intf_status))
             return True
         return False
+
+    def validate_predicted_flr(value_string) -> bool:
+        """
+        Validate predicted flr string is in the correct
+        format when not N/A.
+        Expected format :
+            * 0
+            * 7.81e-10 (89%)
+        """
+        # Pattern for just "0"
+        if value_string == "0":
+            return True
+
+        # Pattern for scientific notation with optional accuracy percentage
+        # e.g., "7.81e-10 (89%)" or just "7.81e-10"
+        pattern = r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?(\s+\(\d+%\))?$'
+        if re.match(pattern, value_string):
+            return True
+
+        raise ValueError(f"Invalid predicted FLR format: {value_string}")
 
     for intf in intf_status:
         intf_name = intf['iface']
@@ -207,9 +228,9 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(fec_symbol_err_int, fec_corr_int, intf_name))
 
-        # Test for fec_flr
+        # Test for observed flr
         if not skip_fec_flr_counters_test(intf):
-            fec_flr = intf.get('fec_flr', '').lower()
+            fec_flr = intf.get('flr(o)', '').lower()
             try:
                 if fec_flr !="n/a":
                     float(fec_flr)
@@ -217,15 +238,15 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
                 pytest.fail("fec_flr is not a valid float for interface {}, \
                             fec_flr: {}".format(intf_name, fec_flr))
 
-        # Test for fec_flr_predicted
+        # Test for predicted flr
         if not skip_predicted_flr_counters_test(intf):
-            fec_flr_predicted = intf.get('fec_flr_predicted', '').lower()
+            fec_flr_predicted = intf.get('flr(p) (accuracy)', '').lower()
             try:
                 if fec_flr_predicted !="n/a":
-                    float(fec_flr_predicted)
+                    validate_predicted_flr(fec_flr_predicted)
             except ValueError:
-                pytest.fail("fec_flr_predicted is not a valid float for interface {}, \
-                            fec_flr_predicted: {}".format(intf_name, fec_flr_predicted))
+                pytest.fail("predicted_flr is not a valid float for interface {}, \
+                            flr(p): {}".format(intf_name, fec_flr_predicted))
 
         if skip_ber_counters_test(intf):
             continue
