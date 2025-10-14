@@ -126,26 +126,22 @@ Example of `dut_info.json`:
         }
       },
       "dut_name_1": {
-        "Ethernet0": {
+        "Ethernet0:7": {
           "vendor_name": "ACME Corp.",
           "vendor_pn": "QSFP-2X100G-AOC-15M",
           "vendor_sn": "serial_number_001",
           "vendor_date": "vendor_date_code",
           "vendor_oui": "vendor_oui",
           "vendor_rev": "revision_number",
-          "hardware_rev": "hardware_revision_number",
-          "transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF"
+          "hardware_rev": "hardware_revision_number"
         },
-        "Ethernet4:7": {
-          "vendor_name": "ACME Corp.",
-          "vendor_pn": "QSFP-2X100G-AOC-15M",
-          "vendor_sn": "serial_number",
-          "vendor_date": "vendor_date_code",
-          "vendor_oui": "vendor_oui",
-          "vendor_rev": "revision_number",
-          "hardware_rev": "hardware_revision_number",
-          "transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0xFF-0xFF"
-        },
+        "Ethernet0": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x1-0x1"},
+        "Ethernet1": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x2-0x2"},
+        "Ethernet2": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x4-0x4"},
+        "Ethernet3": {"transceiver_configuration": "AOC-200-QSFPDD-2x100G_200G_SIDE-0x8-0x8"},
+        "Ethernet4": {"transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x10-0x10"},
+        "Ethernet5": {"transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x20-0x20"},
+        "Ethernet6": {"transceiver_configuration": "AOC-100-QSFPDD-2x100G_100G_SIDE-0x40-0x40"},
         "Ethernet16,Ethernet20,Ethernet24": {
           "vendor_name": "Example & Co",
           "vendor_pn": "SFP-1000BASE-LX",
@@ -200,6 +196,8 @@ Example of `dut_info.json`:
 - **Default normalization**: If no mapping is found in `normalization_mappings`, the normalized value defaults to the original value.
 - **Cable length normalization**: For modules such as **AOC cables** (or any module whose part number includes a cable length), it is **mandatory** to provide a mapping in `normalization_mappings.part_numbers` following the cable length normalization rules.
 - **Port expansion processing**: Range and list specifications are expanded to individual ports before attribute processing.
+- **Overlapping port specifications**: Multiple port specifications can target the same port. Later specifications override attributes from earlier ones, enabling efficient configuration patterns like defining shared attributes in ranges and port-specific attributes individually.
+- **Deferred mandatory field validation**: Mandatory fields are validated after all applicable port specifications have been merged for each port, allowing flexible configuration where some fields come from ranges and others from individual port entries.
 - **Transceiver configuration format**: The `transceiver_configuration` field uses a mandatory 6-component naming format to fully describe a transceiver's deployment characteristics:
 
     **Format (Mandatory)**: `{TYPE}-{SPEED}-{FORM_FACTOR}-{DEPLOYMENT}-{MEDIA_LANE_MASK}-{HOST_LANE_MASK}`
@@ -277,7 +275,9 @@ More details on the `port_attributes_dict` structure and usage are provided in t
 
 1. **Parse Port Specifications**: Identify range, list, and individual port formats
 2. **Expand to Individual Ports**: Convert all specifications to individual port names  
-3. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
+3. **Merge Overlapping Attributes**: Collect all attributes for each port, with later port specifications overriding earlier ones
+4. **Deferred Validation**: Validate mandatory fields after all applicable port specifications have been merged
+5. **Generate Final Dictionary**: Create the standard per-port attribute dictionary
 
 ###### 2. Transceiver Configuration String Parsing
 
@@ -331,6 +331,8 @@ More details on the `port_attributes_dict` structure and usage are provided in t
 **Requirements**:
 
 - Parse `dut_info.json` file and store data in `port_attributes_dict["EthernetXX"]["BASE_ATTRIBUTES"]` for the current DUT
+- Support overlapping port specifications by merging attributes per port (later specs override earlier ones)
+- Validate mandatory fields only after all applicable port specifications have been processed and merged
 - Include all mandatory and optional fields, along with normalized values and parsed configuration components
 - Implement proper error handling and validation
 
