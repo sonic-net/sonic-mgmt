@@ -2,22 +2,10 @@ import os
 import sys
 import platform
 
-#tgen_path = os.getenv("SCID_TGEN_PATH", "/projects/scid/tgen")
-tgen_path = '/data/projects/scid/tgen' 
-
-#def_tcl_path = "/projects/scid/tools/ActivTcl/current/bin"
-#def_tcl_path = "/data/projects/scid/tcl/bin"
-def_tcl_path = "/data/projects/scid/tcl/bin/tclsh8.5" 
-
-#tgen_path=os.path.join(cwd_path,"/projects/scid/tgen")   
-print(os.environ) 
-#import pdb; pdb.set_trace() 
-
-#def_tcl_path = os.path.join(cwd_path,"/projects/scid/tools/ActivTcl/current/bin")  
+tgen_path = os.getenv("SCID_TGEN_PATH", "/projects/scid/tgen")
+def_tcl_path = "/projects/scid/tools/ActivTcl/current/bin"
 tcl_custom_pkgdir = os.path.abspath(os.path.dirname(__file__))
 py_version = platform.python_version()
-print('tgen_path',tgen_path) 
-print('def_tcl_path',def_tcl_path) 
 
 def tg_stc_load(version, logger, logs_path=None):
 
@@ -35,9 +23,7 @@ def tg_stc_load(version, logger, logs_path=None):
 
     # check if STC root folder is found
     stc_root = os.path.join(tgen_path, "stc")
-    print('stc_root',stc_root) 
 
-    #import pdb; pdb.set_trace() 
     if not os.path.exists(stc_root):
         logger.error("STC: not installed. stc_root", stc_root)
         return None
