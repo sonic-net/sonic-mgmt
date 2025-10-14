@@ -80,7 +80,7 @@ def test_line_rate_fcs_error(
 
     checks = [
         {"mask": df["Rx Frames"] != 0, "fail_msg": "RX port(s) received unexpected frames."},
-        {"mask": df["RX_ERR"] != df["Tx Frames"], "fail_msg": "Mismatch: RX_ERR != TX frames on some ports."},
+        {"mask": df["RX_ERR"] != df["Tx Frames"], "fail_msg": "Mismatch: RX_ERR != Tgen TX frames on some ports."},
     ]
 
     logger.info(
@@ -159,7 +159,7 @@ def test_fcs_error_isolation_one_to_one_parallel(
 
     checks = [
         {"mask": (rate_by_rx_crc.get("badCrc", pd.Series(0)) > 0), "fail_msg": "RX port(s) received bad-FCS frames."},
-        {"mask": (total_bad_rxerr != total_bad_tx), "fail_msg": "RX_ERR not matches TX bad-FCS frames."},
+        {"mask": (total_bad_rxerr != total_bad_tx), "fail_msg": "RX_ERR not matches Tgen TX bad-FCS frames."},
         {
             "mask": (df["CRC"].eq("badCrc") & (df["Loss %"] != 100.0)),
             "fail_msg": "Bad-FCS flows did not have 100% loss.",
@@ -242,7 +242,7 @@ def test_fcs_error_isolation_mixed_traffic_on_a_single_port_traffic(
 
     checks = [
         {"mask": flow_bad > 0, "fail_msg": "RX port(s) received bad-FCS frames."},
-        {"mask": total_bad_tx != total_rx_err, "fail_msg": "Mismatch: ingress RX error counters vs bad-FCS TX frames."},
+        {"mask": total_bad_tx != total_rx_err, "fail_msg": "Mismatch: ingress RX error counters vs bad-FCS Tgen TX frames."},
     ]
 
     if not validate_and_log(df, checks):
@@ -488,7 +488,7 @@ def get_merged_counters(snappi_api, tgen_ports):
         [
             {"Host": host.hostname, "Interface": iface, **stats}
             for host, ifaces in {
-                h: json.loads("".join(h.command(f"sudo portstat -i {','.join(ports.keys())} -j")["stdout_lines"][1:]))
+                h: json.loads("".join(h.command(f"sudo portstat -i {','.join(ports.keys())} -j")["stdout_lines"]))
                 for h, ports in dut_tg_port_map.items()
             }.items()
             for iface, stats in ifaces.items()
