@@ -1,7 +1,7 @@
 import os
 import re
 
-from tests.common.platform.interface_utils import get_physical_index_to_interfaces_map
+from tests.platform_tests.mellanox.interface_utils import get_physical_index_to_interfaces_map
 
 SC_ENABLED = 1
 

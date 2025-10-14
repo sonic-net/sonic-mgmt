@@ -29,8 +29,6 @@ cmd_sfp_eeprom_hexdump = "sudo sfputil show eeprom-hexdump"
 cmd_sfp_reset = "sudo sfputil reset"
 cmd_sfp_show_lpmode = "sudo sfputil show lpmode"
 cmd_sfp_set_lpmode = "sudo sfputil lpmode"
-cmd_int_shutdown = "sudo config interface shutdown {IFACE_NAME}"
-cmd_int_startup = "sudo config interface startup {IFACE_NAME}"
 cmd_config_intf_dom = "config interface {} transceiver dom {} {}"
 cmd_config_intf_action = "config interface {} {} {}"
 cmd_intf_startup = "startup"
@@ -494,7 +492,7 @@ def test_check_sfputil_eeprom_hexdump(duthosts, enum_rand_one_per_hwsku_frontend
 
 def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                              enum_frontend_asic_index, conn_graph_facts,
-                             tbinfo, xcvr_skip_list, shutdown_ebgp, get_sw_control_ports, limited_ports):    # noqa: F811
+                             tbinfo, xcvr_skip_list, shutdown_ebgp, limited_ports):    # noqa: F811
     """
     @summary: Check SFP reset using 'sfputil reset'
     """
@@ -505,74 +503,58 @@ def test_check_sfputil_reset(duthosts, enum_rand_one_per_hwsku_frontend_hostname
                                                                 conn_graph_facts,
                                                                 enum_frontend_asic_index,
                                                                 xcvr_skip_list, limited_ports)
-    try:
-        for phy_intf, logical_intfs_dict in phy_intfs_to_test_per_asic.items():
-            # Only reset the first logical interface, since sfputil command acts on this physical port entirely.
-            logical_intf = list(logical_intfs_dict.keys())[0]
-            with DisablePhysicalInterface(duthost, enum_frontend_asic_index, phy_intf, logical_intfs_dict):
-                cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(logical_intf)
+    for phy_intf, logical_intfs_dict in phy_intfs_to_test_per_asic.items():
+        # Only reset the first logical interface, since sfputil command acts on this physical port entirely.
+        logical_intf = list(logical_intfs_dict.keys())[0]
+        with DisablePhysicalInterface(duthost, enum_frontend_asic_index, phy_intf, logical_intfs_dict):
+            cmd_sfp_presence_per_intf = cmd_sfp_presence + " -p {}".format(logical_intf)
 
-                cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, logical_intf)
-                logging.info("resetting {} physical interface {}".format(logical_intf, phy_intf))
-                if get_sw_control_ports and phy_intf in get_sw_control_ports:
-                    # Do interface shutdown
-                    duthost.command(cmd_int_shutdown.format(IFACE_NAME=phy_intf))
-                reset_result = duthost.command(cmd_sfp_reset_intf)
-                assert reset_result["rc"] == 0, (
-                    "'{}' failed."
-                ).format(cmd_sfp_reset_intf)
+            cmd_sfp_reset_intf = "{} {}".format(cmd_sfp_reset, logical_intf)
+            logging.info("resetting {} physical interface {}".format(logical_intf, phy_intf))
+            reset_result = duthost.command(cmd_sfp_reset_intf)
+            assert reset_result["rc"] == 0, (
+                "'{}' failed."
+            ).format(cmd_sfp_reset_intf)
 
-                assert reset_result["rc"] == 0, "'{}' failed".format(cmd_sfp_reset_intf)
-                time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
-                if get_sw_control_ports and phy_intf in get_sw_control_ports:
-                    # Do interface startup
-                    duthost.command(cmd_int_startup.format(IFACE_NAME=phy_intf))
+            time.sleep(I2C_WAIT_TIME_AFTER_SFP_RESET)
 
-                if not is_cmis_module(duthost, enum_frontend_asic_index, logical_intf) and \
-                        not is_power_class_1_module(duthost, enum_frontend_asic_index, logical_intf):
-                    # On platforms where LowPwrRequestHW=DEASSERTED, module will not get reset to low power.
-                    logging.info("Force {} (physical interface {}) to go through the sequence of lpmode on/off".format(
-                        logical_intf, phy_intf))
-                    set_lpmode(duthost, logical_intf, "on")
-                    time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
-                    set_lpmode(duthost, logical_intf, "off")
-                    time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
+            if not is_cmis_module(duthost, enum_frontend_asic_index, logical_intf) and \
+                    not is_power_class_1_module(duthost, enum_frontend_asic_index, logical_intf):
+                # On platforms where LowPwrRequestHW=DEASSERTED, module will not get reset to low power.
+                logging.info("Force {} (physical interface {}) to go through the sequence of lpmode on/off".format(
+                    logical_intf, phy_intf))
+                set_lpmode(duthost, logical_intf, "on")
+                time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
+                set_lpmode(duthost, logical_intf, "off")
+                time.sleep(WAIT_TIME_AFTER_LPMODE_SET)
 
-                logging.info("Check sfp presence again after reset")
-                sfp_presence = duthost.command(cmd_sfp_presence_per_intf, module_ignore_errors=True)
+            logging.info("Check sfp presence again after reset")
+            sfp_presence = duthost.command(cmd_sfp_presence_per_intf, module_ignore_errors=True)
 
-                # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
-                if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
-                    pass
-                else:
-                    assert sfp_presence['rc'] == 0, (
-                        "Run command '{}' failed with return code {}."
-                    ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
+            # For vs testbed, we will get expected Error code `ERROR_CHASSIS_LOAD = 2` here.
+            if duthost.facts["asic_type"] == "vs" and sfp_presence['rc'] == 2:
+                pass
+            else:
+                assert sfp_presence['rc'] == 0, (
+                    "Run command '{}' failed with return code {}."
+                ).format(cmd_sfp_presence_per_intf, sfp_presence.get('rc', 'N/A'))
 
-                parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
-                assert logical_intf in parsed_presence, (
-                    "Interface '{}' is not in output of '{}'. "
-                    "- Parsed Presence Output: {}\n"
-                ).format(
-                    logical_intf,
-                    cmd_sfp_presence_per_intf,
-                    parsed_presence
-                )
+            parsed_presence = parse_output(sfp_presence["stdout_lines"][2:])
+            assert logical_intf in parsed_presence, (
+                "Interface '{}' is not in output of '{}'. "
+                "- Parsed Presence Output: {}\n"
+            ).format(
+                logical_intf,
+                cmd_sfp_presence_per_intf,
+                parsed_presence
+            )
 
-                assert parsed_presence[logical_intf] == "Present", (
-                    "Interface presence is not 'Present' for '{}'. Got: '{}'."
-                ).format(
-                    logical_intf,
-                    parsed_presence[logical_intf]
-                )
-    finally:
-        if get_sw_control_ports:
-            interfaces_list = [interface for logical_intfs in phy_intfs_to_test_per_asic.values()
-                               for interface in logical_intfs]
-            for intf in get_sw_control_ports:
-                if intf in interfaces_list:
-                    # Do interface startup
-                    duthost.command(cmd_int_startup.format(IFACE_NAME=intf))
+            assert parsed_presence[logical_intf] == "Present", (
+                "Interface presence is not 'Present' for '{}'. Got: '{}'."
+            ).format(
+                logical_intf,
+                parsed_presence[logical_intf]
+            )
 
     # Check interface status for all interfaces in the end just in case
     assert check_interface_status(
