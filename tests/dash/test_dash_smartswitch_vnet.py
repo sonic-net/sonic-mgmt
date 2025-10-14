@@ -2,6 +2,7 @@ import logging
 import pytest
 import ptf.testutils as testutils
 import packets
+import time
 
 from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF
 from gnmi_utils import apply_gnmi_file
@@ -25,6 +26,7 @@ Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
 
+
 @pytest.fixture(scope="module", autouse=True)
 def dpu_setup_vnet(duthost, dpuhosts, dpu_index, skip_config):
     if skip_config:
@@ -41,6 +43,7 @@ def dpu_setup_vnet(duthost, dpuhosts, dpu_index, skip_config):
 
     dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
     dpuhost.shell_cmds(cmds=dpu_cmds)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def add_npu_static_routes_vnet(duthost, dash_smartswitch_vnet_config, skip_config, skip_cleanup, dpu_index, dpuhosts):
@@ -65,14 +68,23 @@ def add_npu_static_routes_vnet(duthost, dash_smartswitch_vnet_config, skip_confi
 
 
 @pytest.fixture(scope="module", autouse=True)
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswitch_vnet_config, skip_config, dpuhosts, add_npu_static_routes_vnet, dpu_setup_vnet):
+def common_setup_teardown(
+        localhost,
+        duthost,
+        ptfhost,
+        dpu_index,
+        dash_smartswitch_vnet_config,
+        skip_config,
+        dpuhosts,
+        add_npu_static_routes_vnet,
+        dpu_setup_vnet):
     if skip_config:
         return
 
     dpuhost = dpuhosts[dpu_index]
     host = f"dpu{dpuhost.dpu_index}"
     op = "SET"
-    import time; time.sleep(60)
+    time.sleep(60)
     for i in range(0, 4):
         config = f"dash_smartswitch_vnet_{i}"
         template_name = "{}.j2".format(config)
@@ -88,10 +100,9 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dash_smartswit
         dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
 
-     # Route rule removal is broken so config reload to cleanup for now
+    # Route rule removal is broken so config reload to cleanup for now
     # https://github.com/sonic-net/sonic-buildimage/issues/23590
-    config_reload(dpuhost, wait=30, safe_reload=False, yang_validate=False)
-
+    config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 def test_smartswitch_outbound_vnet(
