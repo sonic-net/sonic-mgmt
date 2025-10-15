@@ -370,7 +370,7 @@ def check_nss_config(duthost):
 @pytest.fixture(scope="module")
 def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    tacacs_server_ip = ptfhost.mgmt_ip
+    tacacs_server_ip = ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
     # Accounting test case randomly failed, need debug info to confirm NSS config file missing issue.
