@@ -21,6 +21,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyze
 from tests.common.utilities import find_duthost_on_role
 from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
 from tests.common.macsec.macsec_helper import MACSEC_INFO
+from tests.common.dualtor.dual_tor_common import mux_config              # noqa: F401
 import json
 
 # TODO: Add suport for CONFIGLET mode
@@ -54,6 +55,16 @@ DOWN_STREAM = "downstream"
 UP_STREAM = "upstream"
 # Topo that downstream neighbor of DUT are servers
 DOWNSTREAM_SERVER_TOPO = ["t0", "m0_vlan"]
+
+
+def get_default_server_ip(mux_config, avoidList):      # noqa F811
+    """
+    Get default server IP
+    """
+    for _, port_config in list(mux_config.items()):
+        if (server_ip := port_config["SERVER"]["IPv4"].split('/')[0]) not in avoidList:
+            return server_ip
+    return DEFAULT_SERVER_IP
 
 
 def gen_setup_information(dutHost, downStreamDutHost, upStreamDutHost, tbinfo, topo_scenario):
@@ -475,11 +486,11 @@ def remove_route(duthost, prefix, nexthop, namespace):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def setup_arp_responder(duthost, ptfhost, setup_info):
+def setup_arp_responder(duthost, ptfhost, setup_info, mux_config):      # noqa F811
     if setup_info['topo'] not in ['t0', 'm0_vlan']:
         yield
         return
-    ip_list = [TARGET_SERVER_IP, DEFAULT_SERVER_IP]
+    ip_list = [TARGET_SERVER_IP, get_default_server_ip(mux_config, [TARGET_SERVER_IP])]
     port_list = setup_info["server_dest_ports_ptf_id"][0:2]
     arp_responder_cfg = {}
     for i, ip in enumerate(ip_list):
