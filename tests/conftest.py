@@ -485,6 +485,7 @@ def get_specified_dpus(request):
 def pytest_sessionstart(session):
     # reset all the sonic_custom_msg keys from cache
     # reset here because this fixture will always be very first fixture to be called
+    return
     cache_dir = session.config.cache._cachedir
     keys = [p.name for p in cache_dir.glob('**/*') if p.is_file() and p.name.startswith(CUSTOM_MSG_PREFIX)]
     for key in keys:
@@ -2652,6 +2653,7 @@ def collect_db_dump(request, duthosts):
 
 
 def restore_config_db_and_config_reload(duts_data, duthosts, request):
+    return
     # First copy the pre_running_config to the config_db.json files
     for duthost in duthosts:
         logger.info("dut reload called on {}".format(duthost.hostname))
@@ -2995,7 +2997,7 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                restore_config_db_and_config_reload(duts_data, duthosts, request)
+                # restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 

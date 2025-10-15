@@ -177,12 +177,12 @@ def pytest_assert_neq(a, b, msg=""):
     pytest_assert(a != b, "Failed neq check: {} != {}{}".format(a, b, msg))
 
 
-DEVICE_CONFIGS = [{'name': 'Device to T1 E224',  # TODO: Autogenerate device name from input parameters
-                   'port_id': 2,
+DEVICE_CONFIGS = [{'name': 'Device to T1 E240',  # TODO: Autogenerate device name from input parameters
+                   'port_id': 1,
                    'mac': "00:12:01:00:00:01",
-                   'ipv4': "10.0.224.3",
+                   'ipv4': "10.0.240.3",
                    'prefix': 24,
-                   'gateway': "10.0.224.2"},
+                   'gateway': "10.0.240.2"},
                   {'name': 'Device on Port 3.1 to LT0:E240',  # "Simulated" TGEN servers
                    'port_id': 57,
                    'mac': "00:15:01:00:00:01",
@@ -683,9 +683,9 @@ def test_deadlock(snappi_api,        # noqa: F811
 
     # Define custom test flows
     t1_upper_bounce_to_lower_flow = add_bb_flow(api, config, snappi_ports, conn_graph, duthosts,
-                                                'Device to T1 E224', 'Device on Port 3.1 to LT0:E240')
+                                                'Device to T1 E240', 'Device on Port 3.1 to LT0:E240')
     t1_lower_bounce_to_upper_flow = add_bb_flow(api, config, snappi_ports, conn_graph, duthosts,
-                                                'Device to T1 E224', 'Device on Port 3.4 to T0:E224')
+                                                'Device to T1 E240', 'Device on Port 3.4 to T0:E224')
 
     # TODO: Validate correct queue is being taken for flow
 
