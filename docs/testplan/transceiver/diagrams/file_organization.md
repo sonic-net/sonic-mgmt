@@ -5,6 +5,7 @@
 ```text
 ansible/files/transceiver/inventory/
 ├── dut_info.json                           # Core transceiver metadata
+│
 ├── attributes/                             # Test category attribute files
 │   ├── eeprom.json                         # EEPROM test attributes
 │   ├── system.json                         # System test attributes
