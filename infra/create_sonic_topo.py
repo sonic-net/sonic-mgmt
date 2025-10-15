@@ -54,7 +54,7 @@ SFD_SUPPORTED_LC_TOPO = {'GG', 'VG', 'VL'}
 SFD_LC_TOPO_CODE = {
         "vanguard" : "V",
         "gauntlet" : "G",
-        "lancer"   : "V"
+        "lancer"   : "L"
     }
 
 # Path to config file
@@ -154,7 +154,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t2-min-VG", "t0", "t1"])
+                      required=True,default='t1-64-lag', choices=['dualtor-56', 'dualtor-56-4', 't1-64-lag', 't1-28-lag', 't1-lag-dash-4', 't0-64', "t1-8-lag", "t2-vs", "t2-min", "t2-min-VG", "t2-min-VL", "t0", "t1"])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -663,12 +663,16 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('sonic_lab_links_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_links.csv')
         ftp_client.put('sonic_lab_devices_churchill_mono.csv','golden-code/sonic-test/sonic-mgmt/ansible/files/sonic_lab_devices.csv')
     elif device_type == 'sfd' and topo_type == 't2-min':
-        ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
         ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-LC-48H-C48.yml')
         ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-88-LC0-36FH-M-O36.yml')
         ftp_client.put(f'sonic_t2/topo_8800-LC-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-88-LC0-36FH-O36.yml')
         ftp_client.put(f'sonic_t2/topo_8800-RP-{lc_topo_code}.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/docker-ptf/topo_Cisco-8800-RP.yml')
-        ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
+        if lc_topo_code == 'VL':
+            ftp_client.put('lab_connection_graph_t2_2lc_vl_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+            ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-vl.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
+        else:
+            ftp_client.put('lab_connection_graph_t2_2lc_min.xml', 'golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
+            ftp_client.put('sonic_t2/topo_t2_2lc_min_ports-masic.yml', 'golden-code/sonic-test/sonic-mgmt/ansible/vars/topo_t2_2lc_min_ports-masic.yml')
     if topo_type in ['t0', 'dualtor-56']:
         ftp_client.put('t0-leaf.j2','golden-code/sonic-test/sonic-mgmt/ansible/roles/eos/templates/t0-leaf.j2')
     elif topo_type == 't1':
@@ -1178,7 +1182,7 @@ def print_env_info(data, device_type, vEOS_count):
         logging.info("./run_tests.sh -n docker-ptf -d churchill-mono-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
     elif device_type == 'sfd':
         logging.info("Device name is sfd. To execute a pytest script:\n")
-        logging.info("./run_tests.sh -n docker-ptf -O -u -l debug -e -s -e --skip_sanity -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+        logging.info("./run_tests.sh -n docker-ptf -O -u -l debug -e -s -e --skip_sanity -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")
     elif device_type == 'mustang':
         logging.info("Device name is mustang. To execute a pytest script:\n")
         logging.info("./run_tests.sh -n docker-ptf -d mustang-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
@@ -1326,7 +1330,7 @@ def main():
 
     dut_platform = get_dut_platform(device_type)
 
-    if topo_type == 't2-min-VG':
+    if topo_type == 't2-min-VG' or topo_type == 't2-min-VL':
         # All LC combinations for SFD T2 min topology use same Sonic-mgmt SIM topology
         topo_type = 't2-min'
 

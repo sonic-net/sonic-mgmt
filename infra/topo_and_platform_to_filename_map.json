@@ -83,6 +83,11 @@
             "pyvxr_yaml_file": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-VG.yaml"
         }
     },
+    "t2-min-VL": {
+        "sfd": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-VL.yaml"
+        }
+    },
     "t2-min": {
         "sfd": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/sonic_t2_2lc_min_ports-masic.yaml"
