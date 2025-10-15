@@ -1,4 +1,5 @@
 import copy
+from functools import lru_cache
 import ipaddress
 import json
 import logging
@@ -6,6 +7,7 @@ import logging
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.devices.sonic import SonicHost
 from tests.common.devices.sonic_asic import SonicAsic
+from tests.common.devices.sonic_docker import SonicDockerManager
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE, ASICS_PRESENT
 from tests.common.platform.interface_utils import get_dut_interfaces_status
@@ -95,6 +97,9 @@ class MultiAsicSonicHost(object):
 
         if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
             service_list.append("dhcp_server")
+
+        if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu' and 'snmp' in service_list:
+            service_list.remove('snmp')
 
         # Update the asic service based on feature table state and asic flag
         for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
@@ -919,3 +924,7 @@ class MultiAsicSonicHost(object):
                     logger.info(line)
                     return False
         return True
+
+    @lru_cache
+    def containers(self):
+        return SonicDockerManager(self)

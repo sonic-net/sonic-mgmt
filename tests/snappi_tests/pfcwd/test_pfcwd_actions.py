@@ -814,7 +814,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
         check_fabric_counters(dut)
 
 
-# This is an oversubscribe-testcase.
+# This is an non-oversubscribe-testcase.
 def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811
@@ -823,7 +823,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    lossless_prio_list,           # noqa: F811
                                    lossy_prio_list,              # noqa: F811
                                    tbinfo,
-                                   verify_port_speed_oversubscribe,
+                                   verify_port_speed,
                                    disable_voq_wd_cisco_8000,
                                    setup_ports_and_dut):          # noqa: F811
 
@@ -842,7 +842,6 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
         lossless_prio_list(list): list of lossless priorities
         lossy_prio_list(list): list of lossy priorities.
         tbinfo(key): element to identify testbed info name.
-        multidut_port_info : Line card classification along with ports selected as Rx and Tx port.
 
     Returns:
         N/A
@@ -853,7 +852,7 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     pkt_size = 1024
 
     testbed_config, port_config_list, _ = setup_ports_and_dut
-    port_map, snappi_ports = verify_port_speed_oversubscribe
+    port_map, snappi_ports = verify_port_speed
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -861,8 +860,8 @@ def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
     test_check = {'lossless': 0, 'lossy': 0, 'speed_tol': 41, 'loss_expected': False, 'pfc': True}
 
     test_def = {
-        'TEST_FLOW_AGGR_RATE_PERCENT': 18,
-        'BG_FLOW_AGGR_RATE_PERCENT': 27,
+        'TEST_FLOW_AGGR_RATE_PERCENT': 40,
+        'BG_FLOW_AGGR_RATE_PERCENT': 60,
         'data_flow_pkt_size': pkt_size,
         'DATA_FLOW_DURATION_SEC': 300,
         'data_flow_delay_sec': 1,
