@@ -14,11 +14,23 @@ from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractF
     DUT_PASSWORD, DUT_USERNAME, BIN_FILE, telnet_escape_prompt, grub_selection, KEY_DOWN, newline_prompt, KEY_UP, checkForDockers, \
     scpUtil, sonic_prompt, getDockerExecCommand, checkForMGFailures, copyDockerFileToDut, getSonicMgmtContainterName, get_container_local_mount_dir, \
     default_info, getSonicMgmtFolder, MAX_RETRIES, MAX_RETRIES_TIMEOUT, ALLURE_CONFIG_FILE_NAME, checkStreamCompatibility, checkTestbedAvailability, \
-    channelConnection, checkTortugaImage, CISCO_PASSWORD, CISCO_USERNAME
+    channelConnection, checkTortugaImage, CISCO_PASSWORD, CISCO_USERNAME, getBranchFromStream
+from utils import _run_cmd_in_ssh
+
 
 UNSET_PROXY = "unset https_proxy http_proxy HTTPS_PROXY HTTP_PROXY"
 DEFAULT_DOCKER_COUNT = 13
 DEFAULT_IMAGES_FOLDER = "IMAGES/"
+
+REMOVE_TOPO_TIMEOUT_SEC = 60*20
+ADD_TOPO_TIMEOUT_SEC = 60*20
+
+DATA_ANSIBLE_PROMPT = r".*\:\/data\/ansible\$"
+
+MTU_HACK_SCRIPT_URL = "http://172.26.235.76/MISC/port_channel_mtu.yml"
+MTU_HACK_TIMEOUT = 60*10
+MTU_HACK_PATTERN = \
+    "for i in {{0..{}}}; do ansible-playbook -i veos  -b -e current_hostname=VM0$(($i+100))   -e ansible_network_os=eos -e ansible_ssh_user=admin -e ansible_ssh_pass=123456 ./port_channel_mtu.yml -vvv  ; done"
 
 # Parse config file
 allure_config = {}
@@ -422,6 +434,117 @@ def onie_install(args, index):
     p.close()
     return
 
+def remove_topo(args):
+    testbed = args.testbed.strip()
+    full_link = args.full_link.strip()
+    [_, _, stream] = extractFromImageName(full_link)
+    testbed_info_dict = getTestbedInfoDict(testbed)
+
+    with paramiko.SSHClient() as client:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(
+            hostname=testbed_info_dict['ucs_host'],
+            username=testbed_info_dict['ucs_username'],
+            password=testbed_info_dict['ucs_password']
+        )
+
+        remove_topo_cmd = testbed_info_dict.get('remove_topo_cmd')
+        if remove_topo_cmd is None:
+            log.warning(f"cannot get cmd for remove_topo from testbed_info_dict for testbed {testbed}")
+            return 1
+        else:
+            log.debug(f'got cmd for remove_topo: "{remove_topo_cmd}"')
+        remove_topo_outside_docker_cmd = getDockerExecCommand(stream,
+                                                              testbed,
+                                                              flags='',
+                                                              suffix=f'-c "cd /data/ansible; {remove_topo_cmd}"')
+        log.info(f"One-liner to remove topo from outside sonic-mgmt docker container:\n{remove_topo_outside_docker_cmd}")
+        _, _, rc = _run_cmd_in_ssh(client, remove_topo_outside_docker_cmd, timeout=REMOVE_TOPO_TIMEOUT_SEC)
+    return
+
+def load_docker_ptf_image(stream, docker_ptf_url=None):
+    log.info('start load_docker_ptf_image')
+    global testbed_info_dict  # assuming it's set in add_topo
+    # todo these need to be moved to a location where cicd doesn't periodically wipe >30d age files,
+    #  and possibly replaced with ones with builtin saithrift version
+    STREAM_TO_DOCKER_PTF_MAP = {
+        '202305': '',
+        '202311': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202311-05Aug2025-mix.gz',
+        '202405': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
+        '202405c': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
+        '202411': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
+        '202505': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202505-27Jun2025-mix.gz',
+        '202511': '',
+        'master': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-master-27Jun2025-mix.gz',
+    }
+
+    ptf_docker_image_link = docker_ptf_url if docker_ptf_url \
+        else STREAM_TO_DOCKER_PTF_MAP.get(stream)
+    if not ptf_docker_image_link:
+        logging.error(f"unable to find matching docker ptf link for {stream}.")
+        return 1
+    log.debug(f'ptf_docker_image_link set to {ptf_docker_image_link}')
+
+    client = paramiko.SSHClient()
+    client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    client.connect(
+        hostname=testbed_info_dict['ucs_host'],
+        username=testbed_info_dict['ucs_username'],
+        password=testbed_info_dict['ucs_password']
+    )
+
+    # Step 1: download the right docker on UCS
+    # todo `unset` workaround is needed for this to work on testbeds w/ proxies set,
+    #  remove later when proxies are standardized on all testbeds, this works for now
+    image_filename = ptf_docker_image_link.split('/')[-1]
+    _, _, _ = _run_cmd_in_ssh(client, f"rm {image_filename}")
+    stdout, stderr, status_code = _run_cmd_in_ssh(client, f'unset http_proxy https_proxy; wget -nc {ptf_docker_image_link}',
+                                                  timeout=60*5)
+    log.debug(f"download docker ptf output:\n{stdout}")
+    if status_code:
+        raise Exception(f"download docker ptf failed: \n{stderr}")
+
+    # Step 2: Load docker ptf
+    stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker load -i {image_filename}")
+    log.debug(f"load docker ptf output:\n{stdout}")
+    _, _, _ = _run_cmd_in_ssh(client, f"rm {image_filename}")
+    if status_code != 0:
+        raise Exception(f"load docker ptf failed: \n{stderr}")
+
+    log.info('finish load_docker_ptf_image')
+    return
+
+def add_topo(args):
+    global testbed_info_dict
+    testbed = args.testbed.strip()
+    full_link = args.full_link.strip()
+    [_, _, stream] = extractFromImageName(full_link)
+    testbed_info_dict = getTestbedInfoDict(testbed)
+
+    load_docker_ptf_image(getBranchFromStream(stream), os.getenv("DOCKER_PTF_IMAGE_OVERRIDE"))
+
+    with paramiko.SSHClient() as client:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(
+            hostname=testbed_info_dict['ucs_host'],
+            username=testbed_info_dict['ucs_username'],
+            password=testbed_info_dict['ucs_password']
+        )
+
+        add_topo_cmd = testbed_info_dict.get('add_topo_cmd')
+        if add_topo_cmd is None:
+            log.warning(f"cannot get cmd for add_topo from testbed_info_dict for testbed {testbed}")
+            return 1
+        else:
+            log.debug(f'got cmd for add_topo: "{add_topo_cmd}"')
+        add_topo_outside_docker_cmd = getDockerExecCommand(stream,
+                                                           testbed,
+                                                           flags='',
+                                                           suffix=f'-c "cd /data/ansible; {add_topo_cmd}"')
+        log.info(f"One-liner to add topo from outside sonic-mgmt docker container:\n{add_topo_outside_docker_cmd}")
+        _, _, rc = _run_cmd_in_ssh(client, add_topo_outside_docker_cmd, timeout=ADD_TOPO_TIMEOUT_SEC)
+    return
+
 def deploy_mg(args):
     testbed = args.testbed.strip()
     full_link = args.full_link.strip()
@@ -489,6 +612,50 @@ def deploy_mg(args):
     log.info("All dockers are up, ready to run tests!")
     copyDockerFileToDut(testbed, image_id)
     return
+
+def extra_configuration_steps(args):
+
+    # prepare
+    testbed = args.testbed.strip()
+    full_link = args.full_link.strip()
+    [_, _, stream] = extractFromImageName(full_link)
+    docker_exec_cmd = getDockerExecCommand(stream, testbed)
+    testbed_info_dict = getTestbedInfoDict(testbed)
+    local_ucs = testbed_info_dict['ucs_host_name']
+
+    p2 = sshUtil(testbed_info_dict['ucs_username'],
+                 testbed_info_dict['ucs_host'],
+                 testbed_info_dict['ucs_password'],
+                 None)
+    p2.expect(local_ucs)
+    p2.sendline("docker ps -a")
+    p2.expect(local_ucs)
+    p2.sendline(docker_exec_cmd)
+    docker_prompt = testbed_info_dict['docker_prompt']
+    p2.expect(docker_prompt)
+
+    # process mtu arista hack
+    mtu_hack_config = testbed_info_dict.get('mtu_hack')
+    log.info(f"MTU hack will be applied to testbed: {bool(mtu_hack_config)}")
+    if mtu_hack_config:
+        vms_count = mtu_hack_config.get('vms_count')
+        if vms_count:
+            apply_mtu_on_aristas_cmd = MTU_HACK_PATTERN.format(vms_count-1)  # 0...N-1
+
+            p2.sendline("cd /data/ansible")
+            p2.expect("")
+
+            p2.sendline("unset http_server https_server")
+            p2.expect("")
+
+            p2.sendline(f"wget -nc {MTU_HACK_SCRIPT_URL}")
+            p2.expect(docker_prompt)
+
+            p2.sendline(apply_mtu_on_aristas_cmd)
+            p2.expect(DATA_ANSIBLE_PROMPT, timeout=MTU_HACK_TIMEOUT)
+            log.info("MTU hack applied")
+        else:
+            log.error("Unable to read `vms_count` from TB dict `mtu_hack` section. Skipping this step.")
 
 def install_allure(args):
     # Parse the config and arguments
@@ -825,6 +992,21 @@ if __name__ == "__main__":
     onie_parser.add_argument("-i", "--install_mode", help = "install_mode")
     onie_parser.add_argument("--topology", help = "Topology type")
     onie_parser.set_defaults(func=image_install)
+
+    remove_topo_parser = subparser.add_parser("remove-topo", help = "remove topo")
+    remove_topo_parser.add_argument("-t", "--testbed", help = "testbed", required=True)
+    remove_topo_parser.add_argument("-f", "--full_link", help = "full link", required=True)
+    remove_topo_parser.set_defaults(func=remove_topo)
+
+    add_topo_parser = subparser.add_parser("add-topo", help="add topo")
+    add_topo_parser.add_argument("-t", "--testbed", help="testbed", required=True)
+    add_topo_parser.add_argument("-f", "--full_link", help = "full link", required=True)
+    add_topo_parser.set_defaults(func=add_topo)
+
+    add_topo_parser = subparser.add_parser("extra_configration_steps", help="extra steps specific to testbed")
+    add_topo_parser.add_argument("-t", "--testbed", help="testbed", required=True)
+    add_topo_parser.add_argument("-f", "--full_link", help="full link", required=True)
+    add_topo_parser.set_defaults(func=extra_configuration_steps)
 
     deploy_parser = subparser.add_parser("deploy", help = "deploy mg")
     deploy_parser.add_argument("-t", "--testbed", help = "testbed", required=True)

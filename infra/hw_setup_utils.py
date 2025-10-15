@@ -171,8 +171,8 @@ default_info = hw_cfg["default-info"]
 def checkStreamCompatibility(testbed, stream):
     log.info("Started checkStreamCompatibility")
     hw_config = load_json(HW_CONFIG_FILE)
-    stream_list = hw_config['testbed-streams'][testbed]
-    if stream_list == "None":
+    stream_list = hw_config['testbed-streams'].get(testbed)
+    if not stream_list or stream_list == "None":
         return True
     if stream in stream_list:
         log.info(f"Stream {stream} is compatible with the topology {testbed}!")
@@ -305,9 +305,9 @@ def getBranchFromStream(stream):
     
     return "master"
 
-def getDockerExecCommand(stream, testbed):
+def getDockerExecCommand(stream, testbed, flags='-it', suffix=''):
     branch = getSonicMgmtContainterName(stream, testbed)
-    return f"docker exec -it {branch} /bin/bash"
+    return f"docker exec {flags} {branch} /bin/bash {suffix}"
 
 def getTestbedInfoDict(testbed):
     log.info(f"Getting testbed info for '{testbed}'")

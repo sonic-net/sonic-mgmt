@@ -79,7 +79,7 @@ def _run_cmd_in_ssh(ssh, cmd, timeout=180):
     # get the exit status
     exit_status = stdout.channel.recv_exit_status()
 
-    logging.info(f"Output for command '{cmd_str}': exit_status:{exit_status}\nstdout: {cmd_output}\nstderr: {cmd_error}")
+    log.info(f"Output for command '{cmd_str}': exit_status:{exit_status}\nstdout: {cmd_output}\nstderr: {cmd_error}")
     return cmd_output, cmd_error, exit_status
 
 def _run_cmd_in_ssh_container(ssh, container_name, cmd, timeout=180):
