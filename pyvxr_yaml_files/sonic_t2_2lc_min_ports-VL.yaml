@@ -31,8 +31,8 @@ devices:
     num_linecards: 2
     linecard_types: [ 'vanguard', 'lancer' ]
     xr_port_redir: [22]
-    linux_username: "cisco"
-    linux_password: "cisco123"
+    linux_username: "admin"
+    linux_password: "password"
     linux_config: udhcpc -q -s /lib/onie/udhcp4_net -n -i eth0
     image: /auto/sonic/anamehra/onie-recovery-x86_64-cisco_8000-r0.iso.unsigned
     onie-install: ./sonic-cisco-8000.bin 
