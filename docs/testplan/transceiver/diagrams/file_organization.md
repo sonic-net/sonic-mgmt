@@ -5,13 +5,6 @@
 ```text
 ansible/files/transceiver/inventory/
 ├── dut_info.json                           # Core transceiver metadata
-│   ├── normalization_mappings              # Vendor/PN normalization rules
-│   └── dut_name_1/                         # Per-DUT configurations
-│       └── Port specifications             # Various formats (ranges, lists)
-│           ├── vendor_name                 # Raw vendor name
-│           ├── vendor_pn                   # Raw part number  
-│           └── transceiver_configuration   # 6-component format
-│
 ├── attributes/                             # Test category attribute files
 │   ├── eeprom.json                         # EEPROM test attributes
 │   ├── system.json                         # System test attributes
