@@ -1,0 +1,14 @@
+Value VTEP (\S+)
+Value NH_ID (\d+)
+Value ES (\d+)
+
+Start
+  # Look for the header line. Once matched, move to parsing records.
+  ^VTEP\s+NH\s+id\s+#ES -> RECORDS
+
+RECORDS
+  # Each valid data line should match these three captures (VTEP, NH_ID, ES).
+  ^${VTEP}\s+${NH_ID}\s+${ES} -> Record
+
+
+

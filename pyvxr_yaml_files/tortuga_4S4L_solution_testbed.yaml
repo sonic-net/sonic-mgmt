@@ -1,6 +1,8 @@
 simulation:
   slurm_flags:
         hours: 120
+        cluster: multicluster
+        pending_timeout: 1200
   no_image_copy: true
   pyvxr_flags:
     port_file_timeout: 1200
@@ -12,7 +14,7 @@ devices:
     linecard_types: [8101-32FH]
     linux_password: cisco123
     linux_username: cisco
-    onie-install: http://172.29.93.10/sonic-images/10652/sonic-cisco-8000.bin
+    onie-install: http://10.28.109.58/IMAGES/cmono_23860/sonic-buildimage-cisco.202305.1.tortuga-periodic/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
     platform: spitfire_f
@@ -45,6 +47,9 @@ devices:
   SD8: 
       <<: *sonic_router
 
+  external_router:
+      <<: *sonic_router
+
   ixia:
     platform: ixia-web
     ixia_images:
@@ -52,7 +57,7 @@ devices:
       chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
       load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
     data_ports:
-      - data[0..7]
+      - data[0..13]
   
   sonic_mgmt :
     platform: linux
@@ -126,39 +131,55 @@ connections:
     hub15:
       - SD4.Ethernet3
       - SD8.Ethernet3
-#ixia to leaf0
+# External router to leaf3
     hub16:
+      - external_router.Ethernet13
+      - SD8.Ethernet13
+#ixia to leaf0
+    hub17:
       - SD5.Ethernet6
       - ixia.data0
-    hub17:
+    hub18:
       - SD5.Ethernet7
       - ixia.data1
-#ixia to leaf1
-    hub18:
-      - SD6.Ethernet6
-      - ixia.data2
     hub19:
-      - SD6.Ethernet7
-      - ixia.data3
-#ixia to leaf2
+      - SD5.Ethernet8
+      - ixia.data2
+#ixia to leaf1
     hub20:
-      - SD7.Ethernet6
-      - ixia.data4
+      - SD6.Ethernet6
+      - ixia.data3
     hub21:
-      - SD7.Ethernet7
-      - ixia.data5
-#ixia to leaf3
+      - SD6.Ethernet7
+      - ixia.data4
     hub22:
-      - SD8.Ethernet6
-      - ixia.data6
+      - SD6.Ethernet8
+      - ixia.data5
+#ixia to leaf2
     hub23:
-      - SD8.Ethernet7
-      - ixia.data7
-#host1 to Leaf3
+      - SD7.Ethernet6
+      - ixia.data6
     hub24:
-      - SD8.Ethernet8
-      - host1.eth1
-#leaf2 to leaf3
+      - SD7.Ethernet7
+      - ixia.data7
     hub25:
-      - SD7.Ethernet12
-      - SD8.Ethernet12
+      - SD7.Ethernet8
+      - ixia.data8
+#ixia to leaf3
+    hub26:
+      - SD8.Ethernet6
+      - ixia.data9
+    hub27:
+      - SD8.Ethernet7
+      - ixia.data10
+    hub28:
+      - SD8.Ethernet8
+      - ixia.data11
+#ixia to external_router
+    hub29:
+      - external_router.Ethernet15
+      - ixia.data12
+#ixia to spine
+    hub30:
+      - SD4.Ethernet7
+      - ixia.data13

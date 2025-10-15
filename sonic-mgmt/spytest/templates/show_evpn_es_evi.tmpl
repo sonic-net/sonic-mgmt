@@ -1,0 +1,14 @@
+Value VNI (\d+)
+Value ESI ([0-9A-Fa-f:]+)
+Value TYPE (\S+)
+
+Start
+  # Skip any lines that don't matter until we find the header row:
+  ^Type:\s+L\s+local,\s+R\s+remote -> Next
+  ^VNI\s+ESI\s+Type -> RecordStart
+
+RecordStart
+  # This matches lines with three columns: VNI, ESI, and TYPE
+  ^${VNI}\s+${ESI}\s+${TYPE} -> Record
+  # Skip any blank lines or the prompt
+  ^\s*$$

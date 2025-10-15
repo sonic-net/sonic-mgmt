@@ -1,0 +1,74 @@
+# Spine Nodes (no parameters required)
+spine0:
+  clean_config: true
+spine1:
+  clean_config: true
+spine2:
+  clean_config: true
+spine3:
+  clean_config: true
+leaf0:
+  clean_config: true
+  persistent_config: true
+  reimage: &img1
+    url: https://engci-maven-master.cisco.com/artifactory/whitebox-group/sonic-cicd/Pipeline2_build/sonic-buildimage/sonic-buildimage-cisco.202405c.2.tortuga.laguna.no-agents-periodic-26597-95e0265181efd404528b060869f78f36130b427f.tar.gz
+  initial_config: |
+    sudo config int breakout Ethernet1_5 "2x400G" -yfl
+    sudo config int breakout Ethernet1_13 "2x400G" -yfl
+    sudo config int breakout Ethernet1_25 "2x400G" -yfl
+    sudo config int breakout Ethernet1_41 "2x400G" -yfl
+    sudo config int breakout Ethernet1_61 "2x400G" -yfl
+    sudo config interface startup Ethernet1_5_1
+    sudo config interface startup Ethernet1_5_2
+    sudo config interface startup Ethernet1_13_1
+    sudo config interface startup Ethernet1_13_2
+    sudo config interface startup Ethernet1_25_1
+    sudo config interface startup Ethernet1_25_2
+    sudo config interface startup Ethernet1_41_1
+    sudo config interface startup Ethernet1_41_2
+    sudo config interface startup Ethernet1_61_1
+    sudo config interface startup Ethernet1_61_2
+leaf1:
+  clean_config: true
+  persistent_config: true
+  reimage: &img2
+    url: https://engci-maven-master.cisco.com/artifactory/whitebox-group/sonic-cicd/Pipeline2_build/sonic-buildimage/sonic-buildimage-cisco.202405c.2.tortuga.no-agents-periodic-25293-c41ced57013ac23ecdf0004d0d20ae6485ab6bbc.tar.gz
+leaf2:
+  clean_config: true
+  persistent_config: true
+  reimage: *img1
+  initial_config: |
+    sudo config int breakout Ethernet1_1 "2x400G" -yfl
+    sudo config int breakout Ethernet1_9 "2x400G" -yfl
+    sudo config int breakout Ethernet1_13 "2x400G" -yfl
+    sudo config int breakout Ethernet1_61 "2x400G" -yfl
+    sudo config interface startup Ethernet1_1_1
+    sudo config interface startup Ethernet1_1_2
+    sudo config interface startup Ethernet1_9_1
+    sudo config interface startup Ethernet1_9_2
+    sudo config interface startup Ethernet1_13_1
+    sudo config interface startup Ethernet1_13_2
+    sudo config interface startup Ethernet1_61_1
+    sudo config interface startup Ethernet1_61_2
+leaf3:
+  clean_config: true
+  persistent_config: true
+  reimage: *img1
+  initial_config: |
+    sudo config int breakout Ethernet1_1 "2x400G" -yfl
+    sudo config int breakout Ethernet1_5 "2x400G" -yfl
+    sudo config int breakout Ethernet1_13 "2x400G" -yfl
+    sudo config int breakout Ethernet1_29 "2x400G" -yfl
+    sudo config int breakout Ethernet1_61 "2x400G" -yfl
+    sudo config interface startup Ethernet1_1_1
+    sudo config interface startup Ethernet1_1_2
+    sudo config interface startup Ethernet1_5_1
+    sudo config interface startup Ethernet1_5_2
+    sudo config interface startup Ethernet1_13_1
+    sudo config interface startup Ethernet1_13_2
+    sudo config interface startup Ethernet1_29_1
+    sudo config interface startup Ethernet1_29_2
+    sudo config interface startup Ethernet1_61_1
+    sudo config interface startup Ethernet1_61_2
+external_router:
+  clean_config: false

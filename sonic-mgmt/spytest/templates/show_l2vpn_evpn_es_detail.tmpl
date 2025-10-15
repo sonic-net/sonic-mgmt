@@ -1,0 +1,56 @@
+Value ESI (\S+)
+Value TYPE (\S+)
+Value RD (\S+)
+Value ORIGINATOR_IP (\S+)
+Value LOCAL_ES_DF_PREFERENCE (\S+)
+Value VNI_COUNT (\S+)
+Value REMOTE_VNI_COUNT (\S+)
+Value VRF_COUNT (\S+)
+Value MACIP_EVI_PATH_COUNT (\S+)
+Value MACIP_GLOBAL_PATH_COUNT (\S+)
+Value INCONSISTENT_VNI_VTEP_COUNT (\S+)
+Value INCONSISTENCIES (.*)
+# We'll capture the first Fragments line
+Value FRAGMENTS_RD (\S+)
+Value FRAGMENTS_EVIS (\S+)
+# We'll capture the first VTEP line
+#Value VTEP_IP (\S+)
+#Value VTEP_FLAGS (\S+)
+#Value VTEP_DF_ALG (\S+)
+#Value VTEP_DF_PREF (\S+)
+Value List VTEPS (.+)
+
+# The "Start" state looks for the first ESI line and transitions to ESIState.
+Start
+  ^ESI:\s+(?P<ESI>\S+) -> ESIState
+
+# ESIState collects lines until we see the next "ESI:" or reach EOF.
+ESIState
+  ^\s+Type:\s+(?P<TYPE>\S+)
+  ^\s+RD:\s+(?P<RD>\S+)
+  ^\s+Originator-IP:\s+(?P<ORIGINATOR_IP>\S+)
+  ^\s+Local\s+ES\s+DF\s+preference:\s+(?P<LOCAL_ES_DF_PREFERENCE>\S+)
+  ^\s+VNI\s+Count:\s+(?P<VNI_COUNT>\S+)
+  ^\s+Remote\s+VNI\s+Count:\s+(?P<REMOTE_VNI_COUNT>\S+)
+  ^\s+VRF\s+Count:\s+(?P<VRF_COUNT>\S+)
+  ^\s+MACIP\s+EVI\s+Path\s+Count:\s+(?P<MACIP_EVI_PATH_COUNT>\S+)
+  ^\s+MACIP\s+Global\s+Path\s+Count:\s+(?P<MACIP_GLOBAL_PATH_COUNT>\S+)
+  ^\s+Inconsistent\s+VNI\s+VTEP\s+Count:\s+(?P<INCONSISTENT_VNI_VTEP_COUNT>\S+)
+  ^\s+Inconsistencies:\s+(?P<INCONSISTENCIES>.*)
+  # When we encounter "Fragments:", we jump to FragmentsState.
+  ^\s+Fragments:\s* -> FragmentsState
+  # When we encounter "VTEPs:", we jump to VTEPState.
+  ^\s+VTEPs:\s* -> VTEPState
+  # If we see a new ESI, that means the previous record ended. Output (Record) and start a new record.
+  ^\s* -> Record Start
+
+FragmentsState
+  # Grab the first Fragments line: "<RD> EVIs: <EVIs>"
+  ^\s+${FRAGMENTS_RD}\s+EVIs:\s+${FRAGMENTS_EVIS} -> ESIState
+  ^\s* -> Record Start
+
+VTEPState
+  # Grab the first VTEP line: "<ip> flags: <flags> df_alg: <df_alg> df_pref: <df_pref>"
+  ^\s+${VTEPS} -> ESIState
+  ^\s* -> Record Start
+

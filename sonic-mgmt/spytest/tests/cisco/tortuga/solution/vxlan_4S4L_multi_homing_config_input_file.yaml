@@ -1,0 +1,881 @@
+# Spine Nodes (no parameters required)
+spine0:
+spine1:
+spine2:
+spine3:
+    l2vni:
+        - vlan_id: 2
+          members: [T1P1]
+          vxlan_id: 5002
+          bum_traffic: true
+        - vlan_id: 3
+          members: [T1P1]
+          vxlan_id: 5003
+        - vlan_id: 4
+          members: [T1P1]
+          vxlan_id: 5004
+          bum_traffic: true
+        - vlan_id: 5
+          members: [T1P1]
+          vxlan_id: 5005
+        - vlan_id: 6
+          members: [T1P1]
+          vxlan_id: 5006
+        - vlan_id: 7
+          members: [T1P1]
+          vxlan_id: 5007
+    l3vni:
+        - vrf_id: 101
+          vlan_bindings: [2,3]
+          vxlan_id: 5101
+        - vrf_id: 102
+          vlan_bindings: [4,5]
+          vxlan_id: 5102
+        - vrf_id: 103
+          vlan_bindings: [6,7]
+          vxlan_id: 5103
+# Leaf Nodes 
+leaf0:
+    port_channels:
+        - port_channel_num: 1
+          member_ids: [T1P2]
+          sys_mac: 00:44:33:22:11:11
+          evpn_esi: 00:02:03:04:05:06:07:08:09:0a
+    l2vni:
+        - vlan_id: 2
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5002
+          bum_traffic: true
+        - vlan_id: 3
+          members: [T1P1]
+          vxlan_id: 5003
+        - vlan_id: 4
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5004
+          bum_traffic: true
+        - vlan_id: 5
+          members: [T1P1]
+          vxlan_id: 5005
+        - vlan_id: 6
+          members: [T1P1]
+          vxlan_id: 5006
+        - vlan_id: 7
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5007
+        - vlan_id: 20
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5020
+          bum_traffic: true
+        - vlan_id: 30
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5030
+          bum_traffic: true
+    l3vni:
+        - vrf_id: 101
+          vlan_bindings: [2,3,20,30]
+          vxlan_id: 5101
+        - vrf_id: 102
+          vlan_bindings: [4,5]
+          vxlan_id: 5102
+        - vrf_id: 103
+          vlan_bindings: [6,7]
+          vxlan_id: 5103
+leaf1:
+    port_channels:
+        - port_channel_num: 1
+          member_ids: [T1P2]
+          sys_mac: 00:44:33:22:11:11
+          evpn_esi: 00:02:03:04:05:06:07:08:09:0a
+    l2vni:
+        - vlan_id: 2
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5002
+        - vlan_id: 3
+          members: [T1P1]
+          vxlan_id: 5003
+        - vlan_id: 4
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5004
+        - vlan_id: 5
+          members: [T1P1]
+          vxlan_id: 5005
+        - vlan_id: 6
+          members: [T1P1]
+          vxlan_id: 5006
+        - vlan_id: 7
+          members: [T1P1, PortChannel1]
+          vxlan_id: 5007
+        - vlan_id: 20
+          members: [PortChannel1]
+          vxlan_id: 5020
+        - vlan_id: 30
+          members: [PortChannel1]
+          vxlan_id: 5030
+    l3vni:
+        - vrf_id: 101
+          vlan_bindings: [2,3,20,30]
+          vxlan_id: 5101
+        - vrf_id: 102
+          vlan_bindings: [4,5]
+          vxlan_id: 5102
+        - vrf_id: 103
+          vlan_bindings: [6,7]
+          vxlan_id: 5103
+leaf2:
+    port_channels:
+        - port_channel_num: 3
+          member_ids: [T1P2, T1P3]
+          sys_mac: 00:44:33:22:11:33
+          evpn_esi: 00:02:03:04:05:06:07:08:09:0c
+    l2vni:
+        - vlan_id: 2
+          members: [T1P1, PortChannel3]
+          vxlan_id: 5002
+        - vlan_id: 3
+          members: [T1P1]
+          vxlan_id: 5003
+        - vlan_id: 4
+          members: [T1P1, PortChannel3]
+          vxlan_id: 5004
+        - vlan_id: 5
+          members: [T1P1]
+          vxlan_id: 5005
+        - vlan_id: 6
+          members: [PortChannel3]
+          vxlan_id: 5006
+        - vlan_id: 20
+          members: [PortChannel3]
+          vxlan_id: 5020
+        - vlan_id: 40
+          members: [PortChannel3]
+          vxlan_id: 5040
+    l3vni:
+        - vrf_id: 101
+          vlan_bindings: [2,3,20,40]
+          vxlan_id: 5101
+        - vrf_id: 102
+          vlan_bindings: [4,5]
+          vxlan_id: 5102
+        - vrf_id: 103
+          vlan_bindings: [6]
+          vxlan_id: 5103
+leaf3:
+    port_channels:
+        - port_channel_num: 3
+          member_ids: [T1P2, T1P3]
+          sys_mac: 00:44:33:22:11:33
+          evpn_esi: 00:02:03:04:05:06:07:08:09:0c
+    l2vni:
+        - vlan_id: 2
+          members: [PortChannel3]
+          vxlan_id: 5002
+        - vlan_id: 3
+          members: [T1P1]
+          vxlan_id: 5003
+        - vlan_id: 4
+          members: [PortChannel3]
+          vxlan_id: 5004
+        - vlan_id: 5
+          members: [T1P1]
+          vxlan_id: 5005
+        - vlan_id: 6
+          members: [PortChannel3]
+          vxlan_id: 5006
+        - vlan_id: 7
+          members: [T1P1]
+          vxlan_id: 5007
+        - vlan_id: 20
+          members: [PortChannel3]
+          vxlan_id: 5020
+        - vlan_id: 30
+          members: [T1P1]
+          vxlan_id: 5030
+        - vlan_id: 40
+          members: [T1P1, PortChannel3]
+          vxlan_id: 5040
+    l3vni:
+        - vrf_id: 101
+          vlan_bindings: [2,3,20,30,40]
+          vxlan_id: 5101
+        - vrf_id: 102
+          vlan_bindings: [4,5]
+          vxlan_id: 5102
+        - vrf_id: 103
+          vlan_bindings: [6,7]
+          vxlan_id: 5103
+global:
+    evpn_mh:
+        redirect_off: true
+        mac_holdtime: 240
+        neigh_holdtime: 180
+    l2l3:
+        pkts_per_burst: 1000
+        rate_percent: 5
+    bum:
+        pkts_per_burst: 100
+        rate_percent: 5
+testcases:
+    all:
+        debug_cmds_vtysh:
+          - do show bgp summary
+          - do show run
+        debug_cmds:
+          - show vlan brief
+    mac_move_test:
+      leaf0:
+        l2vni:
+          - vlan_id: 910
+            members: [T1P1, PortChannel1,PortChannel20]
+            vxlan_id: 5910
+          - vlan_id: 920
+            members: [T1P1,PortChannel1,PortChannel20]
+            vxlan_id: 5920
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [910,920]
+            vxlan_id: 5101
+        host_info:
+            910:
+              v4_svi: 91.91.91.1
+              v6_svi: 91:91:91::1
+            920:
+              v4_svi: 92.92.92.1
+              v6_svi: 92:92:92::1
+        static_routes:
+            - vrf_id: 101
+              prefixes:
+              - prefix: 91.91.0.21
+                nexthops: [91.91.91.21]
+              - prefix: 91.91.0.22
+                nexthops: [91.91.91.22]
+              - prefix: 91.91.0.23
+                nexthops: [91.91.91.23]
+              - prefix: 91.91.0.24
+                nexthops: [91.91.91.24]
+              - prefix: 91:91::21
+                nexthops: [91:91:91::21]
+              - prefix: 91:91::24
+                nexthops: [91:91:91::24]
+              - prefix: 91:91::25
+                nexthops: [91:91:91::25]
+              - prefix: 91:91::26
+                nexthops: [91:91:91::26]
+              - prefix: 91.91.0.11
+                nexthops: [91.91.91.11]
+              - prefix: 91.91.0.12
+                nexthops: [91.91.91.12]
+              - prefix: 91.91.0.14
+                nexthops: [91.91.91.14]
+              - prefix: 91.91.0.15
+                nexthops: [91.91.91.15]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::14
+                nexthops: [91:91:91::14]
+              - prefix: 91:91::15
+                nexthops: [91:91:91::15]
+              - prefix: 91:91::16
+                nexthops: [91:91:91::16]
+              - prefix: 91.91.0.51
+                nexthops: [91.91.91.51]
+              - prefix: 91.91.0.52
+                nexthops: [91.91.91.52]
+              - prefix: 91.91.0.54
+                nexthops: [91.91.91.54]
+              - prefix: 91.91.0.55
+                nexthops: [91.91.91.55]
+              - prefix: 91:91::51
+                nexthops: [91:91:91::51]
+              - prefix: 91:91::54
+                nexthops: [91:91:91::54]
+              - prefix: 91:91::55
+                nexthops: [91:91:91::55]
+              - prefix: 91:91::56
+                nexthops: [91:91:91::56]
+              - prefix: 91.91.0.31
+                nexthops: [91.91.91.31]
+              - prefix: 91.91.0.32
+                nexthops: [91.91.91.32]
+              - prefix: 91.91.0.33
+                nexthops: [91.91.91.33]
+              - prefix: 91.91.0.34
+                nexthops: [91.91.91.34]
+              - prefix: 91:91::31
+                nexthops: [91:91:91::31]
+              - prefix: 91:91::34
+                nexthops: [91:91:91::34]
+              - prefix: 91:91::35
+                nexthops: [91:91:91::35]
+              - prefix: 91:91::32
+                nexthops: [91:91:91::32]
+              - prefix: 91.91.0.41
+                nexthops: [91.91.91.41]
+              - prefix: 91.91.0.42
+                nexthops: [91.91.91.42]
+              - prefix: 91.91.0.43
+                nexthops: [91.91.91.43]
+              - prefix: 91.91.0.44
+                nexthops: [91.91.91.44]
+              - prefix: 91:91::41
+                nexthops: [91:91:91::41]
+              - prefix: 91:91::44
+                nexthops: [91:91:91::44]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::42
+                nexthops: [91:91:91::42]
+      leaf1:
+        l2vni:
+          - vlan_id: 910
+            members: [T1P1,PortChannel1,PortChannel20]
+            vxlan_id: 5910
+          - vlan_id: 920
+            members: [T1P1,PortChannel1,PortChannel20]
+            vxlan_id: 5920
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [910,920]
+            vxlan_id: 5101
+        host_info:
+            910:
+              v4_svi: 91.91.91.1
+              v6_svi: 91:91:91::1
+            920:
+              v4_svi: 92.92.92.1
+              v6_svi: 92:92:92::1
+        static_routes:
+            - vrf_id: 101
+              prefixes:
+              - prefix: 91.91.0.21
+                nexthops: [91.91.91.21]
+              - prefix: 91.91.0.22
+                nexthops: [91.91.91.22]
+              - prefix: 91.91.0.23
+                nexthops: [91.91.91.23]
+              - prefix: 91.91.0.24
+                nexthops: [91.91.91.24]
+              - prefix: 91:91::21
+                nexthops: [91:91:91::21]
+              - prefix: 91:91::24
+                nexthops: [91:91:91::24]
+              - prefix: 91:91::25
+                nexthops: [91:91:91::25]
+              - prefix: 91:91::26
+                nexthops: [91:91:91::26]
+              - prefix: 91.91.0.11
+                nexthops: [91.91.91.11]
+              - prefix: 91.91.0.12
+                nexthops: [91.91.91.12]
+              - prefix: 91.91.0.14
+                nexthops: [91.91.91.14]
+              - prefix: 91.91.0.15
+                nexthops: [91.91.91.15]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::14
+                nexthops: [91:91:91::14]
+              - prefix: 91:91::15
+                nexthops: [91:91:91::15]
+              - prefix: 91:91::16
+                nexthops: [91:91:91::16]
+              - prefix: 91.91.0.51
+                nexthops: [91.91.91.51]
+              - prefix: 91.91.0.52
+                nexthops: [91.91.91.52]
+              - prefix: 91.91.0.54
+                nexthops: [91.91.91.54]
+              - prefix: 91.91.0.55
+                nexthops: [91.91.91.55]
+              - prefix: 91:91::51
+                nexthops: [91:91:91::51]
+              - prefix: 91:91::54
+                nexthops: [91:91:91::54]
+              - prefix: 91:91::55
+                nexthops: [91:91:91::55]
+              - prefix: 91:91::56
+                nexthops: [91:91:91::56]
+              - prefix: 91.91.0.31
+                nexthops: [91.91.91.31]
+              - prefix: 91.91.0.32
+                nexthops: [91.91.91.32]
+              - prefix: 91.91.0.33
+                nexthops: [91.91.91.33]
+              - prefix: 91.91.0.34
+                nexthops: [91.91.91.34]
+              - prefix: 91:91::31
+                nexthops: [91:91:91::31]
+              - prefix: 91:91::34
+                nexthops: [91:91:91::34]
+              - prefix: 91:91::35
+                nexthops: [91:91:91::35]
+              - prefix: 91:91::32
+                nexthops: [91:91:91::32]
+              - prefix: 91.91.0.41
+                nexthops: [91.91.91.41]
+              - prefix: 91.91.0.42
+                nexthops: [91.91.91.42]
+              - prefix: 91.91.0.43
+                nexthops: [91.91.91.43]
+              - prefix: 91.91.0.44
+                nexthops: [91.91.91.44]
+              - prefix: 91:91::41
+                nexthops: [91:91:91::41]
+              - prefix: 91:91::44
+                nexthops: [91:91:91::44]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::42
+                nexthops: [91:91:91::42]
+
+      leaf2:
+        l2vni:
+          - vlan_id: 910
+            members: [T1P1, PortChannel3]
+            vxlan_id: 5910
+          - vlan_id: 920
+            members: [T1P1,PortChannel3]
+            vxlan_id: 5920
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [910,920]
+            vxlan_id: 5101
+        host_info:
+            910:
+              v4_svi: 91.91.91.1
+              v6_svi: 91:91:91::1
+            920:
+              v4_svi: 92.92.92.1
+              v6_svi: 92:92:92::1
+        static_routes:
+            - vrf_id: 101
+              prefixes:
+              - prefix: 91.91.0.21
+                nexthops: [91.91.91.21]
+              - prefix: 91.91.0.22
+                nexthops: [91.91.91.22]
+              - prefix: 91.91.0.23
+                nexthops: [91.91.91.23]
+              - prefix: 91.91.0.24
+                nexthops: [91.91.91.24]
+              - prefix: 91:91::21
+                nexthops: [91:91:91::21]
+              - prefix: 91:91::24
+                nexthops: [91:91:91::24]
+              - prefix: 91:91::25
+                nexthops: [91:91:91::25]
+              - prefix: 91:91::26
+                nexthops: [91:91:91::26]
+              - prefix: 91.91.0.11
+                nexthops: [91.91.91.11]
+              - prefix: 91.91.0.12
+                nexthops: [91.91.91.12]
+              - prefix: 91.91.0.14
+                nexthops: [91.91.91.14]
+              - prefix: 91.91.0.15
+                nexthops: [91.91.91.15]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::14
+                nexthops: [91:91:91::14]
+              - prefix: 91:91::15
+                nexthops: [91:91:91::15]
+              - prefix: 91:91::16
+                nexthops: [91:91:91::16]
+              - prefix: 91.91.0.51
+                nexthops: [91.91.91.51]
+              - prefix: 91.91.0.52
+                nexthops: [91.91.91.52]
+              - prefix: 91.91.0.54
+                nexthops: [91.91.91.54]
+              - prefix: 91.91.0.55
+                nexthops: [91.91.91.55]
+              - prefix: 91:91::51
+                nexthops: [91:91:91::51]
+              - prefix: 91:91::54
+                nexthops: [91:91:91::54]
+              - prefix: 91:91::55
+                nexthops: [91:91:91::55]
+              - prefix: 91:91::56
+                nexthops: [91:91:91::56]
+              - prefix: 91.91.0.31
+                nexthops: [91.91.91.31]
+              - prefix: 91.91.0.32
+                nexthops: [91.91.91.32]
+              - prefix: 91.91.0.33
+                nexthops: [91.91.91.33]
+              - prefix: 91.91.0.34
+                nexthops: [91.91.91.34]
+              - prefix: 91:91::31
+                nexthops: [91:91:91::31]
+              - prefix: 91:91::34
+                nexthops: [91:91:91::34]
+              - prefix: 91:91::35
+                nexthops: [91:91:91::35]
+              - prefix: 91:91::32
+                nexthops: [91:91:91::32]
+              - prefix: 91.91.0.41
+                nexthops: [91.91.91.41]
+              - prefix: 91.91.0.42
+                nexthops: [91.91.91.42]
+              - prefix: 91.91.0.43
+                nexthops: [91.91.91.43]
+              - prefix: 91.91.0.44
+                nexthops: [91.91.91.44]
+              - prefix: 91:91::41
+                nexthops: [91:91:91::41]
+              - prefix: 91:91::44
+                nexthops: [91:91:91::44]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::42
+                nexthops: [91:91:91::42]
+        
+      leaf3:
+        l2vni:
+          - vlan_id: 910
+            members: [T1P1,PortChannel3]
+            vxlan_id: 5910
+          - vlan_id: 920
+            members: [T1P1,PortChannel3]
+            vxlan_id: 5920
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [910,920]
+            vxlan_id: 5101
+        host_info:
+            910:
+              v4_svi: 91.91.91.1
+              v6_svi: 91:91:91::1
+            920:
+              v4_svi: 92.92.92.1
+              v6_svi: 92:92:92::1
+      spine3:
+        l2vni:
+          - vlan_id: 910
+            members: [T1P1]
+            vxlan_id: 5910
+          - vlan_id: 920
+            members: [T1P1]
+            vxlan_id: 5920
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [910,920]
+            vxlan_id: 5101
+        host_info:
+            910:
+              v4_svi: 91.91.91.1
+              v6_svi: 91:91:91::1
+            920:
+              v4_svi: 92.92.92.1
+              v6_svi: 92:92:92::1
+        static_routes:
+            - vrf_id: 101
+              prefixes:
+              - prefix: 91.91.0.21
+                nexthops: [91.91.91.21]
+              - prefix: 91.91.0.22
+                nexthops: [91.91.91.22]
+              - prefix: 91.91.0.23
+                nexthops: [91.91.91.23]
+              - prefix: 91.91.0.24
+                nexthops: [91.91.91.24]
+              - prefix: 91:91::21
+                nexthops: [91:91:91::21]
+              - prefix: 91:91::24
+                nexthops: [91:91:91::24]
+              - prefix: 91:91::25
+                nexthops: [91:91:91::25]
+              - prefix: 91:91::26
+                nexthops: [91:91:91::26]
+              - prefix: 91.91.0.11
+                nexthops: [91.91.91.11]
+              - prefix: 91.91.0.12
+                nexthops: [91.91.91.12]
+              - prefix: 91.91.0.14
+                nexthops: [91.91.91.14]
+              - prefix: 91.91.0.15
+                nexthops: [91.91.91.15]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::14
+                nexthops: [91:91:91::14]
+              - prefix: 91:91::15
+                nexthops: [91:91:91::15]
+              - prefix: 91:91::16
+                nexthops: [91:91:91::16]
+              - prefix: 91.91.0.51
+                nexthops: [91.91.91.51]
+              - prefix: 91.91.0.52
+                nexthops: [91.91.91.52]
+              - prefix: 91.91.0.54
+                nexthops: [91.91.91.54]
+              - prefix: 91.91.0.55
+                nexthops: [91.91.91.55]
+              - prefix: 91:91::51
+                nexthops: [91:91:91::51]
+              - prefix: 91:91::54
+                nexthops: [91:91:91::54]
+              - prefix: 91:91::55
+                nexthops: [91:91:91::55]
+              - prefix: 91:91::56
+                nexthops: [91:91:91::56]
+              - prefix: 91.91.0.31
+                nexthops: [91.91.91.31]
+              - prefix: 91.91.0.32
+                nexthops: [91.91.91.32]
+              - prefix: 91.91.0.33
+                nexthops: [91.91.91.33]
+              - prefix: 91.91.0.34
+                nexthops: [91.91.91.34]
+              - prefix: 91:91::31
+                nexthops: [91:91:91::31]
+              - prefix: 91:91::34
+                nexthops: [91:91:91::34]
+              - prefix: 91:91::35
+                nexthops: [91:91:91::35]
+              - prefix: 91:91::32
+                nexthops: [91:91:91::32]
+              - prefix: 91.91.0.41
+                nexthops: [91.91.91.41]
+              - prefix: 91.91.0.42
+                nexthops: [91.91.91.42]
+              - prefix: 91.91.0.43
+                nexthops: [91.91.91.43]
+              - prefix: 91.91.0.44
+                nexthops: [91.91.91.44]
+              - prefix: 91:91::41
+                nexthops: [91:91:91::41]
+              - prefix: 91:91::44
+                nexthops: [91:91:91::44]
+              - prefix: 91:91::45
+                nexthops: [91:91:91::45]
+              - prefix: 91:91::42
+                nexthops: [91:91:91::42]
+      spine3:
+        l2vni:
+          - vlan_id: 910
+            members: [T1P1]
+            vxlan_id: 5910
+          - vlan_id: 920
+            members: [T1P1]
+            vxlan_id: 5920
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [910,920]
+            vxlan_id: 5101
+        host_info:
+            910:
+              v4_svi: 91.91.91.1
+              v6_svi: 91:91:91::1
+            920:
+              v4_svi: 92.92.92.1
+              v6_svi: 92:92:92::1
+        
+         
+    test_add_new_ES_new_vlan:
+        port_channel_num: 2
+        dut: leaf0
+        members :
+            - node : leaf0
+              member_ids: [T1P3]
+            - node : leaf1
+              member_ids: [T1P3]
+        sys_mac: 00:44:33:22:11:22
+        evpn_esi: 00:02:03:04:05:06:07:08:09:0b
+        vlan_id: 40
+        vxlan_id: 5040
+        vrf_id: 101
+        l3_traffic_dst:
+            vlan_id: 2
+        debug_cmds:
+            - show evpn es
+    test_add_new_ES_add_vlan:
+        port_channel_num: 2
+        dut: leaf0
+        members :
+            - node : leaf0
+              member_ids: [T1P3]
+            - node : leaf1
+              member_ids: [T1P3]
+        sys_mac: 00:44:33:22:11:22
+        evpn_esi: 00:02:03:04:05:06:07:08:09:0b
+        vlan_id: 4
+        l3_traffic_dst:
+            vlan_id: 5
+        debug_cmds:
+            - show evpn es
+    test_add_new_ES_remove_add_vlan:
+        port_channel_num: 2
+        dut: leaf0
+        members :
+            - node : leaf0
+              member_ids: [T1P3]
+            - node : leaf1
+              member_ids: [T1P3]
+        sys_mac: 00:44:33:22:11:22
+        evpn_esi: 00:02:03:04:05:06:07:08:09:0b
+        vlan_id: 6
+        port_remove_from: [T1P1]
+        l3_traffic_dst:
+            vlan_id: 7
+        debug_cmds:
+          - show evpn es
+    test_df_ndf_node_failure:
+        df_dut: 'leaf0'
+        ndf_dut: 'leaf1'
+        port_channel_num: 1
+        l2_endpoints:
+            - dst_int: T1P1
+              dst_node: leaf3
+              vlan: 30
+            - dst_int: T1P1
+              dst_node: leaf2
+              vlan: 4
+        l3_endpoints:
+            - dst_int: T1P1
+              dst_node: leaf3
+              src_vlan: 4
+              dst_vlan: 5
+        mh_sh_dut: leaf1
+        mh_sh_port: T1P2
+    test_host_on_spine_add_vlan:
+          dut: 'spine3'
+          vlan_id: 20
+          port_id: T1P1
+          vxlan_id: 5020
+          vrf_id: 101
+          l3_traffic_dst:
+              vlan_id: 2
+    test_mh_bum_triggers:
+          df_dut: 'leaf0'
+          ndf_dut: 'leaf1'
+          port_channel_num: 1
+
+    test_mac_learn_and_withdraw:
+      leaf0:
+        l2vni:
+          - vlan_id: 510
+            members: [T1P1, PortChannel1]
+            vxlan_id: 5510
+          - vlan_id: 520
+            members: [T1P1,PortChannel1]
+            vxlan_id: 5520
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [510,520]
+            vxlan_id: 5101
+        host_info:
+            510:
+              v4_svi: 51.51.51.1
+              v6_svi: 51:51:51::1
+            520:
+              v4_svi: 52.52.52.1
+              v6_svi: 52:52:52::1
+      leaf1:
+        l2vni:
+          - vlan_id: 510
+            members: [T1P1,PortChannel1]
+            vxlan_id: 5510
+          - vlan_id: 520
+            members: [T1P1,PortChannel1]
+            vxlan_id: 5520
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [510,520]
+            vxlan_id: 5101
+        host_info:
+            510:
+              v4_svi: 51.51.51.1
+              v6_svi: 51:51:51::1
+            520:
+              v4_svi: 52.52.52.1
+              v6_svi: 52:52:52::1
+      leaf2:
+        l2vni:
+          - vlan_id: 510
+            members: [T1P1, PortChannel3]
+            vxlan_id: 5510
+          - vlan_id: 520
+            members: [T1P1,PortChannel3]
+            vxlan_id: 5520
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [510,520]
+            vxlan_id: 5101
+        host_info:
+            510:
+              v4_svi: 51.51.51.1
+              v6_svi: 51:51:51::1
+            520:
+              v4_svi: 52.52.52.1
+              v6_svi: 52:52:52::1
+      leaf3:
+        l2vni:
+          - vlan_id: 510
+            members: [T1P1,PortChannel3]
+            vxlan_id: 5510
+          - vlan_id: 520
+            members: [T1P1,PortChannel3]
+            vxlan_id: 5520
+        l3vni:
+          - vrf_id: 101
+            vlan_bindings: [510,520]
+            vxlan_id: 5101
+        host_info:
+            510:
+              v4_svi: 51.51.51.1
+              v6_svi: 51:51:51::1
+            520:
+              v4_svi: 52.52.52.1
+              v6_svi: 52:52:52::1
+    
+    base_config_ext_connectivity:
+
+        port_channel_num: 1
+        members:
+            - node : leaf0
+              member_ids: [T1P1]
+            - node : leaf1
+              member_ids: [T1P1]
+        vlan_id_hx1: 220
+        vlan_id_hx2: 221
+        ext_host_info:
+            220:
+              - v4_svi: 220.1.1.1
+              - v6_svi: 220:1:1::1
+            221:
+              - v4_svi: 221.1.1.1
+              - v6_svi: 221:1:1::1
+        src_vlan_id_1: 20
+        vrf_id: 101
+        src_vlan_id_2: 4
+        spine_host_vlan_1: 3
+        spine_host_vlan_2: 4
+
+    test_local_bridged_traffic:
+        port_channel_num: 1
+        vlan_id: 20
+        #src_vlan_id: 20
+        src_mac: 00:00:00:00:00:01
+        dst_mac: 00:00:00:00:00:02
+    
+    test_ext_reachability_from_rif:
+        port_channel_num: 1
+        vlan_id: 20
+        src_mac: 00:00:00:00:00:01
+        dst_mac: 00:00:00:00:00:02
+        
+    test_move_vlan_to_diff_vrf:
+        src_vrf: Vrf102
+        dst_vrf: Vrf103
+        vlans:
+            - id: Vlan4
+              ipv4: 80.4.0.1
+              ipv6: 8000:4::1
+            - id: Vlan5
+              ipv4: 80.5.0.1
+              ipv6: 8000:5::1
+  
+        
+
+    

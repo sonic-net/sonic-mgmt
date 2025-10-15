@@ -1,0 +1,13 @@
+Value VNI (\d+)
+Value ESI ([0-9A-Fa-f:]+)
+Value FLAGS (\S+)
+Value VTEP (\S+\(\S+\))
+
+# The header row (we can match on "VNI" which indicates start)
+Start
+  ^\s*VNI\s+ESI\s+Flags\s+VTEPs -> Data
+
+Data
+  ^\s*${VNI}\s+${ESI}\s+${FLAGS}\s+${VTEP}\s*$$ -> Record
+  ^.* -> Data
+

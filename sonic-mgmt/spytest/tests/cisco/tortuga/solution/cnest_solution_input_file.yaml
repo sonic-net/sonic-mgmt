@@ -1,0 +1,224 @@
+duts:
+    spine1:
+    spine2:
+    spine3:
+    spine4:
+    spine5:
+    spine6:
+    # Leaf Nodes 
+    leaf1:
+    leaf2:
+    leaf3:
+    leaf4:
+    leaf5:
+    leaf6:
+    leaf7:
+    leaf8:
+    leaf9:
+    leaf10:
+endhosts:
+    host01:
+        cimc: 172.25.156.201
+        mgmt:
+            - ens99f0
+            - 172.25.156.202
+        dpu0:
+            - ens211f0np0
+            - 61.1.1.1  
+        dpu1:
+            - ens214f0np0
+            - 63.1.1.1
+        gpu0:
+            - ens201f0np0
+            - 11.11.11.2
+        gpu1:
+            - ens202f0np0
+            - 12.12.12.2
+        gpu2:
+            - ens203f0np0
+            - 13.13.13.2
+        gpu3:
+            - ens204f0np0
+            - 14.14.14.2
+        gpu4:
+            - ens205f0np0
+            - 15.15.15.2
+        gpu5:
+            - ens206f0np0
+            - 16.16.16.2
+        gpu6:
+            - ens207f0np0
+            - 17.17.17.2
+        gpu7:
+            - ens208f0np0
+            - 18.18.18.2
+    host02:
+        cimc: 172.25.156.203
+        mgmt:
+            - ens99f0
+            - 172.25.156.204
+        dpu0:
+            - ens211f0np0
+            - 62.1.1.2
+        dpu1:
+            - ens214f0np0
+            - 64.1.1.2
+        gpu0:
+            - ens201f0np0
+            - 11.11.11.3 
+        gpu1:
+            - ens202f0np0
+            - 12.12.12.3
+        gpu2:
+            - ens203f0np0
+            - 13.13.13.3
+        gpu3:
+            - ens204f0np0
+            - 14.14.14.3
+        gpu4:
+            - ens205f0np0
+            - 15.15.15.3
+        gpu5:
+            - ens206f0np0
+            - 16.16.16.3
+        gpu6:
+            - ens207f0np0
+            - 17.17.17.3
+        gpu7:
+            - ens208f0np0
+            - 18.18.18.3
+    host03:
+        cimc: 172.25.156.205
+        mgmt:
+            - ens99f0
+            - 172.25.156.206
+        dpu0:
+            - ens211f0np0
+            - 65.1.1.1 
+        dpu1:
+            - ens214f0np0
+            - 67.1.1.1
+        gpu0:
+            - ens201f0np0
+            - 11.11.11.4
+        gpu1:
+            - ens202f0np0
+            - 12.12.12.4
+        gpu2:
+            - ens203f0np0
+            - 13.13.13.4
+        gpu3:
+            - ens204f0np0
+            - 14.14.14.4
+        gpu4:
+            - ens205f0np0
+            - 15.15.15.4
+        gpu5:
+            - ens206f0np0
+            - 16.16.16.4
+        gpu6:
+            - ens207f0np0
+            - 17.17.17.4
+        gpu7:
+            - ens208f0np0
+            - 18.18.18.4
+    host04:
+        cimc: 172.25.156.207
+        mgmt:
+            - ens99f0
+            - 172.25.156.208
+        dpu0:
+            - ens211f0np0
+            - 66.1.1.2 
+        dpu1:
+            - ens214f0np0
+            - 68.1.1.2
+        gpu0:
+            - ens201f0np0
+            - 11.11.11.5
+        gpu1:
+            - ens202f0np0
+            - 12.12.12.5
+        gpu2:
+            - ens203f0np0
+            - 13.13.13.5
+        gpu3:
+            - ens204f0np0
+            - 14.14.14.5
+        gpu4:
+            - ens205f0np0
+            - 15.15.15.5
+        gpu5:
+            - ens206f0np0
+            - 16.16.16.5
+        gpu6:
+            - ens207f0np0
+            - 17.17.17.5
+        gpu7:
+            - ens208f0np0
+            - 18.18.18.5
+global:
+    image_info:
+        server_ip: 10.29.158.30
+        superbolt: 
+             - /IMAGES/cl3_images/sb/
+             - sb.bin
+        siren:
+             - /IMAGES/cl3_images/siren/
+             - siren.bin
+        carib:
+             - /IMAGES/cl3_images/carib/
+             - carib.bin
+testcases:
+    all:
+        debug_cmds_vtysh:
+          - do show bgp summary
+          - do show run
+        debug_cmds:
+          - show vlan brief
+    test_bringup_backend_cp:
+    test_bringup_frontend_cp:
+    test_backend_dp_h1g0_h1g3_samenode:
+            tc_ep: ['host01:gpu0', 'host01:gpu3']
+    test_backend_dp_h1g0_h2g0_diffnode_samerail:
+            tc_ep: ['host01:gpu0', 'host02:gpu0']
+    test_backend_dp_h1g1_h4g7_diffnode_diffrail:
+            tc_ep: ['host01:gpu1', 'host04:gpu7']
+    test_backend_dp_h2g4_h3g5_diffnode_samerail_diffvlan:
+            tc_ep: ['host02:gpu4', 'host03:gpu5']
+    test_backend_spine_link_trigger:
+            tc_ep: ['host01:gpu1', 'host03:gpu5']
+    test_backend_host_facing_link_trigger:
+            tc_ep: ['host03:gpu2', 'host01:gpu4']
+    test_backend_host_side_link_trigger:
+            tc_ep: ['host04:gpu3', 'host01:gpu7']
+    test_backend_restart_process_trigger_bgp:
+            tc_ep: ['host01:gpu2', 'host02:gpu5']
+    test_backend_restart_process_trigger_swss:
+            tc_ep: ['host04:gpu1', 'host03:gpu7']
+    test_backend_restart_process_trigger_syncd:
+            tc_ep: ['host03:gpu0', 'host01:gpu4']
+    test_backend_restart_process_trigger_dhcp_relay:
+            tc_ep: ['host02:gpu3', 'host04:gpu1']
+    test_backend_leaf_reload_trigger_config:
+            tc_ep: ['host04:gpu3', 'host01:gpu1']
+    test_backend_leaf_reload_trigger_reboot:
+            tc_ep: ['host04:gpu1', 'host01:gpu6']
+    test_backend_leaf_reload_trigger_powerfail:
+            tc_ep: ['host01:gpu4', 'host04:gpu0']
+    test_backend_spine_reload_trigger_config:
+            tc_ep: ['host04:gpu3', 'host01:gpu1']
+    test_backend_spine_reload_trigger_reboot:
+            tc_ep: ['host04:gpu1', 'host01:gpu6']
+    test_backend_spine_reload_trigger_powerfail:
+            tc_ep: ['host01:gpu4', 'host04:gpu0']
+    test_backend_addremove_cfg_trigger_rail:
+            tc_ep: ['host03:gpu4', 'host02:gpu5']
+    test_backend_addremove_cfg_trigger_interrail:
+            tc_ep: ['host02:gpu7', 'host04:gpu0']
+    test_backend_addremove_cfg_trigger_vlan:
+            tc_ep: ['host04:gpu2', 'host03:gpu5']
+    test_backend_addremove_cfg_trigger_mac:
+            tc_ep: ['host02:gpu7', 'host03:gpu3']
+    test_backend_addremove_cfg_trigger_bgp:
+            tc_ep: ['host01:gpu4', 'host04:gpu0']

@@ -1,0 +1,37 @@
+Value ESI (\S+)
+Value TYPE (\S+)
+Value INTERFACE (\S+)
+Value STATE (\S+)
+Value BRIDGE_PORT (\S+)
+Value BGP_READY (\S+)
+Value VNI_COUNT (\d+)
+Value MAC_COUNT (\d+)
+Value DF_STATUS (\S+)
+Value DF_PREF (\d+)
+Value NEXTHOP_GRP (\w+)
+Value List VTEP (.+(?:nh:\s+\d+)?)
+
+Start
+  ^ESI:\s+${ESI} -> ESI_STATE
+
+ESI_STATE
+  ^\s+Type:\s+${TYPE}
+  ^\s+Interface:\s+${INTERFACE}
+  ^\s+State:\s+${STATE}
+  ^\s+Bridge port:\s+${BRIDGE_PORT}
+  ^\s+Ready for BGP:\s+${BGP_READY}
+  ^\s+VNI Count:\s+${VNI_COUNT}
+  ^\s+MAC Count:\s+${MAC_COUNT}
+  ^\s+DF status:\s+${DF_STATUS}
+  ^\s+DF preference:\s+${DF_PREF}
+  ^\s+Nexthop group:\s+${NEXTHOP_GRP}
+  ^\s+VTEPs:\s*$$ -> VTEP_STATE
+  ^\s* -> Record Start
+
+VTEP_STATE
+  # VTEPs:
+  # 2000:1::1 nh: 268435459
+  # 2000:1::2 nh: 268435460
+  ^\s+${VTEP} -> VTEP_STATE
+  ^\s* -> Record Start
+

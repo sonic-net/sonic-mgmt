@@ -5224,7 +5224,8 @@ def _remove_repeat_renamed(items):
 
 def _remove_parameterized(items):
     func_list = [item.location[2] for item in items]
-    env_parameterized = env.get("SPYTEST_EXCLUDE_PARAMETERIZED", "0")
+    # Setting the env variable default to 2 to NOT ignore parameterized. 0 and 1 will ignore parameterized
+    env_parameterized = env.get("SPYTEST_EXCLUDE_PARAMETERIZED", "2")
     new_items_check_1 = []
     if env_parameterized in ["0", "1"]:
         new_items_check_1 = []

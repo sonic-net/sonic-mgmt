@@ -1,0 +1,1206 @@
+spine1:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo config int breakout Ethernet1_17 "2x400G" -yfl
+        sudo config int breakout Ethernet1_19 "2x400G" -yfl
+        sudo config int breakout Ethernet1_21 "2x400G" -yfl
+        sudo config int breakout Ethernet1_48 "2x400G" -yfl
+        sudo config int start Ethernet1_17_1
+        sudo config int start Ethernet1_17_2
+        sudo config int start Ethernet1_19_1
+        sudo config int start Ethernet1_19_2
+        sudo config int start Ethernet1_21_1
+        sudo config int start Ethernet1_21_2
+        sudo config int start Ethernet1_48_1
+        sudo config int start Ethernet1_48_2
+        sudo config interface ip add Loopback0 1000:1::1/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_2
+    bgp:
+      config: |
+        router bgp 65100
+        bgp router-id 10.200.200.100
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_17_1 interface peer-group TRANSIT
+        neighbor Ethernet1_17_2 interface peer-group TRANSIT
+        neighbor Ethernet1_19_1 interface peer-group TRANSIT
+        neighbor Ethernet1_19_2 interface peer-group TRANSIT
+        neighbor Ethernet1_21_1 interface peer-group TRANSIT
+        neighbor Ethernet1_21_2 interface peer-group TRANSIT
+        neighbor Ethernet1_48_1 interface peer-group TRANSIT
+        neighbor Ethernet1_48_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+spine2:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo config int breakout Ethernet1_17 "2x400G" -yfl
+        sudo config int breakout Ethernet1_19 "2x400G" -yfl
+        sudo config int breakout Ethernet1_21 "2x400G" -yfl
+        sudo config int breakout Ethernet1_48 "2x400G" -yfl
+        sudo config int start Ethernet1_17_1
+        sudo config int start Ethernet1_17_2
+        sudo config int start Ethernet1_19_1
+        sudo config int start Ethernet1_19_2
+        sudo config int start Ethernet1_21_1
+        sudo config int start Ethernet1_21_2
+        sudo config int start Ethernet1_48_1
+        sudo config int start Ethernet1_48_2
+        sudo config interface ip add Loopback0 1000:1::2/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_2
+    bgp:
+      config: |
+        router bgp 65101
+        bgp router-id 10.200.200.101
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_17_1 interface peer-group TRANSIT
+        neighbor Ethernet1_17_2 interface peer-group TRANSIT
+        neighbor Ethernet1_19_1 interface peer-group TRANSIT
+        neighbor Ethernet1_19_2 interface peer-group TRANSIT
+        neighbor Ethernet1_21_1 interface peer-group TRANSIT
+        neighbor Ethernet1_21_2 interface peer-group TRANSIT
+        neighbor Ethernet1_48_1 interface peer-group TRANSIT
+        neighbor Ethernet1_48_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+spine3:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo config int breakout Ethernet1_17 "2x400G" -yfl
+        sudo config int breakout Ethernet1_19 "2x400G" -yfl
+        sudo config int breakout Ethernet1_21 "2x400G" -yfl
+        sudo config int breakout Ethernet1_48 "2x400G" -yfl
+        sudo config int start Ethernet1_17_1
+        sudo config int start Ethernet1_17_2
+        sudo config int start Ethernet1_19_1
+        sudo config int start Ethernet1_19_2
+        sudo config int start Ethernet1_21_1
+        sudo config int start Ethernet1_21_2
+        sudo config int start Ethernet1_48_1
+        sudo config int start Ethernet1_48_2
+        sudo config interface ip add Loopback0 1000:1::3/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_2
+    bgp:
+      config: |
+        router bgp 65102
+        bgp router-id 10.200.200.102
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_17_1 interface peer-group TRANSIT
+        neighbor Ethernet1_17_2 interface peer-group TRANSIT
+        neighbor Ethernet1_19_1 interface peer-group TRANSIT
+        neighbor Ethernet1_19_2 interface peer-group TRANSIT
+        neighbor Ethernet1_21_1 interface peer-group TRANSIT
+        neighbor Ethernet1_21_2 interface peer-group TRANSIT
+        neighbor Ethernet1_48_1 interface peer-group TRANSIT
+        neighbor Ethernet1_48_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+spine4:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo config int breakout Ethernet1_17 "2x400G" -yfl
+        sudo config int breakout Ethernet1_19 "2x400G" -yfl
+        sudo config int breakout Ethernet1_21 "2x400G" -yfl
+        sudo config int breakout Ethernet1_48 "2x400G" -yfl
+        sudo config int start Ethernet1_17_1
+        sudo config int start Ethernet1_17_2
+        sudo config int start Ethernet1_19_1
+        sudo config int start Ethernet1_19_2
+        sudo config int start Ethernet1_21_1
+        sudo config int start Ethernet1_21_2
+        sudo config int start Ethernet1_48_1
+        sudo config int start Ethernet1_48_2
+        sudo config interface ip add Loopback0 1000:1::4/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_48_2
+    bgp:
+      config: |
+        router bgp 65103
+        bgp router-id 10.200.200.103
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_17_1 interface peer-group TRANSIT
+        neighbor Ethernet1_17_2 interface peer-group TRANSIT
+        neighbor Ethernet1_19_1 interface peer-group TRANSIT
+        neighbor Ethernet1_19_2 interface peer-group TRANSIT
+        neighbor Ethernet1_21_1 interface peer-group TRANSIT
+        neighbor Ethernet1_21_2 interface peer-group TRANSIT
+        neighbor Ethernet1_48_1 interface peer-group TRANSIT
+        neighbor Ethernet1_48_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+spine5:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo config interface ip add Loopback0 1000:2::1/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet4
+        sudo config interface ipv6 enable use-link-local-only Ethernet8
+        sudo config interface ipv6 enable use-link-local-only Ethernet12
+        sudo config interface ipv6 enable use-link-local-only Ethernet416
+        sudo config interface ipv6 enable use-link-local-only Ethernet420
+        sudo config interface ipv6 enable use-link-local-only Ethernet480
+        sudo config interface ipv6 enable use-link-local-only Ethernet484
+        sudo config interface ipv6 enable use-link-local-only Ethernet496
+        sudo config interface ipv6 enable use-link-local-only Ethernet500
+        sudo config interface ipv6 enable use-link-local-only Ethernet264
+        sudo config interface ipv6 enable use-link-local-only Ethernet268
+    bgp:
+      config: |
+        router bgp 65300
+        bgp router-id 10.200.200.230
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet4 interface peer-group TRANSIT
+        neighbor Ethernet8 interface peer-group TRANSIT
+        neighbor Ethernet12 interface peer-group TRANSIT
+        neighbor Ethernet416 interface peer-group TRANSIT
+        neighbor Ethernet420 interface peer-group TRANSIT
+        neighbor Ethernet480 interface peer-group TRANSIT
+        neighbor Ethernet484 interface peer-group TRANSIT
+        neighbor Ethernet496 interface peer-group TRANSIT
+        neighbor Ethernet500 interface peer-group TRANSIT
+        neighbor Ethernet264 interface peer-group TRANSIT
+        neighbor Ethernet268 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+spine6:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo config interface ip add Loopback0 1000:2::2/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet0
+        sudo config interface ipv6 enable use-link-local-only Ethernet4
+        sudo config interface ipv6 enable use-link-local-only Ethernet8
+        sudo config interface ipv6 enable use-link-local-only Ethernet12
+        sudo config interface ipv6 enable use-link-local-only Ethernet416
+        sudo config interface ipv6 enable use-link-local-only Ethernet420
+        sudo config interface ipv6 enable use-link-local-only Ethernet480
+        sudo config interface ipv6 enable use-link-local-only Ethernet484
+        sudo config interface ipv6 enable use-link-local-only Ethernet496
+        sudo config interface ipv6 enable use-link-local-only Ethernet500
+        sudo config interface ipv6 enable use-link-local-only Ethernet264
+        sudo config interface ipv6 enable use-link-local-only Ethernet268
+    bgp:
+      config: |
+        router bgp 65301
+        bgp router-id 10.200.200.231
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet0 interface peer-group TRANSIT
+        neighbor Ethernet4 interface peer-group TRANSIT
+        neighbor Ethernet8 interface peer-group TRANSIT
+        neighbor Ethernet12 interface peer-group TRANSIT
+        neighbor Ethernet416 interface peer-group TRANSIT
+        neighbor Ethernet420 interface peer-group TRANSIT
+        neighbor Ethernet480 interface peer-group TRANSIT
+        neighbor Ethernet484 interface peer-group TRANSIT
+        neighbor Ethernet496 interface peer-group TRANSIT
+        neighbor Ethernet500 interface peer-group TRANSIT
+        neighbor Ethernet264 interface peer-group TRANSIT
+        neighbor Ethernet268 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        end
+        exit
+leaf1:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config int breakout Ethernet1_17 "2x400G" -yfl
+        sudo config int breakout Ethernet1_18 "2x400G" -yfl
+        sudo config int breakout Ethernet1_19 "2x400G" -yfl
+        sudo config int breakout Ethernet1_20 "2x400G" -yfl
+        sudo config int start Ethernet1_17_1
+        sudo config int start Ethernet1_17_2
+        sudo config int start Ethernet1_18_1
+        sudo config int start Ethernet1_18_2
+        sudo config int start Ethernet1_19_1
+        sudo config int start Ethernet1_19_2
+        sudo config int start Ethernet1_20_1
+        sudo config int start Ethernet1_20_2
+        sudo config int breakout Ethernet1_1 "2x400G" -yfl
+        sudo config int breakout Ethernet1_2 "2x400G" -yfl
+        sudo config int breakout Ethernet1_3 "2x400G" -yfl
+        sudo config int breakout Ethernet1_4 "2x400G" -yfl
+        sudo config int start Ethernet1_1_1
+        sudo config int start Ethernet1_1_2
+        sudo config int start Ethernet1_2_1
+        sudo config int start Ethernet1_2_2
+        sudo config int start Ethernet1_3_1
+        sudo config int start Ethernet1_3_2
+        sudo config int start Ethernet1_4_1
+        sudo config int start Ethernet1_4_2
+        sudo config interface ip add Loopback0 2000:1::1/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_17_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_18_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_18_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_19_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_20_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_20_2
+        sudo config vxlan add VXLAN 2000:1::1
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 11
+        sudo config vlan add 12
+        sudo config vlan member add -u 11 Ethernet1_1_1
+        sudo config vlan member add -u 12 Ethernet1_1_2
+        sudo config vlan member add -u 11 Ethernet1_2_1
+        sudo config vlan member add -u 12 Ethernet1_2_2
+        sudo config vlan member add -u 11 Ethernet1_3_1
+        sudo config vlan member add -u 12 Ethernet1_3_2
+        sudo config vlan member add -u 11 Ethernet1_4_1
+        sudo config vlan member add -u 12 Ethernet1_4_2
+        sudo config vxlan map add VXLAN 11 5011
+        sudo config vxlan map add VXLAN 12 5012
+        sudo config vrf add VrfBackend_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfBackend_101 
+        sudo config interface vrf bind Vlan11 VrfBackend_101 
+        sudo config interface vrf bind Vlan12 VrfBackend_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfBackend_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan11 11.11.11.1/24  
+        sudo config interface ip add Vlan12 12.12.12.1/24
+        sudo config vlan static-anycast-gateway enable 11 
+        sudo config vlan static-anycast-gateway enable 12
+    bgp:
+      config: |
+        router bgp 65200
+        bgp router-id 10.200.200.200
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_17_1 interface peer-group TRANSIT
+        neighbor Ethernet1_17_2 interface peer-group TRANSIT
+        neighbor Ethernet1_18_1 interface peer-group TRANSIT
+        neighbor Ethernet1_18_2 interface peer-group TRANSIT
+        neighbor Ethernet1_19_1 interface peer-group TRANSIT
+        neighbor Ethernet1_19_2 interface peer-group TRANSIT
+        neighbor Ethernet1_20_1 interface peer-group TRANSIT
+        neighbor Ethernet1_20_2 interface peer-group TRANSIT
+        neighbor 2000:1::2 peer-group OVERLAY
+        neighbor 2000:1::3 peer-group OVERLAY
+        neighbor 2000:1::4 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65200 vrf VrfBackend_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfBackend_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf2:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config int breakout Ethernet1_21 "2x400G" -yfl
+        sudo config int breakout Ethernet1_22 "2x400G" -yfl
+        sudo config int breakout Ethernet1_23 "2x400G" -yfl
+        sudo config int breakout Ethernet1_24 "2x400G" -yfl
+        sudo config int start Ethernet1_21_1
+        sudo config int start Ethernet1_21_2
+        sudo config int start Ethernet1_22_1
+        sudo config int start Ethernet1_22_2
+        sudo config int start Ethernet1_23_1
+        sudo config int start Ethernet1_23_2
+        sudo config int start Ethernet1_24_1
+        sudo config int start Ethernet1_24_2
+        sudo config int breakout Ethernet1_1 "2x400G" -yfl
+        sudo config int breakout Ethernet1_2 "2x400G" -yfl
+        sudo config int breakout Ethernet1_3 "2x400G" -yfl
+        sudo config int breakout Ethernet1_4 "2x400G" -yfl
+        sudo config int start Ethernet1_1_1
+        sudo config int start Ethernet1_1_2
+        sudo config int start Ethernet1_2_1
+        sudo config int start Ethernet1_2_2
+        sudo config int start Ethernet1_3_1
+        sudo config int start Ethernet1_3_2
+        sudo config int start Ethernet1_4_1
+        sudo config int start Ethernet1_4_2
+        sudo config interface ip add Loopback0 2000:1::2/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_21_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_22_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_22_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_23_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_23_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_24_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_24_2
+        sudo config vxlan add VXLAN 2000:1::2
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 13
+        sudo config vlan add 14
+        sudo config vlan member add -u 13 Ethernet1_1_1
+        sudo config vlan member add -u 14 Ethernet1_1_2
+        sudo config vlan member add -u 13 Ethernet1_2_1
+        sudo config vlan member add -u 14 Ethernet1_2_2
+        sudo config vlan member add -u 13 Ethernet1_3_1
+        sudo config vlan member add -u 14 Ethernet1_3_2
+        sudo config vlan member add -u 13 Ethernet1_4_1
+        sudo config vlan member add -u 14 Ethernet1_4_2
+        sudo config vxlan map add VXLAN 13 5013
+        sudo config vxlan map add VXLAN 14 5014
+        sudo config vrf add VrfBackend_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfBackend_101 
+        sudo config interface vrf bind Vlan13 VrfBackend_101 
+        sudo config interface vrf bind Vlan14 VrfBackend_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfBackend_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan13 13.13.13.1/24 
+        sudo config interface ip add Vlan14 14.14.14.1/24
+        sudo config vlan static-anycast-gateway enable 13 
+        sudo config vlan static-anycast-gateway enable 14
+    bgp:
+      config: |
+        router bgp 65201
+        bgp router-id 10.200.200.201
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor 2000:1::1 peer-group OVERLAY
+        neighbor 2000:1::3 peer-group OVERLAY
+        neighbor 2000:1::4 peer-group OVERLAY
+        neighbor Ethernet1_21_1 interface peer-group TRANSIT
+        neighbor Ethernet1_21_2 interface peer-group TRANSIT
+        neighbor Ethernet1_22_1 interface peer-group TRANSIT
+        neighbor Ethernet1_22_2 interface peer-group TRANSIT
+        neighbor Ethernet1_23_1 interface peer-group TRANSIT
+        neighbor Ethernet1_23_2 interface peer-group TRANSIT
+        neighbor Ethernet1_24_1 interface peer-group TRANSIT
+        neighbor Ethernet1_24_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65201 vrf VrfBackend_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfBackend_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf3:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config int breakout Ethernet1_29 "2x400G" -yfl
+        sudo config int breakout Ethernet1_30 "2x400G" -yfl
+        sudo config int breakout Ethernet1_31 "2x400G" -yfl
+        sudo config int breakout Ethernet1_32 "2x400G" -yfl
+        sudo config int start Ethernet1_29_1
+        sudo config int start Ethernet1_29_2
+        sudo config int start Ethernet1_30_1
+        sudo config int start Ethernet1_30_2
+        sudo config int start Ethernet1_31_1
+        sudo config int start Ethernet1_31_2
+        sudo config int start Ethernet1_32_1
+        sudo config int start Ethernet1_32_2
+        sudo config int breakout Ethernet1_1 "2x400G" -yfl
+        sudo config int breakout Ethernet1_2 "2x400G" -yfl
+        sudo config int breakout Ethernet1_3 "2x400G" -yfl
+        sudo config int breakout Ethernet1_4 "2x400G" -yfl
+        sudo config int start Ethernet1_1_1
+        sudo config int start Ethernet1_1_2
+        sudo config int start Ethernet1_2_1
+        sudo config int start Ethernet1_2_2
+        sudo config int start Ethernet1_3_1
+        sudo config int start Ethernet1_3_2
+        sudo config int start Ethernet1_4_1
+        sudo config int start Ethernet1_4_2
+        sudo config interface ip add Loopback0 2000:1::3/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_29_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_29_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_30_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_30_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_31_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_31_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_32_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_32_2
+        sudo config vxlan add VXLAN 2000:1::3
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 15
+        sudo config vlan add 16
+        sudo config vlan member add -u 15 Ethernet1_1_1
+        sudo config vlan member add -u 16 Ethernet1_1_2
+        sudo config vlan member add -u 15 Ethernet1_2_1
+        sudo config vlan member add -u 16 Ethernet1_2_2
+        sudo config vlan member add -u 15 Ethernet1_3_1
+        sudo config vlan member add -u 16 Ethernet1_3_2
+        sudo config vlan member add -u 15 Ethernet1_4_1
+        sudo config vlan member add -u 16 Ethernet1_4_2
+        sudo config vxlan map add VXLAN 15 5015
+        sudo config vxlan map add VXLAN 16 5016
+        sudo config vrf add VrfBackend_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfBackend_101
+        sudo config interface vrf bind Vlan15 VrfBackend_101 
+        sudo config interface vrf bind Vlan16 VrfBackend_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfBackend_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan15 15.15.15.1/24  
+        sudo config interface ip add Vlan16 16.16.16.1/24
+        sudo config vlan static-anycast-gateway enable 15 
+        sudo config vlan static-anycast-gateway enable 16
+    bgp:
+      config: |
+        router bgp 65202
+        bgp router-id 10.200.200.202
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor 2000:1::1 peer-group OVERLAY
+        neighbor 2000:1::2 peer-group OVERLAY
+        neighbor 2000:1::4 peer-group OVERLAY
+        neighbor Ethernet1_29_1 interface peer-group TRANSIT
+        neighbor Ethernet1_29_2 interface peer-group TRANSIT
+        neighbor Ethernet1_30_1 interface peer-group TRANSIT
+        neighbor Ethernet1_30_2 interface peer-group TRANSIT
+        neighbor Ethernet1_31_1 interface peer-group TRANSIT
+        neighbor Ethernet1_31_2 interface peer-group TRANSIT
+        neighbor Ethernet1_32_1 interface peer-group TRANSIT
+        neighbor Ethernet1_32_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65202 vrf VrfBackend_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfBackend_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf4:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config int breakout Ethernet1_13 "2x400G" -yfl
+        sudo config int breakout Ethernet1_14 "2x400G" -yfl
+        sudo config int breakout Ethernet1_15 "2x400G" -yfl
+        sudo config int breakout Ethernet1_16 "2x400G" -yfl
+        sudo config int start Ethernet1_13_1
+        sudo config int start Ethernet1_13_2
+        sudo config int start Ethernet1_14_1
+        sudo config int start Ethernet1_14_2
+        sudo config int start Ethernet1_15_1
+        sudo config int start Ethernet1_15_2
+        sudo config int start Ethernet1_16_1
+        sudo config int start Ethernet1_16_2
+        sudo config int breakout Ethernet1_1 "2x400G" -yfl
+        sudo config int breakout Ethernet1_2 "2x400G" -yfl
+        sudo config int breakout Ethernet1_3 "2x400G" -yfl
+        sudo config int breakout Ethernet1_4 "2x400G" -yfl
+        sudo config int start Ethernet1_1_1
+        sudo config int start Ethernet1_1_2
+        sudo config int start Ethernet1_2_1
+        sudo config int start Ethernet1_2_2
+        sudo config int start Ethernet1_3_1
+        sudo config int start Ethernet1_3_2
+        sudo config int start Ethernet1_4_1
+        sudo config int start Ethernet1_4_2
+        sudo config interface ip add Loopback0 2000:1::4/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_13_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_13_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_14_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_14_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_15_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_15_2
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_16_1
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_16_2
+        sudo config vxlan add VXLAN 2000:1::4
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 17
+        sudo config vlan add 18
+        sudo config vlan member add -u 17 Ethernet1_1_1
+        sudo config vlan member add -u 18 Ethernet1_1_2
+        sudo config vlan member add -u 17 Ethernet1_2_1
+        sudo config vlan member add -u 18 Ethernet1_2_2
+        sudo config vlan member add -u 17 Ethernet1_3_1
+        sudo config vlan member add -u 18 Ethernet1_3_2
+        sudo config vlan member add -u 17 Ethernet1_4_1
+        sudo config vlan member add -u 18 Ethernet1_4_2
+        sudo config vxlan map add VXLAN 17 5017
+        sudo config vxlan map add VXLAN 18 5018
+        sudo config vrf add VrfBackend_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfBackend_101
+        sudo config interface vrf bind Vlan17 VrfBackend_101 
+        sudo config interface vrf bind Vlan18 VrfBackend_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfBackend_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan17 17.17.17.1/24
+        sudo config interface ip add Vlan18 18.18.18.1/24
+        sudo config vlan static-anycast-gateway enable 17 
+        sudo config vlan static-anycast-gateway enable 18
+    bgp:
+      config: |
+        router bgp 65203
+        bgp router-id 10.200.200.203
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor 2000:1::1 peer-group OVERLAY
+        neighbor 2000:1::2 peer-group OVERLAY
+        neighbor 2000:1::3 peer-group OVERLAY
+        neighbor Ethernet1_13_1 interface peer-group TRANSIT
+        neighbor Ethernet1_13_2 interface peer-group TRANSIT
+        neighbor Ethernet1_14_1 interface peer-group TRANSIT
+        neighbor Ethernet1_14_2 interface peer-group TRANSIT
+        neighbor Ethernet1_15_1 interface peer-group TRANSIT
+        neighbor Ethernet1_15_2 interface peer-group TRANSIT
+        neighbor Ethernet1_16_1 interface peer-group TRANSIT
+        neighbor Ethernet1_16_2 interface peer-group TRANSIT
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65203 vrf VrfBackend_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfBackend_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf5:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config interface ip add Loopback0 2000:2::1/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet32
+        sudo config interface ipv6 enable use-link-local-only Ethernet36
+        sudo config interface ipv6 enable use-link-local-only Ethernet40
+        sudo config interface ipv6 enable use-link-local-only Ethernet44
+        sudo config vxlan add VXLAN 2000:2::1
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 21
+        sudo config vlan add 23
+        sudo config vlan add 25
+        sudo config vlan add 27
+        sudo config vlan member add -u 21 Ethernet0
+        sudo config vlan member add -u 23 Ethernet4
+        sudo config vlan member add -u 25 Ethernet8
+        sudo config vlan member add -u 27 Ethernet12
+        sudo config vxlan map add VXLAN 21 5021
+        sudo config vxlan map add VXLAN 23 5023
+        sudo config vxlan map add VXLAN 25 5025
+        sudo config vxlan map add VXLAN 27 5027
+        sudo config vrf add VrfFrontend_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfFrontend_101 
+        sudo config interface vrf bind Vlan21 VrfFrontend_101 
+        sudo config interface vrf bind Vlan23 VrfFrontend_101
+        sudo config interface vrf bind Vlan25 VrfFrontend_101 
+        sudo config interface vrf bind Vlan27 VrfFrontend_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfFrontend_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan21 21.21.21.1/24  
+        sudo config interface ip add Vlan23 23.23.23.1/24
+        sudo config interface ip add Vlan25 25.25.25.1/24  
+        sudo config interface ip add Vlan27 27.27.27.1/24
+        sudo config vlan static-anycast-gateway enable 21 
+        sudo config vlan static-anycast-gateway enable 23
+        sudo config vlan static-anycast-gateway enable 25 
+        sudo config vlan static-anycast-gateway enable 27
+    bgp:
+      config: |
+        router bgp 65400
+        bgp router-id 10.200.200.240
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet32 interface peer-group TRANSIT
+        neighbor Ethernet36 interface peer-group TRANSIT
+        neighbor Ethernet40 interface peer-group TRANSIT
+        neighbor Ethernet44 interface peer-group TRANSIT
+        neighbor 2000:2::2 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65400 vrf VrfFrontend_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfFrontend_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf6:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config interface ip add Loopback0 2000:2::2/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet32
+        sudo config interface ipv6 enable use-link-local-only Ethernet36
+        sudo config interface ipv6 enable use-link-local-only Ethernet40
+        sudo config interface ipv6 enable use-link-local-only Ethernet44
+        sudo config vxlan add VXLAN 2000:2::2
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 22
+        sudo config vlan add 24
+        sudo config vlan add 26
+        sudo config vlan add 28
+        sudo config vlan member add -u 22 Ethernet0
+        sudo config vlan member add -u 24 Ethernet4
+        sudo config vlan member add -u 26 Ethernet8
+        sudo config vlan member add -u 28 Ethernet12
+        sudo config vxlan map add VXLAN 22 5022
+        sudo config vxlan map add VXLAN 24 5024
+        sudo config vxlan map add VXLAN 26 5026
+        sudo config vxlan map add VXLAN 28 5028
+        sudo config vrf add VrfFrontend_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfFrontend_101 
+        sudo config interface vrf bind Vlan22 VrfFrontend_101 
+        sudo config interface vrf bind Vlan24 VrfFrontend_101
+        sudo config interface vrf bind Vlan26 VrfFrontend_101 
+        sudo config interface vrf bind Vlan28 VrfFrontend_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfFrontend_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan22 22.22.22.1/24  
+        sudo config interface ip add Vlan24 24.24.24.1/24
+        sudo config interface ip add Vlan26 26.26.26.1/24  
+        sudo config interface ip add Vlan28 28.28.28.1/24
+        sudo config vlan static-anycast-gateway enable 22 
+        sudo config vlan static-anycast-gateway enable 24
+        sudo config vlan static-anycast-gateway enable 26 
+        sudo config vlan static-anycast-gateway enable 28
+    bgp:
+      config: |
+        router bgp 65401
+        bgp router-id 10.200.200.241
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet32 interface peer-group TRANSIT
+        neighbor Ethernet36 interface peer-group TRANSIT
+        neighbor Ethernet40 interface peer-group TRANSIT
+        neighbor Ethernet44 interface peer-group TRANSIT
+        neighbor 2000:2::1 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65401 vrf VrfFrontend_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfFrontend_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf9:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config interface ip add Loopback0 2000:4::1/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_29
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_30
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_31
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_32
+        sudo config vxlan add VXLAN 2000:4::1
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 61
+        sudo config vlan add 62
+        sudo config vlan add 63
+        sudo config vlan add 64
+        sudo config vlan add 65
+        sudo config vlan add 66
+        sudo config vlan add 67
+        sudo config vlan add 68
+        sudo config vlan add 69
+        sudo config vlan add 70
+        sudo config vlan add 71
+        sudo config vlan add 72
+        sudo config vxlan map add VXLAN 61 5061
+        sudo config vxlan map add VXLAN 62 5062
+        sudo config vxlan map add VXLAN 63 5063
+        sudo config vxlan map add VXLAN 64 5064
+        sudo config vxlan map add VXLAN 65 5065
+        sudo config vxlan map add VXLAN 66 5066
+        sudo config vxlan map add VXLAN 67 5067
+        sudo config vxlan map add VXLAN 68 5068
+        sudo config vxlan map add VXLAN 69 5069
+        sudo config vxlan map add VXLAN 70 5070
+        sudo config vxlan map add VXLAN 71 5071
+        sudo config vxlan map add VXLAN 72 5072
+        sudo config vrf add VrfStorage_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfStorage_101 
+        sudo config interface vrf bind Vlan61 VrfStorage_101 
+        sudo config interface vrf bind Vlan62 VrfStorage_101
+        sudo config interface vrf bind Vlan63 VrfStorage_101 
+        sudo config interface vrf bind Vlan64 VrfStorage_101
+        sudo config interface vrf bind Vlan65 VrfStorage_101 
+        sudo config interface vrf bind Vlan66 VrfStorage_101
+        sudo config interface vrf bind Vlan67 VrfStorage_101 
+        sudo config interface vrf bind Vlan68 VrfStorage_101
+        sudo config interface vrf bind Vlan69 VrfStorage_101 
+        sudo config interface vrf bind Vlan70 VrfStorage_101
+        sudo config interface vrf bind Vlan71 VrfStorage_101 
+        sudo config interface vrf bind Vlan72 VrfStorage_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfStorage_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan61 61.61.61.1/24  
+        sudo config interface ip add Vlan62 62.62.62.1/24
+        sudo config interface ip add Vlan63 63.63.63.1/24  
+        sudo config interface ip add Vlan64 64.64.64.1/24
+        sudo config interface ip add Vlan65 65.65.65.1/24  
+        sudo config interface ip add Vlan66 66.66.66.1/24
+        sudo config interface ip add Vlan67 67.67.67.1/24  
+        sudo config interface ip add Vlan68 68.68.68.1/24
+        sudo config interface ip add Vlan69 69.69.69.1/24  
+        sudo config interface ip add Vlan70 70.70.70.1/24
+        sudo config interface ip add Vlan71 71.71.71.1/24  
+        sudo config interface ip add Vlan72 72.72.72.1/24
+        sudo config vlan static-anycast-gateway enable 61 
+        sudo config vlan static-anycast-gateway enable 62
+        sudo config vlan static-anycast-gateway enable 63 
+        sudo config vlan static-anycast-gateway enable 64
+        sudo config vlan static-anycast-gateway enable 65 
+        sudo config vlan static-anycast-gateway enable 66
+        sudo config vlan static-anycast-gateway enable 67 
+        sudo config vlan static-anycast-gateway enable 68
+        sudo config vlan static-anycast-gateway enable 69 
+        sudo config vlan static-anycast-gateway enable 70
+        sudo config vlan static-anycast-gateway enable 71 
+        sudo config vlan static-anycast-gateway enable 72
+    bgp:
+      config: |
+        router bgp 65404
+        bgp router-id 10.200.200.244
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_29 interface peer-group TRANSIT
+        neighbor Ethernet1_30 interface peer-group TRANSIT
+        neighbor Ethernet1_31 interface peer-group TRANSIT
+        neighbor Ethernet1_32 interface peer-group TRANSIT
+        neighbor 2000:4::2 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65404 vrf VrfStorage_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfStorage_101
+        vni 5101
+        exit-vrf
+        end
+        exit
+leaf10:
+    sonic:
+      config: |
+        sudo config hostname sonic
+        sudo counterpoll tunnel enable
+        sudo config interface ip add Loopback0 2000:4::2/128
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_29
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_30
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_31
+        sudo config interface ipv6 enable use-link-local-only Ethernet1_32
+        sudo config vxlan add VXLAN 2000:4::2
+        sudo config vxlan evpn_nvo add NVO VXLAN
+        sudo config vlan add 61
+        sudo config vlan add 62
+        sudo config vlan add 63
+        sudo config vlan add 64
+        sudo config vlan add 65
+        sudo config vlan add 66
+        sudo config vlan add 67
+        sudo config vlan add 68
+        sudo config vlan add 69
+        sudo config vlan add 70
+        sudo config vlan add 71
+        sudo config vlan add 72
+        sudo config vxlan map add VXLAN 61 5061
+        sudo config vxlan map add VXLAN 62 5062
+        sudo config vxlan map add VXLAN 63 5063
+        sudo config vxlan map add VXLAN 64 5064
+        sudo config vxlan map add VXLAN 65 5065
+        sudo config vxlan map add VXLAN 66 5066
+        sudo config vxlan map add VXLAN 67 5067
+        sudo config vxlan map add VXLAN 68 5068
+        sudo config vxlan map add VXLAN 69 5069
+        sudo config vxlan map add VXLAN 70 5070
+        sudo config vxlan map add VXLAN 71 5071
+        sudo config vxlan map add VXLAN 72 5072
+        sudo config vrf add VrfStorage_101 
+        sudo config vlan add 101 
+        sudo config interface vrf bind Vlan101 VrfStorage_101 
+        sudo config interface vrf bind Vlan61 VrfStorage_101 
+        sudo config interface vrf bind Vlan62 VrfStorage_101
+        sudo config interface vrf bind Vlan63 VrfStorage_101 
+        sudo config interface vrf bind Vlan64 VrfStorage_101
+        sudo config interface vrf bind Vlan65 VrfStorage_101 
+        sudo config interface vrf bind Vlan66 VrfStorage_101
+        sudo config interface vrf bind Vlan67 VrfStorage_101 
+        sudo config interface vrf bind Vlan68 VrfStorage_101
+        sudo config interface vrf bind Vlan69 VrfStorage_101 
+        sudo config interface vrf bind Vlan70 VrfStorage_101
+        sudo config interface vrf bind Vlan71 VrfStorage_101 
+        sudo config interface vrf bind Vlan72 VrfStorage_101
+        sudo config vxlan map add VXLAN 101 5101 
+        sudo config vrf add_vrf_vni_map VrfStorage_101 5101 
+        sudo config static-anycast-gateway mac_address add 00:11:22:33:44:55 
+        sudo config interface ip add Vlan61 61.61.61.1/24  
+        sudo config interface ip add Vlan62 62.62.62.1/24
+        sudo config interface ip add Vlan63 63.63.63.1/24  
+        sudo config interface ip add Vlan64 64.64.64.1/24
+        sudo config interface ip add Vlan65 65.65.65.1/24  
+        sudo config interface ip add Vlan66 66.66.66.1/24
+        sudo config interface ip add Vlan67 67.67.67.1/24  
+        sudo config interface ip add Vlan68 68.68.68.1/24
+        sudo config interface ip add Vlan69 69.69.69.1/24  
+        sudo config interface ip add Vlan70 70.70.70.1/24
+        sudo config interface ip add Vlan71 71.71.71.1/24  
+        sudo config interface ip add Vlan72 72.72.72.1/24
+        sudo config vlan static-anycast-gateway enable 61 
+        sudo config vlan static-anycast-gateway enable 62
+        sudo config vlan static-anycast-gateway enable 63 
+        sudo config vlan static-anycast-gateway enable 64
+        sudo config vlan static-anycast-gateway enable 65 
+        sudo config vlan static-anycast-gateway enable 66
+        sudo config vlan static-anycast-gateway enable 67 
+        sudo config vlan static-anycast-gateway enable 68
+        sudo config vlan static-anycast-gateway enable 69 
+        sudo config vlan static-anycast-gateway enable 70
+        sudo config vlan static-anycast-gateway enable 71 
+        sudo config vlan static-anycast-gateway enable 72
+    bgp:
+      config: |
+        router bgp 65405
+        bgp router-id 10.200.200.245
+        no bgp ebgp-requires-policy
+        no bgp default ipv4-unicast
+        bgp disable-ebgp-connected-route-check
+        bgp bestpath as-path multipath-relax
+        neighbor OVERLAY peer-group
+        neighbor OVERLAY remote-as external
+        neighbor OVERLAY ebgp-multihop 255
+        neighbor OVERLAY disable-connected-check
+        neighbor OVERLAY update-source Loopback0
+        neighbor TRANSIT peer-group
+        neighbor TRANSIT remote-as external
+        neighbor Ethernet1_29 interface peer-group TRANSIT
+        neighbor Ethernet1_30 interface peer-group TRANSIT
+        neighbor Ethernet1_31 interface peer-group TRANSIT
+        neighbor Ethernet1_32 interface peer-group TRANSIT
+        neighbor 2000:4::1 peer-group OVERLAY
+        address-family ipv4 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family ipv6 unicast
+        redistribute connected
+        neighbor TRANSIT activate
+        exit-address-family
+        address-family l2vpn evpn
+        neighbor OVERLAY activate
+        advertise-all-vni
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        router bgp 65405 vrf VrfStorage_101
+        address-family ipv4 unicast
+        redistribute connected
+        exit-address-family
+        address-family l2vpn evpn
+        advertise ipv4 unicast
+        exit-address-family
+        exit
+        vrf VrfStorage_101
+        vni 5101
+        exit-vrf
+        end
+        exit

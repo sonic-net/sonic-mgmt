@@ -10,7 +10,6 @@ import copy
 import math
 from random import randint
 from collections import OrderedDict
-
 import utilities.common as utils
 import utilities.parallel as putils
 from utilities.exceptions import DeviceConnectionTimeout
@@ -3604,7 +3603,7 @@ class Net(object):
     def reboot(self, devname, method=None, skip_port_wait=False,
                onie=False, skip_exception=False, skip_fallback=False,
                ret_logs=False, max_ready_wait=0, internal=True,
-               line=None, try_count=1, abort_on_fail=False, **kwargs):
+               line=None, try_count=1, abort_on_fail=False, clear_skipped_file=False, **kwargs):
 
         line = line or utils.get_line_number()
         method = method or env.get("SPYTEST_DEFAULT_REBOOT_METHOD", "normal")
@@ -3614,7 +3613,8 @@ class Net(object):
                 rv = self._reboot(devname, method, skip_port_wait, onie,
                                   skip_exception, skip_fallback, ret_logs=ret_logs,
                                   max_ready_wait=max_ready_wait, internal=internal,
-                                  line=line, abort_on_fail=abort_on_fail, **kwargs)
+                                  line=line, abort_on_fail=abort_on_fail, 
+                                  clear_skipped_file=clear_skipped_file, **kwargs) 
                 if not onie:
                     if self.cfg.save_warmboot and method in ["warm", "warm-reboot"]:
                         self.apply_remote(devname, "fetch-warmboot")
@@ -3661,8 +3661,7 @@ class Net(object):
     def _reboot(self, devname, method="normal", skip_port_wait=False,
                 onie=False, skip_exception=False, skip_fallback=False,
                 ret_logs=False, max_ready_wait=0, internal=True, line=None,
-                abort_on_fail=False, **kwargs):
-
+                abort_on_fail=False, clear_skipped_file=False, **kwargs):
         devname = self._check_devname(devname)
         reboot_cmd, reboot_confirm = self.wa.hooks.get_command(devname, "reboot", method)
         if self.is_filemode(devname):
@@ -3688,7 +3687,7 @@ class Net(object):
             if not onie:
                 # wait for the PING to start failing to know reboot started
                 dut_mgmt_ip = str(access["connection_param"]["ip"])
-                if not self._wait_mgmt(devname, dut_mgmt_ip, 120):
+                if not self._wait_mgmt(devname, dut_mgmt_ip, 600):
                     return False
 
             # disconnect the device and wait for PING to start passing
@@ -3699,6 +3698,7 @@ class Net(object):
             self.wait(wait_after_ping)
             retry_count = 0
             while retry_count < 10:
+                self.apply_remote(devname, "asan-config", clear_skipped_file=clear_skipped_file)
                 retval = self.connect_to_device(devname)
                 msg = "Connection attempt : '{}', Status: '{}'".format(retry_count, retval)
                 self.dut_log(devname, msg)
@@ -4007,11 +4007,14 @@ class Net(object):
 
         return skip_transfer
 
-    def _upload_file2(self, devname, access, src_file, md5check=True):
+    def _upload_file2(self, devname, access, src_file, md5check=True, clear_skipped_file=False):
         remote_dir = "/etc/spytest"
 
         if devname not in self.skip_trans_helper:
             self.skip_trans_helper[devname] = dict()
+
+        if clear_skipped_file == True:
+            self.skip_trans_helper[devname][src_file] = None
 
         remote_file = self.skip_trans_helper[devname].get(src_file, None)
         if remote_file:
@@ -4255,7 +4258,7 @@ class Net(object):
             parts.append(suffix)
         return os.path.join(self.logger.logdir, "{}{}".format("_".join(parts), ext or ""))
 
-    def _upload_helper_file(self, devname, filename):
+    def _upload_helper_file(self, devname, filename, clear_skipped_file=False):
         if not filename:
             self._upload_helper_file(devname, "port_breakout.py")
             self._upload_helper_file(devname, "click-helper.py")
@@ -4266,7 +4269,7 @@ class Net(object):
             helper = os.path.join(os.path.dirname(__file__), "remote", filename)
             helper = os.path.abspath(helper)
             access = self._get_dev_access(devname)
-            helper = self._upload_file2(devname, access, helper, md5check=True)
+            helper = self._upload_file2(devname, access, helper, md5check=True, clear_skipped_file=clear_skipped_file)
         if not helper and not self.is_filemode(devname):
             msg = "Failed to upload helper file(s)"
             raise ValueError(msg)
@@ -4290,7 +4293,7 @@ class Net(object):
             args_str = "{} --env {} {}".format(args_str, name, value)
         return args_str
 
-    def apply_remote(self, devname, option_type, value_list=None, **kwargs):
+    def apply_remote(self, devname, option_type , value_list=None, clear_skipped_file=False, **kwargs):
         value_list = value_list or []
         devname = self._check_devname(devname)
         access = self._get_dev_access(devname)
@@ -4300,7 +4303,7 @@ class Net(object):
 
         # transfer the python file, which is used to apply the files remotely.
         change_in_tryssh = self.tryssh_switch(devname)
-        helper = self._upload_helper_file(devname, "spytest-helper.py")
+        helper = self._upload_helper_file(devname, "spytest-helper.py", clear_skipped_file=clear_skipped_file)
         if change_in_tryssh:
             self.tryssh_switch(devname, True)
 

@@ -1,0 +1,6 @@
+Value NBR_GRP (\d+)
+Value TUNNELS ((([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)?)
+Value LOC_MBRS (([\d,]+)?)
+
+Start
+  ^[|\s]*${NBR_GRP}[|\s]*${TUNNELS}[|\s]*${LOC_MBRS} -> Record

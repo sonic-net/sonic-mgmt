@@ -1,0 +1,17 @@
+Value ESI ([-0-9A-Fa-f:]+)
+Value VRF (\S+)
+Value FLAGS (\S+)
+Value IPV4_NHG (\d+)
+Value IPV6_NHG (\d+)
+Value REF (\d+)
+
+Start
+  # Skip the first line: "ES-VRF Flags: A Active"
+  # Move on to next state when we see the heading: "ESI VRF Flags IPv4-NHG IPv6-NHG Ref"
+  ^ES-VRF\s+Flags:
+  ^ESI[\s]+VRF[\s]+Flags[\s]+IPv4-NHG[\s]+IPv6-NHG[\s]+Ref -> RecordStart
+
+RecordStart
+  ^${ESI}\s+VRF\s+${VRF}\s+${FLAGS}\s+${IPV4_NHG}\s+${IPV6_NHG}\s+${REF} -> Record
+  ^.* -> RecordStart
+

@@ -1,0 +1,16 @@
+Value VNI (\d+)
+Value ESI (\S+)
+Value TYPE (\S+)
+Value ES_FRAGMENT_RD (\S+)
+Value INCONSISTENCIES (.*)
+Value VTEPS (.*)
+
+Start
+  ^VNI:\s+${VNI}\s+ESI:\s+${ESI}
+  ^\s+Type:\s+${TYPE}
+  ^\s+ES fragment RD:\s+${ES_FRAGMENT_RD}
+  ^\s+Inconsistencies:\s+${INCONSISTENCIES}
+  ^\s+VTEPs:\s+${VTEPS}
+  ^\s* -> Record
+
+

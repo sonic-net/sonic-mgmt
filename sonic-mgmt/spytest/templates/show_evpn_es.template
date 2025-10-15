@@ -1,0 +1,12 @@
+Value ESI (\S+)
+Value TYPE (\S+)
+Value ESIF (\S+)
+Value VTEPS (\S+)
+
+Start
+  # Skip the legend line for Type
+  ^Type:\s+B.*
+  ^ESI\s+Type\s+ES-IF\s+VTEPs
+  # Each data line matches ESI, TYPE, ESIF, VTEPS
+  ^${ESI}\s+${TYPE}\s+${ESIF}\s+${VTEPS} -> Record
+

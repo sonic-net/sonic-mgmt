@@ -1,0 +1,86 @@
+Value Filldown BGP_TABLE_VERSION (\d+)
+Value Filldown LOCAL_ROUTER_ID (\S+)
+Value Filldown ROUTE_DISTINGUISHER (\S+)
+Value STATUS_CODE ([-*>sdhi]*)
+Value ROUTE_TYPE (\d+)
+Value ESI ([\da-fA-F:]+)
+Value IP_LEN (\d+)
+Value IP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value NEXT_HOP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value ATTRIBUTES (.*)
+Value ET (\d+)
+Value ES_IMP_RT ([\da-fA-F:]+)
+Value DF_ALG (\d+)
+Value DF_PREF (\d+)
+
+Start
+  ^BGP\s+table\s+version\s+is\s+${BGP_TABLE_VERSION},\s+local\s+router\s+ID\s+is\s+${LOCAL_ROUTER_ID} -> Continue
+  # We expect to see "Route Distinguisher: xxxxx" lines after the version line
+  ^Route Distinguisher:\s+${ROUTE_DISTINGUISHER} -> PrefixLine
+
+PrefixLine
+  # -- PHASE 2: We enter a state waiting to find a route prefix line or a new RD.
+  # Prefix lines typically start with something like " *> [4]:[...]" or " *  [4]:[...]"
+  # If we see a new RD, we update ROUTE_DISTINGUISHER.
+  # If we see 'Displayed', we are at the end of the output.
+  #
+  # Example prefix line:
+  #  *> [4]:[00:02:03:04:05:06:07:08:09:0a]:[128]:[2000:1::1]
+  #
+  # Once we match a prefix line, we go to NextHopLine state.
+  #
+  # Match status code + prefix line:
+  # e.g. " *> [4]:[...]" or " *  [4]:[...]"
+  # The status code is in group 1, the prefix in group 2.
+  # We'll strip leading spaces using ^\s* in front.
+  ^\s*${STATUS_CODE}\s+\[${ROUTE_TYPE}\]:\[${ESI}\]:\[${IP_LEN}\]:\[${IP}\]$$ -> NextHopLine
+  ^Displayed -> End
+
+NextHopLine
+  # -- PHASE 3: Parse the Next Hop line (and optional columns) immediately following the prefix line.
+  # Example: "                    2000:1::1                          32768 i"
+  # or maybe the metric/locPrf are missing, or path is multiple AS numbers.
+  # We'll capture the fields that appear. Then we transition to ExtCommLine.
+  #
+  # If another "Route Distinguisher" appears right away, it means no next-hop line was found,
+  # which can happen in some corner cases. We'll record a blank row, go to PrefixLine.
+  ^Route Distinguisher:\s+${ROUTE_DISTINGUISHER} -> Record PrefixLine
+  # If 'Displayed', we are done.
+  ^Displayed -> Record End
+  # We expect a line of the form:
+  #   <NEXT_HOP> <METRIC> <LOC_PRF> <WEIGHT> <PATH> <ORIGIN_CODE>
+  # Because these can be missing, we make them optional via regex groups.
+  #
+  # Explanation of the capturing groups:
+  #  - NEXT_HOP: \S+ (non-whitespace)
+  #  - (?:\s+(?P<METRIC>\d+))? optional metric
+  #  - (?:\s+(?P<LOC_PRF>\d+))? optional locprf
+  #  - (?:\s+(?P<WEIGHT>\d+))? optional weight
+  #  - (?:\s+(?P<PATH>[0-9 ]+))? optional path (digits & spaces)
+  #  - (?:\s+(?P<ORIGIN_CODE>[ie\?]))? optional origin code
+  #
+  # We'll remain in the same state (NextHopLine) after matching. Then we expect ExtCommLine next.
+  #
+  #^\s+${NEXT_HOP}\s+${PATH}\s+${ORIGIN_CODE} -> ExtCommLine
+  #^\s+${NEXT_HOP}\s+${WEIGHT}\s+${PATH}\s+${ORIGIN_CODE} -> ExtCommLine
+  ^\s+${NEXT_HOP}\s+${ATTRIBUTES}$$ -> ExtCommLine
+  # If we do not find a next-hop line, we remain. Possibly there's an empty line or some different format.
+  # If the next line is another prefix or RD, record a blank row for next-hop line.
+  ^\s*${STATUS_CODE}\s+\[ -> Record PrefixLine
+  # If we see a new RD, record the partial row
+  ^Route Distinguisher:\s+${ROUTE_DISTINGUISHER} -> Record PrefixLine
+
+ExtCommLine
+  # -- PHASE 4: Parse the Extended Community line that typically follows.
+  # Example:
+  #   "                    ET:8 ES-Import-Rt:02:03:04:05:06:07 DF: (alg: 2, pref: 32767)"
+  #
+  # If 'Displayed', we are done. We'll record the route we have so far (with EXT_COMM blank).
+  ^Displayed -> Record End
+  # If we see a new route prefix or RD, record the route we have, then jump to the correct state.
+  ^\s*${STATUS_CODE}\s+\[ -> Record PrefixLine
+  ^Route Distinguisher:\s+${ROUTE_DISTINGUISHER} -> Record PrefixLine
+  # Otherwise, we expect the extended community line:
+  # We'll capture everything in the line as EXT_COMM and then record the route.
+  ^\s+ET:\s*${ET}\s+ES-Import-Rt:\s*${ES_IMP_RT}\s+DF:\s*\(alg:\s*${DF_ALG},\s*pref:\s*${DF_PREF}\) -> Record PrefixLine
+

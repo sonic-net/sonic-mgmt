@@ -1,0 +1,27 @@
+Value Filldown VERSION (\d+)
+Value Filldown ROUTER_ID (\S{0,19})
+Value Filldown ROUTE_DISTINGUISHER (\d+\.\d+\.\d+\.\d+:\d+)
+Value STATUS_CODE ([sdhi>*]*)
+Value ROUTE_TYPE (\d+)
+Value ETH_TAG (\d+)
+Value ESI ([\da-fA-F:]+)
+Value IP_LEN (\d+)
+Value VTEP_IP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value FRAG_ID (\d+)
+Value NEXT_HOP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
+Value WEIGHT (\d*)
+Value PATH (.*?)
+Value ORIGIN ([ie\?]?)
+Value RT (\d+:\d+)
+Value ET (\d+)
+Value ND_PROXY (ND:Proxy)
+
+Start
+  ^\s*BGP table version is ${VERSION}, local router ID is ${ROUTER_ID}$$
+  ^\s*Route Distinguisher:\s+${ROUTE_DISTINGUISHER}$$
+  ^\s*${STATUS_CODE}\s+\[${ROUTE_TYPE}\]:\[${ETH_TAG}\]:\[${ESI}\]:\[${IP_LEN}\](:\[${VTEP_IP}\]:\[${FRAG_ID}\])?$$
+  ^\s*${NEXT_HOP}\s+${WEIGHT}(\s+${PATH})?\s+${ORIGIN}$$
+  ^\s*ET:${ET}\s+RT:${RT}(?:\s+${ND_PROXY})?$$ -> Record
+  ^\s*RT:${RT}\s+ET:${ET}$$ -> Record
+
+EOF

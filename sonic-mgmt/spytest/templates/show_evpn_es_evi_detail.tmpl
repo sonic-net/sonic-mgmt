@@ -1,0 +1,18 @@
+Value VNI (\d+)
+Value ESI (\S+)
+Value BGP (\S+)
+Value TYPE (\S+)
+
+Start
+  # Match the line containing "VNI <number> ESI: <value>"
+  # Then continue to capture Type and BGP in subsequent lines.
+  ^VNI\s+(?P<VNI>\d+)\s+ESI:\s+(?P<ESI>\S+) -> VniLine
+
+VniLine
+  # Match "Type: <value>"
+  ^\s+Type:\s+(?P<TYPE>\S+) -> TypeLine
+
+TypeLine
+  # Match "Ready for BGP: <value>"
+  ^\s+Ready\s+for\s+BGP:\s+(?P<BGP>\S+) -> Record Start
+

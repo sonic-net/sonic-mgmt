@@ -1,0 +1,41 @@
+Value L2_VNIs (\d+)
+Value L3_VNIs (\d+)
+Value GATEWAY_MAC_IP (\S+)
+Value SVI_MAC_IP (\S+)
+Value SVI_MAC (\S+)
+Value DUPLICATE_ADDR_DETECT (\S+)
+Value DETECTION_MAX_MOVES (\d+)
+Value DETECTION_TIME (\d+)
+Value MAC_HOLDTIME (\d+)
+Value NEIGH_HOLDTIME (\d+)
+Value STARTUP_DELAY (\d+)
+Value START_DELAY_TIMER ([-:\d]+)
+Value UPLINK_CFG_CNT (\d+)
+Value UPLINK_ACTIVE_CNT (\d+)
+
+# The 'Start' state will match lines one by one. 
+# Once we reach the final line of interest, we "Record" the parsed data.
+Start
+  # L2 VNIs: 7
+  ^L2\s+VNIs:\s+${L2_VNIs}
+  # L3 VNIs: 3
+  ^L3\s+VNIs:\s+${L3_VNIs}
+  # Advertise gateway mac-ip: No
+  ^Advertise\s+gateway\s+mac-ip:\s+${GATEWAY_MAC_IP}
+  # Advertise svi mac-ip: No
+  ^Advertise\s+svi\s+mac-ip:\s+${SVI_MAC_IP}
+  # Advertise svi mac: No
+  ^Advertise\s+svi\s+mac:\s+${SVI_MAC}
+  # Duplicate address detection: Enable
+  ^Duplicate\s+address\s+detection:\s+${DUPLICATE_ADDR_DETECT}
+  # Detection max-moves 5, time 180
+  ^\s+Detection\s+max-moves\s+${DETECTION_MAX_MOVES},\s+time\s+${DETECTION_TIME}
+  # EVPN MH:
+  ^EVPN\s+MH:
+  # mac-holdtime: 1080s, neigh-holdtime: 1080s
+  ^\s+mac-holdtime:\s+${MAC_HOLDTIME}s,\s+neigh-holdtime:\s+${NEIGH_HOLDTIME}s
+  # startup-delay: 180s, start-delay-timer: --:--:--
+  ^\s+startup-delay:\s+${STARTUP_DELAY}s,\s+start-delay-timer:\s+${START_DELAY_TIMER}
+  # uplink-cfg-cnt: 0, uplink-active-cnt: 0
+  ^\s+uplink-cfg-cnt:\s+${UPLINK_CFG_CNT},\s+uplink-active-cnt:\s+${UPLINK_ACTIVE_CNT} -> Record
+

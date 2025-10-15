@@ -1,0 +1,20 @@
+Value ESI (\S+)
+Value FLAGS (\S+)
+Value RD (\S+)
+Value VNIS (\d+)
+Value VTEPS (\S+)
+
+# The 'Start' state is the initial state. We skip any lines until we find the header row.
+Start
+  # The header line begins with "ESI" followed by spaces, "Flags", "RD", "#VNIs", and "VTEPs".
+  # Once found, move to the "Header" state.
+  ^\s*ESI\s+Flags\s+RD\s+#VNIs\s+VTEPs -> Header
+
+# The 'Header' state means we have just read the table header, so the next lines should match data rows.
+Header
+  # Once we see a line that matches our expected columns, we capture a record and stay in the same state
+  # to capture additional rows.
+  ^${ESI}\s+${FLAGS}\s+${RD}\s+${VNIS}\s+${VTEPS} -> Record
+  ^.* -> Header
+
+
