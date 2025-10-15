@@ -957,7 +957,8 @@ def pg_to_test(request):
 
 def test_change_speed_cable(duthosts, rand_one_dut_hostname, conn_graph_facts,  # noqa: F811
                             port_to_test, speed_to_test, mtu_to_test, cable_len_to_test,
-                            skip_traditional_model, skip_lossy_buffer_only):
+                            skip_traditional_model, skip_lossy_buffer_only,
+                            update_cable_len_for_all_ports):  # noqa: F811
     """The testcase for changing the speed and cable length of a port
 
     Change the variables of the port, including speed, mtu and cable length,
@@ -1664,8 +1665,8 @@ def test_shared_headroom_pool_configure(duthosts,
                          shp_size_before_shp, None)
 
 
-def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,   # noqa: F811
-                     skip_traditional_model, skip_lossy_buffer_only):
+def test_lossless_pg(duthosts, rand_one_dut_hostname, conn_graph_facts, port_to_test, pg_to_test,      # noqa: F811
+                     skip_traditional_model, skip_lossy_buffer_only, update_cable_len_for_all_ports):  # noqa: F811
     """Test case for non default dynamic th
 
     Test case to verify the static profile with non default dynamic th
@@ -2994,6 +2995,19 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         port_config = dut_db_info.get_port_info_from_config_db(port)
         cable_length = cable_length_map[port]
         speed = port_config['speed']
+        port_autoneg = port_config.get('autoneg', "N/A")
+        if port_autoneg == "on":
+            # when autoneg is on, if adv_speeds is configured, use the max adv_speeds to create the profile
+            # otherwise if supported_speeds is configured, use the max supported speeds to create the profile
+            # otherwise use the configured speed
+            port_state = dut_db_info.get_port_info_from_state_db(port)
+            supported_speeds = port_state.get('supported_speeds', None)
+            adv_speeds = port_config.get('adv_speeds', None)
+            if adv_speeds:
+                speed = get_max_speed_from_list(adv_speeds)
+            elif supported_speeds:
+                speed = get_max_speed_from_list(supported_speeds)
+        logging.info(f"speed is {speed}")
         expected_profile = make_expected_profile_name(
             speed, cable_length, number_of_lanes=len(port_config['lanes'].split(',')))
 
@@ -3369,3 +3383,8 @@ def exclude_ports_with_autogeg_enable(duthost, test_ports):
             test_ports.remove(autoneg_status.get('interface'))
 
     logging.info(f"Test ports without auto-negotiation enabled: {test_ports}")
+
+
+def get_max_speed_from_list(speed_list_str):
+    speed_list = natsorted(speed_list_str.split(','))
+    return speed_list[-1]
