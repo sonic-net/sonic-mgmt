@@ -44,6 +44,8 @@ def _create_parser():
     parser.add_argument('--no-rolback_bgp_fix', action='store_false', dest='rolback_bgp_fix', help='Disable rollback BGP fix', required=False)
     parser.add_argument('--add_ngdp_asic_type', action='store_true', help='Add ngdp asic type for conditions where cisco 8000 is targeted, only for sonic-vs', required=False, default=False)
     parser.add_argument('--no-add_ngdp_asic_type', action='store_false', dest='add_ngdp_asic_type', help='Do not add ngdp asic type for conditions where cisco 8000 is targeted, only for sonic-vs', required=False)
+    parser.add_argument('--config_reload_delay', action='store_true', help='Increase config reload delay', required=False, default=True)
+    parser.add_argument('--no-config_reload_delay', action='store_false', dest='config_reload_delay', help='Disable config reload delay', required=False)
     return parser
 
 
@@ -59,6 +61,7 @@ def main():
     add_apis_delay = args['add_apis_delay']
     rolback_bgp_fix = args['rolback_bgp_fix']
     add_ngdp_asic_type = args['add_ngdp_asic_type']
+    config_reload_delay = args['config_reload_delay']
     #check if the file exists, then exit
     # otherwise, create the file
     print("Applying simulation hooks/patches with the following options:")
@@ -113,6 +116,9 @@ def main():
         print("Adding ngdp asic type for conditions where cisco 8000 is targeted")
         append_ngdp_to_asic_type('everflow/everflow_test_utilities.py')
         append_ngdp_to_asic_type('fib/test_fib.py')
+    if config_reload_delay:
+        print("Add delay to config reload")
+        replace_line('common/config_reload.py', 'wait + 120', '600')
     
 def prepend_file(file, content):
     with open(file, 'r') as f:
