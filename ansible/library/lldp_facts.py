@@ -3,6 +3,23 @@
 import json
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
+
+import asyncio
+import pysnmp
+
+if pysnmp.version[0] < 5:
+    from pysnmp.entity.rfc3413.oneliner import cmdgen
+else:
+    from pysnmp.hlapi.v3arch.asyncio import (
+        cmdgen,
+        UdpTransportTarget,
+        walk_cmd,
+        SnmpEngine,
+        ContextData,
+        ObjectType,
+        ObjectIdentity
+    )
+
 DOCUMENTATION = '''
 ---
 module: lldp_facts
@@ -74,27 +91,6 @@ EXAMPLES = '''
     privkey=def6789
   delegate_to: localhost
 '''
-
-
-import asyncio
-import pysnmp
-
-from pyasn1.type import univ
-from pysnmp.proto import rfc1902
-
-if pysnmp.version[0] < 5:
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
-else:
-    from pysnmp.hlapi.v3arch.asyncio import (
-        cmdgen,
-        UdpTransportTarget,
-        get_cmd,
-        walk_cmd,
-        SnmpEngine,
-        ContextData,
-        ObjectType,
-        ObjectIdentity
-    )
 
 
 class DefineOid(object):
