@@ -19,7 +19,7 @@ from tests.common import config_reload
 from tests.common.devices.eos import EosHost
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1")
+    pytest.mark.topology("t0", "t1", "lt2", "ft2")
 ]
 
 logger = logging.getLogger(__name__)
@@ -446,6 +446,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
         # send traffic to egress port
         self.traffic_inst.send_tx_egress(self.tx_action, False)
+        time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_tx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_tx {}".format(pfcwd_stat_after_tx))
         if asic_type != 'vs':
@@ -470,6 +471,7 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         # send traffic to ingress port
         time.sleep(3)
         self.traffic_inst.send_rx_ingress(self.rx_action, False)
+        time.sleep(10)  # wait for the traffic to be processed
         pfcwd_stat_after_rx = parser_show_pfcwd_stat(dut, port, self.pfc_wd['queue_index'])
         logger.debug("pfcwd_stat_after_rx {}".format(pfcwd_stat_after_rx))
         if asic_type != 'vs':

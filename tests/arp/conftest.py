@@ -71,11 +71,19 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     po2 = None
 
     is_storage_backend = 'backend' in tbinfo['topo']['name']
+    is_isolated_topo = 'isolated' in tbinfo['topo']['name']
 
     if tbinfo['topo']['type'] == 't0':
         if is_storage_backend:
             vlan_sub_intfs = mg_facts['minigraph_vlan_sub_interfaces']
             intfs_to_t1 = [_['attachto'].split(constants.VLAN_SUB_INTERFACE_SEPARATOR)[0] for _ in vlan_sub_intfs]
+            ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
+
+            intf1 = ports_for_test[0]
+            intf2 = ports_for_test[1]
+        elif is_isolated_topo:
+            upstream_intfs = mg_facts['minigraph_interfaces']
+            intfs_to_t1 = [_intf['attachto'] for _intf in upstream_intfs]
             ports_for_test = [_ for _ in ports if _ not in intfs_to_t1]
 
             intf1 = ports_for_test[0]
@@ -272,7 +280,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(rand_selected_dut, config_facts):
+def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -293,6 +301,7 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
     old_proxy_arp_vals = {}
     new_proxy_arp_vals = []
+    ip_version, _, _ = packets_for_test
 
     # Enable proxy ARP/NDP for the VLANs on the DUT
     for vid in vlan_ids:
@@ -304,6 +313,10 @@ def proxy_arp_enabled(rand_selected_dut, config_facts):
         logger.info("Enabled proxy ARP for Vlan{}".format(vid))
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
+
+    if ip_version == 'v6':
+        # Allow time for ndppd to reset and startup
+        time.sleep(30)
 
     yield all('enabled' in val for val in new_proxy_arp_vals)
 

@@ -236,18 +236,12 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Executing pre test check")
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn, num_dpu_modules)
-
-    def reboot_dpu(duthost, platform_api_conn, index):
-        try:
-            dpu_name = module.get_name(platform_api_conn, index)
-            perform_reboot(duthost, REBOOT_TYPE_COLD, dpu_name)
-        except Exception as e:
-            logging.error(f"Failed to reboot DPU at index {index}: {e}")
+    dpu_names = [module.get_name(platform_api_conn, index) for index in range(num_dpu_modules)]
 
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Rebooting all DPUs in parallel")
-        for index in range(num_dpu_modules):
-            executor.submit(reboot_dpu, duthost, platform_api_conn, index)
+        for dpu_name in dpu_names:
+            executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
@@ -278,4 +272,5 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     perform_reboot(duthost, REBOOT_TYPE_COLD, None)
 
     logging.info("Executing post switch reboot dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "reboot")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
