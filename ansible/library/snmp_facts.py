@@ -1582,7 +1582,7 @@ class SnmpFactsCollector:
             ObjectType(ObjectIdentity(self.p.sysTotalMemory,)),
             ObjectType(ObjectIdentity(self.p.sysTotalFreeMemory,)),
             ObjectType(ObjectIdentity(self.p.sysTotalSharedMemory,)),
-            ObjectType(ObjectIdentity(self.p.sysTotalSharedMemory,)),
+            ObjectType(ObjectIdentity(self.p.sysTotalBuffMemory,)),
             ObjectType(ObjectIdentity(self.p.sysCachedMemory,)),
             lookupMib=False
         )
