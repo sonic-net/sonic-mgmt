@@ -1,4 +1,4 @@
-PYTHON := python3.8
+PYTHON := python3
 BIN := pyats/bin
 TESTFILE ?= sanity-scripts/sanity_scripts.txt
 GOLDENBRANCH ?= 202012
@@ -31,11 +31,11 @@ endif
 
 create_sonic_topo:
 	echo "creating SIM sonic topology..."
-	bash -c "python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}"
+	bash -c "${PYTHON} update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}"
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
-	 python3.8 -u ./create_sonic_topo.py \
+	 ${PYTHON} -u ./create_sonic_topo.py \
 		--dut_uname ${DUT_USERNAME} \
 		--dut_passwd ${DUT_PASSWORD} \
 		--topo_type ${TOPOLOGY} \
@@ -54,11 +54,11 @@ clear_sim:
 	bash -c " \
 	 cd infra; \
 	 source pyats/bin/activate; \
-	 python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean"
+	 ${PYTHON} /auto/vxr/pyvxr/pyvxr-latest/vxr.py clean"
 
 run_sanity_using_cfg_file:
 	echo "run sanity on HW..."
-	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
+	bash -c "cd infra; ${PYTHON} -u run_scripts_remote.py  \
 	--sim_config_file=${SIM_CONFIG_FILE} \
 	--script_file=${TESTFILE} \
 	--create_allure_report \
@@ -69,7 +69,7 @@ run_sanity:
 	bash -c " \
 		cd infra; \
 		source pyats/bin/activate; \
-		python3.8 -u run_scripts_remote.py  \
+		${PYTHON} -u run_scripts_remote.py  \
 		--script_file=${TESTFILE} \
 		--device_type=${PLATFORM} \
 		--topo_type=${TOPOLOGY} \
@@ -83,10 +83,10 @@ run_sanity:
 run_tortuga_controller_sanity:
 	echo "run spytest sanity..."
 	bash -c " \
-		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}; \
+		${PYTHON} update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}; \
 		cd infra; \
 		source pyats/bin/activate; \
-		python3.8 ./create_tortuga_topo.py \
+		${PYTHON} ./create_tortuga_topo.py \
 		--topo_type ${TOPOLOGY} \
 		--device_type ${PLATFORM} \
 		--tar_ball $(GOLDENCODE) \
@@ -97,10 +97,10 @@ run_tortuga_controller_sanity:
 run_spytest:
 	echo "run spytest sanity..."
 	bash -c " \
-		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}; \
+		${PYTHON} update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} --dut-username=${DUT_USERNAME} --goldencode=$(GOLDENCODE) --dut-password=${DUT_PASSWORD} ${DISABLE_ZTP_COMMAND}; \
 		cd infra; \
 		source pyats/bin/activate; \
-		python3.8 -u run_spytest.py  \
+		${PYTHON} -u run_spytest.py  \
 		--topology '${TOPOLOGY}' \
 		--platform '${PLATFORM}' \
 		--script_file '${TESTFILE}' \
@@ -115,11 +115,11 @@ run_spytest:
 run_spytest_parallel:
 	echo "run spytest parallel sanity..."
 	bash -c " \
-		python3.8 update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} \
+		${PYTHON} update_topo.py -t ${TOPOLOGY} -p ${PLATFORM} \
 		--onie-install ../../../sonic-cisco-8000.bin; \
 		cd infra; \
 		source pyats/bin/activate; \
-		python3.8 -u run_spytest_parallel.py  \
+		${PYTHON} -u run_spytest_parallel.py  \
 		--topology '${TOPOLOGY}' \
 		--platform '${PLATFORM}' \
 		--script_file '${TESTFILE}' \
@@ -128,17 +128,17 @@ run_spytest_parallel:
 	"
 t0_run:
 	echo "run T0 testing..."
-	bash -c "python3.8 update_topo.py T0"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report --additional_tests $(ADDITIONAL_TESTS)"
+	bash -c "${PYTHON} update_topo.py T0"
+	bash -c "cd infra; source pyats/bin/activate; ${PYTHON} -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t0-64_topo.yaml -u cisco -p cisco123 -t t0-64 -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report --additional_tests $(ADDITIONAL_TESTS)"
 
 t1_run:
 	echo "run T1 testing..."
-	bash -c "python3.8 update_topo.py T1"
-	bash -c "cd infra; source pyats/bin/activate; python3.8 -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report --additional_tests --add_sim_patches $(ADDITIONAL_TESTS)"
+	bash -c "${PYTHON} update_topo.py T1"
+	bash -c "cd infra; source pyats/bin/activate; ${PYTHON} -u ./create_sonic_topo.py -f ../pyvxr_yaml_files/mth64_sonic_t1_64_lag_topo.yaml -u cisco -p cisco123 -t t1-64-lag -c -s $(TESTFILE) -b $(GOLDENCODE) --cicd --cicd_clean --create_allure_report --additional_tests --add_sim_patches $(ADDITIONAL_TESTS)"
 
 run_hw:
 	echo "run sanity on HW..."
-	bash -c "cd infra; python3.8 -u run_scripts_remote.py  \
+	bash -c "cd infra; ${PYTHON} -u run_scripts_remote.py  \
 	--host_address=${HOST_ADDRESS} \
 	--username=${USERNAME} \
 	--password=${PASSWORD} \
