@@ -786,24 +786,24 @@ def test_add_cluster(tbinfo,
     )
     # Traffic scenarios applied in non-acl, acl scenario
     traffic_scenarios = [
-        {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+        {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
          "sport": 1234, "dport": 50, "verify": True, "expect_error": False},
-        {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+        {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
          "sport": 1234, "dport": 50, "verify": True, "expect_error": False}
     ]
     if acl_config_scenario:
         traffic_scenarios = [
-            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
              "sport": 5000, "dport": 50, "verify": True, "expect_error": False, "match_rule": "RULE_100"},
-            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
              "sport": 1234, "dport": 8080, "verify": True, "expect_error": True, "match_rule": "RULE_200"},
-            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
              "sport": 1234, "dport": 50, "verify": True, "expect_error": False, "match_rule": None},
-            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
              "sport": 5000, "dport": 50, "verify": True, "expect_error": False, "match_rule": "RULE_100"},
-            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
              "sport": 1234, "dport": 8080, "verify": True, "expect_error": True, "match_rule": "RULE_200"},
-            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 10, "dscp": 3,
+            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
              "sport": 1234, "dport": 50, "verify": True, "expect_error": False, "match_rule": None}
         ]
 

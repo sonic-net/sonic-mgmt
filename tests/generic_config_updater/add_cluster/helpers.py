@@ -407,20 +407,45 @@ def send_and_verify_traffic(
 
     # verify queue counters
     if dscp:
-        logging.info("Verifying queuecounters for dscp {}.".format(dscp))
-        time.sleep(3)
+        logging.info("Verifying queue counters for dscp {}.".format(dscp))
         exp_prio = 'prio_{}'.format(dscp)
-        counter_exp_prio = 0
-        counter_rest_prio = 0
-        for interface in ptf_dst_interfaces:
-            if interface.startswith('Ethernet-IB'):
-                continue
-            interface_queue_count_dict = get_queue_count_all_prio(dst_duthost, interface)
-            for prio, prio_counter in interface_queue_count_dict[dst_duthost.hostname][interface].items():
-                if prio != exp_prio:
-                    counter_rest_prio = counter_rest_prio + prio_counter
-                else:
-                    counter_exp_prio = counter_exp_prio + prio_counter
+        retry_count = 3
+        retry_int = 5
+
+        def get_counters():
+            counter_exp_prio = 0
+            counter_rest_prio = 0
+            for interface in ptf_dst_interfaces:
+                if interface.startswith('Ethernet-IB'):
+                    continue
+                interface_queue_count_dict = get_queue_count_all_prio(dst_duthost, interface)
+                for prio, prio_counter in interface_queue_count_dict[dst_duthost.hostname][interface].items():
+                    if prio != exp_prio:
+                        counter_rest_prio += prio_counter
+                    else:
+                        counter_exp_prio += prio_counter
+            return counter_exp_prio, counter_rest_prio
+
+        for attempt in range(1, retry_count + 1):
+            time.sleep(retry_int)
+            counter_exp_prio, counter_rest_prio = get_counters()
+
+            if expect_error:
+                if counter_exp_prio == 0 and counter_rest_prio == 0:
+                    logging.info(f"Attempt {attempt}: Expected counters verified (both zero).")
+                    break
+            else:
+                if counter_exp_prio == count and counter_rest_prio == 0:
+                    logging.info(f"Attempt {attempt}: Expected counters verified successfully.")
+                    break
+
+            if attempt < retry_count:
+                logging.warning(
+                    f"Attempt {attempt}: Counters not as expected. Retrying in {retry_int}s..."
+                )
+            else:
+                logging.error("Max retries reached. Failure in queue counter verification.")
+
         if expect_error:
             pytest_assert(
                 counter_exp_prio == 0 and counter_rest_prio == 0,
