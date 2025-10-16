@@ -18,6 +18,7 @@ class DataDeduplicator:
         self.setup_error_limit = configuration['icm_limitation']['setup_error_limit']
         self.failure_limit = configuration['icm_limitation']['failure_limit']
         self.max_ai_flaky_icm_limit = configuration['icm_limitation']['max_ai_flaky_icm_limit']
+        self.max_flaky_icm_limit = configuration['icm_limitation']['max_flaky_icm_limit']
 
         # For each branch, set a limit for created IcMs
         default_icm_limit = configuration['icm_limitation']['default_branch_limit']
@@ -43,10 +44,12 @@ class DataDeduplicator:
         unique_title = set()
         final_icm_list = []
         count_ai_flaky = 0  # Add counter for AI flaky cases
+        count_flaky = 0  # Add counter for flaky failure type cases
         branch_counts = {branch: 0 for branch in branches}  # Initialize counts for each branch
 
         logger.info("limit the number of setup error cases to {}".format(self.setup_error_limit))
         logger.info("limit the number of general failure cases to {}".format(self.failure_limit))
+        logger.info("limit the number of flaky failure cases to {}".format(self.max_flaky_icm_limit))
         logger.info("limit the number of AI flaky cases to {}".format(self.max_ai_flaky_icm_limit))
 
         # Logging limits for each branch
@@ -99,6 +102,15 @@ class DataDeduplicator:
                             continue
                         count_ai_flaky += 1
 
+                    # Check flaky failure type limit
+                    if failure_type == 'flaky':
+                        if count_flaky >= self.max_flaky_icm_limit:
+                            logger.info(f"Reach the limit of flaky failure cases: {self.max_flaky_icm_limit}, "
+                                        f"ignore this IcM {candidator['subject']}")
+                            candidator['trigger_icm'] = False
+                            continue
+                        count_flaky += 1
+
                     # Check that this branch is part of a release we care about
                     # (i.e. 20231105, if we have specified 202311 in config)
                     candidator_branch_prefix_list = [
@@ -120,7 +132,7 @@ class DataDeduplicator:
                                 f"{candidator['subject']} to final_icm_list")
                     final_icm_list.append(candidator)
 
-        logger.info(f"Count summary: ai_flaky {count_ai_flaky}, " +
+        logger.info(f"Count summary: ai_flaky {count_ai_flaky}, flaky {count_flaky}, " +
                     ", ".join(f"{branch} {count}" for branch, count in branch_counts.items()))
         for kusto_row_item in final_icm_list:
             self.check_subject_match(kusto_row_item)

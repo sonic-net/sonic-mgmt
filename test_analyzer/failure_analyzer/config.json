@@ -79,7 +79,7 @@
                     "id": "202405",
                     "name": "202405",
                     "testbed_branch": ["202405"],
-                    "included": true,
+                    "included": false,
                     "threshold": 51
                 },
                 {
@@ -107,6 +107,13 @@
                     "id": "202505",
                     "name": "202505",
                     "testbed_branch": ["202505"],
+                    "included": true,
+                    "threshold": 51
+                },
+                {
+                    "id": "202509",
+                    "name": "202509",
+                    "testbed_branch": ["202509"],
                     "included": true,
                     "threshold": 51
                 }
@@ -285,14 +292,16 @@
         "icm_master_limit": 10,
         "icm_internal_limit": 10,
         "icm_202311_limit": 5,
-        "icm_202405_limit": 20,
-        "icm_202411_limit": 50,
+        "icm_202405_limit": 5,
+        "icm_202411_limit": 5,
         "icm_202412_limit": 50,
         "icm_202503_limit": 50,
-        "icm_202505_limit": 100,
+        "icm_202505_limit": 50,
+        "icm_202509_limit": 5,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40,
-        "max_ai_flaky_icm_limit": 3
+        "max_ai_flaky_icm_limit": 3,
+        "max_flaky_icm_limit": 3
     },
     "auto_blame_branch": {
         "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110", "20240531", "20240510", "20241110", "20241211", "20250505", "20250510"],
