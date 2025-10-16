@@ -57,7 +57,6 @@ def arp_cache_fdb_cleanup(duthost, tbinfo):
         for dut in dut_list:
             clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
             fdb_cleanup(dut)
-
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
