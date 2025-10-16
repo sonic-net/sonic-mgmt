@@ -1,9 +1,6 @@
 import logging
 import pytest
-import time
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
-from tests.common.helpers.dut_utils import get_program_info, kill_process_by_pid, is_container_running
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -23,12 +20,9 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 
 
 @pytest.fixture(scope="function")
-def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
+def restart_swss_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asic = duthost.asic_instance(enum_frontend_asic_index)
-    feature_name = "swss"
-    container_name = asic.get_docker_name(feature_name)
-    program_name = "orchagent"
 
     pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
     assert pre_lldpctl_facts != 0, (
@@ -37,45 +31,25 @@ def restart_orchagent(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_
         "pre_lldpctl_facts value: {}"
     ).format(pre_lldpctl_facts)
 
-    if duthost.facts['switch_type'] == "voq":
-        """ VOQ type chassis does not support warm restart of orchagent. Use restart service here """
-        duthost.shell("sudo systemctl reset-failed")
-        duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
-        # make sure all critical services are up
-        assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
-            "Not all critical services are fully started after restarting orchagent. "
-        )
+    duthost.shell("sudo systemctl reset-failed")
+    duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
 
-        # wait for ports to be up and lldp neighbor information has been received by dut
-        assert wait_until(300, 20, 60,
-                          lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), (
-            "Cannot get all lldp entries. "
-            "Expected LLDP entries: {}\n"
-            "Current LLDP entries: {}"
-        ).format(
-            pre_lldpctl_facts,
-            get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
-        )
+    # make sure all critical services are up
+    assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
+        "Not all critical services are fully started after restarting orchagent. "
+    )
 
-        # add delay here to make sure neighbor devices also have received lldp packets from dut and neighbor
-        # information has been updated properly
-        time.sleep(30)
-    else:
-        logger.info("Restarting program '{}' in container '{}'".format(program_name, container_name))
-        # disable feature autorestart. Feature is enabled/disabled at feature level and
-        # not per container namespace level.
-        duthost.shell("sudo config feature autorestart {} disabled".format(feature_name))
-        _, program_pid = get_program_info(duthost, container_name, program_name)
-        kill_process_by_pid(duthost, container_name, program_name, program_pid)
-        is_running = is_container_running(duthost, container_name)
-        pytest_assert(
-            is_running,
-            (
-                "Container '{}' is not running."
-            ).format(container_name)
-        )
+    # wait for ports to be up and lldp neighbor information has been received by dut
+    assert wait_until(300, 20, 60,
+                      lambda: pre_lldpctl_facts == get_num_lldpctl_facts(duthost, enum_frontend_asic_index)), (
+        "Cannot get all lldp entries. "
+        "Expected LLDP entries: {}\n"
+        "Current LLDP entries: {}"
+    ).format(
+        pre_lldpctl_facts,
+        get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
+    )
 
-        duthost.shell("docker exec {} supervisorctl start {}".format(container_name, program_name))
     yield
 
 
@@ -258,11 +232,25 @@ def test_lldp_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loca
                         enum_frontend_asic_index, tbinfo, request)
 
 
-@pytest.mark.disable_loganalyzer
-def test_lldp_neighbor_post_orchagent_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
-                                             sonic, collect_techsupport_all_duts,
-                                             enum_frontend_asic_index, tbinfo, request, restart_orchagent):
+def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost, eos,
+                                        sonic, collect_techsupport_all_duts, enum_frontend_asic_index,
+                                        tbinfo, request, restart_swss_container, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    ignoreRegex = [
+        ".*ERR.*",
+        "crash",
+        "kernel.*",
+    ]
+
+    if loganalyzer:
+        # Apply ignore pattern to ALL devices in the testbed
+        for dut in duthosts:
+            # Ignore all ERR messages, as it is expected many error messages will be generated during swss restart
+            loganalyzer[dut.hostname].ignore_regex.extend(ignoreRegex)
+            # Test should fail if LLDP 'unable to send packet on' errors are found
+            loganalyzer[dut.hostname].match_regex.extend([
+                ".*WARNING lldp#lldpd.*unable to send packet on real device for.*No such device or address"
+            ])
     check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
     duthost.shell("sudo config feature autorestart swss enabled")
