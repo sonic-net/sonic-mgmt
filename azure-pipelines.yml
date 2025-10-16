@@ -101,7 +101,7 @@ stages:
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
 
-    - job: get_impacted_area
+    - job: test_impacted_area
       displayName: "Test impacted area"
       timeoutInMinutes: 10
       continueOnError: false
