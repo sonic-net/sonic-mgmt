@@ -1,31 +1,32 @@
 steps:
 - script: |
     echo "##vso[task.setvariable variable=BUILD_BRANCH]${{ parameters.BUILD_BRANCH }}"
-
     sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
+  displayName: "Setup environment"
 
-    # Check if IMPACT_AREA_INFO parameter exists and is not empty
-    ${{ if and(ne(parameters.IMPACT_AREA_INFO, ''), ne(length(parameters.IMPACT_AREA_INFO), 0)) }}:
-    IMPACT_AREA_INFO='${{ convertToJson(parameters.IMPACT_AREA_INFO) }}'
-    echo "Input impact area info: $IMPACT_AREA_INFO"
-    TEST_SCRIPTS=$(echo "$IMPACT_AREA_INFO" | jq -c '.')
-    PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
-    echo "Impact area was pre-defined."
-    echo "Impact area info: $IMPACT_AREA_INFO"
-    echo "Pre-defined test scripts: ${TEST_SCRIPTS}"
-    echo "Pre-defined PR checkers: ${PR_CHECKERS}"
-
-    ${{ else }}:
-    echo "Impact area was not pre-defined."
-    TEST_SCRIPTS=""
-    PR_CHECKERS=""
-
-    ${{ endif }}
-
-    echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]${PR_CHECKERS}"
-    echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]${TEST_SCRIPTS}"
-  name: VerifyParams
-  displayName: "Verify input parameters"
+- ${{ if and(ne(parameters.IMPACT_AREA_INFO, ''), ne(length(parameters.IMPACT_AREA_INFO), 0)) }}:
+  - script: |
+      IMPACT_AREA_INFO='${{ convertToJson(parameters.IMPACT_AREA_INFO) }}'
+      echo "Input impact area info: $IMPACT_AREA_INFO"
+      TEST_SCRIPTS=$(echo "$IMPACT_AREA_INFO" | jq -c '.')
+      PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+      echo "Impact area was pre-defined."
+      echo "Impact area info: $IMPACT_AREA_INFO"
+      echo "Pre-defined test scripts: ${TEST_SCRIPTS}"
+      echo "Pre-defined PR checkers: ${PR_CHECKERS}"
+      echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]${PR_CHECKERS}"
+      echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]${TEST_SCRIPTS}"
+    name: VerifyParams
+    displayName: "Process pre-defined impact area"
+- ${{ else }}:
+  - script: |
+      echo "Impact area was not pre-defined."
+      TEST_SCRIPTS=""
+      PR_CHECKERS=""
+      echo "##vso[task.setvariable variable=PR_CHECKERS;isOutput=true]${PR_CHECKERS}"
+      echo "##vso[task.setvariable variable=TEST_SCRIPTS;isOutput=true]${TEST_SCRIPTS}"
+    name: VerifyParams
+    displayName: "Set empty impact area variables"
 
 
 - script: |
