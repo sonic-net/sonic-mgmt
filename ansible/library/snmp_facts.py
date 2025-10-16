@@ -1147,6 +1147,7 @@ class SnmpFactsCollector:
             self.snmp_auth,
             self.transport,
             ContextData(),
+            ObjectType(ObjectIdentity(self.p.sysDescr,)),
             ObjectType(ObjectIdentity(self.p.sysObjectId,)),
             ObjectType(ObjectIdentity(self.p.sysUpTime,)),
             ObjectType(ObjectIdentity(self.p.sysContact,)),
@@ -1162,16 +1163,18 @@ class SnmpFactsCollector:
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
-            if oid_same(current_oid, self.v.sysObjectId):
-                self.results['ansible_sysObjectId'] = current_val
+            if oid_same(current_oid, self.v.sysDescr):
+                self.results['ansible_sysdescr'] = current_val
+            elif oid_same(current_oid, self.v.sysObjectId):
+                self.results['ansible_sysobjectid'] = current_val
             elif oid_same(current_oid, self.v.sysUpTime):
-                self.results['ansible_sysUpTime'] = current_val
+                self.results['ansible_sysuptime'] = current_val
             elif oid_same(current_oid, self.v.sysContact):
-                self.results['ansible_sysContact'] = current_val
+                self.results['ansible_syscontact'] = current_val
             elif oid_same(current_oid, self.v.sysName):
-                self.results['ansible_sysName'] = current_val
+                self.results['ansible_sysname'] = current_val
             elif oid_same(current_oid, self.v.sysLocation):
-                self.results['ansible_sysLocation'] = current_val
+                self.results['ansible_syslocation'] = current_val
 
     async def _collect_interfaces(self):
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
@@ -1194,7 +1197,7 @@ class SnmpFactsCollector:
                 ifIndex = int(current_oid.rsplit('.', 1)[-1])
 
                 if oid_parent_child(self.v.ifIndex, current_oid):
-                    self.results['snmp_interfaces'][ifIndex]['ifIndex'] = current_val
+                    self.results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
                 elif oid_parent_child(self.v.ifDescr, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['name'] = current_val
                 elif oid_parent_child(self.v.ifType, current_oid):
@@ -1642,12 +1645,13 @@ class SnmpFactsCollector:
             for oid, val in varBinds:
                 current_oid = oid.prettyPrint()
                 current_val = val.prettyPrint()
-                ifIndex = int(current_oid.rsplit('.', 1)[-1])
 
                 if oid_parent_child(self.v.requestsPerPriority, current_oid):
+                    ifIndex = int(current_oid.split('.')[-2])
                     prio = int(current_oid.split('.')[-1])
                     self.results['snmp_interfaces'][ifIndex]['requestsPerPriority'][prio] = current_val
                 elif oid_parent_child(self.v.indicationsPerPriority, current_oid):
+                    ifIndex = int(current_oid.split('.')[-2])
                     prio = int(current_oid.split('.')[-1])
                     self.results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
 
@@ -1724,7 +1728,7 @@ class SnmpFactsCollector:
                     self.results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
                 elif oid_parent_child(self.v.ipCidrRouteStatus, current_oid):
                     next_hop = current_oid.split(self.v.ipCidrRouteStatus + ".")[1]
-                    self.results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
+                    self.results['snmp_cidr_route'][next_hop]['status'] = current_val
 
     async def _collect_fdb(self):
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
