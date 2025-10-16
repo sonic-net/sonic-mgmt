@@ -265,7 +265,7 @@
         "used": {
           "memory_increase_threshold": [
             {"type": "percentage", "value": "50%"},
-            {"type": "value", "value": 64},
+            {"type": "value", "value": 128},
             {"type": "comparison", "value": "max"}
           ],
           "memory_high_threshold": {

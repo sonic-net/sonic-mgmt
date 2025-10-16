@@ -22,7 +22,8 @@ TEST_INCOMPLETE_NEIGHBOR_CNT = 10
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0')
+    pytest.mark.topology('t0'),
+    pytest.mark.dualtor_active_standby_toggle_to_enum_tor
 ]
 
 LOOP_TIMES_LEVEL_MAP = {
@@ -35,7 +36,8 @@ LOOP_TIMES_LEVEL_MAP = {
 
 
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthost):
+def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
+    duthost = duthosts[rand_one_dut_hostname]
     try:
         clear_dut_arp_cache(duthost)
         fdb_cleanup(duthost)
@@ -51,8 +53,10 @@ def arp_cache_fdb_cleanup(duthost):
 
     # Ensure clean test environment even after failing
     try:
-        clear_dut_arp_cache(duthost)
-        fdb_cleanup(duthost)
+        dut_list = duthosts if "dualtor-aa" in tbinfo["topo"]["name"] else [duthost]
+        for dut in dut_list:
+            clear_dut_arp_cache(dut)
+            fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
@@ -90,13 +94,15 @@ def genrate_ipv4_ip():
     return list(ptf_intf_ipv4_hosts)
 
 
-def test_ipv4_arp(duthost, garp_enabled, ip_and_intf_info, intfs_for_test,
+def test_ipv4_arp(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                  garp_enabled, ip_and_intf_info, intfs_for_test,
                   ptfadapter, get_function_completeness_level):
     """
     Send gratuitous ARP (GARP) packet sfrom the PTF to the DUT
 
     The DUT should learn the (previously unseen) ARP info from the packet
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     normalized_level = get_function_completeness_level
     if normalized_level is None:
         normalized_level = "debug"
@@ -187,8 +193,10 @@ def add_nd(ptfadapter, ip_and_intf_info, ptf_intf_index, nd_available):
     logger.info("Sending {} ipv6 neighbor entries".format(nd_available))
 
 
-def test_ipv6_nd(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                 ptfhost, config_facts, tbinfo, ip_and_intf_info,
                  ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
@@ -251,9 +259,10 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
         testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
 
 
-def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            ptfhost, config_facts, tbinfo, ip_and_intf_info,
                             ptfadapter, get_function_completeness_level, proxy_arp_enabled):
-
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     pytest_require(proxy_arp_enabled, 'Proxy ARP not enabled for all VLANs')
