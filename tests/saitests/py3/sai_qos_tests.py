@@ -3457,6 +3457,8 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
+        self.collect_dumps_on_not_success(self.asic_type)
+
         try:
             # send packets to leak out
             sidx = 0
@@ -3525,7 +3527,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
             # allow enough time for the dut to sync up the counter values in counters_db
             time.sleep(8)
-
+            self.collect_dumps_on_not_success(self.asic_type)
             for i in range(0, self.pgs_num):
                 # Prepare TCP packet data
                 tos = sidx_dscp_pg_tuples[i][1] << 2
@@ -3578,6 +3580,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                     pkt_cnt, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], sidx_dscp_pg_tuples[i][2] - 2),
                     file=sys.stderr)
                 sys.stderr.flush()
+            self.collect_dumps_on_not_success(self.asic_type)
 
             print("PFC triggered", file=sys.stderr)
             sys.stderr.flush()
@@ -3668,6 +3671,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print("all but the last pg hdrms filled", file=sys.stderr)
             sys.stderr.flush()
 
+            self.collect_dumps_on_not_success(self.asic_type)
             # last pg
             i = self.pgs_num - 1
             # send 1 packet on last pg to trigger ingress drop
@@ -3729,6 +3733,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
         finally:
+            self.collect_dumps_on_not_success(self.asic_type)
             if self.platform_asic and self.platform_asic == "broadcom-dnx":
                 self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.uniq_dst_ports)
             else:

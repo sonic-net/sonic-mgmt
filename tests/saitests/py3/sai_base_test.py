@@ -290,6 +290,36 @@ class ThriftInterface(BaseTest):
                 f'sonic-db-cli CONFIG_DB del "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}"'
             self.exec_cmd_on_dut(self.server, self.test_params['dut_username'], self.test_params['dut_password'],
                                  cmd_del_block_data_plane_scheduler)
+    def get_sdk_dump(self):
+        delete_sdk_dump_cmd = 'sudo rm -f /var/log/sdk_dbg/sdkdump'
+        self.exec_cmd_on_dut(self.server,
+                            self.test_params['dut_username'],
+                            self.test_params['dut_password'],
+                            delete_sdk_dump_cmd)
+
+        generate_sdk_dump_cmd = 'sudo docker exec syncd sx_api_dbg_generate_dump.py'
+        self.exec_cmd_on_dut(self.server,
+                             self.test_params['dut_username'],
+                             self.test_params['dut_password'],
+                             generate_sdk_dump_cmd)
+        now = time.strftime("%Y%m%d_%H%M%S")
+        local_sdkdump = f"/tmp/sdkdump_{self.server}_{now}"
+        scp_cmd = (
+            f"sshpass -p '{self.test_params['dut_password']}' scp -o 'StrictHostKeyChecking no' "
+            f"-o 'UserKnownHostsFile=/dev/null' "
+            f"{self.test_params['dut_username']}@{self.server}:/var/log/sdk_dbg/sdkdump {local_sdkdump}"
+        )
+        print(f"{time.ctime()} Copy sdkdump file from {self.server} to {local_sdkdump}")
+        os.system(scp_cmd)
+
+    def collect_dumps_on_not_success(self, asic_type):
+        if asic_type == 'mellanox':
+            try:
+                os.system("apt-get update -y")
+                os.system("apt-get install -y sshpass")
+                self.get_sdk_dump()
+            except Exception as e:
+                print(f"Error getting SDK dump: {e}")
 
 
 class ThriftInterfaceDataPlane(ThriftInterface):
