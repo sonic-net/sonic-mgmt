@@ -36,8 +36,9 @@ LOOP_TIMES_LEVEL_MAP = {
 
 
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthost, tbinfo):
+def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
+    duthost = duthosts[rand_one_dut_hostname]
     try:
         clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
         fdb_cleanup(duthost)
