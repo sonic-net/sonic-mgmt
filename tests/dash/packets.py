@@ -119,8 +119,8 @@ def set_do_not_care_layer(mask, layer, field_name, n=1):
 
 
 def inbound_pl_packets(
-    config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789
-):
+    config, floating_nic=False, inner_packet_type="udp", vxlan_udp_dport=4789, inner_sport=4567, inner_dport=6789,
+    vxlan_udp_base_src_port=VXLAN_UDP_BASE_SRC_PORT, vxlan_udp_src_port_mask=VXLAN_UDP_SRC_PORT_MASK):
     inner_sip = get_pl_overlay_dip(  # not a typo, inner DIP/SIP are reversed for inbound direction
         pl.PE_CA, pl.PL_OVERLAY_DIP, pl.PL_OVERLAY_DIP_MASK
     )
@@ -129,14 +129,16 @@ def inbound_pl_packets(
         pl.VM1_CA, pl.PL_OVERLAY_SIP, pl.PL_OVERLAY_SIP_MASK, pl.PL_ENCODING_IP, pl.PL_ENCODING_MASK
     )
 
+    l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
+
     inner_packet = generate_inner_packet(inner_packet_type, ipv6=True)(
         eth_src=pl.REMOTE_MAC,
         eth_dst=pl.ENI_MAC,
         ipv6_src=inner_sip,
         ipv6_dst=inner_dip,
-        udp_sport=inner_sport,
-        udp_dport=inner_dport,
     )
+    inner_packet[l4_protocol_key].sport = inner_sport
+    inner_packet[l4_protocol_key].dport = inner_dport
 
     gre_packet = testutils.simple_gre_packet(
         eth_dst=config[DUT_MAC],
@@ -166,7 +168,7 @@ def inbound_pl_packets(
         ip_ttl=254,
         ip_id=0,
         udp_dport=vxlan_udp_dport,
-        udp_sport=VXLAN_UDP_BASE_SRC_PORT,
+        udp_sport=vxlan_udp_base_src_port,
         vxlan_vni=pl.ENCAP_VNI if floating_nic else int(pl.VNET1_VNI),
         inner_frame=exp_inner_packet,
     )
@@ -175,7 +177,7 @@ def inbound_pl_packets(
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "src")
     masked_exp_packet.set_do_not_care_packet(scapy.Ether, "dst")
     masked_exp_packet.set_do_not_care_packet(scapy.UDP, "chksum")
-    masked_exp_packet.set_do_not_care(8 * (34 + 2) - VXLAN_UDP_SRC_PORT_MASK, VXLAN_UDP_SRC_PORT_MASK)
+    masked_exp_packet.set_do_not_care(8 * (34 + 2) - vxlan_udp_src_port_mask, vxlan_udp_src_port_mask)
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "ttl")
     masked_exp_packet.set_do_not_care_packet(scapy.IP, "chksum")
     if floating_nic:
@@ -225,15 +227,17 @@ def outbound_pl_packets(
     vni=None
 ):
     outer_vni = int(vni if vni else pl.VM_VNI)
+
+    l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
+
     inner_packet = generate_inner_packet(inner_packet_type)(
         eth_src=pl.VM_MAC if floating_nic else pl.ENI_MAC,
         eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
-        udp_sport=inner_sport,
-        udp_dport=inner_dport,
     )
-    l4_protocol_key = get_scapy_l4_protocol_key(inner_packet_type)
+    inner_packet[l4_protocol_key].sport = inner_sport
+    inner_packet[l4_protocol_key].dport = inner_dport
 
     if outer_encap == "vxlan":
         outer_packet = testutils.simple_vxlan_packet(
