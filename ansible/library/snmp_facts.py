@@ -18,6 +18,27 @@
 
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
+
+import asyncio
+import pysnmp
+
+from pyasn1.type import univ
+from pysnmp.proto import rfc1902
+
+if pysnmp.version[0] < 5:
+    from pysnmp.entity.rfc3413.oneliner import cmdgen
+else:
+    from pysnmp.hlapi.v3arch.asyncio import (
+        cmdgen,
+        UdpTransportTarget,
+        get_cmd,
+        walk_cmd,
+        SnmpEngine,
+        ContextData,
+        ObjectType,
+        ObjectIdentity
+    )
+
 DOCUMENTATION = '''
 ---
 module: snmp_facts
@@ -96,26 +117,6 @@ EXAMPLES = '''
     authkey=abc12345
     privkey=def6789
 '''
-
-import asyncio
-import pysnmp
-
-from pyasn1.type import univ
-from pysnmp.proto import rfc1902
-
-if pysnmp.version[0] < 5:
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
-else:
-    from pysnmp.hlapi.v3arch.asyncio import (
-        cmdgen,
-        UdpTransportTarget,
-        get_cmd,
-        walk_cmd,
-        SnmpEngine,
-        ContextData,
-        ObjectType,
-        ObjectIdentity
-    )
 
 
 class DefineOid(object):
@@ -264,7 +265,7 @@ class DefineOid(object):
 
         # From Cisco private MIB (PSU)
         # Refer to https://mibs.observium.org/mib/CISCO-ENTITY-FRU-CONTROL-MIB/
-        self.cefcFRUPowerStatusEntry  = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1"  # For walk_cmd
+        self.cefcFRUPowerStatusEntry = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1"  # For walk_cmd
         self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2"  # + .psuindex
 
         # ipCidrRouteTable MIB, refer to https://mibs.observium.org/mib/IP-FORWARD-MIB/
@@ -349,7 +350,7 @@ def decode_type(module, current_oid, val):
 
 
 def Tree():
-        return defaultdict(Tree)
+    return defaultdict(Tree)
 
 
 def oid_parent_child(parent, child):
@@ -1161,15 +1162,15 @@ class SnmpFactsCollector:
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
-            if oid_same(current_oid,self.v.sysObjectId):
+            if oid_same(current_oid, self.v.sysObjectId):
                 self.results['ansible_sysObjectId'] = current_val
-            elif oid_same(current_oid,self.v.sysUpTime):
+            elif oid_same(current_oid, self.v.sysUpTime):
                 self.results['ansible_sysUpTime'] = current_val
-            elif oid_same(current_oid,self.v.sysContact):
+            elif oid_same(current_oid, self.v.sysContact):
                 self.results['ansible_sysContact'] = current_val
-            elif oid_same(current_oid,self.v.sysName):
+            elif oid_same(current_oid, self.v.sysName):
                 self.results['ansible_sysName'] = current_val
-            elif oid_same(current_oid,self.v.sysLocation):
+            elif oid_same(current_oid, self.v.sysLocation):
                 self.results['ansible_sysLocation'] = current_val
 
     async def _collect_interfaces(self):
@@ -1194,31 +1195,31 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.ifIndex, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifIndex'] = current_val
-                if oid_parent_child(self.v.ifDescr, current_oid):
+                elif oid_parent_child(self.v.ifDescr, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['name'] = current_val
-                if oid_parent_child(self.v.ifType, current_oid):
+                elif oid_parent_child(self.v.ifType, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['type'] = current_val
-                if oid_parent_child(self.v.ifMtu, current_oid):
+                elif oid_parent_child(self.v.ifMtu, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['mtu'] = current_val
-                if oid_parent_child(self.v.ifSpeed, current_oid):
+                elif oid_parent_child(self.v.ifSpeed, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['speed'] = current_val
-                if oid_parent_child(self.v.ifPhysAddress, current_oid):
+                elif oid_parent_child(self.v.ifPhysAddress, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['mac'] = decode_mac(current_val)
-                if oid_parent_child(self.v.ifAdminStatus, current_oid):
+                elif oid_parent_child(self.v.ifAdminStatus, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['adminstatus'] = lookup_adminstatus(int(current_val))
-                if oid_parent_child(self.v.ifOperStatus, current_oid):
+                elif oid_parent_child(self.v.ifOperStatus, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(int(current_val))
-                if oid_parent_child(self.v.ifInUcastPkts, current_oid):
+                elif oid_parent_child(self.v.ifInUcastPkts, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifInUcastPkts'] = current_val
-                if oid_parent_child(self.v.ifInDiscards, current_oid):
+                elif oid_parent_child(self.v.ifInDiscards, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifInDiscards'] = current_val
-                if oid_parent_child(self.v.ifInErrors, current_oid):
+                elif oid_parent_child(self.v.ifInErrors, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifInErrors'] = current_val
-                if oid_parent_child(self.v.ifOutUcastPkts, current_oid):
+                elif oid_parent_child(self.v.ifOutUcastPkts, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifOutUcastPkts'] = current_val
-                if oid_parent_child(self.v.ifOutDiscards, current_oid):
+                elif oid_parent_child(self.v.ifOutDiscards, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifOutDiscards'] = current_val
-                if oid_parent_child(self.v.ifOutErrors, current_oid):
+                elif oid_parent_child(self.v.ifOutErrors, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifOutErrors'] = current_val
 
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
@@ -1242,11 +1243,11 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.ifHCInOctets, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifHCInOctets'] = current_val
-                if oid_parent_child(self.v.ifHCOutOctets, current_oid):
+                elif oid_parent_child(self.v.ifHCOutOctets, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifHCOutOctets'] = current_val
-                if oid_parent_child(self.v.ifHighSpeed, current_oid):
+                elif oid_parent_child(self.v.ifHighSpeed, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
-                if oid_parent_child(self.v.ifAlias, current_oid):
+                elif oid_parent_child(self.v.ifAlias, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['description'] = current_val
 
     async def _collect_physical_entities(self):
@@ -1271,27 +1272,27 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.entPhysDescr, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
-                if oid_parent_child(self.v.entPhysContainedIn, current_oid):
+                elif oid_parent_child(self.v.entPhysContainedIn, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(current_val)
-                if oid_parent_child(self.v.entPhysClass, current_oid):
+                elif oid_parent_child(self.v.entPhysClass, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(current_val)
-                if oid_parent_child(self.v.entPhyParentRelPos, current_oid):
+                elif oid_parent_child(self.v.entPhyParentRelPos, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(current_val)
-                if oid_parent_child(self.v.entPhysName, current_oid):
+                elif oid_parent_child(self.v.entPhysName, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
-                if oid_parent_child(self.v.entPhysHwVer, current_oid):
+                elif oid_parent_child(self.v.entPhysHwVer, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysHwVer'] = current_val
-                if oid_parent_child(self.v.entPhysFwVer, current_oid):
+                elif oid_parent_child(self.v.entPhysFwVer, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysFwVer'] = current_val
-                if oid_parent_child(self.v.entPhysSwVer, current_oid):
+                elif oid_parent_child(self.v.entPhysSwVer, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysSwVer'] = current_val
-                if oid_parent_child(self.v.entPhysSerialNum, current_oid):
+                elif oid_parent_child(self.v.entPhysSerialNum, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysSerialNum'] = current_val
-                if oid_parent_child(self.v.entPhysMfgName, current_oid):
+                elif oid_parent_child(self.v.entPhysMfgName, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysMfgName'] = current_val
-                if oid_parent_child(self.v.entPhysModelName, current_oid):
+                elif oid_parent_child(self.v.entPhysModelName, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
-                if oid_parent_child(self.v.entPhysIsFRU, current_oid):
+                elif oid_parent_child(self.v.entPhysIsFRU, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(current_val)
 
     async def _collect_sensors(self):
@@ -1316,13 +1317,13 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.entPhySensorType, current_oid):
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
-                if oid_parent_child(self.v.entPhySensorScale, current_oid):
+                elif oid_parent_child(self.v.entPhySensorScale, current_oid):
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(current_val)
-                if oid_parent_child(self.v.entPhySensorPrecision, current_oid):
+                elif oid_parent_child(self.v.entPhySensorPrecision, current_oid):
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorPrecision'] = current_val
-                if oid_parent_child(self.v.entPhySensorValue, current_oid):
+                elif oid_parent_child(self.v.entPhySensorValue, current_oid):
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorValue'] = current_val
-                if oid_parent_child(self.v.entPhySensorOperStatus, current_oid):
+                elif oid_parent_child(self.v.entPhySensorOperStatus, current_oid):
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorOperStatus'] = current_val
 
     async def _collect_ipaddr(self):
@@ -1351,9 +1352,9 @@ class SnmpFactsCollector:
                 if oid_parent_child(self.v.ipAdEntAddr, current_oid):
                     ipv4_networks[curIP]['address'] = current_val
                     all_ipv4_addresses.append(current_val)
-                if oid_parent_child(self.v.ipAdEntIfIndex, current_oid):
+                elif oid_parent_child(self.v.ipAdEntIfIndex, current_oid):
                     ipv4_networks[curIP]['interface'] = current_val
-                if oid_parent_child(self.v.ipAdEntNetMask, current_oid):
+                elif oid_parent_child(self.v.ipAdEntNetMask, current_oid):
                     ipv4_networks[curIP]['netmask'] = current_val
 
         interface_to_ipv4 = {}
@@ -1425,9 +1426,9 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.lldpLocPortIdSubtype, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
-                if oid_parent_child(self.v.lldpLocPortId, current_oid):
+                elif oid_parent_child(self.v.lldpLocPortId, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
-                if oid_parent_child(self.v.lldpLocPortDesc, current_oid):
+                elif oid_parent_child(self.v.lldpLocPortDesc, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
 
     async def _collect_lldp_locman(self):
@@ -1451,11 +1452,11 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.lldpLocManAddrLen, current_oid):
                     self.results['snmp_lldp']['lldpLocManAddrLen'] = current_val
-                if oid_parent_child(self.v.lldpLocManAddrIfSubtype, current_oid):
+                elif oid_parent_child(self.v.lldpLocManAddrIfSubtype, current_oid):
                     self.results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
-                if oid_parent_child(self.v.lldpLocManAddrIfId, current_oid):
+                elif oid_parent_child(self.v.lldpLocManAddrIfId, current_oid):
                     self.results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
-                if oid_parent_child(self.v.lldpLocManAddrOID, current_oid):
+                elif oid_parent_child(self.v.lldpLocManAddrOID, current_oid):
                     self.results['snmp_lldp']['lldpLocManAddrOID'] = current_val
 
     async def _collect_lldp_rem(self):
@@ -1480,21 +1481,21 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.lldpRemChassisIdSubtype, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
-                if oid_parent_child(self.v.lldpRemChassisId, current_oid):
+                elif oid_parent_child(self.v.lldpRemChassisId, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
-                if oid_parent_child(self.v.lldpRemPortIdSubtype, current_oid):
+                elif oid_parent_child(self.v.lldpRemPortIdSubtype, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
-                if oid_parent_child(self.v.lldpRemPortId, current_oid):
+                elif oid_parent_child(self.v.lldpRemPortId, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
-                if oid_parent_child(self.v.lldpRemPortDesc, current_oid):
+                elif oid_parent_child(self.v.lldpRemPortDesc, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
-                if oid_parent_child(self.v.lldpRemSysName, current_oid):
+                elif oid_parent_child(self.v.lldpRemSysName, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
-                if oid_parent_child(self.v.lldpRemSysDesc, current_oid):
+                elif oid_parent_child(self.v.lldpRemSysDesc, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
-                if oid_parent_child(self.v.lldpRemSysCapSupported, current_oid):
+                elif oid_parent_child(self.v.lldpRemSysCapSupported, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
-                if oid_parent_child(self.v.lldpRemSysCapEnabled, current_oid):
+                elif oid_parent_child(self.v.lldpRemSysCapEnabled, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
 
     async def _collect_lldp_rem_man_addr(self):
@@ -1519,9 +1520,9 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.lldpRemManAddrIfSubtype, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
-                if oid_parent_child(self.v.lldpRemManAddrIfId, current_oid):
+                elif oid_parent_child(self.v.lldpRemManAddrIfId, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
-                if oid_parent_child(self.v.lldpRemManAddrOID, current_oid):
+                elif oid_parent_child(self.v.lldpRemManAddrOID, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
 
     async def _collect_dell_cpu(self):
@@ -1620,9 +1621,8 @@ class SnmpFactsCollector:
 
                 if oid_parent_child(self.v.cpfcIfRequests, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
-                if oid_parent_child(self.v.cpfcIfIndications, current_oid):
+                elif oid_parent_child(self.v.cpfcIfIndications, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['cpfcIfIndications'] = current_val
-
 
     async def _collect_cisco_pfc_priority(self):
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
@@ -1647,7 +1647,7 @@ class SnmpFactsCollector:
                 if oid_parent_child(self.v.requestsPerPriority, current_oid):
                     prio = int(current_oid.split('.')[-1])
                     self.results['snmp_interfaces'][ifIndex]['requestsPerPriority'][prio] = current_val
-                if oid_parent_child(self.v.indicationsPerPriority, current_oid):
+                elif oid_parent_child(self.v.indicationsPerPriority, current_oid):
                     prio = int(current_oid.split('.')[-1])
                     self.results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
 
@@ -1722,7 +1722,7 @@ class SnmpFactsCollector:
                 if oid_parent_child(self.v.ipCidrRouteDest, current_oid):
                     next_hop = current_oid.split(self.v.ipCidrRouteDest + ".")[1]
                     self.results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
-                if oid_parent_child(self.v.ipCidrRouteStatus, current_oid):
+                elif oid_parent_child(self.v.ipCidrRouteStatus, current_oid):
                     next_hop = current_oid.split(self.v.ipCidrRouteStatus + ".")[1]
                     self.results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
 
