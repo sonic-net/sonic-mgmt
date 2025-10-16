@@ -1,4 +1,5 @@
 import os
+import sys
 import yaml
 import pytest
 from spytest import st, SpyTestDict
@@ -8,6 +9,8 @@ import apis.system.interface as intf_obj
 import tortuga_common_utils as common_obj
 import apis.routing.ip as ip_obj
 from spytest.utils import poll_wait
+sys.path.append(os.path.join(os.path.dirname(__file__), '..', 'vxlan'))
+import vxlan_utils as vxlan_obj
 
 # Global variables
 data_glob = SpyTestDict()
@@ -247,13 +250,15 @@ def test_portchannel_member_v4_add_del(setup_teardown_portchannel):
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "ipv4 traffic")
 
-    st.log("Check RIF counters for PortChannel intf")
     tx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'))
     rx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_2', port_hdl = 'port_handle_2'))
-    if common_obj.check_rif_counters(data_glob.leaf0, data_glob.portchannel_name, rx_ok=rx_count, tx_ok=tx_count):
-        st.log("RIF counters verified successfully for PortChannel intf")
-    else:
-        st.report_fail('msg', "RIF counters verification failed for PortChannel intf")
+    # port channel shadow counter is not supported in GR2. Skip RIF counter check
+    if vxlan_obj.tunnel_counters_supported(nodes['leaf0']):
+        st.log("Check RIF counters for PortChannel intf")
+        if common_obj.check_rif_counters(data_glob.leaf0, data_glob.portchannel_name, rx_ok=rx_count, tx_ok=tx_count):
+            st.log("RIF counters verified successfully for PortChannel intf")
+        else:
+            st.report_fail('msg', "RIF counters verification failed for PortChannel intf")
 
     st.log("Check RIF counters for Physical intf")
     if common_obj.check_rif_counters(data_glob.spine0, vars.D1D4P1, rx_ok=rx_count, tx_ok=tx_count):
@@ -309,13 +314,15 @@ def test_portchannel_member_v6_add_del(setup_teardown_portchannel):
         common_obj.traffic_cleanup(handles)
         st.report_fail('failed_traffic_verification', "ipv6 traffic")
 
-    st.log("Check RIF counters for PortChannel intf for v6 traffic")
     tx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_1', port_hdl = 'port_handle_1'))
     rx_count = int(common_obj.get_tx_count(handles, tg_hdl = 'tg_handle_2', port_hdl = 'port_handle_2'))
-    if common_obj.check_rif_counters(data_glob.leaf0, data_glob.portchannel_name, rx_ok=rx_count, tx_ok=tx_count):
-        st.log('msg', "RIF counters verified successfully for Vlan10 intf for v6 traffic")
-    else:
-        st.report_fail("RIF counters verification failed for Vlan10 intf for v6 traffic")
+    # port channel shadow counter is not supported in GR2. Skip RIF counter check
+    if vxlan_obj.tunnel_counters_supported(nodes['leaf0']):
+        st.log("Check RIF counters for PortChannel intf for v6 traffic")
+        if common_obj.check_rif_counters(data_glob.leaf0, data_glob.portchannel_name, rx_ok=rx_count, tx_ok=tx_count):
+            st.log('msg', "RIF counters verified successfully for Vlan10 intf for v6 traffic")
+        else:
+            st.report_fail("RIF counters verification failed for Vlan10 intf for v6 traffic")
 
     st.log("Check RIF counters for Physical intf for v6 traffic")
     if common_obj.check_rif_counters(data_glob.spine0, vars.D1D4P1, rx_ok=rx_count, tx_ok=tx_count):
