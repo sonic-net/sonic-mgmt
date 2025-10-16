@@ -53,8 +53,10 @@ def arp_cache_fdb_cleanup(duthost, tbinfo):
 
     # Ensure clean test environment even after failing
     try:
-        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
-        fdb_cleanup(duthost)
+        dut_list = duthosts if "dualtor-aa" in tbinfo["topo"]["name"] else [duthost]
+        for dut in dut_list:
+            clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
+            fdb_cleanup(dut)
 
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
