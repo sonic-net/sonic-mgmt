@@ -238,6 +238,18 @@ bgp/test_bgp_bbr.py::test_bbr_status_consistent_after_reload[enabled]:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23642 and hwsku in ['Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5600-C256S1','Mellanox-SN5600-C224O8']"
 
+bgp/test_bgp_bbr_default_state.py::test_bbr_disabled_constants_yml_default:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -324,7 +336,13 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
 
-bgp/test_bgp_sentinel.py:
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv6:
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
@@ -358,11 +376,11 @@ bgp/test_bgp_speaker.py:
     conditions:
       - "'backend' in topo_name"
 
-bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes:
-  xfail:
-    reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry"
+bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes[:
+  skip:
+    reason: "Skip for IPv6-only topologies"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
+      - "'-v6-' in topo_name"
 
 bgp/test_bgp_speaker.py::test_bgp_speaker_announce_routes_v6:
   xfail:
@@ -398,9 +416,11 @@ bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend"
+    reason: "Not supported on T2 topology or topology backend
+             or Skip for IPv6-only topologies, since there are v6 verison of the test"
     conditions:
       - "'backend' in topo_name or 't2' in topo_name"
+      - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
@@ -1642,11 +1662,13 @@ everflow/test_everflow_testbed.py::EverflowIPv4Tests::test_everflow_dscp_with_po
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror:
   skip:
     reason: "For Mellanox t0-120 setup - Need to skip the test due to HW resource limitation.
-             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated."
+             For Cisco-8000 - EverflowV4 EgressAcl EgressMirror - is not yet fully supported on cisco chassis. Skipping it till it is fully validated.
+             Or Skip for IPv6-only topologies"
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t0-120' in topo_name and asic_type in ['mellanox']"
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1982,7 +2004,7 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
     conditions:
       - "'-v6-' in topo_name"
 
-fib/test_fib.py::test_hash[ipv4]:
+fib/test_fib.py::test_hash[ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -1996,6 +2018,18 @@ fib/test_fib.py::test_ipinip_hash:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
 
+fib/test_fib.py::test_ipinip_hash[ipv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+fib/test_fib.py::test_ipinip_hash_negative[ipv4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos'
@@ -2008,7 +2042,7 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
-fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
+fib/test_fib.py::test_nvgre_hash[ipv4-ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -2132,6 +2166,12 @@ generic_config_updater/test_dynamic_acl.py:
       - "hwsku in ['Cisco-8111-O64']"
       - "topo_name in ['m0-2vlan']"
       - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o_c01-r0']"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_arp_rule_creation[IPV4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
 
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
   skip:
@@ -2332,9 +2372,12 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
 #######################################
 hash/test_generic_hash.py:
   skip:
-    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup"
+    reason: "Testcase ignored due to GitHub issue https://github.com/sonic-net/sonic-mgmt/issues/15340 on dualtor aa setup
+             Or Skip for IPv6-only topologies"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
+      - "'-v6-' in topo_name"
   xfail:
     reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
     conditions:
@@ -2688,6 +2731,12 @@ iface_namingmode/test_iface_namingmode.py::TestShowQueue::test_show_queue_waterm
     strict: True
     conditions:
       - "platform in ['x86_64-cel_e1031-r0']"
+
+iface_namingmode/test_iface_namingmode.py::test_show_ip_route_v4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
 
 iface_namingmode/test_iface_namingmode.py::test_show_pfc_counters:
   skip:
