@@ -45,6 +45,9 @@ all:
         svc6-1:
           ansible_host: 10.206.144.81
           ansible_hostv6: 2a01:111:e205:100::ace:9051
+        svc1-10:
+          ansible_host: 10.206.144.82
+          ansible_hostv6: 2a01:111:e205:100::ace:9052
     pdu:
       hosts:
         pdu-124:
@@ -101,6 +104,12 @@ fanout:
     svcstr-7260cx3-acs-14:
       ansible_host: 10.206.144.25
       ansible_hostv6: 2a01:111:e205:100::ace:9019
+    svcstr-7260cx3-acs-15:
+      ansible_host: 10.206.144.42
+      ansible_hostv6: 2a01:111:e205:100::ace:902a
+    svcstr-7260cx3-acs-16:
+      ansible_host: 10.206.144.43
+      ansible_hostv6: 2a01:111:e205:100::ace:902b
     svcstr-z9332f-01:
       os: sonic
       ansible_host: 10.206.144.22
@@ -131,6 +140,8 @@ sonic:
     sonic_arista_7280dr3_400G:
     sonic_cisco_lc_400G:
     sonic_cisco_sup:
+    sonic_arista_7800_sup:
+    sonic_arista_7800_lc_400G:
 
 sonic_nexus_3164:
   vars:
@@ -497,6 +508,9 @@ server:
     svcstr-server-6:
       ansible_host: 10.206.144.24
       ansible_hostv6: 2a01:111:e205:100::ace:9018
+    svcstr-server-7:
+      ansible_host: 10.206.144.44
+      ansible_hostv6: 2a01:111:e205:100::ace:902c
 
 # designated self hosted azure agents for nightly
 self_hosted_azure_agents:
@@ -715,3 +729,196 @@ sonic_cisco_sup:
         metadata-scripts/test_metadata_upgrade_path.py::test_upgrade_path_t2:
           timeout: 600
           wait: 900
+
+sonic_arista_7800_sup:
+  vars:
+    HwSku: Arista-7808R3A-FM
+    sonic_hwsku: Arista-7808R3A-FM
+    sonic_hw_platform: x86_64-arista_7800_sup
+    slot_num: slot1
+    num_asics: 12
+    num_fabric_asics: 12
+    switchids: [300, 301, 302, 303, 304, 305, 306, 307, 308, 309, 310, 311]
+    asics_host_ip: '20.0.0.1/32'
+    asics_host_ipv6: 'FC00:20::1/128'
+    switch_type: fabric
+    card_type: supervisor
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    svcstr-7808-sup-1:
+      ansible_host: 10.206.144.21
+      ansible_hostv6: 2a01:111:e205:100::ace:9015
+      mgmt_subnet_mask_length: 24
+      hwsku: Arista-7808R3A-FM
+      model: 'DCS-7800-SUP1A'
+      serial: FGN23380BKC
+      base_mac: 60:6b:5b:2f:a0:95
+      syseeprom_info:
+        "0x21": "DCS-7800-SUP1A"
+        "0x22": "ASY0522803D0"
+        "0x23": "FGN23380BKC"
+        "0x24": "60:6b:5b:2f:a0:95"
+        "0x25": "2023/10/26 14:37:56"
+        "0x26": "12.00"
+        "0x27": "03.00"
+        "0x28": "x86_64-arista_7800_sup"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal7-7.1.4-14169220"
+        "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "FABRIC-CARD0": "51"
+        "FABRIC-CARD1": "52"
+        "FABRIC-CARD2": "53"
+        "FABRIC-CARD3": "54"
+        "FABRIC-CARD4": "55"
+        "FABRIC-CARD5": "56"
+        "LINE-CARD0": "3"
+        "LINE-CARD1": "4"
+        "LINE-CARD2": "5"
+        "SUPERVISOR0": "1"
+      skip_modules:
+        'line-cards':
+        - LINE-CARD3
+        - LINE-CARD4
+        - LINE-CARD5
+        - LINE-CARD6
+        - LINE-CARD7
+        'psus':
+        - psu5
+        - psu6
+        - psu11
+        - psu12
+
+sonic_arista_7800_lc_400G:
+  vars:
+    max_cores: 64
+    switch_type: voq
+    voq_inband_intf: [Ethernet-IB0, Ethernet-IB1]
+    voq_inband_type: port
+    num_asics: 2
+    frontend_asics: [0, 1]
+    plt_reboot_dict:
+      cold:
+        timeout: 360
+        wait: 360
+      watchdog:
+        timeout: 360
+        wait: 360
+      platform_tests/test_reload_config.py::test_reload_configuration_checks:
+        timeout: 360
+        wait: 60
+  hosts:
+    svcstr-7800-lc3-1:
+      hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
+      model: 7800R3A-36DM2-LC
+      slot_num: slot3
+      switchids: [0, 2]
+      voq_inband_ip: [3.3.3.1/32, 3.3.3.2/32]
+      voq_inband_ipv6: [3333::3:1/128, 3333::3:2/128]
+      loopback4096_ip: [192.0.0.1/32, 192.0.0.2/32]
+      loopback4096_ipv6: [2603:10e2:400::1/128, 2603:10e2:400::2/128]
+      serial: FGN250809MT
+      base_mac: 78:5f:6c:5b:a2:a6
+      ansible_host: 10.206.144.35
+      ansible_hostv6: 2a01:111:e205:100::ace:9023
+      mgmt_subnet_mask_length: 24
+      syseeprom_info:
+        "0x21": "7800R3A-36DM2-LC"
+        "0x22": "ASY0610833A0"
+        "0x23": "FGN250809MT"
+        "0x24": "78:5f:6c:5b:a2:a6"
+        "0x25": "2025/02/26 12:46:43"
+        "0x26": "13.13"
+        "0x27": "43.10"
+        "0x28": "x86_64-arista_7800r3a_36dm2_lc"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.2-26144132"
+        "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "LINE-CARD": "3"
+        "SUPERVISOR0": "1"
+    svcstr-7800-lc4-1:
+      hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
+      model: 7800R3A-36DM2-LC
+      slot_num: slot4
+      switchids: [4, 6]
+      voq_inband_ip: [3.3.3.3/32, 3.3.3.4/32]
+      voq_inband_ipv6: [3333::3:3/128, 3333::3:4/128]
+      loopback4096_ip: [192.0.0.3/32, 192.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
+      serial: FGN25100A0E
+      base_mac: 78:5f:6c:60:e3:63
+      ansible_host: 10.206.144.38
+      ansible_hostv6: 2a01:111:e205:100::ace:9026
+      mgmt_subnet_mask_length: 24
+      syseeprom_info:
+        "0x21": "7800R3A-36DM2-LC"
+        "0x22": "ASY0610833A0"
+        "0x23": "FGN25100A0E"
+        "0x24": "78:5f:6c:60:e3:63"
+        "0x25": "2025/03/08 19:00:07"
+        "0x26": "13.13"
+        "0x27": "43.10"
+        "0x28": "x86_64-arista_7800r3a_36dm2_lc"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.2-26144132"
+        "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "LINE-CARD": "4"
+        "SUPERVISOR0": "1"
+    svcstr-7800-lc5-1:
+      hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hwsku: Arista-7800R3A-36DM2-D36
+      sonic_hw_platform: x86_64-arista_7800r3a_36dm2_lc
+      model: 7800R3A-36DM2-LC
+      slot_num: slot5
+      switchids: [8, 10]
+      voq_inband_ip: [3.3.3.5/32, 3.3.3.6/32]
+      voq_inband_ipv6: [3333::3:5/128, 3333::3:6/128]
+      loopback4096_ip: [192.0.0.5/32, 192.0.0.6/32]
+      loopback4096_ipv6: [2603:10e2:400::5/128, 2603:10e2:400::6/128]
+      serial: FGN250907K0
+      base_mac: 78:5f:6c:5e:24:e5
+      ansible_host: 10.206.144.41
+      ansible_hostv6: 2a01:111:e205:100::ace:9029
+      mgmt_subnet_mask_length: 24
+      syseeprom_info:
+        "0x21": "7800R3A-36DM2-LC"
+        "0x22": "ASY0610833A0"
+        "0x23": "FGN250907K0"
+        "0x24": "78:5f:6c:5e:24:e5"
+        "0x25": "2025/04/30 03:29:09"
+        "0x26": "13.13"
+        "0x27": "43.10"
+        "0x28": "x86_64-arista_7800r3a_36dm2_lc"
+        "0x2A": "0xffff"
+        "0x2B": "Arista Networks"
+        "0x2C": "US"
+        "0x2D": "Arista Networks"
+        "0x2E": "Aboot-norcal10-10.0.2-26144132"
+        "0xFE": "0xdeadbeef"
+      module_slot_info:
+        "LINE-CARD": "5"
+        "SUPERVISOR0": "1"

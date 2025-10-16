@@ -4809,3 +4809,21 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.147/17
+
+- conf-name: vmsvc3-t2-7808-1
+  group-name: svc1-10
+  topo: t2
+  ptf_image_name: docker-ptf
+  ptf: svc1-10
+  ptf_ip: 10.206.144.82/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9052/64
+  server: server_svc_7
+  vm_base: VM65000
+  dut:
+  - svcstr-7800-lc3-1
+  - svcstr-7800-lc4-1
+  - svcstr-7800-lc5-1
+  - svcstr-7808-sup-1
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul

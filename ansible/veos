@@ -50,6 +50,7 @@ all:
         vm_svc_host_3:
         vm_svc_host_5:
         vm_svc_host_6:
+        vm_svc_host_7:
         vm_bjw_host_6:
         vm_bjw_host_7:
         vm_bjw_host_8:
@@ -139,6 +140,7 @@ all:
         vms_svc_3:
         vms_svc_5:
         vms_svc_6:
+        vms_svc_7:
         vms_bjw_6:
         vms_bjw_7:
         vms_bjw_8:
@@ -226,6 +228,7 @@ all:
         server_svc_3:
         server_svc_5:
         server_svc_6:
+        server_svc_7:
         server_bjw_6:
         server_bjw_7:
         server_bjw_8:
@@ -572,6 +575,10 @@ vm_svc_host_6:
   hosts:
     SVCSTR-SERVER-6:
       ansible_host: 10.206.144.24
+vm_svc_host_7:
+  hosts:
+    SVCSTR-SERVER-7:
+      ansible_host: 10.206.144.44
 vm_bjw_host_6:
   hosts:
     BJW-CAN-SERV-6:
@@ -12543,6 +12550,211 @@ vms_svc_6:
     VM60071:
       ansible_host: 172.16.129.81
 
+vms_svc_7:
+  hosts:
+    VM65000:
+      ansible_host: 172.16.159.10
+    VM65001:
+      ansible_host: 172.16.159.11
+    VM65002:
+      ansible_host: 172.16.159.12
+    VM65003:
+      ansible_host: 172.16.159.13
+    VM65004:
+      ansible_host: 172.16.159.14
+    VM65005:
+      ansible_host: 172.16.159.15
+    VM65006:
+      ansible_host: 172.16.159.16
+    VM65007:
+      ansible_host: 172.16.159.17
+    VM65008:
+      ansible_host: 172.16.159.18
+    VM65009:
+      ansible_host: 172.16.159.19
+    VM65010:
+      ansible_host: 172.16.159.20
+    VM65011:
+      ansible_host: 172.16.159.21
+    VM65012:
+      ansible_host: 172.16.159.22
+    VM65013:
+      ansible_host: 172.16.159.23
+    VM65014:
+      ansible_host: 172.16.159.24
+    VM65015:
+      ansible_host: 172.16.159.25
+    VM65016:
+      ansible_host: 172.16.159.26
+    VM65017:
+      ansible_host: 172.16.159.27
+    VM65018:
+      ansible_host: 172.16.159.28
+    VM65019:
+      ansible_host: 172.16.159.29
+    VM65020:
+      ansible_host: 172.16.159.30
+    VM65021:
+      ansible_host: 172.16.159.31
+    VM65022:
+      ansible_host: 172.16.159.32
+    VM65023:
+      ansible_host: 172.16.159.33
+    VM65024:
+      ansible_host: 172.16.159.34
+    VM65025:
+      ansible_host: 172.16.159.35
+    VM65026:
+      ansible_host: 172.16.159.36
+    VM65027:
+      ansible_host: 172.16.159.37
+    VM65028:
+      ansible_host: 172.16.159.38
+    VM65029:
+      ansible_host: 172.16.159.39
+    VM65030:
+      ansible_host: 172.16.159.40
+    VM65031:
+      ansible_host: 172.16.159.41
+    VM65032:
+      ansible_host: 172.16.159.42
+    VM65033:
+      ansible_host: 172.16.159.43
+    VM65034:
+      ansible_host: 172.16.159.44
+    VM65035:
+      ansible_host: 172.16.159.45
+    VM65036:
+      ansible_host: 172.16.159.46
+    VM65037:
+      ansible_host: 172.16.159.47
+    VM65038:
+      ansible_host: 172.16.159.48
+    VM65039:
+      ansible_host: 172.16.159.49
+    VM65040:
+      ansible_host: 172.16.159.50
+    VM65041:
+      ansible_host: 172.16.159.51
+    VM65042:
+      ansible_host: 172.16.159.52
+    VM65043:
+      ansible_host: 172.16.159.53
+    VM65044:
+      ansible_host: 172.16.159.54
+    VM65045:
+      ansible_host: 172.16.159.55
+    VM65046:
+      ansible_host: 172.16.159.56
+    VM65047:
+      ansible_host: 172.16.159.57
+    VM65048:
+      ansible_host: 172.16.159.58
+    VM65049:
+      ansible_host: 172.16.159.59
+    VM65050:
+      ansible_host: 172.16.159.60
+    VM65051:
+      ansible_host: 172.16.159.61
+    VM65052:
+      ansible_host: 172.16.159.62
+    VM65053:
+      ansible_host: 172.16.159.63
+    VM65054:
+      ansible_host: 172.16.159.64
+    VM65055:
+      ansible_host: 172.16.159.65
+    VM65056:
+      ansible_host: 172.16.159.66
+    VM65057:
+      ansible_host: 172.16.159.67
+    VM65058:
+      ansible_host: 172.16.159.68
+    VM65059:
+      ansible_host: 172.16.159.69
+    VM65060:
+      ansible_host: 172.16.159.70
+    VM65061:
+      ansible_host: 172.16.159.71
+    VM65062:
+      ansible_host: 172.16.159.72
+    VM65063:
+      ansible_host: 172.16.159.73
+    VM65064:
+      ansible_host: 172.16.159.74
+    VM65065:
+      ansible_host: 172.16.159.75
+    VM65066:
+      ansible_host: 172.16.159.76
+    VM65067:
+      ansible_host: 172.16.159.77
+    VM65068:
+      ansible_host: 172.16.159.78
+    VM65069:
+      ansible_host: 172.16.159.79
+    VM65070:
+      ansible_host: 172.16.159.80
+    VM65071:
+      ansible_host: 172.16.159.81
+    VM65072:
+      ansible_host: 172.16.159.82
+    VM65073:
+      ansible_host: 172.16.159.83
+    VM65074:
+      ansible_host: 172.16.159.84
+    VM65075:
+      ansible_host: 172.16.159.85
+    VM65076:
+      ansible_host: 172.16.159.86
+    VM65077:
+      ansible_host: 172.16.159.87
+    VM65078:
+      ansible_host: 172.16.159.88
+    VM65079:
+      ansible_host: 172.16.159.89
+    VM65080:
+      ansible_host: 172.16.159.90
+    VM65081:
+      ansible_host: 172.16.159.91
+    VM65082:
+      ansible_host: 172.16.159.92
+    VM65083:
+      ansible_host: 172.16.159.93
+    VM65084:
+      ansible_host: 172.16.159.94
+    VM65085:
+      ansible_host: 172.16.159.95
+    VM65086:
+      ansible_host: 172.16.159.96
+    VM65087:
+      ansible_host: 172.16.159.97
+    VM65088:
+      ansible_host: 172.16.159.98
+    VM65089:
+      ansible_host: 172.16.159.99
+    VM65090:
+      ansible_host: 172.16.159.100
+    VM65091:
+      ansible_host: 172.16.159.101
+    VM65092:
+      ansible_host: 172.16.159.102
+    VM65093:
+      ansible_host: 172.16.159.103
+    VM65094:
+      ansible_host: 172.16.159.104
+    VM65095:
+      ansible_host: 172.16.159.105
+    VM65096:
+      ansible_host: 172.16.159.106
+    VM65097:
+      ansible_host: 172.16.159.107
+    VM65098:
+      ansible_host: 172.16.159.108
+    VM65099:
+      ansible_host: 172.16.159.109
+    VM65100:
+      ansible_host: 172.16.159.110
+
 vms_bjw_6:
   hosts:
     VM56000:
@@ -23490,6 +23702,12 @@ server_svc_6:
   children:
     vm_svc_host_6:
     vms_svc_6:
+server_svc_7:
+  vars:
+    host_var_file: host_vars/SVCSTR-SERVER-7.yml
+  children:
+    vm_svc_host_7:
+    vms_svc_7:
 server_bjw_6:
   vars:
     host_var_file: host_vars/BJW-CAN-SERV-6.yml
