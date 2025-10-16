@@ -669,8 +669,8 @@ def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, nbrhosts,
-                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, nbrhosts, tbinfo):
 
     if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
