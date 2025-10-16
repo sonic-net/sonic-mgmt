@@ -250,12 +250,6 @@ bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
     conditions:
       - "'-v6-' in topo_name"
 
-bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
-      - "'-v6-' in topo_name"
-
 bgp/test_bgp_gr_helper.py:
   skip:
     reason: 'bgp graceful restarted is not a supported feature for T2 and skip in KVM for failing with new cEOS image'
