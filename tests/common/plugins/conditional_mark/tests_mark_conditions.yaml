@@ -4092,12 +4092,6 @@ upgrade_path/test_upgrade_path.py::test_upgrade_path_t2:
 #######################################
 #####            vlan             #####
 #######################################
-vlan/test_host_vlan.py::test_host_vlan_no_floodling:
-  xfail:
-    reason: "xfail for IPv6-only topologies, caused by is_ipv4_address"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19928 and '-v6-' in topo_name"
-
 vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
   skip:
     reason: "Unsupported platform."
