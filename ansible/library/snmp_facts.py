@@ -19,6 +19,10 @@
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
 
+import logging
+import datetime
+from ansible.module_utils.debug_utils import config_module_logging
+
 import asyncio
 import pysnmp
 
@@ -269,7 +273,6 @@ class DefineOid(object):
         self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2"  # + .psuindex
 
         # ipCidrRouteTable MIB, refer to https://mibs.observium.org/mib/IP-FORWARD-MIB/
-        self.ipCidrRouteEntry = dp + "1.3.6.1.2.1.4.24.4.1"     # For walk_cmd
         self.ipCidrRouteDest = dp + \
             "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0"  # + .next hop IP
         self.ipCidrRouteStatus = dp + \
@@ -1077,6 +1080,7 @@ class SnmpFactsCollector:
         self.context = ContextData()
         self.snmp_engine = SnmpEngine()
         self.transport = None
+        self.logger = logging.getLogger(__name__)
 
         self._init_auth()
 
@@ -1142,6 +1146,7 @@ class SnmpFactsCollector:
         )
 
     async def _collect_system(self):
+        self.logger.info("Starting _collect_system")
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1175,8 +1180,10 @@ class SnmpFactsCollector:
                 self.results['ansible_sysname'] = current_val
             elif oid_same(current_oid, self.v.sysLocation):
                 self.results['ansible_syslocation'] = current_val
+        self.logger.info("Finished _collect_system")
 
     async def _collect_interfaces(self):
+        self.logger.info("Starting _collect_interfaces")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1252,8 +1259,10 @@ class SnmpFactsCollector:
                     self.results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
                 elif oid_parent_child(self.v.ifAlias, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['description'] = current_val
+        self.logger.info("Finished _collect_interfaces")
 
     async def _collect_physical_entities(self):
+        self.logger.info("Starting _collect_physical_entities")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1297,8 +1306,10 @@ class SnmpFactsCollector:
                     self.results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
                 elif oid_parent_child(self.v.entPhysIsFRU, current_oid):
                     self.results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(current_val)
+        self.logger.info("Finished _collect_physical_entities")
 
     async def _collect_sensors(self):
+        self.logger.info("Starting _collect_sensors")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1328,8 +1339,10 @@ class SnmpFactsCollector:
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorValue'] = current_val
                 elif oid_parent_child(self.v.entPhySensorOperStatus, current_oid):
                     self.results['snmp_sensors'][sensor_oid]['entPhySensorOperStatus'] = current_val
+        self.logger.info("Finished _collect_sensors")
 
     async def _collect_ipaddr(self):
+        self.logger.info("Starting _collect_ipaddr")
         ipv4_networks = Tree()
         all_ipv4_addresses = []
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
@@ -1377,8 +1390,10 @@ class SnmpFactsCollector:
             self.results['snmp_interfaces'][int(interface)]['ipv4'] = interface_to_ipv4[interface]
 
         self.results['ansible_all_ipv4_addresses'] = all_ipv4_addresses
+        self.logger.info("Finished _collect_ipaddr")
 
     async def _collect_lldp_sys(self):
+        self.logger.info("Starting _collect_lldp_sys")
         errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1406,8 +1421,10 @@ class SnmpFactsCollector:
                 self.results['snmp_lldp']['lldpLocSysName'] = current_val
             elif oid_same(current_oid, self.v.lldpLocSysDesc):
                 self.results['snmp_lldp']['lldpLocSysDesc'] = current_val
+        self.logger.info("Finished _collect_lldp_sys")
 
     async def _collect_lldp_ports(self):
+        self.logger.info("Starting _collect_lldp_ports")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1433,8 +1450,10 @@ class SnmpFactsCollector:
                     self.results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
                 elif oid_parent_child(self.v.lldpLocPortDesc, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
+        self.logger.info("Finished _collect_lldp_ports")
 
     async def _collect_lldp_locman(self):
+        self.logger.info("Starting _collect_lldp_locman")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1461,8 +1480,10 @@ class SnmpFactsCollector:
                     self.results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
                 elif oid_parent_child(self.v.lldpLocManAddrOID, current_oid):
                     self.results['snmp_lldp']['lldpLocManAddrOID'] = current_val
+        self.logger.info("Finished _collect_lldp_locman")
 
     async def _collect_lldp_rem(self):
+        self.logger.info("Starting _collect_lldp_rem")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1500,8 +1521,10 @@ class SnmpFactsCollector:
                     self.results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
                 elif oid_parent_child(self.v.lldpRemSysCapEnabled, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
+        self.logger.info("Finished _collect_lldp_rem")
 
     async def _collect_lldp_rem_man_addr(self):
+        self.logger.info("Starting _collect_lldp_rem_man_addr")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1527,8 +1550,10 @@ class SnmpFactsCollector:
                     self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
                 elif oid_parent_child(self.v.lldpRemManAddrOID, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
+        self.logger.info("Finished _collect_lldp_rem_man_addr")
 
     async def _collect_dell_cpu(self):
+        self.logger.info("Starting _collect_dell_cpu")
         if self.m_args['is_dell']:
             errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
                 self.snmp_engine,
@@ -1547,39 +1572,44 @@ class SnmpFactsCollector:
                 current_oid = oid.prettyPrint()
                 if oid_same(current_oid, self.v.ChStackUnitCpuUtil5sec):
                     self.results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(self.module, current_oid, val)
+        self.logger.info("Finished _collect_dell_cpu")
 
     async def _collect_sys_mem(self):
-        errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
-            self.snmp_engine,
-            self.snmp_auth,
-            self.transport,
-            ContextData(),
-            ObjectType(ObjectIdentity(self.p.sysTotalMemory,)),
-            ObjectType(ObjectIdentity(self.p.sysTotalFreeMemory,)),
-            ObjectType(ObjectIdentity(self.p.sysTotalSharedMemory,)),
-            ObjectType(ObjectIdentity(self.p.sysTotalBuffMemory,)),
-            ObjectType(ObjectIdentity(self.p.sysCachedMemory,)),
-            lookupMib=False
-        )
-        if errorIndication:
-            self.module.fail_json(
-                msg=f"{str(errorIndication)} querying system memory."
+        self.logger.info("Starting _collect_sys_mem")
+        if not self.m_args['is_eos']:
+            errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+                self.snmp_engine,
+                self.snmp_auth,
+                self.transport,
+                ContextData(),
+                ObjectType(ObjectIdentity(self.p.sysTotalMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalFreeMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalSharedMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalBuffMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysCachedMemory,)),
+                lookupMib=False
             )
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying system memory."
+                )
 
-        for oid, val in varBinds:
-            current_oid = oid.prettyPrint()
-            if oid_same(current_oid, self.v.sysTotalMemory):
-                self.results['ansible_sysTotalMemory'] = decode_type(self.module, current_oid, val)
-            elif oid_same(current_oid, self.v.sysTotalFreeMemory):
-                self.results['ansible_sysTotalFreeMemory'] = decode_type(self.module, current_oid, val)
-            elif oid_same(current_oid, self.v.sysTotalSharedMemory):
-                self.results['ansible_sysTotalSharedMemory'] = decode_type(self.module, current_oid, val)
-            elif oid_same(current_oid, self.v.sysTotalBuffMemory):
-                self.results['ansible_sysTotalBuffMemory'] = decode_type(self.module, current_oid, val)
-            elif oid_same(current_oid, self.v.sysCachedMemory):
-                self.results['ansible_sysCachedMemory'] = decode_type(self.module, current_oid, val)
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                if oid_same(current_oid, self.v.sysTotalMemory):
+                    self.results['ansible_sysTotalMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalFreeMemory):
+                    self.results['ansible_sysTotalFreeMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalSharedMemory):
+                    self.results['ansible_sysTotalSharedMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalBuffMemory):
+                    self.results['ansible_sysTotalBuffMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysCachedMemory):
+                    self.results['ansible_sysCachedMemory'] = decode_type(self.module, current_oid, val)
+        self.logger.info("Finished _collect_sys_mem")
 
     async def _collect_swap(self):
+        self.logger.info("Starting _collect_swap")
         if self.m_args['include_swap']:
             errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
                 self.snmp_engine,
@@ -1601,8 +1631,10 @@ class SnmpFactsCollector:
                     self.results['ansible_sysTotalSwap'] = decode_type(self.module, current_oid, val)
                 elif oid_same(current_oid, self.v.sysTotalFreeSwap):
                     self.results['ansible_sysTotalFreeSwap'] = decode_type(self.module, current_oid, val)
+        self.logger.info("Finished _collect_swap")
 
     async def _collect_cisco_pfc_if(self):
+        self.logger.info("Starting _collect_cisco_pfc_if")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1626,8 +1658,10 @@ class SnmpFactsCollector:
                     self.results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
                 elif oid_parent_child(self.v.cpfcIfIndications, current_oid):
                     self.results['snmp_interfaces'][ifIndex]['cpfcIfIndications'] = current_val
+        self.logger.info("Finished _collect_cisco_pfc_if")
 
     async def _collect_cisco_pfc_priority(self):
+        self.logger.info("Starting _collect_cisco_pfc_priority")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1654,8 +1688,10 @@ class SnmpFactsCollector:
                     ifIndex = int(current_oid.split('.')[-2])
                     prio = int(current_oid.split('.')[-1])
                     self.results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
+        self.logger.info("Finished _collect_cisco_pfc_priority")
 
     async def _collect_cisco_qos(self):
+        self.logger.info("Starting _collect_cisco_qos")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1680,8 +1716,10 @@ class SnmpFactsCollector:
                     queueId = int(current_oid.split('.')[-2])
                     counterId = int(current_oid.split('.')[-1])
                     self.results['snmp_interfaces'][ifIndex]['queues'][ifDirection][queueId][counterId] = current_val
+        self.logger.info("Finished _collect_cisco_qos")
 
     async def _collect_cisco_psu(self):
+        self.logger.info("Starting _collect_cisco_psu")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1703,20 +1741,22 @@ class SnmpFactsCollector:
                 if oid_parent_child(self.v.cefcFRUPowerOperStatus, current_oid):
                     psuIndex = int(current_oid.split('.')[-1])
                     self.results['snmp_psu'][psuIndex]['operstatus'] = current_val
+        self.logger.info("Finished _collect_cisco_psu")
 
     async def _collect_ip_route(self):
+        self.logger.info("Starting _collect_ip_route")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
             self.transport,
             ContextData(),
-            ObjectType(ObjectIdentity(self.p.ipCidrRouteEntry)),
+            ObjectType(ObjectIdentity(self.p.ipCidrRouteDest)),
             lookupMib=False,
             lexicographicMode=False
         ):
             if errorIndication:
                 self.module.fail_json(
-                    msg=f"{str(errorIndication)} querying ipCidrRouteEntry."
+                    msg=f"{str(errorIndication)} querying ipCidrRouteDest."
                 )
 
             for oid, val in varBinds:
@@ -1726,11 +1766,33 @@ class SnmpFactsCollector:
                 if oid_parent_child(self.v.ipCidrRouteDest, current_oid):
                     next_hop = current_oid.split(self.v.ipCidrRouteDest + ".")[1]
                     self.results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
-                elif oid_parent_child(self.v.ipCidrRouteStatus, current_oid):
+
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.ipCidrRouteStatus)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ipCidrRouteStatus."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.ipCidrRouteStatus, current_oid):
                     next_hop = current_oid.split(self.v.ipCidrRouteStatus + ".")[1]
                     self.results['snmp_cidr_route'][next_hop]['status'] = current_val
 
+        self.logger.info("Finished _collect_ip_route")
+
     async def _collect_fdb(self):
+        self.logger.info("Starting _collect_fdb")
         async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
             self.snmp_engine,
             self.snmp_auth,
@@ -1761,6 +1823,7 @@ class SnmpFactsCollector:
                     # key must be string
                     key = items[0] + '.' + mac_str
                     self.results['snmp_fdb'][key] = current_val
+        self.logger.info("Finished _collect_fdb")
 
     async def collect_all(self):
         if self.transport is None:
@@ -1822,6 +1885,9 @@ if __name__ == "__main__":
         ),
         supports_check_mode=False
     )
+
+    timestamp = datetime.datetime.now().isoformat()
+    config_module_logging(f'snmp_facts_{module.params["host"]}_{timestamp}')
 
     if pysnmp.version[0] < 5:
         main_legacy(module)
