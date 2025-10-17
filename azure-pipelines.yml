@@ -100,3 +100,13 @@ stages:
 
   jobs:
     - template: .azure-pipelines/pr_test_template.yml
+
+    - job: get_impacted_area
+      displayName: "Get impacted area"
+      timeoutInMinutes: 10
+      continueOnError: false
+      pool: sonic-ubuntu-1c
+      steps:
+        - template: .azure-pipelines/impacted_area_testing/get-impacted-area.yml
+          parameters:
+            BUILD_BRANCH: $(BUILD_BRANCH)
