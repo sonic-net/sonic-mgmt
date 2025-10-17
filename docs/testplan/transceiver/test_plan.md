@@ -708,21 +708,22 @@ The framework builds `port_attributes_dict` using this systematic process:
 ##### Usage
 
 Tests access attributes using: `port_attributes_dict[port_name][category_key][attribute_name]`  
-The `port_attributes_dict` is attached to the DUT host object for easy access.
+The `port_attributes_dict` is provided directly as a session-scoped fixture and is also initialized early for logging.
 
-**Example:**
+**Example (inside a test):**
 
 ```python
-port_attributes_dict = duthost.get_port_attributes()
+def test_example(port_attributes_dict):
+    # Access EEPROM attributes
+    eeprom_attrs = port_attributes_dict["Ethernet0"].get("EEPROM_ATTRIBUTES", {})
+    dual_bank_supported = eeprom_attrs.get("dual_bank_supported")
 
-# Access EEPROM attributes
-eeprom_attrs = port_attributes_dict["Ethernet0"]["EEPROM_ATTRIBUTES"]
-dual_bank_supported = eeprom_attrs["dual_bank_supported"]
+    # Access base transceiver configuration (parsed from transceiver_configuration)
+    base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
+    cable_type = base_attrs["cable_type"]
+    deployment = base_attrs["deployment"]
 
-# Access base transceiver configuration (parsed from transceiver_configuration)
-base_attrs = port_attributes_dict["Ethernet0"]["BASE_ATTRIBUTES"]
-cable_type = base_attrs["cable_type"]
-deployment = base_attrs["deployment"]
+    assert cable_type in ("AOC", "DAC", "LR", "DR")
 ```
 
 **Benefits:** Modular design, independent updates per category, conflict prevention, flexible overrides, and performance optimization.
@@ -772,6 +773,17 @@ Optional post-processing validation ensures comprehensive attribute coverage for
 3. **Gap Analysis**: Identifies missing required/optional attributes
 4. **Pytest Integration**: Reports results with standard log levels (INFO/WARNING/ERROR/DEBUG)
 
+##### Configuration Control
+
+The validation feature can also be controlled via passing a test parameters:
+
+- **`--skip_transceiver_template_validation`**: When specified, completely bypasses the attribute completeness validation
+  - Use case: Quick test runs during development or when template definitions are incomplete
+  - Default: `False` (validation is performed if the deployment_templates.json files exists)
+  - Example: `pytest test_transceiver.py --skip_transceiver_template_validation`
+
+**Note:** Even when validation is skipped, all attributes from category files are still loaded and available for test execution. This parameter only affects the post-processing template validation step.
+
 ##### Console Output
 
 ```python
@@ -783,9 +795,16 @@ INFO     Overall Compliance: 87.5% (21/24 ports fully compliant)
 
 ##### Execution Control
 
-- **Critical failures**: `pytest.fail()` - stops test execution
-- **Warnings only**: `pytest.warns()` - continues with warnings
-- **Fully compliant**: Normal test execution proceeds
+The validation results determine test execution flow:
+
+- **Critical failures**: `pytest.fail()` - stops test execution when required attributes are missing
+- **Warnings only**: `pytest.warns()` - continues with warnings for missing optional attributes
+- **Fully compliant**: Normal test execution proceeds without validation messages
+
+**Skipping Validation:**
+
+- Use `--skip_transceiver_template_validation` pytest parameter to completely bypass this validation step
+- See the "Configuration Control" section above for detailed usage information
 
 #### 4. Transceiver Firmware Info File
 
