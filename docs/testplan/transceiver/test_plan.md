@@ -696,7 +696,7 @@ The framework builds `port_attributes_dict` using this systematic process:
 2. **For each category file**, perform priority-based merging using the 8-level hierarchy
 3. **Validate** mandatory fields for the current category
 4. **Store** merged attributes under category key (e.g., `EEPROM_ATTRIBUTES`, `SYSTEM_ATTRIBUTES`)
-5. **Attach** complete dictionary to DUT host object
+5. **Expose** the complete dictionary via the session-scoped fixture `port_attributes_dict` (an autouse session fixture logs its contents for traceability).
 
 **Merging Behavior:**
 
