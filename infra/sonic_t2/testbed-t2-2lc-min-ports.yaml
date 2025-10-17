@@ -303,6 +303,7 @@ veos_groups:
       - t0-116
       - dualtor-56
       - t2-vs
+      - t2
       - t2_2lc_min_ports-masic
   vm_host:
     children:
