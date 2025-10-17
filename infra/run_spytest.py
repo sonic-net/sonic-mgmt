@@ -68,7 +68,7 @@ def _create_parser():
 
 def start_vxr(topo_yaml):
     print("Starting step: start_vxr")
-    vxr_path = "python3 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
+    vxr_path = "python3.8 /auto/vxr/pyvxr/pyvxr-latest/vxr.py"
     os.system("{} clean".format(vxr_path))
 
     os.system("bash -c '{} start {} |& tee sim_op.log'".format(vxr_path, topo_yaml))
