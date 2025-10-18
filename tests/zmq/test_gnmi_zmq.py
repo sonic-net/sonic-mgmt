@@ -18,12 +18,13 @@ def get_pid(duthost, process_name):
     return duthost.shell("pgrep {}".format(process_name), module_ignore_errors=True)["stdout"]
 
 
-def save_reload_config(duthost):
+def check_process_ready(duthost, process_name, old_pid):
+    new_pid = get_pid(duthost, process_name)
+    logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, new_pid))
+    return new_pid != "" and new_pid != old_pid
 
-    def _check_process_ready(duthost, process_name, old_pid):
-        new_pid = get_pid(duthost, process_name)
-        logger.debug("_check_orchagent_ready: {} PID {}".format(process_name, new_pid))
-        return new_pid != "" and new_pid != old_pid
+
+def save_reload_config(duthost):
 
     orchagent_pid = get_pid(duthost, "orchagent")
     telemetry_pid = get_pid(duthost, "telemetry")
@@ -33,28 +34,40 @@ def save_reload_config(duthost):
     result = duthost.shell("sudo config reload -y -f", module_ignore_errors=True)
     logger.debug("Reload config: {}".format(result))
 
-    pytest_assert(wait_until(360, 2, 0, _check_process_ready, duthost, "orchagent", orchagent_pid),
+    pytest_assert(wait_until(360, 2, 0, check_process_ready, duthost, "orchagent", orchagent_pid),
                   "The orchagent not start after change subtype")
 
-    pytest_assert(wait_until(360, 2, 0, _check_process_ready, duthost, "telemetry", telemetry_pid),
+    pytest_assert(wait_until(360, 2, 0, check_process_ready, duthost, "telemetry", telemetry_pid),
                   "The telemetry not start after change subtype")
 
 
 @pytest.fixture
 def enable_zmq(duthost):
+
+    # backup orchagent
+    command = 'docker exec swss cp /usr/bin/orchagent.sh /usr/bin/orchagent.sh_backup'
+    duthost.shell(command, module_ignore_errors=True)
+
+    # In default address space, GNMI need connect to local address, but bash table bind to mgmt_ip
+    command = r'docker exec swss sed -i "s|-q tcp:\/\/\${mgmt_ip}|-q tcp:\/\/127.0.0.1|g" /usr/bin/orchagent.sh'
+    result = duthost.shell(command, module_ignore_errors=True)
+    logger.warning("Replace ZMQ address in orchagent.sh: {}".format(result))
+
+    command = 'docker exec swss cat /usr/bin/orchagent.sh'
+    result = duthost.shell(command, module_ignore_errors=True)
+    logger.warning("Fixed orchagent.sh: {}".format(result))
+
+    # enable ZMQ
     command = 'sonic-db-cli CONFIG_DB hget "DEVICE_METADATA|localhost" subtype'
     subtype = duthost.shell(command, module_ignore_errors=True)["stdout"]
     logger.debug("subtype: {}".format(subtype))
 
     # the device already enable SmartSwitch
-    if subtype == "SmartSwitch":
-        yield
-        return
+    if subtype != "SmartSwitch":
+        command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
+        result = duthost.shell(command, module_ignore_errors=True)
+        logger.debug("set subtype subtype: {}".format(result))
 
-    # enable ZMQ
-    command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype SmartSwitch'
-    result = duthost.shell(command, module_ignore_errors=True)
-    logger.debug("set subtype subtype: {}".format(result))
     save_reload_config(duthost)
 
     pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
@@ -69,10 +82,19 @@ def enable_zmq(duthost):
 
     yield
 
+    # retore orchagent
+    command = 'docker exec swss cp /usr/bin/orchagent.sh_backup /usr/bin/orchagent.sh'
+    duthost.shell(command, module_ignore_errors=True)
+
     # revert change
-    command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
-    result = duthost.shell(command, module_ignore_errors=True)
-    logger.debug("revert subtype subtype: {}".format(result))
+    if subtype != "SmartSwitch":
+        if not subtype:
+            command = 'sonic-db-cli CONFIG_DB hdel "DEVICE_METADATA|localhost" subtype'
+        else:
+            command = 'sonic-db-cli CONFIG_DB hset "DEVICE_METADATA|localhost" subtype {}'.format(subtype)
+        result = duthost.shell(command, module_ignore_errors=True)
+        logger.debug("revert subtype subtype: {}".format(result))
+
     save_reload_config(duthost)
 
 
@@ -107,12 +129,8 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     cmd += '--xpath ' + xpath
     cmd += ' '
     cmd += '--value ' + xvalue
-    output = ptfhost.shell(cmd, module_ignore_errors=True)
-    error = "GRPC error\n"
-    if error in output['stdout']:
-        result = output['stdout'].split(error, 1)
-        raise Exception("GRPC error:" + result[1])
-    return
+    logger.warning("gnmi_set command: {}".format(cmd))
+    return ptfhost.shell(cmd, module_ignore_errors=True)['stdout']
 
 
 def test_gnmi_zmq(duthosts,
@@ -121,19 +139,33 @@ def test_gnmi_zmq(duthosts,
                   enable_zmq):
     duthost = duthosts[rand_one_dut_hostname]
 
-    command = 'ps -auxww | grep "/usr/sbin/telemetry -logtostderr --noTLS --port 8080"'
-    gnmi_process = duthost.shell(command, module_ignore_errors=True)["stdout"]
-    logger.debug("gnmi_process: {}".format(gnmi_process))
-
     file_name = "vnet.txt"
     vnet_key = "Vnet{}".format(random.randint(0, 1000))
     text = "{\"" + vnet_key + "\": {\"vni\": \"1000\", \"guid\": \"559c6ce8-26ab-4193-b946-ccc6e8f930b2\"}}"
     with open(file_name, 'w') as file:
         file.write(text)
     ptfhost.copy(src=file_name, dest='/root')
-    # Add DASH_VNET_TABLE
     update_list = ["/sonic-db:APPL_DB/localhost/DASH_VNET_TABLE:@/root/%s" % (file_name)]
-    gnmi_set(duthost, ptfhost, [], update_list, [])
+
+    orchagent_pid = get_pid(duthost, "orchagent")
+
+    # stop orchagent make set operation failed
+    command = 'docker exec swss supervisorctl stop orchagent'
+    duthost.shell(command, module_ignore_errors=True)
+
+    result = gnmi_set(duthost, ptfhost, [], update_list, [])
+    logger.warning("gnmi_set result when orch stop: {}".format(result))
+    assert "Resource temporarily unavailable" in result
+
+    # start orchagent make set operation success
+    command = 'docker exec swss supervisorctl start orchagent'
+    duthost.shell(command, module_ignore_errors=True)
+
+    pytest_assert(wait_until(360, 2, 0, check_process_ready, duthost, "orchagent", orchagent_pid),
+                  "The orchagent not start")
+
+    result = gnmi_set(duthost, ptfhost, [], update_list, [])
+    logger.warning("gnmi_set result when orch start: {}".format(result))
 
     command = 'sonic-db-cli APPL_DB keys "*" | grep "DASH_VNET_TABLE:{}"'.format(vnet_key)
     appl_db_key = duthost.shell(command, module_ignore_errors=True)["stdout"]
