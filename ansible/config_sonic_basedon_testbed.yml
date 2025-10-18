@@ -61,6 +61,11 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
+    - name: set default light mode
+      set_fact:
+        is_light_mode: true
+      when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode is not defined
+
     - name: set ptf image name
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
@@ -632,7 +637,7 @@
               dest=/tmp/smartswitch.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -687,6 +692,7 @@
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
+          is_light_mode: "{{ is_light_mode | default(true) }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -865,7 +871,7 @@
               dest=/tmp/dpu_extra.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
@@ -874,7 +880,7 @@
           host_passwords: "{{ sonic_default_passwords }}"
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
 
       - name: Configure TACACS
         become: true
