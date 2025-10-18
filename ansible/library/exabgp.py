@@ -84,14 +84,14 @@ if __name__ == "__main__":
     tornado.ioloop.IOLoop.current().start()
 '''
 
-dump_config_tmpl = '''\
+exabgp3_dump_config_tmpl = '''\
     process dump {
+        run /usr/bin/python {{ dump_script }};
         encoder json;
         receive {
             parsed;
             update;
         }
-        run /usr/bin/python {{ dump_script }};
     }
 '''
 
@@ -125,6 +125,14 @@ group exabgp {
 # Example configs are available here
 # https://github.com/Exa-Networks/exabgp/tree/master/etc/exabgp
 # Look for sample for a given section for details
+
+exabgp4_dump_config_tmpl = '''\
+    process dump {
+        run /usr/bin/python {{ dump_script }};
+        encoder json;
+    }
+'''
+
 exabgp4_config_template = '''\
 {{ dump_config }}
 process http-api {
@@ -142,9 +150,18 @@ neighbor {{ peer_ip }} {
    passive;
    listen {{ listen_port }};
    {%- endif %}
-   api {
+   api http_api{
        processes [ http-api ];
    }
+   {%- if dump_config %}
+   api dumper {
+       processes [ dump ];
+       receive {
+           parsed;
+           update;
+       }
+   }
+   {%- endif %}
 }
 '''
 
@@ -243,8 +260,12 @@ def setup_exabgp_conf(name, router_id, local_ip, peer_ip, local_asn, peer_asn, p
 
     dump_config = ""
     if dump_script:
-        dump_config = jinja2.Template(
-            dump_config_tmpl).render(dump_script=dump_script)
+        if six.PY2:
+            dump_config = jinja2.Template(
+                exabgp3_dump_config_tmpl).render(dump_script=dump_script)
+        else:
+            dump_config = jinja2.Template(
+                exabgp4_dump_config_tmpl).render(dump_script=dump_script)
 
     # backport friendly checking; not required if everything is Py3
     t = None
