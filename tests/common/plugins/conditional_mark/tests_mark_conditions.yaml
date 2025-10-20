@@ -2889,9 +2889,9 @@ route/test_default_route.py:
 
 route/test_duplicate_route.py:
   skip:
-    reason: "Temporarily skip this test until swss submodule update on 202505"
+    reason: "Temporarily skip this test until testcase regression is fixed"
     conditions:
-      - "release in ['202505']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20231#issuecomment-3409128746"
 
 route/test_route_flap.py:
   skip:
