@@ -48,4 +48,4 @@ def test_system_time(grpc_client):
     assert time_diff < 365 * 24 * 3600, \
         f"Device time differs from current time by {time_diff} seconds (> 1 year)"
 
-    logger.info(f"✓ System.Time RPC successful - device time is reasonable")
+    logger.info("✓ System.Time RPC successful - device time is reasonable")
