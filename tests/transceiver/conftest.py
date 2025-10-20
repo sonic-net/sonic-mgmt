@@ -22,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 
+
 def pytest_addoption(parser):
     """Add transceiver infra specific CLI options."""
     parser.addoption(
@@ -94,7 +95,8 @@ def port_attributes_dict(request, duthost):
         logger.info("Validating transceiver attributes against templates in %s", templates_path)
         validator = TemplateValidator(REPO_ROOT)
         try:
-            compliance_dict = validator.validate(merged)  # Raises on required attribute failures; partials log warnings only
+            # Validate merged attributes; raises on missing required attributes (partials only warn)
+            compliance_dict = validator.validate(merged)
             results = compliance_dict.get('results', [])
             fail_messages = []
             full_count = 0
@@ -117,8 +119,11 @@ def port_attributes_dict(request, duthost):
                     fail_messages.append(f"{port} missing required: {missing_req}")
             total_ports = compliance_dict.get('total_ports', len(results))
             logger.info(
-                "Template validation summary: total=%d full=%d partial=%d fail=%d", 
-                total_ports, full_count, partial_count, fail_count
+                "Template validation summary: total=%d full=%d partial=%d fail=%d",
+                total_ports,
+                full_count,
+                partial_count,
+                fail_count,
             )
             if fail_messages:
                 pytest.fail("Template validation failures:\n" + "\n".join(fail_messages))

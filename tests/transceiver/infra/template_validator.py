@@ -15,14 +15,19 @@ Schema (minimal):
 
 Behavior:
     * For each port, find its BASE_ATTRIBUTES.deployment and compare against the template.
-    * Required attributes missing -> port FAIL (and overall validation raises TemplateValidationError).
+    * Required attributes missing -> port FAIL (overall validation raises TemplateValidationError).
     * Optional attributes missing -> port PARTIAL.
     * All required + optional present -> port FULLY_COMPLIANT.
     * Ports whose deployment has no corresponding template are skipped (not counted in result list).
 
 Return structure:
     {
-       'results': [ { 'port': ..., 'deployment': ..., 'status': ..., 'missing_required': [...], 'missing_optional': [...] }, ...],
+       'results': [
+           {
+               'port': ..., 'deployment': ..., 'status': ...,
+               'missing_required': [...], 'missing_optional': [...]
+           }, ...
+       ],
        'fully_compliant_ports': <int>,
        'total_ports': <int>,              # total ports provided (even those skipped)
        'compliance_percent': <float>,     # fully_compliant_ports / total_ports * 100
@@ -52,7 +57,7 @@ class ComplianceResult(object):
         self.status = status  # One of STATUS_FULLY | STATUS_PARTIAL | STATUS_FAIL
         self.missing_required = missing_required
         self.missing_optional = missing_optional
-    
+
     def to_dict(self):
         return {
             'port': self.port,
@@ -152,7 +157,7 @@ class TemplateValidator(object):
                 logger.error("FAIL: %s missing required: %s", result.port, ', '.join(result.missing_required))
 
         logger.info(
-            "Overall Compliance: %.1f%% (%d/%d ports fully compliant)", 
+            "Overall Compliance: %.1f%% (%d/%d ports fully compliant)",
             compliance_percent, fully_compliant_count, total_ports
         )
 

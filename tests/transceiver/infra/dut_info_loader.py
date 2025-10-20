@@ -68,8 +68,11 @@ class DutInfoLoader:
             'part_numbers': part_numbers,
         }
 
-        logger.debug("Loaded %d vendor name mappings, %d part number mappings", 
-                    len(vendor_names), len(part_numbers))
+        logger.debug(
+            "Loaded %d vendor name mappings, %d part number mappings",
+            len(vendor_names),
+            len(part_numbers),
+        )
         return self._mappings
 
     def _collect_port_attributes(self, dut_section):
@@ -79,18 +82,22 @@ class DutInfoLoader:
         for port_spec, attributes in dut_section.items():
             try:
                 expanded_ports = PortSpecExpander.expand(port_spec)
-            except Exception as e: 
+            except Exception as e:
                 raise DutInfoError(f"Failed expanding port spec '{port_spec}': {e}") from e
 
-            logger.debug("Port spec '%s' expands to %d ports: %s", 
-                        port_spec, len(expanded_ports), expanded_ports)
+            logger.debug(
+                "Port spec '%s' expands to %d ports: %s",
+                port_spec,
+                len(expanded_ports),
+                expanded_ports,
+            )
 
             for port in expanded_ports:
                 if port not in port_attributes:
                     port_attributes[port] = {}
                 # Merge attributes (later specs override earlier ones)
                 port_attributes[port].update(attributes)
-        
+
         logger.info("Collected attributes for %d ports after expansion", len(port_attributes))
         return port_attributes
 
@@ -129,8 +136,12 @@ class DutInfoLoader:
             config_str = base_attrs['transceiver_configuration']
             parsed_config = parse_transceiver_configuration(config_str)
             base_attrs.update(parsed_config)
-            logger.debug("Port %s: parsed config '%s' -> %d components", 
-                        port, config_str, len(parsed_config))
+            logger.debug(
+                "Port %s: parsed config '%s' -> %d components",
+                port,
+                config_str,
+                len(parsed_config),
+            )
         except Exception as e:
             raise DutInfoError(
                 f"Invalid transceiver_configuration '{base_attrs.get('transceiver_configuration', 'N/A')}' "
@@ -158,8 +169,11 @@ class DutInfoLoader:
 
         if dut_name not in data:
             available_duts = [k for k in data.keys() if k != 'normalization_mappings']
-            logger.warning("DUT '%s' not present in dut_info.json. Available DUTs: %s", 
-                          dut_name, available_duts)
+            logger.warning(
+                "DUT '%s' not present in dut_info.json. Available DUTs: %s",
+                dut_name,
+                available_duts,
+            )
             return {}
 
         dut_section = data[dut_name]

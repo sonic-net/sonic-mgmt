@@ -1,6 +1,9 @@
 class PortSpecError(ValueError):
     """Raised for any invalid port specification."""
+
+
 """Custom exceptions for transceiver onboarding infra."""
+
 
 class DutInfoError(Exception):
     """Issues related to dut_info.json parsing or validation."""
