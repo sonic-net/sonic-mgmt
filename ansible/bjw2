@@ -1924,6 +1924,7 @@ sonic_arista_7050_C32:
           "0x2E": "Aboot-norcal6-6.1.11-18938843"
           "0x2F": "HBG2446065Q"
           "0xFE": "0xdeadbeef"
+      msft_an_enabled: True
     bjw2-can-7050-4:
       ansible_host: 10.150.22.95
       ansible_hostv6: 2404:f801:10:2200::a96:165f
@@ -1947,6 +1948,7 @@ sonic_arista_7050_C32:
          "0x2E": "Aboot-norcal6-6.1.11-18938843"
          "0x2F": "HBG244605W2"
          "0xFE": "0xdeadbeef"
+      msft_an_enabled: True
 
 sonic_arista_7050C_S128:
   vars:

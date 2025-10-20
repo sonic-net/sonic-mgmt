@@ -865,6 +865,7 @@ sonic_arista:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+      msft_an_enabled: True
     str2-7050cx3-acs-07:
       ansible_host: 10.3.146.22
       ansible_hostv6: 2a01:111:e210:3000::a03:9216
@@ -898,6 +899,7 @@ sonic_arista:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+      msft_an_enabled: True
     str2-7050cx3-32c-f-acs-08:
       ansible_host: 10.3.146.20
       ansible_hostv6: 2a01:111:e210:3000::a03:9214
@@ -922,6 +924,7 @@ sonic_arista:
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG241704WH"
         "0xFE": "0xdeadbeef"
+      msft_an_enabled: True
     str2-7050cx3-32c-f-acs-09:
       ansible_host: 10.3.146.6
       ansible_hostv6: 2a01:111:e210:3000::a03:9206
@@ -946,6 +949,7 @@ sonic_arista:
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG241704UM"
         "0xFE": "0xdeadbeef"
+      msft_an_enabled: True
     str2-7050cx3-32c-f-acs-10:
       ansible_host: 10.3.146.122
       ansible_hostv6: 2a01:111:e210:3000::a03:927a
@@ -966,6 +970,7 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG243500F5"
+      msft_an_enabled: True
     str2-7050cx3-32c-f-acs-11:
       ansible_host: 10.3.146.127
       ansible_hostv6: 2a01:111:e210:3000::a03:927f
@@ -986,6 +991,7 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal11-11.0.6-32762515"
         "0x2F": "HBG24350094"
+      msft_an_enabled: True
     str2-7050cx3-acs-12:
       ansible_host: 10.3.146.13
       ansible_hostv6: 2a01:111:e210:3000::a03:920d

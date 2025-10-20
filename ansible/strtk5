@@ -1760,6 +1760,7 @@ sonic_arista_7050:
         '0x2e': 'Aboot-norcal6-6.1.10-14653765'
         '0x2f': 'JPN2426P06C'
         '0xfe': '0xdeadbeef'
+      msft_an_enabled: True
     strtk5-7050cx3-02:
       ansible_host: 10.212.69.47
       ansible_hostv6: 2603:10e2:140:3000::4e
@@ -1784,3 +1785,4 @@ sonic_arista_7050:
         '0x2e': 'Aboot-norcal6-6.1.10-14653765'
         '0x2f': 'JPN2426P03J'
         '0xfe': '0xdeadbeef'
+      msft_an_enabled: True

@@ -187,6 +187,7 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
         "0x2F": "JPE21131230"
+      msft_an_enabled: True
     svcstr-7050-acs-2:
       ansible_host: 10.206.144.132
       ansible_hostv6: 2a01:111:e205:100::ace:9084
@@ -206,6 +207,7 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
         "0x2F": "JPE21131315"
+      msft_an_enabled: True
     svcstr-7050-acs-3:
       ansible_host: 10.206.144.133
       ansible_hostv6: 2a01:111:e205:100::ace:9085
@@ -225,6 +227,7 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
         "0x2F": "JPE21130688"
+      msft_an_enabled: True
     svcstr-7050-acs-4:
       ansible_host: 10.206.144.134
       ansible_hostv6: 2a01:111:e205:100::ace:9086
@@ -244,6 +247,7 @@ sonic_arista:
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal6-6.1.11-18938843"
         "0x2F": "JPE21131246"
+      msft_an_enabled: True
 
 sonic_nokia_lc_100G:
   vars:
