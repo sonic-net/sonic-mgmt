@@ -37,7 +37,7 @@ def test_system_time(grpc_client):
 
     # Extract timestamp (Unix nanoseconds)
     time_ns = int(response["time"])
-    time_s = time_ns / 1_000_000_000
+    time_s = time_ns // 1_000_000_000
 
     logger.info(f"Device time: {time_s} seconds since epoch")
 

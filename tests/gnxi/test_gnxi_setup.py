@@ -26,7 +26,8 @@ def test_gnmi_default_config(duthost):
     """
 
     # Get telemetry process info
-    output = duthost.shell("docker exec gnmi ps aux | grep telemetry | grep -v grep")
+    cmd = 'docker exec gnmi sh -c "ps -o args= -p \\$(pgrep -f telemetry)"'
+    output = duthost.shell(cmd)
 
     assert output['rc'] == 0, "telemetry process not found in gnmi container"
 

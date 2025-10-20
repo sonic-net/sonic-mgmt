@@ -16,6 +16,7 @@ from tests.gnxi.grpc_client import create_grpc_client
 logger = logging.getLogger(__name__)
 
 GNXI_CHECKPOINT = "gnxi_test_checkpoint"
+GNMI_RESTART_WAIT_SECONDS = 3
 
 
 def verify_gnmi_running(duthost):
@@ -53,7 +54,7 @@ def restart_gnmi_process(duthost):
     duthost.shell("docker exec gnmi supervisorctl restart gnmi-native")
 
     # Wait for telemetry process to restart
-    time.sleep(3)
+    time.sleep(GNMI_RESTART_WAIT_SECONDS)
 
     # Verify process is running
     output = duthost.shell("docker exec gnmi supervisorctl status gnmi-native")

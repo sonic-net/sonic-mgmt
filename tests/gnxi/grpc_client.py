@@ -165,16 +165,26 @@ class GrpcCliClient(GrpcClientBase):
         if "exists" not in result.get('stdout', ''):
             logger.info(f"Downloading grpcurl {self.GRPCURL_VERSION}")
             # Note: Filename format is grpcurl_1.9.1_linux_x86_64.tar.gz
-            version_without_v = self.GRPCURL_VERSION.lstrip('v')
+            version_without_v = self.GRPCURL_VERSION.removeprefix('v')
             url = (
                 f"https://github.com/fullstorydev/grpcurl/releases/download/"
                 f"{self.GRPCURL_VERSION}/grpcurl_{version_without_v}_linux_x86_64.tar.gz"
             )
+            checksum_url = (
+                f"https://github.com/fullstorydev/grpcurl/releases/download/"
+                f"{self.GRPCURL_VERSION}/checksums.txt"
+            )
+            tarball_name = f"grpcurl_{version_without_v}_linux_x86_64.tar.gz"
             download_cmd = f"""
             curl -L {url} -o /tmp/grpcurl.tar.gz && \
+            curl -L {checksum_url} -o /tmp/grpcurl_checksums.txt && \
+            grep "{tarball_name}" /tmp/grpcurl_checksums.txt \
+              > /tmp/grpcurl_expected_checksum.txt && \
+            sha256sum -c /tmp/grpcurl_expected_checksum.txt && \
             tar -xzf /tmp/grpcurl.tar.gz -C /tmp grpcurl && \
             chmod +x {self.GRPCURL_PATH} && \
-            rm -f /tmp/grpcurl.tar.gz
+            rm -f /tmp/grpcurl.tar.gz /tmp/grpcurl_checksums.txt \
+              /tmp/grpcurl_expected_checksum.txt
             """
             self.vmhost.shell(download_cmd)
             logger.info("grpcurl installed successfully")
