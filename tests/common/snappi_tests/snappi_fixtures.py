@@ -1220,8 +1220,6 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
         # Add snappi ports for each chassis connetion
         for sp in snappi_ports:
             snappi_ports_all.append(sp)
-        autonegs = json.loads(duthost.command("intfutil -c autoneg -j")['stdout'])
-        fecs = json.loads(duthost.command("intfutil -c fec -j")['stdout'])
 
         for port in snappi_ports_all:
             port['intf_config_changed'] = False
@@ -1231,8 +1229,6 @@ def get_snappi_ports_single_dut(duthosts,  # noqa: F811
             port['asic_type'] = duthost.facts["asic_type"]
             port['duthost'] = duthost
             port['snappi_speed_type'] = speed_type[port['speed']]
-            port['autoneg'] = True if autonegs[port["peer_port"]]["Auto-Neg Mode"] == 'enabled' else False
-            port['fec'] = True if fecs[port["peer_port"]]["FEC Admin"] == 'rs' else False
             if duthost.facts["num_asic"] > 1:
                 port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
             else:
@@ -1307,8 +1303,6 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
             snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
             snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
             snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-            autonegs = json.loads(duthost.command("intfutil -c autoneg -j")['stdout'])
-            fecs = json.loads(duthost.command("intfutil -c fec -j")['stdout'])
 
             for port in snappi_ports:
                 port['intf_config_changed'] = False
@@ -1318,8 +1312,6 @@ def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
                 port['asic_type'] = duthost.facts["asic_type"]
                 port['duthost'] = duthost
                 port['snappi_speed_type'] = speed_type[port['speed']]
-                port['autoneg'] = True if autonegs["peer_port"]["Auto-Neg Mode"] == 'enabled' else False
-                port['fec'] = True if fecs["peer_port"]["FEC Admin"] == 'rs' else False
                 if duthost.facts["num_asic"] > 1:
                     port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
                 else:
