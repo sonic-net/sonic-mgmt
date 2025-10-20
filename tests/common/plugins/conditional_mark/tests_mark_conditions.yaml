@@ -2891,7 +2891,7 @@ route/test_duplicate_route.py:
   skip:
     reason: "Temporarily skip this test until testcase regression is fixed"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20231#issuecomment-3409128746"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
 
 route/test_route_flap.py:
   skip:
