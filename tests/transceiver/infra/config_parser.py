@@ -27,7 +27,10 @@ def parse_transceiver_configuration(config_string):
     components = config_string.split('-')
     if len(components) != EXPECTED_COMPONENTS:
         raise ValueError(
-            f"Invalid transceiver configuration format '{config_string}' - expected {EXPECTED_COMPONENTS} components, got {len(components)}"
+            (
+                "Invalid transceiver configuration format "
+                f"'{config_string}' - expected {EXPECTED_COMPONENTS} components, got {len(components)}"
+            )
         )
 
     cable_type, speed_str, form_factor, deployment, media_lane_mask, host_lane_mask = components

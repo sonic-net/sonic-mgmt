@@ -15,6 +15,7 @@ from .exceptions import PortSpecError
 
 PORT_PATTERN = re.compile(r"^(Ethernet)(\d+)$")
 
+
 class PortSpecExpander:
     """Expand port specification strings into individual port names.
 
@@ -27,10 +28,6 @@ class PortSpecExpander:
     def _validate_port_name(port_name):
         if not PORT_PATTERN.match(port_name):
             raise PortSpecError(f"Invalid port name '{port_name}' (expected pattern Ethernet<int>)")
-
-    @staticmethod
-    def _build_port(base_prefix, port_number):
-        return f"{base_prefix}{port_number}" if base_prefix.endswith("Ethernet") else f"Ethernet{port_number}"  # base_prefix is always 'Ethernet'
 
     @classmethod
     def _expand_range(cls, token):

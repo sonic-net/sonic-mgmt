@@ -20,6 +20,7 @@ EEPROM_EXPECTED_CLI_KEY_TO_TRANSCEIVER_INV_KEY_MAPPING = {
     "Vendor Name": "vendor_name",
 }
 
+
 def test_eeprom_content_verification_via_show_cli(duthost, port_attributes_dict):
     """Verify EEPROM content via 'show interfaces transceiver info' CLI.
 

@@ -10,7 +10,8 @@ Priority (highest to lowest):
 7. platform.<PLATFORM>
 8. defaults
 
-Validation: All fields named in 'mandatory' must resolve in final merged dict (cannot be in defaults list as per design rule).
+Validation: All fields named in 'mandatory' must resolve in final merged dict (cannot be in
+defaults list as per design rule).
 """
 
 import json
@@ -77,7 +78,11 @@ class AttributeManager:
         hwsku_layer = category_data.get('hwsku', {}).get(hwsku, {})
         dut_layer = category_data.get('dut', {}).get(dut_name, {})
         transceivers_section = category_data.get('transceivers', {})
-        deployment_layer = transceivers_section.get('deployment_configurations', {}).get(deployment, {}) if deployment else {}
+        deployment_layer = (
+            transceivers_section.get('deployment_configurations', {}).get(deployment, {})
+            if deployment
+            else {}
+        )
         vendors_section = transceivers_section.get('vendors', {})
         vendor_section = vendors_section.get(vendor_name, {}) if vendor_name else {}
         vendor_defaults_layer = vendor_section.get('defaults', {})
@@ -88,7 +93,16 @@ class AttributeManager:
             part_number_platform_override_layer = part_number_layer['platform_hwsku_overrides'].get(key, {})
             part_number_layer = {k: v for k, v in part_number_layer.items() if k != 'platform_hwsku_overrides'}
 
-        for layer in [defaults_layer, platform_layer, hwsku_layer, deployment_layer, vendor_defaults_layer, part_number_layer, part_number_platform_override_layer, dut_layer]:
+        for layer in [
+            defaults_layer,
+            platform_layer,
+            hwsku_layer,
+            deployment_layer,
+            vendor_defaults_layer,
+            part_number_layer,
+            part_number_platform_override_layer,
+            dut_layer,
+        ]:
             self._apply_layer(merged, layer)
         return merged
 
@@ -115,7 +129,11 @@ class AttributeManager:
         for category_path in category_files:
             category_data = self._load_json(category_path)
             category_key = self._category_key_from_filename(category_path)
-            logging.info("Processing attribute category %s (%s)", category_key, category_path)
+            logging.info(
+                "Processing attribute category %s (%s)",
+                category_key,
+                category_path,
+            )
             for port_name, port_data in self.base_port_dict.items():
                 base_attrs = port_data.get('BASE_ATTRIBUTES', {})
                 merged_attrs = self._resolve_priority(category_data, base_attrs, dut_name, platform, hwsku)

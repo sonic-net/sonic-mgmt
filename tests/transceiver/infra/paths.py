@@ -18,5 +18,3 @@ REL_TEMPLATES_DIR = os.path.join(REL_TRANSCEIVER_INV_DIR, 'templates')
 # Files
 REL_DUT_INFO_FILE = os.path.join(REL_TRANSCEIVER_INV_DIR, 'dut_info.json')
 REL_DEPLOYMENT_TEMPLATES_FILE = os.path.join(REL_TEMPLATES_DIR, 'deployment_templates.json')
-
-

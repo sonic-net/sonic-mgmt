@@ -14,16 +14,12 @@ Test Categories:
 
 How to Run:
 -----------
-# Run all tests (standalone execution):
-python tests/transceiver/infra/test_transceiver_attribute_infra.py
+# From repository root:
+python tests/transceiver/infra/transceiver_attribute_infra_test.py
 
-# Run from repository root:
-cd /path/to/sonic_mgmt_attribute_infra
-python tests/transceiver/infra/test_transceiver_attribute_infra.py
-
-# Run from tests directory:
+# From tests directory:
 cd tests
-python transceiver/infra/test_transceiver_attribute_infra.py
+python transceiver/infra/transceiver_attribute_infra_test.py
 
 Expected Output:
 ----------------
@@ -40,26 +36,38 @@ Test Isolation:
 
 from pathlib import Path
 import sys
-import json
-import tempfile
-import shutil
-from contextlib import contextmanager
 
-# Add repository root to Python path for imports
+# Early insertion of repository root to allow 'tests.*' imports when running file directly.
+_CURRENT_FILE = Path(__file__).resolve()
+# parents: [infra, transceiver, tests, repo_root]; repo_root is parents[3]
+_REPO_ROOT = _CURRENT_FILE.parents[3]
+if str(_REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(_REPO_ROOT))
+
+import json  # noqa: E402
+import tempfile  # noqa: E402
+import shutil  # noqa: E402
+from contextlib import contextmanager  # noqa: E402
+
+from tests.transceiver.infra.dut_info_loader import DutInfoLoader  # noqa: E402
+from tests.transceiver.infra.attribute_manager import AttributeManager  # noqa: E402
+from tests.transceiver.infra.exceptions import (  # noqa: E402
+    DutInfoError,
+    AttributeMergeError,
+    TemplateValidationError,
+)  # noqa: E402
+from tests.transceiver.infra.template_validator import TemplateValidator  # noqa: E402
+from tests.transceiver.infra.paths import (  # noqa: E402
+    REL_DUT_INFO_FILE,
+    REL_ATTR_DIR,
+    REL_DEPLOYMENT_TEMPLATES_FILE,
+)  # noqa: E402
+from tests.transceiver.infra.utils import format_kv_block  # noqa: E402
+
 INFRA_DIR = Path(__file__).parent
 TRANSCEIVER_DIR = INFRA_DIR.parent
 TESTS_DIR = TRANSCEIVER_DIR.parent
 REPO_ROOT = TESTS_DIR.parent
-for p in [str(REPO_ROOT)]:
-    if p not in sys.path:
-        sys.path.insert(0, p)
-
-from tests.transceiver.infra.dut_info_loader import DutInfoLoader
-from tests.transceiver.infra.attribute_manager import AttributeManager
-from tests.transceiver.infra.exceptions import DutInfoError, AttributeMergeError, TemplateValidationError
-from tests.transceiver.infra.template_validator import TemplateValidator
-from tests.transceiver.infra.paths import REL_DUT_INFO_FILE, REL_ATTR_DIR, REL_DEPLOYMENT_TEMPLATES_FILE
-from tests.transceiver.infra.utils import format_kv_block
 
 TEST_DUT_NAME = 'lab-dut-1'
 TEST_PLATFORM = 'x86_64-nvidia_sn5600-r0'
@@ -115,20 +123,21 @@ EMBEDDED_EEPROM_JSON = {
     }
 }
 
+
 @contextmanager
 def test_temp_environment(prefix='sonic_test_', create_dut_info=False, create_eeprom=False, eeprom_data=None):
     """
     Context manager that creates a temporary test environment with inventory structure.
-    
+
     Args:
         prefix: Prefix for temporary directory name
         create_dut_info: If True, creates dut_info.json with EMBEDDED_DUT_INFO_JSON
         create_eeprom: If True, creates eeprom.json in attributes directory
         eeprom_data: Custom EEPROM data dict (uses EMBEDDED_EEPROM_JSON if None)
-    
+
     Yields:
         temp_root: Path to temporary root directory
-    
+
     Directory structure created:
         temp_root/
             ansible/
@@ -138,13 +147,12 @@ def test_temp_environment(prefix='sonic_test_', create_dut_info=False, create_ee
                             dut_info.json (if create_dut_info=True)
                             attributes/
                                 eeprom.json (if create_eeprom=True)
-    
+
     Cleanup:
         Automatically removes temporary directory and all contents on exit
     """
     temp_root = tempfile.mkdtemp(prefix=prefix)
     try:
-        inventory_dir = Path(temp_root) / Path(REL_DUT_INFO_FILE).parent
         attr_dir = Path(temp_root) / REL_ATTR_DIR
         attr_dir.mkdir(parents=True, exist_ok=True)
         if create_dut_info:
@@ -173,6 +181,7 @@ def run_test(test_func):
         traceback.print_exc()
         return False
 
+
 def test_config_parser():
     """Test parsing of transceiver configuration string format."""
     print("Testing config parser...")
@@ -196,6 +205,7 @@ def test_config_parser():
     assert result['speed_gbps'] == 200
     assert result['media_lane_count'] == 8
     print("Config parser works")
+
 
 def test_port_expansion():
     """Test expansion using PortSpecExpander (range, step, single, list, mixed, edge, invalid)."""
@@ -226,7 +236,7 @@ def test_port_expansion():
         "Eth0",  # wrong prefix
         "Ethernet0::8",  # malformed
         "Ethernet0:8:0",  # zero step
-        "Ethernet8:4",  # start>=stop -> should be empty? Range logic returns [] only when start>=stop, but expand handles ':' case; treat as valid producing []
+        "Ethernet8:4",  # start>=stop -> empty list; expand treats ':' case as range; considered valid producing []
         "Ethernet0:9:-2",  # negative step
     ]
     for bad in invalid_specs:
@@ -245,10 +255,11 @@ def test_port_expansion():
 # Integration Tests
 # =============================================================================
 
+
 def test_dut_info_loader_and_eeprom_merge():
     """
     Integration test: Validate complete flow from DutInfoLoader to AttributeManager.
-    
+
     Tests:
     - DutInfoLoader builds BASE_ATTRIBUTES from dut_info.json
     - AttributeManager merges EEPROM_ATTRIBUTES from eeprom.json
@@ -264,32 +275,41 @@ def test_dut_info_loader_and_eeprom_merge():
         transceivers = eeprom_data.get('transceivers', {})
         deployment_configs = transceivers.get('deployment_configurations', {})
         vendors = transceivers.get('vendors', {})
-        
+
         def build_expected_eeprom_attrs(port_data):
-                base_attrs = port_data.get('BASE_ATTRIBUTES', {})
-                deployment = base_attrs.get('deployment')
-                vendor_name = base_attrs.get('normalized_vendor_name')
-                part_number = base_attrs.get('normalized_vendor_pn')
-                merged = {}
-                for k, v in defaults.items():
+            base_attrs = port_data.get('BASE_ATTRIBUTES', {})
+            deployment = base_attrs.get('deployment')
+            vendor_name = base_attrs.get('normalized_vendor_name')
+            part_number = base_attrs.get('normalized_vendor_pn')
+            merged = {}
+            # defaults layer
+            for k, v in defaults.items():
+                merged[k] = v
+            # deployment layer
+            if deployment and deployment in deployment_configs:
+                for k, v in deployment_configs[deployment].items():
                     merged[k] = v
-                if deployment and deployment in deployment_configs:
-                    for k, v in deployment_configs[deployment].items():
-                        merged[k] = v
-                part_number_attrs = {}
-                if vendor_name and vendor_name in vendors:
-                    part_number_attrs = vendors[vendor_name].get('part_numbers', {}).get(part_number, {}) or {}
-                platform_override = {}
-                if 'platform_hwsku_overrides' in part_number_attrs:
-                    if TEST_PLATFORM_HWSKU_KEY in part_number_attrs['platform_hwsku_overrides']:
-                        platform_override = part_number_attrs['platform_hwsku_overrides'][TEST_PLATFORM_HWSKU_KEY]
-                    part_number_attrs = {k: v for k, v in part_number_attrs.items() if k != 'platform_hwsku_overrides'}
-                for k, v in part_number_attrs.items():
-                    merged[k] = v
-                for k, v in platform_override.items():
-                    merged[k] = v
-                return merged
-        
+            # vendor part number layer
+            part_number_attrs = {}
+            if vendor_name and vendor_name in vendors:
+                part_number_attrs = (
+                    vendors[vendor_name].get('part_numbers', {}).get(part_number, {}) or {}
+                )
+            platform_override = {}
+            if 'platform_hwsku_overrides' in part_number_attrs:
+                if TEST_PLATFORM_HWSKU_KEY in part_number_attrs['platform_hwsku_overrides']:
+                    platform_override = part_number_attrs['platform_hwsku_overrides'][TEST_PLATFORM_HWSKU_KEY]
+                part_number_attrs = {
+                    k: v
+                    for k, v in part_number_attrs.items()
+                    if k != 'platform_hwsku_overrides'
+                }
+            for k, v in part_number_attrs.items():
+                merged[k] = v
+            for k, v in platform_override.items():
+                merged[k] = v
+            return merged
+
         expected = {port: build_expected_eeprom_attrs(port_data) for port, port_data in base.items()}
         mgr = AttributeManager(temp_root, base)
         actual = mgr.build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
@@ -301,11 +321,13 @@ def test_dut_info_loader_and_eeprom_merge():
                 print(f"Mismatch for {port}")
                 print(format_kv_block('Expected', expected[port]))
                 print(format_kv_block('Actual  ', actual_eeprom.get(port, {})))
-        assert not mismatches, f"EEPROM attribute merge mismatches on ports: {mismatches}"
+        assert not mismatches, (
+            f"EEPROM attribute merge mismatches on ports: {mismatches}"
+        )
         mandatory = eeprom_data.get('mandatory', [])
         for port, attrs in actual_eeprom.items():
-                for mandatory_field in mandatory:
-                    assert mandatory_field in attrs, f"Port {port} missing mandatory field {mandatory_field}"
+            for mandatory_field in mandatory:
+                assert mandatory_field in attrs, f"Port {port} missing mandatory field {mandatory_field}"
         print(f"  Validated {len(actual_eeprom)} ports. All mandatory fields present.")
         sample_port = sorted(actual_eeprom.keys())[0]
         print("Base attributes for sample port:")
@@ -313,16 +335,18 @@ def test_dut_info_loader_and_eeprom_merge():
         print("EEPROM attributes for sample port:")
         print(format_kv_block(f'  Sample {sample_port} EEPROM_ATTRIBUTES', actual_eeprom[sample_port]))
 
+
 def test_missing_dut_info_file():
     """Test that DutInfoLoader raises DutInfoError when dut_info.json doesn't exist."""
     print("Testing missing dut_info.json file...")
     with test_temp_environment(prefix='sonic_test_missing_dut_') as temp_root:
         try:
             loader = DutInfoLoader(temp_root)
-            base = loader.build_base_port_attributes(TEST_DUT_NAME)
+            loader.build_base_port_attributes(TEST_DUT_NAME)
             raise AssertionError("Expected DutInfoError but got successful load")
         except DutInfoError as e:
             print(f"  Correctly caught: {e}")
+
 
 def test_dut_not_in_dut_info():
     """Test that DutInfoLoader returns empty dict when DUT name not found in dut_info.json."""
@@ -330,13 +354,16 @@ def test_dut_not_in_dut_info():
     with test_temp_environment(prefix='sonic_test_no_dut_', create_dut_info=True) as temp_root:
         loader = DutInfoLoader(temp_root)
         base = loader.build_base_port_attributes('nonexistent-dut')
-        assert not base, f"Expected empty result for nonexistent DUT, got {len(base)} ports"
+        assert not base, (
+            f"Expected empty result for nonexistent DUT, got {len(base)} ports"
+        )
         print("  Correctly returned empty result")
+
 
 def test_attribute_manager_mandatory_field_missing():
     """
     Test AttributeManager validation: Mandatory fields must be present after merging.
-    
+
     Tests category attribute validation layer (EEPROM mandatory fields).
     """
     print("Testing AttributeManager mandatory field validation...")
@@ -354,14 +381,20 @@ def test_attribute_manager_mandatory_field_missing():
             }
         }
     }
-    with test_temp_environment(prefix='sonic_test_mandatory_', create_dut_info=True, create_eeprom=True, eeprom_data=eeprom_missing_mandatory) as temp_root:
+    with test_temp_environment(prefix='sonic_test_mandatory_',
+                               create_dut_info=True,
+                               create_eeprom=True,
+                               eeprom_data=eeprom_missing_mandatory) as temp_root:
         base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
         mgr = AttributeManager(temp_root, base)
         try:
-            actual = mgr.build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
-            raise AssertionError("Expected AttributeMergeError for missing mandatory fields")
+            mgr.build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError(
+                "Expected AttributeMergeError for missing mandatory fields"
+            )
         except AttributeMergeError as e:
             print(f"  Correctly caught: {e}")
+
 
 def test_missing_category_file():
     """Test graceful handling when category file (eeprom.json) doesn't exist."""
@@ -374,6 +407,7 @@ def test_missing_category_file():
             assert 'EEPROM_ATTRIBUTES' not in port_data, f"Port {port} should not have EEPROM_ATTRIBUTES"
             assert 'BASE_ATTRIBUTES' in port_data, f"Port {port} missing BASE_ATTRIBUTES"
         print(f"  Correctly returned {len(actual)} ports with only BASE_ATTRIBUTES")
+
 
 def test_default_and_mandatory_overlap():
     """Test that AttributeManager rejects category files with overlapping mandatory and default fields."""
@@ -395,15 +429,21 @@ def test_default_and_mandatory_overlap():
             }
         }
     }
-    with test_temp_environment(prefix='sonic_test_overlap_', create_dut_info=True, create_eeprom=True, eeprom_data=eeprom_overlap) as temp_root:
+    with test_temp_environment(prefix='sonic_test_overlap_',
+                               create_dut_info=True,
+                               create_eeprom=True,
+                               eeprom_data=eeprom_overlap) as temp_root:
         base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
         mgr = AttributeManager(temp_root, base)
         try:
-            actual = mgr.build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
-            raise AssertionError("Expected AttributeMergeError for overlapping mandatory and defaults")
+            mgr.build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
+            raise AssertionError(
+                "Expected AttributeMergeError for overlapping mandatory and defaults"
+            )
         except AttributeMergeError as e:
             assert 'mandatory' in str(e) and 'defaults' in str(e), f"Unexpected error: {e}"
             print(f"  Correctly caught: {e}")
+
 
 def test_malformed_json():
     """Test that DutInfoLoader handles malformed JSON syntax gracefully."""
@@ -414,11 +454,12 @@ def test_malformed_json():
             f.write('{"invalid": "json", missing_quote: true}')
         try:
             loader = DutInfoLoader(temp_root)
-            base = loader.build_base_port_attributes(TEST_DUT_NAME)
+            loader.build_base_port_attributes(TEST_DUT_NAME)
             raise AssertionError("Expected DutInfoError for malformed JSON")
         except DutInfoError as e:
             assert 'JSON' in str(e) or 'json' in str(e), f"Expected JSON error, got: {e}"
             print(f"  Correctly caught: {e}")
+
 
 def test_dut_info_loader_mandatory_field_missing():
     print("Testing DutInfoLoader mandatory field validation...")
@@ -440,11 +481,14 @@ def test_dut_info_loader_mandatory_field_missing():
             json.dump(dut_info_missing_field, f, indent=2)
         try:
             loader = DutInfoLoader(temp_root)
-            base = loader.build_base_port_attributes(TEST_DUT_NAME)
-            raise AssertionError("Expected DutInfoError for missing transceiver_configuration")
+            loader.build_base_port_attributes(TEST_DUT_NAME)
+            raise AssertionError(
+                "Expected DutInfoError for missing transceiver_configuration"
+            )
         except DutInfoError as e:
             assert 'mandatory' in str(e).lower() or 'transceiver_configuration' in str(e), f"Unexpected error: {e}"
             print(f"  Correctly caught: {e}")
+
 
 def test_invalid_port_spec():
     """Test that DutInfoLoader rejects invalid port name formats (must be Ethernet<N>)."""
@@ -465,11 +509,14 @@ def test_invalid_port_spec():
             json.dump(dut_info_invalid_spec, f, indent=2)
         try:
             loader = DutInfoLoader(temp_root)
-            base = loader.build_base_port_attributes(TEST_DUT_NAME)
-            raise AssertionError("Expected DutInfoError for invalid port spec format")
+            loader.build_base_port_attributes(TEST_DUT_NAME)
+            raise AssertionError(
+                "Expected DutInfoError for invalid port spec format"
+            )
         except DutInfoError as e:
             assert 'port' in str(e).lower() or 'invalid' in str(e).lower(), f"Unexpected error: {e}"
             print(f"  Correctly caught: {e}")
+
 
 def test_invalid_transceiver_config():
     """Test that DutInfoLoader validates transceiver_configuration format (6 hyphen-separated components)."""
@@ -490,11 +537,14 @@ def test_invalid_transceiver_config():
             json.dump(dut_info_bad_config, f, indent=2)
         try:
             loader = DutInfoLoader(temp_root)
-            base = loader.build_base_port_attributes(TEST_DUT_NAME)
-            raise AssertionError("Expected DutInfoError for invalid transceiver_configuration format")
+            loader.build_base_port_attributes(TEST_DUT_NAME)
+            raise AssertionError(
+                "Expected DutInfoError for invalid transceiver_configuration format"
+            )
         except DutInfoError as e:
             assert 'component' in str(e).lower() or 'format' in str(e).lower(), f"Unexpected error: {e}"
             print(f"  Correctly caught: {e}")
+
 
 def test_empty_dut_section():
     """Test that DutInfoLoader handles DUT with no port definitions (empty dict)."""
@@ -515,6 +565,7 @@ def test_empty_dut_section():
 # =============================================================================
 # TemplateValidator Tests
 # =============================================================================
+
 
 def _write_templates(repo_root, template_data):
     """Helper to write deployment_templates.json under the proper relative path."""
@@ -580,8 +631,12 @@ def test_template_validator_partial_optional():
         v = TemplateValidator(temp_root)
         result = v.validate(merged)
         assert any(r['status'] == 'PARTIAL' for r in result['results'])
-        assert all('EEPROM_ATTRIBUTES.nonexistent_optional_flag' in r['missing_optional'] or r['status'] != 'PARTIAL' for r in result['results'])
-        print("  Partial compliance correctly detected for missing optional attribute")
+        assert all(
+            'EEPROM_ATTRIBUTES.nonexistent_optional_flag' in r['missing_optional']
+            or r['status'] != 'PARTIAL'
+            for r in result['results']
+        )
+    print("  Partial compliance: missing optional attr detected")
 
 
 def test_template_validator_missing_required():
@@ -590,25 +645,35 @@ def test_template_validator_missing_required():
     template_data = {
         'deployment_templates': {
             '8x100G_DR8': {
-                'required_attributes': {'EEPROM_ATTRIBUTES': ['sff8024_identifier', 'dual_bank_supported', 'MISSING_REQ_ATTR']},
+                'required_attributes': {
+                    'EEPROM_ATTRIBUTES': [
+                        'sff8024_identifier',
+                        'dual_bank_supported',
+                        'MISSING_REQ_ATTR',
+                    ]
+                },
                 'optional_attributes': {}
             }
         }
     }
-    with test_temp_environment(prefix='sonic_test_tpl_fail_', create_dut_info=True, create_eeprom=True) as temp_root:
+    with test_temp_environment(prefix='sonic_test_tpl_fail_',
+                               create_dut_info=True,
+                               create_eeprom=True) as temp_root:
         _write_templates(temp_root, template_data)
         base = DutInfoLoader(temp_root).build_base_port_attributes(TEST_DUT_NAME)
         merged = AttributeManager(temp_root, base).build_port_attributes(TEST_DUT_NAME, TEST_PLATFORM, TEST_HWSKU)
         v = TemplateValidator(temp_root)
         try:
             v.validate(merged)
-            raise AssertionError("Expected TemplateValidationError for missing required attribute")
+            raise AssertionError(
+                "Expected TemplateValidationError for missing required attribute"
+            )
         except TemplateValidationError as e:
             assert 'MISSING_REQ_ATTR' in str(e)
-            print(f"  Correctly raised TemplateValidationError: {e} (fail_on_required removed)")
+            print(f"  Correctly raised TemplateValidationError: {e}")
 
 
-## Removed duplicate test_template_validator_missing_required_always_raises (redundant after flag removal)
+# Removed duplicate test_template_validator_missing_required_always_raises (redundant after flag removal)
 
 # =============================================================================
 # Test Runner
@@ -638,7 +703,7 @@ if __name__ == "__main__":
         test_template_validator_missing_required,
     ]
     results = [run_test(test) for test in tests]
-    
+
     # Print summary
     passed = sum(results)
     failed = len(results) - passed
