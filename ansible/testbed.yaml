@@ -285,16 +285,16 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms21-dual-t0-7050-3
-  group-name: vms21-3
+- conf-name: vms26-dual-t0-7050-3
+  group-name: vms26-3
   topo: dualtor-aa
   ptf_image_name: docker-ptf
-  ptf: vms21-3
+  ptf: vms26-3
   ptf_ip: 10.64.246.147/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f693/64
   netns_mgmt_ip: 10.64.246.179/23
-  server: server_21
-  vm_base: VM21028
+  server: server_26
+  vm_base: VM26076
   dut:
   - str2-7050cx3-32c-f-acs-10
   - str2-7050cx3-32c-f-acs-11
@@ -649,15 +649,15 @@
   auto_recover: 'True'
   comment: kellyyeh
 
-- conf-name: vms21-dual-t0-7260
-  group-name: vms21-6
+- conf-name: vms26-dual-t0-7260
+  group-name: vms26-4
   topo: dualtor-120
   ptf_image_name: docker-ptf
-  ptf: vms21-6
+  ptf: vms26-4
   ptf_ip: 10.64.246.152/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f698/64
-  server: server_21
-  vm_base: VM21088
+  server: server_26
+  vm_base: VM26080
   dut:
   - str2-7260cx3-acs-10
   - str2-7260cx3-acs-11
