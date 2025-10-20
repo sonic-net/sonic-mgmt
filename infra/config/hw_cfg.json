@@ -432,11 +432,11 @@
             "docker_prompt":"root@tu2",
             "dut_ssh_prompt": "admin@10.29.158.157",
             "sonic_mgmt_container_202305": "tortuga_cicd2",
-            "sonic_test_dir": "/home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/run_logs",
+            "sonic_test_dir": "/home/sonic/cicd2/run_logs",
             "installer_mode": "sonic",
             "skip_tests": "",
             "skip_folder":"",
-            "git_update_flag": "false",
+            "git_update_flag": "true",
             "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
             "hw_type":"carib",
             "run_type_check": "spytest_topo_carib_only",
@@ -459,12 +459,13 @@
                     "default": "/data/spytest_tb_files/tortuga_spytest_topo_carib_only_HW.yaml",
                     "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml",
                     "reporting/suites/tortuga-mh": "/data/spytest_tb_files/cicd2_mh_topo.yaml",
-                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
+                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml",
+                    "reporting/suites/tortuga_parallel": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
             "special_run_commands": [
                 "cd /data/sonic-mgmt/spytest",
-                "./bin/spytest --testbed $testbed_yaml $optional_params --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/sonic-mgmt/spytest/tests/$test_name --logs-path run_logs/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml $optional_params --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/sonic-mgmt/spytest/tests/$test_name --logs-path /run_logs/$image_folder",
                 "ls -l"
             ],
             "special_imfs_run_commands": [
@@ -489,11 +490,11 @@
             "dut_ssh_prompt": "admin@10.29.158.161",
             "sonic_mgmt_container_202305": "tortuga_cicd2",
             "sonic_mgmt_container_202405c": "tortuga_cicd2",
-            "sonic_test_dir": "/home/sonic/cicd2/sonic-test/sonic-mgmt/spytest/run_logs",
+            "sonic_test_dir": "/home/sonic/cicd2/run_logs",
             "installer_mode": "sonic",
             "skip_tests": "",
             "skip_folder":"",
-            "git_update_flag": "false",
+            "git_update_flag": "true",
             "tests_list": ["cisco/test_platform.py", "cisco/tortuga/security/cisco-security-uefi.py", "cisco/tortuga/security/cisco-security-test.py"],
             "hw_type":"siren",
             "run_type_check": "spytest_topo_siren_only",
@@ -517,12 +518,13 @@
                     "default": "/data/spytest_tb_files/tortuga_spytest_topo_siren_only_HW.yaml",
                     "forwarding": "/data/spytest_tb_files/cicd2_topo.yaml",
                     "reporting/suites/tortuga-mh": "/data/spytest_tb_files/cicd2_mh_topo.yaml",
-                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml"
+                    "reporting/suites/tortuga": "/data/spytest_tb_files/cicd2_topo.yaml",
+                    "reporting/suites/tortuga_parallel": "/data/spytest_tb_files/cicd2_topo.yaml"
                 }
             },
             "special_run_commands": [
                 "cd /data/sonic-mgmt/spytest",
-                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $optional_params --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/sonic-mgmt/spytest/tests/$test_name --logs-path run_logs/$image_folder",
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master $optional_params --module-init-max-timeout=7200 --tc-max-timeout=7200 /data/sonic-mgmt/spytest/tests/$test_name --logs-path /run_logs/$image_folder",
                 "ls -l"
             ],
             "special_imfs_run_commands": [

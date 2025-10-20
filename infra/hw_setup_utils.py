@@ -11,7 +11,7 @@ import yaml
 from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, copy_logfiles
 
 HW_CONFIG_FILE = "config/hw_cfg.json"
-FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga']
+FORWARDING_TESTCASES = ['reporting/suites/tortuga-mh', 'reporting/suites/tortuga', 'reporting/suites/tortuga_parallel']
 
 def load_json(filepath):
     """
@@ -141,6 +141,7 @@ CISCO_PASSWORD = 'cisco123'
 
 WHITEBOX_TOKEN = os.getenv("WHITEBOX_TOKEN")
 PIPELINE_TYPE = os.getenv("PIPELINE_TYPE")
+SONIC_TEST_BRANCH = os.getenv("SONIC_TEST_BRANCH")
 SONIC_TEST_REPO = "wwwin-github.cisco.com/whitebox/sonic-test"
 TORTUGA_SONIC_TEST_FOLDER = '/home/sonic/cicd2/sonic-test/'
 WORKSPACE = os.getenv("WORKSPACE")
@@ -491,9 +492,15 @@ def updateGitDir(host, ssh_port, username, password, dir):
         ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         ssh.connect(host, ssh_port, username, password)
         print("connected to host {}".format(host))
-        pull_cmd = f'cd {dir}; git remote set-url origin https://{WHITEBOX_TOKEN}@{SONIC_TEST_REPO}.git; git pull'
+        if SONIC_TEST_BRANCH:
+            branch = SONIC_TEST_BRANCH
+        else:
+            branch = "master"
+        checkout_branch = f"git fetch; git checkout {branch}"
+
+        pull_cmd = f'cd {dir}; git remote set-url origin https://{WHITEBOX_TOKEN}@{SONIC_TEST_REPO}.git; {checkout_branch}; git pull'
         exec_command_raise_error(ssh, pull_cmd)
-        log.debug('Git pull update complete')
+        log.debug(f'Git pull {branch}, update complete')
         ssh.close()
         return 0
     except Exception as e:
