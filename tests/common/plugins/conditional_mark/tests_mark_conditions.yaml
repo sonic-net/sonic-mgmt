@@ -2289,6 +2289,10 @@ generic_config_updater/test_pfcwd_status.py:
       - "release in ['202211']"
       - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
+  xfail:
+    reason: "Due to known issue https://github.com/sonic-net/sonic-buildimage/issues/23907"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23907"
 
 generic_config_updater/test_pg_headroom_update.py:
   skip:
