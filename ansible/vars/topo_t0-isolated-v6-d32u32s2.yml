@@ -213,7 +213,6 @@ topology:
 
 configuration_properties:
   common:
-    - leaf
     dut_asn: 4200000000
     dut_type: ToRRouter
     podset_number: 200
