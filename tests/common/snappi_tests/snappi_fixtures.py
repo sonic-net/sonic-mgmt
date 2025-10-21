@@ -462,7 +462,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                                             dut_hostname=duthost.hostname)
 
     pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
-
+    snappi_fanout = snappi_fanout[0]
     snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
@@ -1170,6 +1170,7 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
                                                 dut_hostname=duthost.hostname)
         if snappi_fanout is None:
             continue
+        snappi_fanout = snappi_fanout[0]
         snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
         snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
