@@ -6,7 +6,7 @@ import time
 
 from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF
 from gnmi_utils import apply_gnmi_file
-from dash_utils import render_template_to_host, apply_swssconfig_file
+from dash_utils import render_template_to_host, apply_swssconfig_file, set_vxlan_udp_sport_range_util
 from tests.dash.conftest import get_interface_ip
 from tests.common import config_reload
 
@@ -25,6 +25,11 @@ pytestmark = [
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
+
+
+@pytest.fixture(scope="module")
+def set_vxlan_udp_sport_range_vnet(dpuhosts, dpu_index):
+    set_vxlan_udp_sport_range_util(dpuhosts, dpu_index)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -77,14 +82,18 @@ def common_setup_teardown(
         skip_config,
         dpuhosts,
         add_npu_static_routes_vnet,
-        dpu_setup_vnet):
+        dpu_setup_vnet,
+        set_vxlan_udp_sport_range_vnet):
     if skip_config:
         return
 
     dpuhost = dpuhosts[dpu_index]
     host = f"dpu{dpuhost.dpu_index}"
     op = "SET"
-    time.sleep(60)
+    # Until this fix and related are in 202506 release this workaround is needed
+    # Issue observed is that first set of DASH objects is not configured
+    # https://github.com/sonic-net/sonic-swss-common/pull/1068
+    time.sleep(180)
     for i in range(0, 4):
         config = f"dash_smartswitch_vnet_{i}"
         template_name = "{}.j2".format(config)
@@ -95,9 +104,6 @@ def common_setup_teardown(
         else:
             apply_swssconfig_file(duthost, dest_path)
 
-    if 'pensando' in dpuhost.facts['asic_type']:
-        logger.warning("Appling Pensando DPU VXLAN sport workaround")
-        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
 
     # Route rule removal is broken so config reload to cleanup for now

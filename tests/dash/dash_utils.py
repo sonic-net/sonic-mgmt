@@ -129,3 +129,31 @@ def verify_tunnel_packets(ptfadapter, ports, exp_dpu_to_vm_pkt, tunnel_endpoint_
         else:
             pytest.fail(f"Got expected packet on unexpected port {result.port}: {pkt_repr}")
     pytest.fail(f"DP poll failed:\n{result.format()}")
+
+
+def set_vxlan_udp_sport_range_util(dpuhosts, dpu_index):
+    """
+    Configure VXLAN UDP source port range in dpu configuration.
+
+    """
+    dpuhost = dpuhosts[dpu_index]
+    vxlan_sport_config = [
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+            },
+            "OP": "SET"
+        }
+    ]
+
+    logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
+    config_path = "/tmp/vxlan_sport_config.json"
+    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
+    apply_swssconfig_file(dpuhost, config_path)
+    if 'pensando' in dpuhost.facts['asic_type']:
+        logger.warning("Applying Pensando DPU VXLAN sport workaround")
+        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+    yield
+    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
