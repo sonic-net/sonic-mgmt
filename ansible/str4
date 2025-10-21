@@ -72,7 +72,7 @@ all:
         vms74-2:
           ansible_host: 10.64.247.103
           ansible_hostv6: 2a01:111:e210:b000::a40:f767
-        vms75-1:
+        vms74-1:
           ansible_host: 10.64.247.121
           ansible_hostv6: 2a01:111:e210:b000::a40:f779
         vms75-2:
@@ -864,7 +864,7 @@ server:
       ansible_host: 10.64.246.94
       ansible_hostv6: 2a01:111:e210:b000::a40:f65e
     str4-acs-serv-74:
-      ansible_host: 10.64.246.99
+      ansible_host: 10.64.246.124
       ansible_hostv6: 2a01:111:e210:b000::a40:f663
     str4-acs-serv-75:
       ansible_host: 10.64.246.100
