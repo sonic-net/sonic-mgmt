@@ -147,4 +147,5 @@ class TestDhcpv6WithMulticastAccpectAcl(Dhcpv6PktRecvBase):
 
         yield
 
+        duthost.shell("acl-loader delete {}".format(acl_table_name))
         duthost.remove_acl_table(acl_table_name)
