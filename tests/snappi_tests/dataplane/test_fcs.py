@@ -118,7 +118,7 @@ def test_fcs_error_isolation_one_to_one_parallel(
     Validates bad-FCS flows get full loss and RX_ERR matches bad TX.
     """
 
-    logger.info("Starting test_fcs_error_isolation_one_to_one_parallel_traffic_test.")
+    logger.info("Starting test_fcs_error_isolation_one_to_one_parallel.")
 
     good_bad_crc_map, tx_ports, rx_ports = setup_base_config_plus_test_scenario(
         request,
