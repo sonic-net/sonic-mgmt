@@ -118,7 +118,7 @@ def test_fcs_error_isolation_one_to_one_parallel(
     Validates bad-FCS flows get full loss and RX_ERR matches bad TX.
     """
 
-    logger.info("Starting test_fcs_error_isolation_one_to_one_parallel.")
+    logger.info("Starting test_fcs_error_isolation_1_to_1_parallel.")
 
     good_bad_crc_map, tx_ports, rx_ports = setup_base_config_plus_test_scenario(
         request,
@@ -242,7 +242,10 @@ def test_fcs_error_isolation_mixed_traffic_on_a_single_port_traffic(
 
     checks = [
         {"mask": flow_bad > 0, "fail_msg": "RX port(s) received bad-FCS frames."},
-        {"mask": total_bad_tx != total_rx_err, "fail_msg": "Mismatch: ingress RX error counters vs bad-FCS Tgen TX frames."},
+        {
+            "mask": total_bad_tx != total_rx_err,
+            "fail_msg": ("Mismatch: ingress RX error counters vs bad-FCS Tgen TX frames."),
+        },
     ]
 
     if not validate_and_log(df, checks):
