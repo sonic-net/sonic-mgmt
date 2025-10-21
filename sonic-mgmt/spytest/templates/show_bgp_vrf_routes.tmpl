@@ -4,7 +4,7 @@ Value VRF_ID (\d+)
 Value LOCAL_PREF (\d+)
 Value LOCAL_AS (\d+)
 Value STATUS (\*>|\*|>)
-Value NETWORK (\d{1,3}(\.\d{1,3}){3}\/\d{1,2}|[0-9a-fA-F:]+\/\d{1,3})
+Value Filldown NETWORK (\d{1,3}(\.\d{1,3}){3}\/\d{1,2}|[0-9a-fA-F:]+\/\d{1,3})
 Value NEXT_HOP (\S+)
 Value ROUTES (\d+)
 Value PATHS (\d+)
@@ -16,6 +16,9 @@ Start
   ^Nexthop\s+codes: -> Continue
   ^Origin\s+codes: -> Continue
   ^RPKI\s+validation\s+codes: -> Continue
-  ^\s+Network\s+Next Hop\s+Metric\s+LocPrf\s+Weight\s+Path -> Continue
-  ^\s+${STATUS}\s+${NETWORK}?\s+${NEXT_HOP}\S+ -> Record
+  ^\s+Network\s+Next Hop\s+Metric\s+LocPrf\s+Weight\s+Path -> BgpTable 
+
+BgpTable
+  ^\s+${STATUS}\s+${NETWORK}\s+${NEXT_HOP}\S+ -> Record
+  ^\s+${STATUS}\s+${NEXT_HOP}\S+ -> Record
   ^Displayed\s+${ROUTES}\s+routes\s+and\s+${PATHS}\s+total\s+paths -> Record

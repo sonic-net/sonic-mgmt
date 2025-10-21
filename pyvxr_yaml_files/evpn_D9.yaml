@@ -1,18 +1,21 @@
 simulation:
   no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
   slurm_flags:
     pending_timeout: 60
-    hours: 48
-    partition: regression
+    hours: 30
+    partition: regression 
 
 devices:
   leaf0: &sonic_router
       image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
       linecard_types:
       - matilda64
-      linux_password: cisco123
-      linux_username: cisco
-      onie-install: /ws/zhwang3-sjc/apple_sim/sonic-cisco-8000.bin
+      linux_password: password 
+      linux_username: admin
+      onie-install: /auto/vxr1/sonic-images/zhwang3/apple/sonic-cisco-8000.bin
       os_type: sonic
       memory: 40GB
       platform: spitfire_f
@@ -75,7 +78,7 @@ devices:
   T1:
     platform: ixia-web
     ixia_images:
-      windows: /auto/vxr/images/ixia/IxNetworkWeb_KVM_10.00.2403.47.qcow2
+      windows: /globalnobackup/jedebarr/IxNetworkWeb_KVM_10.00.2407.119.qcow2
       chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_10.00_KVM.qcow2
       load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_10.00_KVM.qcow2
     data_ports:

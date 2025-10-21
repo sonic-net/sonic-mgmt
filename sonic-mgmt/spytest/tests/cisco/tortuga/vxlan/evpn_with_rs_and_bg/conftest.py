@@ -70,15 +70,19 @@ def modify_config_file(config_file, var_dict):
     return config_dir + output_yaml_file
 
 
-def get_session_id(api_key):
+def get_session_id(api_key, dut_type):
     """
     Get the session ID from the environment variable.
     """
     wa = st.getwa()
     ixia_vm_ip = wa.net.tb.devices["T1"]["properties"]["ix_server"]
 
+    # Use port 443 for sim, 11009 for hw
+    port = 443 if dut_type == "sim" else 11009
+    protocol = "https" if dut_type == "sim" else "http"
+    
     # Fetch the session ID dynamically
-    session_url = f"https://{ixia_vm_ip}:443/api/v1/sessions"
+    session_url = f"{protocol}://{ixia_vm_ip}:{port}/api/v1/sessions"
     headers = {
         "content-type": "application/json",
         "x-api-key": f"{api_key}",
@@ -130,83 +134,91 @@ def configure_devices(command_line_args):
             st.banner(f"SONiC version is not in {SUPPORTED_VERSIONS} on switch: {device_name}, skipping config")
             pytest.exit(f"SONiC version is not in {SUPPORTED_VERSIONS} on switch: {device_name}, skipping config")
             return
-
-    updated_config_file = modify_config_file("evpn_rs_bg_config.yaml", tb_vars)
-
-    with open(updated_config_file, "r") as c:
-        config_list = yaml.load(c, Loader=yaml.FullLoader)
-        for key, dev in nodes.items():
-            try:
-                st.config(
-                    dev,
-                    config_list[key]["sonic"]["config"],
-                    skip_error_check=True,
-                    skip_error_report=True,
-                )
-            except Exception:
-                pass
-            # st.config for vtysh does not work as it sends command directly to prompt and is not able to handle
-            # scaled configuration. Loading config from a file is more reliable.
-            with open("/tmp/spytest_frr.conf", "w") as fd:
-                fd.write(config_list[key]["bgp"]["config"])
-            st.upload_file_to_dut(dev, "/tmp/spytest_frr.conf", "/tmp/spytest_frr.conf")
-            st.config(dev, "docker cp /tmp/spytest_frr.conf bgp:/")
-            st.config(dev, "docker exec bgp bash -c 'vtysh -f /spytest_frr.conf'")
-            if "dbjson" in config_list[dev]["sonic"]:
-                json_data = config_list[dev]["sonic"]["dbjson"]
-                with open("/tmp/sonic_db_json", "w") as db:
-                    json.dump(json_data, db)
-                st.upload_file_to_dut(dev, "/tmp/sonic_db_json", "/tmp/sonic_db_json")
-                st.config(dev, "sudo config load /tmp/sonic_db_json -y")
-
+        
     wa = st.getwa()
+    
+    """
+    Configure dut
+    """
+    # Only execute for sim, skip for hw
+    if dut_type == "sim":
+        updated_config_file = modify_config_file("evpn_rs_bg_config.yaml", tb_vars)
 
-    # Iterate over both devices (bg1 and bg2)
-    for device_name in ["bg1", "bg2"]:
-        # Fetch access details for the current device
-        topo_data = wa.net.tb.devices[device_name]
-        ssh_data = wa.net.tb.devices[device_name]["access"]
-
-        # Establish an SSH connection to the device
-        s_handle = ssh_obj.connect_to_device(
-            ssh_data["ip"],
-            topo_data["credentials"]["username"],
-            topo_data["credentials"]["password"],
-            ssh_data["protocol"],
-            ssh_data["port"],
-            sudo=False,
-        )
-
-        st.log(
-            f"Login to {device_name} ---------------------SUCCESS!!!!-------------------------------"
-        )
-
-        # Get the directory of the current script
-        script_dir = os.path.dirname(os.path.abspath(__file__)) + "/bg_config/"
-        config_file = os.path.join(script_dir, f"{device_name}_config.txt")
-
-        with open(config_file, "r") as config:
-            for line in config:
-                cli = (
-                    line.strip()
-                )  # Use strip() to remove any trailing whitespace or newline characters
-                # Execute each CLI command
-                if not cli:
-                    continue
-                st.log(f"command: {cli}")
+        with open(updated_config_file, "r") as c:
+            config_list = yaml.load(c, Loader=yaml.FullLoader)
+            for key, dev in nodes.items():
                 try:
-                    ssh_obj.execute_command(s_handle, cli)
-                except Exception as e:
-                    st.error(f"failed to execute command '{cli}' on {device_name}: {e}")
-        ssh_obj.ssh_disconnect(s_handle)
+                    st.config(
+                        dev,
+                        config_list[key]["sonic"]["config"],
+                        skip_error_check=True,
+                        skip_error_report=True,
+                    )
+                except Exception:
+                    pass
+                # st.config for vtysh does not work as it sends command directly to prompt and is not able to handle
+                # scaled configuration. Loading config from a file is more reliable.
+                with open("/tmp/spytest_frr.conf", "w") as fd:
+                    fd.write(config_list[key]["bgp"]["config"])
+                st.upload_file_to_dut(dev, "/tmp/spytest_frr.conf", "/tmp/spytest_frr.conf")
+                st.config(dev, "docker cp /tmp/spytest_frr.conf bgp:/")
+                st.config(dev, "docker exec bgp bash -c 'vtysh -f /spytest_frr.conf'")
+                if "dbjson" in config_list[dev]["sonic"]:
+                    json_data = config_list[dev]["sonic"]["dbjson"]
+                    with open("/tmp/sonic_db_json", "w") as db:
+                        json.dump(json_data, db)
+                    st.upload_file_to_dut(dev, "/tmp/sonic_db_json", "/tmp/sonic_db_json")
+                    st.config(dev, "sudo config load /tmp/sonic_db_json -y")
 
-    # Load IXIA configuration and start protocols
+        # Iterate over both devices (bg1 and bg2)
+        for device_name in ["bg1", "bg2"]:
+            # Fetch access details for the current device
+            topo_data = wa.net.tb.devices[device_name]
+            ssh_data = wa.net.tb.devices[device_name]["access"]
+
+            # Establish an SSH connection to the device
+            s_handle = ssh_obj.connect_to_device(
+                ssh_data["ip"],
+                topo_data["credentials"]["username"],
+                topo_data["credentials"]["password"],
+                ssh_data["protocol"],
+                ssh_data["port"],
+                sudo=False,
+            )
+
+            st.log(
+                f"Login to {device_name} ---------------------SUCCESS!!!!-------------------------------"
+            )
+
+            # Get the directory of the current script
+            script_dir = os.path.dirname(os.path.abspath(__file__)) + "/bg_config/"
+            config_file = os.path.join(script_dir, f"{device_name}_config.txt")
+
+            with open(config_file, "r") as config:
+                for line in config:
+                    cli = (
+                        line.strip()
+                    )  # Use strip() to remove any trailing whitespace or newline characters
+                    # Execute each CLI command
+                    if not cli:
+                        continue
+                    st.log(f"command: {cli}")
+                    try:
+                        ssh_obj.execute_command(s_handle, cli)
+                    except Exception as e:
+                        st.error(f"failed to execute command '{cli}' on {device_name}: {e}")
+            ssh_obj.ssh_disconnect(s_handle)
+            
+            
+    """
+    Load IXIA configuration and start protocols
+    """   
     config_file = command_line_args["ixia_config_file"]
     api_key = command_line_args["ixia_api_key"]
-    traffic_profile = command_line_args["ixia_traffic_profile"]
     ixia_vm_ip = wa.net.tb.devices["T1"]["properties"]["ix_server"]
-    session_id = get_session_id(api_key)
-
+    session_id = get_session_id(api_key, dut_type)
+    
+    # Create the SessionAssistant. Use different username/password for sim and hw
     session_assistant = SessionAssistant(
         IpAddress=ixia_vm_ip,
         UserName="admin",
@@ -233,25 +245,49 @@ def configure_devices(command_line_args):
         st.abort_module("module_config_failed", "failed to start protocols on IXIA")
 
     if dut_type == "sim":
-        st.log("starting protocols both l2 and l3 on IXIA")
+        st.log("starting protocols both l2 and l3 on IXIA (SIM)")
         st.wait(240)
+    else:
+        st.log("starting protocols on IXIA (HW)")
+        if "l2" in config_file:
+            st.wait(300)
+        elif "l3" in config_file:
+            # For hardware L3 topology, the emulated VTEP on IXIA needs to stop and start the BGP peer to advertise full routes.
+            st.wait(120)
+            try:
+                st.log("Stopping BGP peer protocol on ixia emulated vteps (L3 HW)")
+                bgp_peer = session_assistant.Ixnetwork.Topology.find().DeviceGroup.find().NetworkGroup.find().DeviceGroup.find().Ipv4Loopback.find().BgpIpv4Peer.find()
+                bgp_peer.Stop()
+            except Exception as e:
+                st.error(f"Failed to stop BGP peer protocol on ixia emulated vteps: {e}")
+            st.wait(120)
+            try:
+                st.log("Starting protocol on ixia emulated vteps (L3 HW)")
+                device_group2 = session_assistant.Ixnetwork.Topology.find().DeviceGroup.find().NetworkGroup.find().DeviceGroup.find(Name="Device Group 2")
+                device_group2.Start()
+            except Exception as e:
+                st.error(f"Failed to start protocol on ixia emulated vteps: {e}")
+            st.wait(300)
 
     common_input = {
         "nodes": nodes,
         "dut_type": dut_type,
         "session_assistant": session_assistant,
-        "traffic_profile": traffic_profile,
+        "ixia_config_file": config_file
     }
     yield common_input
-
-    # cleanup after tests
-    if os.path.exists(updated_config_file):
-        os.system(f"rm {updated_config_file}")
-    session_assistant.Ixnetwork.StopAllProtocols("sync")
-    st.log("stopping all protocols on IXIA")
-    st.wait(60)
-    session_assistant.Ixnetwork.NewConfig()
-
+    
+    """
+    Cleanup after tests
+    """
+    # Execute cleanup only for SIM, skip for hw
+    if dut_type == "sim":
+        if os.path.exists(updated_config_file):
+            os.system(f"rm {updated_config_file}")
+            session_assistant.Ixnetwork.StopAllProtocols("sync")
+            st.log("stopping all protocols on IXIA")
+            st.wait(60)
+            session_assistant.Ixnetwork.NewConfig()
 
 @pytest.fixture(scope="session", autouse=True)
 def start_stop_ixia():

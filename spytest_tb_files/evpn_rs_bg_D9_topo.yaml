@@ -16,70 +16,70 @@ configs:
 devices:
   leaf0:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.215, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.134, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   leaf1:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.164, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.19, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   spine0:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.121, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.200, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   spine1:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.144, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.26, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
   
   rs1:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.166, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.88, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   rs2:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.163, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.30, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   l3:
     device_type: DevSonic
-    access: {protocol: ssh, ip: 192.168.122.38, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.4, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
-    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   bg1:
     device_type: linux_ssh 
-    access: {protocol: ssh, ip: 192.168.122.94, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.34, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
     credentials: {username: admin, password: cisco123, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   bg2:
     device_type: linux_ssh 
-    access: {protocol: ssh, ip: 192.168.122.233, port: 22}
+    access: {protocol: ssh, ip: 192.168.122.244, port: 22}
     rps: {model: Raritan, ip: 2.3.4.5, outlet: 10, username: cisco, password: cisco}
     credentials: {username: admin, password: cisco123, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
   T1:
     device_type: TGEN
-    properties: {type: ixia, version: 10.00, ip: 192.168.122.188, ix_server: 192.168.122.138}
+    properties: {type: ixia, version: 10.00, ip: 192.168.122.20, ix_server: 192.168.122.162}
 
 topology:
   leaf0:

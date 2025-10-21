@@ -15,12 +15,12 @@ def show_bgp_summary(dut, vrf=None, **kwargs):
     """
     commands = {
         "ipv4": (
-            "show bgp ipv4 {vrf} summary".format(vrf=vrf)
+            "show bgp vrf {vrf} ipv4 summary".format(vrf=vrf)
             if vrf
             else "show bgp ipv4 summary"
         ),
         "ipv6": (
-            "show bgp ipv6 {vrf} summary".format(vrf=vrf)
+            "show bgp vrf {vrf} ipv6 summary".format(vrf=vrf)
             if vrf
             else "show bgp ipv6 summary"
         ),
@@ -56,10 +56,10 @@ def show_ipv6_unicast_routes(dut, vrf, **kwargs):
                     skip_error_check=True
     Returns:
         dict: IPv6 Unicast Routes information
-    Show IPv6 Unicast Routes information.
+    Show IPv6 Unicast Routes information (first 50 lines).
     """
-    command = "show bgp vrf {vrf} ipv6 unicast".format(vrf=vrf)
-    f_cmd = "sudo vtysh -c '{cmd}'".format(cmd=command)
+    command = "show bgp vrf {vrf} ipv6".format(vrf=vrf)
+    f_cmd = "vtysh -c '{cmd}' | head -n 50".format(cmd=command)
     output = st.show(dut, f_cmd, **kwargs)
     return st.parse_show(dut, command, output, "show_bgp_vrf_routes.tmpl")
 
@@ -74,10 +74,10 @@ def show_ipv4_unicast_routes(dut, vrf, **kwargs):
                     skip_error_check=True
     Returns:
         dict: IPv4 Unicast Routes information
-    Show IPv4 Unicast Routes information.
+    Show IPv4 Unicast Routes information (first 50 lines).
     """
-    command = "show bgp vrf {vrf} ipv4 unicast".format(vrf=vrf)
-    f_cmd = "sudo vtysh -c '{cmd}'".format(cmd=command)
+    command = "show bgp vrf {vrf} ipv4".format(vrf=vrf)
+    f_cmd = "vtysh -c '{cmd}' | head -n 50".format(cmd=command)
     output = st.show(dut, f_cmd, **kwargs)
     return st.parse_show(dut, command, output, "show_bgp_vrf_routes.tmpl")
 
