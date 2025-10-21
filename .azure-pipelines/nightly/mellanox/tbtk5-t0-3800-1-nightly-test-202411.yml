@@ -12,14 +12,6 @@ schedules:
         - internal
     always: true
 
-resources:
-  repositories:
-    - repository: sonic-mgmt
-      type: github
-      name: sonic-net/sonic-mgmt
-      ref: master
-      endpoint: sonic-net
-
 variables:
   - group: SONIC_IMAGE_URLS
   - group: SAITHRIFT_URLS
