@@ -560,16 +560,12 @@ class SonicAsic(object):
         return self.sonichost.shell("sudo config interface {ns} shutdown {intf}".
                                     format(ns=self.cli_ns_option, intf=interface_name))
 
-    def config_ip_intf(self, interface_name, ip_address, op, **kwargs):
-        return self.sonichost.shell(
-            "sudo config interface {ns} ip {op} {intf} {ip}".format(
-                ns=self.cli_ns_option,
-                op=op,
-                intf=interface_name,
-                ip=ip_address
-            ),
-            **kwargs
-        )
+    def config_ip_intf(self, interface_name, ip_address, op):
+        return self.sonichost.shell("sudo config interface {ns} ip {op} {intf} {ip}"
+                                    .format(ns=self.cli_ns_option,
+                                            op=op,
+                                            intf=interface_name,
+                                            ip=ip_address))
 
     def config_portchannel(self, pc_name, op):
         return self.sonichost.shell("sudo config portchannel {ns} {op} {pc}"
