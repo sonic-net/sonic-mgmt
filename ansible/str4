@@ -72,7 +72,7 @@ all:
         vms74-2:
           ansible_host: 10.64.247.103
           ansible_hostv6: 2a01:111:e210:b000::a40:f767
-        vms75-1:
+        vms74-1:
           ansible_host: 10.64.247.121
           ansible_hostv6: 2a01:111:e210:b000::a40:f779
         vms75-2:
@@ -477,7 +477,7 @@ sonic_arista_7060x6_512:
       base_mac: d8:06:f3:37:42:e6
       syseeprom_info:
         '0x21': 'DCS-7060X6-64PE-B'
-        '0x23': 'ASY0899401A0'
+        '0x22': 'ASY0899401A0'
         '0x23': 'HBG25160K1V'
         '0x24': 'd8:06:f3:37:42:e6'
         '0x25': '2025/04/23 11:08:02'
@@ -864,7 +864,7 @@ server:
       ansible_host: 10.64.246.94
       ansible_hostv6: 2a01:111:e210:b000::a40:f65e
     str4-acs-serv-74:
-      ansible_host: 10.64.246.99
+      ansible_host: 10.64.246.124
       ansible_hostv6: 2a01:111:e210:b000::a40:f663
     str4-acs-serv-75:
       ansible_host: 10.64.246.100
