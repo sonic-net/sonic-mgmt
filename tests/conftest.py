@@ -298,6 +298,12 @@ def pytest_addoption(parser):
     parser.addoption("--container_test", action="store", default="",
                      help="This flag indicates that the test is being run by the container test.")
 
+    #################################
+    #   YANG validation options     #
+    #################################
+    parser.addoption("--skip_yang", action="store_true", default=False,
+                     help="Skip YANG validation")
+
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
@@ -3660,3 +3666,73 @@ def pytest_runtest_setup(item):
         if fixturedef.argname == "setup_dualtor_mux_ports":
             fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def yang_validation_check(request, duthosts):
+    """
+    YANG validation check that runs before and after each test module
+    """
+    skip_yang = request.config.getoption("--skip_yang")
+
+    if skip_yang:
+        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        return
+
+    def run_yang_validation(stage):
+        """Run YANG validation and return results"""
+        validation_results = {}
+
+        for duthost in duthosts:
+            logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
+            try:
+                result = duthost.shell(
+                    'echo "[]" | sudo config apply-patch /dev/stdin',
+                    module_ignore_errors=True
+                )
+
+                if result['rc'] != 0:
+                    validation_results[duthost.hostname] = {
+                        'failed': True,
+                        'error': result.get('stderr', result.get('stdout', 'Unknown error'))
+                    }
+                    logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
+                                 f"{validation_results[duthost.hostname]['error']}")
+                else:
+                    validation_results[duthost.hostname] = {'failed': False}
+                    logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
+
+            except Exception as e:
+                validation_results[duthost.hostname] = {
+                    'failed': True,
+                    'error': str(e)
+                }
+                logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
+
+        return validation_results
+
+    # pre-test YANG validation
+    pre_results = run_yang_validation("pre-test")
+
+    # Check if any pre-test validation failed
+    pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
+    if pre_failures:
+        error_summary = []
+        for host, result in pre_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
+
+    yield
+
+    # post-test YANG validation
+    post_results = run_yang_validation("post-test")
+
+    # Check if any post-test validation failed
+    post_failures = {host: result for host, result in post_results.items() if result['failed']}
+    if post_failures:
+        error_summary = []
+        for host, result in post_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
