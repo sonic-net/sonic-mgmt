@@ -51,6 +51,18 @@ def set_primary_chassis(snappi_api, fanout_graph_facts_multidut, duthosts):    #
     ]
 
 
+def get_autoneg_fec(duthosts, get_snappi_ports):
+    duthost_processed = []
+    for port in get_snappi_ports:
+        if port['duthost'] not in duthost_processed:
+            autonegs = json.loads(port['duthost'].command("intfutil -c autoneg -j")['stdout'])
+            fecs = json.loads(port['duthost'].command("intfutil -c fec -j")['stdout'])
+        duthost_processed.append(port['duthost'])
+
+        port['autoneg'] = True if autonegs[port["peer_port"]]["Auto-Neg Mode"] == 'enabled' else False
+        port['fec'] = True if fecs[port["peer_port"]]["FEC Admin"] == 'rs' else False
+    return get_snappi_ports
+
 
 def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
     """
@@ -77,6 +89,7 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
     'subnet': '204::1/126'
     }
     """
+    get_autoneg_fec(duthosts, get_snappi_ports)
     for duthost in duthosts:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
         bgp_neighbors = config_facts['BGP_NEIGHBOR']
@@ -133,6 +146,7 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
 
        duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip
     """
+    get_autoneg_fec(duthosts, get_snappi_ports)
 
     duthost_vlan_interface = {}
 
