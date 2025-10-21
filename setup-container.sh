@@ -42,7 +42,7 @@ declare EXISTING_CONTAINER_NAME=""
 
 ENV_VARS=""
 CONTAINER_NAME=""
-IMAGE_ID="sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:24.04.1"
+IMAGE_ID="sonicdev-microsoft.azurecr.io:443/docker-sonic-mgmt:24.04.2"
 LINK_DIR=""
 MOUNT_POINTS="-v \"/var/run/docker.sock:/var/run/docker.sock:rslave\""
 PUBLISH_PORTS=""
