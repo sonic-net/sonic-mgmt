@@ -18,7 +18,7 @@ from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractF
 from utils import _run_cmd_in_ssh
 
 
-UNSET_PROXY = "unset https_proxy http_proxy HTTPS_PROXY HTTP_PROXY"
+UNSET_HTTP_PROXY = "unset https_proxy http_proxy HTTPS_PROXY HTTP_PROXY"
 DEFAULT_DOCKER_COUNT = 13
 DEFAULT_IMAGES_FOLDER = "IMAGES/"
 
@@ -220,7 +220,7 @@ def fetch_image(args):
     p.sendline(f'cd {image_folder}')
     p.expect(cmd)
     logging.debug("downloading")
-    p.sendline(UNSET_PROXY)
+    p.sendline(UNSET_HTTP_PROXY)
     p.expect(cmd)
     wget = image_ucs['wget']
     p.sendline(f'{wget} {full_link}')
@@ -501,7 +501,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
         '202411': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
         '202505': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202505-27Jun2025-mix.gz',
         '202511': '',
-        'master': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-master-27Jun2025-mix.gz',
+        'master': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-master-27Jun2025-mix.gz'
     }
 
     ptf_docker_image_link = docker_ptf_url if docker_ptf_url \
@@ -524,8 +524,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
     #  remove later when proxies are standardized on all testbeds, this works for now
     image_filename = ptf_docker_image_link.split('/')[-1]
     _, _, _ = _run_cmd_in_ssh(client, f"rm {image_filename}")
-    stdout, stderr, status_code = _run_cmd_in_ssh(client, f'unset http_proxy https_proxy; wget -nc {ptf_docker_image_link}',
-                                                  timeout=60*5)
+    stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {ptf_docker_image_link}', timeout=60 * 10)
     log.debug(f"download docker ptf output:\n{stdout}")
     if status_code:
         raise Exception(f"download docker ptf failed: \n{stderr}")
@@ -671,7 +670,7 @@ def extra_configuration_steps(args):
             p2.sendline("cd /data/ansible")
             p2.expect("")
 
-            p2.sendline("unset http_server https_server")
+            p2.sendline(f"{UNSET_HTTP_PROXY}")
             p2.expect("")
 
             p2.sendline(f"wget -nc {MTU_HACK_SCRIPT_URL}")
@@ -682,6 +681,41 @@ def extra_configuration_steps(args):
             log.info("MTU hack applied")
         else:
             log.error("Unable to read `vms_count` from TB dict `mtu_hack` section. Skipping this step.")
+
+    # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
+    with paramiko.SSHClient() as client:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(
+            hostname=testbed_info_dict['ucs_host'],
+            username=testbed_info_dict['ucs_username'],
+            password=testbed_info_dict['ucs_password']
+        )
+
+        ucs_tb = testbed_info_dict['ucs_tb']
+        saithrift_deb = "python-saithrift_1.13.0_amd64.deb"
+        docker_ptf = f"ptf_{ucs_tb}"
+        saithrift_deb_url = f"http://172.26.235.76/MISC/{saithrift_deb}"
+        log.info(f"Installing {saithrift_deb} inside {docker_ptf} container")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {saithrift_deb_url}', timeout=60 * 5)
+        if status_code:
+            raise Exception(f"Download {saithrift_deb} failed: \n{stderr}")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker cp {saithrift_deb} {docker_ptf}:/root")
+        if status_code != 0:
+            raise Exception(f"Copy {saithrift_deb} to {docker_ptf} failed: \n{stderr}")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf} bash -c 'dpkg -i {saithrift_deb}'")
+        if status_code != 0:
+            raise Exception(f"Install {saithrift_deb} in {docker_ptf} failed: \n{stderr}")
+
+        _, _, _ = _run_cmd_in_ssh(client, f"rm {saithrift_deb}")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf} bash -c 'dpkg --list | grep saithrift'")
+        log.debug(f"Verify {saithrift_deb} installation output:\n{stdout}")
+
+        log.info(f"{saithrift_deb} installed successfully inside {docker_ptf} container")
+
 
 def install_allure(args):
     # Parse the config and arguments
@@ -1029,7 +1063,7 @@ if __name__ == "__main__":
     add_topo_parser.add_argument("-f", "--full_link", help = "full link", required=True)
     add_topo_parser.set_defaults(func=add_topo)
 
-    add_topo_parser = subparser.add_parser("extra_configration_steps", help="extra steps specific to testbed")
+    add_topo_parser = subparser.add_parser("extra_configuration_steps", help="extra steps specific to testbed")
     add_topo_parser.add_argument("-t", "--testbed", help="testbed", required=True)
     add_topo_parser.add_argument("-f", "--full_link", help="full link", required=True)
     add_topo_parser.set_defaults(func=extra_configuration_steps)
