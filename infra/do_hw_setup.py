@@ -43,6 +43,32 @@ def precheck(args):
     full_link = args.full_link
     [image, image_id, stream] = extractFromImageName(full_link)
 
+    # check git state
+    try:
+        testbed_info_dict = getTestbedInfoDict(testbed)
+        hostname = testbed_info_dict.get('ucs_host')
+        ssh = paramiko.SSHClient()
+        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        ssh.connect(hostname=hostname,
+                    username=testbed_info_dict['ucs_username'],
+                    password=testbed_info_dict['ucs_password'])
+
+        container_name = getSonicMgmtContainterName(stream, testbed)
+        destination_path = "/data"
+        # log.info("determine local mount dir for container path {}:{}".format(container_name, destination_path))
+        testbed_mount_dir = get_container_local_mount_dir(ssh, container_name, destination_path)
+        log.info("mount dir of container {}:{} on the testbed {}:{}".format(container_name, destination_path, hostname, testbed_mount_dir))
+
+        log.info("Getting `git status` output for sonic-mgmt")
+        git_status, _, _ = _run_cmd_in_ssh(ssh, f"cd {testbed_mount_dir}; git status")
+        log.info("Getting `git diff` output for sonic-mgmt")
+        git_diff, _, _ = _run_cmd_in_ssh(ssh, f"cd {testbed_mount_dir}; git diff")
+        log.info("Getting `git log` output for sonic-mgmt")
+        git_diff, _, _ = _run_cmd_in_ssh(ssh, f"cd {testbed_mount_dir}; git log --oneline | head -n 20")
+    except Exception as e:
+        log.error("Something went wrong while trying to check git state of sonic-mgmt")
+        log.error(e)
+
     if checkStreamCompatibility(testbed, stream) and checkTestbedAvailability(testbed):
         log.debug("Prechecks passed for %s" % full_link)
         return 0
