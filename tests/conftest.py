@@ -51,7 +51,7 @@ from tests.common.helpers.constants import (
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
-from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
+from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
 from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
@@ -265,6 +265,8 @@ def pytest_addoption(parser):
                      help="File to store the state of the parallel run")
     parser.addoption("--is_parallel_leader", action="store_true", default=False, help="Is the parallel leader")
     parser.addoption("--parallel_followers", action="store", default=0, type=int, help="Number of parallel followers")
+    parser.addoption("--parallel_mode", action="store", default=None, type=str,
+                     help="Parallel mode to run the test. Either FULL_PARALLEL or RP_FIRST if parallel run enabled")
 
     ############################
     #   SmartSwitch options    #
@@ -295,6 +297,12 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--container_test", action="store", default="",
                      help="This flag indicates that the test is being run by the container test.")
+
+    #################################
+    #   YANG validation options     #
+    #################################
+    parser.addoption("--skip_yang", action="store_true", default=False,
+                     help="Skip YANG validation")
 
 
 def pytest_configure(config):
@@ -393,6 +401,10 @@ def get_parallel_followers(request):
     return request.config.getoption("--parallel_followers")
 
 
+def get_parallel_mode(request):
+    return request.config.getoption("--parallel_mode")
+
+
 def get_tbinfo(request):
     """
     Helper function to create and return testbed information
@@ -421,12 +433,13 @@ def tbinfo(request):
 
 @pytest.fixture(scope="session")
 def parallel_run_context(request):
-    return (
+    return ParallelRunContext(
         is_parallel_run(request),
         get_target_hostname(request),
         is_parallel_leader(request),
         get_parallel_followers(request),
         get_parallel_state_file(request),
+        get_parallel_mode(request),
     )
 
 
@@ -1089,6 +1102,34 @@ def pdu():
 @pytest.fixture(scope="session")
 def creds(duthost):
     return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope="session")
+def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+    bgp_routes = {}
+    topo_name = tbinfo['topo']['name']
+    servers_dut_interfaces = None
+    if 'servers' in tbinfo:
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
+    for ptfhost in ptfhosts:
+        ptf_ip = ptfhost.mgmt_ip
+        res = localhost.announce_routes(
+            topo_name=topo_name,
+            ptf_ip=ptf_ip,
+            action='generate',
+            path="../ansible/",
+            log_path="logs",
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+        )
+        if 'topo_routes' not in res:
+            logger.warning("No routes generated.")
+        else:
+            for host in res['topo_routes'].keys():
+                if host in bgp_routes:
+                    pytest.fail("Duplicate vm name={} on multiple servers".format(host))
+                bgp_routes[host] = res['topo_routes'][host]
+    return bgp_routes
 
 
 @pytest.fixture(scope='module')
@@ -2081,13 +2122,11 @@ def parse_override(testbed, field):
     with open(override_file, 'r') as f:
         all_values = yaml.safe_load(f)
         if testbed not in all_values or field not in all_values[testbed]:
-            # When T1-tgen is available, we should do "return False, None"
-            return True, []
+            return False, None
 
         return True, all_values[testbed][field]
 
-    # When T1-tgen is available, we should do "return False, None"
-    return True, []
+    return False, None
 
 
 def generate_skeleton_port_info(request):
@@ -2251,7 +2290,7 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    upstream_nbr_type = get_upstream_neigh_type(tbinfo["topo"]["type"], is_upper=True)
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
     if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
@@ -2667,7 +2706,7 @@ def compare_running_config(pre_running_config, cur_running_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, tbinfo, request,
+def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                                # make sure the tear down of sanity_check happened after core_dump_and_config_check
                                sanity_check):
     '''
@@ -2675,30 +2714,30 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
     If so, we will reload the running config after test case running.
     '''
 
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = (
-        is_parallel_run(request),
-        get_target_hostname(request),
-        is_parallel_leader(request),
-        get_parallel_followers(request),
-        get_parallel_state_file(request),
-    )
-
-    initial_check_state = (InitialCheckState(par_followers, par_state_file) if is_par_run else None)
-    if is_par_run and not is_par_leader:
+    par_ctx = parallel_run_context
+    parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+    if par_ctx.is_par_run and not par_ctx.is_par_leader:
         logger.info(
             "Fixture core_dump_and_config_check setup for non-leader nodes in parallel run is skipped. "
             "Please refer to the leader node log for core dump and config check status."
         )
 
-        initial_check_state.wait_and_acknowledge_status(
-            InitialCheckStatus.SETUP_COMPLETED,
-            is_par_leader,
-            target_hostname,
+        parallel_coordinator.wait_and_ack_status_for_followers(
+            ParallelStatus.SETUP_COMPLETED,
+            par_ctx.is_par_leader,
+            par_ctx.target_hostname,
         )
+
+        parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.SETUP_COMPLETED)
 
         yield {}
 
-        initial_check_state.mark_tests_completed_for_follower(target_hostname)
+        parallel_coordinator.mark_and_wait_for_status(
+            ParallelStatus.TESTS_COMPLETED,
+            par_ctx.target_hostname,
+            par_ctx.is_par_leader,
+        )
+
         logger.info(
             "Fixture core_dump_and_config_check teardown for non-leader nodes in parallel run is skipped. "
             "Please refer to the leader node log for core dump and config check status."
@@ -2761,15 +2800,29 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 for duthost in duthosts:
                     executor.submit(collect_before_test, duthost)
 
-        if is_par_run and is_par_leader:
-            initial_check_state.set_new_status(InitialCheckStatus.SETUP_COMPLETED, is_par_leader, target_hostname)
-            initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.SETUP_COMPLETED)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_COMPLETED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
+
+            parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.SETUP_COMPLETED)
 
         yield duts_data
 
-        if is_par_run and is_par_leader:
-            initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TESTS_COMPLETED)
-            initial_check_state.set_new_status(InitialCheckStatus.TEARDOWN_STARTED, is_par_leader, target_hostname)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.mark_and_wait_for_status(
+                ParallelStatus.TESTS_COMPLETED,
+                par_ctx.target_hostname,
+                par_ctx.is_par_leader,
+            )
+
+            parallel_coordinator.set_new_status(
+                ParallelStatus.TEARDOWN_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
         inconsistent_config = {}
         pre_only_config = {}
@@ -3613,3 +3666,73 @@ def pytest_runtest_setup(item):
         if fixturedef.argname == "setup_dualtor_mux_ports":
             fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def yang_validation_check(request, duthosts):
+    """
+    YANG validation check that runs before and after each test module
+    """
+    skip_yang = request.config.getoption("--skip_yang")
+
+    if skip_yang:
+        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        return
+
+    def run_yang_validation(stage):
+        """Run YANG validation and return results"""
+        validation_results = {}
+
+        for duthost in duthosts:
+            logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
+            try:
+                result = duthost.shell(
+                    'echo "[]" | sudo config apply-patch /dev/stdin',
+                    module_ignore_errors=True
+                )
+
+                if result['rc'] != 0:
+                    validation_results[duthost.hostname] = {
+                        'failed': True,
+                        'error': result.get('stderr', result.get('stdout', 'Unknown error'))
+                    }
+                    logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
+                                 f"{validation_results[duthost.hostname]['error']}")
+                else:
+                    validation_results[duthost.hostname] = {'failed': False}
+                    logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
+
+            except Exception as e:
+                validation_results[duthost.hostname] = {
+                    'failed': True,
+                    'error': str(e)
+                }
+                logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
+
+        return validation_results
+
+    # pre-test YANG validation
+    pre_results = run_yang_validation("pre-test")
+
+    # Check if any pre-test validation failed
+    pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
+    if pre_failures:
+        error_summary = []
+        for host, result in pre_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
+
+    yield
+
+    # post-test YANG validation
+    post_results = run_yang_validation("post-test")
+
+    # Check if any post-test validation failed
+    post_failures = {host: result for host, result in post_results.items() if result['failed']}
+    if post_failures:
+        error_summary = []
+        for host, result in post_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
