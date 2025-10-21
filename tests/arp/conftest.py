@@ -153,13 +153,13 @@ def intfs_for_test(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
         intf1_indice = mg_facts['minigraph_ptf_indices'][intf1]
         intf2_indice = mg_facts['minigraph_ptf_indices'][intf2]
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "add", module_ignore_errors=True)
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "add", module_ignore_errors=True)
+    asic.config_ip_intf(intf1, "10.10.1.2/28", "add")
+    asic.config_ip_intf(intf2, "10.10.1.20/28", "add")
 
     yield intf1, intf2, intf1_indice, intf2_indice
 
-    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove", module_ignore_errors=True)
-    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove", module_ignore_errors=True)
+    asic.config_ip_intf(intf1, "10.10.1.2/28", "remove")
+    asic.config_ip_intf(intf2, "10.10.1.20/28", "remove")
 
     if tbinfo['topo']['type'] != 't0':
         if po1:
