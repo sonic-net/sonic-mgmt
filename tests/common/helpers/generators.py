@@ -31,8 +31,11 @@ def route_through_default_routes(host, ip_addr, ip_ver):
     @param ip_addr: The ip address to check
     @return: True if the given up goes to default route, False otherwise
     """
-    v6_str = "v6" if ip_ver == 6 else ''
-    output = host.shell("show ip{} route {} json".format(v6_str, ip_addr))['stdout']
+    ip_cmd_suffix = ""
+    if ":" in ip_addr:
+        ip_cmd_suffix = "v6"
+
+    output = host.shell("show ip{} route {} json".format(ip_cmd_suffix, ip_addr))['stdout']
     routes_info = json.loads(output)
     ret = True
 
