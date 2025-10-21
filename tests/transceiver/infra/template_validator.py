@@ -84,7 +84,7 @@ class TemplateValidator(object):
             return self._templates
         path = os.path.join(self.repo_root, REL_DEPLOYMENT_TEMPLATES_FILE)
         if not os.path.isfile(path):
-            logger.info("Template file %s not found; skipping validation", path)
+            logger.info(f"Template file {path} not found; skipping validation")
             self._templates = {}
             return self._templates
         with open(path, 'r', encoding='utf-8') as f:
@@ -108,7 +108,7 @@ class TemplateValidator(object):
             base_attrs = port_data.get('BASE_ATTRIBUTES', {})
             deployment = base_attrs.get('deployment')
             if not deployment or deployment not in templates:
-                logger.info("No template for port %s deployment %s", port, deployment)
+                logger.info(f"No template for port {port} deployment {deployment}")
                 continue
             template = templates[deployment]
             required_attrs = template.get('required_attributes', {})
@@ -121,7 +121,7 @@ class TemplateValidator(object):
                 category_dict = port_data.get(category_key, {})
                 for field in field_names:
                     if field not in category_dict:
-                        target_list.append("%s.%s" % (category_key, field))
+                        target_list.append(f"{category_key}.{field}")
 
             for category_key, field_names in required_attrs.items():
                 _check_category_fields(category_key, field_names, missing_required)
@@ -150,20 +150,20 @@ class TemplateValidator(object):
         # Logging summary
         for result in results:
             if result.status == STATUS_FULLY:
-                logger.info("PASS: %s (%s) - %s", result.port, result.deployment, result.status)
+                logger.info(f"PASS: {result.port} ({result.deployment}) - {result.status}")
             elif result.status == STATUS_PARTIAL:
-                logger.warning("PARTIAL: %s missing optional: %s", result.port, ', '.join(result.missing_optional))
+                logger.warning(f"PARTIAL: {result.port} missing optional: {', '.join(result.missing_optional)}")
             else:
-                logger.error("FAIL: %s missing required: %s", result.port, ', '.join(result.missing_required))
+                logger.error(f"FAIL: {result.port} missing required: {', '.join(result.missing_required)}")
 
         logger.info(
-            "Overall Compliance: %.1f%% (%d/%d ports fully compliant)",
-            compliance_percent, fully_compliant_count, total_ports
+            f"Overall Compliance: {compliance_percent:.1f}% "
+            f"({fully_compliant_count}/{total_ports} ports fully compliant)"
         )
 
         if any(result.missing_required for result in results):
             missing_summary = {result.port: result.missing_required for result in results if result.missing_required}
-            raise TemplateValidationError("Missing required attributes: %s" % missing_summary)
+            raise TemplateValidationError(f"Missing required attributes: {missing_summary}")
 
         return {
             'results': [result.to_dict() for result in results],
