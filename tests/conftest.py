@@ -118,6 +118,11 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
+    parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
+    parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
+    parser.addoption("--l47_trafficgen", action="store_true", help="Enable L47 trafficgen config")
+    parser.addoption("--save_l47_trafficgen", action="store_true", help="Save L47 trafficgen config")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
