@@ -5,10 +5,12 @@ from time import sleep
 import ptf.packet as scapy
 import ptf.testutils as testutils
 import pytest
-
+import json
 from jinja2 import Template
 
-from constants import TEMPLATE_DIR
+from constants import TEMPLATE_DIR, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
+from tests.common import config_reload
+
 
 logger = logging.getLogger(__name__)
 
