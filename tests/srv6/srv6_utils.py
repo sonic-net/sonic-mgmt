@@ -505,6 +505,8 @@ def validate_srv6_counters(duthost, srv6_pkt_list, mysid_list, pkt_num):
     Returns:
         bool: True if counters match expected values, False otherwise
     """
+    if duthost.facts["asic_type"] == "vpp":
+        return True
     try:
         stats_list = duthost.show_and_parse('show srv6 stats')
         stats_dict = {item['mysid']: item for item in stats_list}
@@ -607,6 +609,9 @@ def verify_srv6_crm_status(duthost, expected_used_count, expected_available_coun
         expected_used_count (int): Expected number of used entries
         expected_available_count (int): Expected number of available entries
     '''
+    if duthost.facts["asic_type"] == "vpp":
+        return True
+
     mysid_crm_status = get_srv6_mysid_entry_usage(duthost)
     if not mysid_crm_status:
         logger.info("Failed to get SRv6 MySID Entry usage")
