@@ -457,7 +457,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reboot DUT
-    reboot(duthost, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
+    reboot(duthost, localhost, wait=300, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
     # wait for the config to be reprogrammed
