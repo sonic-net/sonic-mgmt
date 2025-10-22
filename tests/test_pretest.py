@@ -11,7 +11,6 @@ from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
-from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
@@ -431,14 +430,14 @@ def get_debian_codename_from_syncd(duthost):
     # This applies to: master branch and internal branches >= 202405 (except 202411)
     try:
         # Try to get codename from syncd container
-        if duthost.is_multi_asic:
-            syncd_codename_cmd = (f"docker exec syncd{duthost.asics[0].asic_index} "
-                                  f"grep VERSION_CODENAME /etc/os-release | "
-                                  f"cut -d= -f2 | tr -d '\"'")
-        else:
-            syncd_codename_cmd = ("docker exec syncd grep VERSION_CODENAME /etc/os-release | "
-                                  "cut -d= -f2 | tr -d '\"'")
-        syncd_codename_result = duthost.shell(syncd_codename_cmd, module_ignore_errors=True)
+        codename_cmd = (
+            "grep VERSION_CODENAME /etc/os-release | "
+            "cut -d= -f2 | tr -d '\"'"
+        )
+
+        syncd_codename_result = duthost.containers().syncd().random().exec(codename_cmd,
+                                                                           shell=True,
+                                                                           module_ignore_errors=True)
         if syncd_codename_result['rc'] == 0 and syncd_codename_result['stdout'].strip():
             return syncd_codename_result['stdout'].strip()
         else:
@@ -644,27 +643,3 @@ def test_generate_running_golden_config(duthosts):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
             executor.submit(generate_running_golden_config, duthost)
-
-
-def test_clean_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
-    """
-    Clean mux/nic simulator logs from /tmp/ on the server before test run.
-    """
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
-    log_name = None
-    if active_standby_ports:
-        server = tbinfo['server']
-        tbname = tbinfo['conf-name']
-        inv_files = utilities.get_inventory_files(request)
-        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
-        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
-    elif active_active_ports:
-        vm_set = tbinfo['group-name']
-        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
-
-    if log_name:
-        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
-        for log_file in log_files:
-            vmhost.shell("rm -f {}".format(log_file))

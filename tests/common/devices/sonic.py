@@ -1470,7 +1470,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self, skip_kernel_tunnel=False):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False, skip_kernel_linkdown=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1493,6 +1493,20 @@ Totals               6450                 6449
                 ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
                 ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
 
+        if skip_kernel_linkdown is True:
+            output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_skip_count = 0
+            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+
+            for line in output:
+                if pattern.search(line):
+                    ipv4_route_kernel_skip_count += 1
+                    logging.debug("skip IPv4 route kernel for linkdown: {}".format(line))
+
+            if ipv4_route_kernel_skip_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_skip_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_skip_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
 
@@ -1509,6 +1523,20 @@ Totals               6450                 6449
                 ipv6_summary['kernel']['FIB'] -= ipv6_route_kernel_count
                 ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
                 ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
+
+        if skip_kernel_linkdown is True:
+            output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_skip_count = 0
+            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+
+            for line in output:
+                if pattern.search(line):
+                    ipv6_route_kernel_skip_count += 1
+                    logging.debug("skip IPv6 route kernel for linkdown: {}".format(line))
+
+            if ipv6_route_kernel_skip_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_skip_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_skip_count
 
         return ipv4_summary, ipv6_summary
 
@@ -2387,11 +2415,12 @@ Totals               6450                 6449
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
+        config_facts_ports = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("PORT", {})
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
-               (k.startswith("PortChannel") and not
-               self.is_backend_portchannel(k, mg_facts))):
+            if ((k.startswith("Ethernet") and config_facts_ports.get(k, {}).get("role", "") != "Dpc" and
+                 (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
+               (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
                 # Ping for some time to get ARP Re-learnt.
                 # We might have to tune it further if needed.
                 if (v["admin"] == "up" and v["oper_state"] == "up" and
@@ -2759,6 +2788,7 @@ Totals               6450                 6449
         counter_type_cli_map = {
             'QUEUE_STAT': 'queue',
             'PORT_STAT': 'port',
+            'SWITCH_STAT': 'switch',
             'PORT_BUFFER_DROP': 'port-buffer-drop',
             'RIF_STAT': 'rif',
             'QUEUE_WATERMARK_STAT': 'watermark',
