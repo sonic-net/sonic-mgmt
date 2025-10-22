@@ -3878,7 +3878,8 @@ srv6/test_srv6_dataplane.py:
     reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom', 'vpp']"
+      - "release not in ['202412'] and asic_type not in ['vpp']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
@@ -3887,7 +3888,7 @@ srv6/test_srv6_static_config.py:
     reason: "Requires particular image support, skip in PR testing. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
-      - "release not in ['202412']"
+      - "release not in ['202412'] and asic_type not in ['vpp']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
@@ -3895,7 +3896,7 @@ srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
     reason: "Unsupported platform"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'vpp']"
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
