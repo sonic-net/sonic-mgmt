@@ -1559,7 +1559,7 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
         arp_opt = f"-d {addr}"
 
     try:
-        dut.shell(f"{asic_arg} arp {int_arg} {arp_opt}")
+        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
