@@ -12,7 +12,7 @@ pytestmark = [
 ]
 
 
-def gcu_apply_patch_helper(duthost, json_patch):
+def apply_gcu_patch(duthost, json_patch):
     tmpfile = generate_tmpfile(duthost)
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
@@ -37,49 +37,35 @@ def setup_teardown(duthost):
         delete_checkpoint(duthost)
 
 
-def modify_dut_type(duthost, dut_type):
-    json_patch = [
+def build_gcu_patch_modify_dut_type(dut_type):
+    return [
         {
             "op": "replace",
             "path": "/DEVICE_METADATA/localhost/type",
             "value": dut_type
         }
     ]
-    gcu_apply_patch_helper(duthost, json_patch)
 
 
-def modify_bgp_neigh(duthost, bgp_facts, neigh_ip, neigh_name, neigh_type):
-    # Modify neighbor name in BGP_NEIGHBOR table
-    json_patch = [
+def build_gcu_patch_modify_bgp_neigh(bgp_facts, neigh_ip, neigh_name, neigh_type):
+    origin_neigh_name = bgp_facts[neigh_ip]['description']
+    return [
         {
             "op": "replace",
             "path": f"/BGP_NEIGHBOR/{neigh_ip}/name",
             "value": neigh_name
-        }
-    ]
-    gcu_apply_patch_helper(duthost, json_patch)
-
-    # Modify neighbor name in DEVICE_NEIGHBOR_METADATA
-    origin_neigh_name = bgp_facts[neigh_ip]['description']
-    json_patch = [
+        },
         {
             "op": "move",
             "from": f"/DEVICE_NEIGHBOR_METADATA/{origin_neigh_name}",
             "path": f"/DEVICE_NEIGHBOR_METADATA/{neigh_name}"
-        }
-    ]
-    gcu_apply_patch_helper(duthost, json_patch)
-
-    # Modify neighbor type in DEVICE_NEIGHBOR_METADATA
-    origin_neigh_name = bgp_facts[neigh_ip]['description']
-    json_patch = [
+        },
         {
             "op": "replace",
             "path": f"/DEVICE_NEIGHBOR_METADATA/{neigh_name}/type",
             "value": neigh_type
         }
     ]
-    gcu_apply_patch_helper(duthost, json_patch)
 
 
 def verify_bgp_session_established(duthost, neighbors):
@@ -105,12 +91,14 @@ def test_bgp_establish_combo(duthost, ip_version, combo):
     bgp_neigh_ips = list(bgp_facts.keys())
     mock_bgp_neighbors = []
     # Modify DUT type and BGP neighbor types
-    modify_dut_type(duthost, target_dut_type)
+    gcp_json_patches = build_gcu_patch_modify_dut_type(target_dut_type)
     for i in range(len(target_neigh_types)):
         neigh_ip = bgp_neigh_ips[i]
         neigh_type = target_neigh_types[i]
-        modify_bgp_neigh(duthost, bgp_facts, neigh_ip, f"mock-{target_dut_type}-{neigh_type}-v{ip_version}", neigh_type)
+        gcp_json_patches += build_gcu_patch_modify_bgp_neigh(
+            bgp_facts, neigh_ip, f"mock-{target_dut_type}-{neigh_type}-v{ip_version}", neigh_type)
         mock_bgp_neighbors.append(neigh_ip)
+    apply_gcu_patch(duthost, gcp_json_patches)
     # This testcase restart bgp.service multiple times, reset-failed first to avoid below failure
     # >> Job for bgp.service failed because start of the service was attempted too often.
     output = duthost.shell("systemctl reset-failed bgp", module_ignore_errors=True)
