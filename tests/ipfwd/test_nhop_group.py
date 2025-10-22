@@ -584,7 +584,10 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                               .format(flow_count, iter_count))
         finally:
             asic.start_service("bgp")
-            time.sleep(15)
+            config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+            bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {}).keys()
+            pytest_assert(wait_until(60, 5, 0, duthost.check_bgp_session_state, bgp_neighbors),
+                          "bgp did not come up in expected time")
             nhop.delete_routes()
             pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix, False),
                           f"Static route: {ip_prefix} is failed to be removed!")
