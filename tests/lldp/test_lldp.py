@@ -241,7 +241,6 @@ def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_fronte
                                         sonic, collect_techsupport_all_duts, enum_frontend_asic_index,
                                         tbinfo, request, restart_swss_container, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-
     ignoreRegex = [
         ".*ERR.*",
         "crash",
