@@ -208,9 +208,9 @@
                 {
                     "id": "m1",
                     "name": "M1",
-                    "testbed_topology": ["m1-48"],
+                    "testbed_topology": ["m1-48", "m1-44", "m1-108", "m1-128"],
                     "threshold": 51,
-                    "included": false
+                    "included": true
                 },
                 {
                     "id": "dualtor",

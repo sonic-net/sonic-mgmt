@@ -25,8 +25,8 @@
     },
     {
         "feature": "acms",
-        "owner": "Gang lv",
-        "email": "ganglv@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -35,8 +35,8 @@
                     "acms.test_acms_cert_downloader",
                     "acms.test_acms_start"
                 ],
-                "owner": "Gang lv",
-                "email": "ganglv@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             }
         ]
     },
@@ -65,8 +65,8 @@
                 "scripts": [
                     "arp.test_tagged_arp"
                 ],
-                "owner": "Gang lv",
-                "email": "ganglv@microsoft.com"
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             },
             {
                 "scripts": [
@@ -86,15 +86,15 @@
     },
     {
         "feature": "autorestart",
-        "owner": "Chun'ang Li",
-        "email": "chunangli@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "autorestart.test_container_autorestart"
                 ],
-                "owner": "Chun'ang Li",
-                "email": "chunangli@microsoft.com"
+                "owner": "Matt Soulsby",
+                "email": "mattsoulsby@microsoft.com"
             }
         ]
     },
@@ -209,15 +209,15 @@
     },
     {
         "feature": "configlet",
-        "owner": "Jingwen Xie",
-        "email": "jingwenxie@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "configlet.test_add_rack"
                 ],
-                "owner": "Jingwen Xie",
-                "email": "jingwenxie@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             }
         ]
     },
@@ -241,29 +241,29 @@
     },
     {
         "feature": "container_checker",
-        "owner": "Chun'ang Li",
-        "email": "chunangli@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "container_checker.test_container_checker"
                 ],
-                "owner": "Chun'ang Li",
-                "email": "chunangli@microsoft.com"
+                "owner": "Matt Soulsby",
+                "email": "mattsoulsby@microsoft.com"
             }
         ]
     },
     {
         "feature": "container_hardening",
-        "owner": "Chun'ang Li",
-        "email": "chunangli@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "container_hardening.test_container_hardening"
                 ],
-                "owner": "Chun'ang Li",
-                "email": "chunangli@microsoft.com"
+                "owner": "Matt Soulsby",
+                "email": "mattsoulsby@microsoft.com"
             }
         ]
     },
@@ -297,15 +297,15 @@
     },
     {
         "feature": "database",
-        "owner": "Hua Liu",
-        "email": "liuh@microsoft.com",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "database.test_db_scripts"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
             }
         ]
     },
@@ -341,8 +341,8 @@
     },
     {
         "feature": "dhcp_relay",
-        "owner": "Yaqiang Zhu",
-        "email": "yaqiangzhu@microsoft.com",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -350,37 +350,37 @@
                     "dhcp_relay.test_dhcp_relay",
                     "dhcp_relay.test_dhcpv6_relay"
                 ],
-                "owner": "Yaqiang Zhu",
-                "email": "yaqiangzhu@microsoft.com"
+                "owner": "Ying Xie",
+                "email": "yinxi@microsoft.com"
             }
         ]
     },
     {
         "feature": "dhcp_server",
-        "owner": "Wenda Chu",
-        "email": "wendachu@microsoft.com",
+        "owner": "Ying Xie",
+        "email": "yinxi@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "dhcp_server.test_dhcp_server",
                     "dhcp_server.test_dhcp_server_multi_vlans"
                 ],
-                "owner": "Wenda Chu",
-                "email": "wendachu@microsoft.com"
+                "owner": "Ying Xie",
+                "email": "yinxi@microsoft.com"
             }
         ]
     },
     {
         "feature": "disk",
-        "owner": "Chun'ang Li",
-        "email": "chunangli@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "disk.test_disk_exhaustion"
                 ],
-                "owner": "Chun'ang Li",
-                "email": "chunangli@microsoft.com"
+                "owner": "Matt Soulsby",
+                "email": "mattsoulsby@microsoft.com"
             }
         ]
     },
@@ -492,8 +492,8 @@
                 "scripts": [
                     "dut_console.test_console_baud_rate"
                 ],
-                "owner": "Yaqiang Zhu",
-                "email": "yaqiangzhu@microsoft.com"
+                "owner": "Zhijian Li",
+                "email": "zhijianli@microsoft.com"
             },
             {
                 "scripts": [
@@ -586,8 +586,8 @@
     },
     {
         "feature": "generic_config_updater",
-        "owner": "Jingwen Xie",
-        "email": "jingwenxie@microsoft.com",
+        "owner": "Xincun Li",
+        "email": "stli@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -610,16 +610,16 @@
                     "generic_config_updater.test_ipv6",
                     "generic_config_updater.test_pg_headroom_update"
                 ],
-                "owner": "Jingwen Xie",
-                "email": "jingwenxie@microsoft.com"
+                "owner": "Xincun Li",
+                "email": "stli@microsoft.com"
             },
             {
                 "scripts": [
                     "generic_config_updater.test_aaa",
                     "generic_config_updater.test_mgmt_interface"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Xincun Li",
+                "email": "stli@microsoft.com"
             },
             {
                 "scripts": [
@@ -653,8 +653,8 @@
     },
     {
         "feature": "gnmi",
-        "owner": "Gang lv",
-        "email": "ganglv@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -662,8 +662,8 @@
                     "gnmi.test_gnmi_appldb",
                     "gnmi.test_gnmi_configdb"
                 ],
-                "owner": "Gang lv",
-                "email": "ganglv@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             }
         ]
     },
@@ -687,15 +687,15 @@
     },
     {
         "feature": "golden_config_infra",
-        "owner": "Jingwen Xie",
-        "email": "jingwenxie@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "golden_config_infra.test_config_reload_with_rendered_golden_config"
                 ],
-                "owner": "Jingwen Xie",
-                "email": "jingwenxie@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             }
         ]
     },
@@ -915,8 +915,8 @@
                 "scripts": [
                     "metadata-scripts.test_metadata_scripts::test_mirror_session_script"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
             },
             {
                 "scripts": [
@@ -992,8 +992,8 @@
     },
     {
         "feature": "mx",
-        "owner": "Yaqiang Zhu",
-        "email": "yaqiangzhu@microsoft.com",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1012,8 +1012,8 @@
                     "mx.test_dhcp_server_init_internal_only",
                     "mx.test_dhcp_server_internal_only"
                 ],
-                "owner": "Yaqiang Zhu",
-                "email": "yaqiangzhu@microsoft.com"
+                "owner": "Zhijian Li",
+                "email": "zhijianli@microsoft.com"
             }
         ]
     },
@@ -1033,15 +1033,15 @@
     },
     {
         "feature": "override_config_table",
-        "owner": "Jingwen Xie",
-        "email": "jingwenxie@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "override_config_table.test_override_config_table"
                 ],
-                "owner": "Jingwen Xie",
-                "email": "jingwenxie@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             },
             {
                 "scripts": [
@@ -1299,8 +1299,8 @@
     },
     {
         "feature": "qos",
-        "owner": "Shengkai Wang",
-        "email": "shengkaiwang@microsoft.com",
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1309,8 +1309,8 @@
                     "qos.test_qos_sai",
                     "qos.test_tunnel_qos_remap"
                 ],
-                "owner": "Shengkai Wang",
-                "email": "shengkaiwang@microsoft.com"
+                "owner": "Xu Chen",
+                "email": "xuchen3@microsoft.com"
             },
             {
                 "scripts": [
@@ -1437,22 +1437,22 @@
     },
     {
         "feature": "scp",
-        "owner": "Hua Liu",
-        "email": "liuh@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "scp.test_scp_copy"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Matt Soulsby",
+                "email": "mattsoulsby@microsoft.com"
             }
         ]
     },
     {
         "feature": "show_techsupport",
-        "owner": "Gang lv",
-        "email": "ganglv@microsoft.com",
+        "owner": "Vaibhav Hemant Dixit",
+        "email": "vadixit@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1460,8 +1460,8 @@
                     "show_techsupport.test_techsupport",
                     "show_techsupport.test_techsupport_no_secret"
                 ],
-                "owner": "Gang lv",
-                "email": "ganglv@microsoft.com"
+                "owner": "Vaibhav Hemant Dixit",
+                "email": "vadixit@microsoft.com"
             }
         ]
     },
@@ -1590,8 +1590,8 @@
     },
     {
         "feature": "ssh",
-        "owner": "Hua Liu",
-        "email": "liuh@microsoft.com",
+        "owner": "Matt Soulsby",
+        "email": "mattsoulsby@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1599,8 +1599,8 @@
                     "ssh.test_ssh_default_password",
                     "ssh.test_ssh_limit"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Matt Soulsby",
+                "email": "mattsoulsby@microsoft.com"
             }
         ]
     },
@@ -1695,8 +1695,8 @@
     },
     {
         "feature": "tacacs",
-        "owner": "Hua Liu",
-        "email": "liuh@microsoft.com",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1707,8 +1707,8 @@
                     "tacacs.test_ro_user",
                     "tacacs.test_rw_user"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
             }
         ]
     },
@@ -1857,8 +1857,8 @@
     },
     {
         "feature": "test_pktgen",
-        "owner": "Shengkai Wang",
-        "email": "shengkaiwang@microsoft.com"
+        "owner": "Xu Chen",
+        "email": "xuchen3@microsoft.com"
     },
     {
         "feature": "upgrade_path",
@@ -1891,15 +1891,15 @@
     },
     {
         "feature": "zmq",
-        "owner": "Hua Liu",
-        "email": "liuh@microsoft.com",
+        "owner": "Qi Luo",
+        "email": "qiluo@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "zmq.test_gnmi_zmq"
                 ],
-                "owner": "Hua Liu",
-                "email": "liuh@microsoft.com"
+                "owner": "Qi Luo",
+                "email": "qiluo@microsoft.com"
             }
         ]
     },

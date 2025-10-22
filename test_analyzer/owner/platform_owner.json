@@ -180,24 +180,24 @@
         "topo": "t1",
         "owner": "Shiyang Wang",
         "email": "shiyanwang@microsoft.com",
-        "new_platform": "Yes",
-        "tag": "Yes"
+        "new_platform": "No",
+        "tag": "No"
     },
     {
         "hwsku": "Cisco-8101-O8C48",
         "topo": "t1",
         "owner": "Shiyang Wang",
         "email": "shiyanwang@microsoft.com",
-        "new_platform": "Yes",
-        "tag": "Yes"
+        "new_platform": "No",
+        "tag": "No"
     },
     {
         "hwsku": "Cisco-8101-O8V48",
-        "topo": "t1-56-lag",
+        "topo": "t1",
         "owner": "Shiyang Wang",
         "email": "shiyanwang@microsoft.com",
-        "new_platform": "Yes",
-        "tag": "Yes"
+        "new_platform": "No",
+        "tag": "No"
     },
     {
         "hwsku": "Cisco-8101-O8C48",
@@ -250,8 +250,8 @@
     {
         "hwsku": "Cisco-8102-C64",
         "topo": "dualtor",
-        "owner": "Shengkai Wang",
-        "email": "shengkaiwang@microsoft.com",
+        "owner": "Shiyang Wang",
+        "email": "shiyanwang@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
     },
