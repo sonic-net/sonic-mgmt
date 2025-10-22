@@ -247,11 +247,17 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     for po_member in set(l2_port_channel_members):
         port_channel_members.pop(po_member)
 
-    rif_members = {
-        item["attachto"]: item["attachto"]
-        for item in mg_facts["minigraph_interfaces"]
-        if "PT0" not in mg_facts["minigraph_neighbors"].get(item["attachto"], {}).get("name", "")
-    }
+    rif_members_list = [item["attachto"] for item in mg_facts["minigraph_interfaces"]]
+
+    # On some Broadcom platforms, counters on interfaces with 'PT0' in their neighbor's name do not work as expected.
+    # This filters them out to prevent test failures.
+    if duthost.facts["asic_type"] == "broadcom":
+        logger.info("Broadcom platform detected, filtering out RIF members connected to 'PT0' neighbors.")
+        rif_members_list = [
+            port for port in rif_members_list
+            if "PT0" not in mg_facts["minigraph_neighbors"].get(port, {}).get("name", "")
+        ]
+    rif_members = {port: port for port in rif_members_list}
 
     # Compose list of sniff ports
     neighbor_sniff_ports = []
