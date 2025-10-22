@@ -31,7 +31,7 @@ def initial_setup():
 
     if  dut_type == "sim":
         data.transmit_mode = "continuous"
-        data.pkts_per_burst = "400"
+        data.pkts_per_burst = "1000"
         data.rate_percent = "0.005"
         data.frame_size = "200"
         data.tgen_rate_pps = '200'
@@ -133,7 +133,7 @@ def test_v4_evpn_vxlan_ucmp():
     vxlan_obj.create_udp_traffic_stream(handles, data, stream_list,timeout=30)
     src_port = stream_list['src_endpoint']['port']
     dst_port = stream_list['dst_endpoint']['port']
-    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=500,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=500,udp_src_port_step=10)
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=1000,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=1000,udp_src_port_step=10)
     stream_id = receive["stream_id"]
 
     nodes = {}
@@ -146,7 +146,7 @@ def test_v4_evpn_vxlan_ucmp():
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VTEP_IP,"LEAF1_VXLAN_IP":LEAF1_VTEP_IP})
 
     st.config(vars.D3, "sonic-clear counters")
-    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=220)
+    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=680)
     counter_info = st.config(vars.D3, "show int counters")
     route_info = st.config(vars.D3, "ip route show")
  
@@ -189,7 +189,7 @@ def test_v6_evpn_vxlan_ucmp():
     vxlan_obj.create_udp_traffic_stream(handles, data, stream_list,timeout=30)
     src_port = stream_list['src_endpoint']['port']
     dst_port = stream_list['dst_endpoint']['port']
-    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=500,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=500,udp_src_port_step=10)
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=1000,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=1000,udp_src_port_step=10)
     stream_id = receive["stream_id"]
 
     nodes = {}
@@ -199,7 +199,7 @@ def test_v6_evpn_vxlan_ucmp():
     nodes['leaf2'] = vars.D4
 
     st.config(vars.D3, "sonic-clear counters")
-    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=220)
+    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=680)
     counter_info = st.config(vars.D3, "show int counters")
     route_info = st.config(vars.D3, "ip -6 route show")
     rx_pkts = get_rx(counter_info)
@@ -239,7 +239,7 @@ def test_v4_lb_link_down():
     vxlan_obj.create_udp_traffic_stream(handles, data, stream_list,timeout=30)
     src_port = stream_list['src_endpoint']['port']
     dst_port = stream_list['dst_endpoint']['port']
-    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=500,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=500,udp_src_port_step=10)
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=1000,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=1000,udp_src_port_step=10)
     stream_id = receive["stream_id"]
 
     nodes = {}
@@ -255,7 +255,7 @@ def test_v4_lb_link_down():
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VTEP_IP,"LEAF1_VXLAN_IP":LEAF1_VTEP_IP})
     
     st.config(vars.D3, "sonic-clear counters")
-    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=220)
+    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=680)
     counter_info = st.config(vars.D3, "show int counters")
     route_info = st.config(vars.D3, "ip route show")
  
@@ -302,7 +302,7 @@ def test_v6_lb_link_down():
     vxlan_obj.create_udp_traffic_stream(handles, data, stream_list,timeout=30)
     src_port = stream_list['src_endpoint']['port']
     dst_port = stream_list['dst_endpoint']['port']
-    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=500,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=500,udp_src_port_step=10)
+    receive = handles[src_port]["tg_handle"].tg_traffic_config(mode='create', transmit_mode=data.transmit_mode,pkts_per_burst=data.pkts_per_burst, rate_percent = data.rate_percent,circuit_endpoint_type=data.circuit_endpoint_type,frame_size=data.frame_size,emulation_src_handle=handles[src_port]["int_handle"],emulation_dst_handle=handles[dst_port]["int_handle"],track_by = 'trackingenabled0',l4_protocol='udp',udp_dst_port_mode='incr',udp_dst_port_count=1000,udp_dst_port_step=1,udp_src_port_mode='incr',udp_src_port_count=1000,udp_src_port_step=10)
     stream_id = receive["stream_id"]
 
     nodes = {}
@@ -315,7 +315,7 @@ def test_v6_lb_link_down():
     get_cli_out()
 
     st.config(vars.D3, "sonic-clear counters")
-    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=220)
+    vxlan_obj.send_udp_traffic(handles, data, stream_list, stream_id, timeout=680)
     counter_info = st.config(vars.D3, "show int counters")
     route_info = st.config(vars.D3, "ip -6 route show")
     rx_pkts = get_rx(counter_info)
