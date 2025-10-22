@@ -62,9 +62,9 @@ jobs:
     displayName: "impacted-area-kvmtest-t0 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't0_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -94,9 +94,9 @@ jobs:
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't0-2vlans_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-2vlans_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -127,9 +127,9 @@ jobs:
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't1_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -159,9 +159,9 @@ jobs:
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 'dualtor_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dualtor_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -191,9 +191,9 @@ jobs:
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't1-multi-asic_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1-multi-asic_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -224,9 +224,9 @@ jobs:
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't0-sonic_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't0-sonic_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -261,9 +261,9 @@ jobs:
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 'dpu_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 'dpu_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
     pool: sonic-ubuntu-1c
@@ -297,9 +297,9 @@ jobs:
   #   displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest - optional"
   #   dependsOn:
   #   - get_impacted_area
-  #   condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't1_checker')
+  #   condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
   #   variables:
-  #     TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+  #     TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
   #   timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
   #   continueOnError: true
   #   pool: sonic-ubuntu-1c
@@ -331,9 +331,9 @@ jobs:
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
     dependsOn:
     - get_impacted_area
-    condition: contains(dependencies.get_impacted_area.outputs['GetImpactArea.PR_CHECKERS'], 't2_checker')
+    condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't2_checker')
     variables:
-      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['GetImpactArea.TEST_SCRIPTS'] ]
+      TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: 240
     continueOnError: false
     pool: sonic-ubuntu-1c
