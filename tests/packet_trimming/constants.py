@@ -87,7 +87,6 @@ DEFAULT_QUEUE_SCHEDULER_CONFIG = {
 
 PACKET_TYPE = ['ipv4_tcp', 'ipv4_udp', 'ipv6_tcp', 'ipv6_udp']
 SERVICE_PORT = "Ethernet512"
-COUNTERPOLL_INTERVAL = 2000
 
 # Constants for packet trimming with SRv6 tests
 SRV6_INNER_SRC_IP = '1.1.1.1'
@@ -163,4 +162,16 @@ SRV6_MY_SID_LIST = [
     [SRV6_MY_LOCATOR_LIST[7][0], SRV6_MY_LOCATOR_LIST[7][1], SRV6_UN, 'default'],
     [SRV6_MY_LOCATOR_LIST[8][0], SRV6_MY_LOCATOR_LIST[8][1], SRV6_UN, 'default'],
     [SRV6_MY_LOCATOR_LIST[9][0], SRV6_MY_LOCATOR_LIST[9][1], SRV6_UN, 'default']
+]
+
+# Drop counter
+SWITCH_INTERVAL = 10000
+PORT_INTERVAL = 100
+QUEUE_INTERVAL = 100
+
+COUNTER_DSCP = 0
+COUNTER_TYPE = [
+    ("switch", "SWITCH_STAT", SWITCH_INTERVAL),
+    ("port", "PORT_STAT", PORT_INTERVAL),
+    ("queue", "QUEUE_STAT", QUEUE_INTERVAL),
 ]
