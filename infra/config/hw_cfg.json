@@ -1240,7 +1240,10 @@
                 "sudo reboot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo super-t0 ./lab",
-            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo super-t0 ./lab"
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo super-t0 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }
         },
         "t0-m6-24-lightning": {
             "ucs_host_name": "sonic-ucs-m6-24",
