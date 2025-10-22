@@ -10,7 +10,7 @@ NOTES:
        in /nobackup directory. Therefore, ensure that you have enough storage.
     - Create /nobackup/images and copy SONiC and Ubuntu images to it.
        - ubuntu22.qcow2 (for hosts). You may download ubuntu22.qcow2 from following locations.
-            - cp /auto/vxr/images/linux/ubuntu22.qcow2 /nobackup/images
+            - cp /auto/vxr/images/linux/ubuntu22_tortuga.qcow2 /nobackup/images/ubuntu22.qcow2
             - scp cisco@ccni-pgdb1.cisco.com:~/ubuntu22.qcow2 /nobackup/images/ubuntu22.qcow2 (password = spnaa123)
        - sonic-cisco-8000.bin (for switches)
             - scp cisco@ccni-pgdb1.cisco.com:~/pyvxr/sonic-cisco-8000.bin /nobackup/images/sonic-cisco-8000.bin (password = spnaa123)
@@ -32,11 +32,11 @@ NOTES:
 
    NOTES:
     Rename hostnames of all nodes (spines and leaves) in the reference YAML from
-    tortuga-1x3-leaf[0-3]/spine[0] to <pyvxr hostname>-leaf[0-3]/spine[0]. If you
+    tortuga-1x3-leaf[0-3]/spine[0] to <username>-1x3-leaf[0-3]/spine[0]. If you
     are sharing same PyVxr and creating multiple SIMs, then come up with a unique
-    prefix for node hostnames. E.g. <cisco-username>-leaf[0-3]/spine[0].
+    prefix for node hostnames. E.g. <username>-leaf[0-3]/spine[0].
 
-    Prefix of node hostname (E.g. <cisco-username>) must be set as FABRIC_NAME in
+    Prefix of node hostname (E.g. <username>) must be set as FABRIC_NAME in
     test.sh file.
 
 4) Execute /nobackup/reset_sim.sh to create PyVxr SIM.

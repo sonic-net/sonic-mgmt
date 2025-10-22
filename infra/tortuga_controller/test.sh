@@ -38,7 +38,7 @@ PYVXR_VRFS=""
 PYVXR_STPS="*"
 CLOUD_URL=https://tortuga-k8s-a.cisco.com:30709
 START_TIME=$(date +%s)
-TEST_TAGS="ipv4,ipv6"
+TEST_TAGS="ipv4,ipv6,bgp-debug"
 CGEN_TEST=extended
 ORG_NAME="Test"
 HOST_USER="vxr"
@@ -50,12 +50,14 @@ LOADTEST="*"
 TIMEOUT="15m"
 BULK_MODE=true   # Enable bulk config load.
 BULK_PATCH=false # Enable bulk config patch.
-LLDP_CHECK=false # Check and assert for LLDP system description.
+LLDP_CHECK=true  # Check and assert for LLDP system description.
+IPSLA=true       # Enable IpSla tests.
 DSCP="no-dscp"   # Enable DSCP/QoS tests.
-VLANS=10         # Number of host Vlans to be added.
-VNIS=10          # Number of VNIs to be added for scale testing.
-SUBINFS=2        # Number of host/switch routed sub-interfaces.
-ROUTES=10        # Number of FRR routes (Loopback IP + Static routes).
+SCALE_VLANS=10   # Number of host Vlans to be added.
+SCALE_VNIS=10    # Number of VNIs to be added for scale testing.
+SCALE_PCS=5      # Number of PortChannels to be added for scale testing.
+SCALE_SUBINFS=2  # Number of host/switch routed sub-interfaces.
+SCALE_ROUTES=10  # Number of FRR routes (Loopback IP + Static routes).
 
 # Test ports.
 STP_PORT1="Ethernet1_16"
@@ -110,10 +112,7 @@ do
   -dhcp)
     DHCP="${2}"
     shift; shift;;
-  -vnis)
-    VNIS="${2}"
-    shift; shift;;
-   -dscp)
+  -dscp)
     DSCP="dscp"
     shift;;
   -no-stp)
@@ -125,17 +124,26 @@ do
   -vrfs)
     PYVXR_VRFS="${2}"
     shift; shift;;
+  -vnis)
+    SCALE_VNIS="${2}"
+    shift; shift;;
   -subinfs)
-    SUBINFS="${2}"
+    SCALE_SUBINFS="${2}"
     shift; shift;;
   -vlans)
-    VLANS="${2}"
+    SCALE_VLANS="${2}"
     shift; shift;;
   -routes)
-    ROUTES="${2}"
+    SCALE_ROUTES="${2}"
+    shift; shift;;
+  -pcs)
+    SCALE_PCS="${2}"
     shift; shift;;
   -no-breakout)
     BREAKOUT="no-breakout"
+    shift;;
+  -no-ipsla)
+    IPSLA=false
     shift;;
   -no-bulk-mode)
     BULK_MODE=false
@@ -144,8 +152,8 @@ do
   -bulk-patch)
     BULK_PATCH=true
     shift;;
-  -lldp-check)
-    LLDP_CHECK=true
+  -no-lldp-sys)
+    LLDP_CHECK=false
     shift;;
   -t|-tags)
     TEST_TAGS="${TEST_TAGS},${2}"
@@ -170,18 +178,18 @@ if [[ "${BULK_PATCH}" == true ]]; then
 fi
 
 # Enable LLDP system description check.
-if [[ "${LLDP_CHECK}" == true ]]; then
-  TEST_TAGS="${TEST_TAGS},lldp-check"
+if [[ "${LLDP_CHECK}" == false ]]; then
+  TEST_TAGS="${TEST_TAGS},no-lldp-sys"
 fi
 
 # Add sub-interfaces on hosts connected to the ports specified in SUBINF_PORT.
-PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#${SUBINFS}|lo"
+PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#${SCALE_SUBINFS}|lo"
 
 # Add tagged vlans for host sub-interfaces. In case of a single switch setup,
 # add tagged vlans on the DHCP host port so as to have connected vlan hosts.
-PYVXR_VLANS="Vrf40000|*|${VLAN_PORT1}|eth1#${VLANS}"
+PYVXR_VLANS="Vrf40000|*|${VLAN_PORT1}|eth1#${SCALE_VLANS}"
 if [[ ${LENGTH} -eq 0 ]]; then
-  PYVXR_VLANS="${PYVXR_VLANS},Vrf40000|*|${VLAN_PORT2}|eth1#${VLANS}"
+  PYVXR_VLANS="${PYVXR_VLANS},Vrf40000|*|${VLAN_PORT2}|eth1#${SCALE_VLANS}"
 fi
 
 # Add a routed port on leaf0 with point-to-point network.
@@ -197,14 +205,29 @@ PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.240.10.2|10.10.1
 # scripts add IP 41.230.10.0/31 on eth2 of host3.
 PYVXR_POLICIES="export-nb#true#41.220.200.200#fc00:dead:face::200:200|false#*#9999:99|false#*#GREEN|true#*#8888:88|false#*#0.0.0.0/0#41.220.0.0/16@GE@16|true#*"
 PYVXR_POLICIES="${PYVXR_POLICIES},import-nb#false#*|true#9999:99"
-PYVXR_BGPPEERS="Vrf40000|northbound#4000#*#host3@41.230.10.0/31@eth2#leaf0|41.230.10.0#2000|leaf0#${ROUTED_PORT1}|export-nb#import-nb"
+PYVXR_BGPPEERS="Vrf40000|northbound#4000#*#host3@41.230.10.0/31@eth2#leaf0|41.230.10.0#4500|leaf0#${ROUTED_PORT1}|export-nb#import-nb"
+
+# Add a IPv6 northbound BGP peer on third host of last leaf.
+V6HOST=host2
+V6LEAF=leaf0
+if [[ ${LENGTH} -eq 1 ]]; then
+  V6HOST=host6
+  V6LEAF=leaf1
+elif [[ ${LENGTH} -gt 1 ]]; then
+  V6HOST=host9
+  V6LEAF=leaf2
+fi
+PYVXR_PORTS="${PYVXR_PORTS},${V6LEAF}|${SUBINF_PORT}#50.50.50.1/28#5000::1/112#Vrf40000"
+PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|ipv6-nb#5000#*#${V6HOST}@50.50.50.2/28@5000::2/112@eth1#${V6LEAF}|5000::2/128#5500|${V6LEAF}#${SUBINF_PORT}"
+PYVXR_ROUTES="${PYVXR_ROUTES},*#${V6HOST}|fc00:dead:face::0/96#5000::1"
+PYVXR_IPS="50.50.50.2#5000::2"
 
 # Southbound BGP peer is on leaf0 and leaf1, and uses custom policies.
 # Annotations are used by config-gen to configure FRR on hosts.
 SB_ANNOTATIONS="host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1#host8@41.216.1.4#leaf2"
 PYVXR_POLICIES="${PYVXR_POLICIES},export-sb#true#*|true#*#9999:99#8888:88|false#*#BLACK|false#*#0.0.0.0/0|true#*"
 PYVXR_POLICIES="${PYVXR_POLICIES},import-sb#false#*|true#8888:88"
-PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#${SB_ANNOTATIONS}|41.216.1.0/28#10000#20|leaf0#Loopback10"
+PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#${SB_ANNOTATIONS}|41.216.1.0/28#3500#20|leaf0#Loopback10"
 if [[ ${LENGTH} -gt 0 ]]; then
   PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#leaf1#Loopback10"
 fi
@@ -214,7 +237,7 @@ fi
 PYVXR_BGPPEERS="${PYVXR_BGPPEERS}|export-sb#import-sb"
 
 # Add static routes for Vrf400000
-PYVXR_IPS="7.7.7.1"
+PYVXR_IPS="${PYVXR_IPS}#7.7.7.1"
 PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000|8.8.8.2/32#41.216.0.3#GREEN|8.8.8.3/32#41.216.0.3#RED|7.7.7.1/32#41.216.0.2#BLUE"
 
 # Add PortChannels for single switch setup.
@@ -300,6 +323,23 @@ fi
 
 TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP},${BREAKOUT}"
 
+# Configure IP/SLA and static routes for traffic-gen running in host0 and
+# host4. For single switch setup, enable traffic-gen on host0 and host1.
+if [[ "${IPSLA}" == true ]]; then
+  if [[ ${LENGTH} -gt 1 ]]; then
+    PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host4@host7|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.0.3|20.20.20.2/32#41.216.0.4"
+  elif [[ ${LENGTH} -gt 0 ]]; then
+     PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host4|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.0.3"
+  else
+    PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host1|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.1.2"
+  fi
+
+  PYVXR_IPSLAS="Vrf40000|ip-sla-1#TCP#9100#10#3#20.20.20.2/32"
+  TEST_TAGS="${TEST_TAGS},ip-sla"
+else
+  PYVXR_IPSLAS="*"
+fi
+
 function run_pyvxr() {
   "${CONFIG_GEN}" \
     --lldp \
@@ -323,12 +363,14 @@ function run_pyvxr() {
     --subInterfaces "${PYVXR_SUBINFS}" \
     --hostVlans "${PYVXR_VLANS}" \
     --portChannels "${PYVXR_CHANNELS}" \
+    --ipSlas "${PYVXR_IPSLAS}" \
     --vrfs "${PYVXR_VRFS}" \
     --vlanStp "${PYVXR_STPS}" \
     --timeout "${TIMEOUT}" \
     --input "${LOADTEST}" \
-    --frrRoutes "${ROUTES}" \
-    --scaleVnis "${VNIS}" \
+    --frrRoutes "${SCALE_ROUTES}" \
+    --scaleVnis "${SCALE_VNIS}" \
+    --scalePcs "${SCALE_PCS}" \
     --tags "${TEST_TAGS}"
 }
 
