@@ -247,7 +247,12 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     for po_member in set(l2_port_channel_members):
         port_channel_members.pop(po_member)
 
-    rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
+    rif_members = {
+        item["attachto"]: item["attachto"]
+        for item in mg_facts["minigraph_interfaces"]
+        if "PT0" not in mg_facts["minigraph_neighbors"].get(item["attachto"], {}).get("name", "")
+    }
+
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
