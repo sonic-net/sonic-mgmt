@@ -101,7 +101,7 @@ def rollback(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     return output
 
 
-def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
+def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME, fail_on_rollback_error=True):
     """Run rollback on target duthost. config_reload if rollback failed.
 
     Args:
@@ -111,7 +111,8 @@ def rollback_or_reload(duthost, cp=DEFAULT_CHECKPOINT_NAME):
 
     if output['rc'] or "Config rolled back successfully" not in output['stdout']:
         config_reload(duthost)
-        pytest.fail("config rollback failed. Restored by config_reload")
+        if fail_on_rollback_error:
+            pytest.fail("config rollback failed. Restored by config_reload")
 
 
 def delete_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
