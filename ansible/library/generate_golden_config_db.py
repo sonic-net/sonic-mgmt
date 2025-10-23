@@ -654,10 +654,11 @@ class GenerateGoldenConfigDBModule(object):
 
         # update router_config_mode
         if self.generate_frr_config_mode_golden_config_db() is True:
-            metadata = config.get("DEVICE_METADATA",{}).get("localhost",{})
-            if metadata.get("docker_routing_config_mode") != "unified":
-                config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
-               
+            if ("DEVICE_METADATA" in config and
+                "localhost" in config["DEVICE_METADATA"]):
+                if config["DEVICE_METADATA"]["localhost"].get("docker_routing_config_mode") != "unified":
+                    config["DEVICE_METADATA"]["localhost"]["docker_routing_config_mode"] = "unified"
+
         # To enable bmp feature when the image version is >= 202411 and the device is not supervisor
         # Note: the Chassis supervisor is not holding any BGP sessions so the BMP feature is not needed
         if self.check_version_for_bmp() is True and device_info.is_supervisor() is False:
