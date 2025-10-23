@@ -75,7 +75,7 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Clean up pytest cache so l2 testbed does not carry over to other tests
     folder = "_cache"
-    if os.patch.exists(folder):
+    if os.path.exists(folder):
         os.system("rm -rf {}".format(folder))
 
 
