@@ -1,0 +1,165 @@
+qos_params:
+    tl10:
+        topo-any:
+            wrr:
+                ecn: 1
+                q0_num_of_pkts: 85
+                q1_num_of_pkts: 85
+                q2_num_of_pkts: 85
+                q3_num_of_pkts: 85
+                q4_num_of_pkts: 85
+                q5_num_of_pkts: 85
+                q6_num_of_pkts: 85
+                limit: 80
+            wrr_chg:
+                ecn: 1
+                q0_num_of_pkts: 40
+                q1_num_of_pkts: 40
+                q2_num_of_pkts: 40
+                q3_num_of_pkts: 150
+                q4_num_of_pkts: 150
+                q5_num_of_pkts: 40
+                q6_num_of_pkts: 40
+                limit: 50
+                lossy_weight: 8
+                lossless_weight: 30
+            100000_5m:                      # T0 Topology
+                pkts_num_leak_out: 0
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_dismiss_pfc: 1
+                    pkts_num_margin: 0      # Default: 1
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_dismiss_pfc: 1
+                    pkts_num_margin: 0      # Default: 1
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 5      # Default: 2
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_margin: 5      # Default: 2
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_margin: 1      # Default: 2
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_margin: 0      # Default: 8
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_margin: 0      # Default: 8
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                wm_pg_shared_lossy:
+                    dscp: 0
+                    ecn: 1
+                    pg: 0
+                    pkts_num_margin: 10     # Default: 2
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 0      # Default: 2
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 1      # Default: 0
+                wm_buf_pool_lossy:
+                    dscp: 0
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_margin: 10     # Default: 0
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_margin: 3      # Default: 0
+            400000_5m:  #T0
+                pkts_num_leak_out: 0
+                xon_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_dismiss_pfc: 1
+                    pkts_num_margin: 0      # Default: 1
+                xon_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_dismiss_pfc: 1
+                    pkts_num_margin: 0      # Default: 1
+                xoff_1:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 5      # Default: 2
+                xoff_2:
+                    dscp: 4
+                    ecn: 1
+                    pg: 4
+                    pkts_num_margin: 5      # Default: 2
+                lossy_queue_1:
+                    dscp: 8
+                    ecn: 1
+                    pg: 0
+                    pkts_num_margin: 1      # Default: 2
+                wm_q_shared_lossy:
+                    dscp: 8
+                    ecn: 1
+                    queue: 0
+                    pkts_num_margin: 0      # Default: 8
+                wm_q_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    queue: 3
+                    pkts_num_margin: 0      # Default: 8
+                hdrm_pool_size:
+                    dscps: [3, 4]
+                    ecn: 1
+                    pgs: [3, 4]
+                wm_pg_shared_lossy:
+                    dscp: 0
+                    ecn: 1
+                    pg: 0
+                    pkts_num_margin: 10     # Default: 2
+                wm_pg_shared_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 0      # Default: 2
+                wm_pg_headroom:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    pkts_num_margin: 1      # Default: 0
+                wm_buf_pool_lossy:
+                    dscp: 0
+                    ecn: 1
+                    pg: 0
+                    queue: 0
+                    pkts_num_margin: 10     # Default: 0
+                wm_buf_pool_lossless:
+                    dscp: 3
+                    ecn: 1
+                    pg: 3
+                    queue: 3
+                    pkts_num_margin: 3      # Default: 0
