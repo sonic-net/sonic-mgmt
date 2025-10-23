@@ -27,6 +27,7 @@ else:
     UNICODE_TYPE = unicode      # noqa: F821
 
 PTF_LAG_NAME = "bond1"
+PTF_LAG_MAC = "00:11:22:33:44:66"
 DUT_LAG_NAME = "PortChannel1"
 # Definition of behind or not behind:
 # Port behind lag means ports that in a lag, port not behind lag means ports that not in a lag.
@@ -200,6 +201,10 @@ def setup_ptf_lag(ptfhost, ptf_ports):
     for _, port_name in list(ptf_ports[ATTR_PORT_BEHIND_LAG].items()):
         ptfhost.add_intf_to_lag(PTF_LAG_NAME, port_name)
 
+    # Setup MAC manually for bond interface to avoid packets being dropped on leaf fanout or root fanout.
+    # The original MAC of bond interface can be seen in /proc/net/bonding/bond1.
+    # and will be restored when ptf lag is deleted.
+    ptfhost.shell("ip link set {} address {}".format(PTF_LAG_NAME, PTF_LAG_MAC))
     ptfhost.startup_lag(PTF_LAG_NAME)
     ptfhost.add_ip_to_dev(ptf_ports[ATTR_PORT_NOT_BEHIND_LAG]["port_name"], port_not_behind_lag_ip)
     ptfhost.ptf_nn_agent()
