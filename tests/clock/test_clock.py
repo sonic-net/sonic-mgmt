@@ -106,20 +106,38 @@ class ClockUtils:
         """
         def find_timezone_str_and_matching_format(show_clock_output):
             """
-            we can have two different date format in different topo
-            t2 Thu Feb 20 07:07:55 AM IST 2025
-            t1, t0 Thu 20 Feb 2025 05:10:25 AM UTC
-            find matching tz string and format pair by checking the year
+            Determine the timezone string and matching datetime format from show_clock_output.
+            Supports multiple formats:
+            - 12-hour: "Thu Feb 20 05:10:25 AM IST 2025" (timezone before year, with AM/PM)
+            - 24-hour: "Thu Feb 20 05:10:25 IST 2025" (timezone before year, no AM/PM)
+            - 24-hour: "Thu 20 Feb 2025 05:10:25 IST" (year before timezone, no AM/PM)
+            - 12-hour: "Thu 20 Feb 2025 05:10:25 AM IST" (year before timezone, with AM/PM)
+            Finds matching tz string and format pair by checking the year and time format.
             """
-            tz_str1 = show_clock_output.split()[-1].strip()
-            tz_str2 = show_clock_output.split()[3].strip()
-            # if given tz_str is a year, then return other tz_str
+            parts = show_clock_output.split()
+            tz_str1 = parts[-1].strip()  # Last part (e.g., "2025" or "IST")
+            tz_str2 = parts[3].strip()   # Fourth part (e.g., "2025" or "Feb")
+
+            # Year is last (e.g., "2025")
             if len(tz_str1) == 4 and tz_str1.isdigit():
-                return show_clock_output.split()[-2].strip(), '%a %b %d %I:%M:%S %p %Y'
+                timezone = parts[-2].strip()  # Timezone is second-to-last (e.g., "IST")
+                # Check for AM/PM to determine 12-hour vs 24-hour
+                if "AM" in show_clock_output or "PM" in show_clock_output:
+                    return timezone, '%a %b %d %I:%M:%S %p %Y'  # 12-hour format
+                else:
+                    return timezone, '%a %b %d %H:%M:%S %Y'     # 24-hour format
+
+            # Year is fourth (e.g., "2025")
             elif len(tz_str2) == 4 and tz_str2.isdigit():
-                return tz_str1, '%a %d %b %Y %I:%M:%S %p'
+                timezone = parts[-1].strip()  # Timezone is last (e.g., "UTC")
+                # Assuming it has AM/PM; adjust if 24-hour is possible
+                if "AM" in show_clock_output or "PM" in show_clock_output:
+                    return timezone, '%a %d %b %Y %I:%M:%S %p'  # 12-hour format
+                else:
+                    return timezone, '%a %d %b %Y %H:%M:%S'     # 24-hour format
+
             else:
-                raise ValueError('Cannot find matching timezone string and format')
+                raise ValueError(f'Cannot find matching timezone string and format for: "{show_clock_output}"')
 
         with allure.step('Verify output of show clock'):
             try:
