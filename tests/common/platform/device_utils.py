@@ -52,7 +52,7 @@ FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
-
+IP6TABLES_PREPEND_RULE_CMD = 'ip6tables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 test_report = dict()
 
 
@@ -1082,7 +1082,7 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 @pytest.fixture(scope='function')
 def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+    dut_ip = duthost.mgmt_ipv6 if duthost.mgmt_ipv6 else duthost.mgmt_ip
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -1097,12 +1097,15 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         supervisor_conf = [
             '[program:platform_api_server]',
-            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
-                                                                                     else '2', SERVER_PORT),
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {} {}'.format(
+                '3' if py3_platform_api_available else '2',
+                SERVER_PORT,
+                '--ipv6' if duthost.mgmt_ipv6 else ''),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
             'stderr_logfile=syslog',
+            'startsec=0',
         ]
         dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
         pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
@@ -1116,7 +1119,10 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+        if duthost.mgmt_ipv6:
+            duthost.command(IP6TABLES_PREPEND_RULE_CMD)
+        else:
+            duthost.command(IPTABLES_PREPEND_RULE_CMD)
 
         # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
@@ -1129,7 +1135,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 @pytest.fixture(scope='function')
 def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+    dut_ip = duthost.mgmt_ipv6 if duthost.mgmt_ipv6 else duthost.mgmt_ip
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
     try:
