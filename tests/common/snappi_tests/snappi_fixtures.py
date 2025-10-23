@@ -1114,6 +1114,12 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
             ethernet.connection.port_name = config.ports[port_id].name
             ethernet.mac = mac
             # Configure MACsec on DUT
+            rawout = port['duthost'].command('show macsec {}'.format(port['peer_port']))['stdout']
+            for line in rawout.split('\n'):
+                if 'profile' in line:
+                    profile_name = line.split()[1]
+                    logger.info('Removing already configured Macsec profile {}'.format(profile_name))
+                    delete_macsec_profile(port['duthost'], port['peer_port'], profile_name)
             macsec_enabled_port = port
             macsec_profile_name = '256_XPN_SCI'
             cipher = all_values[macsec_profile_name]['cipher_suite']
