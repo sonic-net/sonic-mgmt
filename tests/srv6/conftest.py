@@ -52,10 +52,7 @@ def srv6_crm_total_sids(rand_selected_dut):
     time.sleep(2)
     mysid_crm_status = get_srv6_mysid_entry_usage(rand_selected_dut)
 
-    if mysid_crm_status is not None:
-        yield mysid_crm_status['total_count']
-    else:
-        yield 0
+    yield mysid_crm_status['total_count']
 
     rand_selected_dut.command(f"crm config polling interval {original_crm_polling_interval}")
 
