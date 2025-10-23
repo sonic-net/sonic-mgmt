@@ -2887,12 +2887,6 @@ route/test_default_route.py:
     conditions:
       - "'standalone' in topo_name"
 
-route/test_duplicate_route.py:
-  skip:
-    reason: "Temporarily skip this test until swss submodule update on 202505"
-    conditions:
-      - "release in ['202505']"
-
 route/test_route_flap.py:
   skip:
     reason: "Test case has issue on the t0-56-povlan and dualtor-64 topo. Does not apply to standalone or t1-isolated-d128 topos."
