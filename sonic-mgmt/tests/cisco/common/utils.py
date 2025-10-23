@@ -422,3 +422,29 @@ def get_asic_type(self,duthost):
         return match.group(1)
     else:
         pytest.fail("Failed to get asic type")
+
+def get_sdk_version(self, duthost):
+        """Parse SDK version from 'show platform ver' output"""
+        try:
+            result = self.duthost.shell("show platform ver")
+            output = result["stdout"]
+
+            # Look for SDK Version line
+            for line in output.split('\n'):
+                if 'Silicon One SDK Version:' in line:
+                    version_part = line.split('Version:')[1].strip()
+                    # Get just the version numbers before any additional info
+                    version_numbers = version_part.split('-')[0].split('.')
+
+                    if len(version_numbers) >= 3:
+                        major = version_numbers[0]
+                        minor = version_numbers[1] 
+                        patch = version_numbers[2]
+                        return f"{major}.{minor}.{patch}"
+
+            logger.warning("Could not parse SDK version from platform ver output")
+            return None
+
+        except Exception as e:
+            logger.warning(f"Error getting SDK version: {e}")
+            return None

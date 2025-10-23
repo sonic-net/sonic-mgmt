@@ -6,7 +6,7 @@ import time
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.cisco.common.utils import skip_if_sim
-from tests.cisco.common.utils import get_asic_type
+from tests.cisco.common.utils import get_asic_type, get_sdk_version
 
 pytestmark = [
     pytest.mark.topology('t1', 't2')
@@ -45,12 +45,17 @@ class CEM:
 
     def get_cem_resource_usage_stats(self):
 
+        # Get SDK version and asic type
+        sdk_version = get_sdk_version(self,self.duthost)
         asic_type = get_asic_type(self,self.duthost)
         if asic_type=='Gr2':
-            keys = ['IPv4 DIP / SIP Unicast (/32); IPv4 OG PCL; IPv4 SGT', 'IPv6 DIP / SIP Unicast (/128); IPv6 OG PCL; IPv6 SGT', 'SRAM Single Entries', 'SRAM Double Entries']
+            if sdk_version and sdk_version >= "25.5.3000":
+                keys = ['SRAM Single Entries', 'SRAM Double Entries']
+            elif sdk_version and sdk_version <= "24.11.3000":
+                keys = ['IPv4 DIP / SIP Unicast (/32); IPv4 OG PCL; IPv4 SGT', 'IPv6 DIP / SIP Unicast (/128); IPv6 OG PCL; IPv6 SGT', 'SRAM Single Entries', 'SRAM Double Entries']
         else:
             keys = ['BFD', 'MOFRR GID to RPF', 'IPv4 DIP / SIP Unicast (/32); IPv4 OG PCL; IPv4 SGT', 'IPv6 DIP / SIP Unicast (/128); IPv6 OG PCL; IPv6 SGT', 'SRAM Single Entries', 'SRAM Double Entries']
-
+            
         self.get_cem_report()
         result = {}
 
