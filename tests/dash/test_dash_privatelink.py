@@ -3,7 +3,10 @@ import logging
 import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
+import random
+import ptf.packet as scapy
 from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
+from constants import VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.config_reload import config_reload
@@ -93,3 +96,31 @@ def test_privatelink_basic_transform(
     testutils.verify_packet_any_port(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
     testutils.send(ptfadapter, dash_pl_config[REMOTE_PTF_SEND_INTF], pe_to_dpu_pkt, 1)
     testutils.verify_packet(ptfadapter, exp_dpu_to_vm_pkt, dash_pl_config[LOCAL_PTF_INTF])
+
+
+def test_privatelink_udp_sport_range_negative(
+    ptfadapter,
+    dash_pl_config
+):
+    """
+    Validate that when the VXLAN UDP source port is not in the configured
+    range, the packet is dropped by the DPU.
+    """
+    vm_to_dpu_pkt, exp_dpu_to_pe_pkt = outbound_pl_packets(dash_pl_config, "vxlan")
+    min_valid_sport = VXLAN_UDP_BASE_SRC_PORT
+    max_valid_sport = VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1
+    invalid_sport_list = [1,
+                          random.randint(2, min_valid_sport -2),
+                          min_valid_sport - 1,
+                          max_valid_sport + 1,
+                          random.randint(max_valid_sport + 2, 65534),
+                          65535]
+    logger.info(f"Send the vxlan encaped outbound packets with invalid sport: \
+        {invalid_sport_list}")
+    logger.info("Check the packets are all dropped.")
+    for invalid_sport in invalid_sport_list:
+        vm_to_dpu_pkt[scapy.UDP].sport = invalid_sport
+        ptfadapter.dataplane.flush()
+        logger.info(f"Sending packet with sport: {invalid_sport}")
+        testutils.send(ptfadapter, dash_pl_config[LOCAL_PTF_INTF], vm_to_dpu_pkt, 1)
+        testutils.verify_no_packet_any(ptfadapter, exp_dpu_to_pe_pkt, dash_pl_config[REMOTE_PTF_RECV_INTF])
