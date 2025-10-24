@@ -16,11 +16,12 @@ from tests.transceiver.infra.utils import format_kv_block
 from tests.transceiver.infra.paths import (
     REL_ATTR_DIR,
     REL_DEPLOYMENT_TEMPLATES_FILE,
+    get_repo_root,
 )
 
 logger = logging.getLogger(__name__)
 
-REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
+REPO_ROOT = get_repo_root()
 
 
 def pytest_addoption(parser):

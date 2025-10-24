@@ -6,6 +6,13 @@ maintained in one place and imported where needed.
 Add new constants here rather than redefining them across files.
 """
 import os
+from pathlib import Path
+
+
+# Repository root - robust approach using pathlib from this file's location
+# Structure: repo_root/tests/transceiver/infra/paths.py
+# So parents[3] gives us the repo root
+_REPO_ROOT = Path(__file__).resolve().parents[3]
 
 
 # Root directory (relative to repository root)
@@ -18,3 +25,12 @@ REL_TEMPLATES_DIR = os.path.join(REL_TRANSCEIVER_INV_DIR, 'templates')
 # Files
 REL_DUT_INFO_FILE = os.path.join(REL_TRANSCEIVER_INV_DIR, 'dut_info.json')
 REL_DEPLOYMENT_TEMPLATES_FILE = os.path.join(REL_TEMPLATES_DIR, 'deployment_templates.json')
+
+
+def get_repo_root():
+    """Get the repository root directory as a Path object.
+
+    Returns:
+        Path: Repository root directory
+    """
+    return _REPO_ROOT
