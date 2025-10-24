@@ -72,9 +72,9 @@ def wait_for_all_dpus_online(duthost, timeout=600, interval=5, allow_partial=Tru
 
     desired = ["online", "partial online"] if allow_partial else "online"
     if allow_partial:
-        logger.info("Waiting for all DPUs to be Online or Partial Online")
+        logger.info(f"Waiting for all DPUs to be Online or Partial Online on {duthost.hostname}")
     else:
-        logger.info("Waiting for all DPUs to be Online")
+        logger.info(f"Waiting for all DPUs to be Online on {duthost.hostname}")
 
     return wait_for_all_dpus_status(duthost, desired, timeout=timeout, interval=interval)
 
@@ -107,6 +107,18 @@ def _copy_files_to_dut(duthost, local_files, remote_dir):
         duthost.copy(src=lf, dest=remote_dir)
 
 
+def _check_files_copied(duthost):
+    logger.info("Checking DPU files copied to DUT")
+    output = duthost.shell('ls /tmp/dpu_configs/dpu0/ | wc -l')['stdout']
+
+    return output.strip()
+
+
+def _duplicate_dpu_config(duthost, remote_dir, dpu_index):
+    logger.info("Duplicating DPU config files for HA test case")
+    duthost.shell(f"cp /tmp/dpu_configs/dpu0/* {remote_dir}/")
+
+
 def _iter_dpu_config_files(dpu_index, local_dir):
 
     logger.info(f"Iterating through dpu_config files for DPU {dpu_index}")
@@ -118,8 +130,93 @@ def _iter_dpu_config_files(dpu_index, local_dir):
     return False
 
 
-def _set_routes_on_dut(duthost, local_files, local_dir, dpu_index):
+def _get_dpu0_lf(local_dir):
 
+    dpu_index = 0
+    subdir = os.path.join(local_dir, f"dpu{dpu_index}")
+
+    if os.path.isdir(subdir):
+        return sorted(glob.glob(os.path.join(subdir, "*.json")))
+
+    return False
+
+
+def set_ha_roles(duthosts, duthost):
+
+    if duthost == duthosts[0]:
+        # Active side
+        logger.info("Setting up HA creation Active side")
+        active_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0
+        version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0
+        vdpu_ids '["vdpu0_0","vdpu1_0"]'
+        """
+        active_cmd2 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id
+        "haset0_0" owner "dpu"
+        """
+        duthost.shell(active_cmd1)
+        duthost.shell(active_cmd2)
+    else:
+        # Standby side
+        logger.info("Setting up HA creation Standby side")
+        standby_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0"
+        preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]'
+        """
+        standby_cmd2 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified"
+        ha_set_id "haset0_0" owner "dpu"
+        """
+        duthost.shell(standby_cmd1)
+        duthost.shell(standby_cmd2)
+
+    return
+
+
+def set_ha_admin_up(duthosts, duthost):
+
+    if duthost == duthosts[0]:
+        # Active side
+        logger.info("Setting up HA admin up Active side")
+        active_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false"
+        desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"
+        """
+        duthost.shell(active_cmd1)
+    else:
+        # Standby side
+        logger.info("Setting up HA admin up Standby side")
+        standby_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state
+        "unspecified" ha_set_id "haset0_0" owner "dpu"
+        """
+        duthost.shell(standby_cmd1)
+
+    return
+
+
+def set_ha_activate_role(duthosts, duthost):
+
+    # NEED search for approved_pending_operation_ids
+    if duthost == duthosts[0]:
+        # Active side
+        active_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active"
+        ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"a42b53b4-d1a3-43a1-afc7-df210c2cdee4\"]
+        """
+        duthost.shell(active_cmd1)
+    else:
+        # Standby side
+        standby_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
+        DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified"
+        ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"fcfbeae8-ed5a-4fb3-a9cc-fda7fdcffbe3\"]
+        """
+        duthost.shell(standby_cmd1)
+
+    return
+
+
+def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_test_case):
     logger.info(f"Preparing to load DPU configs on DUT for dpu_index={dpu_index}")
     username = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_user']
     password = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_password']
@@ -130,79 +227,163 @@ def _set_routes_on_dut(duthost, local_files, local_dir, dpu_index):
         'password': f'{password}',
     }
 
-    target_ip = f'18.{dpu_index}.202.1'
+    if ha_test_case != "cps":
+        if len(duthosts) > 1:
+            if duthost == duthosts[1]:
+                target_ip = '169.254.200.1'
+        else:
+            target_ip = f'18.{dpu_index}.202.1'
+    else:
+        target_ip = f'18.{dpu_index}.202.1'
     target_username = 'admin'
-    target_password = 'password'
+    target_password = 'YourPaSsWoRd'
+
     # Connect to jump host
     net_connect_jump = ConnectHandler(**jump_host)
-    # SSH from jump host to target device
-    net_connect_jump.write_channel(f"ssh -o StrictHostKeyChecking=no {target_username}@{target_ip}\n")
-    time.sleep(3)  # Allow time for prompt
-    net_connect_jump.write_channel(f"{target_password}\n")
-    time.sleep(3)  # Allow time for login
-    # Execute commands on target device
-    output = net_connect_jump.set_base_prompt(alt_prompt_terminator="$")
-    logger.info(output)
-    output = net_connect_jump.send_command('show version')
-    logger.info(output)
 
-    output = net_connect_jump.send_command('show ip route')
-    logger.info(output)
+    # SSH from jump host to target device using proper netmiko method
+    # First, create the SSH command
+    ssh_command = f"ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null {target_username}@{target_ip}"
 
-    found = False
-    if 'S>*0.0.0.0/0' in output:
-        found = True
+    try:
+        # Use send_command_timing to handle the password prompt
+        net_connect_jump.write_channel(f"{ssh_command}\n")
+        time.sleep(2)  # Wait for password prompt
 
-    if found is False:
-        output = net_connect_jump.send_command('sudo ip route del 0.0.0.0/0 via 169.254.200.254')
-        logger.info(output)
-        output = net_connect_jump.send_command('sudo config route del prefix 0.0.0.0/0 via 169.254.200.254')
-        logger.info(output)
-        time.sleep(1)
-        logger.info(f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
-        output = net_connect_jump.send_command(
-            f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
-        logger.info(output)
-        output = net_connect_jump.send_command('show ip route')
-        logger.info(output)
+        # Check if we got a password prompt
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} SSH output: {output}")
 
-    output = net_connect_jump.send_command('show ip interfaces')
-    found = False
-    for line in output:
-        if 'Loopback0' in line.strip('\n'):
-            found = True
-            break
-    if found is False:
-        logger.info(f'sudo config interface ip add Loopback0 221.0.0.{dpu_index + 1}')
-        output = net_connect_jump.send_command(
-            f'sudo config interface ip add Loopback0 221.0.0.{dpu_index + 1}')
-        logger.info(output)
-        output = net_connect_jump.send_command('show ip interfaces')
-        logger.info(output)
+        if 'password' in output.lower():
+            net_connect_jump.write_channel(f"{target_password}\n")
+            time.sleep(3)  # Wait for login to complete
 
-    output = net_connect_jump.send_command('show ip interfaces')
-    logger.info(output)
-    found = False
-    for line in output:
-        if 'Loopback1' in line.strip('\n'):
-            found = True
-            break
-    if found is False:
-        logger.info(f'sudo config interface ip add Loopback1 221.0.{dpu_index + 1}.{dpu_index + 1}')
-        output = net_connect_jump.send_command(
-            f'sudo config interface ip add Loopback1 221.0.{dpu_index + 1}.{dpu_index + 1}')
-        logger.info(output)
+        # Clear the buffer and set the base prompt
+        output = net_connect_jump.read_channel()
+        logger.info(f"{duthost.hostname} Login output: {output}")
 
-    output = net_connect_jump.send_command('show ip interfaces')
-    logger.info(output)
-    output = net_connect_jump.send_command('show ip route')
-    logger.info(output)
-    output = net_connect_jump.send_command('sudo arp -a')
-    logger.info(output)
+        # Now use send_command_timing instead of send_command for better compatibility
+        logger.info(f"{duthost.hostname} Execute on DPU Target - Connected")
 
-    # Disconnect from target and then jump host
-    net_connect_jump.write_channel('exit')  # Exit target device session
-    net_connect_jump.disconnect()
+        output = net_connect_jump.send_command_timing('show version', delay_factor=2)
+        logger.info(f"{duthost.hostname} Execute on DPU Target {output}")
+
+        output = net_connect_jump.send_command_timing('show ip route', delay_factor=2)
+        logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+
+        if ha_test_case == "cps":
+
+            found = False
+            if 'S>*0.0.0.0/0' in output:
+                found = True
+
+            if found is False:
+                output = net_connect_jump.send_command_timing('sudo ip route del 0.0.0.0/0 via 169.254.200.254',
+                                                              delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+                output = net_connect_jump.send_command_timing(
+                    'sudo config route del prefix 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+                time.sleep(1)
+                logger.info(f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
+                output = net_connect_jump.send_command_timing(
+                    f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0', delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+                output = net_connect_jump.send_command_timing('show ip route', delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+
+            output = net_connect_jump.send_command_timing('show ip interfaces', delay_factor=2)
+            found = False
+            for line in output.split('\n'):
+                if 'Loopback0' in line.strip():
+                    found = True
+                    break
+            if found is False:
+                logger.info(f'sudo config interface ip add Loopback0 221.0.0.{dpu_index + 1}')
+                output = net_connect_jump.send_command_timing(
+                    f'sudo config interface ip add Loopback0 221.0.0.{dpu_index + 1}', delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+                output = net_connect_jump.send_command_timing('show ip interfaces', delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+
+            output = net_connect_jump.send_command_timing('show ip interfaces', delay_factor=2)
+            logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+            found = False
+            for line in output.split('\n'):
+                if 'Loopback1' in line.strip():
+                    found = True
+                    break
+            if found is False:
+                logger.info(f'sudo config interface ip add Loopback1 221.0.{dpu_index + 1}.{dpu_index + 1}')
+                output = net_connect_jump.send_command_timing(
+                    f'sudo config interface ip add Loopback1 221.0.{dpu_index + 1}.{dpu_index + 1}', delay_factor=2)
+                logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+
+            output = net_connect_jump.send_command_timing('show ip interfaces', delay_factor=2)
+            logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+            output = net_connect_jump.send_command_timing('show ip route', delay_factor=2)
+            logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+            output = net_connect_jump.send_command_timing('sudo arp -a', delay_factor=2)
+            logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
+        else:
+            # Not a CPS test
+            if dpu_index == 0:
+                if len(duthosts) > 1 and duthost == duthosts[1]:
+                    # DPU1 initial standby side
+                    logger.info(f'Restarting hamgrd on {duthost.hostname}: docker restart dash-hadpu0')
+                    duthost.shell("docker restart dash-hadpu0")
+                    logger.info(f'Removing interface from {duthost.hostname}: '
+                                f'sudo config interface ip rem Ethernet0 18.0.202.1/31')
+                    output = net_connect_jump.send_command_timing(
+                        'sudo config interface ip rem Ethernet0 18.0.202.1/31', delay_factor=2)
+                    logger.info(
+                        f'Deleting route on {duthost.hostname}: sudo ip route del 0.0.0.0/0 via 169.254.200.254')
+                    output = net_connect_jump.send_command_timing(
+                        'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
+                    logger.info(
+                        f'Adding route on {duthost.hostname}: '
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.202.0')
+                    output = net_connect_jump.send_command_timing(
+                        'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.202.0', delay_factor=2)
+                    logger.info(
+                        f'Adding to arp table on {duthost.hostname}: sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10')  # noqa:  E231
+                    output = net_connect_jump.send_command_timing(
+                        'sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10', delay_factor=2)
+                    logger.info(
+                        f'Pinging standby side loopback intf from {duthost.hostname}: '
+                        f'sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10')  # noqa:  E231
+                    output_ping = duthost.command("ping -c 3 220.0.4.1", module_ignore_errors=True)
+
+                else:
+                    # DPU0 initial active side
+                    logger.info(f'Restarting hamgrd on {duthost.hostname}: docker restart dash-hadpu0')
+                    duthost.shell("docker restart dash-hadpu0")
+                    logger.info(f'Deleting route on {duthost.hostname}: '
+                                f'sudo ip route del 0.0.0.0/0 via 169.254.200.254')
+                    output = net_connect_jump.send_command_timing(
+                        'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
+                    logger.info(f'Adding route on {duthost.hostname}: '
+                                f'sudo config route add prefix 0.0.0.0/0 nexthop 18.0.202.0')
+                    output = net_connect_jump.send_command_timing(
+                        'sudo config route add prefix 0.0.0.0/0 nexthop 18.0.202.0', delay_factor=2)
+                    logger.info(
+                        f'Adding to arp table on {duthost.hostname}: sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11')  # noqa:  E231
+                    output = net_connect_jump.send_command_timing(
+                        'sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11', delay_factor=2)
+                    logger.info(
+                        f'Pinging active side loopback intf from {duthost.hostname}: sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11')  # noqa:  E231
+                    output_ping = duthost.command("ping -c 3 220.0.4.2", module_ignore_errors=True)  # noqa: F841
+    except Exception as e:
+        logger.error(f"{duthost.hostname} Error during DPU configuration: {str(e)}")
+        raise
+    finally:
+        # Disconnect from target and then jump host
+        try:
+            net_connect_jump.write_channel('exit\n')  # Exit target device session
+            time.sleep(1)
+        except Exception:
+            pass
+        net_connect_jump.disconnect()
 
     if not local_files:
         if not local_dir:
@@ -215,7 +396,8 @@ def _set_routes_on_dut(duthost, local_files, local_dir, dpu_index):
         local_files = _iter_dpu_config_files(dpu_index, local_dir)
 
     if not local_files:
-        logger.info("No matching JSON files found to load for this DPU; skipping.")
+        logger.info(f"No matching JSON files found to load for this DPU; skipping on DUT "  # noqa: E702
+                    f"{duthost.hostname}.")
         return
 
     return local_files, local_dir
@@ -223,7 +405,8 @@ def _set_routes_on_dut(duthost, local_files, local_dir, dpu_index):
 
 def _docker_run_config_on_dut(duthost, remote_dir, dpu_index, remote_basename):
 
-    logger.info(f"Docker run config for DPU{dpu_index}")
+    logger.info(f"{duthost.hostname} Docker run config for DPU{dpu_index}, remote_dir={remote_dir}, "
+                f"remote_basename={remote_basename}")
 
     cmd = (
         "docker run --rm --network host "
@@ -240,6 +423,7 @@ def _docker_run_config_on_dut(duthost, remote_dir, dpu_index, remote_basename):
 
 
 def load_dpu_configs_on_dut(
+        duthosts,
         duthost,
         dpu_index,
         passing_dpus,
@@ -247,13 +431,14 @@ def load_dpu_configs_on_dut(
         local_files=None,
         remote_dir="/tmp/dpu_configs",
         initial_delay_sec=20,
-        retry_delay_sec=10
+        retry_delay_sec=10,
+        ha_test_case=None
 ):
     """
     Load DPU config JSONs by running gnmi_client in a Docker container on the DUT.
     """
 
-    local_files, local_dir = _set_routes_on_dut(duthost, local_files, local_dir, dpu_index)
+    local_files, local_dir = _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_test_case)
     remote_dir = f"{remote_dir}/dpu{dpu_index}"
     _ensure_remote_dir_on_dut(duthost, remote_dir)
     _telemetry_run_on_dut(duthost)
@@ -263,7 +448,7 @@ def load_dpu_configs_on_dut(
     for lf in local_files:
         if dpu_index in passing_dpus:
             rb = os.path.basename(lf)
-            logger.info(f"Loading {lf} on DUT")
+            logger.info(f"Loading {lf} on DUT {duthost.hostname}")
             res = _docker_run_config_on_dut(duthost, remote_dir, dpu_index, rb)
             out = res.get("stdout", "")
             err = res.get("stderr", "")
@@ -278,7 +463,7 @@ def load_dpu_configs_on_dut(
             time.sleep(delay)
             delay = 2
 
-    logger.info("Finished loading all DPU configs on DUT")
+    logger.info(f"Finished loading all DPU configs on DUT {duthost.hostname}")
 
 
 def duthost_port_config(duthost):
@@ -354,9 +539,9 @@ def npu_startup(duthost, localhost):
         logger.info("Issuing a {} on the dut {}".format(
             "reboot", duthost.hostname))
         duthost.shell("shutdown -r now")
-        logger.info("Waiting for dut ssh to start".format())
+        logger.info(f"Waiting for dut ssh to start on {duthost.hostname}")
         localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=timeout)
-        wait(wait_time, msg="Wait for system to be stable.")
+        wait(wait_time, msg=f"Wait for system to be stable on DUT {duthost.hostname}.")
 
         logger.info("Moving next to DPU config")
 
@@ -366,49 +551,66 @@ def npu_startup(duthost, localhost):
 
         if dpus_online_result is False:
             retries -= 1
-            logger.info("DPU boot failed, not all DPUs are online")
-            logger.info(f"Will retry boot, number of retries left: {retries}")
+            logger.info(f"DPU boot failed, not all DPUs are online on {duthost.hostname}")
+            logger.info(f"Will retry boot, number of retries left on {duthost.hostname}: {retries}")
             if retries == 0:
                 return False
         else:
-            logger.info("DPU boot successful")
+            logger.info(f"DPU boot successful on {duthost.hostname}")
             break
 
     return True
 
 
-def dpu_startup(duthost, static_ipmacs_dict):
+def dpu_startup(duthosts, duthost, static_ipmacs_dict, ha_test_case):
 
-    logger.info("Pinging each DPU")
+    logger.info(f"Pinging each DPU on {duthost.hostname}")
     dpuIFKeys = [k for k in static_ipmacs_dict['static_ips'] if k.startswith("221.0")]
     passing_dpus = []
     for x, ipKey in enumerate(dpuIFKeys):
-        logger.info(f"Pinging DPU{x}: {static_ipmacs_dict['static_ips'][ipKey]}")
+        logger.info(f"On {duthost.hostname} pinging DPU{x}: {static_ipmacs_dict['static_ips'][ipKey]}")
         output_ping = duthost.command(f"ping -c 3 {static_ipmacs_dict['static_ips'][ipKey]}", module_ignore_errors=True)
         if output_ping.get("rc", 1) == 0 and "0% packet loss" in output_ping.get("stdout", ""):
-            logger.info("Ping success")
+            logger.info(f"Ping success on {duthost.hostname}")
             passing_dpus.append(x)
             pass
         else:
-            logger.info("Ping failure")
+            logger.info(f"Ping failure on {duthost.hostname}")
             pass
-    logger.info("DPU config loading DPUs, passing_dpus: {}".format(passing_dpus))
     remote_dir = "/tmp/dpu_configs"
     initial_delay_sec = 20
     retry_delay_sec = 10
 
     errors = {}
+
+    """
+    if ha_test_case != "cps":
+        max_workers = 2
+        required_dpus = [0, 2]
+        if all(dpu in passing_dpus for dpu in required_dpus):
+            passing_dpus = required_dpus
+        else:
+            passing_dpus = []
+            return passing_dpus
+    else:
+        max_workers = min(8, max(1, len(passing_dpus)))
+    """
+
+    # max_workers = min(8, max(1, len(passing_dpus)))
     max_workers = min(8, max(1, len(passing_dpus)))
+    logger.info("{} DPU config loading DPUs, passing_dpus: {}".format(duthost.hostname, passing_dpus))
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         fm = {
             executor.submit(
                 load_dpu_configs_on_dut,
+                duthosts=duthosts,
                 duthost=duthost,
                 dpu_index=target_dpu_index,
                 passing_dpus=passing_dpus,
                 remote_dir=remote_dir,
                 initial_delay_sec=initial_delay_sec,
-                retry_delay_sec=retry_delay_sec
+                retry_delay_sec=retry_delay_sec,
+                ha_test_case=ha_test_case
             ): target_dpu_index
             for target_dpu_index in passing_dpus
         }
@@ -417,13 +619,13 @@ def dpu_startup(duthost, static_ipmacs_dict):
             idx = fm[future]
             try:
                 _ = future.result()  # load_dpu_configs_on_dut returns None on success
-                logger.info(f"DPU{idx}: configuration load completed")
+                logger.info(f"DPU{idx}: configuration load completed on {duthost.hostname}")
             except Exception as e:
-                logger.error(f"DPU{idx}: configuration load failed: {e}")
+                logger.error(f"DPU{idx}: configuration load failed: {e} on {duthost.hostname}")
                 errors[idx] = str(e)
 
     if errors:
-        logger.error(f"One or more DPUs failed: {errors}")
+        logger.error(f"One or more DPUs failed on {duthost.hostname}: {errors}")
         return False
 
     return True, passing_dpus
@@ -506,9 +708,8 @@ def create_ip_list(nw_config):
 
     ip_list = []
 
-    # ENI_COUNT = 1  # Change when scale up
-    ENI_COUNT = nw_config.ENI_COUNT  # Change when scale up
-    logger.info("ENI_COUNT = {}".format(ENI_COUNT))
+    ENI_COUNT = nw_config.ENI_COUNT
+    logger.info("Creating an ENI_COUNT = {} for l47 trafficgen".format(ENI_COUNT))
 
     for eni in range(nw_config.ENI_START, ENI_COUNT + 1):
         ip_dict_temp = {}
@@ -997,7 +1198,7 @@ def l47_trafficgen_main(ports_list, connection_dict, nw_config, test_type, test_
     logger.info("Finished timeline configurations {}".format(test_timeline_finish - test_timeline_time))
 
     # save file
-    logger.info("Saving Test File")
+    # logger.info("Saving Test File")
     test_save_time = time.time()  # noqa: F841
     test_save_finish_time = time.time()  # noqa: F841
     # logger.info("Finished saving: {}".format(test_save_finish_time - test_save_time))
