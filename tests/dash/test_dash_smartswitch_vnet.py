@@ -6,7 +6,7 @@ import time
 
 from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF
 from gnmi_utils import apply_gnmi_file
-from dash_utils import render_template_to_host, apply_swssconfig_file, set_vxlan_udp_sport_range_util
+from dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.dash.conftest import get_interface_ip
 from tests.common import config_reload
 
@@ -25,11 +25,6 @@ pytestmark = [
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
-
-
-@pytest.fixture(scope="module")
-def set_vxlan_udp_sport_range_vnet(dpuhosts, dpu_index):
-    set_vxlan_udp_sport_range_util(dpuhosts, dpu_index)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -82,8 +77,7 @@ def common_setup_teardown(
         skip_config,
         dpuhosts,
         add_npu_static_routes_vnet,
-        dpu_setup_vnet,
-        set_vxlan_udp_sport_range_vnet):
+        dpu_setup_vnet):
     if skip_config:
         return
 
