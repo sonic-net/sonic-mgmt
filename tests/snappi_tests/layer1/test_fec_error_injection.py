@@ -1,15 +1,8 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.helper import (
-    get_duthost_vlan_details,
-    create_snappi_config,
-    get_fanout_port_groups,
-    set_primary_chassis,
-    create_traffic_items,
-    start_stop,
-    get_stats,
-)     # noqa: F401, F05
+from snappi_tests.dataplane.files.helper import get_duthost_bgp_details, create_snappi_config, \
+    get_fanout_port_groups, set_primary_chassis, create_traffic_items, start_stop, get_stats    # noqa: F401, F405
 
-pytestmark = [pytest.mark.topology("tgen")]
+pytestmark = [pytest.mark.topology("'multidut-tgen', 'tgen', 'nut")]
 logger = logging.getLogger(__name__)  # noqa: F405
 
 """
@@ -35,7 +28,7 @@ ErrorTypes = [
 
 @pytest.mark.parametrize("fanout_per_port", [2])
 @pytest.mark.parametrize("error_type", ErrorTypes)
-@pytest.mark.parametrize("subnet_type", ["IPv4"])
+@pytest.mark.parametrize("subnet_type", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [20])
 @pytest.mark.parametrize("frame_size", [1024])
 def test_fec_error_injection(
@@ -59,7 +52,7 @@ def test_fec_error_injection(
     Note: Not supported for speed mode 8x100G
     """
     snappi_extra_params = SnappiTestParams()
-    snappi_ports = get_duthost_vlan_details(duthosts, get_snappi_ports)
+    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
     fanout_port_group_list = get_fanout_port_groups(snappi_ports, fanout_per_port)
     for iteration, fanout_port_group in enumerate(fanout_port_group_list):
         logger.info("|----------------------------------------|")
@@ -83,13 +76,13 @@ def test_fec_error_injection(
         logger.info("\n")
         snappi_extra_params.protocol_config = {
             "Tx": {
-                "protocol_type": "vlan",
+                "protocol_type": "bgp",
                 "ports": Tx_ports,
                 "subnet_type": subnet_type,
                 "is_rdma": False,
             },
             "Rx": {
-                "protocol_type": "vlan",
+                "protocol_type": "bgp",
                 "ports": Rx_ports,
                 "subnet_type": subnet_type,
                 "is_rdma": False,
