@@ -104,7 +104,7 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     sfp_presence_output = dut.show_and_parse("show interfaces transceiver presence")
-    logging.info("SFP presence: {sfp_presence_output}")
+    logging.info(f"SFP presence: {sfp_presence_output}")
     sfp_presence_dict = {entry['port']: entry.get('presence', '').lower() for entry in sfp_presence_output}
 
     for intf in interfaces:
