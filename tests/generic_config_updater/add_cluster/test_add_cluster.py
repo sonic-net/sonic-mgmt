@@ -59,6 +59,193 @@ def verify_bgp_peers_removed_from_asic(duthost, namespace):
 # -----------------------------
 # Helper functions that modify configuration via apply-patch
 # -----------------------------
+def remove_cluster_via_sonic_db_cli(config_facts,
+                                    config_facts_localhost,
+                                    mg_facts,
+                                    duthost,
+                                    enum_rand_one_asic_namespace,
+                                    cli_namespace_prefix):
+    """
+    Remove cluster information directly from CONFIG_DB using sonic-db-cli commands,
+    bypassing YANG validation but safely and persistently.
+
+    Performs same cleanup as apply_patch_remove_cluster:
+    - ACL_TABLE
+    - BGP_NEIGHBOR
+    - DEVICE_NEIGHBOR
+    - DEVICE_NEIGHBOR_METADATA
+    - PORTCHANNEL
+    - PORTCHANNEL_INTERFACE
+    - PORTCHANNEL_MEMBER
+    - INTERFACE
+    - BUFFER_PG
+    - CABLE_LENGTH
+    - PORT_QOS_MAP
+    - PORT
+    """
+
+    json_namespace = '' if enum_rand_one_asic_namespace is None else enum_rand_one_asic_namespace
+    logger.info(f"Starting cluster removal for ASIC namespace: {json_namespace}")
+
+    active_interfaces = get_active_interfaces(config_facts)
+    success = True
+
+    def run_and_check(ns, cmd, desc):
+        """Run a shell command on DUT and check for success."""
+        logger.info(f"[{ns}] {desc}: {cmd}")
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        if res["rc"] != 0:
+            logger.warning(f"[WARN] Command failed: {cmd}\nstdout: {res['stdout']}\nstderr: {res['stderr']}")
+            return False
+        return True
+
+    ######################
+    # ASIC NAMESPACE
+    ######################
+    if json_namespace:
+        logger.info(f"Cleaning up ASIC namespace: {json_namespace}")
+
+        # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
+        for table in ["BGP_NEIGHBOR", "DEVICE_NEIGHBOR", "DEVICE_NEIGHBOR_METADATA"]:
+            cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' \
+                | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+            run_and_check(json_namespace, cmd, f"Clearing table {table}")
+
+        # INTERFACE
+        asic_interface_keys = []
+        for interface_key in config_facts["INTERFACE"].keys():
+            if interface_key.startswith("Ethernet-Rec"):
+                continue
+            asic_interface_keys.append(interface_key)
+            for key, _value in config_facts["INTERFACE"][interface_key].items():
+                asic_interface_keys.append(interface_key + '|' + key)
+        for iface in asic_interface_keys:
+            run_and_check(json_namespace,
+                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
+                          f"Deleting INTERFACE {iface}")
+
+        # PORTCHANNEL_INTERFACE, PORTCHANNEL_MEMBER
+        for table in ["PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER"]:
+            cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*' \
+                | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+            run_and_check(json_namespace, cmd, f"Clearing table {table}")
+
+        # ACL
+        for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
+            cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@"
+            run_and_check(json_namespace, cmd, f"Removing ACL_TABLE {acl_table} ports")
+
+        # PORTCHANNEL
+        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys 'PORTCHANNEL*' \
+            | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+        run_and_check(json_namespace, cmd, "Clearing table PORTCHANNEL")
+
+        # CABLE_LENGTH
+        initial = config_facts["CABLE_LENGTH"]["AZURE"]
+        lowest = min(int(v.rstrip("m")) for v in initial.values())
+        for iface in active_interfaces:
+            run_and_check(json_namespace,
+                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset \
+                            'CABLE_LENGTH|AZURE' {iface} '{lowest}m'",
+                          f"Set cable length for {iface}"
+                          )
+        # PORT
+        for iface in active_interfaces:
+            run_and_check(json_namespace,
+                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB hset 'PORT|{iface}' admin_status down",
+                          f"Set {iface} admin down")
+        # BUFFER_PG
+        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys 'BUFFER_PG*' \
+            | xargs -r -n1 sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del"
+        run_and_check(json_namespace, cmd, "Clearing table BUFFER_PG")
+
+        # PORT_QOS_MAP
+        for iface in active_interfaces:
+            run_and_check(json_namespace,
+                          f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'PORT_QOS_MAP|{iface}'",
+                          f"Deleting PORT_QOS_MAP for {iface}")
+
+    ######################
+    # LOCALHOST NAMESPACE
+    ######################
+    logger.info("Cleaning up localhost namespace")
+    # BGP_NEIGHBOR
+    for entry in config_facts["BGP_NEIGHBOR"].keys():
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB del 'BGP_NEIGHBOR|{entry}'",
+                      f"Deleting localhost BGP_NEIGHBOR {entry}")
+    # DEVICE_NEIGHBOR_METADATA
+    for entry in config_facts["DEVICE_NEIGHBOR_METADATA"].keys():
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{entry}'",
+                      f"Deleting localhost DEVICE_NEIGHBOR_METADATA {entry}")
+    # INTERFACE
+    localhost_interface_keys = []
+    for key in asic_interface_keys:
+        if key.startswith('Ethernet-Rec'):
+            continue
+        parts = key.split('|')
+        key_to_remove = key
+        if len(parts) == 2:
+            port = parts[0]
+            alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
+            key_to_remove = "{}|{}".format(alias, parts[1])
+        else:
+            key_to_remove = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
+        localhost_interface_keys.append(key_to_remove)
+    for iface in localhost_interface_keys:
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB del 'INTERFACE|{iface}'",
+                      f"Deleting localhost INTERFACE {iface}")
+    # PORTCHANNEL_INTERFACE
+    for entry in config_facts["PORTCHANNEL_INTERFACE"].keys():
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry}'",
+                      f"Deleting localhost PORTCHANNEL_INTERFACE {entry}")
+    # PORTCHANNEL_MEMBER
+    pc_keys = config_facts["PORTCHANNEL"].keys()
+    localhost_pc_member_dict = config_facts_localhost["PORTCHANNEL_MEMBER"]
+    localhost_pc_member_keys = []
+    for pc_key in pc_keys:
+        if pc_key in localhost_pc_member_dict:
+            for key, _value in localhost_pc_member_dict[pc_key].items():
+                key_to_remove = pc_key + '|' + key
+                localhost_pc_member_keys.append(key_to_remove)
+    for entry in localhost_pc_member_keys:
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_MEMBER|{entry}'",
+                      f"Deleting localhost PORTCHANNEL_MEMBER {entry}")
+    # ACL localhost - need to remove only the entries from asic namespace
+    for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
+                      f"Removing localhost ACL_TABLE {acl_table} ports")
+    # PORTCHANNEL
+    for entry in config_facts["PORTCHANNEL"].keys():
+        run_and_check("localhost",
+                      f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{entry}'",
+                      f"Deleting localhost PORTCHANNEL {entry}")
+
+    # Partial Verification
+    logger.info("Verifying that asic tables were cleared...")
+    tables_to_check = [
+        "BGP_NEIGHBOR", "DEVICE_NEIGHBOR", "DEVICE_NEIGHBOR_METADATA",
+        "PORTCHANNEL_INTERFACE", "PORTCHANNEL_MEMBER", "PORTCHANNEL"
+    ]
+    for table in tables_to_check:
+        cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys '{table}*'"
+        res = duthost.shell(cmd, module_ignore_errors=True)
+        if res["stdout"].strip():
+            logger.warning(f"{table} still contains entries: {res['stdout']}")
+            success = False
+        else:
+            logger.info(f"{table} is empty")
+
+    if success:
+        logger.info("Cluster removal completed successfully.")
+    else:
+        logger.warning("Cluster removal incomplete — verification failure.")
+
 
 def apply_patch_remove_cluster(config_facts,
                                config_facts_localhost,
@@ -127,11 +314,15 @@ def apply_patch_remove_cluster(config_facts,
         },
         {
             "op": "remove",
+            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE"
+        },
+        {
+            "op": "remove",
             "path": f"{json_namespace}/PORTCHANNEL_MEMBER"
         },
         {
             "op": "remove",
-            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE"
+            "path": f"{json_namespace}/PORTCHANNEL"
         },
         {
             "op": "remove",
@@ -255,9 +446,9 @@ def apply_patch_remove_cluster(config_facts,
     localhost_paths_to_remove = ["/localhost/BGP_NEIGHBOR/",
                                  "/localhost/DEVICE_NEIGHBOR_METADATA/",
                                  "/localhost/INTERFACE/",
-                                 "/localhost/PORTCHANNEL/",
+                                 "/localhost/PORTCHANNEL_INTERFACE/",
                                  "/localhost/PORTCHANNEL_MEMBER/",
-                                 "/localhost/PORTCHANNEL_INTERFACE/"
+                                 "/localhost/PORTCHANNEL/"
                                  ]
 
     localhost_keys_to_remove = [
@@ -335,6 +526,29 @@ def apply_patch_add_cluster(config_facts,
 
     # find active ports
     active_interfaces = get_active_interfaces(config_facts)
+
+    # PORTCHANNEL info needs to be added in separate gcu apply operation
+    # https://github.com/sonic-net/sonic-buildimage/issues/24338
+    if pc_dict:
+        json_patch_pc = [
+            {
+                "op": "add",
+                "path": f"{json_namespace}/PORTCHANNEL",
+                "value": pc_dict
+            },
+            {
+                "op": "add",
+                "path": "/localhost/PORTCHANNEL",
+                "value": pc_dict
+            }
+        ]
+        tmpfile_pc = generate_tmpfile(duthost)
+        try:
+            output = apply_patch(duthost, json_data=json_patch_pc, dest_file=tmpfile_pc)
+            expect_op_success(duthost, output)
+        finally:
+            delete_tmpfile(duthost, tmpfile_pc)
+            pass
 
     # op: add
     json_patch_asic = [
@@ -619,9 +833,10 @@ def initialize_random_variables(enum_downstream_dut_hostname,
                                 enum_rand_one_frontend_asic_index,
                                 enum_rand_one_asic_namespace,
                                 ip_netns_namespace_prefix,
+                                cli_namespace_prefix,
                                 rand_bgp_neigh_ip_name):
     return enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, rand_bgp_neigh_ip_name
+        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, rand_bgp_neigh_ip_name
 
 
 @pytest.fixture(scope="function")
@@ -638,8 +853,7 @@ def setup_add_cluster(tbinfo,
                       initialize_random_variables,
                       initialize_facts,
                       ptfadapter,
-                      acl_config_scenario,
-                      setup_static_route):
+                      acl_config_scenario):
     """
     This setup fixture prepares the Downstream LC by applying a patch to remove
     and then re-add the cluster configuration.
@@ -668,7 +882,8 @@ def setup_add_cluster(tbinfo,
 
     # initial test env
     enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, rand_bgp_neigh_ip_name = initialize_random_variables
+        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
+        rand_bgp_neigh_ip_name = initialize_random_variables
     mg_facts, config_facts, config_facts_localhost = initialize_facts
     duthost = duthosts[enum_downstream_dut_hostname]
     duthost_src = duthosts[enum_upstream_dut_hostname]
@@ -688,17 +903,26 @@ def setup_add_cluster(tbinfo,
         )
     )
     initial_buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
-
     with allure.step("Data Verification before removing cluster"):
         send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
                                 ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
 
     with allure.step("Removing cluster info for namespace"):
-        apply_patch_remove_cluster(config_facts,
-                                   config_facts_localhost,
-                                   mg_facts,
-                                   duthost,
-                                   enum_rand_one_asic_namespace)
+        if len(config_facts["BUFFER_PG"]) <= 6:  # num of active interfaces = num of pg lossless profiles
+            logger.info("Removal method gcu - min setup.")
+            apply_patch_remove_cluster(config_facts,
+                                       config_facts_localhost,
+                                       mg_facts,
+                                       duthost,
+                                       enum_rand_one_asic_namespace)
+        else:
+            logger.info("Removal method sonic-db-cli - mid-max setup.")
+            remove_cluster_via_sonic_db_cli(config_facts,
+                                            config_facts_localhost,
+                                            mg_facts,
+                                            duthost,
+                                            enum_rand_one_asic_namespace,
+                                            cli_namespace_prefix)
         # Verify routes removed
         wait_until(5, 1, 0, verify_routev4_existence, duthost,
                    enum_rand_one_frontend_asic_index, bgp_neigh_ip, should_exist=False)
@@ -747,6 +971,7 @@ def test_add_cluster(tbinfo,
                      initialize_random_variables,
                      ptfadapter,
                      acl_config_scenario,
+                     cli_namespace_prefix,
                      setup_add_cluster):
     """
     Validates the functionality of the Downstream Linecard after adding a cluster.
