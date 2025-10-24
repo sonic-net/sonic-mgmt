@@ -24,7 +24,7 @@ def generate_ips(num, prefix, exclude_ips):
     return generated_ips
 
 
-def route_through_default_routes(host, ip_addr):
+def route_through_default_routes(host, ip_addr, ip_ver):
     """
     @summary: Check if a given ip targets to default route
     @param host: The duthost
@@ -56,7 +56,7 @@ def generate_ip_through_default_route(host, exclude_ips=None):
     exclude_ips = exclude_ips if exclude_ips is not None else []
     for leading in range(11, 255):
         ip_addr = generate_ips(1, "{}.0.0.1/24".format(leading), exclude_ips)[0]
-        if route_through_default_routes(host, ip_addr):
+        if route_through_default_routes(host, ip_addr, 4):
             return ip_addr
     return None
 
@@ -71,6 +71,6 @@ def generate_ip_through_default_v6_route(host, exclude_ips=None):
     exclude_ips = exclude_ips if exclude_ips is not None else []
     for random_byte in range(0, 9):
         ip_addr = generate_ips(1, "2603:10b{}::1/120".format(random_byte), exclude_ips)[0]
-        if route_through_default_routes(host, ip_addr):
+        if route_through_default_routes(host, ip_addr, 6):
             return ip_addr
     return None
