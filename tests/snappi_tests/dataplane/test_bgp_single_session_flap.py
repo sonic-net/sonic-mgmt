@@ -6,16 +6,9 @@ from tests.common.telemetry.constants import (
     METRIC_LABEL_TG_FRAME_BYTES,
 )
 from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.helper import (
-    set_primary_chassis,    # noqa: F401, F403, F405, E402
-    create_snappi_config,     # noqa: F401, F403, F405, E402
-    create_traffic_items,
-    get_duthost_bgp_details,
-    configure_acl_for_route_withdrawl,
-    start_stop,
-    get_stats,
-    check_bgp_state
-)  # noqa: F401, F403, F405, E402
+from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, create_traffic_items, \
+    get_duthost_bgp_details, configure_acl_for_route_withdrawl, start_stop, \
+    get_stats, check_bgp_state   # noqa: F401, F403, F405, E402
 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
 METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
