@@ -22,6 +22,9 @@ def lldp_setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, patch_lldpct
 @pytest.fixture(scope="function")
 def restart_swss_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    # Check for swss autorestart state
+    swss_autorestart_state = "enabled" if "enabled" in duthost.shell("show feature autorestart swss")['stdout'] \
+        else "disabled"
     asic = duthost.asic_instance(enum_frontend_asic_index)
 
     pre_lldpctl_facts = get_num_lldpctl_facts(duthost, enum_frontend_asic_index)
@@ -51,6 +54,8 @@ def restart_swss_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     )
 
     yield
+
+    duthost.shell(f"sudo config feature autorestart swss {swss_autorestart_state}")
 
 
 def get_num_lldpctl_facts(duthost, enum_frontend_asic_index):
@@ -253,4 +258,3 @@ def test_lldp_neighbor_post_swss_reboot(duthosts, enum_rand_one_per_hwsku_fronte
             ])
     check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
                         enum_frontend_asic_index, tbinfo, request)
-    duthost.shell("sudo config feature autorestart swss enabled")
