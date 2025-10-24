@@ -3608,9 +3608,11 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
-    reason: "Skip for IPv6-only topologies"
+    reason: "Skip for IPv6-only topologies or due to GH issue 20231"
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
 
 route/test_route_flap.py:
   skip:
