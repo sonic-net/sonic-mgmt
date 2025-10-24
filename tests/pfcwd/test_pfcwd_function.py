@@ -871,17 +871,9 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         return loganalyzer
 
     def set_traffic_action(self, duthost, action):
-        hwsku_list_rx_forward = ["broadcom_th5_hwskus"]
-        hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
-        # List of HWSKUs that only support 'rx_forward' action
-        all_hwskus_with_rx_forward = []
-        for hwsku in hwsku_list_rx_forward:
-            all_hwskus_with_rx_forward.extend([i for i in hostvars.get(hwsku, [])])
-        hwsku = duthost.facts['hwsku']
         action = action if action != "dontcare" else "drop"
-        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] \
-                or is_tunnel_qos_remap_enabled(duthost) \
-                or (hwsku in all_hwskus_with_rx_forward):
+        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "innovium"] \
+                or is_tunnel_qos_remap_enabled(duthost):
             self.rx_action = "forward"
         else:
             self.rx_action = action
