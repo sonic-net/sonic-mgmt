@@ -1977,7 +1977,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2018,7 +2019,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2060,7 +2062,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2871,7 +2874,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "cisco-8000"]):
+                        platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
@@ -4564,7 +4567,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     if cntr == 1:
                         log_message("recv_counters_base: {}, recv_counters: {}".format(
                             recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
