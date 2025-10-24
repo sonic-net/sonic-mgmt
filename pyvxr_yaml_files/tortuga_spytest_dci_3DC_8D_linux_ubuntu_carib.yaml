@@ -2,13 +2,11 @@ simulation:
   slurm_flags:
     pending_timeout: 60
     partition: regression
-    cluster: rch-slurm-m1
     hours: 30
   no_image_copy: true
   pyvxr_flags:
     port_file_timeout: 1200
   skip_auto_bringup: false
-  staggered_boot_delay: 60
 
 
 devices:
@@ -81,17 +79,21 @@ devices:
       - 22
     cli_commands: |
       sudo ifconfig eth1 up
-      sudo ip addr add 10.212.10.1/24 dev eth1
-      sudo ifconfig eth1 hw ether 00:00:00:00:00:01
-      sudo ip route replace default via 10.212.10.10
+      sudo modprobe 8021q
+      sudo ip link add link eth1 name eth1.10 type vlan id 10
+      sudo ip link add link eth1 name eth1.20 type vlan id 20
+      sudo ip link set dev eth1.10 address 00:00:00:00:10:01
+      sudo ip link set dev eth1.20 address 00:00:00:00:20:01
+      sudo ip addr add 10.212.10.1/24 dev eth1.10
+      sudo ip addr add 10.212.20.1/24 dev eth1.20
+      sudo ip link set dev eth1.10 up
+      sudo ip link set dev eth1.20 up
       ip addr
       ping -c 1 10.212.10.10
   HOST2:
       <<: *host
-      pre_cli: |
-        echo "PS1=\"HOST2$ \"" >> ~/.bashrc
-        echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    eth1:\n      dhcp4: no\n    eth2:\n      dhcp4: no\n  bonds:\n    bond0:\n      dhcp4: no\n      interfaces:\n        - eth1\n        - eth2\n      parameters:\n        mode: 802.3ad\n        transmit-hash-policy: layer3+4\n        mii-monitor-interval: 100\n        lacp-rate: fast\n  addresses:\n    - 10.212.10.2/24\n    - 10:212:10::2/64\n  gateway4: 10.212.10.10" | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
       cli_commands: |
+        echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    eth1:\n      dhcp4: no\n    eth2:\n      dhcp4: no\n  bonds:\n    bond0:\n      dhcp4: no\n      interfaces:\n        - eth1\n        - eth2\n      parameters:\n        mode: 802.3ad\n        transmit-hash-policy: layer3+4\n        mii-monitor-interval: 100\n        lacp-rate: fast\n      addresses:\n        - 10.212.10.2/24\n        - 10:212:10::2/64\n      gateway4: 10.212.10.10" | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
         sudo netplan apply
         sudo ifconfig eth1 hw ether 00:00:00:00:00:02
         sudo ifconfig eth2 hw ether 00:00:00:00:00:02
@@ -103,9 +105,15 @@ devices:
       <<: *host
       cli_commands: |
         sudo ifconfig eth1 up
-        sudo ip addr add 10.212.10.3/24 dev eth1
-        sudo ifconfig eth1 hw ether 00:00:00:00:00:03
-        sudo ip route replace default via 10.212.10.10
+        sudo modprobe 8021q
+        sudo ip link add link eth1 name eth1.10 type vlan id 10
+        sudo ip link add link eth1 name eth1.20 type vlan id 20
+        sudo ip addr add 10.212.10.3/24 dev eth1.10
+        sudo ip addr add 10.212.20.3/24 dev eth1.20
+        sudo ip link set dev eth1.10 address 00:00:00:00:10:03
+        sudo ip link set dev eth1.20 address 00:00:00:00:20:03
+        sudo ip link set dev eth1.10 up
+        sudo ip link set dev eth1.20 up
         ip addr
         ping -c 1 10.212.10.10
 
@@ -113,9 +121,15 @@ devices:
       <<: *host
       cli_commands: |
         sudo ifconfig eth1 up
-        sudo ip addr add 10.212.10.4/24 dev eth1
-        sudo ifconfig eth1 hw ether 00:00:00:00:00:04
-        sudo ip route replace default via 10.212.10.10
+        sudo modprobe 8021q
+        sudo ip link add link eth1 name eth1.10 type vlan id 10
+        sudo ip link add link eth1 name eth1.20 type vlan id 20
+        sudo ip addr add 10.212.10.4/24 dev eth1.10
+        sudo ip addr add 10.212.20.4/24 dev eth1.20
+        sudo ip link set dev eth1.10 address 00:00:00:00:10:04
+        sudo ip link set dev eth1.20 address 00:00:00:00:20:04
+        sudo ip link set dev eth1.10 up
+        sudo ip link set dev eth1.20 up
         ip addr
         ping -c 1 10.212.10.10
 

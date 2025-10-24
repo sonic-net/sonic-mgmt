@@ -21,14 +21,14 @@ sudo config interface ip add Loopback1 10.10.10.10/32
 sudo config interface ip add Loopback10 fd27::233:d0c6:feda/128
 sudo config vlan add 10
 sudo config vxlan add vxlan-local fd27::233:d0c6:feda
-sudo config vxlan evpn_nvo add NVO vxlan-local
+sudo config vxlan evpn_nvo add NVO-LOCAL vxlan-local
 sudo config vxlan map add vxlan-local 10 5010
 sudo counterpoll tunnel enable
 sudo counterpoll tunnel interval 2000
 sudo config interface ip add Loopback11 101.101.101.101/32
 
 sudo config vxlan add vxlan-remote 101.101.101.101
-sudo config vxlan evpn_nvo add NVO vxlan-remote
+sudo config vxlan evpn_nvo add NVO-REMOTE vxlan-remote
 sudo config vxlan map add vxlan-remote 10 5011
 vtysh
 debug zebra kernel

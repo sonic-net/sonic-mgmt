@@ -10,6 +10,7 @@ simulation:
   skip_auto_bringup: false
   staggered_boot_delay: 60
 
+
 devices:
   SD1: &sonic_router
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
@@ -25,7 +26,7 @@ devices:
         ConfigS1NpsuiteVer: 1.184.1  
     linux_password: cisco123
     linux_username: cisco
-    onie-install: /nobackup/sudharr/ws/test/1/sonic-cisco-8000.bin
+    onie-install:  /auto/vxr1/sonic-images/mrghosh/sonic-cisco-8000_dci_9_24.bin
     os_type: sonic
     memory: 12GB
     vcpu: 8
@@ -52,12 +53,6 @@ devices:
   SD6:
       <<: *sonic_router
 
-  SD7:
-      <<: *sonic_router
-
-  SD8:
-      <<: *sonic_router
-
   ixia:
     platform: ixia-web
     ixia_images:
@@ -79,6 +74,7 @@ devices:
 
 connections:
   ovs_hubs:
+    # DC1 Intra-fabric (SD1/SD2 <-> SD5/SD6) - Same for both 6D and 8D
     hub0:
       - SD1.Ethernet[0..1]
       - SD5.Ethernet[0..1]
@@ -91,27 +87,29 @@ connections:
     hub3:
       - SD2.Ethernet[4..5]
       - SD6.Ethernet[4..5]
-    hub4:
-      - SD3.Ethernet[0..1]
-      - SD7.Ethernet[0..1]
-    hub5:
-      - SD4.Ethernet[0..1]
-      - SD8.Ethernet[0..1]
+    
+    # DC1-DC2 Inter-DC WAN links - Same for both 6D and 8D
     hub6:
       - SD1.Ethernet[7..8]
       - SD3.Ethernet[7..8]
-    hub7:
-      - SD1.Ethernet[9..10]
-      - SD4.Ethernet[7..8]
     hub8:
       - SD2.Ethernet[7..8]
       - SD3.Ethernet[9..10]
+    
+    # DC1-DC3 Inter-DC WAN links - Only for 8D topology
+    hub7:
+      - SD1.Ethernet[9..10]
+      - SD4.Ethernet[7..8]
     hub9:
       - SD2.Ethernet[9..10]
       - SD4.Ethernet[9..10]
+    
+    # DC2-DC3 Inter-DC WAN links - Only for 8D topology
     hub10:
-      - SD3.Ethernet[10..11]
-      - SD4.Ethernet[10..11]
+      - SD3.Ethernet[11..12]
+      - SD4.Ethernet[11..12]
+
+    # Ixia connections - HOST1 and HOST2 (DC1), LEAF3 + HOST3 (DC2), LEAF4 + HOST4 (DC3)
     hub11:
       - SD5.Ethernet12
       - ixia.data0
@@ -122,8 +120,8 @@ connections:
       - SD6.Ethernet12
       - ixia.data2
     hub14:
-      - SD7.Ethernet12
+      - SD3.Ethernet1
       - ixia.data3
     hub15:
-      - SD8.Ethernet12
+      - SD4.Ethernet1
       - ixia.data4

@@ -1,8 +1,0 @@
-# HOST3 - Single-homed to SD7 (no bonding)
-echo "PS1=\"HOST3$ \"" >> ~/.bashrc
-source ~/.bashrc
-sudo ifconfig eth1 up
-sudo ip addr add 10.212.10.3/24 dev eth1
-sudo ifconfig eth1 hw ether 00:00:00:00:02:03
-sudo ip route replace default via 10.212.10.10
-ping -c 1 10.212.10.10

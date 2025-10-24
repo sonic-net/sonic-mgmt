@@ -1,5 +1,5 @@
 # Set hostname first
-sudo config hostname SD1-DC1-GW1
+sudo config hostname SD2-DC1-GW2
 
 # Intra-DC interfaces (IPv6 link-local only)
 sudo config interface ipv6 enable use-link-local-only Ethernet1_1
@@ -9,22 +9,25 @@ sudo config interface ipv6 enable use-link-local-only Ethernet1_6
 
 # Inter-DC interfaces (IPv4 + IPv6 link-local)
 sudo config interface startup Ethernet1_8
+sudo config interface startup Ethernet1_9
+sudo config interface startup Ethernet1_10
 sudo config interface startup Ethernet1_11
-sudo config interface ip add Ethernet1_8 172.16.1.1/31
-sudo config interface ip add Ethernet1_11 172.16.2.3/31
-sudo config interface ip add Loopback0 fd27::233:d0c6:fed1/128
-sudo config interface ip add Loopback1 10.10.10.10/32
+sudo config interface ip add Ethernet1_8 52.53.1.52/24
+sudo config interface ip add Ethernet1_9 52.53.2.52/24
+sudo config interface ip add Ethernet1_10 52.54.1.52/24
+sudo config interface ip add Ethernet1_11 52.54.2.52/24
+sudo config interface ip add Loopback0 fd27::233:d0c6:fed2/128
+sudo config interface ip add Loopback1 20.20.20.20/32
 sudo config interface ip add Loopback10 fd27::233:d0c6:feda/128
 sudo config vlan add 10
 sudo config vxlan add vxlan-local fd27::233:d0c6:feda
-sudo config vxlan evpn_nvo add NVO vxlan-local
+sudo config vxlan evpn_nvo add NVO-LOCAL vxlan-local
 sudo config vxlan map add vxlan-local 10 5010
 sudo counterpoll tunnel enable
 sudo counterpoll tunnel interval 2000
 sudo config interface ip add Loopback11 101.101.101.101/32
-
 sudo config vxlan add vxlan-remote 101.101.101.101
-sudo config vxlan evpn_nvo add NVO vxlan-remote
+sudo config vxlan evpn_nvo add NVO-REMOTE vxlan-remote
 sudo config vxlan map add vxlan-remote 10 5011
 vtysh
 debug zebra kernel
@@ -41,9 +44,9 @@ debug zebra dplane detailed
 configure terminal
 log stdout
 log syslog
-hostname SD1-DC1-GW1
-router bgp 65001
-bgp router-id 100.100.100.1
+hostname SD2-DC1-GW2
+router bgp 65002
+bgp router-id 100.100.100.2
 no bgp ebgp-requires-policy
 no bgp default ipv4-unicast
 bgp disable-ebgp-connected-route-check
@@ -74,6 +77,8 @@ neighbor fd27::233:d0c6:fed6 peer-group OVERLAY_DC
 neighbor fd27::233:d0c6:fed6 description "dc1-leaf2-sd6-evpn"
 neighbor 30.30.30.30 peer-group OVERLAY_WAN
 neighbor 30.30.30.30 description "dc2-gw1-evpn-sd3"
+neighbor 40.40.40.40 peer-group OVERLAY_WAN
+neighbor 40.40.40.40 description "dc3-gw1-evpn-sd4"
 neighbor Ethernet1_1 interface peer-group TRANSIT_DC
 neighbor Ethernet1_1 description "dc1-leaf1-sd5-1_1"
 neighbor Ethernet1_2 interface peer-group TRANSIT_DC
@@ -82,10 +87,15 @@ neighbor Ethernet1_5 interface peer-group TRANSIT_DC
 neighbor Ethernet1_5 description "dc1-leaf2-sd6-1_5"
 neighbor Ethernet1_6 interface peer-group TRANSIT_DC
 neighbor Ethernet1_6 description "dc1-leaf2-sd6-1_6"
-neighbor 172.16.1.0 peer-group TRANSIT_WAN
-neighbor 172.16.1.0 description "dc2-gw1-sd3"
-neighbor 172.16.1.2 peer-group TRANSIT_WAN
-neighbor 172.16.1.2 description "dc2-gw1-sd3"
+# Inter-DC Neighbors (IPv4)
+neighbor 52.53.1.53 peer-group TRANSIT_WAN
+neighbor 52.53.1.53 description "dc2-gw1-sd3-1_8"
+neighbor 52.53.2.53 peer-group TRANSIT_WAN
+neighbor 52.53.2.53 description "dc2-gw1-sd3-1_9"
+neighbor 52.54.1.54 peer-group TRANSIT_WAN
+neighbor 52.54.1.54 description "dc3-gw1-sd4-1_10"
+neighbor 52.54.2.54 peer-group TRANSIT_WAN
+neighbor 52.54.2.54 description "dc3-gw1-sd4-1_11"
 address-family ipv4 unicast
 redistribute connected
 neighbor TRANSIT_DC activate

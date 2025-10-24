@@ -1,7 +1,0 @@
-echo "PS1=\"HOST1$ \"" >> ~/.bashrc
-source ~/.bashrc
-sudo ifconfig eth1 up
-sudo ip addr add 10.212.10.1/24 dev eth1
-sudo ifconfig eth1 hw ether 00:00:00:00:00:01
-sudo ip route replace default via 10.212.10.10
-ping -c 1 10.212.10.10
