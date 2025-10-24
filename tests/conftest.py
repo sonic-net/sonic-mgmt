@@ -3312,7 +3312,19 @@ def setup_pfc_test(
             mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
 
         # gather all vlan specific info
-        ip_index = 0 if ip_version == "IPv4" else 1
+        ip_index = -1
+        for intf in mg_facts['minigraph_vlan_interfaces']:
+            if type(ip_interface(str(intf['addr']))) is IPv4Interface\
+                    and ip_version == "IPv4":
+                ip_index = mg_facts['minigraph_vlan_interfaces'].index(intf)
+                break
+            elif type(ip_interface(str(intf['addr']))) is not IPv4Interface\
+                    and ip_version == "IPv6":
+                ip_index = mg_facts['minigraph_vlan_interfaces'].index(intf)
+                break
+        if ip_index == -1:
+            pytest.skip("No VLAN interface found for {}".format(ip_version))
+
         vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
         vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
         vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
