@@ -100,6 +100,8 @@ RETURN = '''
 # Default testbed file name
 NUT_TESTBED_FILE = '../ansible/testbed.nut.yaml'
 NUT_TOPO_DIR = '../ansible/vars/nut_topos/'
+LEGACY_TOPO_DIR = '../ansible/vars/'
+is_legacy_testbed_file = False
 
 
 class ParseTestbedInfo():
@@ -108,13 +110,33 @@ class ParseTestbedInfo():
     def __init__(self, testbed_file: str):
         self.testbed_filename = testbed_file
         self.testbeds = defaultdict()
+        if not testbed_file.endswith("nut.yaml"):
+            global is_legacy_testbed_file
+            is_legacy_testbed_file = True
 
     def read_testbeds(self):
         """Read yaml testbed info file."""
         with open(self.testbed_filename) as f:
             tb_list = yaml.safe_load(f)
             for tb in tb_list:
-                self.testbeds[tb["name"]] = tb
+                normalised_tb = self.normalise_tb_fields(tb)
+                self.testbeds[tb["name"]] = normalised_tb
+
+    def normalise_tb_fields(self, tb):
+        """Normalise to the same field set name of both legacy and nut testbed file"""
+        fields_map = {
+            'dut': 'duts',
+            'conf-name': 'name'
+        }
+
+        for field in fields_map:
+            if field not in tb:
+                continue
+
+            tb[fields_map[field]] = tb[field]
+            del tb[field]
+
+        return tb
 
     def get_testbed_info(self, testbed_name: str) -> Any:
         if testbed_name:
@@ -130,7 +152,13 @@ def load_topo_info(testbed: dict):
         raise ValueError(f"Testbed '{testbed['name']}' does not have a valid topology defined.")
 
     # Load DUT templates
-    with open(os.path.join(NUT_TOPO_DIR, topo_name + '.yml')) as f:
+    topo_dir = NUT_TOPO_DIR
+
+    if is_legacy_testbed_file:
+        topo_dir = LEGACY_TOPO_DIR
+        topo_name = "topo_" + topo_name
+
+    with open(os.path.join(topo_dir, topo_name + '.yml')) as f:
         topo_data = yaml.safe_load(f)
         topo = {"name": topo_name, "type": "nut", "properties": topo_data}
         testbed["topo"] = topo

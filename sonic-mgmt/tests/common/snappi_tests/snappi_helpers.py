@@ -202,7 +202,12 @@ class SnappiFanoutManager():
                     'port_id': info_list[2].replace('Port', ''),
                     'peer_port': info_list[3],
                     'peer_device': info_list[4],
-                    'speed': info_list[5]
+                    'speed': info_list[5],
+                    'location': "{};{};{}".format(
+                        info_list[0],
+                        info_list[1].replace('Card', ''),
+                        info_list[2].replace('Port', '')
+                    )
                 }
 
                 if peer_device is None or info_list[4] == peer_device:
@@ -213,7 +218,8 @@ class SnappiFanoutManager():
                     'port_id': info_list[1].replace('Port', ''),
                     'peer_port': info_list[2],
                     'peer_device': info_list[3],
-                    'speed': info_list[4]
+                    'speed': info_list[4],
+                    'location': "{}/{}".format(info_list[0], info_list[1].replace('Port', ''))
                 }
 
                 if peer_device is None or info_list[3] == peer_device:

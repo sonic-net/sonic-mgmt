@@ -11,7 +11,6 @@ from tests.common.helpers.port_utils import get_common_supported_speeds
 
 from collections import defaultdict
 
-from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.helpers.dut_utils import verify_features_state
@@ -644,27 +643,3 @@ def test_generate_running_golden_config(duthosts):
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
             executor.submit(generate_running_golden_config, duthost)
-
-
-def test_clean_dualtor_logs(request, vmhost, tbinfo, active_active_ports, active_standby_ports):
-    """
-    Clean mux/nic simulator logs from /tmp/ on the server before test run.
-    """
-    if 'dualtor' not in tbinfo['topo']['name']:
-        return
-
-    log_name = None
-    if active_standby_ports:
-        server = tbinfo['server']
-        tbname = tbinfo['conf-name']
-        inv_files = utilities.get_inventory_files(request)
-        http_port = utilities.get_group_visible_vars(inv_files, server).get('mux_simulator_http_port')[tbname]
-        log_name = '/tmp/mux_simulator_{}.log*'.format(http_port)
-    elif active_active_ports:
-        vm_set = tbinfo['group-name']
-        log_name = "/tmp/nic_simulator_{}.log*".format(vm_set)
-
-    if log_name:
-        log_files = vmhost.shell('ls {}'.format(log_name))['stdout'].split()
-        for log_file in log_files:
-            vmhost.shell("rm -f {}".format(log_file))
