@@ -499,6 +499,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
         '202405': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
         '202405c': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
         '202411': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
+        '202501': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
         '202505': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202505-27Jun2025-mix.gz',
         '202511': '',
         'master': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-master-27Jun2025-mix.gz'
