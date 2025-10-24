@@ -50,13 +50,13 @@ arp/test_arpall.py::test_arp_unicast_reply:
     conditions:
       - "asic_type in ['vpp']"
 
-arp/test_neighbor_mac.py::TestNeighborMac::testNeighborMac[1]:
+arp/test_neighbor_mac.py:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Failed/Errored: https://github.com/sonic-net/sonic-sairedis/issues/1662 / Race condition between setting ip on Ethernet0 and remove Ethernet0 from portchannel
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vpp']"
+      - "asic_type in ['vpp'] and https://github.com/sonic-net/sonic-sairedis/issues/1662"
 
 arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
   skip:
@@ -449,18 +449,10 @@ fib/test_fib.py::test_ecmp_group_member_flap:
     conditions:
       - "asic_type in ['vpp']"
 
-fib/test_fib.py::test_hash:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 fib/test_fib.py::test_ipinip_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -468,7 +460,7 @@ fib/test_fib.py::test_ipinip_hash:
 fib/test_fib.py::test_nvgre_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
@@ -476,7 +468,7 @@ fib/test_fib.py::test_nvgre_hash:
 fib/test_fib.py::test_vxlan_hash:
   skip:
     reason: >
-            Failed/Errored: To be included
+            Unsupported
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vpp']"
