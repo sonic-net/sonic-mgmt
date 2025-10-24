@@ -103,10 +103,10 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
         mg_ports = interface_list
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
-    if dut.is_multi_asic:
-        check_intf_presence_command = 'show interface transceiver presence -n {} {}'.format(namespace, {})
-    else:
-        check_intf_presence_command = 'show interface transceiver presence {}'
+    sfp_presence_output = dut.show_and_parse("show interfaces transceiver presence")
+    logging.info("SFP presence: {sfp_presence_output}")
+    sfp_presence_dict = {entry['port']: entry.get('presence', '').lower() for entry in sfp_presence_output}
+
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"
@@ -124,10 +124,8 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
         # Cross check the interface SFP presence status
         if intf not in xcvr_skip_list[dut.hostname]:
-            check_presence_output = dut.command(check_intf_presence_command.format(intf))
-            presence_list = check_presence_output["stdout_lines"][2].split()
-            assert intf in presence_list, "Wrong interface name in the output: %s" % str(presence_list)
-            assert 'Present' in presence_list, "Status is not expected, presence status: %s" % str(presence_list)
+            presence = sfp_presence_dict.get(intf, '')
+            assert presence == 'present', "Status is not expected, presence status: %s" % str(presence)
 
     logging.info("Check interface status using the interface_facts module")
     intf_facts = dut.interface_facts(up_ports=mg_ports, namespace=namespace)["ansible_facts"]
