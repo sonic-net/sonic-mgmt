@@ -428,7 +428,44 @@
                 "sudo reboot"
             ],
             "remove_topo_cmd": "./testbed-cli.sh -k veos remove-topo t0-64-2 ./lab",
-            "add_topo_cmd": "./testbed-cli.sh -k veos add-topo t0-64-2 ./lab"
+            "add_topo_cmd": "./testbed-cli.sh -k veos add-topo t0-64-2 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }
+        },
+        "t0-m6-3-m64": {
+            "ucs_host_name": "sonic-ucs-m6-3",
+            "ucs_host": "172.27.147.208",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "t0-yy38",
+            "scp_ip":"1.75.44.32",
+            "installer_mode":"sonic",
+            "ucs_tb": "t0-64-3",
+            "telnet_host": ["172.27.147.45"],
+            "telnet_port": ["2001"],
+            "telnet_details": ["172.27.147.45 2001"],
+            "dut_ssh": ["1.75.44.30"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202505": "cicd_prod_202505",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py platform_tests/test_sim_reboot.py",
+            "skip_folder": "configlet vrf mvrf cisco",
+            "run_type_check": "run_tests",
+            "docker_prompt":"@sonic-ucs-m6-3",
+            "sonic_installer_commands":[
+		        "sudo show boot",
+                "sudo sonic-installer install $image_url --skip_migration --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo t0-64-3 password.txt",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo t0-64-3 password.txt",
+            "mtu_hack": {
+                "vms_count": 4
+            }
         },
         "b2b-tu-2-siren-optics": { 
             "ucs_host_name":"tu2",
@@ -1673,6 +1710,7 @@
             "cisco.202305.1.tortuga.mfg.v4"
         ],
         "t0-m6-2-m64": "None",
+        "t0-m6-3-m64": "None",
         "b2b-tu-2-carib":  [
             "cisco.202405c.2.tortuga.carib.no-agents"
         ],
@@ -1746,6 +1784,7 @@
         "t1-m6-18-MtFuji":"ucs_m6_18",
         "t1-topo5":"ucs_m6_19",
         "t0-m6-2-m64": "ucs_m6_2",
+        "t0-m6-3-m64": "ucs_m6_3",
         "b2b-tu-2-carib":"tu2-carib-siren",
         "b2b-tu-2-carib2":"tu2-carib-siren",
         "b2b-tu-2-siren":"tu2-carib-siren",
@@ -1849,6 +1888,15 @@
             "password" : "roZes@123",
             "ip" : "1.75.47.1",
             "scp_prompt" : "sonic@1.75.47.1:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m6_3": {
+            "host" : "sonic-ucs-m6-3",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.75.44.32",
+            "scp_prompt" : "sonic@1.75.44.32:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "wget"
         },
