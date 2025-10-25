@@ -9,6 +9,15 @@ from tests.common.utilities import wait_until
 ans_host = None
 
 
+def pytest_addoption(parser):
+    parser.addoption("--limited_ports", action="store_true", help="Test with limited number of ports")
+
+
+@pytest.fixture(scope="module")
+def limited_ports(request):
+    return request.config.getoption('--limited_ports')
+
+
 def teardown_module():
     logging.info("remove script to retrieve port mapping")
     file_path = os.path.join('/usr/share/sonic/device', ans_host.facts['platform'], 'plugins/getportmap.py')
