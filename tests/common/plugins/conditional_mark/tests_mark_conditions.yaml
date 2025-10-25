@@ -407,7 +407,7 @@ bgp/test_bgpmon.py:
     reason: "Not supported on T2 topology or topology backend
              or Skip for IPv6-only topologies, since there are v6 verison of the test"
     conditions:
-      - "'backend' in topo_name or 't2' in topo_name"
+      - "'backend' in topo_name or 't2' == topo_type"
       - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
@@ -704,7 +704,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
     reason: "Not supported on backend, T2 topologies , broadcom platforms before 202012 release, x86_64-8111_32eh_o-r0 platform. Skip on mellanox all releases. Skip on 7260CX3 T1 topo in 202305 release. Not required on isolated topologies d256u256s2, d96u32s2, d448u15-lag, and d128, as well as their minimzed and -v6 variants."
     conditions_logical_operator: or
     conditions:
-      - "('t2' in topo_name) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or platform in ['x86_64-8111_32eh_o-r0'] or asic_type in ['mellanox']"
+      - "('t2' == topo_type) or (topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911']) or platform in ['x86_64-8111_32eh_o-r0'] or asic_type in ['mellanox']"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
       - *noVxlanTopos
 
