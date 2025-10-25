@@ -3,6 +3,7 @@ Tests related to L2 configuration
 """
 
 import logging
+import os
 import pytest
 import tempfile
 
@@ -71,6 +72,11 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     duthost.shell("sudo rm -f {}".format(MINIGRAPH_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
+
+    # Clean up pytest cache so l2 testbed does not carry over to other tests
+    folder = "_cache"
+    if os.path.exists(folder):
+        os.system("rm -rf {}".format(folder))
 
 
 def is_table_empty(duthost, table):
