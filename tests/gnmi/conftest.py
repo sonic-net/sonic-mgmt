@@ -147,7 +147,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
                         -sha256"
     localhost.shell(local_command)
 
-    create_revoked_cert_and_crl(localhost, ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
 
     # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
@@ -223,7 +223,10 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
+    if ":" in duthost.mgmt_ip and not duthost.mgmt_ip.startswith('['):
+        ip = f"[{duthost.mgmt_ip}]"
+    else:
+        ip = duthost.mgmt_ip
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
     target = f"{ip}:{port}"
