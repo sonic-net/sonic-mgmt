@@ -310,17 +310,21 @@ class Prefix:
         | la_ecmp_group/2130 |     2/4     |  la_next_hop/1972  | 52:54:00:72:ab:a6 |  NORMAL(0)   | la_l3_ac_port/2153 | PortChannel103 |
         | la_ecmp_group/2130 |     3/4     |  la_next_hop/1969  | 52:54:00:7b:8e:03 |  NORMAL(0)   | la_l3_ac_port/2158 | PortChannel104 |
         +--------------------+-------------+--------------------+-------------------+--------------+--------------------+----------------+
-        ''' 
+        '''
+        # Enable debug shell server if not already enabled
+        self.duthost.command("sudo config platform cisco sdk-debug enable")
+        time.sleep(10)
+
         if addr_family == "ipv4":
             if self.duthost.is_multi_asic:
-                cmd = "show platform npu prefix-map -ip {} -n asic{}".format(prefix, self.asic.asic_index)
+                cmd = "show platform npu router prefix -ip {} -n asic{}".format(prefix, self.asic.asic_index)
             else:
-                cmd = "show platform npu prefix-map -ip {}".format(prefix)
+                cmd = "show platform npu router prefix -ip {}".format(prefix)
         else:
             if self.duthost.is_multi_asic:
-                cmd = "show platform npu prefix-map -ipv6 {} -n asic{}".format(prefix, self.asic.asic_index)
+                cmd = "show platform npu router prefix -ipv6 {} -n asic{}".format(prefix, self.asic.asic_index)
             else:
-                cmd = "show platform npu prefix-map -ipv6 {}".format(prefix)
+                cmd = "show platform npu router prefix -ipv6 {}".format(prefix)
 
         self.prefix_report = self.duthost.shell(cmd)["stdout_lines"]
 
@@ -333,13 +337,13 @@ class Prefix:
         for line in self.prefix_report:
             lines = line.split('|')
             line = list(map(str.strip, lines))
-            if len(line) == 9:
-                if 'member info' not in line:
+            if len(line) >= 9:
+                if 'member info' not in line and line[4].count(':') == 5:
                     mem_info = line[2]
                     parsed_mac_list.append(line[4])
 
-        if mem_info:
-            parsed_mem_cnt = int(mem_info.split('/')[1])
+        if parsed_mac_list:
+            parsed_mem_cnt = len(parsed_mac_list)
         
         logger.info("Parsed member count: {} Parsed mac list: {}".format(parsed_mem_cnt, parsed_mac_list))
         

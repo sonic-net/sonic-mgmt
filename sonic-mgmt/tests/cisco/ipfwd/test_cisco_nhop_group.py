@@ -15,11 +15,10 @@ import tests.cisco.common.utils as cmn_utils
 from tests.common.helpers.assertions import pytest_require, pytest_assert
 from tests.common.cisco_data import is_cisco_device
 from tests.common.mellanox_data import is_mellanox_device, get_chip_type
-from tests.common.innovium_data import is_innovium_device
+from tests.common.marvell_teralynx_data import is_marvell_teralynx_device
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.utilities import wait_until
-from tests.platform_tests.link_flap.link_flap_utils import toggle_one_link
-from tests.common.platform.device_utils import fanout_switch_port_lookup
+from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
 
@@ -373,7 +372,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
         sleep_time = 120
@@ -419,7 +418,7 @@ def test_nhop_group_member_count(duthost, tbinfo):
 
     # increase CRM polling time
     asic.command("crm config polling interval {}".format(polling_interval))
-    if is_cisco_device(duthost) or is_innovium_device(duthost):
+    if is_cisco_device(duthost) or is_marvell_teralynx_device(duthost):
         # Waiting for ARP routes to be synced and programmed
         time.sleep(sleep_time_sync_before)
         crm_stat = get_crm_info(duthost, asic)
@@ -663,6 +662,15 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
 
     result = asic.run_redis_cmd(argv=["redis-cli", "-n", 0, "HGETALL", "SWITCH_TABLE:switch"])
 
+    G200_asic_v1 = False
+    G200_asic_v2 = False
+    if is_cisco_device(duthost):
+        output = duthost.shell("show platform ver")
+        if "25.3.3000" in output["stdout"]:
+            G200_asic_v1 = True
+        if "25.5.3000" in output["stdout"]:
+            G200_asic_v2 = True
+
     it = iter(result)
     switch_table = dict(zip(it, it))
 
@@ -756,193 +764,146 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             nhop.delete_routes()
             arplist.clean_up()
 
-    th_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                        2: 'c0:ff:ee:00:00:12',
-                        3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
+    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0c', 1: 'c0:ff:ee:00:00:0e',
+                        2: 'c0:ff:ee:00:00:11', 3: 'c0:ff:ee:00:00:0c', 4: 'c0:ff:ee:00:00:0e',
+                        5: 'c0:ff:ee:00:00:0d', 6: 'c0:ff:ee:00:00:0c',
+                        7: 'c0:ff:ee:00:00:11', 8: 'c0:ff:ee:00:00:10', 9: 'c0:ff:ee:00:00:0d',
+                        10: 'c0:ff:ee:00:00:12', 11: 'c0:ff:ee:00:00:11',
+                        12: 'c0:ff:ee:00:00:0f', 13: 'c0:ff:ee:00:00:0e',
+                        14: 'c0:ff:ee:00:00:12',
+                        15: 'c0:ff:ee:00:00:10', 16: 'c0:ff:ee:00:00:0b',
+                        17: 'c0:ff:ee:00:00:10', 18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0e',
+                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:12',
+                        22: 'c0:ff:ee:00:00:0e', 23: 'c0:ff:ee:00:00:0f', 24: 'c0:ff:ee:00:00:11',
+                        25: 'c0:ff:ee:00:00:0c', 26: 'c0:ff:ee:00:00:0c',
+                        27: 'c0:ff:ee:00:00:0e', 28: 'c0:ff:ee:00:00:0d', 29: 'c0:ff:ee:00:00:0f',
+                        30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:0b',
+                        32: 'c0:ff:ee:00:00:10', 33: 'c0:ff:ee:00:00:0b', 34: 'c0:ff:ee:00:00:0e',
+                        35: 'c0:ff:ee:00:00:0f', 36: 'c0:ff:ee:00:00:0b',
+                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0f', 39: 'c0:ff:ee:00:00:0d',
+                        40: 'c0:ff:ee:00:00:0b', 41: 'c0:ff:ee:00:00:11',
+                        42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0c',
+                        45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0e',
+                        47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:0d'}
+
+    gr_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:0c',
+                        2: 'c0:ff:ee:00:00:0d',
+                        3: 'c0:ff:ee:00:00:0b', 4: 'c0:ff:ee:00:00:12',
                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
-                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
-                        9: 'c0:ff:ee:00:00:11',
-                        10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                        12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                        14: 'c0:ff:ee:00:00:10',
-                        15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
-                        17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
-                        19: 'c0:ff:ee:00:00:0c',
-                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                        22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                        24: 'c0:ff:ee:00:00:11',
-                        25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
-                        27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                        30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                        32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                        34: 'c0:ff:ee:00:00:0e',
-                        35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
-                        37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                        40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                        42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                        45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
-                        47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
-
-    gb_asic_flow_map = {0: 'c0:ff:ee:00:00:0f', 1: 'c0:ff:ee:00:00:10',
-                        2: 'c0:ff:ee:00:00:0e', 3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:11',
-                        5: 'c0:ff:ee:00:00:0f', 6: 'c0:ff:ee:00:00:12',
-                        7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:10',
-                        10: 'c0:ff:ee:00:00:11', 11: 'c0:ff:ee:00:00:0f',
-                        12: 'c0:ff:ee:00:00:0c', 13: 'c0:ff:ee:00:00:0f',
+                        7: 'c0:ff:ee:00:00:10', 8: 'c0:ff:ee:00:00:0b',
+                        9: 'c0:ff:ee:00:00:0d',
+                        10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0b',
+                        12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:11',
                         14: 'c0:ff:ee:00:00:11',
-                        15: 'c0:ff:ee:00:00:0c', 16: 'c0:ff:ee:00:00:0e',
-                        17: 'c0:ff:ee:00:00:11', 18: 'c0:ff:ee:00:00:11', 19: 'c0:ff:ee:00:00:0c',
-                        20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                        22: 'c0:ff:ee:00:00:0d', 23: 'c0:ff:ee:00:00:10', 24: 'c0:ff:ee:00:00:12',
-                        25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:11',
-                        27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:0c',
-                        30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:10',
-                        32: 'c0:ff:ee:00:00:11', 33: 'c0:ff:ee:00:00:0c', 34: 'c0:ff:ee:00:00:0c',
-                        35: 'c0:ff:ee:00:00:0b', 36: 'c0:ff:ee:00:00:0d',
-                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0e', 39: 'c0:ff:ee:00:00:0d',
-                        40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:11',
-                        42: 'c0:ff:ee:00:00:11', 43: 'c0:ff:ee:00:00:0c', 44: 'c0:ff:ee:00:00:0e',
-                        45: 'c0:ff:ee:00:00:0f', 46: 'c0:ff:ee:00:00:0f',
-                        47: 'c0:ff:ee:00:00:0c', 48: 'c0:ff:ee:00:00:0e', 49: 'c0:ff:ee:00:00:10'}
+                        15: 'c0:ff:ee:00:00:0e', 16: 'c0:ff:ee:00:00:0f',
+                        17: 'c0:ff:ee:00:00:10', 18: 'c0:ff:ee:00:00:12',
+                        19: 'c0:ff:ee:00:00:0e', 20: 'c0:ff:ee:00:00:0d',
+                        21: 'c0:ff:ee:00:00:0b', 22: 'c0:ff:ee:00:00:0b',
+                        23: 'c0:ff:ee:00:00:0c', 24: 'c0:ff:ee:00:00:11',
+                        25: 'c0:ff:ee:00:00:0e',
+                        26: 'c0:ff:ee:00:00:10', 27: 'c0:ff:ee:00:00:11',
+                        28: 'c0:ff:ee:00:00:11', 29: 'c0:ff:ee:00:00:0f',
+                        30: 'c0:ff:ee:00:00:0e', 31: 'c0:ff:ee:00:00:11',
+                        32: 'c0:ff:ee:00:00:10', 33: 'c0:ff:ee:00:00:0f',
+                        34: 'c0:ff:ee:00:00:0f',
+                        35: 'c0:ff:ee:00:00:12', 36: 'c0:ff:ee:00:00:0b',
+                        37: 'c0:ff:ee:00:00:0e', 38: 'c0:ff:ee:00:00:0c',
+                        39: 'c0:ff:ee:00:00:0b',
+                        40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0e',
+                        42: 'c0:ff:ee:00:00:0f', 43: 'c0:ff:ee:00:00:10',
+                        44: 'c0:ff:ee:00:00:0c', 45: 'c0:ff:ee:00:00:0c',
+                        46: 'c0:ff:ee:00:00:12',
+                        47: 'c0:ff:ee:00:00:0d', 48: 'c0:ff:ee:00:00:0c',
+                        49: 'c0:ff:ee:00:00:0b'}
 
-    td2_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12',
-                         3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
-                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
-                         9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10',
-                         15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
-                         17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
-                         19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:11',
-                         25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
-                         27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e',
-                         35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
-                         37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                         45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
-                         47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
-
-    th2_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12',
-                         3: 'c0:ff:ee:00:00:0d', 4: 'c0:ff:ee:00:00:11',
-                         5: 'c0:ff:ee:00:00:0e', 6: 'c0:ff:ee:00:00:0f',
-                         7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0e',
-                         9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10',
-                         15: 'c0:ff:ee:00:00:0b', 16: 'c0:ff:ee:00:00:11',
-                         17: 'c0:ff:ee:00:00:0e', 18: 'c0:ff:ee:00:00:0f',
-                         19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:11',
-                         25: 'c0:ff:ee:00:00:0e', 26: 'c0:ff:ee:00:00:0f',
-                         27: 'c0:ff:ee:00:00:0c', 28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e',
-                         35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:0d',
-                         37: 'c0:ff:ee:00:00:12', 38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b', 44: 'c0:ff:ee:00:00:0e',
-                         45: 'c0:ff:ee:00:00:11', 46: 'c0:ff:ee:00:00:0c',
-                         47: 'c0:ff:ee:00:00:0f', 48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
-
-    td3_asic_flow_map = {0: 'c0:ff:ee:00:00:10', 1: 'c0:ff:ee:00:00:0b',
-                         2: 'c0:ff:ee:00:00:12', 3: 'c0:ff:ee:00:00:0d',
-                         4: 'c0:ff:ee:00:00:11', 5: 'c0:ff:ee:00:00:0e',
-                         6: 'c0:ff:ee:00:00:0f', 7: 'c0:ff:ee:00:00:0c',
-                         8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:11',
-                         10: 'c0:ff:ee:00:00:0c', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
-                         14: 'c0:ff:ee:00:00:10', 15: 'c0:ff:ee:00:00:0b',
-                         16: 'c0:ff:ee:00:00:11', 17: 'c0:ff:ee:00:00:0e',
-                         18: 'c0:ff:ee:00:00:0f', 19: 'c0:ff:ee:00:00:0c',
-                         20: 'c0:ff:ee:00:00:10', 21: 'c0:ff:ee:00:00:0b',
-                         22: 'c0:ff:ee:00:00:12', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0e',
-                         26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:0c',
-                         28: 'c0:ff:ee:00:00:0b', 29: 'c0:ff:ee:00:00:10',
-                         30: 'c0:ff:ee:00:00:0d', 31: 'c0:ff:ee:00:00:12',
-                         32: 'c0:ff:ee:00:00:0c', 33: 'c0:ff:ee:00:00:0f',
-                         34: 'c0:ff:ee:00:00:0e', 35: 'c0:ff:ee:00:00:11',
-                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:12',
-                         38: 'c0:ff:ee:00:00:0b', 39: 'c0:ff:ee:00:00:10',
-                         40: 'c0:ff:ee:00:00:12', 41: 'c0:ff:ee:00:00:0d',
-                         42: 'c0:ff:ee:00:00:10', 43: 'c0:ff:ee:00:00:0b',
-                         44: 'c0:ff:ee:00:00:0e', 45: 'c0:ff:ee:00:00:11',
-                         46: 'c0:ff:ee:00:00:0c', 47: 'c0:ff:ee:00:00:0f',
-                         48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:12'}
-
-    gr_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
-                        2: 'c0:ff:ee:00:00:0c',
-                        3: 'c0:ff:ee:00:00:0b', 4: 'c0:ff:ee:00:00:0b',
-                        5: 'c0:ff:ee:00:00:0b', 6: 'c0:ff:ee:00:00:11',
-                        7: 'c0:ff:ee:00:00:12', 8: 'c0:ff:ee:00:00:0d',
-                        9: 'c0:ff:ee:00:00:0c',
-                        10: 'c0:ff:ee:00:00:0f', 11: 'c0:ff:ee:00:00:0e',
-                        12: 'c0:ff:ee:00:00:11', 13: 'c0:ff:ee:00:00:10',
-                        14: 'c0:ff:ee:00:00:0b',
-                        15: 'c0:ff:ee:00:00:12', 16: 'c0:ff:ee:00:00:0b',
-                        17: 'c0:ff:ee:00:00:12', 18: 'c0:ff:ee:00:00:11',
-                        19: 'c0:ff:ee:00:00:10', 20: 'c0:ff:ee:00:00:10',
-                        21: 'c0:ff:ee:00:00:11', 22: 'c0:ff:ee:00:00:12',
-                        23: 'c0:ff:ee:00:00:0b', 24: 'c0:ff:ee:00:00:0c',
-                        25: 'c0:ff:ee:00:00:0d',
-                        26: 'c0:ff:ee:00:00:0e', 27: 'c0:ff:ee:00:00:0f',
-                        28: 'c0:ff:ee:00:00:10', 29: 'c0:ff:ee:00:00:11',
-                        30: 'c0:ff:ee:00:00:12', 31: 'c0:ff:ee:00:00:0b',
-                        32: 'c0:ff:ee:00:00:12', 33: 'c0:ff:ee:00:00:0b',
-                        34: 'c0:ff:ee:00:00:10',
-                        35: 'c0:ff:ee:00:00:11', 36: 'c0:ff:ee:00:00:11',
-                        37: 'c0:ff:ee:00:00:10', 38: 'c0:ff:ee:00:00:0b',
-                        39: 'c0:ff:ee:00:00:12',
-                        40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:10',
-                        42: 'c0:ff:ee:00:00:0d', 43: 'c0:ff:ee:00:00:0e',
-                        44: 'c0:ff:ee:00:00:0b', 45: 'c0:ff:ee:00:00:0c',
-                        46: 'c0:ff:ee:00:00:11',
-                        47: 'c0:ff:ee:00:00:11', 48: 'c0:ff:ee:00:00:11',
-                        49: 'c0:ff:ee:00:00:11'}
-
-    spc_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:12', 2: 'c0:ff:ee:00:00:0e',
-                         3: 'c0:ff:ee:00:00:0f', 4: 'c0:ff:ee:00:00:10', 5: 'c0:ff:ee:00:00:0d',
-                         6: 'c0:ff:ee:00:00:11', 7: 'c0:ff:ee:00:00:0c', 8: 'c0:ff:ee:00:00:0b',
-                         9: 'c0:ff:ee:00:00:12', 10: 'c0:ff:ee:00:00:0e', 11: 'c0:ff:ee:00:00:0f',
-                         12: 'c0:ff:ee:00:00:0e', 13: 'c0:ff:ee:00:00:0f', 14: 'c0:ff:ee:00:00:0b',
-                         15: 'c0:ff:ee:00:00:12', 16: 'c0:ff:ee:00:00:0e', 17: 'c0:ff:ee:00:00:0f',
-                         18: 'c0:ff:ee:00:00:0b', 19: 'c0:ff:ee:00:00:12', 20: 'c0:ff:ee:00:00:11',
-                         21: 'c0:ff:ee:00:00:0c', 22: 'c0:ff:ee:00:00:10', 23: 'c0:ff:ee:00:00:0d',
-                         24: 'c0:ff:ee:00:00:0c', 25: 'c0:ff:ee:00:00:11', 26: 'c0:ff:ee:00:00:0d',
-                         27: 'c0:ff:ee:00:00:10', 28: 'c0:ff:ee:00:00:0e', 29: 'c0:ff:ee:00:00:0f',
-                         30: 'c0:ff:ee:00:00:0b', 31: 'c0:ff:ee:00:00:12', 32: 'c0:ff:ee:00:00:0e',
-                         33: 'c0:ff:ee:00:00:0f', 34: 'c0:ff:ee:00:00:0b', 35: 'c0:ff:ee:00:00:12',
-                         36: 'c0:ff:ee:00:00:11', 37: 'c0:ff:ee:00:00:0c', 38: 'c0:ff:ee:00:00:10',
-                         39: 'c0:ff:ee:00:00:0d', 40: 'c0:ff:ee:00:00:0e', 41: 'c0:ff:ee:00:00:0f',
-                         42: 'c0:ff:ee:00:00:0b', 43: 'c0:ff:ee:00:00:12', 44: 'c0:ff:ee:00:00:0b',
-                         45: 'c0:ff:ee:00:00:12', 46: 'c0:ff:ee:00:00:0e', 47: 'c0:ff:ee:00:00:0f',
-                         48: 'c0:ff:ee:00:00:0b', 49: 'c0:ff:ee:00:00:12'}
+    gr2_asic_flow_map = {
+                            0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                            2: 'c0:ff:ee:00:00:10', 3: 'c0:ff:ee:00:00:0b',
+                            4: 'c0:ff:ee:00:00:12', 5: 'c0:ff:ee:00:00:0d',
+                            6: 'c0:ff:ee:00:00:11', 7: 'c0:ff:ee:00:00:0e',
+                            8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:0b',
+                            10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:11',
+                            12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:0b',
+                            14: 'c0:ff:ee:00:00:0c', 15: 'c0:ff:ee:00:00:12',
+                            16: 'c0:ff:ee:00:00:0d', 17: 'c0:ff:ee:00:00:0d',
+                            18: 'c0:ff:ee:00:00:0d', 19: 'c0:ff:ee:00:00:0f',
+                            20: 'c0:ff:ee:00:00:11', 21: 'c0:ff:ee:00:00:12',
+                            22: 'c0:ff:ee:00:00:0c', 23: 'c0:ff:ee:00:00:0e',
+                            24: 'c0:ff:ee:00:00:0d', 25: 'c0:ff:ee:00:00:10',
+                            26: 'c0:ff:ee:00:00:0b', 27: 'c0:ff:ee:00:00:0c',
+                            28: 'c0:ff:ee:00:00:12', 29: 'c0:ff:ee:00:00:0f',
+                            30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:0d',
+                            32: 'c0:ff:ee:00:00:0f', 33: 'c0:ff:ee:00:00:11',
+                            34: 'c0:ff:ee:00:00:10', 35: 'c0:ff:ee:00:00:0c',
+                            36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:0e',
+                            38: 'c0:ff:ee:00:00:12', 39: 'c0:ff:ee:00:00:0d',
+                            40: 'c0:ff:ee:00:00:0c', 41: 'c0:ff:ee:00:00:0d',
+                            42: 'c0:ff:ee:00:00:0b', 43: 'c0:ff:ee:00:00:10',
+                            44: 'c0:ff:ee:00:00:11', 45: 'c0:ff:ee:00:00:0e',
+                            46: 'c0:ff:ee:00:00:10', 47: 'c0:ff:ee:00:00:0c',
+                            48: 'c0:ff:ee:00:00:0f', 49: 'c0:ff:ee:00:00:0c'}
+    
+    gr2_asic_flow_map_202405c = {
+                            0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:0c',
+                            2: 'c0:ff:ee:00:00:0b', 3: 'c0:ff:ee:00:00:0e',
+                            4: 'c0:ff:ee:00:00:10', 5: 'c0:ff:ee:00:00:11',
+                            6: 'c0:ff:ee:00:00:0d', 7: 'c0:ff:ee:00:00:0f',
+                            8: 'c0:ff:ee:00:00:12', 9: 'c0:ff:ee:00:00:0e',
+                            10: 'c0:ff:ee:00:00:12', 11: 'c0:ff:ee:00:00:0b',
+                            12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0d',
+                            14: 'c0:ff:ee:00:00:10', 15: 'c0:ff:ee:00:00:0d',
+                            16: 'c0:ff:ee:00:00:0c', 17: 'c0:ff:ee:00:00:0b',
+                            18: 'c0:ff:ee:00:00:10', 19: 'c0:ff:ee:00:00:12',
+                            20: 'c0:ff:ee:00:00:0e', 21: 'c0:ff:ee:00:00:0e',
+                            22: 'c0:ff:ee:00:00:0c', 23: 'c0:ff:ee:00:00:0f',
+                            24: 'c0:ff:ee:00:00:0e', 25: 'c0:ff:ee:00:00:0b',
+                            26: 'c0:ff:ee:00:00:0f', 27: 'c0:ff:ee:00:00:12',
+                            28: 'c0:ff:ee:00:00:0e', 29: 'c0:ff:ee:00:00:0e',
+                            30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:12',
+                            32: 'c0:ff:ee:00:00:0e', 33: 'c0:ff:ee:00:00:0d',
+                            34: 'c0:ff:ee:00:00:0b', 35: 'c0:ff:ee:00:00:0e',
+                            36: 'c0:ff:ee:00:00:0e', 37: 'c0:ff:ee:00:00:0e',
+                            38: 'c0:ff:ee:00:00:0f', 39: 'c0:ff:ee:00:00:0f',
+                            40: 'c0:ff:ee:00:00:11', 41: 'c0:ff:ee:00:00:0c',
+                            42: 'c0:ff:ee:00:00:12', 43: 'c0:ff:ee:00:00:12',
+                            44: 'c0:ff:ee:00:00:11', 45: 'c0:ff:ee:00:00:10',
+                            46: 'c0:ff:ee:00:00:0b', 47: 'c0:ff:ee:00:00:0c',
+                            48: 'c0:ff:ee:00:00:12', 49: 'c0:ff:ee:00:00:10'}
+    
+    gr2_asic_flow_map_202505 = {
+                            0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:10',
+                            2: 'c0:ff:ee:00:00:10', 3: 'c0:ff:ee:00:00:0b',
+                            4: 'c0:ff:ee:00:00:12', 5: 'c0:ff:ee:00:00:0d',
+                            6: 'c0:ff:ee:00:00:11', 7: 'c0:ff:ee:00:00:0e',
+                            8: 'c0:ff:ee:00:00:0e', 9: 'c0:ff:ee:00:00:0b',
+                            10: 'c0:ff:ee:00:00:10', 11: 'c0:ff:ee:00:00:11',
+                            12: 'c0:ff:ee:00:00:10', 13: 'c0:ff:ee:00:00:0b',
+                            14: 'c0:ff:ee:00:00:0c', 15: 'c0:ff:ee:00:00:12',
+                            16: 'c0:ff:ee:00:00:0d', 17: 'c0:ff:ee:00:00:0d',
+                            18: 'c0:ff:ee:00:00:0d', 19: 'c0:ff:ee:00:00:0f',
+                            20: 'c0:ff:ee:00:00:11', 21: 'c0:ff:ee:00:00:12',
+                            22: 'c0:ff:ee:00:00:0c', 23: 'c0:ff:ee:00:00:0e',
+                            24: 'c0:ff:ee:00:00:0d', 25: 'c0:ff:ee:00:00:10',
+                            26: 'c0:ff:ee:00:00:0b', 27: 'c0:ff:ee:00:00:0c',
+                            28: 'c0:ff:ee:00:00:12', 29: 'c0:ff:ee:00:00:0f',
+                            30: 'c0:ff:ee:00:00:10', 31: 'c0:ff:ee:00:00:0d',
+                            32: 'c0:ff:ee:00:00:0f', 33: 'c0:ff:ee:00:00:11',
+                            34: 'c0:ff:ee:00:00:10', 35: 'c0:ff:ee:00:00:0c',
+                            36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:0e',
+                            38: 'c0:ff:ee:00:00:12', 39: 'c0:ff:ee:00:00:0d',
+                            40: 'c0:ff:ee:00:00:0c', 41: 'c0:ff:ee:00:00:0d',
+                            42: 'c0:ff:ee:00:00:0b', 43: 'c0:ff:ee:00:00:10',
+                            44: 'c0:ff:ee:00:00:11', 45: 'c0:ff:ee:00:00:0e',
+                            46: 'c0:ff:ee:00:00:10', 47: 'c0:ff:ee:00:00:0c',
+                            48: 'c0:ff:ee:00:00:0f', 49: 'c0:ff:ee:00:00:0c'}
 
     # Make sure a given flow always hash to same nexthop/neighbor. This is done to try to find issue
     # where SAI vendor changes Hash Function across SAI releases. Please note this will not catch the issue every time
     # as there is always probability even after change of Hash Function same nexthop/neighbor is selected.
 
     # Fill this array after first run of test case which will give neighbor selected
-    SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
-                                              "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
-                                              "td3": td3_asic_flow_map, "gr": gr_asic_flow_map,
-                                              "spc1": spc_asic_flow_map, "spc2": spc_asic_flow_map,
-                                              "spc3": spc_asic_flow_map, "spc4": spc_asic_flow_map}
+    SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"gb": gb_asic_flow_map, "gblc": gb_asic_flow_map, "gr": gr_asic_flow_map,
+                                              "gr2": gr2_asic_flow_map_202405c if G200_asic_v1 else gr2_asic_flow_map_202505 if G200_asic_v2 else gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -987,7 +948,7 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
         polling_interval = 1
         sleep_time = 380
         sleep_time_sync_before = 120
-    elif is_innovium_device(duthost):
+    elif is_marvell_teralynx_device(duthost):
         default_max_nhop_paths = 3
         polling_interval = 10
         sleep_time = 120
@@ -1033,7 +994,7 @@ def test_nhop_member_max_threshold(duthost, tbinfo):
 
     # increase CRM polling time
     asic.command("crm config polling interval {}".format(polling_interval))
-    if is_cisco_device(duthost) or is_innovium_device(duthost):
+    if is_cisco_device(duthost) or is_marvell_teralynx_device(duthost):
         # Waiting for ARP routes to be synced and programmed
         time.sleep(sleep_time_sync_before)
         crm_stat = get_crm_info(duthost, asic)
