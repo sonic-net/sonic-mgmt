@@ -407,7 +407,7 @@ bgp/test_bgpmon.py:
     reason: "Not supported on T2 topology or topology backend
              or Skip for IPv6-only topologies, since there are v6 verison of the test"
     conditions:
-      - "'backend' in topo_name or 't2' in topo_name"
+      - "'backend' in topo_name or topo_type in ['t2']"
       - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
@@ -506,6 +506,10 @@ configlet/test_add_rack.py:
     reason: "AddRack is not yet supported on multi-ASIC platform"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20728"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20728 and '-v6-' in topo_name"
 
 container_hardening/test_container_hardening.py::test_container_privileged:
   skip:
@@ -2306,15 +2310,15 @@ generic_config_updater/test_srv6:
 
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc1_suite:
   xfail:
-    reason: "xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20727"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19638 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20727 and '-v6-' in topo_name"
 
 generic_config_updater/test_vlan_interface.py::test_vlan_interface_tc2_incremental_change:
   xfail:
-    reason: "xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20727"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19638 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20727 and '-v6-' in topo_name"
 
 #######################################
 #####           gnmi              #####
@@ -2330,7 +2334,7 @@ gnmi/test_gnmi_configdb.py:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
     conditions_logical_operator: or
     conditions:
-      - "'t2' in topo_name"
+      - "topo_type in ['t2']"
       - "is_multi_asic==True"
       - "release in ['202412']"
 
@@ -2417,9 +2421,11 @@ hash/test_generic_hash.py::test_ecmp_hash:
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
   xfail:
-    reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304'
+    reason: 'ECMP hash skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/18304 Or xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20733 and '-v6-' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_hash[CRC-INNER_DST_MAC-ipv4-ipv4-vxlan]:
   skip:
@@ -2445,6 +2451,10 @@ hash/test_generic_hash.py::test_lag_hash:
     reason: 'LAG hash not supported in broadcom SAI and Cisco 8000'
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000']"
+  xfail:
+    reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20733 and '-v6-' in topo_name"
 
 hash/test_generic_hash.py::test_lag_hash[CRC-DST_MAC:
   xfail:
@@ -2496,6 +2506,10 @@ hash/test_generic_hash.py::test_lag_member_flap:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+  xfail:
+    reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20733 and '-v6-' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_flap[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -2542,6 +2556,10 @@ hash/test_generic_hash.py::test_lag_member_remove_add:
       - "asic_gen == 'spc1'"
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/13919
+  xfail:
+    reason: 'xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20733'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20733 and '-v6-' in topo_name"
 
 hash/test_generic_hash.py::test_lag_member_remove_add[CRC-INNER_IP_PROTOCOL:
   skip:
@@ -2808,6 +2826,18 @@ ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/16218 and asic_type in ['mellanox']"
 
+ipfwd/test_nhop_group.py::test_nhop_group_member_count:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20731"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
+
+ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20731"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20731 and '-v6-' in topo_name"
+
 #######################################
 #####            ixia             #####
 #######################################
@@ -3032,6 +3062,10 @@ pc/test_po_update.py::test_po_update:
     reason: "Skip test due to there is no portchannel or no portchannel member exists in current topology."
     conditions:
       - "len(minigraph_portchannels) == 0 or len(minigraph_portchannels[list(minigraph_portchannels.keys())[0]]['members']) == 0"
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20729"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20729 and '-v6-' in topo_name"
 
 pc/test_po_update.py::test_po_update_io_no_loss:
   skip:
@@ -3100,6 +3134,13 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
 
+pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_restore[IPv6.*:
+   xfail:
+     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21067 or https://github.com/sonic-net/sonic-mgmt/issues/21082"
+     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21067 and 't0-56' in topo_type and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_type in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
     reason: "On Dualtor AA setup, test_pfcwd_actions is not stable due to github issue https://github.com/sonic-net/sonic-mgmt/issues/15387"
@@ -3114,6 +3155,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
+
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy[IPv6.*:
+  xfail:
+    reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21083"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/21083 and asic_type in ['mellanox']"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
@@ -3611,6 +3658,12 @@ route/test_duplicate_route.py::test_duplicate_routes[4:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+
+route/test_route_bgp_ecmp.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20730"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20730 and '-v6-' in topo_name"
 
 route/test_route_flap.py:
   skip:
@@ -4393,6 +4446,36 @@ vxlan/test_vxlan_route_advertisement.py:
     reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
     conditions:
       - "asic_type not in ['cisco-8000', 'mellanox' , 'marvell-teralynx' , 'vs']"
+
+vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_basic_route_advertisement[v4_in_v4]:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_basic_route_advertisement_with_community[v4_in_v4]:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_basic_route_advertisement_with_community_change[v4_in_v4]:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_route_advertisement_without_and_with_community[v4_in_v4]:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_scale_route_advertisement_with_community[v4_in_v4]:
+  xfail:
+    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
 
 #######################################
 #####           wan_lacp          #####
