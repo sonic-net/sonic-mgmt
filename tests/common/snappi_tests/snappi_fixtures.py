@@ -1601,9 +1601,16 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     asic_arg = ""
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
+    int_arg = ""
+    if intf:
+        int_arg = f"-i {intf}"
+    if setup:
+        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"
+    else:
+        arp_opt = f"-d {addr}"
+
     try:
-        dut.shell("{} arp -i {} -s {} aa:bb:cc:dd:ee:ff".format(
-            asic_arg, intf, addr))
+        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
