@@ -268,7 +268,7 @@ jobs:
     variables:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
-    continueOnError: true
+    continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
       - template: impacted_area_testing/calculate-instance-numbers.yml
@@ -279,7 +279,6 @@ jobs:
       - template: run-test-elastictest-template.yml
         parameters:
           TOPOLOGY: t1-8-lag
-          STOP_ON_FAILURE: "False"
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
