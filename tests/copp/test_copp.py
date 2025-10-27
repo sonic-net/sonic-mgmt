@@ -240,9 +240,8 @@ class TestCOPP(object):
             copp_utils.disable_feature_entry(duthost, self.feature_name)
 
         logging.info("Verify {} trap is uninstalled through CLI".format(self.trap_id))
-        pytest_assert(not copp_utils.is_trap_installed(duthost, self.trap_id),
+        pytest_assert(wait_until(30, 2, 0, copp_utils.is_trap_uninstalled, duthost, self.trap_id),
                       "Trap {} is not uninstalled".format(self.trap_id))
-
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
