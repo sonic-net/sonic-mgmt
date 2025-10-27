@@ -1584,6 +1584,13 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
             # Disable tx on EGRESS port so that headroom buffer cannot be free
             self.sai_thrift_port_tx_disable(self.dst_client, asic_type, [dst_port_id])
 
+            if 'cisco-8000' in asic_type:
+                PKT_NUM = 50
+                cntr_wait_time = 1
+            else:
+                PKT_NUM = 100
+                cntr_wait_time = 8
+
             # There are packet leak even port tx is disabled (18 packets leak on TD3 found)
             # Hence we send some packet to fill the leak before testing
             if asic_type != 'mellanox':
@@ -1615,11 +1622,9 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                     else:
                         send_packet(self, src_port_id, pkt, 20)
                 assert not leakout_failed, "Failed filling leakout"
-                time.sleep(10)
-            if 'cisco-8000' in asic_type:
-                PKT_NUM = 50
-            else:
-                PKT_NUM = 100
+                time.sleep(cntr_wait_time)
+
+            fails = []
             for inner_dscp, pg in dscp_to_pg_map.items():
                 logging.info("Iteration: inner_dscp:{}, pg: {}".format(inner_dscp, pg))
                 # Build and send packet to active tor.
@@ -1642,16 +1647,21 @@ class TunnelDscpToPgMapping(sai_base_test.ThriftInterfaceDataPlane):
                 logging.info(pg_shared_wm_res_base)
                 send_packet(self, src_port_id, pkt, PKT_NUM)
                 # validate pg counters increment by the correct pkt num
-                time.sleep(8)
+                time.sleep(cntr_wait_time)
 
                 pg_shared_wm_res = sai_thrift_read_pg_shared_watermark(self.src_client, asic_type,
                                                                        port_list['src'][src_port_id])
                 pg_wm_inc = pg_shared_wm_res[pg] - pg_shared_wm_res_base[pg]
                 lower_bounds = (PKT_NUM - ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
                 upper_bounds = (PKT_NUM + ERROR_TOLERANCE[pg]) * cell_size * cell_occupancy
-                print("DSCP {}, PG {}, expectation: {} <= {} <= {}".format(
-                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds), file=sys.stderr)
-                assert lower_bounds <= pg_wm_inc <= upper_bounds
+                msg = "DSCP {}, PG {}, expectation: {} <= {} <= {}, base wmk {}, new wmk {}".format(
+                    inner_dscp, pg, lower_bounds, pg_wm_inc, upper_bounds,
+                    pg_shared_wm_res_base[pg], pg_shared_wm_res[pg])
+                print(msg, file=sys.stderr)
+                if not (lower_bounds <= pg_wm_inc <= upper_bounds):
+                    print("FAILED CHECK", file=sys.stderr)
+                    fails.append(msg)
+            assert len(fails) == 0, "Some PG watermark checks failed ({}): \n{}".format(len(fails), "\n".join(fails))
 
         finally:
             # Enable tx on dest port
