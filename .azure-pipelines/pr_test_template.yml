@@ -35,9 +35,15 @@ parameters:
   type: string
   default: "sonic-mgmt"
 
-- name: IMPACT_AREA_INFO
+- name: MGMT_COMMIT_HASH
   type: string
   default: ""
+
+# Keys: "dpu_checker","dualtor_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t1-multi-asic_checker","t1_checker","t2_checker"
+# Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
+- name: IMPACT_AREA_INFO
+  type: object
+  default: {}
 
 
 jobs:
@@ -81,6 +87,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
@@ -112,6 +120,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_t1_lag_elastictest
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
@@ -142,6 +152,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
@@ -172,6 +184,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_multi_asic_elastictest
     displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
@@ -203,6 +217,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_t0_sonic_elastictest
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
@@ -238,6 +254,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
@@ -271,6 +289,8 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   # - job: impacted_area_multi_asic_t1_elastictest
@@ -301,6 +321,11 @@ jobs:
   #         MGMT_BRANCH: $(BUILD_BRANCH)
   #         COMMON_EXTRA_PARAMS: "--disable_sai_validation "
   #         BUILD_REASON: ${{ parameters.BUILD_REASON }}
+  #         RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+  #         STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+  #         TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+  #         MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+  #         MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_t2_elastictest
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
@@ -332,3 +357,5 @@ jobs:
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
           STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
