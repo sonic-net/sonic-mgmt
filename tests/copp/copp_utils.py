@@ -540,6 +540,18 @@ def is_trap_installed(duthost, trap_id):
     return output[trap_id]["hw_status"] == "installed"
 
 
+def is_trap_uninstalled(duthost, trap_id):
+    """
+    Checks if a specific trap is uninstalled by parsing the output of `show copp configuration`.
+    Args:
+        dut (SonicHost): The target device
+        trap_id: The trap ID to check.
+    Returns:
+        bool: True if the trap is uninstalled, False otherwise.
+    """
+    return not is_trap_installed(duthost, trap_id)
+
+
 def get_trap_hw_status(duthost):
     """
     Retrieves the hw_status for traps from the STATE_DB.
