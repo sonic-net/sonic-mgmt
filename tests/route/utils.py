@@ -83,6 +83,7 @@ def generate_route_file(duthost, prefixes, str_intf_nexthop, dir, op):
         route = {}
         route["ifname"] = str_intf_nexthop["ifname"]
         route["nexthop"] = str_intf_nexthop["nexthop"]
+        route["protocol"] = "kernel"
         route_command = {}
         route_command[key] = route
         route_command["OP"] = op
