@@ -272,6 +272,13 @@
     sysctl_set: yes
   become: yes
 
+- name: Increase fs limitation
+  sysctl:
+    name: "fs.inotify.max_user_instances"
+    value: "62800"
+    sysctl_set: yes
+  become: yes
+
 - name: Setup external front port
   include_tasks: external_port.yml
   when: external_port is defined
