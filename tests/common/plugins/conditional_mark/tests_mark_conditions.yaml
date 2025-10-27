@@ -3149,6 +3149,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
 
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy[IPv6.*:
+  xfail:
+    reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21083"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/21083 and asic_type in ['mellanox']"
+
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
      reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch."
