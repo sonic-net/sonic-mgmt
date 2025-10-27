@@ -674,7 +674,7 @@ def get_rib_in_convergence(snappi_api,
         cs.protocol.route.names = route_names
         cs.protocol.route.state = cs.protocol.route.WITHDRAW
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT-25, "For Routes to be withdrawn")
+        wait(TIMEOUT, "For Routes to be withdrawn")
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
         cs = snappi_api.control_state()
@@ -699,7 +699,7 @@ def get_rib_in_convergence(snappi_api,
         cs.protocol.route.names = route_names
         cs.protocol.route.state = cs.protocol.route.ADVERTISE
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT-25, "For all routes to be ADVERTISED")
+        wait(TIMEOUT, "For all routes to be ADVERTISED")
         flows = get_flow_stats(snappi_api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
