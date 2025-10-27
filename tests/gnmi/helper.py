@@ -224,6 +224,13 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     # There is a chance that the network connection lost between PTF and switch due to table entry timeout
     # It would lead to execution failure of py_gnmicli.py. The ping action would trigger arp and mac table refresh.
     ptfhost.shell(f"ping {ip} -c 3", module_ignore_errors=True)
+
+    # Health check to make sure the gnmi server is listening on port
+    health_check_cmd = f"sudo ss -ltnp | grep {env.gnmi_port} | grep ${env.gnmi_program}"
+
+    wait_until(120, 1, 5,
+               lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
+
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
