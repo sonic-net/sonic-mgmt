@@ -1685,7 +1685,8 @@
         "t1-m6-18-MtFuji": [
             "azure.202311.smartswitch",
             "cisco.202311.smartswitch",
-            "cisco.master.signed"
+            "cisco.master.signed",
+            "cisco.202505.1.signed"
         ],
         "t1-topo5": [
             "azure.202311.smartswitch",
