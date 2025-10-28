@@ -1129,6 +1129,7 @@ platform_tests/test_cont_warm_reboot.py:
     conditions:
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
+      - "is_smartswitch==True"
 
 #######################################
 #####       test_intf_fec.py      #####

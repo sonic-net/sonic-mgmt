@@ -415,7 +415,7 @@ bgp/test_bgpmon.py:
     reason: "Not supported on T2 topology or topology backend
              or Skip for IPv6-only topologies, since there are v6 verison of the test"
     conditions:
-      - "'backend' in topo_name or 't2' in topo_name"
+      - "'backend' in topo_name or topo_type in ['t2']"
       - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
@@ -2361,7 +2361,7 @@ gnmi/test_gnmi_configdb.py:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
     conditions_logical_operator: or
     conditions:
-      - "'t2' in topo_name"
+      - "topo_type in ['t2']"
       - "is_multi_asic==True"
       - "release in ['202412']"
 
@@ -3234,6 +3234,13 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
 
+pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_restore[IPv6.*:
+   xfail:
+     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21067 or https://github.com/sonic-net/sonic-mgmt/issues/21082"
+     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21067 and 't0-56' in topo_type and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_type in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
     reason: "On Dualtor AA setup, test_pfcwd_actions is not stable due to github issue https://github.com/sonic-net/sonic-mgmt/issues/15387"
@@ -3248,6 +3255,12 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "asic_type != 'cisco-8000'"
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
+
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy[IPv6.*:
+  xfail:
+    reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21083"
+    conditions:
+    - "https://github.com/sonic-net/sonic-mgmt/issues/21083 and asic_type in ['mellanox']"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
