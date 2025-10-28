@@ -298,6 +298,7 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
     duthost = duthosts[rand_one_dut_front_end_hostname]
     asic_namespace = None if enum_rand_one_frontend_asic_index is None else \
         'asic{}'.format(enum_rand_one_frontend_asic_index)
+    namespace_prefix = '' if asic_namespace is None else '-n ' + asic_namespace
     intf_init_status = duthost.get_interfaces_status()
     port = get_ethernet_port_not_in_portchannel(duthost, namespace=asic_namespace)
     json_patch = [
@@ -322,7 +323,7 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
 
             # The rollback after the test cannot revert the fec, when fec is not configured in config_db.json
             if intf_init_status[port].get("fec", "N/A") == "N/A":
-                out = duthost.command("config interface fec {} none".format(port))
+                out = duthost.command("config interface {} fec {} none".format(namespace_prefix, port))
                 pytest_assert(out["rc"] == 0, "Failed to set {} fec to none. Error: {}".format(port, out["stderr"]))
         else:
             expect_op_failure(output)
