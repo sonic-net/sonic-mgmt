@@ -39,6 +39,10 @@ parameters:
   type: string
   default: ""
 
+- name: KVM_BUILD_ID
+  type: string
+  default: ""
+
 # Keys: "dpu_checker","dualtor_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t1-multi-asic_checker","t1_checker","t2_checker"
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
@@ -81,6 +85,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
@@ -114,6 +119,7 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           DEPLOY_MG_EXTRA_PARAMS: "-e vlan_config=two_vlan_a"
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
@@ -146,6 +152,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
@@ -179,6 +186,7 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
           RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
@@ -211,6 +219,7 @@ jobs:
           MAX_WORKER: $(INSTANCE_NUMBER)
           NUM_ASIC: 4
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
@@ -243,6 +252,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           COMMON_EXTRA_PARAMS: "--neighbor_type=sonic --disable_sai_validation "
           VM_TYPE: vsonic
           MGMT_BRANCH: $(BUILD_BRANCH)
@@ -280,6 +290,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           SPECIFIC_PARAM: '[
@@ -318,6 +329,7 @@ jobs:
   #         MAX_WORKER: $(INSTANCE_NUMBER)
   #         NUM_ASIC: 4
   #         KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+  #         KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
   #         MGMT_BRANCH: $(BUILD_BRANCH)
   #         COMMON_EXTRA_PARAMS: "--disable_sai_validation "
   #         BUILD_REASON: ${{ parameters.BUILD_REASON }}
@@ -351,6 +363,7 @@ jobs:
           MIN_WORKER: $(INSTANCE_NUMBER)
           MAX_WORKER: $(INSTANCE_NUMBER)
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
+          KVM_BUILD_ID: ${{ parameters.KVM_BUILD_ID }}
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
