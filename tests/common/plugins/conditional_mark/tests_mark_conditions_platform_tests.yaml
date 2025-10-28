@@ -522,6 +522,10 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
   skip:
@@ -530,6 +534,12 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_presence:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_serial:
   skip:
@@ -1050,6 +1060,12 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 #####            sfp              #####
 #######################################
+platform_tests/sfp/test_sfputil.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"

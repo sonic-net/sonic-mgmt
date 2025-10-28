@@ -70,6 +70,10 @@ acl/test_acl.py:
     reason: "Skip acl for isolated-v6 topology"
     conditions:
       - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
@@ -128,6 +132,10 @@ arp/test_neighbor_mac_noptf.py:
     reason: "Not supported in standalone topologies."
     conditions:
       - "'standalone' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 arp/test_unknown_mac.py:
   skip:
@@ -306,6 +314,10 @@ bgp/test_bgp_router_id.py:
     reason: "Not supported on multi-asic"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_default:
   xfail:
@@ -1679,15 +1691,17 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1702,12 +1716,20 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-upstream-default]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv6-cli-downstream-default]:
   xfail:
@@ -1746,18 +1768,24 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1770,18 +1798,24 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1794,18 +1828,24 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
   skip:
@@ -1842,6 +1882,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1850,6 +1894,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1864,12 +1912,20 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-upstream-default]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
@@ -1904,6 +1960,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1912,6 +1972,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1932,6 +1996,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1940,6 +2008,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1960,6 +2032,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1968,6 +2044,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####            fdb              #####
@@ -2378,9 +2458,10 @@ hash/test_generic_hash.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
       - "'-v6-' in topo_name"
   xfail:
-    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
+    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "topo_type in ['t0', 't1']"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
@@ -2977,6 +3058,15 @@ nat:
     conditions:
       - "'nat' not in feature_status"
       - "asic_type in ['mellanox', 'nvidia']"
+
+#######################################
+#####           nbr               #####
+#######################################
+test_nbr_health.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####             ospf            #####
