@@ -447,11 +447,9 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
 
     # Reloading the configuration will restart eth0 and update the TACACS settings.
     # This change may introduce a delay, potentially causing temporary TACACS reporting errors.
-    try:
+    if loganalyzer and duthost.hostname and duthost.hostname in loganalyzer:
         loganalyzer[duthost.hostname].ignore_regex.extend([r".*tac_connect_single: .*",
                                                            r".*nss_tacplus: .*"])
-    except:
-        pass
 
     # verify the forwarding works
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
