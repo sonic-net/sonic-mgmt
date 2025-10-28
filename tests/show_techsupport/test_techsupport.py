@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until, check_msg_in_syslog
+from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -51,9 +51,10 @@ SESSION_INFO = {
     'queue': "0"
 }
 
+IPV6_IPS = {'src_ip': "2001::1", 'dst_ip': "2001::2"}
+
 DPU_PLATFORM_DUMP_FILES = ["sysfs_tree", "sys_version", "dmesg",
                            "dmidecode", "lsmod", "lspci", "top", "bin/platform-dump.sh"]
-
 # ACL PART #
 
 
@@ -213,7 +214,8 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version, request):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip,
+              mirror_setup, gre_version, request, tbinfo):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
@@ -228,13 +230,23 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     }
     logger.info('Extra variables for MIRROR table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    cmd = "config mirror_session add {} {} {} {} {} {} {}"
+    if is_ipv6_only_topology(tbinfo):
+        SESSION_INFO['src_ip'] = IPV6_IPS['src_ip']
+        SESSION_INFO['dst_ip'] = IPV6_IPS['dst_ip']
+        cmd = "redis-cli -n 4 hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
 
+    cmd = cmd.format(
+        SESSION_INFO['name'],
+        SESSION_INFO['src_ip'],
+        neighbor_ip,
+        SESSION_INFO['dscp'],
+        SESSION_INFO['ttl'],
+        SESSION_INFO['gre'],
+        SESSION_INFO['queue']
+    )
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULE_PERSISTENT_TEMPLATE), dest=acl_rule_file)
-    duthost.command('config mirror_session add {} {} {} {} {} {} {}'.format(SESSION_INFO['name'],
-                                                                            SESSION_INFO['src_ip'], neighbor_ip,
-                                                                            SESSION_INFO['dscp'], SESSION_INFO['ttl'],
-                                                                            SESSION_INFO['gre'], SESSION_INFO['queue'])
-                    )
+    duthost.command(cmd)
 
     logger.info('Loading acl mirror rules ...')
     load_rule_cmd = "acl-loader update full {} --session_name={}".format(acl_rule_file, SESSION_INFO['name'])
@@ -533,7 +545,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return cmds_to_check
 
 
-def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
+def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist, tbinfo=None):
     """
     Check commands within a group against the command list
 
@@ -545,6 +557,9 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
     for cmd_name in cmd_group_to_check:
         found = False
         cmd_str = cmd_name if isinstance(cmd_name, str) else cmd_name.pattern
+        if tbinfo and is_ipv6_only_topology(tbinfo) and 'ipv4' in cmd_str:
+            logger.info("Skipping IPv4 command {} on IPv6-only topology".format(cmd_str))
+            continue
         logger.info("Checking for {}".format(cmd_str))
 
         for command in cmdlist:
@@ -571,7 +586,7 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
 
 
 def test_techsupport_commands(
-        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu):  # noqa F811
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu, tbinfo):  # noqa F811
     """
     This test checks list of commands that will be run when executing
     'show techsupport' CLI against a standard expected list of commands
@@ -603,7 +618,7 @@ def test_techsupport_commands(
 
     for cmd_group_name, cmd_group_to_check in list(commands_to_check.items()):
         cmd_not_found.update(
-            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist, tbinfo)
         )
 
     error_message = ''
