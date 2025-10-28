@@ -3160,7 +3160,7 @@ qos/test_pfc_counters.py:
 
 qos/test_pfc_pause.py:
   skip:
-    reason: "This test is not run on this asic type or version or topology currently"
+    reason: "This test is not run on this asic type or version or topology currently and also skip for 202412 for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type not in ['t0']"
