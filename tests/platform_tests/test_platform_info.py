@@ -76,7 +76,9 @@ SKIP_ERROR_LOG_PSU_ABSENCE = [
     '.*ERR pmon#psud:.*Fail to read revision: No key REV_VPD_FIELD in.*',
     r'.*ERR pmon#psud: Failed to read from file /var/run/hw-management/power/psu\d_volt.*',
     r'.*ERR pmon#thermalctld: Failed to read from file \/var\/run\/hw-management\/thermal\/.*FileNotFoundError.*',
-    r'.*PSU power thresholds become invalid: threshold \d+\.\d+ critical threshold N/A.*']
+    r'.*PSU power thresholds become invalid: threshold (\d+\.\d+|N/A) critical threshold N/A.*',
+    r'.*ERR pmon#sensord: Error getting sensor data: pmbus\/#\d: Can\'t read',
+    r'.*ERR pmon#sensord: Error getting sensor data: dps\d+\/#\d: Kernel interface error']
 
 SKIP_ERROR_LOG_SHOW_PLATFORM_TEMP.extend(SKIP_ERROR_LOG_COMMON)
 SKIP_ERROR_LOG_PSU_ABSENCE.extend(SKIP_ERROR_LOG_COMMON)
