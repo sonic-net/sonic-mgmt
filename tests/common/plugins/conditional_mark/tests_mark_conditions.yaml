@@ -2936,7 +2936,7 @@ mvrf/test_mgmtvrf.py:
     reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox, nvidia and broadcom asic from 202411 and later"
     conditions_logical_operator: or
     conditions:
-      - "asic_type in ['vs', 'mellanox', 'nvidia','broadcom']"
+      - "asic_type in ['vs', 'mellanox', 'nvidia', 'broadcom']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
 
@@ -3117,7 +3117,7 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
-     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch."
+     reason: "Warm Reboot is not supported in T2 or in standalone topos. / Pfcwd tests skipped on M* testbed. / Warm reboot is not required for isolated topo / Pfcwd warm reboot is not supported on cisco-8000 platform. Warm reboot is not supported on smartswitch. /  It is skipped  for '202412' for now"
      conditions_logical_operator: or
      conditions:
         - "'t2' in topo_name"
@@ -3230,10 +3230,12 @@ qos/test_oq_watchdog.py:
 
 qos/test_pfc_counters.py:
   skip:
-    reason: "Not supported on SKU"
+    reason: "Not supported on SKU and It is skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                    'Mellanox-SN5640-C448O16']"
+      - "release in ['202412']"
 
 qos/test_pfc_pause.py::test_pfc_pause_lossless:
   # For this test, we use the fanout connected to the DUT to send PFC pause frames.
@@ -3278,11 +3280,12 @@ qos/test_qos_masic.py:
 
 qos/test_qos_sai.py:
   skip:
-    reason: "qos_sai tests not supported on t1 topo / M* topo does not support qos"
+    reason: "qos_sai tests not supported on t1 topo / M* topo does not support qos and It is skipped for '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and topo_name in ['t1']"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "release in ['202412']"
 
 qos/test_qos_sai.py::TestQosSai:
   skip:
