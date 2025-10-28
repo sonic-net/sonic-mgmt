@@ -133,6 +133,7 @@ FWD:
         - hash/test_generic_hash.py
         - ipfwd/test_dip_sip.py
         - ipfwd/test_nhop_group.py
+        - ip/test_ip_packet.py
   t2-min:
     sfd:
       sim:
