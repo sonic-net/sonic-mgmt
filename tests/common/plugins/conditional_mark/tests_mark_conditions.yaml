@@ -3246,9 +3246,11 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
 #######################################
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
-    reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices.
+    reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
+    conditions_logical_operator: or
     conditions:
       - "'t1' in topo_name"
+      - "release in ['202412']"
 
 #######################################
 #####           qos               #####
