@@ -166,8 +166,8 @@ def log_rotate(duthost):
         state_failed_pattern = r"error: stat of \S* failed: Bad message"
         can_not_access_pattern = r"du: cannot access \S*: Bad message"
         if ("logrotate does not support parallel execution on the same set of logfiles" in message) or \
-                re.match(state_failed_pattern, message) or \
-                re.match(can_not_access_pattern, message) or \
+                re.search(state_failed_pattern, message) or \
+                re.search(can_not_access_pattern, message) or \
                 ("failed to compress log" in message):
             logger.warning("logrotate command failed: {}".format(e))
         else:
