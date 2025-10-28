@@ -331,6 +331,12 @@ def install_new_sonic_image(module, new_image_url, save_as=None, required_space=
             cmd="rm -f /host/old_config/config_db.json",
             msg="Remove config_db.json in preference of minigraph.xml"
         )
+        log("Remove /host/old_config/golden_config_db.json when /etc/old_config/minigraph.xml exists")
+        exec_command(
+            module,
+            cmd="rm -f /host/old_config/golden_config_db.json",
+            msg="Remove golden_config_db.json in preference of minigraph.xml"
+        )
 
     try:
         get_sonic_image_size(module)
