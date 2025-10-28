@@ -261,7 +261,7 @@ jobs:
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest
-    displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest - optional"
+    displayName: "impacted-area-kvmtest-multi-asic-t1 by Elastictest"
     dependsOn:
     - get_impacted_area
     condition: contains(dependencies.get_impacted_area.outputs['SetVariableTask.PR_CHECKERS'], 't1_checker')
