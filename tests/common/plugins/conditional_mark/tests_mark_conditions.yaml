@@ -150,7 +150,7 @@ bfd:
   skip:
     reason: "Skipped as not supported on Mellanox HWSKUS: [Mellanox-SN5600-C256S1, Mellanox-SN5600-C224O8, Mellanox-SN5640-C512S2, Mellanox-SN5640-C448O16]"
     conditions:
-      - "hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
+      - "release in ['202412']"
 
 bfd/test_bfd.py:
   skip:
