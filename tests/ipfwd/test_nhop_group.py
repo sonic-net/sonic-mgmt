@@ -447,7 +447,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
-    if is_cisco_device(duthost):
+    if is_cisco_device(duthost) or "7060X6" in duthost.sonichost.get_facts()['platform'].upper():
         pytest_assert(
             crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
