@@ -2713,6 +2713,12 @@ iface_namingmode/test_iface_namingmode.py::TestConfigInterface::test_config_inte
     conditions:
       - "'Arista-7060X6' in hwsku"
 
+iface_namingmode/test_iface_namingmode.py::TestShowIP::test_show_ip_route_v4:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 iface_namingmode/test_iface_namingmode.py::TestShowPriorityGroup:
   xfail:
     reason: "Platform specific issue"
