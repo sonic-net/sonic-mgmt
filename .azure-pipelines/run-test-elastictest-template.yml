@@ -184,6 +184,10 @@ parameters:
     type: string
     default: ""
 
+  - name: KVM_BUILD_ID
+    type: string
+    default: ""
+
   - name: KVM_IMAGE_BUILD_PIPELINE_ID
     type: string
     default: ""
@@ -281,7 +285,7 @@ steps:
       --max-worker ${{ parameters.MAX_WORKER }} \
       --lock-wait-timeout-seconds ${{ parameters.LOCK_WAIT_TIMEOUT_SECONDS }} \
       --test-set ${{ parameters.TEST_SET }} \
-      --kvm-build-id $(KVM_BUILD_ID) \
+      --kvm-build-id ${{ parameters.KVM_BUILD_ID }} \
       --kvm-image-branch "${{ parameters.KVM_IMAGE_BRANCH }}" \
       --setup-container-params "${{ parameters.SETUP_CONTAINER_PARAMS }}" \
       --kvm-image-build-pipeline-id ${{ parameters.KVM_IMAGE_BUILD_PIPELINE_ID }} \

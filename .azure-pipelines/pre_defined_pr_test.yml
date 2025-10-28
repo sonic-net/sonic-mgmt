@@ -28,6 +28,10 @@ parameters:
   type: string
   default: " "
 
+- name: KVM_BUILD_ID
+  type: string
+  default: ""
+
 # Keys: "dpu_checker","dualtor_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t1-multi-asic_checker","t1_checker","t2_checker"
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
