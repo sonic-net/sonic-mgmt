@@ -259,10 +259,8 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
         testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
 
 
-def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                            ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
                             ptfadapter, get_function_completeness_level, proxy_arp_enabled):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
