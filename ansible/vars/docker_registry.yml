@@ -1,1 +1,1 @@
-docker_registry_host: soniccr1.azurecr.io:443
+docker_registry_host: sonicdev-microsoft.azurecr.io:443
