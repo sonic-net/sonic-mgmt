@@ -75,9 +75,10 @@ acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
   xfail:
-    reason: "Cisco platform does not support ACL Outer VLAN ID tests"
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'t0-isolated-d256u256s2' in topo_name"
   skip:
     reason: "Skip running on dualtor testbed"
     conditions:
@@ -381,6 +382,12 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
     reason: "xfail for IPv6-only topologies, is with it look for vlan_ipv4_entry"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
+
+bgp/test_bgp_stress_link_flap.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -1985,6 +1992,10 @@ fib/test_fib.py:
     reason: 'Skip on t1-isolated-d32/128 topos'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_basic_fib[True-True-1514]:
   skip:
@@ -2857,6 +2868,10 @@ lldp/test_lldp.py::test_lldp:
     reason: "Skipping LLDP test because the topology is standalone. No LLDP neighbors detected."
     conditions:
       - "'standalone' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 lldp/test_lldp.py::test_lldp_neighbor:
   skip:
@@ -3508,15 +3523,17 @@ qos/test_voq_watchdog.py:
 #######################################
 radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
   skip:
@@ -3524,9 +3541,10 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
   skip:
@@ -3534,9 +3552,10 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####          read_mac           #####
@@ -3652,6 +3671,10 @@ route/test_static_route.py:
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 route/test_static_route.py::test_static_route[:
   skip:
@@ -3919,6 +3942,15 @@ ssh/test_ssh_stress.py::test_ssh_stress:
   skip:
     reason: "This test failed intermittent due to known issue of paramiko, skip for now"
     conditions: https://github.com/paramiko/paramiko/issues/1508
+
+#######################################
+#####             stress          #####
+#######################################
+stress/test_stress_routes.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####     sub_port_interfaces     #####

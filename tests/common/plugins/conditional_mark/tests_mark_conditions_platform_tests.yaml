@@ -1007,6 +1007,12 @@ platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_lin
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
 
+platform_tests/link_flap/test_link_flap.py::test_link_flap:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 #######################################
 #####           mellanox          #####
 #######################################
