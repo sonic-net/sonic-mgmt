@@ -148,7 +148,7 @@ arp/test_wr_arp.py:
 #######################################
 bfd:
   skip:
-    reason: "Skipped as not supported on Mellanox HWSKUS: [Mellanox-SN5600-C256S1, Mellanox-SN5600-C224O8, Mellanox-SN5640-C512S2, Mellanox-SN5640-C448O16]"
+    reason: "Skipped as not supported on 202412 release"
     conditions:
       - "release in ['202412']"
 
