@@ -4,6 +4,9 @@ import allure
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F401
 from .util import check_sfp_eeprom_info, is_support_dom, get_pci_cr0_path, get_pciconf0_path
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
+from tests.platform_tests.conftest import check_pmon_uptime_minutes
 
 pytestmark = [
     pytest.mark.asic('mellanox', 'nvidia-bluefield'),
@@ -64,6 +67,9 @@ def test_check_sfp_eeprom_with_option_dom(duthosts, rand_one_dut_hostname, show_
            and the the corresponding value has correct format
     """
     duthost = duthosts[rand_one_dut_hostname]
+
+    pytest_assert(wait_until(360, 10, 0, check_pmon_uptime_minutes, duthost),
+                  "Pmon docker is not ready for test")
 
     with allure.step("Run: {} to get transceiver eeprom info".format(show_eeprom_cmd)):
         check_eeprom_dom_output = duthost.command(show_eeprom_cmd)
