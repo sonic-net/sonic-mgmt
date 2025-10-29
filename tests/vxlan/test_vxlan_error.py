@@ -98,7 +98,7 @@ def setup(duthost, tbinfo, configure_vxlan_global_params):
     try:
         minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
 
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="TestVxlanCrash")
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="TestVxlanError")
         loganalyzer.match_regex = \
             [r".*SAI_NEXT_HOP_ATTR_TUNNEL_ID:SAI_ATTR_VALUE_TYPE_OBJECT_ID object on list \[0\] is NULL, but not allowed.*"]  # noqa E501
         with loganalyzer:
