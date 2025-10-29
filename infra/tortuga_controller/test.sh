@@ -17,12 +17,12 @@ PYVXR_HOST=tortuga-1x3.cisco.com
 HOST_PORTS=40409,39855,36427,41851,49665,56787,35027,56005,51299
 LEAF_PORTS=43039,45263,52467
 SPINE_PORTS=43541
+FABRIC_COUNT=1
 
 # SONiC team should set the BIN_DIR.
 BIN_DIR="."
 CONFIG_GEN="${BIN_DIR}/config-gen"
-os=$(uname)
-if [[ "${os}" == "Darwin" ]]; then
+if [[ -f ./sandbox/gobin/config-gen ]]; then
   CONFIG_GEN=./sandbox/gobin/config-gen
 elif [[ -d "${BIN_DIR}" ]]; then
   curl http://ramius-fs1.cisco.com/cdi-images/config-gen --output "${CONFIG_GEN}"
@@ -52,6 +52,8 @@ BULK_MODE=true   # Enable bulk config load.
 BULK_PATCH=false # Enable bulk config patch.
 LLDP_CHECK=true  # Check and assert for LLDP system description.
 IPSLA=true       # Enable IpSla tests.
+SB_PEER=false    # Add southbound peers.
+SB_SPINE=false   # Use spine as southbound peer.
 DSCP="no-dscp"   # Enable DSCP/QoS tests.
 SCALE_VLANS=10   # Number of host Vlans to be added.
 SCALE_VNIS=10    # Number of VNIs to be added for scale testing.
@@ -139,6 +141,13 @@ do
   -pcs)
     SCALE_PCS="${2}"
     shift; shift;;
+  -sb-peer)
+    SB_PEER=true
+    shift;;
+  -sb-spine)
+    SB_PEER=true
+    SB_SPINE=true
+    shift;;
   -no-breakout)
     BREAKOUT="no-breakout"
     shift;;
@@ -161,6 +170,9 @@ do
   -a|-action)
     CGEN_TEST="${2}"
     shift; shift;;
+  -c|-count)
+    FABRIC_COUNT="${2}"
+    shift; shift;;
   *)
     shift;;
   esac
@@ -168,6 +180,8 @@ done
 
 # Number of leaf switches - 1.
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
+LENGTH=$((LENGTH + 1))
+LENGTH=$((LENGTH / FABRIC_COUNT))
 
 # Enable bulk-mode config.
 if [[ "${BULK_MODE}" == true ]]; then
@@ -188,7 +202,7 @@ PYVXR_SUBINFS="Vrf40000|*|${SUBINF_PORT}|eth1#${SCALE_SUBINFS}|lo"
 # Add tagged vlans for host sub-interfaces. In case of a single switch setup,
 # add tagged vlans on the DHCP host port so as to have connected vlan hosts.
 PYVXR_VLANS="Vrf40000|*|${VLAN_PORT1}|eth1#${SCALE_VLANS}"
-if [[ ${LENGTH} -eq 0 ]]; then
+if [[ ${LENGTH} -eq 1 ]]; then
   PYVXR_VLANS="${PYVXR_VLANS},Vrf40000|*|${VLAN_PORT2}|eth1#${SCALE_VLANS}"
 fi
 
@@ -210,10 +224,10 @@ PYVXR_BGPPEERS="Vrf40000|northbound#4000#*#host3@41.230.10.0/31@eth2#leaf0|41.23
 # Add a IPv6 northbound BGP peer on third host of last leaf.
 V6HOST=host2
 V6LEAF=leaf0
-if [[ ${LENGTH} -eq 1 ]]; then
+if [[ ${LENGTH} -eq 2 ]]; then
   V6HOST=host6
   V6LEAF=leaf1
-elif [[ ${LENGTH} -gt 1 ]]; then
+elif [[ ${LENGTH} -gt 2 ]]; then
   V6HOST=host9
   V6LEAF=leaf2
 fi
@@ -222,19 +236,34 @@ PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|ipv6-nb#5000#*#${V6HOST}@50.50.50.2/2
 PYVXR_ROUTES="${PYVXR_ROUTES},*#${V6HOST}|fc00:dead:face::0/96#5000::1"
 PYVXR_IPS="50.50.50.2#5000::2"
 
+# We use leaf0, leaf1 and leaf2 Loopbacks for southbound peering. However, Loopbacks on
+# the spines are used for 2x2 fabric. This is to test spine based southbound peering.
+SB_ANNOTATIONS="host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1#host8@41.216.1.4#leaf2"
+SB_NODE1=leaf0
+SB_NODE2=leaf1
+SB_NODE3=leaf2
+if [[ "${SB_SPINE}" == true ]]; then
+  SB_NODE1=spine0
+  SB_NODE2=
+  SB_ANNOTATIONS="host1@41.216.1.2#leaf0"
+fi
+
 # Southbound BGP peer is on leaf0 and leaf1, and uses custom policies.
 # Annotations are used by config-gen to configure FRR on hosts.
-SB_ANNOTATIONS="host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1#host8@41.216.1.4#leaf2"
-PYVXR_POLICIES="${PYVXR_POLICIES},export-sb#true#*|true#*#9999:99#8888:88|false#*#BLACK|false#*#0.0.0.0/0|true#*"
-PYVXR_POLICIES="${PYVXR_POLICIES},import-sb#false#*|true#8888:88"
-PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#${SB_ANNOTATIONS}|41.216.1.0/28#3500#20|leaf0#Loopback10"
-if [[ ${LENGTH} -gt 0 ]]; then
-  PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#leaf1#Loopback10"
+if [[ "${SB_PEER}" == true ]]; then
+  PYVXR_POLICIES="${PYVXR_POLICIES},export-sb#true#*|true#*#9999:99#8888:88|false#*#BLACK|false#*#0.0.0.0/0|true#*"
+  PYVXR_POLICIES="${PYVXR_POLICIES},import-sb#false#*|true#8888:88"
+  PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#${SB_ANNOTATIONS}|41.216.1.0/28#3500#20|${SB_NODE1}#Loopback10"
+  if [[ ${LENGTH} -gt 1 ]]; then
+    if [[ -n "${SB_NODE2}" ]]; then
+      PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#${SB_NODE2}#Loopback10"
+    fi
+  fi
+  if [[ ${LENGTH} -gt 2 ]]; then
+    PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#${SB_NODE3}#Loopback10"
+  fi
+  PYVXR_BGPPEERS="${PYVXR_BGPPEERS}|export-sb#import-sb"
 fi
-if [[ ${LENGTH} -gt 1 ]]; then
-  PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#leaf2#Loopback10"
-fi
-PYVXR_BGPPEERS="${PYVXR_BGPPEERS}|export-sb#import-sb"
 
 # Add static routes for Vrf400000
 PYVXR_IPS="${PYVXR_IPS}#7.7.7.1"
@@ -244,7 +273,7 @@ PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000|8.8.8.2/32#41.216.0.3#GREEN|8.8.8.3/32#41
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
 
 # Add PortChannels for two leaves fabric.
-if [[ ${LENGTH} -eq 1 ]]; then
+if [[ ${LENGTH} -eq 2 ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.2"
@@ -252,7 +281,7 @@ if [[ ${LENGTH} -eq 1 ]]; then
 fi
 
 # Add PortChannels for three leaf fabric: MLAG on first and second leaves, and LAG on third leaf.
-if [[ ${LENGTH} -gt 1 ]]; then
+if [[ ${LENGTH} -gt 2 ]]; then
   PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf1:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel10|leaf1:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel20|leaf2:${LAG_PORT1}#leaf2:${LAG_PORT2}|10|false|eth1#eth2"
@@ -261,7 +290,7 @@ if [[ ${LENGTH} -gt 1 ]]; then
 fi
 
 # Add PortChannels for six leaf fabric: MLAG on fourth and fifth leaves, and LAG on sixth leaf.
-if [[ ${LENGTH} -gt 3 ]]; then
+if [[ ${LENGTH} -gt 4 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel30|leaf3:${LAG_PORT1}#leaf4:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel40|leaf4:${LAG_PORT1}#leaf3:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel50|leaf5:${LAG_PORT1}#leaf5:${LAG_PORT2}|10|false|eth1#eth2"
@@ -270,7 +299,7 @@ if [[ ${LENGTH} -gt 3 ]]; then
 fi
 
 # Add PortChannels for nine leaf fabric: MLAG on seventh and eighth leaves, and LAG on nineth leaf.
-if [[ ${LENGTH} -gt 6 ]]; then
+if [[ ${LENGTH} -gt 7 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel60|leaf6:${LAG_PORT1}#leaf7:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel70|leaf7:${LAG_PORT1}#leaf6:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel80|leaf8:${LAG_PORT1}#leaf8:${LAG_PORT2}|10|false|eth1#eth2"
@@ -300,10 +329,10 @@ if [[ "${DHCP}" == "vlan" ]]; then
   PYVXR_DHCPS="Vrf40000|relay-20|41.216.3.2|20"
 
   # Extend Vlan of DHCP relay to all leaves.
-  if [[ ${LENGTH} -gt 0 ]]; then
+  if [[ ${LENGTH} -gt 1 ]]; then
     HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf1|none|40|false"
   fi
-  if [[ ${LENGTH} -gt 1 ]]; then
+  if [[ ${LENGTH} -gt 2 ]]; then
     HOST_SPECS="${HOST_SPECS},dummy/eth1|leaf2|none|40|false"
   fi
 elif [[ "${DHCP}" == "port" ]]; then
@@ -326,9 +355,9 @@ TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP},${BREAKOUT}"
 # Configure IP/SLA and static routes for traffic-gen running in host0 and
 # host4. For single switch setup, enable traffic-gen on host0 and host1.
 if [[ "${IPSLA}" == true ]]; then
-  if [[ ${LENGTH} -gt 1 ]]; then
+  if [[ ${LENGTH} -gt 2 ]]; then
     PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host4@host7|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.0.3|20.20.20.2/32#41.216.0.4"
-  elif [[ ${LENGTH} -gt 0 ]]; then
+  elif [[ ${LENGTH} -gt 1 ]]; then
      PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host4|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.0.3"
   else
     PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host1|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.1.2"
@@ -350,6 +379,7 @@ function run_pyvxr() {
     --test "${CGEN_TEST}" \
     --cloud "${CLOUD_URL}" \
     --fabric "${FABRIC_NAME}" \
+    --count "${FABRIC_COUNT}" \
     --pyvxr "${PYVXR_HOST}" \
     --spines "${SPINE_PORTS}" \
     --leaves "${LEAF_PORTS}" \
@@ -378,7 +408,13 @@ echo
 echo "-------------------------SONiC regression tests-------------------------"
 echo
 if [[ "${CGEN_TEST}" != "ping" ]]; then
-  "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "3m"
+  if [[ ${FABRIC_COUNT} -eq 1 ]]; then
+    "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "3m"
+  else
+    for ((i = 1; i <= FABRIC_COUNT; i++)); do
+      "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}${i}" --orgName "${ORG_NAME}" --timeout "3m"
+    done
+  fi
   echo
 fi
 
