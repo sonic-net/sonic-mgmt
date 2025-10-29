@@ -276,7 +276,7 @@ def test_tsa_tsb_service_with_dut_cold_reboot(request, duthosts, localhost, nbrh
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
@@ -309,7 +309,7 @@ def test_tsa_tsb_service_with_dut_cold_reboot(request, duthosts, localhost, nbrh
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
+                pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -425,7 +425,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(request, duthosts, localhost, 
                           "TSC command still returns error even after startup_tsa_tsb service started")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
@@ -458,7 +458,7 @@ def test_tsa_tsb_service_with_dut_abnormal_reboot(request, duthosts, localhost, 
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
+                pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -569,7 +569,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
@@ -603,7 +603,7 @@ def test_tsa_tsb_service_with_supervisor_cold_reboot(duthosts, localhost, enum_s
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
+                pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -736,7 +736,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
                           "TSC command still returns error even after startup_tsa_tsb service started")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
@@ -770,7 +770,7 @@ def test_tsa_tsb_service_with_supervisor_abnormal_reboot(duthosts, localhost, en
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
+                pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -890,7 +890,7 @@ def test_tsa_tsb_service_with_user_init_tsa(request, duthosts, localhost, nbrhos
                           "startup_tsa_tsb service is not in exited state after reboot")
 
             # Verify DUT continues to be in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state with saved TSA config after reboot")
 
             logging.info("Wait until all critical processes are fully started")
@@ -930,7 +930,8 @@ def test_tsa_tsb_service_with_user_init_tsa(request, duthosts, localhost, nbrhos
 
         # Verify DUT comes back to  normal state after TSB.
         for linecard in frontend_nodes_per_hwsku:
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard), "DUT is not in normal state")
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(linecard, 'TSC no-stats')),
+                          "DUT is not in normal state")
 
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
 
@@ -1008,7 +1009,7 @@ def test_user_init_tsa_while_service_run_on_dut(request, duthosts, localhost, nb
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1025,7 +1026,7 @@ def test_user_init_tsa_while_service_run_on_dut(request, duthosts, localhost, nb
                           "startup_tsa_tsb service is not in inactive state after user init TSA")
 
             # Verify DUT continues to be in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state with saved TSA config after reboot")
 
             logging.info("Wait until all critical processes are fully started")
@@ -1155,7 +1156,7 @@ def test_user_init_tsb_while_service_run_on_dut(request, duthosts, localhost, nb
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1168,7 +1169,8 @@ def test_user_init_tsb_while_service_run_on_dut(request, duthosts, localhost, nb
             lc.shell('sudo config save -y')
 
             # Verify DUT comes back to normal state after TSB.
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc), "DUT is not in normal state")
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
+                          "DUT is not in normal state")
 
             # Ensure startup_tsa_tsb service is in inactive state after user-initiated TSB
             pytest_assert(wait_until(60, 5, 10, get_tsa_tsb_service_status, lc, 'inactive'),
@@ -1292,7 +1294,7 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost, enum
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
@@ -1325,11 +1327,12 @@ def test_user_init_tsb_on_sup_while_service_run_on_dut(duthosts, localhost, enum
             if get_tsa_tsb_service_status(lc, 'running') and \
                     check_tsa_tsb_service_run_time_diff(service_up_times[lc], tsa_tsb_timer[lc]):
                 # Verify DUT continues to be in maintenance state if the timer is running.
-                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                pytest_assert(wait_until(30, 5, 0,
+                                         lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in maintenance state when startup_tsa_tsb service is running")
             else:
                 # Verify DUT continues came back to normal state after timer expiry.
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+                pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state when startup_tsa_tsb service is running")
 
             # Ensure startup_tsa_tsb service is in exited state after timer expiry
@@ -1464,7 +1467,7 @@ def test_tsa_tsb_timer_efficiency(request, duthosts, localhost, nbrhosts, traffi
             logging.info("Time taken for system stability : {}".format(time_to_stabilize))
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             # Verify startup_tsa_tsb service stopped after expected time
@@ -1478,7 +1481,7 @@ def test_tsa_tsb_timer_efficiency(request, duthosts, localhost, nbrhosts, traffi
             # Ensure dut comes back to normal state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify TSB is configured on the dut after startup_tsa_tsb service is stopped
-                pytest_assert(TS_NORMAL == get_traffic_shift_state(lc),
+                pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in normal state after startup_tsa_tsb service is stopped")
 
         with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -1540,7 +1543,7 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
         crit_process_check[linecard] = True
 
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(linecard),
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(linecard, 'TSC no-stats')),
                       "DUT is not in normal state")
 
     dut_nbrhosts = dict()
@@ -1587,7 +1590,7 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
                           "startup_tsa_tsb service started much later than the expected time after dut reboot")
 
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in maintenance state when startup_tsa_tsb service is running")
 
             logging.info("Wait until all critical processes are fully started")
@@ -1619,7 +1622,8 @@ def test_tsa_tsb_service_with_tsa_on_sup(duthosts, localhost, enum_supervisor_du
             # Ensure dut comes back to maintenance state after timer expiry
             if not get_tsa_tsb_service_status(lc, 'running'):
                 # Verify TSA is configured on the dut after startup_tsa_tsb service is stopped
-                pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(lc),
+                pytest_assert(wait_until(30, 5, 0,
+                                         lambda: TS_MAINTENANCE == get_traffic_shift_state(lc, 'TSC no-stats')),
                               "DUT is not in maintenance state after startup_tsa_tsb service is stopped")
                 assert_only_loopback_routes_announced_to_neighs(duthosts, lc, dut_nbrhosts[lc],
                                                                 traffic_shift_community,

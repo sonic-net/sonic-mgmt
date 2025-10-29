@@ -125,7 +125,9 @@ def test_tsa(request, duthosts, nbrhosts, traffic_shift_community, tbinfo):
 
         for duthost in frontend_nodes_per_hwsku:
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost), "DUT is not in maintenance state")
+            pytest_assert(wait_until(30, 5, 0,
+                                     lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                          "DUT is not in maintenance state")
             assert_only_loopback_routes_announced_to_neighs(
                 duthosts,
                 duthost,
@@ -161,7 +163,8 @@ def test_tsb(request, duthosts, nbrhosts, tbinfo):
     orig_v4_routes, orig_v6_routes = dict(), dict()
     for duthost in frontend_nodes_per_hwsku:
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                      "DUT is not in normal state")
         # Get all routes on neighbors before doing TSA
         orig_v4_routes[duthost] = parse_routes_on_neighbors(duthost, dut_nbrhosts[duthost], 4)
         orig_v6_routes[duthost] = parse_routes_on_neighbors(duthost, dut_nbrhosts[duthost], 6)
@@ -172,7 +175,9 @@ def test_tsb(request, duthosts, nbrhosts, tbinfo):
             executor.submit(run_traffic_shift_cmd_on_dut, duthost, "TSA")
 
     for duthost in frontend_nodes_per_hwsku:
-        pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost), "DUT is not in maintenance state")
+        pytest_assert(wait_until(30, 5, 0,
+                                 lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                      "DUT is not in maintenance state")
 
     # Issue TSB on DUT to bring traffic back
     with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -181,7 +186,8 @@ def test_tsb(request, duthosts, nbrhosts, tbinfo):
 
     for duthost in frontend_nodes_per_hwsku:
         # Verify DUT is in normal state.
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                      "DUT is not in normal state")
 
     verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
 
@@ -206,7 +212,8 @@ def test_tsa_b_c_with_no_neighbors(request, duthosts, nbrhosts, core_dump_and_co
 
     for duthost in frontend_nodes_per_hwsku:
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                      "DUT is not in normal state")
 
     bgp_neighbors = {}
     orig_v4_routes, orig_v6_routes = dict(), dict()
@@ -280,7 +287,8 @@ def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_c
 
     for duthost in frontend_nodes_per_hwsku:
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                      "DUT is not in normal state")
         if not check_tsa_persistence_support(duthost):
             pytest.skip("TSA persistence not supported in the image")
 
@@ -302,7 +310,9 @@ def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_c
 
         for duthost in frontend_nodes_per_hwsku:
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost), "DUT is not in maintenance state")
+            pytest_assert(wait_until(30, 5, 0,
+                                     lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                          "DUT is not in maintenance state")
             assert_only_loopback_routes_announced_to_neighs(
                 duthosts,
                 duthost,
@@ -327,7 +337,8 @@ def test_tsa_tsb_with_config_reload(request, duthosts, nbrhosts, traffic_shift_c
 
         # Verify DUT is in normal state.
         for duthost in frontend_nodes_per_hwsku:
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                          "DUT is not in normal state")
 
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
         # Bring back the supervisor and line cards to the BGP operational normal state
@@ -351,7 +362,8 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
 
     for duthost in frontend_nodes_per_hwsku:
         # Ensure that the DUT is not in maintenance already before start of the test
-        pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+        pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                      "DUT is not in normal state")
         if not check_tsa_persistence_support(duthost):
             pytest.skip("TSA persistence not supported in the image")
 
@@ -369,7 +381,9 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
 
         for duthost in frontend_nodes_per_hwsku:
             # Verify DUT is in maintenance state.
-            pytest_assert(TS_MAINTENANCE == get_traffic_shift_state(duthost), "DUT is not in maintenance state")
+            pytest_assert(wait_until(30, 5, 0,
+                                     lambda: TS_MAINTENANCE == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                          "DUT is not in maintenance state")
             assert_only_loopback_routes_announced_to_neighs(
                 duthosts,
                 duthost,
@@ -388,7 +402,9 @@ def test_load_minigraph_with_traffic_shift_away(request, duthosts, nbrhosts, tra
 
         # Verify DUT is in normal state.
         for duthost in frontend_nodes_per_hwsku:
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(duthost), "DUT is not in normal state")
+            pytest_assert(wait_until(30, 5, 0,
+                                     lambda: TS_NORMAL == get_traffic_shift_state(duthost, 'TSC no-stats')),
+                          "DUT is not in normal state")
 
         # Wait until all routes are announced to neighbors
         verify_route_on_neighbors(frontend_nodes_per_hwsku, dut_nbrhosts, orig_v4_routes, orig_v6_routes)
