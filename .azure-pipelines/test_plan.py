@@ -269,6 +269,7 @@ class TestPlanManager(object):
         retry_cases_include = parse_list_from_str(kwargs.get("retry_cases_include", None))
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
+        ptf_modified = kwargs.get("ptf_modified", False)
         build_reason = kwargs.get("build_reason", "PullRequest")
         lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", 0)
         # If not set lock tb timeout, set to 2 hours for pr test plans by default
@@ -363,6 +364,7 @@ class TestPlanManager(object):
                     "scripts_exclude": scripts_exclude
                 },
                 "ptf_image_tag": ptf_image_tag,
+                "ptf_modified": ptf_modified,
                 "image": {
                     "url": image_url,
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
@@ -818,6 +820,17 @@ if __name__ == "__main__":
         help="PTF image tag"
     )
     parser_create.add_argument(
+        "--ptf-modified",
+        type=ast.literal_eval,
+        dest="ptf_modified",
+        nargs='?',
+        const=False,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Whether to use locally modified PTF image"
+    )
+    parser_create.add_argument(
         "--image_url",
         type=str,
         dest="image_url",
@@ -1174,6 +1187,7 @@ if __name__ == "__main__":
                     vm_type=args.vm_type,
                     testbed_name=args.testbed_name,
                     ptf_image_tag=args.ptf_image_tag,
+                    ptf_modified=args.ptf_modified,
                     image_url=args.image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
