@@ -18,19 +18,6 @@ ecmp_utils = Ecmp_Utils()
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_platform(duthost):
-    """
-        Skip all tests in this module if the platform is not supported.
-    """
-    asic_type = duthost.facts["asic_type"]
-    if asic_type not in ["cisco-8000", "mellanox"]:
-        pytest.skip("This test will only run on Cisco-8000 and Mellanox ASICs.")
-    platform = duthost.facts["platform"]
-    if platform in ['x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0']:
-        pytest.skip("Mellanox msn2700 switches do not support IPv6 underlay.")
-
-
-@pytest.fixture(scope="module", autouse=True)
 def setup_ecmp_utils(duthost):
     # Need to set these constants before calling any ecmp_utils function.
     ecmp_utils.Constants["KEEP_TEMP_FILES"] = False
