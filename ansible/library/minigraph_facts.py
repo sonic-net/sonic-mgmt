@@ -370,8 +370,8 @@ def parse_dpg(dpg, hname):
             intfname = mgmtintf.find(str(QName(ns, "AttachTo"))).text
             ipprefix = mgmtintf.find(str(QName(ns1, "PrefixStr"))).text
             mgmtipn = ipaddress.IPNetwork(ipprefix)
-            # Ignore IPv6 management address
-            if mgmtipn.version == 6:
+            # Use IPv4 over IPv6 management address
+            if mgmt_intf and mgmtipn.version == 6:
                 continue
             ipaddr = mgmtipn.ip
             prefix_len = str(mgmtipn.prefixlen)
