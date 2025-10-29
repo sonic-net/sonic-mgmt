@@ -4,6 +4,7 @@ import logging
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
+from tests.common.utilities import is_ipv6_only_topology
 
 DEFAULT_HLIM_TTL = 64
 WAIT_EXPECTED_PACKET_TIMEOUT = 5
@@ -85,5 +86,8 @@ def run_test_ipv4(ptfadapter, facts):
 
 def test_dip_sip(tbinfo, ptfadapter, gather_facts, enum_rand_one_frontend_asic_index):
     ptfadapter.reinit()
-    run_test_ipv4(ptfadapter, gather_facts)
-    run_test_ipv6(ptfadapter, gather_facts)
+    if is_ipv6_only_topology(tbinfo):
+        run_test_ipv6(ptfadapter, gather_facts)
+    else:
+        run_test_ipv4(ptfadapter, gather_facts)
+        run_test_ipv6(ptfadapter, gather_facts)
