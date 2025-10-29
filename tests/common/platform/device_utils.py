@@ -1200,3 +1200,96 @@ def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): 
         pytest.fail('No NPU host found in testbed')
     npu_host = DutHosts(ansible_adhoc, tbinfo, request, npu_host_name)[0]
     return npu_host
+
+
+def get_dpu_ip(duthost, dpu_index):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logging.error("Failed to retrieve config_facts from DUT")
+        return None
+
+    dhcp_server_ipv4_port = config_facts.get('DHCP_SERVER_IPV4_PORT', {})
+    if not dhcp_server_ipv4_port:
+        logging.error("DHCP_SERVER_IPV4_PORT not found in config_facts")
+        return None
+
+    # Navigate through the nested structure: bridge-midplane -> dpu{index} -> ips
+    bridge_midplane = dhcp_server_ipv4_port.get('bridge-midplane', {})
+    if not bridge_midplane:
+        logging.error("bridge-midplane not found in DHCP_SERVER_IPV4_PORT")
+        return None
+
+    dpu_config = bridge_midplane.get('dpu{}'.format(dpu_index), {})
+    if not dpu_config:
+        logging.error("dpu{} not found in bridge-midplane".format(dpu_index))
+        return None
+
+    ips = dpu_config.get('ips', [])
+    if not ips:
+        logging.error("IP address not found in config_facts for dpu_index {}".format(dpu_index))
+        return None
+
+    # Take the first IP and remove any CIDR notation
+    ip = ips[0]
+    return ip.split('/')[0]
+
+
+def get_dpu_port(duthost, dpu_index):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logger.error("Failed to retrieve config_facts from DUT")
+        return None
+
+    dpu_section = config_facts.get('DPU', {})
+    if not dpu_section:
+        logger.error("DPU section not found in config_facts")
+        return None
+
+    dpu_key = 'dpu{}'.format(dpu_index)
+    # Check if the DPU exists in the configuration
+    if dpu_key not in dpu_section:
+        logger.error("DPU '{}' not found in config_facts. Available DPUs: {}".format(
+            dpu_key, list(dpu_section.keys())))
+        return None
+
+    dpu_config = dpu_section[dpu_key]
+    port = dpu_config.get('gnmi_port', None)
+    if port is None:
+        logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
+        return None
+    return port
+
+
+def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
+    # Check DPU ping status
+    logging.info("Checking DPU ping status")
+    dpu_ip = get_dpu_ip(duthost, dpu_index)
+    if not dpu_ip:
+        logging.error(f"Failed to retrieve IP address for DPU {dpuhost_name}")
+        return False
+
+    ping_status = duthost.command(f"ping -c 3 {dpu_ip}", module_ignore_errors=True)
+    if ping_status['rc'] != 0:
+        logging.error(f"Failed to ping DPU {dpuhost_name} at IP {dpu_ip}")
+        return False
+    return True
+
+
+def reboot_dpu_and_wait_for_start_up(duthost, dpuhost_name, dpu_index):
+    logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
+    reboot_status = duthost.command(f"sudo reboot -d dpu{dpu_index}")
+    if reboot_status['rc'] != 0:
+        logging.error(f"Failed to initiate reboot for DPU {dpuhost_name} (DPU index: {dpu_index}). "
+                      f"Command output: {reboot_status}")
+        return False
+
+    logging.info(f"DPU {dpuhost_name} (DPU index: {dpu_index}) reboot initiated successfully")
+
+    # Wait until the system is back up
+    wait_until(180, 15, 0, check_dpu_reachable_from_npu, duthost, dpuhost_name, dpu_index)
+    is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
+    if not is_dpu_reachable:
+        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")
+        return False
+
+    return True
