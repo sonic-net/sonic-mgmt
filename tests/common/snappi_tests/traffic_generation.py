@@ -718,19 +718,17 @@ def run_traffic(duthost,
             if row['Sessions Not Started'] != '0' or row['Sessions Down'] != '0':
                 pytest_assert(False, "Not all protocol sessions are up")
         rx_dut_port = snappi_extra_params.base_flow_config["rx_port_config"].peer_port
-        if duthost.facts["num_asic"] > 1:
-            asic_value = duthost.get_port_asic_instance(rx_dut_port).namespace
-            for i in range(7):
-                address = config.devices[i].ethernets[0].ipv4_addresses[0].address
-                duthost.command("sudo ip netns exec {} ping {} -c 2".
-                                format(asic_value, address))
-                logger.info("sudo ip netns exec {} ping {} -c 2".
-                            format(asic_value, address))
-        else:
-            for i in range(7):
-                address = config.devices[i].ethernets[0].ipv4_addresses[0].address
-                duthost.command("sudo ping {} -c 2 \n".format(address))
-                logger.info("sudo ping {} -c 2".format(address))
+        for i in range(7):
+            eth_stack = config.devices[i].ethernets[0]
+            mac_address = eth_stack.mac
+            ip_address = eth_stack.ipv4_addresses[0].address
+            if duthost.facts["num_asic"] > 1:
+                asic_value = duthost.get_port_asic_instance(rx_dut_port).namespace
+                cmd = "sudo ip netns exec {} arp -i {} -s {} {}".format(asic_value, rx_dut_port, ip_address, mac_address)
+            else:
+                cmd = "sudo arp -i {} -s {} {}".format(rx_dut_port, ip_address, mac_address)
+            logger.info(cmd)
+            duthost.command(cmd)
 
     pcap_type = snappi_extra_params.packet_capture_type
     base_flow_config = snappi_extra_params.base_flow_config
