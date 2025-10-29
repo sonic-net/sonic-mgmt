@@ -81,6 +81,10 @@ parameters:
     type: string
     default: "False"
 
+  - name: PTF_MODIFIED
+    type: boolean
+    default: false
+
   - name: IMAGE_URL
     type: string
     default: ""
