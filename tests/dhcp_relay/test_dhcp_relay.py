@@ -15,6 +15,7 @@ from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import skip_release
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
@@ -818,7 +819,7 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
             expected_uplink_counter = {
                 "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1}
             }
-                # because all packets send to standby dut, the packets are expected to countted on standby's counters.
+            # because all packets send to standby dut, the packets are expected to countted on standby's counters.
             validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
                                             expected_uplink_counter,
                                             expected_downlink_counter)

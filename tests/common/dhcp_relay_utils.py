@@ -351,6 +351,7 @@ def merge_counters(source_counter, merge_counter):
             source_counter[dir][dhcp_type] = source_counter.get(dir, {}).get(dhcp_type, 0) + \
                                                                     merge_counter.get(dir, {}).get(dhcp_type, 0)
 
+
 def sonic_dhcpv4_flag_config_and_unconfig(duthost, dhcpv4_config_flag=False):
     """
     Enable or disable the SONiC DHCPv4 feature flag and restart the DHCP service on the DUT.
