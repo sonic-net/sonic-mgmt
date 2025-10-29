@@ -367,6 +367,7 @@ steps:
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
+              echo "Test plan $TEST_PLAN_ID failed in LOCK_TESTBED step, total failure count: $failure_count"
           fi
       done
 
@@ -400,10 +401,11 @@ steps:
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
+              echo "Test plan $TEST_PLAN_ID failed in PREPARE_TESTBED step, total failure count: $failure_count"
           fi
       done
 
-      if [ "$failure_count" -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
+      if [ $failure_count -eq "${#TEST_PLAN_ID_LIST[@]}" ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
@@ -432,6 +434,7 @@ steps:
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
+              echo "Test plan $TEST_PLAN_ID failed in Run_Test step, total failure count: $failure_count"
           fi
       done
 
