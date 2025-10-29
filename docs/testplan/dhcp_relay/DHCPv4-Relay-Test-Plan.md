@@ -66,7 +66,7 @@ This test plan covers comprehensive testing of DHCPv4 relay functionality in SON
 
 ### Topology Requirements
 
-  Supported Topologies: T0, dual-tor
+  Supported Topologies: T0, dual-tor, M0
   Unsupported Topologies/setups: Tests for EVPN, MC-LAG, SAG and Unnumbered Interfaces are pending due to lack of existing infrastructure. They will be added in future updates.
 
 ## Test Matrix
