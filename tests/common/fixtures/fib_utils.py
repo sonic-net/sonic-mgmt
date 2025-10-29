@@ -234,7 +234,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
                                 [str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][ifname.split('.')[0]])]
                             )
                         elif ifname in ports:
-                            if 'role' in ports[ifname] and ports[ifname]['role'] == 'Int':
+                            if 'role' in ports[ifname] and ports[ifname]['role'] in ['Int', 'Dpc']:
                                 skip = True
                             else:
                                 oports.append([str(duts_mg_facts[list_index][1]['minigraph_ptf_indices'][ifname])])

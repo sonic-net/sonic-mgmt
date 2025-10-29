@@ -36,8 +36,8 @@
       "MAC": "{{ '52:54:00' | random_mac }}",
       "CHIPTYPE": "{{ chip }}",
       "HOSTNAME": "{{ dut_name }}-0",
-      "IP": "{{ mgmt_ip_address | ipaddr('address') }}",
-      "MASK": "{{ mgmt_ip_address | ipaddr('netmask') }}",
+      "IP": "{{ mgmt_ip_address | ansible.utils.ipaddr('address') }}",
+      "MASK": "{{ mgmt_ip_address | ansible.utils.ipaddr('netmask') }}",
       "GATEWAY": "{{ vm_mgmt_gw }}",
       "SRVC_PORT": "12000"
     }
