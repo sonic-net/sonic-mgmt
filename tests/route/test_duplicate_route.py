@@ -92,15 +92,15 @@ def verify_expected_loganalyzer_logs(
         loganalyzer: Loganalyzer utility fixture
     """
     expectRegex = [
-        ]
-    ignoreRegex = [
-        ".*ERR.* create failed, object already exists.*",
-        ".*ERR.* bulkCreate: Failed to create object.*",
-        ".*ERR.* api SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
+        ".*ERR.* meta_generic_validation_create: object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",
+        ".*ERR.* create_internal: create failed, object already exists, object type: SAI_OBJECT_TYPE_ROUTE_ENTRY.*",
+        ".*ERR.* meta_sai_validate_route_entry:.* already exists.*",
+        ".*ERR.* bulkCreate: Failed to create object with type.*",
+        ".*ERR.* SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
         ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
-        ".*ERR.* handleSaiFailure: Encountered failure in create operation.*",
-        ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",  # TODO move to expectRegex
-        ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
+        ".*ERR.* addRoutePost: Failed to create route.*",
+    ]
+    ignoreRegex = [
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
