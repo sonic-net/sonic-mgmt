@@ -77,6 +77,10 @@ parameters:
     type: string
     default: "latest"
 
+  - name: PTF_MODIFIED
+    type: boolean
+    default: false
+
   - name: IMAGE_URL
     type: string
     default: ""
@@ -294,6 +298,7 @@ steps:
       --vm-type ${{ parameters.VM_TYPE }} \
       --num-asic ${{ parameters.NUM_ASIC }} \
       --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
+      --ptf-modified ${{ parameters.PTF_MODIFIED }} \
       --image_url ${{ parameters.IMAGE_URL }} \
       --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
       --hwsku ${{ parameters.HWSKU }} \
