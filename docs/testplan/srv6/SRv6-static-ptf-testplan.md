@@ -119,18 +119,54 @@ Max number of MY_SID entries is 10, it would be covered in this test plan.
 2. Collect techsupport dump files
 3. SRv6 related configuration should be revealed in dump files
 
-#### Test for SRv6 dataplane basic uA function
+#### Test for SRv6 dataplane uA function (uA SID only)
 1. Configure SRV6_MY_SIDS with uA action <br>
   a. Configure SRV6_MY_SIDS as __pipe__ mode <br>
+  b. configuration example:
+      ```
+      "SRV6_MY_LOCATORS": {
+        "loc1": {
+          "prefix": "FCBB:BBBB:1::"
+        }
+      },
+      "SRV6_MY_SIDS": {
+        "loc1|FCBB:BBBB:FE24::/48": {
+          "action": "uA",
+          "decap_dscp_mode": "pipe",
+          "interface": "Ethernet24",
+          "adj": "2001:db8:4:5::5"
+        }
+      }
+      ```
 2. Send IPv6 packets from downstream to upstream neighbors <br>
   a. Including IPv6 packets with reduced SRH(no SRH header) for uA action <br>
   b. For uA action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
   c. For uA action, the packet should be forwarded thru the assigned interface <br>
 3. Remove all the configured SRV6_MY_SIDS <br>
 
-#### Test for SRv6 dataplane uSID with uN action plus uSID with uA action
+#### Test for SRv6 dataplane uSID with uN action and uSID with uA action
 1. Configure one SRV6_MY_SIDS with uN action and one SRV6_MY_SIDS with uA action (same locator) <br>
   a. Configure SRV6_MY_SIDS as __pipe__ mode <br>
+  b. example:
+      ```
+      "SRV6_MY_LOCATORS": {
+        "loc1": {
+          "prefix": "FCBB:BBBB:1::"
+        }
+      },
+      "SRV6_MY_SIDS": {
+        "loc1|FCBB:BBBB:1::/48": {
+          "action": "uN",
+          "decap_dscp_mode": "pipe"
+        },
+        "loc1|FCBB:BBBB:1:FE24::/64": {
+          "action": "uA",
+          "decap_dscp_mode": "pipe",
+          "interface": "Ethernet24",
+          "adj": "2001:db8:4:5::5"
+        }
+      }
+      ```
 2. Send IPv6 packets from downstream to upstream neighbors <br>
   a. Including IPv6 packets with reduced SRH(no SRH header) for uN and uA action <br>
   b. For uN action, DIP shift/ uSID container copy to DIP/ segment left decrement should happen <br>
