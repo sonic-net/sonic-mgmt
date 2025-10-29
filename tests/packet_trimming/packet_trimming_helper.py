@@ -8,6 +8,7 @@ import tempfile
 import scapy.all as scapy
 import ptf.testutils as testutils
 import random
+import re
 
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
@@ -849,6 +850,62 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
         raise
 
 
+def get_buffer_profile_name_for_queue(duthost, interface: str, queue_id: int):
+    """
+    Return (profile_name, redis_key) for BUFFER_QUEUE on <interface> covering queue_id,
+    preferring range keys; among overlapping ranges choose the largest span first.
+    Falls back to exact key if no matching range exists. Looks in CONFIG_DB (db 4).
+    """
+    list_cmd = f"redis-cli -n 4 KEYS 'BUFFER_QUEUE|{interface}|*'"
+    res = duthost.shell(list_cmd)
+    raw = (res.get("stdout") or "").strip()
+    if not raw:
+        return (None, None)
+
+    keys = []
+    for line in raw.splitlines():
+        line = line.strip()
+        line = re.sub(r'^\d+\)\s*', '', line).strip().strip('"').strip("'")
+        if line.startswith("BUFFER_QUEUE|"):
+            keys.append(line)
+
+    if not keys:
+        return (None, None)
+
+    exact_match = None
+    range_matches = []  # (span, lo, hi, key)
+
+    for k in keys:
+        suffix = k.split("|")[-1]
+
+        if suffix.isdigit():
+            if int(suffix) == queue_id:
+                exact_match = k
+            continue
+
+        m = re.fullmatch(r'(\d+)\s*-\s*(\d+)', suffix)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            lo, hi = (a, b) if a <= b else (b, a)
+            if lo <= queue_id <= hi:
+                span = hi - lo
+                range_matches.append((span, lo, hi, k))
+
+    # Prefer the largest span; tie-break by lowest lo, then lowest hi for determinism
+    if range_matches:
+        range_matches.sort(key=lambda t: (-t[0], t[1], t[2]))
+        chosen = range_matches[0][3]
+    elif exact_match:
+        chosen = exact_match
+    else:
+        return (None, None)
+
+    hget_cmd = f"redis-cli -n 4 HGET '{chosen}' profile"
+    res = duthost.shell(hget_cmd)
+    profile_name = (res.get("stdout") or "").strip() or None
+    return (profile_name, chosen)
+
+
 def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     Get buffer profile information for a specific queue on an interface.
@@ -864,10 +921,7 @@ def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     try:
         # Get buffer profile name for the queue
-        cmd = f"redis-cli -n 4 HGET 'BUFFER_QUEUE|{interface}|{queue_id}' profile"
-        result = duthost.shell(cmd)
-        profile_name = result["stdout"].strip()
-
+        profile_name, _ = get_buffer_profile_name_for_queue(duthost, interface, queue_id)
         if not profile_name:
             logger.warning(f"No buffer profile found for queue {queue_id} on {interface}")
             return None
