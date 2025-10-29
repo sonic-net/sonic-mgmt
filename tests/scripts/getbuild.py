@@ -104,6 +104,10 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 filename = 'sonic-4asic-vs.img.gz'
             else:
                 filename = 'sonic-vs.img.gz'
+        elif platform == "vpp":
+            filename = 'sonic-vpp.img.gz'
+        elif platform == "ptf":
+            filename = 'docker-ptf.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
 
@@ -186,7 +190,7 @@ def main():
     parser.add_argument('--branch', metavar='branch',
                         type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-                        choices=['broadcom', 'mellanox', 'vs'],
+                        choices=['broadcom', 'mellanox', 'vs', 'ptf'],
                         help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
                         choices=['all', 'image'], default='image',
@@ -216,7 +220,10 @@ def main():
     else:
         buildid = int(args.buildid)
 
-    artifact_name = "sonic-buildimage.{}".format(args.platform)
+    if args.platform == 'ptf':
+        artifact_name = "sonic-buildimage.vs"  # PTF images are typically built with VS platform
+    else:
+        artifact_name = "sonic-buildimage.{}".format(args.platform)
 
     (dl_url, artifact_size) = get_download_url(buildid, artifact_name,
                                                url_prefix=args.url_prefix,
