@@ -9,6 +9,7 @@ from tests.common.utilities import wait_until, check_skip_release, delete_runnin
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.errors import RunAnsibleModuleFail
 from contextlib import contextmanager
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip     # noqa: F401
 
 # per-command accounting feature not available in following versions
 per_command_accounting_skip_versions = ["201811", "201911", "202106"]
@@ -368,9 +369,9 @@ def check_nss_config(duthost):
 
 
 @pytest.fixture(scope="module")
-def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):    # noqa: F811
+def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds, duthost_mgmt_ip):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    tacacs_server_ip = ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else ptfhost.mgmt_ip
+    tacacs_server_ip = ptfhost.mgmt_ipv6 if duthost_mgmt_ip["version"] == "v6" else ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
     # Accounting test case randomly failed, need debug info to confirm NSS config file missing issue.
