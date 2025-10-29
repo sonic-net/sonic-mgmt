@@ -264,11 +264,16 @@ INFRA:
         - override_config_table/test_override_config_table.py
         - system_health/test_system_health.py
       hw:
-        - system_health
+        - database/test_db_scripts.py
         - minigraph
+        - monit/test_monit_status.py
         - ntp
         - portstat
         - ssh
+        - syslog/test_syslog_rate_limit.py
+        - system_health
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
   t0:
     churchill-mono:
       sim:
@@ -286,25 +291,43 @@ INFRA:
         - test_nbr_health.py
         - override_config_table/test_override_config_table.py
       hw:
-        - system_health
+        - database/test_db_scripts.py
         - minigraph
+        - monit/test_monit_status.py
         - ntp
         - portstat
         - ssh
+        - syslog/test_syslog_rate_limit.py
+        - system_health
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
   t1-64-lag:
     mth64:
       sim:
-        - system_health
-        - minigraph
-        - ntp
-        - portstat
-        - ssh
+        - cacl/test_cacl_application.py
+        - cacl/test_cacl_function.py
+        - cacl/test_ebtables_application.py
+        - monit/test_monit_status.py
+        - container_checker/test_container_checker.py
+        - container_hardening/test_container_hardening.py
+        - database/test_db_scripts.py
+        - syslog/test_syslog_rate_limit.py
+        - test_announce_routes.py
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
+        - override_config_table/test_override_config_table.py
+        - system_health/test_system_health.py
       hw:
-        - system_health
+        - database/test_db_scripts.py
         - minigraph
+        - monit/test_monit_status.py
         - ntp
         - portstat
         - ssh
+        - syslog/test_syslog_rate_limit.py
+        - system_health
+        - test_procdockerstatsd.py
+        - test_nbr_health.py
   t2-min:
     sfd:
       sim:
@@ -319,12 +342,10 @@ INFRA:
   t2:
     sfd:
       hw:
-        - iface_namingmode/test_iface_namingmode.py
         - monit/test_monit_status.py
         - system_health/test_system_health.py
         - database/test_db_scripts.py
         - syslog/test_syslog_rate_limit.py
-        - test_procdockerstatsd.py
         - test_nbr_health.py
         - portstat/test_portstat.py
         - system_health
@@ -682,10 +703,6 @@ ROUTING: #Sridhar Santhanam
   t2:
     sfd:
       hw:
-        - arp/test_arpall.py
-        - pc/test_lag_2.py
-        - pc/test_po_update.py
-        - pc/test_po_cleanup.py
         - route/test_route_flap.py
         - bgp/test_bgp_suppress_fib.py
         - bgp/test_traffic_shift.py
