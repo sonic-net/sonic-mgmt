@@ -1,0 +1,31 @@
+version: 2.0
+
+services: {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+
+devices:
+    spine:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.157.96, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 10.29.157.97, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+topology:
+    leaf:
+        interfaces:
+            Ethernet1_13: {EndDevice: spine, EndPort: Ethernet1_31, params: def_link}
+            Ethernet1_15: {EndDevice: spine, EndPort: Ethernet1_33, params: def_link}

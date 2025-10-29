@@ -1,0 +1,12 @@
+# This is enhanced json file which allows comments starting with pound '#'
+# Leaf is always assumed to be connected to traffic generator
+{
+    # TODO: These are a restricted set. More modes to be added later
+    # e.g. 8x100G for G200 and there are some 50G and 25G modes
+    "DPB_TEST" : {
+	    "G200_modes" : ["1x800G", "2x400G", "4x200G"],
+	    "Q200_modes" : ["1x400G", "4x100G"],
+	    # Max number of seconds to wait for interfaces to come up
+	    "post_breakout_wait" : "180"
+    }
+}

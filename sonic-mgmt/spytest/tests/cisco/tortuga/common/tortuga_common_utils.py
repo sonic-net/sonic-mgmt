@@ -13,6 +13,12 @@ import apis.system.interface as intf_obj
 import utilities.utils as utils_obj
 from utilities.common import filter_and_select
 
+platform_dict = {
+    'carib'  : ['x86_64-hf6100_32d-r0'],
+    'siren'  : ['x86_64-hf6100_60l4d-r0'],
+    'laguna' : ['x86_64-hf6100_64ed-r0']
+}
+
 # Hierarchical Port Naming
 
 def modify_config_file(config_file,var_dict):
@@ -689,12 +695,15 @@ def verify_queue_and_priority_grp_counters(node, port, watermark_type, param_lis
         st.log("No queue counter entry found for port {} for {} type {}".format(port, priority_group, watermark_type))
     return result
 
-def show_cmd_to_dict(dut, cmd):
+def show_cmd_to_dict(dut, cmd, add_j=True):
     """
     Helper to run a show command and parse its JSON output.
     Returns parsed dictionary or None if output is malformed.
     """
-    out_str = st.show(dut, 'show ' + cmd + ' -j', skip_tmpl=True)
+    if add_j:
+        out_str = st.show(dut, 'show ' + cmd + ' -j', skip_tmpl=True)
+    else:
+        out_str = st.show(dut, 'show ' + cmd, skip_tmpl=True)
     idx = out_str.rfind('}')
     if idx == -1:
         st.error("show cmd {} returned malformed string {}".format(cmd, out_str))
@@ -732,4 +741,25 @@ def json2_file_to_dict(json2_file):
                 continue
             result += line
         return json.loads(result)
+    return None
+
+def is_q200(plat_str):
+    return plat_str == 'carib' or plat_str == 'siren'
+
+def is_g200(plat_str):
+    return plat_str == 'laguna'
+
+def find_platform_str(dut):
+    '''
+    Get the platform string and map it to a name like siren
+    '''
+    result = st.show(dut,
+                 "show platform summary | grep Platform: | awk '{print $2}'",
+                 skip_tmpl=True)
+    # Make sure we trim any linefeed or trailing content
+    platform_str = result.split('\n')[0]
+    for key, value in platform_dict.items():
+        if platform_str in value:
+            return key
+    st.error('Failed to find platform string for {}'.format(platform_str))
     return None
