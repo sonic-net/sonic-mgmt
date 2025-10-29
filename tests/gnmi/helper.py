@@ -3,6 +3,7 @@ import logging
 import pytest
 import json
 from tests.common.utilities import wait_until
+from tests.common.platform.device_utils import get_dpu_ip, get_dpu_port
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, add_gnmi_client_common_name, del_gnmi_client_common_name, \
                                             dump_gnmi_log, dump_system_status
 from tests.common.helpers.gnmi_utils import gnmi_container   # noqa: F401
@@ -223,10 +224,17 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list, cert=None
     cmd += '--value ' + xvalue
     # There is a chance that the network connection lost between PTF and switch due to table entry timeout
     # It would lead to execution failure of py_gnmicli.py. The ping action would trigger arp and mac table refresh.
-    if ":" in duthost.mgmt_ip:
-        ptfhost.shell(f"ping6 {duthost.mgmt_ip} -c 3", module_ignore_errors=True)
+    if ":" in ip:
+        ptfhost.shell(f"ping6 {ip} -c 3", module_ignore_errors=True)
     else:
-        ptfhost.shell(f"ping {duthost.mgmt_ip} -c 3", module_ignore_errors=True)
+        ptfhost.shell(f"ping {ip} -c 3", module_ignore_errors=True)
+
+    # Health check to make sure the gnmi server is listening on port
+    health_check_cmd = f"sudo ss -ltnp | grep {env.gnmi_port} | grep ${env.gnmi_program}"
+
+    wait_until(120, 1, 5,
+               lambda: len(duthost.shell(health_check_cmd, module_ignore_errors=True)['stdout_lines']) > 0)
+
     output = ptfhost.shell(cmd, module_ignore_errors=True)
     error = "GRPC error\n"
     if error in output['stdout']:
@@ -463,3 +471,37 @@ def extract_gnoi_response(output):
     except json.JSONDecodeError:
         logging.error("Failed to parse JSON: {}".format(response_line))
         return None
+
+
+def is_reboot_inactive(duthost, localhost):
+    ret, msg = gnoi_request(duthost, localhost, "System", "RebootStatus", "")
+    if ret != 0:
+        return False
+    status = extract_gnoi_response(msg)
+    return status and not status.get("active", True)
+
+
+def gnoi_request_dpu(duthost, localhost, dpu_index, module, rpc, request_json_data):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+
+    ip = get_dpu_ip(duthost, dpu_index)
+    if ip is None:
+        return -1, "Failed to get DPU IP address"
+
+    port = get_dpu_port(duthost, dpu_index)
+    if port is None:
+        return -1, "Failed to get DPU gNMI port"
+
+    cmd = "docker exec %s gnoi_client -target %s:%s " % (env.gnmi_container, ip, port)
+    cmd += "-cert /etc/sonic/telemetry/gnmiclient.crt "
+    cmd += "-key /etc/sonic/telemetry/gnmiclient.key "
+    cmd += "-ca /etc/sonic/telemetry/gnmiCA.pem "
+    cmd += "-notls "
+    cmd += "-logtostderr -module {} -rpc {} ".format(module, rpc)
+    cmd += f'-jsonin \'{request_json_data}\''
+    output = duthost.shell(cmd, module_ignore_errors=True)
+    if output['stderr']:
+        logging.error(output['stderr'])
+        return -1, output['stderr']
+    else:
+        return 0, output['stdout']
