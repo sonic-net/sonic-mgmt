@@ -118,7 +118,7 @@ def main():
         append_ngdp_to_asic_type('fib/test_fib.py')
     if config_reload_delay:
         print("Add delay to config reload")
-        replace_line('common/config_reload.py', 'wait + 120', '600')
+        replace_line('common/config_reload.py', 'wait_until(wait + 120, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),', 'wait_until(600, 10, 0, sonic_host.check_bgp_session_state_all_asics, bgp_neighbors),')
     
 def prepend_file(file, content):
     with open(file, 'r') as f:
