@@ -4483,6 +4483,12 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
     conditions:
       - "'t1-isolated' in topo_name"
 
+vxlan/test_vxlan_error.py:
+  xfail:
+    reason: "Currently, it is not possible to create both IPv4 and IPv6 VxLAN tunnels and VNET routes on Mellanox 4600 T1 switches."
+    conditions:
+      - "'msn4600' in platform"
+
 vxlan/test_vxlan_route_advertisement.py:
   skip:
     reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
