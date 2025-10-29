@@ -23,6 +23,7 @@ import os
 import pytest
 
 from tests.common.utilities import wait
+from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import compare_crm_facts
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa: F401
@@ -88,6 +89,7 @@ def load_swss_config(dut, config_file):
         dut (obj): Object for interacting with DUT.
         config_file (str): Path and filename of the config file in swss docker container.
     """
+    wait_critical_processes(dut)
     logger.info('Loading swss config {} ...'.format(config_file))
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(config_file))
     wait(10, 'for CRMs to be updated and corresponding codeflow finished')
@@ -127,11 +129,13 @@ def swss_config_files(rand_selected_dut, tor_mux_intfs):            # noqa: F811
     for cfg in swss_configs:
         mux_config = mux_state_configs(tor_mux_intfs, cfg[0], op=cfg[1])
         dut.copy(content=json.dumps(mux_config, indent=4), dest=cfg[2])
+        wait_critical_processes(rand_selected_dut)
         dut.shell('docker cp {} swss:{}'.format(cfg[2], _swss_path(cfg[2])))
 
     yield
 
     for cfg in swss_configs:
+        wait_critical_processes(rand_selected_dut)
         dut.shell('docker exec swss sh -c "rm {}"'.format(_swss_path(cfg[2])))
         dut.file(path=cfg[2], state='absent')
 
