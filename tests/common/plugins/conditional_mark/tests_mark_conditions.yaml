@@ -3193,11 +3193,12 @@ qos:
 
 qos/test_buffer.py:
   skip:
-    reason: "These tests don't apply to cisco 8000 platforms or T2 or M* since they support only traditional model."
+    reason: "These tests don't apply to cisco 8000 platforms or T2 or M* since they support only traditional model and it is skipped for '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000'] or topo_type == 't2'"
       - "topo_type in ['m0', 'mx', 'm1']"
+      - "release in ['202412']"
 
 qos/test_buffer.py::test_buffer_model_test:
   skip:
