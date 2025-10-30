@@ -6,7 +6,10 @@ import random
 import re
 
 from run_events_test import run_test
-from tests.common.mellanox_data import LOSSY_ONLY_HWSKUS
+from tests.common.mellanox_data import LOSSY_ONLY_HWSKUS as MELLANOX_LOSSY_ONLY_HWSKUS
+from tests.common.broadcom_data import LOSSY_ONLY_HWSKUS as BROADCOM_LOSSY_ONLY_HWSKUS
+from tests.common.mellanox_data import NO_QOS_HWSKUS as MELLANOX_NO_QOS_HWSKUS
+from tests.common.broadcom_data import NO_QOS_HWSKUS as BROADCOM_NO_QOS_HWSKUS
 from tests.common.utilities import wait_until
 
 random.seed(10)
@@ -30,15 +33,22 @@ WAIT_TIME = 3
 
 
 def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang):
-    if [i for i in ["m0", "mx", "m1", "m2"] if duthost.topo_type.lower().startswith(i)]:
-        logger.info("Skipping swss events test on MGFX topologies")
-        return
     logger.info("Beginning to test swss events")
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, shutdown_interface,
              "if_state.json", "sonic-events-swss:if-state", tag)
-    if duthost.facts["hwsku"] not in LOSSY_ONLY_HWSKUS:
+
+    asic_type = duthost.facts["asic_type"]
+    if asic_type == "mellanox":
+        skip_pfc_hwskus = [*MELLANOX_LOSSY_ONLY_HWSKUS, *MELLANOX_NO_QOS_HWSKUS]
+    elif asic_type == "broadcom":
+        skip_pfc_hwskus = [*BROADCOM_LOSSY_ONLY_HWSKUS, *BROADCOM_NO_QOS_HWSKUS]
+    else:
+        skip_pfc_hwskus = []
+
+    if duthost.facts["hwsku"] not in skip_pfc_hwskus:
         run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, generate_pfc_storm,
                  "pfc_storm.json", "sonic-events-swss:pfc-storm", tag)
+
     run_test(duthost, gnxi_path, ptfhost, data_dir, validate_yang, trigger_crm_threshold_exceeded,
              "chk_crm_threshold.json", "sonic-events-swss:chk_crm_threshold", tag)
 
