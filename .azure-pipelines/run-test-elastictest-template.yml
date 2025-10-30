@@ -348,7 +348,7 @@ steps:
     displayName: "Trigger Test"
 
   - script: |
-      set -e
+      set -o
       echo "Step: Lock Testbed"
 
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
@@ -381,7 +381,7 @@ steps:
     displayName: "Lock Testbed"
 
   - script: |
-      set -e
+      set -o
       echo "Step: Prepare Testbed"
 
       echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient"
@@ -415,7 +415,7 @@ steps:
     displayName: "Prepare Testbed"
 
   - script: |
-      set -e
+      set -o
       echo "Step: Run Test"
 
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
@@ -449,7 +449,7 @@ steps:
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
   - script: |
-      set -e
+      set -o
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"
