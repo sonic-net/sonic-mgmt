@@ -159,6 +159,12 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "Skipped as not supported on 202412 release"
+    conditions:
+      - "release in ['202412']"
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
