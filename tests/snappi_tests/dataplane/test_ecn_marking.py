@@ -1,11 +1,6 @@
 from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
-from snappi_tests.dataplane.files.helper import (
-    get_duthost_vlan_details,
-    create_snappi_config,     # noqa: F401
-    get_snappi_stats,
-    set_primary_chassis,      # noqa: F401
-    create_traffic_items,
-)  # noqa: F401, F403, F405, E402
+from snappi_tests.dataplane.files.helper import get_duthost_vlan_details, create_snappi_config, \
+    get_snappi_stats, set_primary_chassis, create_traffic_items  # noqa: F401, F403, F405, E402
 
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
