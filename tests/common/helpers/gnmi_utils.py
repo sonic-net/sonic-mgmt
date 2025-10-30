@@ -6,6 +6,7 @@ logger = logging.getLogger(__name__)
 
 
 GNMI_CERT_NAME = "test.client.gnmi.sonic"
+REVOKED_GNMICERT_NAME = "test.client.revoked.gnmi.sonic"
 TELEMETRY_CONTAINER = "telemetry"
 
 
@@ -111,32 +112,14 @@ IP      = %s
 
 
 def create_revoked_cert_and_crl(localhost, ptfhost):
-    # Create client key
-    local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
-    localhost.shell(local_command)
+    create_client_key(localhost, revoke=True)
 
-    # Create client CSR
-    local_command = "openssl req \
-                        -new \
-                        -key gnmiclient.revoked.key \
-                        -subj '/CN=test.client.revoked.gnmi.sonic' \
-                        -out gnmiclient.revoked.csr"
-    localhost.shell(local_command)
+    create_client_csr(localhost, revoke=True)
 
     # Sign client certificate
     crl_url = "http://{}:1234/crl".format(ptfhost.mgmt_ip)
     create_ca_conf(crl_url, "crlext.cnf")
-    local_command = "openssl x509 \
-                        -req \
-                        -in gnmiclient.revoked.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiclient.revoked.crt \
-                        -days 825 \
-                        -sha256 \
-                        -extensions req_ext -extfile crlext.cnf"
-    localhost.shell(local_command)
+    sign_client_certificate(localhost, revoke=True, extension_file="crlext.cnf")
 
     # create crl config file
     local_command = "rm -f gnmi/crl/index.txt"
@@ -185,80 +168,121 @@ def create_gnmi_certs(duthost, localhost, ptfhost):
     '''
     Create GNMI client certificates
     '''
-    # Create Root key
+    prepare_root_cert(localhost)
+    prepare_server_cert(duthost, localhost)
+    prepare_client_cert(localhost)
+    create_revoked_cert_and_crl(localhost, ptfhost)
+    copy_certificate_to_dut(duthost)
+    copy_certificate_to_ptf(ptfhost)
+
+
+def prepare_root_cert(localhost, days="1825"):
+    create_root_key(localhost)
+    create_root_cert(localhost, days)
+
+
+def create_root_key(localhost):
     local_command = "openssl genrsa -out gnmiCA.key 2048"
     localhost.shell(local_command)
 
-    # Create Root cert
+
+def create_root_cert(localhost, days):
     local_command = "openssl req \
-                        -x509 \
-                        -new \
-                        -nodes \
-                        -key gnmiCA.key \
-                        -sha256 \
-                        -days 1825 \
-                        -subj '/CN=test.gnmi.sonic' \
-                        -out gnmiCA.pem"
+                            -x509 \
+                            -new \
+                            -nodes \
+                            -key gnmiCA.key \
+                            -sha256 \
+                            -days {} \
+                            -subj '/CN=test.gnmi.sonic' \
+                            -out gnmiCA.pem".format(days)
     localhost.shell(local_command)
 
-    # Create server key
+
+def prepare_server_cert(duthost, localhost, days="825"):
+    create_server_key(localhost)
+    create_server_csr(localhost)
+    sign_server_certificate(duthost, localhost, days)
+
+
+def create_server_key(localhost):
     local_command = "openssl genrsa -out gnmiserver.key 2048"
     localhost.shell(local_command)
 
-    # Create server CSR
+
+def create_server_csr(localhost):
     local_command = "openssl req \
-                        -new \
-                        -key gnmiserver.key \
-                        -subj '/CN=test.server.gnmi.sonic' \
-                        -out gnmiserver.csr"
+                            -new \
+                            -key gnmiserver.key \
+                            -subj '/CN=test.server.gnmi.sonic' \
+                            -out gnmiserver.csr"
     localhost.shell(local_command)
 
-    # Sign server certificate
+
+def sign_server_certificate(duthost, localhost, days):
     create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
     local_command = "openssl x509 \
-                        -req \
-                        -in gnmiserver.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiserver.crt \
-                        -days 825 \
-                        -sha256 \
-                        -extensions req_ext -extfile extfile.cnf"
+                            -req \
+                            -in gnmiserver.csr \
+                            -CA gnmiCA.pem \
+                            -CAkey gnmiCA.key \
+                            -CAcreateserial \
+                            -out gnmiserver.crt \
+                            -days {} \
+                            -sha256 \
+                            -extensions req_ext \
+                            -extfile extfile.cnf".format(days)
     localhost.shell(local_command)
 
-    # Create client key
-    local_command = "openssl genrsa -out gnmiclient.key 2048"
+
+def prepare_client_cert(localhost, days="825"):
+    create_client_key(localhost)
+    create_client_csr(localhost)
+    sign_client_certificate(localhost, days)
+
+
+def create_client_key(localhost, revoke=False):
+    revoke_suffix = "revoked." if revoke else ""
+    local_command = "openssl genrsa -out gnmiclient.{}key 2048".format(revoke_suffix)
     localhost.shell(local_command)
 
-    # Create client CSR
+
+def create_client_csr(localhost, revoke=False):
+    revoke_suffix = "revoked." if revoke else ""
+    cn = REVOKED_GNMICERT_NAME if revoke else GNMI_CERT_NAME
     local_command = "openssl req \
-                        -new \
-                        -key gnmiclient.key \
-                        -subj '/CN={}' \
-                        -out gnmiclient.csr".format(GNMI_CERT_NAME)
+                            -new \
+                            -key gnmiclient.{}key \
+                            -subj '/CN={}' \
+                            -out gnmiclient.{}csr".format(revoke_suffix, cn, revoke_suffix)
     localhost.shell(local_command)
 
-    # Sign client certificate
+
+def sign_client_certificate(localhost, days="825", revoke=False, extension_file=None):
+    revoke_suffix = "revoked." if revoke else ""
+    extensions = "-extensions req_ext -extfile {}".format(extension_file) if extension_file else ""
     local_command = "openssl x509 \
-                        -req \
-                        -in gnmiclient.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiclient.crt \
-                        -days 825 \
-                        -sha256"
+                            -req \
+                            -in gnmiclient.{}csr \
+                            -CA gnmiCA.pem \
+                            -CAkey gnmiCA.key \
+                            -CAcreateserial \
+                            -out gnmiclient.{}crt \
+                            -days {} \
+                            -sha256 {}".format(revoke_suffix, revoke_suffix, days, extensions)
     localhost.shell(local_command)
 
-    create_revoked_cert_and_crl(localhost, ptfhost)
 
+def copy_certificate_to_dut(duthost):
     # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
     duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
+
+
+def copy_certificate_to_ptf(ptfhost):
     # Copy CA certificate and client certificate over to the PTF
     ptfhost.copy(src='gnmiCA.pem', dest='/root/')
     ptfhost.copy(src='gnmiclient.crt', dest='/root/')
