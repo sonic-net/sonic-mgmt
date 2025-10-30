@@ -551,6 +551,11 @@ def get_srv6_mysid_entry_usage(duthost):
             - 'total_count': Total number of entries
         Returns None if failed to get the information
     """
+
+    #skip cisco-8000 because crm cmd is not ready yet
+    if duthost.facts["asic_type"] == "cisco-8000":
+        return { 'used_count': 0, 'available_count': 0, 'total_count': 0 }
+
     try:
         # Get SRv6 MySID Entry usage information using show_and_parse
         usage_list = duthost.show_and_parse('crm show resources srv6-my-sid-entry')
