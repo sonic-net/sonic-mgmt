@@ -7578,3 +7578,4 @@ class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
             # Re-enable TX on destination port
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
 
+
