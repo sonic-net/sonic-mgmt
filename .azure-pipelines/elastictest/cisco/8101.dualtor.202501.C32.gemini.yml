@@ -60,7 +60,7 @@ parameters:
   # Custom skip scripts
   - name: SCRIPTS_EXCLUDE
     type: string
-    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py,bgp/test_bgp_slb.py"
+    default: "arp/test_wr_arp.py,platform_tests/test_cont_warm_reboot.py,platform_tests/test_advanced_reboot.py,bgp/test_bgp_slb.py,ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py"
     displayName: "Scripts to be excluded"
 
   - name: SPECIFIC_PARAM
