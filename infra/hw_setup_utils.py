@@ -146,6 +146,7 @@ SONIC_TEST_REPO = "wwwin-github.cisco.com/whitebox/sonic-test"
 TORTUGA_SONIC_TEST_FOLDER = '/home/sonic/cicd2/sonic-test/'
 WORKSPACE = os.getenv("WORKSPACE")
 SANITY_LOGS_PATH = 'sanity_logs'
+DEFAULT_LOGS_PATH = '/home/sonic/test_logs/'
 
 EMPTY = "{}"
 DELETE_CMD = f"find . -maxdepth 1 -type d -mtime +30 -exec rm -rf {EMPTY} \;"
@@ -297,6 +298,16 @@ def getSonicMgmtFolder(stream, testbed):
     testbed_info_dict = getTestbedInfoDict(testbed)
     branch = getBranchFromStream(stream)
     return testbed_info_dict["sonic_mgmt_folders"][f"{branch}"]
+
+def getLogsPath(stream, testbed):
+    testbed_info_dict = getTestbedInfoDict(testbed)
+    branch = getBranchFromStream(stream)
+    if f"logs_path_{branch}" in testbed_info_dict:
+        return testbed_info_dict[f"logs_path_{branch}"]
+    elif "logs_path_default" not in testbed_info_dict:
+        return DEFAULT_LOGS_PATH
+    else:
+        return testbed_info_dict["logs_path_default"]
 
 def getBranchFromStream(stream):
     

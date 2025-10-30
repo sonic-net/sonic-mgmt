@@ -11,8 +11,9 @@ import paramiko
 from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, prep_special_run_commands, \
     run_scripts, sshUtil, allure_directory, UNSET_PROXY, runIndividualTests, getLatestValidAllureReport, \
     checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, getSonicMgmtContainterName, getTechSupport, \
-    nested_ssh_connection, DUT_USERNAME, DUT_PASSWORD, WORKSPACE, SANITY_LOGS_PATH
+    nested_ssh_connection, DUT_USERNAME, DUT_PASSWORD, WORKSPACE, SANITY_LOGS_PATH, getLogsPath
 from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, upload_log_files_to_log_server, create_sanity_log_tarball, SANITY_LOG_TARBALL, print_folder_contents
+
 
 # Parse config file
 allure_config = {}
@@ -117,7 +118,6 @@ def run_test(args):
     rerun = args.rerun
     testbed_info_dict = getTestbedInfoDict(testbed)
     local_ucs = testbed_info_dict['ucs_host_name']
-
     local_log_dir = os.path.join(WORKSPACE, 'sanity/infra/', SANITY_LOGS_PATH)
     os.makedirs(local_log_dir, exist_ok=True)
 
@@ -190,18 +190,18 @@ def run_test(args):
     stdout, stderr, status_code= _run_cmd_in_ssh(client, "docker ps -a")
     log.debug(f"'docker ps -a' output:\n{stdout}")
     log.debug(rerun)
+    # Clean up allure results directory if not a rerun
     if rerun == False or rerun == "false":
-        stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, f"cd {allure_directory} && rm -rf *")
+        stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, f"cd {allure_directory} && find . -mindepth 1 -delete")
 
-    dut_log_dir = f'/run_logs/{image_id}_jenkins_nightly_logs_{build_id}_{test_suites_arg}'
+    dut_run_log_folder = f'{image_id}_jenkins_logs_{build_id}_{testbed}'
+    dut_log_dir = f'/run_logs/{dut_run_log_folder}'
     if testfile and test_tag:
         sftp = client.open_sftp()
         remote_file_path = f"/home/sonic/ring3-time-{build_id}.txt"
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
         with sftp.file(remote_file_path, mode='a') as remote_file:
             for test_suite in test_suites_array:
-                test_suite_name = test_suite.replace("/","_").replace(".py","")
-                dut_log_dir = f'/run_logs/{image_id}_jenkins_nightly_logs_{build_id}_{test_suite_name}'
                 exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders, skip_tests, local_log_dir, remote_file)
                 if exit_code!=0:
                     time.sleep(30)
@@ -218,7 +218,6 @@ def run_test(args):
     elif test_suites_arg and "," in test_suites_arg:
         test_suites_array = test_suites_arg.split(",")
         for test_suite in test_suites_array:
-            dut_log_dir = f'/run_logs/{image_id}_jenkins_nightly_logs_{build_id}_{test_suite}'
             exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders, skip_tests, local_log_dir)
             if exit_code!=0:
                 time.sleep(30)
@@ -269,9 +268,13 @@ def collect_results(args):
     }
 
     SUMMARY_REPORT_FILENAME = "results.json"
+
     WORKSPACE = os.getenv("WORKSPACE")
     test_suites_arg = os.getenv("TEST_SUITES")
     results_path = os.path.join(WORKSPACE, SUMMARY_REPORT_FILENAME)
+    dut_run_log_folder = f'{image_id}_jenkins_logs_{build_id}_{testbed}'
+    logs_path = getLogsPath(stream, testbed)
+    log.debug(f"Entered collect_results, dut_run_log_folder: {dut_run_log_folder}, results_path: {results_path}, logs_path: {logs_path}")
 
     if 'custom_result_url' in testbed_info_dict:
         testbed_type = testbed.split("-")[-1]
@@ -334,7 +337,9 @@ def collect_results(args):
                 "skipped" : stats["skipped"],
                 "success_rate" : round(percent, 2),
                 "report_link": allure_link,
-                "status": SUCCESS_STATUS if round(percent, 2) == 100.0 else FAILURE_STATUS
+                "status": SUCCESS_STATUS if round(percent, 2) == 100.0 else FAILURE_STATUS,
+                "log_path": f"{logs_path}{dut_run_log_folder}",
+                "ucs_server": testbed_info_dict["ucs_host_name"]
             }
         
         if result["success_rate"] == 100.0:
@@ -349,7 +354,7 @@ def collect_results(args):
     result["log_tarball_link"] = log_url
     with open(results_path, "w") as results_file:
         json.dump(result, results_file, indent=2)
-    log.info(f"Saved results.json at: {results_path}")
+    log.info(f"Saved results.json at: {results_path}")   
     return rc
 
 def kill_run(args, test_string="run_tests"):
