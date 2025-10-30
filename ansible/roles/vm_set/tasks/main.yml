@@ -269,6 +269,11 @@
   sysctl:
     name: "kernel.pid_max"
     value: "4194304"
+
+- name: Increase fs limitation
+  sysctl:
+    name: "fs.inotify.max_user_instances"
+    value: "1048576"
     sysctl_set: yes
   become: yes
 
