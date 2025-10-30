@@ -3686,8 +3686,8 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
 
 route/test_duplicate_route.py::test_duplicate_routes:
-  skip:
-    reason: "Skip due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231"
+  xfail:
+    reason: "xfail due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
 
