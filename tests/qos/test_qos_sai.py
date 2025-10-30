@@ -1931,6 +1931,7 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
         )
 
+
     def testQosSaiPgMinThreshold(
         self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
         get_src_dst_asic_and_duts
@@ -2009,6 +2010,7 @@ class TestQosSai(QosSaiBase):
             testParams=testParams,
             skip_pcap=True
         )
+
 
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
