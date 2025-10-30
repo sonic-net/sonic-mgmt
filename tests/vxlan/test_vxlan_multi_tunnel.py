@@ -41,7 +41,9 @@ def configure_vxlan_global_params(duthost):
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=int(prev_vxlan_port), dutmac=prev_vxlan_router_mac)
     else:
         ecmp_utils.configure_vxlan_switch(duthost, dutmac=prev_vxlan_router_mac)
-        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE|switch' 'vxlan_port'")
+        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_port'")
+    if not prev_vxlan_router_mac:
+        duthost.shell("sonic-db-cli APPL_DB HDEL 'SWITCH_TABLE:switch' 'vxlan_router_mac'")
 
 
 def are_keys_in_app_db(duthost, table, keys, check_exist="all"):
