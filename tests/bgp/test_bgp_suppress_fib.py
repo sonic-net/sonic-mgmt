@@ -66,6 +66,18 @@ BGP_ROUTE_FLAP_TIMES = 5
 UPDATE_WITHDRAW_THRESHOLD = 5  # consider the switch with low power cpu and a lot of bgp neighbors
 
 
+# Returns True if the topology has a spine layer, else returns False
+def topo_has_spine_layer(tbinfo):
+    if not tbinfo:
+        return False
+
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        if 'spine' in v['properties']:
+            return True
+
+    return False
+
+
 @pytest.fixture(scope="module")
 def generate_route_and_traffic_data():
     """
@@ -177,6 +189,11 @@ def prepare_param(duthost, tbinfo, get_exabgp_ptf_ports):
     """
     Prepare parameters
     """
+
+    # Skip test if t1 topo does not have a spine layer
+    if not topo_has_spine_layer(tbinfo):
+        pytest.skip('This test is not applicable to topologies with no SPINE layer')
+
     router_mac = duthost.facts["router_mac"]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
     ptf_ip = tbinfo['ptf_ip']
@@ -690,13 +707,6 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
             wait_until(300, 20, 0, duthost.critical_services_fully_started),
             (
                 "Not all critical services started within the allotted time after reboot or config reload. "
-                "Hostname: {}\n"
-                "Platform: {}\n"
-                "HWSKU: {}\n"
-            ).format(
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
             )
         )
 
@@ -704,13 +714,6 @@ def do_and_wait_reboot(duthost, localhost, reboot_type):
             wait_until(300, 20, 0, check_interface_status_of_up_ports, duthost),
             (
                 "Not all admin-up ports are operationally up after reboot or config reload.\n"
-                "Hostname: {}\n"
-                "Platform: {}\n"
-                "HWSKU: {}"
-            ).format(
-                duthost.hostname,
-                duthost.facts.get("platform"),
-                duthost.facts.get("hwsku")
             )
         )
 
@@ -1080,8 +1083,8 @@ def test_credit_loop(duthost, tbinfo, nbrhosts, ptfadapter, prepare_param, gener
 
             with allure.step("Restore orchagent process"):
                 assert is_orchagent_stopped(duthost), (
-                    "Orchagent process is not in the expected 'stop' state on DUT '{}'."
-                ).format(duthost.hostname)
+                    "Orchagent process is not in the expected 'stop' state on DUT "
+                )
 
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 
@@ -1143,8 +1146,8 @@ def test_suppress_fib_stress(duthost, tbinfo, nbrhosts, ptfadapter, prepare_para
 
             with allure.step("Restore orchagent process"):
                 assert is_orchagent_stopped(duthost), (
-                    "Orchagent process is not in the expected 'stop' state on DUT '{}'."
-                ).format(duthost.hostname)
+                    "Orchagent process is not in the expected 'stop' state on DUT ."
+                )
 
                 operate_orchagent(duthost, action=ACTION_CONTINUE)
 

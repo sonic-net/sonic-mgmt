@@ -1014,7 +1014,7 @@ class TestShowVlan():
 
 
 # Tests to be run in t1 topology
-@pytest.mark.topology('t1')
+@pytest.mark.topology('t1', 'lt2', 'ft2')
 class TestConfigInterface():
     def check_speed_change(self, duthost, asic_index, interface, change_speed):
         db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
@@ -1239,6 +1239,10 @@ class TestConfigInterface():
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
         fanout, fanout_port = fanout_switch_port_lookup(fanouthosts, duthost.hostname, interface)
         speeds_to_test = ['100000', '40000']
+        speed_to_fec_map = {
+            '100000': ['rs', 'none'],
+            '40000': ['fc', 'none']
+        }
 
         if 'arista' in duthost.facts.get('platform', '').lower():
             pytest.skip("Skip Arista platform for now.")
@@ -1266,6 +1270,22 @@ class TestConfigInterface():
                                .format(ifmode, cli_ns_option, test_intf, speed))
             fanout.set_speed(fanout_port, speed)
 
+        def _set_fec(fec):
+            # Configure fec on the DUT and Fanout
+            try:
+                duthost.set_port_fec(interface, fec)
+            except Exception as e:
+                logger.info(f"Failed to set FEC {fec} on DUT interface {interface}: {e}")
+                return False
+
+            try:
+                fanout.set_port_fec(fanout_port, fec)
+            except Exception as e:
+                logger.info(f"Failed to set FEC {fec} on fanout port {fanout_port}: {e}")
+                return False
+
+            return True
+
         def _verify_speed(speed):
             # Verify the speed on DUT and Fanout
             db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
@@ -1278,31 +1298,48 @@ class TestConfigInterface():
                     "Expected speed: '{}', but got '{}'."
                 ).format(target_speed, dut_speed)
             )
+            # With DUT speed verified and link up, the fanout speed can be safely assumed correct.
 
-            # verify the speed on fanout
-            fanout_speed = fanout.get_speed(fanout_port)
-            pytest_assert(
-                fanout_speed == speed,
-                (
-                    "Fanout interface speed mismatch after configuration. "
-                    "Expected speed: '{}', but got '{}'."
-                ).format(target_speed, fanout_speed)
-            )
+        # Save native (i.e. pre-test) FEC config
+        native_fec = duthost.get_port_fec(interface)
+        logger.info(f"Native speed: {native_speed}, Native FEC: {native_fec}")
+
+        fec_changed = False
 
         # Change the speed
         _set_speed(target_speed)
 
         try:
-            # Verify speed and link status
-            assert wait_until(60, 1, 0, duthost.links_status_up, [interface]), (
-                "Interface '{}' did not reach link up state within the expected time after speed configuration."
-            ).format(interface)
+            # First, check if the link comes up with the native FEC configuration at target speed.
+            # If the link fails to establish, it indicates that FEC auto-negotiation may not be
+            # enabled or supported for this vendor/platform, requiring explicit FEC
+            # configuration at the target speed.
+            if not wait_until(60, 1, 0, duthost.links_status_up, [interface]):
+                # Loop through all possible FEC options for the target speed to see which one works.
+                # (Not all vendors advertise supported_fecs)
+                fec_list = list(set(speed_to_fec_map.get(target_speed, [])) - {native_fec})
+                for fec in fec_list:
+                    logger.info(f"Trying FEC {fec} for {interface} with {target_speed} to see if the link comes up")
+                    fec_changed = True
+                    if not _set_fec(fec):
+                        continue
+                    logger.info(f"Configured FEC to {fec} for {interface} with {target_speed}")
+                    # Check link status
+                    if wait_until(60, 1, 0, duthost.links_status_up, [interface]):
+                        break
+                else:
+                    pytest.fail(f"Interface '{interface}' did not reach link up state within the expected time after "
+                                f"speed configuration to {target_speed}, with FEC {[native_fec] + fec_list}")
+
+            # Verify speed
             _verify_speed(target_speed)
 
         finally:
-            # Restore to native speed after test
+            logger.info(f"Restoring speed to {native_speed} after test")
             _set_speed(native_speed)
-
+            if fec_changed and native_fec is not None:
+                logger.info(f"Restoring FEC to {native_fec} after test")
+                _set_fec(native_fec)
         # After restoration, verify again
         assert wait_until(60, 1, 0, duthost.links_status_up, [interface]), (
             "Interface '{}' did not reach link up state within the expected time after speed configuration."
@@ -1315,7 +1352,7 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2']:
+    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
         pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
@@ -1354,7 +1391,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2']:
+    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
         pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
@@ -1404,7 +1441,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                 )
 
 
-@pytest.mark.topology('t1', 't2')
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1494,7 +1531,7 @@ class TestNeighbors():
                     ).format(addr, detail['interface'], ndp_output)
 
 
-@pytest.mark.topology('t1', 't2')
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)
