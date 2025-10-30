@@ -240,9 +240,8 @@ class TestCOPP(object):
             copp_utils.disable_feature_entry(duthost, self.feature_name)
 
         logging.info("Verify {} trap is uninstalled through CLI".format(self.trap_id))
-        pytest_assert(not copp_utils.is_trap_installed(duthost, self.trap_id),
+        pytest_assert(wait_until(30, 2, 0, copp_utils.is_trap_uninstalled, duthost, self.trap_id),
                       "Trap {} is not uninstalled".format(self.trap_id))
-
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
@@ -362,7 +361,7 @@ def copp_testbed(
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
         if 't2' in tbinfo["topo"]["name"]:
-            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo['topo']['type']), tbinfo)
+            upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo), tbinfo)
         else:
             upStreamDuthost = duthost
 
@@ -533,6 +532,14 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, rate_limit, test_params.nn_target_namespace, test_params.neighbor_miss_trap_supported)
 
+    if not is_backend_topology:
+        # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
+        upStreamDuthost.command("sudo config bgp shutdown all")
+        # save BGP shutdown into config, so backup_restore_config_db won't bring it back up
+        # without shutting down, background BGP traffic can consume significant COPP bandwidth on large topos
+        if dut == upStreamDuthost:
+            dut.command("sudo config save -y")
+
     # Multi-asic will not support this mode as of now.
     if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
@@ -548,11 +555,6 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
-
-    if not is_backend_topology:
-        # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
-        upStreamDuthost.command("sudo config bgp shutdown all")
-        time.sleep(30)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
@@ -570,6 +572,12 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
     logging.info("Restore COPP policer to default settings")
     copp_utils.restore_policer(dut, test_params.nn_target_namespace)
 
+    if not is_backend_topology:
+        # Testbed is not a T1 backend device, so bring up bgp session to upstream device
+        upStreamDuthost.command("sudo config bgp startup all")
+        if dut == upStreamDuthost:
+            dut.command("sudo config save -y")
+
     if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
         docker.restore_default_syncd(dut, creds, test_params.nn_target_namespace)
@@ -577,10 +585,6 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
-
-    if not is_backend_topology:
-        # Testbed is not a T1 backend device, so bring up bgp session to upstream device
-        upStreamDuthost.command("sudo config bgp startup all")
 
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):
