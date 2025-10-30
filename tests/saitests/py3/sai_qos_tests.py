@@ -7344,6 +7344,8 @@ class TrafficSanityTest(sai_base_test.ThriftInterfaceDataPlane):
 
         finally:
             print("END OF TEST")
+
+
 class PgMinThresholdTest(sai_base_test.ThriftInterfaceDataPlane):
     """
     Test to validate PG MIN threshold behavior.
