@@ -1143,6 +1143,12 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream:
+  xfail:
+    reason: "Xfail the case on dualtor-aa setup due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/21139"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21139 and 'dualtor-aa' in topo_name"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
