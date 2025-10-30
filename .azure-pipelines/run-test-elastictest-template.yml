@@ -371,7 +371,7 @@ steps:
           fi
       done
 
-      if [ $failure_count -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
+      if [ "$failure_count" -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
@@ -405,7 +405,7 @@ steps:
           fi
       done
 
-      if [ $failure_count -eq "${#TEST_PLAN_ID_LIST[@]}" ]; then
+      if [ "$failure_count" -eq "${#TEST_PLAN_ID_LIST[@]}" ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
@@ -438,7 +438,7 @@ steps:
           fi
       done
 
-      if [ $failure_count -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
+      if [ "$failure_count" -eq "${#TEST_PLAN_ID_LIST[@]}" ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
