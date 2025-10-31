@@ -4488,6 +4488,12 @@ vxlan/test_vxlan_decap.py:
     conditions:
       - "topo_name in ['t0-isolated-d16u16s1','t0-isolated-d32u32s2'] and https://github.com/sonic-net/sonic-buildimage/issues/22056"
 
+vxlan/test_vxlan_decap_ttl.py:
+  skip:
+    reason: "VxLAN tunnel TTL decap mode test is not supported on multi-ASIC platform. Also this test can only run and currently passes only on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
