@@ -290,9 +290,11 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     duthost.shell("cp /tmp/config_db_vrf.json /etc/sonic/config_db.json")
 
     reboot(duthost, localhost)
-    pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),("Not all critical services started within the allotted time after reboot.\n"))
-    pytest_assert(wait_until(180, 20, 0, check_interface_status_of_up_ports, duthost),("Not all admin-up ports are operationally up after reboot.\n"))
- 
+    pytest_assert(wait_until(180, 20, 0, duthost.critical_services_fully_started),
+                  ("Not all critical services started within the allotted time after reboot.\n"))
+    pytest_assert(wait_until(180, 20, 0, check_interface_status_of_up_ports, duthost),
+                  ("Not all admin-up ports are operationally up after reboot.\n"))
+
 
 def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     '''
