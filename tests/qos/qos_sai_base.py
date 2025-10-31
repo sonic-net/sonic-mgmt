@@ -2361,6 +2361,12 @@ class QosSaiBase(QosBase):
             dut_asic.command("counterpoll watermark disable")
             dut_asic.command("counterpoll queue disable")
 
+        yield
+
+        for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+            dut_asic.command("counterpoll watermark enable")
+            dut_asic.command("counterpoll queue enable")
+
     @pytest.fixture
     def blockGrpcTraffic(self, tbinfo, lower_tor_host, nic_simulator_info):   # noqa F811
 
@@ -3098,3 +3104,50 @@ def set_queue_pir(interface, queue, rate):
         logging.info(f"weights_list: {weights_list}")
 
         return weights_list
+
+    def copy_clear_pg_wm_script_cisco_8000(self, dut, ports, asic=""):
+        dshell_script = '''
+from common import *
+from sai_utils import *
+def clear_pg_watermark(interface):
+  port_oid = get_port_oid(interface)
+  port_api = sai_api_query(SAI_API_PORT)
+  num_ipgs_attr = sai_attribute_t(SAI_PORT_ATTR_NUMBER_OF_INGRESS_PRIORITY_GROUPS, 0)
+  port_api.get_port_attribute(port_oid, 1, num_ipgs_attr)
+  ipg_list = sai_object_list_t([0] * num_ipgs_attr.value.u32)
+  attr = sai_attribute_t(SAI_PORT_ATTR_INGRESS_PRIORITY_GROUP_LIST, ipg_list)
+  port_api.get_port_attribute(port_oid, 1, attr)
+  ipg_pylist  = ipg_list.to_pylist()
+  ipg_attr_ids = ingressPriorityGroupStatVec(1)
+  ipg_attr_ids[0] = SAI_INGRESS_PRIORITY_GROUP_STAT_SHARED_WATERMARK_BYTES
+  for ipg_oid in ipg_pylist:
+    getIngressPriorityGroupCountersExt(ipg_oid, ipg_attr_ids, SAI_STATS_MODE_READ_AND_CLEAR)
+'''
+
+        for intf in ports:
+            dshell_script += f'\nclear_pg_watermark("{intf}")'
+
+        copy_dshell_script_cisco_8000(dut, asic, dshell_script, script_name="clear_pg_wm.py")
+
+    @pytest.fixture(scope="function", autouse=False)
+    def clear_pg_wm(self, get_src_dst_asic_and_duts, dutConfig):
+        src_port = dutConfig['dutInterfaces'][dutConfig["testPorts"]["src_port_id"]]
+        src_dut = get_src_dst_asic_and_duts['src_dut']
+        src_asic = get_src_dst_asic_and_duts['src_asic']
+        src_index = src_asic.asic_index
+
+        if src_dut.facts['asic_type'] != "cisco-8000" or dutConfig["dutAsic"] != "gr2":
+            yield
+            return
+
+        interfaces = self.get_port_channel_members(src_dut, src_port)
+
+        self.copy_clear_pg_wm_script_cisco_8000(
+            dut=src_dut,
+            ports=interfaces,
+            asic=src_index)
+
+        src_dut.shell('sudo show platform npu script -s clear_pg_wm.py')
+
+        yield
+        return
