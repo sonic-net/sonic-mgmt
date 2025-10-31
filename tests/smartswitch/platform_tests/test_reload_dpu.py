@@ -26,6 +26,7 @@ DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
 EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 
+
 def test_dpu_status_post_switch_reboot(duthosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
