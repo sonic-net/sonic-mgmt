@@ -110,7 +110,7 @@ def test_privatelink_udp_sport_range_negative(
     min_valid_sport = VXLAN_UDP_BASE_SRC_PORT
     max_valid_sport = VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1
     invalid_sport_list = [1,
-                          random.randint(2, min_valid_sport -2),
+                          random.randint(2, min_valid_sport - 2),
                           min_valid_sport - 1,
                           max_valid_sport + 1,
                           random.randint(max_valid_sport + 2, 65534),
