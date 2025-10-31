@@ -2,9 +2,9 @@ import pytest
 from pathlib import Path
 from collections import defaultdict
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
-from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
-from common.ha.smartswitch_ha_helper import (
+from tests.common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
+from tests.common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
+from tests.common.ha.smartswitch_ha_helper import (
     add_port_to_namespace,
     remove_namespace,
     add_static_route_to_ptf,
