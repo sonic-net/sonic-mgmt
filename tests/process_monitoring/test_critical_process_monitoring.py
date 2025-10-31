@@ -524,7 +524,6 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    skip_containers.append("database")
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
