@@ -4563,3 +4563,4 @@ zmq/test_gnmi_zmq.py:
     conditions:
       - "'arista' in platform"
       - "'isolated' in topo_name"
+      - https://github.com/sonic-net/sonic-buildimage/issues/23622
