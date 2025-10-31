@@ -4,6 +4,7 @@ import paramiko
 import os
 import time
 from ansible.module_utils.basic import AnsibleModule
+from ansible.module_utils.misc_utils import wait_for_path
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DPU_HOST_IP_BASE = "169.254.200.{}"
@@ -46,6 +47,13 @@ class LoadExtraDpuConfigModule(object):
                 self.module.fail_json(msg="No DPUs defined for hwsku: {}".format(self.hwsku))
         except KeyError:
             self.module.fail_json(msg="No DPU configuration found for hwsku: {}".format(self.hwsku))
+
+    def wait_for_dpu_path(self, ssh, dpu_ip, path_to_check):
+        try:
+            wait_for_path(ssh, dpu_ip, path_to_check, empty_ok=False, tries=MAX_RETRIES, delay=RETRY_DELAY)
+        except FileNotFoundError:
+            return False
+        return True
 
     def connect_to_dpu(self, dpu_ip):
         """Establish an SSH connection to the DPU with retry"""
@@ -109,6 +117,14 @@ class LoadExtraDpuConfigModule(object):
         if SUCCESS_THRESHOLD < 1.0 and required_success_count == 0:
             required_success_count = 1
 
+        # Wait for the DPU control plane to be up for at least required_success_count DPUs
+        if not self.wait_for_dpu_count_control_plane_up(required_success_count):
+            self.module.fail_json(
+                msg="DPU control planes are not ready on switch (required {}) after {} retries.".format(
+                    required_success_count, MAX_RETRIES
+                )
+            )
+
         self.module.log("Configuring {} DPUs, requiring at least {} successful configurations".format(
             self.dpu_num, required_success_count))
 
@@ -126,6 +142,7 @@ class LoadExtraDpuConfigModule(object):
             try:
                 # Attempt each step and track success
                 if (self.transfer_to_dpu(ssh, dpu_ip) and
+                        self.wait_for_dpu_path(ssh, dpu_ip, DEFAULT_CONFIG_FILE) and
                         self.execute_command(ssh, dpu_ip, GEN_FULL_CONFIG_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_RELOAD_CMD) and
                         self.execute_command(ssh, dpu_ip, CONFIG_SAVE_CMD) and
@@ -156,6 +173,26 @@ class LoadExtraDpuConfigModule(object):
                         required_success_count, success_count, self.dpu_num, failure_count))
 
         return success_count, failure_count
+
+    def get_dpu_count_control_plane_up(self):
+        # check the output for the number of DPU with control plane up
+        rc, out, err = self.module.run_command("show system-health dpu all")
+        if rc != 0:
+            return 0
+        dpu_count = 0
+        for line in out.split("\n"):
+            if "dpu_control_plane_state" in line and "up" in line:
+                dpu_count += 1
+        return dpu_count
+
+    def wait_for_dpu_count_control_plane_up(self, required_count):
+        retry_count = 0
+        while retry_count < MAX_RETRIES:
+            if self.get_dpu_count_control_plane_up() >= required_count:
+                return True
+            time.sleep(RETRY_DELAY)
+            retry_count += 1
+        return False
 
     def run(self):
         success_count, failure_count = self.configure_dpus()
