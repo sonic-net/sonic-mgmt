@@ -77,6 +77,10 @@ parameters:
     type: string
     default: "latest"
 
+  - name: PTF_MODIFIED
+    type: boolean
+    default: false
+
   - name: IMAGE_URL
     type: string
     default: ""
@@ -294,6 +298,7 @@ steps:
       --vm-type ${{ parameters.VM_TYPE }} \
       --num-asic ${{ parameters.NUM_ASIC }} \
       --ptf_image_tag ${{ parameters.PTF_IMAGE_TAG }} \
+      --ptf-modified ${{ parameters.PTF_MODIFIED }} \
       --image_url ${{ parameters.IMAGE_URL }} \
       --upgrade-image-param="${{ parameters.UPGRADE_IMAGE_PARAM }}" \
       --hwsku ${{ parameters.HWSKU }} \
@@ -343,7 +348,7 @@ steps:
     displayName: "Trigger Test"
 
   - script: |
-      set -e
+      set -o
       echo "Step: Lock Testbed"
 
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
@@ -362,10 +367,11 @@ steps:
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
+              echo "Test plan $TEST_PLAN_ID failed in LOCK_TESTBED step, total failure count: $failure_count"
           fi
       done
 
-      if [ $failure_count -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
+      if [ "$failure_count" -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
@@ -375,7 +381,7 @@ steps:
     displayName: "Lock Testbed"
 
   - script: |
-      set -e
+      set -o
       echo "Step: Prepare Testbed"
 
       echo "Preparing the testbed(add-topo, deploy-mg) may take 15-30 minutes. Before the testbed is ready, the progress of the test plan keeps displayed as 0, please be patient"
@@ -395,10 +401,11 @@ steps:
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
+              echo "Test plan $TEST_PLAN_ID failed in PREPARE_TESTBED step, total failure count: $failure_count"
           fi
       done
 
-      if [ "$failure_count" -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
+      if [ "$failure_count" -eq "${#TEST_PLAN_ID_LIST[@]}" ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
@@ -408,7 +415,7 @@ steps:
     displayName: "Prepare Testbed"
 
   - script: |
-      set -e
+      set -o
       echo "Step: Run Test"
 
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
@@ -427,10 +434,11 @@ steps:
           RET=$?
           if [ $RET -ne 0 ]; then
               ((failure_count++))
+              echo "Test plan $TEST_PLAN_ID failed in Run_Test step, total failure count: $failure_count"
           fi
       done
 
-      if [ $failure_count -eq ${#TEST_PLAN_ID_LIST[@]} ]; then
+      if [ "$failure_count" -eq "${#TEST_PLAN_ID_LIST[@]}" ]; then
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
@@ -441,7 +449,7 @@ steps:
     timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
 
   - script: |
-      set -e
+      set -o
       echo "Try to cancel test plan $TEST_PLAN_ID, cancelling finished test plan has no effect."
       IFS=',' read -ra TEST_PLAN_ID_LIST <<< "$TEST_PLAN_ID_LIST_STRING"
       for TEST_PLAN_ID in "${TEST_PLAN_ID_LIST[@]}"

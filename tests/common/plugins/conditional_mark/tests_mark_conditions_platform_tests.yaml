@@ -1132,13 +1132,14 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 and this test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "asic_type in ['vs']"
       - "'isolated' in topo_name"
+      - "topo_type not in ['t0','t0-sonic']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot:
   skip:
@@ -1189,11 +1190,13 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
 #######################################
 platform_tests/test_cont_warm_reboot.py:
   skip:
-    reason: "Warm Reboot is not supported in dualtor"
+    reason: "Warm Reboot is not supported in dualtor and this test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
+      - "topo_type not in ['t0']"
+      - "is_smartswitch==True"
 
 #######################################
 #####       test_intf_fec.py      #####
@@ -1415,9 +1418,11 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Skipped on mellanox and nvidia asic from 202411 and later"
+    reason: "Skipped on mellanox and nvidia asic from 202411 and later / This test is not run on this topology currently"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'nvidia']"
+      - "topo_type not in ['t0']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####

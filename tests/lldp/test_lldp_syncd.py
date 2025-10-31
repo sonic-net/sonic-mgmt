@@ -246,14 +246,12 @@ def verify_lldp_table(duthost):
 def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces):
     def get_lldp_entry_content_with_retry():
         nonlocal entry_content
+        entry_content = get_lldp_entry_content(db_instance, interface)
+        return len(entry_content) > 0
 
-        if not entry_content:
-            entry_content = get_lldp_entry_content(db_instance, interface)
-        return entry_content
+    entry_content = ''
 
-    entry_content = get_lldp_entry_content(db_instance, interface)
-
-    wait_until(20, 1, 0, get_lldp_entry_content_with_retry)
+    wait_until(30, 1, 0, get_lldp_entry_content_with_retry)
 
     logger.debug("Interface {}, entry_content:{}".format(interface, entry_content))
     lldpctl_interface = None
