@@ -4869,6 +4869,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
         hwsku = self.test_params['hwsku']
         internal_hdr_size = self.test_params.get('internal_hdr_size', 0)
         platform_asic = self.test_params['platform_asic']
+        margin_lower_bound = self.test_params.get('pkts_num_margin_lower_bound', 0)
 
         if 'packet_size' in list(self.test_params.keys()):
             packet_length = int(self.test_params['packet_size'])
@@ -5070,14 +5071,15 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
                             ((pkts_num_leak_out + pkts_num_fill_min + expected_wm + margin)
                              * (packet_length + internal_hdr_size)))
                 else:
-                    msg = "lower bound: %d, actual value: %d, upper bound (+%d): %d" % (
-                        expected_wm * cell_size,
+                    msg = "lower bound (-%d): %d, actual value: %d, upper bound (+%d): %d" % (
+                        margin_lower_bound,
+                        (expected_wm - margin_lower_bound) * cell_size,
                         pg_shared_wm_res[pg],
                         margin,
                         (expected_wm + margin) * cell_size)
                     assert pg_shared_wm_res[pg] <= (
                             expected_wm + margin) * cell_size, msg
-                    assert expected_wm * cell_size <= pg_shared_wm_res[pg], msg
+                    assert (expected_wm - margin_lower_bound) * cell_size <= pg_shared_wm_res[pg], msg
 
                 pkts_num = pkts_inc
 
@@ -5109,7 +5111,7 @@ class PGSharedWatermarkTest(sai_base_test.ThriftInterfaceDataPlane):
             else:
                 print("exceeded pkts num sent: %d, expected watermark: %d, actual value: %d" % (
                     pkts_num, ((expected_wm + cell_occupancy) * cell_size), pg_shared_wm_res[pg]), file=sys.stderr)
-                assert (expected_wm * cell_size <= pg_shared_wm_res[pg] <= (
+                assert ((expected_wm - margin_lower_bound) * cell_size <= pg_shared_wm_res[pg] <= (
                         expected_wm + margin + cell_occupancy) * cell_size)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id])
