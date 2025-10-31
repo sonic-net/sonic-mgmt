@@ -14,6 +14,7 @@ from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, \
                                             create_gnmi_certs, delete_gnmi_certs, create_ext_conf
 from tests.common.helpers.ntp_helper import setup_ntp_context
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -21,7 +22,7 @@ SETUP_ENV_CP = "test_setup_checkpoint"
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
+def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost, duthost_mgmt_ip):  # noqa: F811
     """Auto-setup NTP for all gNMI tests using existing helper."""
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -35,12 +36,13 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
         return
 
-    with setup_ntp_context(ptfhost, duthost, False):
+    use_v6 = duthost_mgmt_ip["version"] == "v6"
+    with setup_ntp_context(ptfhost, duthost, use_v6):
         yield
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, setup_gnmi_ntp_client_server):
     '''
     Setup GNMI server with client certificates
     '''
