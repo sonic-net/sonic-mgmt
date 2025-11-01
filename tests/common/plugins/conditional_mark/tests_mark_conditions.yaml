@@ -2113,13 +2113,15 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
       - "'-v6-' in topo_name"
   xfail:
-    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304 or https://github.com/sonic-net/sonic-mgmt/issues/21086"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21086"
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 topos or https://github.com/sonic-net/sonic-mgmt/issues/21086'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
@@ -2128,6 +2130,7 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/19923 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21086"
 
 #######################################
 #####   generic_config_updater    #####
@@ -3168,8 +3171,9 @@ pfcwd/test_pfcwd_all_port_storm.py:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
 
-pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_restore[IPv6.*:
-   xfail:
+pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_restore\[IPv6.*:
+  regex: true
+  xfail:
      reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21067 or https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21067 and 't0-56' in topo_type and asic_type in ['mellanox']"
@@ -3190,7 +3194,8 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
 
-pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy[IPv6.*:
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy\[IPv6.*:
+  regex: true
   xfail:
     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21083"
     conditions:
