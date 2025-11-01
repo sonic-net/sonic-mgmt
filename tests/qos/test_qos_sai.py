@@ -1931,6 +1931,85 @@ class TestQosSai(QosSaiBase):
             ptfhost, testCase="sai_qos_tests.PGDropTest", testParams=testParams
         )
 
+    def testQosSaiPgMinThreshold(
+        self, ptfhost, dutTestParams, dutConfig, dutQosConfig,
+        get_src_dst_asic_and_duts
+    ):
+        """
+            Test QoS SAI PG MIN threshold behavior
+
+            This test validates that:
+            1. PG without MIN threshold can use shared pool but drops excess packets
+            2. PG with MIN threshold gets guaranteed bandwidth
+
+            Args:
+                ptfhost (AnsibleHost): Packet Test Framework (PTF)
+                dutTestParams (Fixture, dict): DUT host test params
+                dutConfig (Fixture, dict): Map of DUT config containing dut interfaces, test port IDs, test port IPs,
+                    and test ports
+                dutQosConfig (Fixture, dict): Map containing DUT host QoS configuration
+                get_src_dst_asic_and_duts: Fixture for getting source/destination ASIC and DUTs
+            Returns:
+                None
+            Raises:
+                RunAnsibleModuleFail if ptf test fails
+        """
+        qosConfig = dutQosConfig["param"]
+
+        if "pg_min_threshold" not in qosConfig:
+            pytest.skip("PG MIN threshold test parameters not configured for this platform")
+
+        src_dut_index = get_src_dst_asic_and_duts['src_dut_index']
+        src_asic_index = get_src_dst_asic_and_duts['src_asic_index']
+        dst_dut_index = get_src_dst_asic_and_duts['dst_dut_index']
+        dst_asic_index = get_src_dst_asic_and_duts['dst_asic_index']
+
+        src_testPortIps = dutConfig["testPortIps"][src_dut_index][src_asic_index]
+        dst_testPortIps = dutConfig["testPortIps"][dst_dut_index][dst_asic_index]
+        src_testPortIds = list(src_testPortIps.keys())
+        dst_testPortIds = list(dst_testPortIps.keys())
+
+        # Use first available source and destination ports
+        src_port_id = src_testPortIds[0]
+        dst_port_id = dst_testPortIds[0]
+
+        testParams = dict()
+        testParams.update(dutTestParams["basicParams"])
+        testParams.update({
+            "testbed_type": dutTestParams["topo"],
+            "pg0_dscp": qosConfig["pg_min_threshold"]["pg0_dscp"],
+            "pg1_dscp": qosConfig["pg_min_threshold"]["pg1_dscp"],
+            "pg0": qosConfig["pg_min_threshold"]["pg0"],
+            "pg1": qosConfig["pg_min_threshold"]["pg1"],
+            "src_port_id": src_port_id,
+            "src_port_ip": src_testPortIps[src_port_id]['peer_addr'],
+            "dst_port_id": dst_port_id,
+            "dst_port_ip": dst_testPortIps[dst_port_id]['peer_addr'],
+            "shared_pool_size": qosConfig["pg_min_threshold"]["shared_pool_size"],
+            "pg1_min_size": qosConfig["pg_min_threshold"]["pg1_min_size"],
+            "pg0_pkts_to_fill": qosConfig["pg_min_threshold"]["pg0_pkts_to_fill"],
+            "pg0_pkts_to_drop": qosConfig["pg_min_threshold"]["pg0_pkts_to_drop"],
+            "pg1_pkts_to_fill": qosConfig["pg_min_threshold"]["pg1_pkts_to_fill"],
+            "pg1_pkts_to_drop": qosConfig["pg_min_threshold"]["pg1_pkts_to_drop"],
+        })
+
+        if "packet_size" in qosConfig["pg_min_threshold"]:
+            testParams["packet_size"] = qosConfig["pg_min_threshold"]["packet_size"]
+
+        if "cell_size" in qosConfig["pg_min_threshold"]:
+            testParams["cell_size"] = qosConfig["pg_min_threshold"]["cell_size"]
+
+        if "pkts_num_margin" in qosConfig["pg_min_threshold"]:
+            testParams["pkts_num_margin"] = qosConfig["pg_min_threshold"]["pkts_num_margin"]
+
+        # Note: Not passing log_file to avoid pcap generation for this high-volume test
+        # With 2M packets, pcap files become too large and cause OOM during compression
+        self.runPtfTest(
+            ptfhost, testCase="sai_qos_tests.PgMinThresholdTest",
+            testParams=testParams,
+            skip_pcap=True
+        )
+
     @pytest.mark.parametrize("queueProfile", ["wm_q_shared_lossless", "wm_q_shared_lossy"])
     def testQosSaiQSharedWatermark(
         self, get_src_dst_asic_and_duts, queueProfile, ptfhost, dutTestParams, dutConfig, dutQosConfig,
