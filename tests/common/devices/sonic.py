@@ -102,6 +102,7 @@ class SonicHost(AnsibleHostBase):
         self._sonic_release = self._get_sonic_release()
         self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
         self._kernel_version = self._get_kernel_version()
+        self._slot_number = self._get_slot_number()
 
     def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
@@ -177,6 +178,10 @@ class SonicHost(AnsibleHostBase):
 
         return self._critical_services
 
+    @property
+    def slot_number(self):
+        return self._slot_number
+
     @critical_services.setter
     def critical_services(self, var):
         """
@@ -233,6 +238,15 @@ class SonicHost(AnsibleHostBase):
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
+
+    def _get_slot_number(self):
+        im = self.host.options['inventory_manager']
+        inv_files = im._sources
+        dut_vars = get_host_visible_vars(inv_files, self.hostname)
+        slot_num = dut_vars.get('slot_num')
+        if slot_num:
+            return int(slot_num.partition('slot')[-1])
+        return None
 
     def _get_mgmt_interface(self):
         """

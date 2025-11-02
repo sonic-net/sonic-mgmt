@@ -330,8 +330,13 @@ class EosHost(AnsibleHostBase):
     def run_command(self, cmd):
         return self.eos_command(commands=[cmd])
 
-    def run_command_list(self, cmd):
-        return self.eos_command(commands=cmd)
+    def run_command_list(self, cmd, module_ignore_errors=False):
+        return self.eos_command(commands=cmd, module_ignore_errors=module_ignore_errors)
+
+    def run_bash_command(self, cmd):
+        result = self.eos_command(commands=['bash', cmd, 'echo $?'])
+        # (return code, stdout)
+        return int(result['stdout'][-1]), result['stdout'][1]
 
     def get_auto_negotiation_mode(self, interface_name):
         output = self.eos_command(commands=[{
