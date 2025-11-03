@@ -78,8 +78,8 @@ parameters:
     default: "latest"
 
   - name: PTF_MODIFIED
-    type: boolean
-    default: false
+    type: string
+    default: "False"
 
   - name: IMAGE_URL
     type: string
