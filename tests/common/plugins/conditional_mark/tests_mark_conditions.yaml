@@ -1493,7 +1493,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
-   xfail:
+  xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -2253,7 +2253,7 @@ fib/test_fib.py::test_nvgre_hash[ipv4-ipv6]:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
-  xfail: 
+  xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -3969,13 +3969,13 @@ route/test_duplicate_route.py::test_duplicate_routes[4:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
-      
+
 route/test_route_bgp_ecmp.py:
   xfail:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20730"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20730 and '-v6-' in topo_name"
-      
+
 route/test_route_bgp_ecmp.py::test_route_bgp_ecmp:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
@@ -4036,12 +4036,6 @@ route/test_static_route.py::test_static_route[:
     conditions:
       - "'-v6-' in topo_name"
 
-route/test_static_route.py::test_static_route_ipv6:
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
-
 route/test_static_route.py::test_static_route_ecmp[:
   skip:
     reason: "Skip for IPv6-only topologies"
@@ -4058,6 +4052,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "https://github.com/sonic-net/sonic-buildimage/issues/4930"
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+
+route/test_static_route.py::test_static_route_ipv6:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####              scp            #####
@@ -4484,7 +4484,7 @@ test_nbr_health.py:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
-      
+
 #######################################
 #####         pktgen              #####
 #######################################
