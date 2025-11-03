@@ -1212,7 +1212,12 @@
                 "sudo sonic-installer install $image_url",
                 "sudo show boot",
                 "sudo reboot"
-            ]
+            ],
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ucs-m5-2 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo ucs-m5-2 ./lab",
+            "mtu_hack": {
+                "vms_count": 24
+            }
         },
         "t1-m6-27-m64": {
             "ucs_host_name": "sonic-ucs-m6-27",
