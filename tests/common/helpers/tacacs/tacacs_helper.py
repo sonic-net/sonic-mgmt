@@ -370,6 +370,11 @@ def check_nss_config(duthost):
 @pytest.fixture(scope="module")
 def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+    if is_mgmt_ipv6_only:
+        pytest.skip("Skip TACACS test for IPv6-only DUT management interface.")
     tacacs_server_ip = ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
