@@ -244,10 +244,13 @@ class SflowTest(BaseTest):
                 # Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
                 # Over many samples it should converge to a mean of 1:N
                 # Number of packets sent = 100 * sampling rate of interface
+                min_samples = 100 * 0.6
+                max_samples = 100 * 1.4
                 self.assertTrue(
-                    100 * 0.6 <= data['flow_port_count'][index] <= 100 * 1.4,
+                    min_samples <= data['flow_port_count'][index] <= max_samples,
                     "Expected Number of samples are not collected from Interface %s in collector %s , Received %s"
-                    % (port, collector, data['flow_port_count'][index]))
+                    " which is outside the acceptable range of %s to %s"
+                    % (port, collector, data['flow_port_count'][index], min_samples, max_samples))
             else:
                 self.assertTrue(data['flow_port_count'][index] == 0,
                                 "Packets are collected from Non Sflow interface %s in collector %s" % (port, collector))
