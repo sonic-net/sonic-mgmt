@@ -684,6 +684,9 @@ def extra_configuration_steps(args):
             log.error("Unable to read `vms_count` from TB dict `mtu_hack` section. Skipping this step.")
 
     # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
+    SAITHRIFT_DEB_FILENAME = "python-saithrift_1.13.0_amd64.deb"
+    SAITHRIFT_DEB_URL = f"http://172.26.235.76/MISC/{SAITHRIFT_DEB_FILENAME}"
+
     with paramiko.SSHClient() as client:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
@@ -692,30 +695,34 @@ def extra_configuration_steps(args):
             password=testbed_info_dict['ucs_password']
         )
 
-        ucs_tb = testbed_info_dict['ucs_tb']
-        saithrift_deb = "python-saithrift_1.13.0_amd64.deb"
-        docker_ptf = f"ptf_{ucs_tb}"
-        saithrift_deb_url = f"http://172.26.235.76/MISC/{saithrift_deb}"
-        log.info(f"Installing {saithrift_deb} inside {docker_ptf} container")
+        container_name = getSonicMgmtContainterName(stream, testbed)
+        destination_path = "/data"
+        testbed_mount_dir = get_container_local_mount_dir(client, container_name, destination_path)
 
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {saithrift_deb_url}', timeout=60 * 5)
+        # grep 'group-name:' ansible/testbed.yaml | awk -F': ' '{print $2}'
+        group_name, _, _ = _run_cmd_in_ssh(client, cmd=f"grep 'group-name:' {testbed_mount_dir}/ansible/testbed.yaml | awk -F': ' '{{print $2}}'")
+        group_name = group_name.strip()
+        docker_ptf_container_name = f"ptf_{group_name}"
+
+        log.info(f"Installing {SAITHRIFT_DEB_FILENAME} inside {docker_ptf_container_name} container")
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {SAITHRIFT_DEB_URL}', timeout=60 * 5)
         if status_code:
-            raise Exception(f"Download {saithrift_deb} failed: \n{stderr}")
+            raise Exception(f"Download {SAITHRIFT_DEB_FILENAME} failed: \n{stderr}")
 
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker cp {saithrift_deb} {docker_ptf}:/root")
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker cp {SAITHRIFT_DEB_FILENAME} {docker_ptf_container_name}:/root")
         if status_code != 0:
-            raise Exception(f"Copy {saithrift_deb} to {docker_ptf} failed: \n{stderr}")
+            raise Exception(f"Copy {SAITHRIFT_DEB_FILENAME} to {docker_ptf_container_name} failed: \n{stderr}")
 
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf} bash -c 'dpkg -i {saithrift_deb}'")
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg -i {SAITHRIFT_DEB_FILENAME}'")
         if status_code != 0:
-            raise Exception(f"Install {saithrift_deb} in {docker_ptf} failed: \n{stderr}")
+            raise Exception(f"Install {SAITHRIFT_DEB_FILENAME} in {docker_ptf_container_name} failed: \n{stderr}")
 
-        _, _, _ = _run_cmd_in_ssh(client, f"rm {saithrift_deb}")
+        _, _, _ = _run_cmd_in_ssh(client, f"rm {SAITHRIFT_DEB_FILENAME}")
 
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf} bash -c 'dpkg --list | grep saithrift'")
-        log.debug(f"Verify {saithrift_deb} installation output:\n{stdout}")
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg --list | grep saithrift'")
+        log.debug(f"Verify {SAITHRIFT_DEB_FILENAME} installation output:\n{stdout}")
 
-        log.info(f"{saithrift_deb} installed successfully inside {docker_ptf} container")
+        log.info(f"{SAITHRIFT_DEB_FILENAME} installed successfully inside {docker_ptf_container_name} container")
 
 
 def install_allure(args):
