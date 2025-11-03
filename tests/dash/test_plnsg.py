@@ -14,6 +14,7 @@ from gnmi_utils import apply_messages
 from packets import inbound_pl_packets, plnsg_packets
 from test_fnic import verify_tunnel_packets
 from tests.common.helpers.assertions import pytest_assert as pt_assert
+from tests.common.utilities import wait_until
 import ptf.packet as scapy
 
 logger = logging.getLogger(__name__)
@@ -21,6 +22,16 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.topology('smartswitch')
 ]
+
+
+def configure_dash_appliance_and_check(localhost, duthost, ptfhost, dpuhost, dpu_index):
+    logger.info("Configuring DASH appliance object")
+    apply_messages(localhost, duthost, ptfhost, pl.APPLIANCE_CONFIG, dpuhost.dpu_index)
+    my_cmd = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_DASH_APPLIANCE:*"'
+    data = dpuhost.shell(my_cmd, module_ignore_errors=False)['stdout']
+    if data != "":
+       logger.info("DASH appliance object configured")
+    return data != ""
 
 
 @pytest.fixture(autouse=True)
@@ -49,8 +60,11 @@ def config_setup_teardown(
     else:
         tunnel_config = pl.TUNNEL4_CONFIG
 
+    pt_assert(wait_until(300, 15, 0, configure_dash_appliance_and_check,
+                             localhost, duthost, ptfhost, dpuhost, dpu_index),
+            "Cannot configure appliance DASH object")
+
     base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.ROUTING_TYPE_VNET_CONFIG,
         **pl.VNET_CONFIG,

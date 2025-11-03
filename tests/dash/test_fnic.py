@@ -10,6 +10,7 @@ from tests.common.helpers.assertions import pytest_assert
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
 from tests.common import config_reload
 from tests.dash.dash_utils import verify_tunnel_packets
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,14 @@ manual steps.
 
 The neighbor info is learned when appling the default route as orchagent will attempt to resolve the next hop IP.
 """
+
+
+def configure_dash_appliance_and_check(localhost, duthost, ptfhost, dpuhost, dpu_index):
+    logger.info("Configuring DASH appliance object")
+    apply_messages(localhost, duthost, ptfhost, pl.APPLIANCE_FNIC_CONFIG, dpuhost.dpu_index)
+    my_cmd = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_DASH_APPLIANCE:*"'
+    data = dpuhost.shell(my_cmd, module_ignore_errors=False)['stdout']
+    return data != ""
 
 
 @pytest.fixture(autouse=True)
@@ -55,8 +64,13 @@ def common_setup_teardown(
     else:
         tunnel_config = pl.TUNNEL2_CONFIG
 
+    pytest_assert(wait_until(300, 15, 0, configure_dash_appliance_and_check,
+                            localhost, duthost, ptfhost, dpuhost, dpu_index),
+        "Cannot configure appliance DASH object")
+
+    #import time; time.sleep(210)
     base_config_messages = {
-        **pl.APPLIANCE_FNIC_CONFIG,
+
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.ROUTING_TYPE_VNET_CONFIG,
         **pl.VNET_CONFIG,

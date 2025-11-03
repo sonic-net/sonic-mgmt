@@ -7,6 +7,8 @@ from constants import LOCAL_PTF_INTF, REMOTE_PTF_RECV_INTF, REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
 from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
 
@@ -20,6 +22,15 @@ pytestmark = [
 Test prerequisites:
 - Assign IPs to DPU-NPU dataplane interfaces
 """
+
+def configure_dash_appliance_and_check(localhost, duthost, ptfhost, dpuhost, dpu_index):
+    logger.info("Configuring DASH appliance object")
+    apply_messages(localhost, duthost, ptfhost, pl.APPLIANCE_CONFIG, dpuhost.dpu_index)
+    my_cmd = 'sonic-db-cli ASIC_DB keys "ASIC_STATE:SAI_OBJECT_TYPE_DASH_APPLIANCE:*"'
+    data = dpuhost.shell(my_cmd, module_ignore_errors=False)['stdout']
+    if data != "":
+       logger.info("DASH appliance object configured")
+    return data != ""
 
 
 @pytest.fixture(autouse=True, scope="function")
@@ -37,8 +48,13 @@ def common_setup_teardown(
         return
     dpuhost = dpuhosts[dpu_index]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
+
+
+    pytest_assert(wait_until(300, 15, 0, configure_dash_appliance_and_check,
+                            localhost, duthost, ptfhost, dpuhost, dpu_index),
+        "Cannot configure appliance DASH object")
+
     base_config_messages = {
-        **pl.APPLIANCE_CONFIG,
         **pl.ROUTING_TYPE_PL_CONFIG,
         **pl.VNET_CONFIG,
         **pl.ROUTE_GROUP1_CONFIG,
