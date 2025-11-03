@@ -70,10 +70,6 @@ class GenerateGoldenConfigDBModule(object):
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_light_mode = self.module.params['is_light_mode']
-        if self.check_version_for_bmp():
-            self.is_light_mode = True
-        else:
-            self.is_light_mode = False
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
