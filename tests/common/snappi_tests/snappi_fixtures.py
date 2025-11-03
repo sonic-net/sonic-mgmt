@@ -1384,10 +1384,12 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
             if port['peer_port'] == var_tx_port['port_name'] and port['peer_device'] == var_tx_port['hostname']:
                 tx_snappi_ports.append(port)
 
-    pytest_assert(len(rx_snappi_ports) == rx_port_count,
-                  'Rx Ports for {} in MULTIDUT_PORT_INFO doesn\'t match with ansible/files/*links.csv'.format(testbed))
-    pytest_assert(len(tx_snappi_ports) == tx_port_count,
-                  'Tx Ports for {} in MULTIDUT_PORT_INFO doesn\'t match with ansible/files/*links.csv'.format(testbed))
+    pytest_require(
+        len(rx_snappi_ports) == rx_port_count,
+        f'Not enough rx ports in tgen_port_config.json for {testbed}')
+    pytest_require(
+        len(tx_snappi_ports) == tx_port_count,
+        f'Not enough tx ports in tgen_port_config.json for {testbed}')
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports

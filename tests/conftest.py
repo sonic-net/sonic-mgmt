@@ -2064,6 +2064,11 @@ def pytest_generate_tests(metafunc):        # noqa: E302
     if 'enum_pfc_pause_delay_test_params' in metafunc.fixturenames:
         metafunc.parametrize("enum_pfc_pause_delay_test_params", pfc_pause_delay_test_params(metafunc))
 
+    if 'tgen_port_info' in metafunc.fixturenames:
+        with open("snappi_tests/tgen_port_config.json", "r") as file:
+            port_info = json.load(file)
+            metafunc.parametrize("tgen_port_info", port_info.get(tbinfo['conf-name'], port_info.get("default")))
+
     if 'topo_scenario' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
             metafunc.parametrize('topo_scenario', ['m0_vlan_scenario', 'm0_l3_scenario'], scope='module')

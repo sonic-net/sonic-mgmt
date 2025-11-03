@@ -3942,6 +3942,12 @@ snappi_tests:
     conditions:
       - "asic_type in ['vs']"
 
+snappi_tests/ecn/test_dequeue_ecn_with_snappi.py:
+  skip:
+    reason: "This test doesnot apply to cisco-8000"
+    conditions:
+      - "asic_type in ['cisco-8000']"
+
 snappi_tests/ecn/test_ecn_marking_with_pfc_quanta_variance_with_snappi.py:
   skip:
     reason: "Current test case only work with cisco platform"
@@ -3956,11 +3962,11 @@ snappi_tests/ecn/test_ecn_marking_with_snappi.py:
 
 snappi_tests/ecn/test_red_accuracy_with_snappi:
   skip:
-    reason: "Test should not be run as part of nightly. / Snappi test only support on physical tgen testbed"
+    reason: "Test should not be run as part of nightly. / Snappi test only support on physical tgen testbed and This test doesnot apply to cisco-8000"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['tgen']"
-      - "asic_type in ['vs']"
+      - "asic_type in ['vs', 'cisco-8000']"
 
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
