@@ -49,7 +49,7 @@ parameters:
 jobs:
   - job: get_impacted_area
     displayName: "Get impacted area"
-    timeoutInMinutes: 10
+    timeoutInMinutes: 20
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
