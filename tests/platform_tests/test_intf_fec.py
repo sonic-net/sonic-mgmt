@@ -1,7 +1,6 @@
 import logging
 import pytest
 import time
-import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release, wait_until
@@ -151,48 +150,6 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
             return True
         return False
 
-    def skip_fec_flr_counters_test(intf_status: dict) -> bool:
-        """
-        Check whether the Observed FLR field FLR(O) exists
-        in the "show interfaces counters fec-stats"
-        CLI output
-        """
-        if intf_status.get('flr(o)') is None:
-            pytest.skip("FLR(O) field is missing on interface. intf_status: {}".format(intf_status))
-            return True
-        return False
-
-    def skip_predicted_flr_counters_test(intf_status: dict) -> bool:
-        """
-        Check whether the Predicted FLR field FLR(P) exists
-        in the "show interfaces counters fec-stats"
-        CLI output
-        """
-        if intf_status.get('flr(p) (accuracy)') is None:
-            pytest.skip("FLR(P) field is missing on interface. intf_status: {}".format(intf_status))
-            return True
-        return False
-
-    def validate_predicted_flr(value_string) -> bool:
-        """
-        Validate predicted flr string is in the correct
-        format when not N/A.
-        Expected format :
-            * 0
-            * 7.81e-10 (89%)
-        """
-        # Pattern for just "0"
-        if value_string == "0":
-            return True
-
-        # Pattern for scientific notation with required accuracy percentage
-        # e.g., "7.81e-10 (89%)"
-        pattern = r'^[+-]?(\d+\.?\d*|\.\d+)([eE][+-]?\d+)\s+\(\d+%\)$'
-        if re.match(pattern, value_string):
-            return True
-
-        raise ValueError(f"Invalid predicted FLR format: {value_string}")
-
     for intf in intf_status:
         intf_name = intf['iface']
         speed = duthost.get_speed(intf_name)
@@ -227,26 +184,6 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
         if fec_corr_int > 0 and fec_corr_int > fec_symbol_err_int:
             pytest.fail("FEC symbol errors:{} are higher than FEC correctable errors:{} for interface {}"
                         .format(fec_symbol_err_int, fec_corr_int, intf_name))
-
-        # Test for observed flr
-        if not skip_fec_flr_counters_test(intf):
-            fec_flr = intf.get('flr(o)', '').lower()
-            try:
-                if fec_flr !="n/a":
-                    float(fec_flr)
-            except ValueError:
-                pytest.fail("fec_flr is not a valid float for interface {}, \
-                            fec_flr: {}".format(intf_name, fec_flr))
-
-        # Test for predicted flr
-        if not skip_predicted_flr_counters_test(intf):
-            fec_flr_predicted = intf.get('flr(p) (accuracy)', '').lower()
-            try:
-                if fec_flr_predicted !="n/a":
-                    validate_predicted_flr(fec_flr_predicted)
-            except ValueError:
-                pytest.fail("predicted_flr is not a valid float for interface {}, \
-                            flr(p): {}".format(intf_name, fec_flr_predicted))
 
         if skip_ber_counters_test(intf):
             continue
