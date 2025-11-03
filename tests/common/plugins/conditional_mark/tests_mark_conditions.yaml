@@ -897,12 +897,24 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_counter:
   skip:
     reason: "Skip test_dhcp_relay_counter in old release version"
     conditions_logical_operator: or
     conditions:
       - "release in ['201811', '201911', '202012']"
+
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
 
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
   skip:
@@ -926,6 +938,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
   skip:
     reason: "Skip test_dhcp_relay_unicast_mac on dualtor or platform x86_64-8111_32eh_o-r0"
@@ -934,6 +952,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
       - "platform in ['x86_64-8111_32eh_o-r0']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac[sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enabled:
   skip:
     reason: "Skip test_dhcp_relay_with_source_port_ip_in_relay_enabled in old release version"
@@ -941,47 +965,17 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enab
     conditions:
       - "'dualtor' in topo_name and release in ['201811', '201911']"
 
-dhcp_relay/test_dhcp_relay.py::test_interface_binding:
-  skip:
-    reason: "Skip test_interface_binding in old release version"
-    conditions:
-      - "release in ['201811', '201911', '202106']"
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default[sonic-relay-agent]:
-  skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
-    conditions:
-      - "release < '202511'"
-
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_with_source_port_ip_in_relay_enabled[sonic-relay-agent]:
   skip:
     reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
     conditions:
       - "release < '202511'"
 
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_after_link_flap[sonic-relay-agent]:
+dhcp_relay/test_dhcp_relay.py::test_interface_binding:
   skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    reason: "Skip test_interface_binding in old release version"
     conditions:
-      - "release < '202511'"
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_start_with_uplinks_down[sonic-relay-agent]:
-  skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
-    conditions:
-      - "release < '202511'"
-
-dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_unicast_mac[sonic-relay-agent]:
-  skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
-    conditions:
-      - "release < '202511'"
-
-dhcp_relay/test_dhcpv4_relay.py:
-  skip:
-    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
-    conditions:
-      - "release < '202511'"
+      - "release in ['201811', '201911', '202106']"
 
 dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_restart_with_stress:
   skip:
@@ -1010,6 +1004,12 @@ dhcp_relay/test_dhcp_relay_stress.py::test_dhcp_relay_stress[request]:
     reason: "Testcase ignored due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/14851"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/14851"
+
+dhcp_relay/test_dhcpv4_relay.py:
+  skip:
+    reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
+    conditions:
+      - "release < '202511'"
 
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
