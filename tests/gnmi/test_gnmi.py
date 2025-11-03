@@ -171,9 +171,30 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
 
 
 @pytest.fixture(scope="function")
-def setup_crl_server_on_ptf(ptfhost):
+def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Determine which address to bind the CRL server to
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+
+    if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+        # Bind to IPv6 address when DUT is IPv6-only
+        bind_addr = ptfhost.mgmt_ipv6
+        logger.info(f"DUT is IPv6-only, binding CRL server to IPv6: {bind_addr}")
+    else:
+        # Bind to all interfaces (default behavior) for IPv4 or mixed environments
+        bind_addr = ''
+        logger.info("Binding CRL server to all interfaces (IPv4 compatible)")
+
     ptfhost.shell('rm -f /root/crl.log')
-    ptfhost.shell('nohup python /root/crl_server.py &')
+
+    # Start CRL server with appropriate bind address
+    if bind_addr:
+        ptfhost.shell(f'nohup python /root/crl_server.py --bind {bind_addr} &')
+    else:
+        ptfhost.shell('nohup python /root/crl_server.py &')
+
     logger.warning("crl server started")
 
     # Wait untill HTTP server ready
