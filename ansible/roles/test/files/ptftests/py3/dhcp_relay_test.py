@@ -270,7 +270,7 @@ class DHCPTest(DataplaneBaseTest):
 
     def create_dhcp_discover_packet(self, dst_mac=BROADCAST_MAC, src_port=DHCP_CLIENT_PORT):
         discover_packet = testutils.dhcp_discover_packet(eth_client=self.client_mac, set_broadcast_bit=True)
-        
+
         if not self.agent_relay_mode:
             discover_packet[scapy.Ether].dst = dst_mac
             discover_packet[scapy.IP].sport = src_port
