@@ -2639,8 +2639,6 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
-
-hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -3267,15 +3265,6 @@ nat:
     conditions:
       - "'nat' not in feature_status"
       - "asic_type in ['mellanox', 'nvidia']"
-
-#######################################
-#####           nbr               #####
-#######################################
-test_nbr_health.py:
-  xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####             ospf            #####
@@ -4487,6 +4476,15 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
 
+#######################################
+#####           nbr               #####
+#######################################
+test_nbr_health.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+      
 #######################################
 #####         pktgen              #####
 #######################################
