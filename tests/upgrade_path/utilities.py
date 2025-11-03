@@ -26,11 +26,12 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     logger.info("Remove old config_db file if exists, to load minigraph from scratch")
     if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
         duthost.shell("rm -f /host/old_config/config_db.json")
+        duthost.shell("rm -f /host/old_config/golden_config_db.json")
     # Perform a cold reboot
     logger.info("Cold reboot the DUT to make the base image as current")
     # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
     reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
-    reboot(duthost, localhost, reboot_type=reboot_type)
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
     patch_rsyslog(duthost)
     check_sonic_version(duthost, target_version)
 

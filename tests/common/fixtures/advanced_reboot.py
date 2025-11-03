@@ -372,6 +372,8 @@ class AdvancedReboot:
 
         logger.info('Remove config_db.json so the new image will reload minigraph')
         self.duthost.shell('rm -f /host/old_config/config_db.json')
+        logger.info('Remove golden_config_db.json so the new image will reload minigraph')
+        self.duthost.shell('rm -f /host/old_config/golden_config_db.json')
         logger.info('Remove downloaded tempfile')
         self.duthost.shell('rm -f {}'.format(tempfile))
 
