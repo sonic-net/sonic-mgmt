@@ -870,7 +870,7 @@ def duthost_mgmt_ip(duthost):
         if match:
             return {"mgmt_ip": match.group(1), "version": "v6"}
 
-    return None
+    pt_assert(False, "Failed to find duthost mgmt ip")
 
 
 def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,

@@ -108,7 +108,7 @@ class PlatformAPITestService(BaseHTTPRequestHandler):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('-p', '--port', type=int, help='port to listen to', required=True)
-    parser.add_argument('-6', '--ipv6', action='store_true', help='port to listen to', )
+    parser.add_argument('-6', '--ipv6', action='store_true', help='Set server to use IPv6', )
     args = parser.parse_args()
 
     syslog.openlog(SYSLOG_IDENTIFIER)
