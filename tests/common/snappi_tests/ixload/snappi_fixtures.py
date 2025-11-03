@@ -3,7 +3,7 @@ This module contains the snappi fixture in the snappi_tests directory.
 """
 from tests.common.snappi_tests.ixload.snappi_helper import (l47_trafficgen_main, duthost_ha_config,
                                                             npu_startup, dpu_startup, set_static_routes, set_ha_roles,
-                                                            set_ha_admin_up, set_ha_activate_role)
+                                                            set_ha_admin_up, set_ha_activate_role, duthost_port_config)
 from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings  # noqa: F403, F401
 import pytest
 import threading
@@ -141,8 +141,8 @@ def setup_config_npu_dpu(request, duthosts, localhost, tbinfo, ha_test_case=None
         tuple: (passing_dpus, static_ipsmacs_dict)
     """
 
-    def run_npu_startup(duthost, localhost, key):
-        npu_dpu_startup_results[key] = npu_startup(duthost, localhost)
+    def run_npu_startup(duthosts, duthost, localhost, key):
+        npu_dpu_startup_results[key] = npu_startup(duthosts, duthost, localhost)
 
     def run_dpu_startup(duthosts, duthost, static_ipsmacs_dict, ha_test_case, key):
         dpu_startup_results[key] = dpu_startup(duthosts, duthost, static_ipsmacs_dict, ha_test_case)
@@ -164,39 +164,40 @@ def setup_config_npu_dpu(request, duthosts, localhost, tbinfo, ha_test_case=None
             duthost1 = duthosts[0]
             duthost2 = duthosts[1]
 
-            # Configure SmartSwitch
-            # duthost_port_config(duthost)
+            # Configure SmartSwitch load proper config_db.json
+            duthost_portconfig_thread1 = threading.Thread(target=duthost_port_config, args=(duthost1,))
+            duthost_portconfig_thread2 = threading.Thread(target=duthost_port_config, args=(duthost2,))
+
+            duthost_portconfig_thread1.start()
+            duthost_portconfig_thread2.start()
+
+            duthost_portconfig_thread1.join()
+            duthost_portconfig_thread2.join()
 
             static_ipsmacs_dict1 = duthost_ha_config(duthost1, nw_config)
             static_ipsmacs_dict2 = duthost_ha_config(duthost2, nw_config)
 
-            # Dictionary to store results
+            # Reboot NPUs and check for DPU startup status
             npu_dpu_startup_results = {}
+            run_npu_startup_thread1 = threading.Thread(target=run_npu_startup,
+                                                       args=(duthosts, duthost1, localhost, 'result1'))
+            run_npu_startup_thread2 = threading.Thread(target=run_npu_startup,
+                                                       args=(duthosts, duthost2, localhost, 'result2'))
 
-            # Create threads with wrapper function
-            '''
-            thread1 = threading.Thread(target=run_npu_startup, args=(duthost1, localhost, 'result1'))
-            thread2 = threading.Thread(target=run_npu_startup, args=(duthost2, localhost, 'result2'))
+            run_npu_startup_thread1.start()
+            run_npu_startup_thread2.start()
 
-            # Start both threads
-            thread1.start()
-            thread2.start()
+            run_npu_startup_thread1.join()
+            run_npu_startup_thread2.join()
 
-            # Wait for both to complete
-            thread1.join()
-            thread2.join()
-            '''
-
-            # Access results
+            # Access results after NPU bootup
             npu_startup_result1 = npu_dpu_startup_results.get('result1')  # noqa: F841
             npu_startup_result2 = npu_dpu_startup_results.get('result2')  # noqa: F841
             # if npu_startup_result is False:
             #    return
 
-            # Dictionary to store DPU startup results
-            dpu_startup_results = {}
-
             # Create threads with wrapper function for DPU startup
+            dpu_startup_results = {}
             dpu_thread1 = threading.Thread(target=run_dpu_startup,
                                            args=(duthosts, duthost1, static_ipsmacs_dict1, ha_test_case, 'dpu1'))
             dpu_thread2 = threading.Thread(target=run_dpu_startup,

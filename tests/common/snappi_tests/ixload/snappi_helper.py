@@ -89,7 +89,7 @@ def _telemetry_run_on_dut(duthost):
         "--port 8080 --allow_no_client_auth -v=2 "
         "-zmq_port=8100 --threshold 100 --idle_conn_duration 5"
     )
-    logger.info("Running telemetry on the DUT")
+    logger.info(f"Running telemetry on the DUT {duthost.hostname}")
     # Ignore errors if it is already running; let caller proceed
     duthost.shell(cmd, module_ignore_errors=True)
 
@@ -101,7 +101,7 @@ def _ensure_remote_dir_on_dut(duthost, remote_dir):
 
 def _copy_files_to_dut(duthost, local_files, remote_dir):
 
-    logger.info("Copying files to DUT")
+    logger.info(f"Copying files to DUT {duthost.hostname}")
     # duthost.copy copies from the test controller to the DUT
     for lf in local_files:
         duthost.copy(src=lf, dest=remote_dir)
@@ -230,7 +230,9 @@ def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_
     if ha_test_case != "cps":
         if len(duthosts) > 1:
             if duthost == duthosts[1]:
-                target_ip = '169.254.200.1'
+                target_ip = f'169.254.200.{dpu_index + 1}'
+            else:
+                target_ip = f'18.{dpu_index}.202.1'
         else:
             target_ip = f'18.{dpu_index}.202.1'
     else:
@@ -272,7 +274,6 @@ def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_
         logger.info(f"{duthost.hostname} Execute on DPU Target: {output}")
 
         if ha_test_case == "cps":
-
             found = False
             if 'S>*0.0.0.0/0' in output:
                 found = True
@@ -333,18 +334,18 @@ def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_
                     logger.info(f'Restarting hamgrd on {duthost.hostname}: docker restart dash-hadpu0')
                     duthost.shell("docker restart dash-hadpu0")
                     logger.info(f'Removing interface from {duthost.hostname}: '
-                                f'sudo config interface ip rem Ethernet0 18.0.202.1/31')
+                                f'sudo config interface ip rem Ethernet0 18.{dpu_index}.202.1/31')
                     output = net_connect_jump.send_command_timing(
-                        'sudo config interface ip rem Ethernet0 18.0.202.1/31', delay_factor=2)
+                        f'sudo config interface ip rem Ethernet0 18.{dpu_index}.202.1/31', delay_factor=2)
                     logger.info(
                         f'Deleting route on {duthost.hostname}: sudo ip route del 0.0.0.0/0 via 169.254.200.254')
                     output = net_connect_jump.send_command_timing(
                         'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                     logger.info(
                         f'Adding route on {duthost.hostname}: '
-                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.202.0')
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.{dpu_index}.202.0')
                     output = net_connect_jump.send_command_timing(
-                        'sudo config route add prefix 0.0.0.0/0 nexthop 20.0.202.0', delay_factor=2)
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 20.{dpu_index}.202.0', delay_factor=2)
                     logger.info(
                         f'Adding to arp table on {duthost.hostname}: sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10')  # noqa:  E231
                     output = net_connect_jump.send_command_timing(
@@ -363,9 +364,9 @@ def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_
                     output = net_connect_jump.send_command_timing(
                         'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                     logger.info(f'Adding route on {duthost.hostname}: '
-                                f'sudo config route add prefix 0.0.0.0/0 nexthop 18.0.202.0')
+                                f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
                     output = net_connect_jump.send_command_timing(
-                        'sudo config route add prefix 0.0.0.0/0 nexthop 18.0.202.0', delay_factor=2)
+                        f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0', delay_factor=2)
                     logger.info(
                         f'Adding to arp table on {duthost.hostname}: sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11')  # noqa:  E231
                     output = net_connect_jump.send_command_timing(
@@ -468,16 +469,18 @@ def load_dpu_configs_on_dut(
 
 def duthost_port_config(duthost):
 
-    logger.info("Backing up config_db.json")
-    # sudo sonic-cfggen -j test_config.json --write-to-db
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db.json", "/etc/sonic/config_db_backup.json"))
+    # copy HA config
+    # duthost.command("sudo cp {} {}".format(
+    #    "/etc/sonic/0HA_BACKUP/config_db.json", "/etc/sonic/config_db.json"))
+    logger.info(f"{duthost.hostname} Loading custom HA config_db.json")
+    duthost.shell("sudo sonic-cfggen -j /etc/sonic/0HA_BACKUP/config_db.json --write-to-db")
+    duthost.shell("sudo cp /etc/sonic/0HA_BACKUP/config_db.json  /etc/sonic/config_db.json")
 
-    logger.info("Saving config_db.json")
-    duthost.command("sudo config save -y")
+    # logger.info(f"{duthost.hostname} Reloading config_db.json")
+    # duthost.shell("sudo config reload -y \n")
 
-    logger.info("Reloading config_db.json")
-    duthost.shell("sudo config reload -y \n")
+    logger.info(f"{duthost.hostname} Saving config_db.json")
+    duthost.shell("sudo config save -y")
 
     return
 
@@ -487,10 +490,6 @@ def duthost_ha_config(duthost, nw_config):
     # Smartswitch configure
     """
     logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".
-                    format("/etc/sonic/config_db_backup.json",
-                           "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
     logger.info("Wait until all critical services are fully started")
     pytest_assert(wait_until(360, 10, 1,
                              duthost.critical_services_fully_started),
@@ -530,7 +529,211 @@ def duthost_ha_config(duthost, nw_config):
     return static_ipsmacs_dict
 
 
-def npu_startup(duthost, localhost):
+def remove_dpu_ip_addresses_from_npu(duthost, ip_prefixes_to_remove=["18"], additional_filters=None):
+
+    logger.info(f"======== Starting IP address removal from NPU {duthost.hostname} ========")
+    logger.info(f"Looking for IPs matching prefixes: {ip_prefixes_to_remove}")
+    if additional_filters:
+        logger.info(f"Additional filter patterns: {additional_filters}")
+
+    # Get current IP interface configuration
+    logger.info(f"Executing 'show ip interface' command on NPU {duthost.hostname}")
+    result = duthost.shell("show ip interface", module_ignore_errors=True)
+    output = result.get("stdout", "")
+
+    logger.info(f"Raw output from 'show ip interface' on NPU {duthost.hostname}: ")
+    logger.info(f"\n{output}\n")
+
+    # Parse the output to find interfaces with ALL their IPs and identify which to remove
+    lines = output.split('\n')
+    interface_all_ips = {}  # Track ALL IPs per interface
+    interfaces_to_clean = {}  # Track IPs to remove
+
+    current_interface = None
+    line_count = 0
+
+    logger.info(f"Starting to parse output line by line on NPU {duthost.hostname}")
+
+    for line in lines:
+        line_count += 1
+        stripped_line = line.strip()
+
+        # Skip header and separator lines
+        if not stripped_line or stripped_line.startswith('Interface') or stripped_line.startswith('---'):
+            logger.info(f"Line {line_count}: Skipping header/separator line")
+            continue
+
+        parts = line.split()
+
+        # Check if this is a new interface line (not indented)
+        if len(parts) > 0 and not line.startswith(' '):
+            current_interface = parts[0]
+            logger.info(f"Line {line_count}: Found new interface: {current_interface}")
+            if current_interface not in interface_all_ips:
+                interface_all_ips[current_interface] = []
+
+        # Collect ALL IP addresses for the interface
+        if current_interface and len(parts) > 1:
+            for part in parts:
+                if '/' in part and not part.startswith('-'):
+                    # This is an IP address with subnet
+                    if part not in interface_all_ips[current_interface]:
+                        interface_all_ips[current_interface].append(part)
+                        logger.info(f"Line {line_count}: Tracked IP {part} for interface {current_interface}")
+
+        # Check if this line contains an IP address we want to remove
+        if current_interface and len(parts) > 1:
+            matched = False
+
+            # Check primary IP prefixes with 202. pattern
+            for ip_prefix in ip_prefixes_to_remove:
+                if f"{ip_prefix}." in line and "202." in line:
+                    logger.info(
+                        f"Line {line_count}: Found matching IP pattern (prefix={ip_prefix}) in line for interface "
+                        f"{current_interface}")
+                    logger.info(f"Line {line_count}: Line content: '{line}'")
+
+                    # Extract the IP address with subnet
+                    for part in parts:
+                        if f"{ip_prefix}." in part and '/' in part and "202." in part:
+                            if current_interface not in interfaces_to_clean:
+                                interfaces_to_clean[current_interface] = []
+                                logger.info(
+                                    f"Line {line_count}: Initialized removal list for interface {current_interface}")
+
+                            interfaces_to_clean[current_interface].append(part)
+                            logger.info(f"Line {line_count}: Added IP {part} to removal list for {current_interface}")
+                            matched = True
+                            break
+                    if matched:
+                        break
+
+            # Check additional filter patterns (for standby side cleanup)
+            if not matched and additional_filters:
+                for filter_pattern in additional_filters:
+                    # More precise matching - look for the exact IP/subnet in parts
+                    # The filter_pattern should be like "220.0.4.1/" to match exactly
+                    for part in parts:
+                        if '/' in part:
+                            ip_part = part.split('/')[0]
+                            # Check if the IP matches the filter pattern
+                            # filter_pattern is like "220.0.4.1/" so we need to check if ip starts with it minus
+                            # the trailing /
+                            filter_ip = filter_pattern.rstrip('/')
+
+                            if ip_part == filter_ip:
+                                logger.info(
+                                    f"Line {line_count}: Found exact matching IP ({ip_part}) for filter pattern "
+                                    f"({filter_pattern}) in interface {current_interface}")
+                                logger.info(f"Line {line_count}: Line content: '{line}'")
+
+                                if current_interface not in interfaces_to_clean:
+                                    interfaces_to_clean[current_interface] = []
+                                    logger.info(
+                                        f"Line {line_count}: Initialized removal list for interface "
+                                        f"{current_interface}")
+
+                                interfaces_to_clean[current_interface].append(part)
+                                logger.info(
+                                    f"Line {line_count}: Added IP {part} to removal list for {current_interface}")
+                                matched = True
+                                break
+                    if matched:
+                        break
+
+    logger.info(f"Parsing complete on NPU {duthost.hostname}")
+    logger.info(f"Total lines processed: {line_count}")
+    logger.info(f"Interfaces with IPs to remove: {list(interfaces_to_clean.keys())}")
+    logger.info(f"All interfaces and their IPs: {interface_all_ips}")
+
+    if not interfaces_to_clean:
+        logger.info(f"No matching IP addresses found on NPU {duthost.hostname} - nothing to remove")
+        return {}
+
+    logger.info(f"Starting IP address removal process on NPU {duthost.hostname}")
+    removal_count = 0
+    interfaces_with_remaining_ips = {}
+
+    for interface, ip_list in interfaces_to_clean.items():
+        logger.info(f"Processing interface {interface} on NPU {duthost.hostname}")
+        logger.info(f"IPs to remove from {interface}: {ip_list}")
+
+        # Determine which IPs will remain after removal
+        all_ips = interface_all_ips.get(interface, [])
+        remaining_ips = [ip for ip in all_ips if ip not in ip_list]
+
+        if remaining_ips:
+            logger.info(f"Interface {interface} will have remaining IPs after removal: {remaining_ips}")
+            interfaces_with_remaining_ips[interface] = remaining_ips
+        else:
+            logger.info(f"Interface {interface} will have NO remaining IPs after removal")
+
+        for ip_with_subnet in ip_list:
+            removal_count += 1
+            ip_addr, subnet = ip_with_subnet.split('/')
+
+            logger.info(f"[{removal_count}] Preparing to remove {ip_addr}/{subnet} from {interface}")
+            cmd = f"sudo config interface ip remove {interface} {ip_with_subnet}"
+            logger.info(f"[{removal_count}] Executing command: {cmd}")
+
+            result = duthost.shell(cmd, module_ignore_errors=True)
+
+            if result.get("rc", 1) == 0:
+                logger.info(f"[{removal_count}] Successfully removed {ip_addr}/{subnet} from {interface}")
+            else:
+                logger.info(f"[{removal_count}] WARNING: Failed to remove {ip_addr}/{subnet} from {interface}")
+                logger.info(f"[{removal_count}] Return code: {result.get('rc')}")
+                logger.info(f"[{removal_count}] stdout: {result.get('stdout', '')}")
+                logger.info(f"[{removal_count}] stderr: {result.get('stderr', '')}")
+
+    # Re-add remaining IPs to ensure they become primary
+    if interfaces_with_remaining_ips:
+        logger.info("Re-adding remaining IPs to ensure they are properly configured as primary")
+        for interface, remaining_ips in interfaces_with_remaining_ips.items():
+            for ip_with_subnet in remaining_ips:
+                ip_addr, subnet = ip_with_subnet.split('/')
+                logger.info(f"Re-adding {ip_addr}/{subnet} to {interface} to ensure it's the primary IP")
+
+                # First remove it (in case it still exists as secondary)
+                remove_cmd = f"sudo config interface ip remove {interface} {ip_with_subnet}"
+                duthost.shell(remove_cmd, module_ignore_errors=True)
+
+                # Then add it back (this makes it primary)
+                add_cmd = f"sudo config interface ip add {interface} {ip_with_subnet}"
+                logger.info(f"Executing command: {add_cmd}")
+                result = duthost.shell(add_cmd, module_ignore_errors=True)
+
+                if result.get("rc", 1) == 0:
+                    logger.info(f"Successfully re-added {ip_addr}/{subnet} to {interface}")
+                else:
+                    logger.info(f"WARNING: Failed to re-add {ip_addr}/{subnet} to {interface}")
+                    logger.info(f"Return code: {result.get('rc')}")
+                    logger.info(f"stdout: {result.get('stdout', '')}")
+                    logger.info(f"stderr: {result.get('stderr', '')}")
+
+    logger.info(f"IP address removal complete on NPU {duthost.hostname}")
+    logger.info(f"Total IP addresses removed: {removal_count}")
+    logger.info("Summary of changes: ")
+    for interface, ip_list in interfaces_to_clean.items():
+        logger.info(f"  {interface}: Removed {', '.join(ip_list)}")
+        if interface in interfaces_with_remaining_ips:
+            logger.info(
+                f"  {interface}: Remaining IPs re-added as primary: "
+                f"{', '.join(interfaces_with_remaining_ips[interface])}")
+
+    # Verify the changes
+    logger.info(f"Verifying IP removal on NPU {duthost.hostname}")
+    verify_result = duthost.shell("show ip interface", module_ignore_errors=True)
+    verify_output = verify_result.get("stdout", "")
+    logger.info(f"Updated 'show ip interface' output on NPU {duthost.hostname}: ")
+    logger.info(f"\n{verify_output}\n")
+
+    logger.info(f"======== IP address removal completed on NPU {duthost.hostname} ========")
+
+    return interfaces_to_clean
+
+
+def npu_startup(duthosts, duthost, localhost):
     retries = 3
     wait_time = 180
     timeout = 300
@@ -547,7 +750,8 @@ def npu_startup(duthost, localhost):
 
         # SKIP AHEAD for now to the ping
         dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
-        # dpus_online_result = True
+        dpus_online_result = True
+        # wait(wait_time, msg=f"Wait for system to be stable on DUT {duthost.hostname}.")
 
         if dpus_online_result is False:
             retries -= 1
@@ -559,14 +763,24 @@ def npu_startup(duthost, localhost):
             logger.info(f"DPU boot successful on {duthost.hostname}")
             break
 
+    if duthost == duthosts[1]:  # standby device
+        logger.info(f"Removing unwanted IPs from standby device: {duthost.hostname}")
+        remove_dpu_ip_addresses_from_npu(
+            duthost,
+            ip_prefixes_to_remove=["18"],  # Removes 18.X.202.0/31 addresses
+            additional_filters=["220.0.1.1/", "220.0.2.1/", "220.0.3.1/", "220.0.4.1/"]
+        )
+
     return True
 
 
 def dpu_startup(duthosts, duthost, static_ipmacs_dict, ha_test_case):
 
     logger.info(f"Pinging each DPU on {duthost.hostname}")
+    """
     dpuIFKeys = [k for k in static_ipmacs_dict['static_ips'] if k.startswith("221.0")]
     passing_dpus = []
+
     for x, ipKey in enumerate(dpuIFKeys):
         logger.info(f"On {duthost.hostname} pinging DPU{x}: {static_ipmacs_dict['static_ips'][ipKey]}")
         output_ping = duthost.command(f"ping -c 3 {static_ipmacs_dict['static_ips'][ipKey]}", module_ignore_errors=True)
@@ -577,9 +791,38 @@ def dpu_startup(duthosts, duthost, static_ipmacs_dict, ha_test_case):
         else:
             logger.info(f"Ping failure on {duthost.hostname}")
             pass
+    """
     remote_dir = "/tmp/dpu_configs"
     initial_delay_sec = 20
     retry_delay_sec = 10
+
+    # Determine which IPs to ping based on duthost
+    if len(duthosts) > 1 and duthost == duthosts[1]:
+        # For duthosts[1], ping 20.0.202.1, 20.1.202.1, ..., 20.7.202.1
+        ip_list_to_ping = [f"20.{i}.202.1" for i in range(8)]
+        logger.info(f"Using standby side IPs for {duthost.hostname}: {ip_list_to_ping}")
+    elif len(duthosts) > 1 and duthost == duthosts[0]:
+        # For duthosts[0], ping 18.0.202.1, ..., 18.7.202.1
+        ip_list_to_ping = [f"18.{i}.202.1" for i in range(8)]
+        logger.info(f"Using active side IPs for {duthost.hostname}: {ip_list_to_ping}")
+    else:
+        # Fallback to original logic for single DUT setup
+        dpuIFKeys = [k for k in static_ipmacs_dict['static_ips'] if k.startswith("221.0")]
+        ip_list_to_ping = [static_ipmacs_dict['static_ips'][ipKey] for ipKey in dpuIFKeys]
+        logger.info(f"Using default IP list for {duthost.hostname}: {ip_list_to_ping}")
+
+    passing_dpus = []
+
+    for x, ip_to_ping in enumerate(ip_list_to_ping):
+        logger.info(f"On {duthost.hostname} pinging DPU{x}: {ip_to_ping}")
+        output_ping = duthost.command(f"ping -c 3 {ip_to_ping}", module_ignore_errors=True)
+        if output_ping.get("rc", 1) == 0 and "0% packet loss" in output_ping.get("stdout", ""):
+            logger.info(f"Ping success {ip_to_ping} on {duthost.hostname}")
+            passing_dpus.append(x)
+            pass
+        else:
+            logger.info(f"Ping failure {ip_to_ping} on {duthost.hostname}")
+            pass
 
     errors = {}
 
