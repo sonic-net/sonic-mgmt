@@ -269,6 +269,8 @@
   sysctl:
     name: "kernel.pid_max"
     value: "4194304"
+    sysctl_set: yes
+  become: yes
 
 - name: Increase fs limitation
   sysctl:
