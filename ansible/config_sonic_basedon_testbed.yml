@@ -481,9 +481,34 @@
         ignore_errors: true
         when: init_cfg_profile is not defined
 
-      - name: Update TACACS server address to PTF IP
+      - name: Determine if sonic management is IPv6
+        set_fact:
+            sonic_mgmt_ipv6: "{{ ansible_host is defined and ansible_host != '' and ':' in ansible_host }}"
+
+      - name: Update TACACS server address to PTF IP (IPv4)
         set_fact:
             tacacs_servers: ["{{ testbed_facts['multi_servers_tacacs_ip'] if 'multi_servers_tacacs_ip' in testbed_facts else testbed_facts['ptf_ip'] }}"]
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - not sonic_mgmt_ipv6|bool
+
+      - name: Validate IPv6 TACACS configuration for IPv6 sonic management
+        fail:
+            msg: "sonic management is IPv6 for {{ inventory_hostname }} but ptf_ipv6 is not configured in testbed file"
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - sonic_mgmt_ipv6|bool
+          - testbed_facts.get('ptf_ipv6', '') == ''
+
+      - name: Update TACACS server address to PTF IP (IPv6) for IPv6 sonic management
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['ptf_ipv6'] }}"]
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - sonic_mgmt_ipv6|bool
+          - testbed_facts['ptf_ipv6'] is defined and testbed_facts['ptf_ipv6'] != ""
+
+      - debug: msg="sonic_mgmt_ipv6 is {{ sonic_mgmt_ipv6|default(false) }}"
         when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - debug: msg="tacacs_servers {{ tacacs_servers }}"

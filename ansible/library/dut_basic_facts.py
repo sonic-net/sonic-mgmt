@@ -95,6 +95,15 @@ def main():
         for state in result:
             results["feature_status"][state["feature"]] = state["state"]
 
+        # Get management IP
+        is_mgmt_ipv6_only = False
+        rc, out, _ = module.run_command("ip -4 addr show eth0")
+        if rc == 0 and not out.strip():
+            rc, out, _ = module.run_command("ip -6 addr show eth0")
+            if rc == 0 and out.strip():
+                is_mgmt_ipv6_only = True
+        results["is_mgmt_ipv6_only"] = is_mgmt_ipv6_only
+
         module.exit_json(ansible_facts={'dut_basic_facts': results})
     except Exception as e:
         module.fail_json(
