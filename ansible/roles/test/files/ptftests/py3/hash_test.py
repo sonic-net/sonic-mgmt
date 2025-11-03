@@ -106,7 +106,7 @@ class HashTest(BaseTest):
         self.ipver = self.test_params.get('ipver', 'ipv4')
         self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
         self.topo_name = self.test_params.get('topo_name', '')
-        self.is_v6_topo = "isolated-v6" in self.topo_name
+        self.is_v6_topo = self.test_params.get('is_v6_topo', False)
 
         self.topo_type = self.test_params.get('topo_type', '')
         # set the base mac here to make it persistent across calls of check_ip_route
