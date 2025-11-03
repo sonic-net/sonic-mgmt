@@ -2488,6 +2488,13 @@ generic_config_updater/test_eth_interface.py::test_replace_lanes:
     conditions:
       - https://github.com/sonic-net/sonic-mgmt/issues/21130
 
+generic_config_updater/test_eth_interface.py::test_replace_lanes:
+  skip:
+    reason: 'Skipping test due to bug of https://github.com/sonic-net/sonic-mgmt/issues/21130'
+    conditions_logical_operator: "OR"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/21130
+
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
     reason: "Skip asym pfc on unsupported platforms"
