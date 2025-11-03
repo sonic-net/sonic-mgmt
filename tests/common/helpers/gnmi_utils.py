@@ -324,10 +324,8 @@ def gnmi_capabilities(duthost, localhost, duthost_mgmt_ip):
     ip = duthost.mgmt_ip
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
-    if duthost_mgmt_ip['version'] == 'v6':
-        cmd = "docker exec %s gnmi_cli -client_types=gnmi -a [%s]:%s " % (env.gnmi_container, ip, port)
-    else:
-        cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    addr = f"[{ip}]" if duthost_mgmt_ip['version'] == 'v6' else f"{ip}"
+    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
