@@ -17,6 +17,11 @@ from tests.common.helpers.assertions import pytest_assert
 import logging
 
 
+pytestmark = [
+    pytest.mark.topology("dualtor")
+]
+
+
 @pytest.mark.parametrize("switchover", ["planned"])
 def test_tor_switchover_impact(request,                                                    # noqa: F811
                                upper_tor_host, lower_tor_host,                             # noqa: F811
