@@ -513,9 +513,9 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms28-t1-8102-03
+- conf-name: vms28-t0-8102-03
   group-name: vms28-2
-  topo: t1-64-lag
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: vms28-2
   ptf_ip: 10.64.246.239/23
@@ -528,9 +528,9 @@
   auto_recover: 'True'
   comment: sagummaraj
 
-- conf-name: vms28-t1-8102-04
+- conf-name: vms28-t0-8102-04
   group-name: vms28-5
-  topo: t1-64-lag
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: vms28-5
   ptf_ip: 10.64.246.242/23
