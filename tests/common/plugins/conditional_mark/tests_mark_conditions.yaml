@@ -1631,11 +1631,11 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan_ipv6-default]:
   skip:
-    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3 and Arista-7060CX"
-    conditions_logical_operator: and
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3 and Arista-7060CX. Or skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
+    conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
-      - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+      - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s'] and https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
     conditions:
