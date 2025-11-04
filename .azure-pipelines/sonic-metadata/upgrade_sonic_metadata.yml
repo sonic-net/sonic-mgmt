@@ -161,6 +161,23 @@ steps:
         if [[ ${{ parameters.VM_TYPE }} == "ceos" ]]; then
             if [[ "${{ parameters.TESTBED_NAME }}" == *"7060"* || "${{ parameters.TESTBED_NAME }}" == *"2700"* ]]; then
                 ceos_lacp_multiplier_option="--ceos_neighbor_lacp_multiplier=5"
+            elif [[ "${{ parameters.TESTBED_NAME }}" == *"7050"* ]]; then
+                dut_without_ssd_found=false
+                for dut in $(DUT_LIST); do
+                    echo "Checking ${dut} for slow disk..."
+                    if ! (cd ../ansible && ansible -i $(INVENTORY_NAME) "${dut}" -m debug -a "var=model") | grep -e '"model":.*SSD"'; then
+                        dut_without_ssd_found=true
+                        echo "DUT ${dut} is 7050 testbed without SSD"
+                    else
+                        echo "DUT ${dut} is 7050 testbed with SSD"
+                    fi
+                done
+                if [[ "$dut_without_ssd_found" == true ]]; then
+                    echo "7050 test device in testbed without SSD found, setting ceos_lacp_multiplier_option for extra time"
+                    ceos_lacp_multiplier_option="--ceos_neighbor_lacp_multiplier=5"
+                else
+                    echo "All DUTs are 7050 testbed with SSD, leaving ceos_lacp_multiplier_option as default"
+                fi
             fi
         fi
 
