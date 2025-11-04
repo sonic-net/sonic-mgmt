@@ -20,6 +20,7 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
+PTF_QUEUE_LEN = 100000
 
 pytestmark = [
     pytest.mark.topology('t1', 't2', 'm1')
@@ -520,7 +521,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, flow_count)
             testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
             verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                             ports=gather_facts['src_port_ids'])
+                                                             ports=gather_facts['src_port_ids'], timeout=30)
             if isinstance(verify_result, bool):
                 logger.info("Using dummy testutils to skip traffic test.")
                 return
@@ -558,6 +559,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                           f"Static route: {ip_prefix} is failed to be programmed!")
 
             ptfadapter.dataplane.flush()
+            ptfadapter.dataplane.set_qlen(PTF_QUEUE_LEN)
 
             built_and_send_tcp_ip_packet()
 
@@ -953,9 +955,10 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         time.sleep(sleep_seconds)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
+        ptfadapter.dataplane.set_qlen(PTF_QUEUE_LEN)
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
         verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                         ports=gather_facts['src_port_ids'])
+                                                         ports=gather_facts['src_port_ids'], timeout=30)
         if isinstance(verify_result, bool):
             logger.info("Using dummy testutils to skip traffic test.")
             return
