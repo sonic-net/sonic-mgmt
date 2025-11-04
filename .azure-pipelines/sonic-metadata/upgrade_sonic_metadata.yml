@@ -352,7 +352,7 @@ steps:
     condition: eq(variables['SKIP_COLLECT_SHOW_TECHSUPPORT'], 'false')
 
   - publish: $(Build.ArtifactStagingDirectory)/logs
-    artifact: ${{ parameters.TESTBED_NAME}}.continuous-upgrade.log@${{ iter }}
+    artifact: ${{ parameters.TESTBED_NAME}}.${{ parameters.RUN_REBOOT_CASE }}.log@${{ iter }}
     displayName: "Archive upgrade per-iteration logs"
     continueOnError: false
     condition: eq(variables['COLLECT_ARTIFACT'], 'true')

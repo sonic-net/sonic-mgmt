@@ -137,7 +137,7 @@ parameters:
 
 - name: ITERATIONS
   type: string
-  default: "27"
+  default: "22"
   values:
   - "1"
   - "10"
@@ -148,9 +148,45 @@ parameters:
   - "100"
   - "500"
 
+- name: RUN_DOUBLE_UPGRADE
+  type: boolean
+  default: true
+  displayName: "Run Double Upgrade Test (A -> B -> B)"
+
+
+- name: RUN_MULTI_HOP_UPGRADE
+  type: boolean
+  default: true
+  displayName: "Run Multi-Hop Upgrade Test"
+
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS
+  type: string
+  displayName: "Additional Upgrade Hop Locations - (comma separated values zipped with image numbers e.g. IMAGE_BRCM_ABOOT_202405,IMAGE_BRCM_ABOOT_202411)"
+  default: IMAGE_BRCM_ABOOT_202505
+
+- name: MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS
+  type: string
+  displayName: "Additional Upgrade Hop Image Numbers - (comma separated values zipped with image locations e.g. 23,latest)"
+  default: "latest"
+
+- name: MULTI_HOP_BASE_UPGRADE_PATH
+  type: string
+  default: SONiC-Arista-7260CX364-ToRRouter
+  displayName: "Multi-hop base upgrade path"
+  values:
+  - SONiC-Arista-7260CX364-ToRRouter
+  - " "
+
+
+- name: SKIP_LOCKING_TESTBED
+  displayName: "Skip locking testbed (Please reserve the testbed manually)"
+  type: boolean
+  default: false
+
 stages:
   - template: ../metadata_upgrade_template.yml
     parameters:
+      UPGRADE_TEST_TYPE: A->B
       TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
       POOL: ${{ parameters.POOL }}
       UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
@@ -162,4 +198,10 @@ stages:
       VSONIC_NEIGHBOR_IMAGE_URL: ${{ parameters.VSONIC_NEIGHBOR_IMAGE_URL }}
       RUN_REBOOT_CASE: ${{ parameters.RUN_REBOOT_CASE }}
       SELECT_SAD_CASES: ${{ parameters.SELECT_SAD_CASES }}
-      ITERATIONS : ${{ parameters.ITERATIONS }}
+      ITERATIONS: ${{ parameters.ITERATIONS }}
+      SKIP_LOCKING_TESTBED: ${{ parameters.SKIP_LOCKING_TESTBED }}
+      RUN_DOUBLE_UPGRADE: ${{ parameters.RUN_DOUBLE_UPGRADE }}
+      RUN_MULTI_HOP_UPGRADE: ${{ parameters.RUN_MULTI_HOP_UPGRADE }}
+      MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
+      MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
+      MULTI_HOP_BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}

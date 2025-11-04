@@ -98,6 +98,15 @@ parameters:
   type: boolean
   default: false
 
+- name: RUN_DOUBLE_UPGRADE
+  type: boolean
+  displayName: "Run double upgrade test (continuous upgrade)"
+  default: false
+- name: RUN_MULTI_HOP_UPGRADE
+  type: boolean
+  displayName: "Run multi-hop upgrade test"
+  default: false
+
 stages:
 - stage: SONiCMetadataUpgradeTest
   dependsOn: []
@@ -286,6 +295,76 @@ stages:
             442,443,444,445,446,447,448,449,450,451,452,453,454,455,456,457,458,459,460,461,462,463,464,465,466,467,
             468,469,470,471,472,473,474,475,476,477,478,479,480,481,482,483,484,485,486,487,488,489,490,491,492,493,
             494,495,496,497,498,499,500]
+
+    # Double upgrade test (upgrade+reboot: 202411.A->202505.B->202505.B) - conditionally run
+    - ${{ if eq(parameters.RUN_DOUBLE_UPGRADE, true) }}:
+      # Debug: Starting double upgrade process
+      - script: |
+          echo "=========================================="
+          echo "Starting DOUBLE UPGRADE TEST"
+          echo "=========================================="
+          echo "FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}"
+          echo "TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}"
+          echo "UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}"
+          echo "=========================================="
+        displayName: "Debug: Double Upgrade Parameters"
+
+      - template: upgrade_sonic_metadata.yml
+        parameters:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+          VM_TYPE: ${{ parameters.VM_TYPE }}
+          UPGRADE_TEST_TYPE: A->B
+          FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
+          FROM_IMAGE_URL: ${{ parameters.FROM_IMAGE_URL }}
+          TO_IMAGE_LIST: ${{ parameters.TO_IMAGE_LIST }}
+          TO_IMAGE_URL: ${{ parameters.TO_IMAGE_URL }}
+          SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+          RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
+          METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
+          RUN_REBOOT_CASE: "test_double_upgrade_path"
+          TEST_TCAM_HOLE: ${{ parameters.TEST_TCAM_HOLE }}
+          ITERATIONS: [1]
+          SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+          POOL: ${{ parameters.POOL }}
+
+
+    # Multi-hop upgrade test - conditionally run
+    - ${{ if eq(parameters.RUN_MULTI_HOP_UPGRADE, true) }}:
+      # Debug: Starting multi-hop upgrade process
+      - script: |
+          echo "=========================================="
+          echo "Starting MULTI-HOP UPGRADE TEST"
+          echo "=========================================="
+          echo "BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}"
+          echo "ADDITIONAL_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}"
+          echo "ADDITIONAL_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}"
+          echo "UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}"
+          echo "=========================================="
+        displayName: "Debug: Multi-Hop Upgrade Parameters"
+
+      - template: upgrade_sonic_metadata.yml
+        parameters:
+          TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+          UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+          VM_TYPE: ${{ parameters.VM_TYPE }}
+          UPGRADE_TEST_TYPE: multi-hop
+          FROM_IMAGE_LIST: ""
+          FROM_IMAGE_URL: ""
+          TO_IMAGE_LIST: ""
+          TO_IMAGE_URL: ""
+          MULTI_HOP_BASE_UPGRADE_PATH: ${{ parameters.MULTI_HOP_BASE_UPGRADE_PATH }}
+          MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_LOCATIONS }}
+          MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS: ${{ parameters.MULTI_HOP_ADDITIONAL_UPGRADE_HOP_IMAGE_NUMBERS }}
+          SKIP_POSTUPGRADE_ACTIONS: ${{ parameters.SKIP_POSTUPGRADE_ACTIONS }}
+          RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER: ${{ parameters.RUN_ASIC_DB_ASIC_SAI_CONSISTENCY_CHECKER }}
+          METADATA_UPGRADE_PATH: ${{ parameters.METADATA_UPGRADE_PATH }}
+          RUN_REBOOT_CASE: "test_multi_hop_upgrade_path"
+          TEST_TCAM_HOLE: ${{ parameters.TEST_TCAM_HOLE }}
+          ITERATIONS: [1]
+          SKIP_TEST_RESULTS_UPLOADING: ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }}
+          POOL: ${{ parameters.POOL }}
+
     - task: PublishTestResults@2
       displayName: Publish test results
       inputs:
