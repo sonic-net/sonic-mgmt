@@ -207,19 +207,6 @@ def get_sfp_eeprom_map_per_port(eeprom_infos):
     return sfp_eeprom_map_per_port
 
 
-def get_ports_with_flat_memory(dut):
-    ports_with_flat_memory = []
-    cmd_show_eeprom = "sudo sfputil show eeprom -d"
-
-    eeprom_infos = dut.command(cmd_show_eeprom, module_ignore_errors=True)['stdout']
-    sfp_eerpom_map_per_port = get_sfp_eeprom_map_per_port(eeprom_infos)
-    for port_name, sfp_eeprom in sfp_eerpom_map_per_port.items():
-        if "DOM values not supported for flat memory module" in " ".join(sfp_eeprom):
-            ports_with_flat_memory.append(port_name)
-    logging.info(f"Ports with flat memory: {ports_with_flat_memory}")
-    return ports_with_flat_memory
-
-
 def parse_one_sfp_eeprom_info(sfp_eeprom_info):
     """
     Parse the one sfp eeprom info, return top_key, sfp_eeprom_info_dict
