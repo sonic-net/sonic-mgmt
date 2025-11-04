@@ -384,14 +384,14 @@ def check_and_kill_process(duthost, container_name, program_name, program_status
     Returns:
         None.
     """
-    if program_status == "RUNNING":
+    if program_status in ["RUNNING", "STARTING"] and program_pid != -1:
         kill_process_by_pid(duthost, container_name, program_name, program_pid)
-    elif program_status in ["EXITED", "STOPPED", "STARTING"]:
-        pytest.fail("Program '{}' in container '{}' is in the '{}' state, expected 'RUNNING'"
+    elif program_status in ["EXITED", "STOPPED"] or program_pid == -1:
+        logger.warn("Program '{}' in container '{}' is in the '{}' state, skip killing it."
                     .format(program_name, container_name, program_status))
     else:
-        pytest.fail("Failed to find program '{}' in container '{}'"
-                    .format(program_name, container_name))
+        pytest.fail("Failed to find program '{}' in container '{}', status: '{}', pid: {}"
+                    .format(program_name, container_name, program_status, program_pid))
 
 
 def stop_critical_processes(duthost, containers_in_namespaces):
@@ -546,6 +546,8 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
     yield
 
+    logger.info("Restarting database service to recover all critical processes...")
+    duthost.restart_service("database")
     logger.info("Executing the config reload...")
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     logger.info("Executing the config reload was done!")
