@@ -49,7 +49,7 @@ parameters:
 jobs:
   - job: get_impacted_area
     displayName: "Get impacted area"
-    timeoutInMinutes: 10
+    timeoutInMinutes: 20
     continueOnError: false
     pool: sonic-ubuntu-1c
     steps:
@@ -287,6 +287,11 @@ jobs:
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
           BUILD_REASON: ${{ parameters.BUILD_REASON }}
+          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
+          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
+          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
 
   - job: impacted_area_t2_elastictest
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
