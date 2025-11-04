@@ -83,6 +83,9 @@ The following table summarizes the key attributes used in system testing. This t
 | fast_reboot_supported | boolean | False | ✗ | platform or hwsku | Whether platform supports fast reboot functionality |
 | fast_reboot_settle_sec | integer | 300 | ✗ | HWSKU | Time to wait after fast reboot before verification |
 | fast_reboot_iterations | integer | 5 | ✗ | HWSKU | Number of iterations for fast reboot stress test |
+| power_cycle_supported | boolean | False | ✗ | platform or hwsku | Whether automated power cycle testing is supported (requires controllable PDU) |
+| power_cycle_settle_sec | integer | 600 | ✗ | HWSKU | Time to wait after full power restoration before starting verification (allows hardware, optics, and services to fully initialize) |
+| power_cycle_iterations | integer | 3 | ✗ | HWSKU | Number of power cycle iterations for recovery/stress validation |
 | transceiver_reset_supported | boolean | True | ✗ | transceivers | Whether transceiver supports reset functionality |
 | transceiver_reset_i2c_recover_sec | integer | 5 | ✗ | transceivers | Time to wait for I2C recovery after transceiver state changes (reset, low power mode) before verification |
 | low_power_mode_supported | boolean | False | ✗ | transceivers | Whether transceiver supports low power mode |
@@ -178,6 +181,11 @@ This procedure is used after any test that modifies transceiver state or after s
    - Verify the actual application code matches the `expected_application_code` value
    - Log any discrepancies for analysis
 
+6. **Docker and Process Health Check**
+   - Verify all critical services (`xcvrd, pmon, swss, syncd`) are running for at least 3 minutes
+   - Ensure no core files are present in `/var/core`
+   - Log any service failures for analysis
+
 ### State Preservation and Restoration
 
 This procedure ensures tests don't interfere with each other:
@@ -218,6 +226,7 @@ The following tests aim to validate the link status and stability of transceiver
 | 2 | Cold reboot link recovery | 1. Verify current link states to be up for all transceivers.<br>2. Execute a cold reboot.<br>3. Wait for `cold_reboot_settle_sec` and monitor link recovery after reboot.<br>4. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-reboot and pass comprehensive verification checks. |
 | 3 | Warm reboot link recovery | 1. Skip test if `warm_reboot_supported` is False.<br>2. Verify current link states to be up for all transceivers.<br>3. Perform warm reboot.<br>4. Wait for `warm_reboot_settle_sec` and monitor link recovery after reboot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Ensure `xcvrd` restarts and maintains link stability for all ports, with comprehensive verification checks passing. |
 | 4 | Fast reboot link recovery | 1. Skip test if `fast_reboot_supported` is False.<br>2. Verify current link states to be up for all transceivers.<br>3. Perform fast reboot.<br>4. Wait for `fast_reboot_settle_sec` and monitor link establishment timing.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-reboot and pass comprehensive verification checks. |
+| 5 | Power cycle link recovery | 1. Skip test if `power_cycle_supported` is False.<br>2. Verify current link states are up for all transceivers.<br>3. Perform a controlled chassis power cycle.<br>4. Wait for `power_cycle_settle_sec` and monitor link recovery after full boot.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | Confirm all ports link up again post-power cycle and pass comprehensive verification checks (link status, LLDP, CMIS states, SI settings, application code if defined, docker and process stability). |
 
 ### Transceiver Event Handling Test Cases
 
@@ -248,6 +257,7 @@ The following tests aim to validate the link status and stability of transceiver
 | 4 | Warm reboot stress test | 1. Skip test if `warm_reboot_supported` is False.<br>2. Execute **State Preservation and Restoration** (capture phase).<br>3. In a loop, execute warm reboot for `warm_reboot_iterations` iterations.<br>4. Wait `warm_reboot_settle_sec` after each reboot.<br>5. After each reboot iteration, execute **Standard Port Recovery and Verification Procedure**.<br>6. Execute **State Preservation and Restoration** (restoration phase). | Ensure all ports link up again post-reboot with all comprehensive verification checks passing for all iterations. System should remain stable throughout multiple reboots. |
 | 5 | Fast reboot stress test | 1. Skip test if `fast_reboot_supported` is False.<br>2. Execute **State Preservation and Restoration** (capture phase).<br>3. In a loop, execute fast reboot for `fast_reboot_iterations` iterations.<br>4. Wait `fast_reboot_settle_sec` after each reboot.<br>5. After each reboot iteration, execute **Standard Port Recovery and Verification Procedure**.<br>6. Execute **State Preservation and Restoration** (restoration phase). | Ensure all ports link up again post-reboot with all comprehensive verification checks passing for all iterations. System should remain stable throughout multiple reboots. |
 | 6 | Link stability monitoring test | 1. Verify all transceivers are in operational state with links up.<br>2. Record initial `last_up_time` and `flap_count` for each port from interface status.<br>3. Start monitoring for `link_stability_monitor_sec` duration:<br>   a. Continuously check link status every 10 seconds.<br>   b. Log any link state changes (up to down or down to up).<br>4. After monitoring period completion, verify that `last_up_time` and `flap_count` remain unchanged for all ports.<br>5. Execute **Standard Port Recovery and Verification Procedure** for all ports. | All transceivers maintain stable link status throughout the entire monitoring period with no unexpected link flaps. The `last_up_time` and `flap_count` values must remain unchanged, confirming no link instability occurred. This test validates long-term stability under steady-state conditions. |
+| 7 | Power cycle stress test | 1. Skip test if `power_cycle_supported` is False.<br>2. Execute **State Preservation and Restoration** (capture phase).<br>3. For each iteration (1..`power_cycle_iterations`):<br>   a. Perform controlled power cycle of DUT.<br>   b. Wait for `power_cycle_settle_sec`.<br>   c. Execute **Standard Port Recovery and Verification Procedure** for all ports.<br>4. Execute **State Preservation and Restoration** (restoration phase). | Confirm the expected ports link up again post-reboot, with all comprehensive verification checks passing for all iterations. System should remain stable throughout multiple reboots. |
 
 ## Cleanup and Post-Test Verification
 
