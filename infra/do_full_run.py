@@ -119,6 +119,7 @@ def run_test(args):
     testbed_info_dict = getTestbedInfoDict(testbed)
     local_ucs = testbed_info_dict['ucs_host_name']
     local_log_dir = os.path.join(WORKSPACE, 'sanity/infra/', SANITY_LOGS_PATH)
+    local_log_parent_dir = os.path.join(WORKSPACE, 'sanity/infra/')
     os.makedirs(local_log_dir, exist_ok=True)
 
     ucs_ssh = testbed_info_dict["ucs_username"]+"@"+testbed_info_dict['ucs_host_name']
@@ -242,10 +243,10 @@ def run_test(args):
         bastion_client.close()
 
     # Bundle the log files into one location
-    os.chdir(local_log_dir)
+    os.chdir(local_log_parent_dir)
     log.debug("Bundle the log files into one location")
-    create_sanity_log_tarball(local_log_dir)
-    print_folder_contents(local_log_dir)
+    create_sanity_log_tarball(local_log_parent_dir)
+    print_folder_contents(local_log_parent_dir)
     return exit_code
 
 def collect_results(args):

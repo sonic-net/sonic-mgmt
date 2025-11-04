@@ -140,7 +140,6 @@ def copy_logfiles(ssh, docker_mgmt_container, filename, destination_path):
         print(f"An error occurred in copy_logfiles: {e}")
         return -1
 
-
 def create_sanity_log_tarball(local_log_dir):
     log.debug(f"Current working directory in create_sanity_log_tarball: {os.getcwd()}")
     log.debug(f"CHeck params: tarball: {SANITY_LOG_TARBALL}, path: {SANITY_LOGS_PATH}, local_log_dir: {local_log_dir}")
