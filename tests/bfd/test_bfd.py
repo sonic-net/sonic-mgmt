@@ -594,11 +594,11 @@ def test_bfd_scale(request, rand_selected_dut, ptfhost, tbinfo, ipv6):
         dut_state = duthost.shell("show bfd summary")
         for itr in local_addrs:
             assert itr in bfd_state['stdout'], (
-                "BFD session with local address '{}' not found in PTF BFD state output. "
+                "BFD session with local address '{}' not found in output of bfdd-control status on PTF"
                 "Full BFD state output: {}".format(itr, bfd_state['stdout'])
             )
             assert itr in dut_state['stdout'], (
-                "BFD session with local address '{}' not found in DUT BFD state output. "
+                "BFD session with local address '{}' not found in output of show bfd summary on DUT"
                 "Full DUT state output: {}".format(itr, dut_state['stdout'])
             )
     finally:

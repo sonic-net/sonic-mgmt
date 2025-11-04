@@ -42,8 +42,8 @@ def test_check_sfp_presence(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                 "Parsed presence output: {}".format(intf, cmd_sfp_presence, parsed_presence)
             )
             assert parsed_presence[intf] == "Present", \
-                "Interface '{}' presence is not 'Present'. Actual value: '{}'. Full parsed presence output: {}".format(
-                    intf, parsed_presence.get(intf), parsed_presence
+                "Interface '{}' presence is not 'Present'. Actual value: '{}'.".format(
+                    intf, parsed_presence.get(intf)
             )
 
 
