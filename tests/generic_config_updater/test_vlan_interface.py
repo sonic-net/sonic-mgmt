@@ -418,8 +418,8 @@ def test_vlan_interface_tc1_suite(rand_selected_dut, vlan_info, loganalyzer, tbi
         if tbinfo["topo"]["name"] == "m0-2vlan":
             loganalyzer[duthost.hostname].ignore_regex.extend(IGNORE_REG_LIST)
         loganalyzer[duthost.hostname].ignore_regex.extend([
-            ".*ERR GenericConfigUpdater: Change Applier: service invoked: \
-        generic_config_updater.services_validator.vlanintf_validator failed.*"
+            ".*ERR GenericConfigUpdater: Change Applier: service invoked: "
+            "generic_config_updater.services_validator.vlanintf_validator failed.*"
         ])
     vlan_interface_tc1_add_duplicate(rand_selected_dut, vlan_info)
     vlan_interface_tc1_xfail(rand_selected_dut, vlan_info)
