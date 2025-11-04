@@ -1029,7 +1029,7 @@ class QosSaiBase(QosBase):
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
             config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
-            vlan_info = config_facts[src_dut.hostname]['VLAN']
+            vlan_info = config_facts[src_dut.hostname].get('VLAN', {})
             port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
             low_speed_portIds = []
             if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
