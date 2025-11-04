@@ -63,17 +63,14 @@ def get_queue_cntrs_oid(interface):
 
 def get_dpu_npu_port_list(duthost):
     dpu_npu_port_list = []
-    cmd_get_config_db_port_key_list = 'redis-cli --raw -n 4 keys "PORT|Ethernet*"'
-    cmd_dump_config_db = "sonic-db-dump -n CONFIG_DB -y"
-    dpu_npu_role = 'Dpc'
 
-    port_key_list = duthost.command(cmd_get_config_db_port_key_list)['stdout'].split('\n')
-    config_db_res = json.loads(duthost.command(cmd_dump_config_db)["stdout"])
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts is None:
+        return dpu_npu_port_list
+    if 'PORT' not in config_facts:
+        return dpu_npu_port_list
+    dpu_npu_port_list = [p for p, v in list(config_facts['PORT'].items()) if v.get('role', None) == 'Dpc']
 
-    for port_key in port_key_list:
-        if port_key in config_db_res:
-            if dpu_npu_role == config_db_res[port_key].get('value').get('role'):
-                dpu_npu_port_list.append(port_key.split("|")[-1])
     logger.info(f"dpu npu port list: {dpu_npu_port_list}")
     return dpu_npu_port_list
 
