@@ -362,7 +362,7 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_default:
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_set:
   xfail:
-    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style. Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -2607,7 +2607,8 @@ hash/test_generic_hash.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
       - "'-v6-' in topo_name"
   xfail:
-    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['t0', 't1']"
       - "'t0-isolated-d256u256s2' in topo_name"
