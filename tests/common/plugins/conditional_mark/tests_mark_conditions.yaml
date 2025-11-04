@@ -79,7 +79,7 @@ acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
   xfail:
-    reason: "Cisco platform does not support ACL Outer VLAN ID tests. Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -297,7 +297,7 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
   xfail:
-    reason: "xfail for IPv6-only topologies. Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "xfail for IPv6-only topologies. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
