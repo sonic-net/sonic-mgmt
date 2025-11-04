@@ -333,9 +333,44 @@
     include_tasks: ptf_change_mac.yml
     when: topo != 'fullmesh'
 
-  - name: Send arp ping packet to gw for flushing the ARP table
-    command: docker exec -i ptf_{{ vm_set_name }} python -c "from scapy.all import *; arping('{{ mgmt_gw }}')"
+  # ptf container may reuse the same ip address with a new random mac address
+  # for ptf container's mgmt network interface, so we need to send gratuitous
+  # ARP to announce PTF container MAC to network
+  - name: Send gratuitous ARP to announce PTF container MAC to network
+    shell: |
+      docker exec -i ptf_{{ vm_set_name }} python3 << 'GARP_EOF'
+      from scapy.all import *
+      my_ip = "{{ ptf_ip.split('/')[0] }}"
+      gw_ip = "{{ mgmt_gw }}"
+      my_mac = get_if_hwaddr("mgmt")
+      # Send broadcast ARP reply (gratuitous ARP) to announce IP->MAC mapping
+      pkt = Ether(dst="ff:ff:ff:ff:ff:ff") / ARP(op=2, psrc=my_ip, hwsrc=my_mac, pdst=gw_ip, hwdst="ff:ff:ff:ff:ff:ff")
+      sendp(pkt, iface="mgmt", count=10, verbose=0)
+      print("Gratuitous ARP sent successfully")
+      GARP_EOF
     become: yes
+    failed_when: false
+
+  - name: Wait for PTF container network to become fully operational
+    shell: |
+      echo "Waiting for PTF network to stabilize..."
+      for attempt in $(seq 1 30); do
+        if docker exec ptf_{{ vm_set_name }} ping -c 1 -W 2 {{ mgmt_gw }} | grep -q "1 received"; then
+          echo "Network ready after $attempt attempts"
+          exit 0
+        fi
+        echo "Attempt $attempt/30: Network not ready, waiting 2 seconds..."
+        sleep 2
+      done
+      echo "Warning: Network not ready after 60 seconds, continuing anyway..."
+      exit 1
+    become: yes
+    register: network_ready
+    failed_when: false
+
+  - name: Display PTF network readiness status
+    debug:
+      msg: "stdout: {{ network_ready.stdout_lines }} stderr: {{ network_ready.stderr_lines }}"
 
   - name: Start ptf_tgen service
     include_tasks: start_ptf_tgen.yml
