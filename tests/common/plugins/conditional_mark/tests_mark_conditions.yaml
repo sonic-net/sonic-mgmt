@@ -3292,6 +3292,13 @@ pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
 
+pfcwd/test_pfcwd_.*\[IPv6.*:
+   regex: true
+   xfail:
+     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21082"
+     conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and asic_type in ['mellanox']"
+
 pfcwd/test_pfcwd_all_port_storm.py:
    skip:
      reason: "Slow pfc generation rate on 7060x6 200Gb,
