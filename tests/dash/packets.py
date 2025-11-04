@@ -219,7 +219,9 @@ def outbound_pl_packets(
     floating_nic=False,
     inner_packet_type="udp",
     vxlan_udp_dport=4789,
-    vxlan_udp_sport=VXLAN_UDP_BASE_SRC_PORT,
+    vxlan_udp_sport=random.randint(
+        VXLAN_UDP_BASE_SRC_PORT,
+        VXLAN_UDP_BASE_SRC_PORT + 2**VXLAN_UDP_SRC_PORT_MASK - 1),
     inner_sport=6789,
     inner_dport=4567,
     vni=None
