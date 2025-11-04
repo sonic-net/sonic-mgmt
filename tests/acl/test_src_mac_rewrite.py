@@ -11,13 +11,14 @@ import logging
 import pytest
 import json
 from ptf import mask
-from scapy.all import Ether, IP, UDP, TCP
+from scapy.all import Ether, IP, UDP
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from ptf import testutils
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
-ecmp_utils = Ecmp_Utils()
 from tests.common.config_reload import config_reload
+
+ecmp_utils = Ecmp_Utils()
 
 logger = logging.getLogger(__name__)
 
@@ -98,7 +99,6 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
     expected_ptf_ports = [24, 25, 26, 27]  # PortChannel mapped PTF ports
     
     # Verify the send port exists
-    eth_ports = list(mg_facts["minigraph_ptf_indices"].keys())
     send_port_name = None
     for eth_port, ptf_idx in mg_facts["minigraph_ptf_indices"].items():
         if ptf_idx == send_ptf_port:
@@ -109,10 +109,10 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
     if not send_port_name:
         pytest.fail(f"PTF port {send_ptf_port} not found in minigraph")
     
-    data['ptf_port_1'] = send_ptf_port      # Send port
-    data['ptf_port_2'] = expected_ptf_ports # List of expected receive ports  
+    data['ptf_port_1'] = send_ptf_port        # Send port
+    data['ptf_port_2'] = expected_ptf_ports   # List of expected receive ports
     data['test_port_1'] = send_port_name
-    data['test_port_2'] = "PortChannel101"  # Expected egress PortChannel
+    data['test_port_2'] = "PortChannel101"    # Expected egress PortChannel
     
     # Get bindable ports for ACL table
     eth_ports_set = set(
@@ -355,9 +355,9 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     logger.info("STATE_DB entry for ACL rule:\n%s", state_db_output)
     pytest_assert("TUNNEL_VNI" in state_db_output and vni in state_db_output, "TUNNEL_VNI not found in STATE_DB")
     pytest_assert("INNER_SRC_IP" in state_db_output and inner_src_ip in state_db_output,
-                "INNER_SRC_IP not found in STATE_DB")
+                  "INNER_SRC_IP not found in STATE_DB")
     pytest_assert("INNER_SRC_MAC_REWRITE_ACTION" in state_db_output and new_src_mac in state_db_output,
-                "MAC rewrite action missing in STATE_DB")
+                  "MAC rewrite action missing in STATE_DB")
 
     # === COUNTERS check ===
     if duthost.facts['asic_type'] != 'vs':
@@ -435,7 +435,7 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip):
                 "scope": "default",
                 "peer_list": "",
                 "advertise_prefix": "false",
-                "overlay_dmac" : "25:35:45:55:65:75"
+                "overlay_dmac": "25:35:45:55:65:75"
             }
         },
         "VNET_ROUTE_TUNNEL": {
@@ -574,7 +574,8 @@ def test_modify_inner_src_mac_egress(setUp, scenario_name):
             logger.info(f"Range test: Verifying rewrite with IP {test_ip}")
             _send_and_verify_mac_rewrite(
                 ptfadapter, ptf_port_1, ptf_port_2, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
-                first_modified_mac, vni_id, outer_src_mac, outer_dst_mac, loopback_src_ip, next_hop_ip, table_name, RULE_NAME
+                first_modified_mac, vni_id, outer_src_mac, outer_dst_mac, loopback_src_ip, next_hop_ip,
+                table_name, RULE_NAME
             )
 
     # Modify rule after sending the first packet
