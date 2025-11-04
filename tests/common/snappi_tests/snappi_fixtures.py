@@ -466,7 +466,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
                                             dut_hostname=duthost.hostname)
 
     pytest_assert(snappi_fanout is not None, 'Fail to get snappi_fanout')
-
+    snappi_fanout = snappi_fanout[0]
     snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
@@ -578,7 +578,7 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
 
 
 @pytest.fixture(scope="module")
-def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
+def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):  # noqa: F811
 
     """
     Populate tgen ports info of T0 testbed and returns as a list
@@ -612,54 +612,62 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
-    speed_type = {'50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps'}
 
-    snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                            dut_hostname=duthost.hostname)
-    snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
-    snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-    snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-    port_speed = None
-
-    for i in range(len(snappi_ports)):
-        if port_speed is None:
-            port_speed = int(snappi_ports[i]['speed'])
-
-        elif port_speed != int(snappi_ports[i]['speed']):
-            """ All the ports should have the same bandwidth """
-            return None
-
+    speed_type = {
+        '10000': 'speed_10_gbps',
+        '25000': 'speed_25_gbps',
+        '40000': 'speed_40_gbps',
+        '50000': 'speed_50_gbps',
+        '100000': 'speed_100_gbps',
+        '200000': 'speed_200_gbps',
+        '400000': 'speed_400_gbps',
+        '800000': 'speed_800_gbps'}
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
+    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                             dut_hostname=duthost.hostname)
+    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
+    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
+    snappi_ports_all = []
+    for snappi_fanout in snappi_fanouts:
+        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
+        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
+        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
 
-    for port in snappi_ports:
-        port['location'] = get_snappi_port_location(port)
-        port['speed'] = speed_type[port['speed']]
+        port_speeds = {int(p['speed']) for p in snappi_ports}
+        if len(port_speeds) != 1:
+            """ All the ports should have the same bandwidth """
+            return None
+        port_speed = port_speeds.pop()
+        un_ipv4, un_ipv6 = [], []
+        for port in snappi_ports:
+            port['location'] = get_snappi_port_location(port)
+            port['speed'] = speed_type.get(str(port_speed), port['speed'])
+            peer_port = port['peer_port']
+            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+            port['speed'] = speed_type.get(str(port_speed), port['speed'])
 
-    for port in snappi_ports:
-        peer_port = port['peer_port']
-        int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-        try:
-            ipv4_subnet = [ele for ele in int_addrs if "." in ele][0]
-            port['peer_ip'], port['prefix'] = ipv4_subnet.split("/")
-            port['ip'] = get_addrs_in_subnet(ipv4_subnet, 1)[0]
-        except Exception:
-            snappi_ports = pre_configure_dut_interface(duthost, snappi_ports, type='ipv4')
+            ipv4_entry = next((a for a in int_addrs if '.' in a), None)
+            if ipv4_entry:
+                port['peer_ip'], port['prefix'] = ipv4_entry.split('/')
+                port['ip'] = get_addrs_in_subnet(ipv4_entry, 2)[1]
+                snappi_ports_all.append(port)
+            else:
+                un_ipv4.append(port)
 
-    for port in snappi_ports:
-        peer_port = port['peer_port']
-        int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-        try:
-            ipv6_subnet = [ele for ele in int_addrs if ":" in ele][0]
-            port['peer_ipv6'], port['ipv6_prefix'] = ipv6_subnet.split("/")
-            port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_subnet, 1)[0]
-        except Exception:
-            snappi_ports = pre_configure_dut_interface(duthost, snappi_ports, type='ipv6')
-    return snappi_ports
+            ipv6_entry = next((a for a in int_addrs if ':' in a), None)
+            if ipv6_entry:
+                port['peer_ipv6'], port['ipv6_prefix'] = ipv6_entry.split('/')
+                port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_entry, 2)[1]
+                snappi_ports_all.append(port)
+            else:
+                un_ipv6.append(port)
+
+        if un_ipv4:
+            snappi_ports_all.extend(pre_configure_dut_interface(duthost, un_ipv4, type='ipv4'))
+        if un_ipv6:
+            snappi_ports_all.extend(pre_configure_dut_interface(duthost, un_ipv6, type='ipv6'))
+    return snappi_ports_all
 
 
 def snappi_multi_base_config(duthost_list,
@@ -1164,6 +1172,7 @@ def multidut_snappi_ports_for_bgp(duthosts,                                # noq
                                                 dut_hostname=duthost.hostname)
         if snappi_fanout is None:
             continue
+        snappi_fanout = snappi_fanout[0]
         snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
         snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
         snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
@@ -1550,9 +1559,16 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     asic_arg = ""
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
+    int_arg = ""
+    if intf:
+        int_arg = f"-i {intf}"
+    if setup:
+        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"
+    else:
+        arp_opt = f"-d {addr}"
+
     try:
-        dut.shell("{} arp -i {} -s {} aa:bb:cc:dd:ee:ff".format(
-            asic_arg, intf, addr))
+        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
         dut.shell(
             "{} config route {} prefix {}/32 nexthop {} {}".format(
                 asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
