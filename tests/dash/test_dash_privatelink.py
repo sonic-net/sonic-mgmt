@@ -50,9 +50,9 @@ def common_setup_teardown(
     dpuhost = dpuhosts[dpu_index]
     logger.info(pl.ROUTING_TYPE_PL_CONFIG)
 
-    pytest_assert(wait_until(300, 15, 0, configure_dash_appliance_and_check,
-            localhost, duthost, ptfhost, dpuhost, dpu_index),
-            "Cannot configure appliance DASH object")
+    pytest_assert(
+        wait_until(300, 15, 0, configure_dash_appliance_and_check, localhost, duthost, ptfhost, dpuhost, dpu_index),
+        "Cannot configure appliance DASH object")
 
     base_config_messages = {
         **pl.ROUTING_TYPE_PL_CONFIG,

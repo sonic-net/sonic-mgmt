@@ -60,9 +60,9 @@ def config_setup_teardown(
     else:
         tunnel_config = pl.TUNNEL4_CONFIG
 
-    pt_assert(wait_until(300, 15, 0, configure_dash_appliance_and_check,
-                        localhost, duthost, ptfhost, dpuhost, dpu_index),
-                        "Cannot configure appliance DASH object")
+    pt_assert(
+        wait_until(300, 15, 0, configure_dash_appliance_and_check, localhost, duthost, ptfhost, dpuhost, dpu_index),
+        "Cannot configure appliance DASH object")
 
     base_config_messages = {
         **pl.ROUTING_TYPE_PL_CONFIG,
