@@ -9,6 +9,7 @@ from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
 from ptf.testutils import simple_ipv6_sr_packet, send_packet, verify_no_packet_any
 from ptf.mask import Mask
+from tests.conftest import duthost
 from tests.srv6.srv6_utils import MySIDs, runSendReceive, verify_appl_db_sid_entry_exist, SRv6, \
     validate_techsupport_generation, validate_srv6_counters, clear_srv6_counters, \
     get_neighbor_mac, verify_asic_db_sid_entry_exist, ROUTE_BASE
@@ -26,7 +27,7 @@ from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.asic("mellanox", "broadcom"),
+    pytest.mark.asic("mellanox", "broadcom", "cisco-8000"),
     pytest.mark.topology("t0", "t1")
 ]
 
@@ -76,6 +77,10 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
 
 
 def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh):
+
+    if with_srh and duthost.facts["asic_type"] == "cisco-8000":
+        pytest.skip("skip, cisco-8000 does not support srh")
+
     for i in range(0, 10):
         # generate a random payload
         payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
@@ -210,9 +215,11 @@ class SRv6Base():
 
         ptf_src_mac = ptfadapter.dataplane.get_mac(0, self.params['ptf_downlink_port']).decode('utf-8')
         for srv6_packet in self.params['srv6_packets']:
-            if duthost.facts["asic_type"] == "broadcom" and \
+            if ((duthost.facts["asic_type"] == "broadcom") or (duthost.facts["asic_type"] == "cisco-8000")) and \
                (srv6_packet['srh_seg_left'] or srv6_packet['srh_seg_list']):
                 logger.info("Skip the test for Broadcom ASIC with SRH")
+                continue
+            if duthost.facts["asic_type"] == "cisco-8000":
                 continue
 
             logger.info('-------------------------------------------------------------------------')
@@ -294,6 +301,9 @@ class TestSRv6DataPlaneBase(SRv6Base):
         with allure.step('Validate SRv6 packet process'):
             srv6_pkt_list = self._validate_srv6_function(rand_selected_dut, ptfadapter, config_setup)
 
+        if rand_selected_dut.facts["asic_type"] == "cisco-8000":
+            return
+        
         with allure.step('Validate SRv6 counters'):
             pytest_assert(wait_until(60, 5, 0, validate_srv6_counters, rand_selected_dut, srv6_pkt_list,
                                      MySIDs.MY_SID_LIST, self.params['packet_num']),
@@ -351,6 +361,9 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
 
+    if with_srh and duthost.facts["asic_type"] == "cisco-8000":
+        pytest.skip("skip, cisco-8000 does not support srh")
+
     # verify the forwarding works
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
@@ -382,6 +395,9 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
 
+    if with_srh and duthost.facts["asic_type"] == "cisco-8000":
+        pytest.skip("skip, cisco-8000 does not support srh")
+
     # verify the forwarding works
     run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
@@ -412,9 +428,13 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
 
+    if with_srh and duthost.facts["asic_type"] == "cisco-8000":
+        pytest.skip("skip, cisco-8000 does not support srh")
+
     # Reloading the configuration will restart eth0 and update the TACACS settings.
     # This change may introduce a delay, potentially causing temporary TACACS reporting errors.
-    loganalyzer[duthost.hostname].ignore_regex.extend([r".*tac_connect_single: .*",
+    if loganalyzer and loganalyzer[duthost.hostname]:
+        loganalyzer[duthost.hostname].ignore_regex.extend([r".*tac_connect_single: .*",
                                                        r".*nss_tacplus: .*"])
 
     # verify the forwarding works
@@ -444,6 +464,10 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     ptf_src_port = setup_uN['ptf_src_port']
     neighbor_ip = setup_uN['neighbor_ip']
     ptf_port_ids = setup_uN['ptf_port_ids']
+
+    if with_srh and duthost.facts["asic_type"] == "cisco-8000":
+        pytest.skip("skip, cisco-8000 does not support srh")
+
     # Verify that the ASIC DB has the SRv6 SID entries
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
