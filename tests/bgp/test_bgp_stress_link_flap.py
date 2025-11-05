@@ -243,10 +243,13 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
-    if asic_type == "vs" and (test_type == "fanout" or test_type == "all"):
+    if (asic_type == "vs" or asic_type == "vpp") and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
 
-    if asic_type != "vs":
+    if (asic_type == "vpp" and test_type == "neighbor"):
+        pytest.skip("Stress link flap test is not supported on Virtual Switch")
+
+    if asic_type != "vs" and asic_type != "vpp":
         delay_time = SLEEP_DURATION
     else:
         delay_time = SLEEP_DURATION * 100
@@ -317,8 +320,12 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         flap_tasks.clear()
 
     asyncio.run(flap_interfaces())
+    if asic_type == "vpp":
+        sleep_time = 180
+    else:
+        sleep_time = 60
 
-    logger.info("Test Completed, waiting for 60 seconds to stabilize the system")
-    time.sleep(60)
+    logger.info("Test Completed, waiting for {} seconds to stabilize the system".format(sleep_time))
+    time.sleep(sleep_time)
 
     return
