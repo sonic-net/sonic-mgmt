@@ -246,9 +246,6 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     if (asic_type == "vs" or asic_type == "vpp") and (test_type == "fanout" or test_type == "all"):
         pytest.skip("Stress link flap test is not supported on Virtual Switch")
 
-    if (asic_type == "vpp" and test_type == "neighbor"):
-        pytest.skip("Stress link flap test is not supported on Virtual Switch")
-
     if asic_type != "vs" and asic_type != "vpp":
         delay_time = SLEEP_DURATION
     else:
