@@ -439,6 +439,9 @@ r, ".* ERR dockerd: nss_tacplus: failed to connect TACACS\+ server.* Transport e
 r, ".* ERR dhcp_relay#supervisor-proc-exit-listener: Exception.*len.*trace: Traceback \(most recent call last\).*File .*\/usr\/bin\/supervisor-proc-exit-listener.*line.*in \<module\>.*main\(sys.argv.*File .*\/usr\/bin\/supe.*"
 r, ".* ERR dhcp_relay\#supervisor-proc-exit-listener: Exception:.*len.*trace: Traceback \(most recent call last.*File .*\/usr\/bin\/supervisor-proc-exit-listener.* line.*in .*main\(sys.* File.*\/usr\/bin\/supervisor-proc-exit-listener.* line.* in main.*payload.* sys.stdin.read.*KeyError:.*len.*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/22855
+r, ".* ERR chronyd\[\d+\]: Could not add source.*"
+
 # https://github.com/sonic-net/sonic-buildimage/issues/23426
 r, ".*ERR pmon.*Failed to confirm VDM freeze status for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"

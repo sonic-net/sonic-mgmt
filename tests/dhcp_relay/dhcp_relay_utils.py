@@ -30,7 +30,7 @@ def check_routes_to_dhcp_server(duthost, dut_dhcp_relay_data):
             route_index_in_list = 0
             ip_dst_index = 0
             route_dst_ip = nexthops[route_index_in_list][ip_dst_index]
-            if route_dst_ip == ipaddress.ip_address(default_gw_ip):
+            if default_gw_ip and route_dst_ip == ipaddress.ip_address(default_gw_ip):
                 logger.info("Found route to DHCP server via default GW(MGMT interface)")
                 return False
     return True
