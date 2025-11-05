@@ -1,7 +1,7 @@
 import inspect
 import json
 import logging
-
+import collections
 from multiprocessing.pool import ThreadPool
 
 from tests.common.errors import RunAnsibleModuleFail
@@ -36,6 +36,8 @@ class AnsibleHostBase(object):
         def default(self, obj):
             if isinstance(obj, bytes):
                 return obj.decode('utf-8')
+            elif isinstance(obj, collections.UserDict):
+                return obj.data
             return super().default(obj)
 
     def __init__(self, ansible_adhoc, hostname, *args, **kwargs):
@@ -103,6 +105,7 @@ class AnsibleHostBase(object):
         module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
         res = self.module(*module_args, **complex_args)[self.hostname]
+        res.encoder = AnsibleHostBase.CustomEncoder
 
         if verbose:
             logger.debug(
