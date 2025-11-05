@@ -18,7 +18,8 @@ SHOW_EEPOMR_CMDS = ["show interface transceiver eeprom -d",
 
 
 @pytest.fixture(scope="module", autouse=True)
-def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list):  # noqa: F811
+def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts, xcvr_skip_list,  # noqa: F811
+                              get_sw_control_ports):
     '''
     This fixture is to get map sfp test intfs to dom
     '''
@@ -31,6 +32,10 @@ def sfp_test_intfs_to_dom_map(duthosts, rand_one_dut_hostname, conn_graph_facts,
 
     sfp_test_intf_list = list(
         conn_graph_facts["device_conn"][duthost.hostname].keys())
+
+    if get_sw_control_ports:
+        # Exclude get_sw_control_ports from sfp_test_intf_list
+        sfp_test_intf_list = [port for port in sfp_test_intf_list if port not in get_sw_control_ports]
 
     intf_with_dom_dict = {}
 
