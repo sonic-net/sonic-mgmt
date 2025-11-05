@@ -64,6 +64,29 @@ def get_autoneg_fec(duthosts, get_snappi_ports):
     return get_snappi_ports
 
 
+def get_duthost_interface_details(duthosts, get_snappi_ports, subnet_type, protocol_type):    # noqa F811
+    """
+    Depending on the protocol type, call the respective function to get the interface details
+
+    Args:
+        duthosts: List of duthost objects
+        get_snappi_ports: List of snappi port details
+        subnet_type: 'ipv4' or 'ipv6'
+        protocol_type: 'ip' or 'bgp' or 'vlan'
+
+    Returns:
+        List of snappi port details with interface information populated
+    """
+    if protocol_type.lower() == 'ip':
+        return get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type)
+    elif protocol_type.lower() == 'bgp':
+        return get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
+    elif protocol_type.lower() == 'vlan':
+        return get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type)
+    else:
+        pytest_assert(False, f"Unsupported protocol type: {protocol_type}")
+
+
 def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
     """
     Example:
@@ -177,7 +200,7 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
     return get_snappi_ports
 
 
-def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
+def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa F811
     """
     Loop through each duthosts to get its vlan details
 
@@ -194,9 +217,6 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
        duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip
     """
     get_autoneg_fec(duthosts, get_snappi_ports)
-
-    duthost_vlan_interface = {}
-
     duthost_vlan_interface = {
         dut.hostname: {"vlan_id": "", "vlan_ip": "", "subnet": "", "ip_prefix": ""}
         for dut in duthosts
@@ -211,7 +231,17 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
         facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
         duthost_configdb_vlan_interface = facts["VLAN_INTERFACE"]
         vlan_id = list(duthost_configdb_vlan_interface.keys())[0]
-        vlan_ipprefix = list(duthost_configdb_vlan_interface[vlan_id].keys())[0]
+        vlan_ip_dict = duthost_configdb_vlan_interface[vlan_id]
+        if subnet_type.lower() == 'ipv4':
+            for subnet in vlan_ip_dict.keys():
+                if '.' in subnet:
+                    vlan_ipprefix = subnet
+                    break
+        elif subnet_type.lower() == 'ipv6':
+            for subnet in vlan_ip_dict.keys():
+                if ':' in subnet:
+                    vlan_ipprefix = subnet
+                    break
         ipn = IPNetwork(vlan_ipprefix)
         vlan_ipaddr, prefix_len = str(ipn.ip), ipn.prefixlen
         subnet = str(IPNetwork(str(ipn.network) + '/' + str(prefix_len)))
@@ -250,6 +280,7 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
                         "ipGateway": vlan_details["vlan_ip"],
                         "prefix": vlan_details["ip_prefix"],
                         "subnet": vlan_details["subnet"],
+                        "peer_device": port["peer_device"],
                         "src_mac_address": src_mac_address,
                         "router_mac_address": router_mac_address,
                         "speed": speed,
