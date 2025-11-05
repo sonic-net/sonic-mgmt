@@ -8,6 +8,7 @@ import tempfile
 import scapy.all as scapy
 import ptf.testutils as testutils
 import random
+import re
 
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
@@ -22,7 +23,8 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
-                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_TC, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP)
+                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_TC, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR)
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +277,101 @@ def generate_packet(duthost, packet_type, dst_addr, send_pkt_size, send_pkt_dscp
     return pkt, masked_exp_packet
 
 
+def get_scheduler_oid_by_attributes(duthost, **kwargs):
+    """
+    Find scheduler OID in ASIC_DB by matching its attributes.
+
+    Args:
+        duthost: DUT host object
+        **kwargs: Scheduler attributes to match
+            - type: Scheduler type (e.g., "DWRR", "STRICT")
+            - weight: Scheduling weight (e.g., 15)
+            - pir: Peak Information Rate (e.g., 1)
+
+    Returns:
+        str: OID of the matched scheduler, or None if not found
+    """
+    # Mapping from CONFIG_DB parameters to ASIC_DB SAI attributes
+    param_to_sai_attr = {
+        'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
+        'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
+        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE'
+    }
+
+    # Mapping for type values
+    type_value_mapping = {
+        'DWRR': 'SAI_SCHEDULING_TYPE_DWRR',
+        'STRICT': 'SAI_SCHEDULING_TYPE_STRICT'
+    }
+
+    # Build expected attributes dictionary
+    expected_attrs = {}
+    for param, value in kwargs.items():
+        if param not in param_to_sai_attr:
+            logger.warning(f"Unknown scheduler parameter: {param}")
+            continue
+
+        sai_attr = param_to_sai_attr[param]
+
+        # Convert type value to SAI format
+        if param == 'type':
+            if value in type_value_mapping:
+                expected_attrs[sai_attr] = type_value_mapping[value]
+            else:
+                logger.warning(f"Unknown scheduler type: {value}")
+                continue
+        else:
+            # For numeric values, convert to string for comparison
+            expected_attrs[sai_attr] = str(value)
+
+    logger.info(f"Looking for scheduler with attributes: {expected_attrs}")
+
+    # Get all scheduler OIDs from ASIC_DB
+    cmd_get_oids = 'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid*"'
+    result = duthost.shell(cmd_get_oids)
+
+    if not result["stdout"].strip():
+        logger.warning("No schedulers found in ASIC_DB")
+        return None
+
+    oid_keys = result["stdout"].strip().split('\n')
+    logger.info(f"Found {len(oid_keys)} schedulers in ASIC_DB")
+
+    # Check each scheduler to find a match
+    for oid_key in oid_keys:
+        # Get all attributes of this scheduler
+        cmd_get_attrs = f'redis-cli -n 1 hgetall "{oid_key}"'
+        result = duthost.shell(cmd_get_attrs)
+
+        if not result["stdout"].strip():
+            continue
+
+        # Parse the attributes
+        lines = result["stdout"].strip().split('\n')
+        scheduler_attrs = {}
+        for i in range(0, len(lines), 2):
+            if i + 1 < len(lines):
+                scheduler_attrs[lines[i]] = lines[i + 1]
+
+        # Check if all expected attributes match
+        is_match = True
+        for attr_name, expected_value in expected_attrs.items():
+            actual_value = scheduler_attrs.get(attr_name)
+            if actual_value != expected_value:
+                is_match = False
+                break
+
+        if is_match:
+            # Extract the OID value (e.g., "0x160000000059aa")
+            oid_value = oid_key.split(':')[-1]
+            logger.info(f"Found matching scheduler OID: {oid_value}")
+            logger.debug(f"Scheduler attributes: {scheduler_attrs}")
+            return oid_value
+
+    logger.warning(f"No scheduler found matching attributes: {expected_attrs}")
+    return None
+
+
 def create_blocking_scheduler(duthost):
     """
     Create a blocking scheduler for limiting egress traffic
@@ -294,7 +391,7 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" DWRR "weight" 15 "pir" 1'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
         )
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
@@ -350,6 +447,42 @@ def validate_scheduler_configuration(duthost, dut_port, queue, expected_schedule
         return False
 
 
+def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid):
+    """
+    Validate that the scheduler is applied to queue in ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
+
+    Returns:
+        bool: True if applied to queue in ASIC_DB, False otherwise
+    """
+    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB")
+
+    # Dump ASIC_DB to a temporary file for faster searching
+    tmp_file = "/tmp/asic_db_scheduler_check.json"
+    dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
+    duthost.shell(dump_cmd)
+
+    # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
+    cmd_grep_oid = f'grep "SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID" {tmp_file} | grep -c "{scheduler_oid}"'
+    result = duthost.shell(cmd_grep_oid)
+
+    # Clean up temporary file
+    duthost.shell(f"rm -f {tmp_file}")
+
+    # Check if scheduler OID is found in ASIC_DB
+    count = int(result["stdout"].strip()) if result["stdout"].strip() else 0
+
+    if count > 0:
+        logger.debug(f"ASIC_DB scheduler validation successful: OID {scheduler_oid} found in {count} scheduler groups")
+        return True
+    else:
+        logger.debug(f"ASIC_DB scheduler validation failed: OID {scheduler_oid} not found in any scheduler group")
+        return False
+
+
 def disable_egress_data_plane(duthost, dut_port, queue):
     """
     Disable egress data plane for a specific queue on a specific port.
@@ -377,10 +510,19 @@ def disable_egress_data_plane(duthost, dut_port, queue):
     cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
 
-    # Wait for the blocking scheduler configuration to take effect
+    # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
     pytest_assert(wait_until(60, 5, 0, validate_scheduler_configuration,
                              duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
                   f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
+
+    # Get the blocking scheduler OID from ASIC_DB
+    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
+                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
+    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
+
+    # Wait for the blocking scheduler configuration to take effect in ASIC_DB
+    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid),
+                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} queue {queue}")
 
     logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
 
@@ -849,6 +991,62 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
         raise
 
 
+def get_buffer_profile_name_for_queue(duthost, interface: str, queue_id: int):
+    """
+    Return (profile_name, redis_key) for BUFFER_QUEUE on <interface> covering queue_id,
+    preferring range keys; among overlapping ranges choose the largest span first.
+    Falls back to exact key if no matching range exists. Looks in CONFIG_DB (db 4).
+    """
+    list_cmd = f"redis-cli -n 4 KEYS 'BUFFER_QUEUE|{interface}|*'"
+    res = duthost.shell(list_cmd)
+    raw = (res.get("stdout") or "").strip()
+    if not raw:
+        return (None, None)
+
+    keys = []
+    for line in raw.splitlines():
+        line = line.strip()
+        line = re.sub(r'^\d+\)\s*', '', line).strip().strip('"').strip("'")
+        if line.startswith("BUFFER_QUEUE|"):
+            keys.append(line)
+
+    if not keys:
+        return (None, None)
+
+    exact_match = None
+    range_matches = []  # (span, lo, hi, key)
+
+    for k in keys:
+        suffix = k.split("|")[-1]
+
+        if suffix.isdigit():
+            if int(suffix) == queue_id:
+                exact_match = k
+            continue
+
+        m = re.fullmatch(r'(\d+)\s*-\s*(\d+)', suffix)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            lo, hi = (a, b) if a <= b else (b, a)
+            if lo <= queue_id <= hi:
+                span = hi - lo
+                range_matches.append((span, lo, hi, k))
+
+    # Prefer the largest span; tie-break by lowest lo, then lowest hi for determinism
+    if range_matches:
+        range_matches.sort(key=lambda t: (-t[0], t[1], t[2]))
+        chosen = range_matches[0][3]
+    elif exact_match:
+        chosen = exact_match
+    else:
+        return (None, None)
+
+    hget_cmd = f"redis-cli -n 4 HGET '{chosen}' profile"
+    res = duthost.shell(hget_cmd)
+    profile_name = (res.get("stdout") or "").strip() or None
+    return (profile_name, chosen)
+
+
 def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     Get buffer profile information for a specific queue on an interface.
@@ -864,10 +1062,7 @@ def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     try:
         # Get buffer profile name for the queue
-        cmd = f"redis-cli -n 4 HGET 'BUFFER_QUEUE|{interface}|{queue_id}' profile"
-        result = duthost.shell(cmd)
-        profile_name = result["stdout"].strip()
-
+        profile_name, _ = get_buffer_profile_name_for_queue(duthost, interface, queue_id)
         if not profile_name:
             logger.warning(f"No buffer profile found for queue {queue_id} on {interface}")
             return None

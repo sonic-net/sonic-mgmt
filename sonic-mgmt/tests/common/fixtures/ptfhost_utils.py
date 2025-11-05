@@ -14,7 +14,7 @@ from tests.common.helpers.assertions import pytest_assert as pt_assert
 from tests.common.helpers.dut_utils import check_link_status
 from tests.common.dualtor.dual_tor_common import ActiveActivePortID
 from tests.common.dualtor.dual_tor_utils import update_linkmgrd_probe_interval, recover_linkmgrd_probe_interval
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from pytest_ansible.errors import AnsibleConnectionFailure
 
@@ -186,6 +186,8 @@ def copy_arp_responder_py(ptfhost):
 @pytest.fixture(scope="module", autouse=True)
 def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
     arp_responder_cfg = {}
+    if is_ipv6_only_topology(tbinfo):
+        ipv4_base = None
     config_facts = rand_selected_dut.config_facts(
         host=rand_selected_dut.hostname, source="running"
     )['ansible_facts']
@@ -223,9 +225,14 @@ def setup_vlan_arp_responder(ptfhost, rand_selected_dut, tbinfo):
                 server_ip[port]['server_ipv6'].split('/')[0]
             ]
             continue
-        arp_responder_cfg['eth{}'.format(ptf_index)] = [
-            str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
-        ]
+        if is_ipv6_only_topology(tbinfo):
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                str(ipv6_base.ip + ip_offset)
+            ]
+        else:
+            arp_responder_cfg['eth{}'.format(ptf_index)] = [
+                str(ipv4_base.ip + ip_offset), str(ipv6_base.ip + ip_offset)
+            ]
 
     CFG_FILE = '/tmp/arp_responder_vlan.json'
     with open(CFG_FILE, 'w') as file:

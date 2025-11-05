@@ -207,10 +207,6 @@ def setup_trimming(duthost, test_params):
         status = duthost.get_counter_poll_status()
         logger.info(f"Counter poll status: {status}")
 
-    with allure.step("Clear ports and queue counters"):
-        duthost.command("sonic-clear queuecounters")
-        duthost.command("sonic-clear counters")
-
     yield
 
     with allure.step("Disable trimming in buffer profile"):
@@ -303,3 +299,15 @@ def pytest_addoption(parser):
         required=False,
         help="reboot type such as reload, cold"
     )
+
+
+@pytest.fixture(scope="function", autouse=True)
+def clear_counters(duthost):
+    """
+    Clear all counters on the DUT.
+    """
+    duthost.shell("sonic-clear counters")
+    duthost.shell("sonic-clear queuecounters")
+    duthost.shell("sonic-clear switchcounters")
+
+    logger.info("Successfully cleared all counters on the DUT")

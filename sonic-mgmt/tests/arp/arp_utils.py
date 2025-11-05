@@ -10,11 +10,12 @@ MAC_STR = "000000000000"
 BASE_MAC_PREFIX = "00:00:01"
 
 
-def clear_dut_arp_cache(duthost, ns_option=None):
+def clear_dut_arp_cache(duthost, ns_option=None, is_ipv6=False):
     logger.info("Clearing {} neighbor table".format(duthost.hostname))
-    arp_flush_cmd = "ip -stats neigh flush all"
+    ipv6_cmd = '-6' if is_ipv6 else ''
+    arp_flush_cmd = "ip {} -stats neigh flush all".format(ipv6_cmd)
     if ns_option:
-        arp_flush_cmd = "ip -stats {} neigh flush all".format(ns_option)
+        arp_flush_cmd = "ip {} -stats {} neigh flush all".format(ipv6_cmd, ns_option)
     duthost.shell(arp_flush_cmd)
 
 
