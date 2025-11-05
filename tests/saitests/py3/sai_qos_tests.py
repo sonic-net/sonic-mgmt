@@ -44,9 +44,9 @@ from switch import (switch_init,          # noqa F401
                     sai_thrift_read_port_voq_counters,
                     sai_thrift_get_voq_port_id
                     )
-from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t,
+from switch_sai_thrift.ttypes import (sai_thrift_attribute_value_t, # noqa F401
                                       sai_thrift_attribute_t)
-from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID
+from switch_sai_thrift.sai_headers import SAI_PORT_ATTR_QOS_SCHEDULER_PROFILE_ID # noqa F401
 from scapy.layers.inet6 import ICMPv6ND_NS, ICMPv6NDOptDstLLAddr
 
 
