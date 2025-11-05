@@ -321,7 +321,7 @@ def verify_tcp_port(localhost, ip, port):
 
 def gnmi_capabilities(duthost, localhost, duthost_mgmt_ip):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = duthost_mgmt_ip['mgmt_ip']
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
     addr = f"[{ip}]" if duthost_mgmt_ip['version'] == 'v6' else f"{ip}"
