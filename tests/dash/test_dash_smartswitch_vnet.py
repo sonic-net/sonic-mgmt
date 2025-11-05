@@ -3,8 +3,9 @@ import pytest
 import ptf.testutils as testutils
 import packets
 import time
+import json
 
-from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF
+from constants import LOCAL_PTF_INTF, REMOTE_PA_IP, REMOTE_PTF_RECV_INTF, REMOTE_DUT_INTF, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
 from gnmi_utils import apply_gnmi_file
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.dash.conftest import get_interface_ip
@@ -68,6 +69,33 @@ def add_npu_static_routes_vnet(duthost, dash_smartswitch_vnet_config, skip_confi
 
 
 @pytest.fixture(scope="module", autouse=True)
+def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
+    """
+    Configure VXLAN UDP source port range in dpu configuration.
+    """
+    dpuhost = dpuhosts[dpu_index]
+    vxlan_sport_config = [
+        {
+            "SWITCH_TABLE:switch": {
+                "vxlan_sport": VXLAN_UDP_BASE_SRC_PORT,
+                "vxlan_mask": VXLAN_UDP_SRC_PORT_MASK
+            },
+            "OP": "SET"
+        }
+    ]
+
+    logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
+    config_path = "/tmp/vxlan_sport_config.json"
+    dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
+    apply_swssconfig_file(dpuhost, config_path)
+    if 'pensando' in dpuhost.facts['asic_type']:
+        logger.warning("Applying Pensando DPU VXLAN sport workaround")
+        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
+    yield
+    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
+
+@pytest.fixture(scope="module", autouse=True)
 def common_setup_teardown(
         localhost,
         duthost,
@@ -77,7 +105,8 @@ def common_setup_teardown(
         skip_config,
         dpuhosts,
         add_npu_static_routes_vnet,
-        dpu_setup_vnet):
+        dpu_setup_vnet,
+        set_vxlan_udp_sport_range):
     if skip_config:
         return
 
