@@ -317,11 +317,11 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         flap_tasks.clear()
 
     asyncio.run(flap_interfaces())
+
     if asic_type == "vpp":
         sleep_time = 180
     else:
         sleep_time = 60
-
     logger.info("Test Completed, waiting for {} seconds to stabilize the system".format(sleep_time))
     time.sleep(sleep_time)
 
