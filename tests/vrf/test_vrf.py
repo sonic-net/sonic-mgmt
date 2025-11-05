@@ -1276,7 +1276,13 @@ class TestVrfCapacity():
     cleanup_method = 'reboot'  # reboot or remove
 
     @pytest.fixture(scope="class")
-    def vrf_count(self, request):
+    def vrf_count(self, duthosts, rand_one_dut_hostname, request):
+        duthost = duthosts[rand_one_dut_hostname]
+        platform = duthost.facts["platform"]
+        asic_type = duthost.facts['asic_type']
+        if (asic_type in ["marvell-teralynx"] and platform in ["x86_64-wistron_6512_32r-r0", "x86_64-wistron_sw_to3200k-r0", "x86_64-cel_midstone-r0" ]):
+            self.VRF_CAPACITY = 256
+
         # get cmd line option value, use default if none
         vrf_capacity = request.config.option.vrf_capacity or self.VRF_CAPACITY
 
