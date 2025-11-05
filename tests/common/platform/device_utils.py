@@ -19,8 +19,8 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
-from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
-from tests.common.fixtures.duthost_utils import duthost_mgmt_ip # noqa F401
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 """
 Helper script for fanout switch operations
@@ -1081,7 +1081,8 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip, localhost, request): # noqa F811
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip,  # noqa: F811
+                               localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dut_ip = duthost_mgmt_ip['mgmt_ip']
 
@@ -1134,7 +1135,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthost_mgmt_ip, start_platform_api_service): # noqa F811
+def platform_api_conn(duthost_mgmt_ip, start_platform_api_service):  # noqa: F811
     dut_ip = duthost_mgmt_ip['mgmt_ip']
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
@@ -1146,7 +1147,7 @@ def platform_api_conn(duthost_mgmt_ip, start_platform_api_service): # noqa F811
 
 @pytest.fixture(scope='module')
 def add_platform_api_server_port_nat_for_dpu(
-        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
+        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
     '''
     This fixture is used to add a NAT rule to the DPU's eth0-midplane interface
     to forward traffic from NPU to the platform API server on DPU.
@@ -1174,7 +1175,7 @@ def add_platform_api_server_port_nat_for_dpu(
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
 
 
-def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
+def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa: F811
     host = ansible_adhoc(become=True, args=[], kwargs={})[duthost.hostname]
     vm = host.options["inventory_manager"].get_host(duthost.hostname).vars
     ansible_ssh_port = vm.get("ansible_ssh_port", None)
@@ -1182,7 +1183,7 @@ def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
     return ansible_ssh_port
 
 
-def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): # noqa F811
+def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost):  # noqa: F811
     '''
     Create a NPU host object based on DPU info
     E.g
