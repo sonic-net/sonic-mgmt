@@ -102,6 +102,7 @@
         pkg:
         - python3-libvirt
         - python3-pip
+        - python3-lxml
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
