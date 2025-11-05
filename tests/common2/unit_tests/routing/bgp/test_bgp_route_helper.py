@@ -11,37 +11,62 @@ from unittest.mock import Mock, patch
 import pytest
 import requests
 
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Get the absolute path to the test file
+test_file_dir = os.path.dirname(os.path.abspath(__file__))
 
+# Calculate paths relative to the test file
+repo_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(test_file_dir)))))
+common2_root = os.path.dirname(os.path.dirname(os.path.dirname(test_file_dir)))
+
+# Add paths to sys.path if not already there  # pylint: disable=wrong-spelling-in-comment
+if repo_root not in sys.path:
+    sys.path.insert(0, repo_root)
+if common2_root not in sys.path:
+    sys.path.insert(0, common2_root)
+
+# Also add current working directory for relative imports when running from tests/common2
+cwd = os.getcwd()
+if cwd.endswith("tests/common2") and cwd not in sys.path:
+    sys.path.insert(0, cwd)
+
+# Import the BGP module with fallback paths
+_BGP_MODULE = None
 try:
-    from bgp_route_control import (
-        BGPRouteController,
-        announce_route,
-        announce_route_with_community,
-        install_route_from_exabgp,
-        update_routes,
-        withdraw_route,
-        withdraw_route_with_community,
-    )
+    # Try absolute import first (when running from repo root)
+    from tests.common2.routing.bgp import bgp_route_control
+
+    _BGP_MODULE = bgp_route_control
 except ImportError:
-    # Fallback for when running from different directory
-    sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
-    from bgp_route_control import (
-        BGPRouteController,
-        announce_route,
-        announce_route_with_community,
-        install_route_from_exabgp,
-        update_routes,
-        withdraw_route,
-        withdraw_route_with_community,
-    )
+    try:
+        # Try relative import (when running from tests/common2)
+        from routing.bgp import bgp_route_control  # type: ignore
+
+        _BGP_MODULE = bgp_route_control
+    except ImportError:
+        # Last fallback - direct relative import
+        sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        from routing.bgp import bgp_route_control  # type: ignore
+
+        _BGP_MODULE = bgp_route_control
+
+# Import specific functions from the module
+BGPRouteController = _BGP_MODULE.BGPRouteController
+announce_route = _BGP_MODULE.announce_route
+announce_route_with_community = _BGP_MODULE.announce_route_with_community
+install_route_from_exabgp = _BGP_MODULE.install_route_from_exabgp
+update_routes = _BGP_MODULE.update_routes
+withdraw_route = _BGP_MODULE.withdraw_route
+withdraw_route_with_community = _BGP_MODULE.withdraw_route_with_community
+
+# Determine the correct module path for mocking based on the successful import
+BGP_MODULE_PATH = _BGP_MODULE.__name__
 
 
 @pytest.mark.unit_test
 class TestBGPRouteController:  # pylint: disable=too-many-public-methods
     """Test cases for BGPRouteController class."""
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_basic(self, mock_post: Mock) -> None:
         """Test basic route announcement."""
         # Arrange
@@ -58,7 +83,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_with_community(self, mock_post: Mock) -> None:
         """Test route announcement with community."""
         # Arrange
@@ -80,7 +105,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 community [1010:1010]"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_with_local_preference(self, mock_post: Mock) -> None:
         """Test route announcement with local preference."""
         # Arrange
@@ -102,7 +127,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 local-preference 150"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_with_all_attributes(self, mock_post: Mock) -> None:
         """Test route announcement with all optional attributes."""
         # Arrange
@@ -128,7 +153,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         )
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_withdraw_route_basic(self, mock_post: Mock) -> None:
         """Test basic route withdrawal."""
         # Arrange
@@ -145,7 +170,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "neighbor 10.0.0.1 withdraw route 192.168.10.0/24 next-hop 10.0.0.2"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_withdraw_route_with_attributes(self, mock_post: Mock) -> None:
         """Test route withdrawal with all attributes."""
         # Arrange
@@ -171,7 +196,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         )
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_http_error_handling_400(self, mock_post: Mock) -> None:
         """Test HTTP 400 error handling."""
         # Arrange
@@ -185,7 +210,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
                 ptfip="192.168.1.1", neighbor="10.0.0.1", route="192.168.10.0/24", nexthop="10.0.0.2", port=5000
             )
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_http_error_handling_500(self, mock_post: Mock) -> None:
         """Test HTTP 500 error handling."""
         # Arrange
@@ -199,7 +224,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
                 ptfip="192.168.1.1", neighbor="10.0.0.1", route="192.168.10.0/24", nexthop="10.0.0.2", port=5000
             )
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_connection_error_handling(self, mock_post: Mock) -> None:
         """Test connection error handling."""
         # Arrange
@@ -211,7 +236,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
                 ptfip="192.168.1.1", neighbor="10.0.0.1", route="192.168.10.0/24", nexthop="10.0.0.2", port=5000
             )
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_timeout_error_handling(self, mock_post: Mock) -> None:
         """Test timeout error handling."""
         # Arrange
@@ -223,7 +248,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
                 ptfip="192.168.1.1", neighbor="10.0.0.1", route="192.168.10.0/24", nexthop="10.0.0.2", port=5000
             )
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_routes_bulk_with_self_nexthop(self, mock_post: Mock) -> None:
         """Test bulk route announcement with self nexthop."""
         # Arrange
@@ -239,7 +264,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "announce attributes next-hop self nlri 192.168.1.0/24 192.168.2.0/24 192.168.3.0/24"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_routes_bulk_with_custom_nexthop(self, mock_post: Mock) -> None:
         """Test bulk route announcement with custom nexthop."""
         # Arrange
@@ -257,7 +282,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "announce attributes next-hop 10.0.0.2 nlri 192.168.1.0/24 192.168.2.0/24"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_withdraw_routes_bulk(self, mock_post: Mock) -> None:
         """Test bulk route withdrawal."""
         # Arrange
@@ -273,7 +298,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "withdraw attributes next-hop self nlri 192.168.1.0/24 192.168.2.0/24"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_bulk_operation_single_route(self, mock_post: Mock) -> None:
         """Test bulk operation with single route."""
         # Arrange
@@ -289,8 +314,8 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_command = "announce attributes next-hop self nlri 192.168.1.0/24"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
 
-    @patch("bgp_route_control.logger")
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.logger")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_bulk_operation_empty_route_list(self, mock_post: Mock, mock_logger: Mock) -> None:
         """Test bulk operation with empty route list."""
         # Act
@@ -300,7 +325,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         mock_logger.warning.assert_called_once_with("No routes provided for %s operation", "announce")
         mock_post.assert_not_called()
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_bulk_operation_http_error(self, mock_post: Mock) -> None:
         """Test bulk operation HTTP error handling."""
         # Arrange
@@ -313,7 +338,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         with pytest.raises(AssertionError, match="HTTP request failed with status 404"):
             BGPRouteController.announce_routes_bulk(ptfip="192.168.1.1", route_list=route_list, port=5000)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_attributes_announce(self, mock_post: Mock) -> None:
         """Test route update with attributes for announcement."""
         # Arrange
@@ -336,7 +361,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_msg = "announce route 192.168.10.0/24 next-hop 10.0.0.2 community 1010:1010 local-preference 150"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_attributes_withdraw(self, mock_post: Mock) -> None:
         """Test route update with attributes for withdrawal."""
         # Arrange
@@ -354,7 +379,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_msg = "withdraw route 192.168.10.0/24 next-hop 10.0.0.2"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_community_only(self, mock_post: Mock) -> None:
         """Test route update with community only."""
         # Arrange
@@ -372,7 +397,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
         expected_msg = "announce route 192.168.10.0/24 next-hop 10.0.0.2 community 2020:2020"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_local_preference_only(self, mock_post: Mock) -> None:
         """Test route update with local preference only."""
         # Arrange
@@ -439,7 +464,7 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 class TestConvenienceFunctions:
     """Test cases for convenience functions."""
 
-    @patch("bgp_route_control.BGPRouteController.announce_route")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.announce_route")
     def test_announce_route_convenience_basic(self, mock_announce: Mock) -> None:
         """Test announce_route convenience function without community."""
         # Act
@@ -448,7 +473,7 @@ class TestConvenienceFunctions:
         # Assert
         mock_announce.assert_called_once_with("192.168.1.1", "10.0.0.1", "192.168.10.0/24", "10.0.0.2", 5000, None)
 
-    @patch("bgp_route_control.BGPRouteController.announce_route")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.announce_route")
     def test_announce_route_convenience_with_community(self, mock_announce: Mock) -> None:
         """Test announce_route convenience function with community."""
         # Act
@@ -459,7 +484,7 @@ class TestConvenienceFunctions:
             "192.168.1.1", "10.0.0.1", "192.168.10.0/24", "10.0.0.2", 5000, "1010:1010"
         )
 
-    @patch("bgp_route_control.BGPRouteController.withdraw_route")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.withdraw_route")
     def test_withdraw_route_convenience_basic(self, mock_withdraw: Mock) -> None:
         """Test withdraw_route convenience function without community."""
         # Act
@@ -468,7 +493,7 @@ class TestConvenienceFunctions:
         # Assert
         mock_withdraw.assert_called_once_with("192.168.1.1", "10.0.0.1", "192.168.10.0/24", "10.0.0.2", 5000, None)
 
-    @patch("bgp_route_control.BGPRouteController.withdraw_route")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.withdraw_route")
     def test_withdraw_route_convenience_with_community(self, mock_withdraw: Mock) -> None:
         """Test withdraw_route convenience function with community."""
         # Act
@@ -479,7 +504,7 @@ class TestConvenienceFunctions:
             "192.168.1.1", "10.0.0.1", "192.168.10.0/24", "10.0.0.2", 5000, "1010:1010"
         )
 
-    @patch("bgp_route_control.BGPRouteController.announce_route")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.announce_route")
     def test_announce_route_with_community_convenience(self, mock_announce: Mock) -> None:
         """Test announce_route_with_community convenience function."""
         # Act
@@ -490,7 +515,7 @@ class TestConvenienceFunctions:
             "192.168.1.1", "10.0.0.1", "192.168.10.0/24", "10.0.0.2", 5000, "1010:1010", 10000
         )
 
-    @patch("bgp_route_control.BGPRouteController.withdraw_route")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.withdraw_route")
     def test_withdraw_route_with_community_convenience(self, mock_withdraw: Mock) -> None:
         """Test withdraw_route_with_community convenience function."""
         # Act
@@ -501,7 +526,7 @@ class TestConvenienceFunctions:
             "192.168.1.1", "10.0.0.1", "192.168.10.0/24", "10.0.0.2", 5000, "1010:1010", 10000
         )
 
-    @patch("bgp_route_control.BGPRouteController.announce_routes_bulk")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.announce_routes_bulk")
     def test_install_route_from_exabgp_announce(self, mock_announce_bulk: Mock) -> None:
         """Test install_route_from_exabgp with announce operation."""
         # Arrange
@@ -513,7 +538,7 @@ class TestConvenienceFunctions:
         # Assert
         mock_announce_bulk.assert_called_once_with("192.168.1.1", route_list, 5000)
 
-    @patch("bgp_route_control.BGPRouteController.withdraw_routes_bulk")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.withdraw_routes_bulk")
     def test_install_route_from_exabgp_withdraw(self, mock_withdraw_bulk: Mock) -> None:
         """Test install_route_from_exabgp with withdraw operation."""
         # Arrange
@@ -537,11 +562,11 @@ class TestConvenienceFunctions:
     def test_install_route_from_exabgp_empty_route_list(self) -> None:
         """Test install_route_from_exabgp with empty route list."""
         # This should still work as the bulk function handles empty lists
-        with patch("bgp_route_control.BGPRouteController.announce_routes_bulk") as mock_announce_bulk:
+        with patch(f"{BGP_MODULE_PATH}.BGPRouteController.announce_routes_bulk") as mock_announce_bulk:
             install_route_from_exabgp("announce", "192.168.1.1", [], 5000)
             mock_announce_bulk.assert_called_once_with("192.168.1.1", [], 5000)
 
-    @patch("bgp_route_control.BGPRouteController.update_route_with_attributes")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.update_route_with_attributes")
     def test_update_routes_convenience_announce(self, mock_update: Mock) -> None:
         """Test update_routes convenience function for announce."""
         # Arrange
@@ -553,7 +578,7 @@ class TestConvenienceFunctions:
         # Assert
         mock_update.assert_called_once_with("announce", "192.168.1.1", 5000, route_dict)
 
-    @patch("bgp_route_control.BGPRouteController.update_route_with_attributes")
+    @patch(f"{BGP_MODULE_PATH}.BGPRouteController.update_route_with_attributes")
     def test_update_routes_convenience_withdraw(self, mock_update: Mock) -> None:
         """Test update_routes convenience function for withdraw."""
         # Arrange
@@ -570,8 +595,8 @@ class TestConvenienceFunctions:
 class TestLogging:
     """Test cases for logging functionality."""
 
-    @patch("bgp_route_control.logger")
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.logger")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_logging_on_successful_single_route_request(self, mock_post: Mock, mock_logger: Mock) -> None:
         """Test that successful single route requests are logged."""
         # Arrange
@@ -590,8 +615,8 @@ class TestLogging:
             "BGP %s: URL=%s, Command=%s", "announce", "http://192.168.1.1:5000", expected_command
         )
 
-    @patch("bgp_route_control.logger")
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.logger")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_logging_on_bulk_operation(self, mock_post: Mock, mock_logger: Mock) -> None:
         """Test that bulk operations are logged."""
         # Arrange
@@ -611,8 +636,8 @@ class TestLogging:
         expected_command = "announce attributes next-hop self nlri 192.168.1.0/24 192.168.2.0/24"
         mock_logger.debug.assert_called_with("BGP bulk command: %s", expected_command)
 
-    @patch("bgp_route_control.logger")
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.logger")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_logging_on_update_route_operation(self, mock_post: Mock, mock_logger: Mock) -> None:
         """Test that update route operations are logged."""
         # Arrange
@@ -637,7 +662,7 @@ class TestLogging:
 class TestEdgeCases:
     """Test cases for edge cases and boundary conditions."""
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_ipv6_route_announcement(self, mock_post: Mock) -> None:
         """Test route announcement with IPv6 addresses."""
         # Arrange
@@ -654,7 +679,7 @@ class TestEdgeCases:
         expected_command = "neighbor 2001:db8::2 announce route 2001:db8:1::/64 next-hop 2001:db8::3"
         mock_post.assert_called_once_with("http://2001:db8::1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_large_route_list_bulk_operation(self, mock_post: Mock) -> None:
         """Test bulk operation with large route list."""
         # Arrange
@@ -672,7 +697,7 @@ class TestEdgeCases:
         expected_command = f"announce attributes next-hop self nlri {expected_nlri}"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_special_characters_in_community(self, mock_post: Mock) -> None:
         """Test route announcement with special characters in community."""
         # Arrange
@@ -694,7 +719,7 @@ class TestEdgeCases:
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 community [65000:123]"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_zero_local_preference(self, mock_post: Mock) -> None:
         """Test route announcement with zero local preference."""
         # Arrange
@@ -716,7 +741,7 @@ class TestEdgeCases:
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 local-preference 0"
         mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
 
-    @patch("bgp_route_control.requests.post")
+    @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_high_port_number(self, mock_post: Mock) -> None:
         """Test with high port number."""
         # Arrange

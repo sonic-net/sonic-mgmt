@@ -16,22 +16,22 @@ python3 -m pytest unit_tests/ -m unit_test -v
 
 ### Run specific test file
 ```bash
-python3 -m pytest tests/common2/unit_tests/test_bgp_route_helper.py -m unit_test -v
+python3 -m pytest tests/common2/unit_tests/routing/bgp/test_bgp_route_helper.py -m unit_test -v
 ```
 
 ### Run specific test class
 ```bash
-python3 -m pytest tests/common2/unit_tests/test_bgp_route_helper.py::TestBGPRouteController -m unit_test -v
+python3 -m pytest tests/common2/unit_tests/routing/bgp/test_bgp_route_helper.py::TestBGPRouteController -m unit_test -v
 ```
 
 ### Run specific test method
 ```bash
-python3 -m pytest tests/common2/unit_tests/test_bgp_route_helper.py::TestBGPRouteController::test_announce_route_basic -m unit_test -v
+python3 -m pytest tests/common2/unit_tests/routing/bgp/test_bgp_route_helper.py::TestBGPRouteController::test_announce_route_basic -m unit_test -v
 ```
 
 ### Run unit tests with coverage
 ```bash
-python3 -m pytest tests/common2/unit_tests/ -m unit_test --cov=bgp_route_control --cov-report=html
+python3 -m pytest tests/common2/unit_tests/ -m unit_test --cov=tests.common2.routing.bgp.bgp_route_control --cov-report=html
 ```
 
 ## Custom Markers
