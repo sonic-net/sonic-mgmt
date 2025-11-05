@@ -174,7 +174,7 @@
   retries: 10
   delay: 30
 
-- name: Create network for ceos container net_{{ vm_set_name }}_{{ vm_name }}
+- name: Create network for net ceos container
   become: yes
   ceos_network:
     name: net_{{ vm_set_name }}_{{ vm_name }}
