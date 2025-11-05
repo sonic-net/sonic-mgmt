@@ -91,7 +91,11 @@ class TestFaultHandling():
             ).format(dut_ingress_sa_table_orig, dut_ingress_sa_table_new)
             return True
         assert wait_until(30, 5, 2, check_new_mka_session), (
-            "New MKA session not established within expected time. ")
+            "New MKA session did not establish within the specified timeout. "
+            "Current status: '{}'.".format(
+                check_new_mka_session()
+            )
+        )
 
         # Flap > 90 seconds
         assert wait_until(12, 1, 0, lambda: find_portchannel_from_member(
@@ -170,7 +174,10 @@ class TestFaultHandling():
         # The mka should be establishing or established
         # To check whether the MKA establishment happened within 90 seconds
         assert not wait_until(90, 1, 12, check_mka_establishment), (
-            "MKA establishment failed. Expected MKA to not establish within expected time, but it did. "
+            "MKA establishment unexpectedly succeeded within the specified timeout. "
+            "Current status: '{}'.".format(
+                check_mka_establishment()
+            )
         )
 
         # Teardown
