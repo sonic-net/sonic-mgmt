@@ -64,6 +64,53 @@ def get_autoneg_fec(duthosts, get_snappi_ports):
     return get_snappi_ports
 
 
+def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
+    """
+    Example:
+    {
+        'ip': '10.36.84.32',
+        'port_id': '3',
+        'peer_port': 'Ethernet64',
+        'peer_device': 'sonic-s6100-dut2',
+        'speed': '100000',
+        'location': '10.36.84.32/1.1',
+        'intf_config_changed': False,
+        'api_server_ip': '10.36.78.134',
+        'asic_type': 'broadcom',
+        'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
+        'snappi_speed_type': 'speed_100_gbps',
+        'asic_value': None,
+        'autoneg': False,
+        'fec': True,
+        'ipAddress': '400::2',
+        'ipGateway': '400::1',
+        'prefix': '126',
+        'src_mac_address': '10:17:00:00:00:13',
+        'subnet': '400::1/126'
+    }
+    """
+    get_autoneg_fec(duthosts, get_snappi_ports)
+    mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
+    for duthost in duthosts:
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        for index, port in enumerate(get_snappi_ports):
+            if port['duthost'] == duthost:
+                peer_port = port['peer_port']
+                int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+                if subnet_type == 'ipv4':
+                    subnet = [ele for ele in int_addrs if "." in ele]
+                    port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                else:
+                    subnet = [ele for ele in int_addrs if ":" in ele]
+                    port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                if not subnet:
+                    pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
+                port['ipGateway'], port['prefix'] = subnet[0].split("/")
+                port['src_mac_address'] = mac_address_generator[index]
+                port['subnet'] = subnet[0]
+    return get_snappi_ports
+
+
 def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
     """
     Example:
