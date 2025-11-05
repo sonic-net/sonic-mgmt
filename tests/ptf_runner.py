@@ -97,7 +97,11 @@ def ptf_runner(host, testdir, testname, platform_dir=None, params={},
             # when ptf cmd execution result is 0 (success), we need to skip collecting pcap file
             ptf_collect(host, log_file, result is not None and result.get("rc", -1) == 0)
         if result:
-            allure.attach(json.dumps(result, indent=4), 'ptf_console_result', allure.attachment_type.TEXT)
+            allure.attach(
+                json.dumps(result, indent=4, cls=result.encoder),
+                'ptf_console_result',
+                allure.attachment_type.TEXT
+            )
         if module_ignore_errors:
             if result["rc"] != 0:
                 return result
