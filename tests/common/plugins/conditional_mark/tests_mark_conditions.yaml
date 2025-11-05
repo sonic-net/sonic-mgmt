@@ -1720,15 +1720,6 @@ pfcwd/test_pfcwd_warm_reboot.py:
         - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/8400"
 
 #######################################
-#####     platform_tests          #####
-#######################################
-platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
-#######################################
 #####     process_monitoring      #####
 #######################################
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
