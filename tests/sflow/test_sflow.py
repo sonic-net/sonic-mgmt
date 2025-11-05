@@ -196,7 +196,7 @@ def config_sflow(duthost, sflow_status='enable'):
 @pytest.fixture(scope='module')
 def config_sflow_feature(request, duthost):
     # Enable sFlow feature on DUT if enable_sflow_feature argument was passed
-    if request.config.getoption("--enable_sflow_feature"):
+    if request.config.getoption("--enable_sflow_feature") or duthost.facts['asic_type'] == 'vs':
         feature_status, _ = duthost.get_feature_status()
         if feature_status['sflow'] == 'disabled':
             duthost.shell("sudo config feature state sflow enabled")
