@@ -3364,12 +3364,6 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
-platform_tests/test_reload_config.py::test_reload_configuration_checks:
-  skip:
-    reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
-    conditions:
-      - "asic_type in ['cisco-8000']"
-
 #######################################
 #####     process_monitoring      #####
 #######################################
