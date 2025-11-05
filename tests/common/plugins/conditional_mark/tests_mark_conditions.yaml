@@ -3948,6 +3948,18 @@ snappi_tests:
     conditions:
       - "asic_type in ['vs']"
 
+snappi_tests/dash:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
+
+snappi_tests/dataplane:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
+
 snappi_tests/ecn/test_ecn_marking_with_pfc_quanta_variance_with_snappi.py:
   skip:
     reason: "Current test case only work with cisco platform"
@@ -3968,6 +3980,12 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
 
+snappi_tests/lacp:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
+
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
     reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
@@ -3987,6 +4005,12 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
     reason: "Forward action is not supported in cisco-8000."
     conditions:
       - "asic_type in ['cisco-8000']"
+
+snappi_tests/reboot:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
 
 #######################################
 #####            snmp             #####
