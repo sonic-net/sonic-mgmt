@@ -6,7 +6,6 @@ import pytest
 import tortuga_common_utils as common_util
 # Import Spytest APIs and helpers
 from spytest import st, tgapi, SpyTestDict
-from collections import OrderedDict
 
 scheduler_opts = ['type', 'weight', 'priority', 'meter-type', 'cir', 'pir',\
                   'cbs', 'pbs']
@@ -19,16 +18,17 @@ def setup_topo():
     Ensures minimum topology and sets global DUT handle.
     """
     global dut1
+    global test_dict
+
     st.log("setup topology Started")
     testbed_dict = st.ensure_min_topology("D1")
     dut1 = testbed_dict.D1
+    test_dict = common_util.get_qos_test_dict('../qos/qos_test_input1.json2',
+                                              'CLI_TESTS', True)
+    if test_dict == None:
+        st.report_fail('msg', 'Failed to read test input file or missing key')
+        return
     yield
-
-@pytest.fixture
-def env_config():
-    return {
-        "pfc_input_file" : os.getenv("PFC_INPUT_FILE"),
-    }
 
 def user_dict_to_cli_str(user_dict):
     cli_str = '"'
@@ -161,25 +161,7 @@ def qos_cfg_scheduler_handler(cli_dict, op, tag_name, user_data):
                                       tag_name)
     return 'Unknown op {}'.format(op), {}
 
-def test_single_map_add_update_del(env_config):
-    if env_config['pfc_input_file'] == None:
-        input_file = os.path.join(os.path.dirname(__file__),
-                         'qos_test_input1.json')
-    else:
-        input_file = env_config['pfc_input_file']
-    if not os.path.exists(input_file):
-        st.report_fail("Failed to input file {}".format(input_file))
-        return
-
-    test_dict = {}
-    with open(input_file, "r") as file_obj:
-        content = file_obj.read()
-        test_dict = json.loads(content, object_pairs_hook=OrderedDict)
-    if 'CLI_TESTS' not in test_dict:
-        st.report_fail("Qos tests input file{} has no test blocks".format(input_file))
-        return
-
-    test_dict = test_dict['CLI_TESTS']
+def test_single_map_add_update_del():
     for cmd_name, val in test_dict.items():
         if 'key_name' not in val:
             st.error("'key_name' missing in test block {}".format(cmd_name))

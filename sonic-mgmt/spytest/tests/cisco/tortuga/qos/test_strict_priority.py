@@ -23,14 +23,12 @@ def setup_topo():
     global test_info
 
     st.log("setup topology Started")
-    module_dir = os.path.dirname(__file__)
-    input_file = os.path.join(module_dir, 'sp_input.json2')
-    test_info = common_util.json2_file_to_dict(input_file)
+    test_info = common_util.get_qos_test_dict('../qos/sp_input_short.json2',
+                                              'STRICT_PRIORITY_TEST')
     if test_info == None:
-        st.report_fail('msg', 'Failed to read test input file sp_input.json2')
-        sys.exit(-1)
+        st.report_fail('msg', 'Failed to read test input file or missing key')
+        return
 
-    test_info = test_info['STRICT_PRIORITY_TEST']
     for k in min_keys:
         if k not in test_info:
             st.report_fail('msg', 'Input dictionary is missing {}'.format(k))

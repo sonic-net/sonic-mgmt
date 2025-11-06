@@ -13,6 +13,16 @@ configs:
     empty: {current: [], restore: []}
 
 devices:
+    spine1:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.27.95.6, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    spine2:
+        device_type: DevSonic
+        access: {protocol: ssh, ip: 172.27.95.7, port: 22}
+        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     leaf1:
         device_type: DevSonic
         access: {protocol: ssh, ip: 172.27.95.4, port: 22}
@@ -31,12 +41,20 @@ topology:
     leaf1:
         interfaces:
             Ethernet1_49: {EndDevice: leaf2, EndPort: Ethernet1_49, params: def_link}
+            Ethernet1_57: {EndDevice: spine1, EndPort: Ethernet1_1, params: def_link}
+            Ethernet1_58: {EndDevice: spine1, EndPort: Ethernet1_2, params: def_link}
+            Ethernet1_61: {EndDevice: spine2, EndPort: Ethernet1_1, params: def_link}
+            Ethernet1_62: {EndDevice: spine2, EndPort: Ethernet1_2, params: def_link}
             Ethernet1_64_2: {EndDevice: T1, EndPort: 1/13, params: def_tg_link}
             Ethernet1_64_1: {EndDevice: T1, EndPort: 1/14, params: def_tg_link}
             Ethernet1_60_2: {EndDevice: T1, EndPort: 1/15, params: def_tg_link}
             Ethernet1_60_1: {EndDevice: T1, EndPort: 1/16, params: def_tg_link}
     leaf2:
         interfaces:
+            Ethernet1_57: {EndDevice: spine1, EndPort: Ethernet1_13, params: def_link}
+            Ethernet1_58: {EndDevice: spine1, EndPort: Ethernet1_14, params: def_link}
+            Ethernet1_61: {EndDevice: spine2, EndPort: Ethernet1_13, params: def_link}
+            Ethernet1_62: {EndDevice: spine2, EndPort: Ethernet1_14, params: def_link}
             Ethernet1_64_1: {EndDevice: T1, EndPort: 1/17, params: def_tg_link}
             Ethernet1_64_2: {EndDevice: T1, EndPort: 1/18, params: def_tg_link}
             Ethernet1_60_2: {EndDevice: T1, EndPort: 1/19, params: def_tg_link}

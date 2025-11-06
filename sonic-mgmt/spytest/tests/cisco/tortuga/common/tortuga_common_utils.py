@@ -12,6 +12,7 @@ import apis.switching.mac as mac_obj
 import apis.system.interface as intf_obj
 import utilities.utils as utils_obj
 from utilities.common import filter_and_select
+from collections import OrderedDict
 
 platform_dict = {
     'carib'  : ['x86_64-hf6100_32d-r0'],
@@ -731,7 +732,7 @@ def get_if_mac(dut, if_name):
 
 # json2 is a json file with optional comment lines starting with hash
 # The function will strip the comment lines and return a dictionary
-def json2_file_to_dict(json2_file):
+def json2_file_to_dict(json2_file, ordered):
     result = ''
     with open(json2_file, 'r') as file_obj:
         for line in file_obj:
@@ -740,7 +741,8 @@ def json2_file_to_dict(json2_file):
             if temp.startswith('#'):
                 continue
             result += line
-        return json.loads(result)
+        return json.loads(result, object_pairs_hook=OrderedDict) if ordered \
+               else json.loads(result)
     return None
 
 def is_q200(plat_str):
@@ -762,4 +764,13 @@ def find_platform_str(dut):
         if platform_str in value:
             return key
     st.error('Failed to find platform string for {}'.format(platform_str))
+    return None
+
+def get_qos_test_dict(fname, key, ordered=False):
+    input_file = os.path.join(os.path.dirname(__file__), fname)
+    if not os.path.exists(input_file):
+        return None
+    input_dict = json2_file_to_dict(input_file, ordered)
+    if input_dict != None and key in input_dict:
+        return input_dict[key]
     return None

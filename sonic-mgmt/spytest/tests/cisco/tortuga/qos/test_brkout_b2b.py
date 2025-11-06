@@ -23,86 +23,101 @@ def platform_to_modes(plat_str):
     if common_util.is_g200(plat_str):
         return vars.test_info['G200_modes']
 
-def check_dut_tgen_ports(dut, first_key):
-    port_list = []
-    port_key = first_key
-    ctr = 1
+def dut_to_tgen_str(dut):
+    if dut == vars.D1:
+        return 'D1T1P1'
+    if dut == vars.D2:
+        return 'D2T1P1'
+    if dut == vars.D3:
+        return 'D3T1P1'
+    if dut == vars.D4:
+        return 'D4T1P1'
+    return ''
 
-    # First build a list of router ports connected to tgen
-    while port_key in tb_dict:
-        port_list.append(tb_dict[port_key])
-        ctr += 1
-        port_key = port_key[:-1] + str(ctr)
+def check_dut_tgen_ports():
+    if st.get_args('skip_tgen'):
+        st.log("TGEN is skipped; bypassing DUT tgen port check.")
+        return True
 
-    cfg_dut = ''
-    result = st.show(dut, 'show int status', skip_tmpl=True)
-    lines = result.splitlines()
-    for line in lines:
-        tokens = line.split()
-        if 'Ethernet' not in tokens[0]:
-            # ignore extraneous lines
-            continue
-        if tokens[0] in port_list:
-            cfg_dut += 'config interface startup {}\n'.format(tokens[0])
-            port_list.remove(tokens[0])
+    stream_api.tgen_handle, _ = tgapi.get_handle_byname('T1D3P1')
+    for dut in vars.b2b_dut:
+        port_list = []
+        port_key = dut_to_tgen_str(dut)
+        ctr = 1
 
-    if len(port_list) == 0:
+        # First build a list of DUT ports connected to tgen
+        while port_key in tb_dict:
+            port_list.append(tb_dict[port_key])
+            ctr += 1
+            port_key = port_key[:-1] + str(ctr)
+
+        # Now make sure these ports exist on the DUT
+        cfg_dut = ''
+        result = st.show(dut, 'show int status', skip_tmpl=True)
+        lines = result.splitlines()
+        for line in lines:
+            tokens = line.split()
+            if 'Ethernet' not in tokens[0]:
+                # ignore extraneous lines
+                continue
+            if tokens[0] in port_list:
+                cfg_dut += 'config interface startup {}\n'.format(tokens[0])
+                port_list.remove(tokens[0])
+
+        if len(port_list) > 0:
+            return False
         st.config(dut, cfg_dut, skip_tmpl=True)
         st.wait(15)
-        return True
-    return False
-
-@pytest.fixture(scope="module")
-def env_config():
-    return {
-        "pfc_input_file" : os.getenv("PFC_INPUT_FILE"),
-    }
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_topo(env_config):
+def setup_topo():
     global vars
     global tb_dict
     global brkout_result
 
-    # We need 4 links from tgen to each dut and one link between the two duts
-    tb_dict = st.ensure_min_topology("D1D2:1", "T1D1:4", "T1D2:4")
+    # This is standard 2 spine 2 leaf topology with 4 tgen ports on each leaf
+    tb_dict = st.ensure_min_topology("D1D3:2", "D1D4:2", "D2D3:2", "D2D4:2",
+                                     "D3T1:4", "D4T1:4")
     vars = st.get_testbed_vars()
-    vars.b2b_list = [vars.D1D2P1, vars.D2D1P1]
-    vars.plat_str = []
-    vars.if_dict = {}
-
-    # Make sure router ports connected to tgen exist. Sometimes the parent
-    # has to be broken for the child ports to be instantiated
-    if not check_dut_tgen_ports(vars.D1, 'D1T1P1') or \
-       not check_dut_tgen_ports(vars.D2, 'D2T1P1'):
-        st.report_fail('msg', 
-                       'Ports specified in yaml file do not exist on DUT')
+    if 'D3D4P1' in tb_dict:
+        # Either we have leaf to leaf link which is non-standard
+        vars.b2b_link = [vars.D3D4P1, vars.D4D3P1]
+        vars.b2b_dut = [vars.D3, vars.D4]
+        vars.tgen_str = ['T1D3P', 'T1D4P']
+    elif 'D3D1P1' in tb_dict:
+        # the standard leaf to spine link
+        vars.b2b_link = [vars.D3D1P1, vars.D1D3P1]
+        vars.b2b_dut = [vars.D3, vars.D1]
+        vars.tgen_str = ['T1D3P', 'T1D1P']
+    else:
+        st.report_fail('msg', 'No valid b2b link found in the topology')
         return
 
-    result2 = st.show(vars.D2, 'show int status', skip_tmpl=True)
-    port_list = []
-    port_key = 'D2T1P'
-    
-    for dut, if_name in zip(vars.dut_list, vars.b2b_list):
-        vars.plat_str.append(common_util.find_platform_str(dut))
-        # get the interface specific list from show interface breakout
-        full_brk_dict = common_util.show_cmd_to_dict(dut, 'interface breakout',
-                                                     False)
-        vars.if_dict[dut] = full_brk_dict[if_name]
-        st.config(dut, 'config feature state lldp enabled', skip_tmpl=True)
-
+    vars.plat_str = []
+    vars.if_dict = []
     # Get platform specific or test specific info from input json
-    if env_config['pfc_input_file'] == None:
-        input_file = 'dpb_input.json2'
-    else:
-        input_file = env_config['pfc_input_file']
-    input_file = os.path.join(os.path.dirname(__file__), input_file)
-    vars.test_info = common_util.json2_file_to_dict(input_file)
+    vars.test_info = common_util.get_qos_test_dict('../qos/brkout_input.json2',
+                                                   'DPB_TEST')
     if vars.test_info == None:
         st.report_fail('msg', 'Failed to get input json dictionary')
         return
 
-    vars.test_info = vars.test_info['DPB_TEST']
+    # Make sure router ports connected to tgen exist. Sometimes the parent
+    # has to be broken for the child ports to be instantiated
+    if check_dut_tgen_ports() == False:
+        st.report_fail('msg', 
+                       'Ports specified in yaml file do not exist on DUT')
+        return
+
+    for dut, if_name in zip(vars.b2b_dut, vars.b2b_link):
+        vars.plat_str.append(common_util.find_platform_str(dut))
+        # get the interface specific list from show interface breakout
+        full_brk_dict = common_util.show_cmd_to_dict(dut, 'interface breakout',
+                                                     False)
+        vars.if_dict.append(full_brk_dict[if_name])
+        st.config(dut, 'config feature state lldp enabled', skip_tmpl=True)
+        st.config(dut, 'config qos reload', skip_tmpl=True)
+
     # There are some platform specific restrictions on breakout modes
     # These restrictions are given in the input json file
     set1 = platform_to_modes(vars.plat_str[0])
@@ -119,10 +134,6 @@ def setup_topo(env_config):
        brkout_result[cli_mode] = ''
 
     print('Final breakout modes {}'.format(brkout_result))
-
-    st.config(vars.D1, 'config qos reload', skip_tmpl=True)
-    st.config(vars.D2, 'config qos reload', skip_tmpl=True)
-    stream_api.tgen_handle, _ = tgapi.get_handle_byname('T1D1P1')
 
     # Now make sure we have the required tgen ports on the router side
     # Sometimes they have to be broken due to previous state of router
@@ -156,40 +167,37 @@ def collect_if_list(dut, if_name):
             if_list.append(line)
     return if_list
 
-def config_b2b_link_ip(if1, if2, ctr):
-    # Given 2 peer interfaces on DUT1 and DUT2, configure IP addresses
-    # and perform ping test from DUT1 to DUT2
-    ip1 = '192.168.{}.1'.format(100 + ctr)
-    ip2 = '192.168.{}.2'.format(100 + ctr)
-    vars.if_map.append((ip1, ip2))
-    st.config(vars.D1, 'config interface ip add {} {}/24'
-                .format(if1, ip1), skip_tmpl=True)
-    st.config(vars.D2, 'config interface ip add {} {}/24'
-                .format(if2, ip2), skip_tmpl=True)
-    vars.addr_uncfg1 += 'config interface ip remove {} {}/24\n'.format(if1,
-                                                                ip1)
-    vars.addr_uncfg2 += 'config interface ip remove {} {}/24\n'.format(if2,
-                                                                ip2)
+def config_b2b_link_pair(if1, if2, ctr):
+    ip_list = ['192.168.{}.1'.format(100 + ctr),
+               '192.168.{}.2'.format(100 + ctr)]
+    intf_name = if1
+    for i in range(2):
+        st.config(vars.b2b_dut[i], 'config interface ip add {} {}/24'
+                  .format(intf_name, ip_list[i]), skip_tmpl=True)
+        vars.addr_uncfg[i] += 'config interface ip remove {} {}/24\n'\
+                              .format(intf_name, ip_list[i])
+        intf_name = if2
+    vars.if_map.append(ip_list)
 
 def collect_lldp_neighor_info(intf_cnt):
     # Now that all interfaces are up, get LLDP neighbor info
     # This is always done on DUT1 side
     ctr = 0
     vars.if_map = []
-    vars.addr_uncfg1 = ''
-    vars.addr_uncfg2 = ''
-    result = st.show(vars.D1, "show lldp table", skip_tmpl=True)
+    vars.addr_uncfg = ['', '']
+    st.wait(32)
+    result = st.show(vars.b2b_dut[0], "show lldp table", skip_tmpl=True)
     lines = result.splitlines()
     list1 = list2 = []
     for line in lines:
-        if vars.D1D2P1 not in line:
+        if vars.b2b_link[0] not in line:
             continue
         tokens = line.split()
         ctr += 1
+        config_b2b_link_pair(tokens[0], tokens[4], ctr)
         # Keep track of interfaces seen in lldp table output
         list1.append(tokens[0])
         list2.append(tokens[4])
-        config_b2b_link_ip(tokens[0], tokens[4], ctr)
 
     # All new interfaces should have shown up in LLDP table
     delta = intf_cnt - ctr
@@ -197,17 +205,16 @@ def collect_lldp_neighor_info(intf_cnt):
         return 'LLDP neighbor count mismatch'
     if delta == 1:
         st.log('Handling one missing LLDP neighbor case')
-        diff1 = set(vars.exp_if_list1) - set(list1)
-        diff2 = set(vars.exp_if_list2) - set(list2)
+        diff1 = set(vars.exp_if_list[0]) - set(list1)
+        diff2 = set(vars.exp_if_list[1]) - set(list2)
         ctr += 1
-        config_b2b_link_ip(diff1.pop(), diff2.pop(), ctr)
+        config_b2b_link_pair(diff1.pop(), diff2.pop(), ctr)
     return 'OK'
 
 def ping_neighbor(ip_addr):
     # perform ping to the neighbor IP
-    result = st.config(vars.D1,
-                        'ping -c 10 {}'.format(ip_addr),
-                        skip_tmpl=True)
+    result = st.config(vars.b2b_dut[0], 'ping -c 10 {}'.format(ip_addr),
+                       skip_tmpl=True)
     # Parse the ping result by checking for % packet loss
     idx = result.find('% packet loss')
     if idx == -1:
@@ -236,8 +243,8 @@ def perform_traffic_test():
         st.log('Creating stream for link {} using tgen port# {}'.
                format(pair, i))
         str_hndl = stream_api.create_traffic_stream(tb_dict,
-                                'T1D1P' + str(i),
-                                'T1D2P' + str(i),
+                                vars.tgen_str[0] + str(i),
+                                vars.tgen_str[1] + str(i),
                                 8192, pps, 3)
         if str_hndl != None:
             streams.append(str_hndl)
@@ -253,25 +260,26 @@ def perform_traffic_test():
     for s in streams:
         stream_api.delete_traffic_stream(s)
     # All config should now be removed to prepare for next breakout
-    st.config(vars.D1, vars.route_uncfg1 + vars.addr_uncfg1, skip_tmpl=True)
-    st.config(vars.D2, vars.route_uncfg2 + vars.addr_uncfg2, skip_tmpl=True)
+    for i in range(2):
+        st.config(vars.b2b_dut[i], vars.route_uncfg[i] + vars.addr_uncfg[i],
+                  skip_tmpl=True)
 
 def perform_one_breakout(mode, test_type):
     brkout_result[mode] = []
     # Collect existing interfaces before breakout and perform qos clear
-    for dut, if_name in zip(vars.dut_list, vars.b2b_list):
+    for dut, if_name in zip(vars.b2b_dut, vars.b2b_link):
         port_list = collect_if_list(dut, if_name)
         perform_qos_cli(dut, port_list, 'clear')
     
     # Get expected interface list after breakout. This is taken from
     # show interface breakout output collected during topo setup
-    vars.exp_if_list1 = vars.if_dict[vars.D1]['breakout_modes'][mode]
-    vars.exp_if_list2 = vars.if_dict[vars.D2]['breakout_modes'][mode]
-    if len(vars.exp_if_list1) != len(vars.exp_if_list2):
+    vars.exp_if_list = []
+    for i in range(2):
+        vars.exp_if_list.append(vars.if_dict[i]['breakout_modes'][mode])
+    if len(vars.exp_if_list[0]) != len(vars.exp_if_list[1]):
         brkout_result[mode] = 'Mismatch in breakout count'
         return
-    exp_if_list = [vars.exp_if_list1, vars.exp_if_list2]
-    intf_cnt = len(vars.exp_if_list1)
+    intf_cnt = len(vars.exp_if_list[0])
 
     # Determine the breakout flags
     fec_t = ['none', 'none']
@@ -284,7 +292,7 @@ def perform_one_breakout(mode, test_type):
     else:
         flags = '-yfl'
     # Now perform breakout on both DUTs
-    for dut, if_name, fec in zip(vars.dut_list, vars.b2b_list, fec_t):
+    for dut, if_name, fec in zip(vars.b2b_dut, vars.b2b_link, fec_t):
         brkout_cmd = 'config interface breakout {} "{}" {}'.format(
                         if_name, mode, flags)
         if mode in lane_speed_25g:
@@ -295,7 +303,7 @@ def perform_one_breakout(mode, test_type):
             return
 
     # Now get actual interface list after breakout and verify count
-    for dut, org_if_name in zip(vars.dut_list, vars.b2b_list):
+    for dut, org_if_name in zip(vars.b2b_dut, vars.b2b_link):
         port_list = collect_if_list(dut, org_if_name)
         if len(port_list) != intf_cnt:
             brkout_result[mode] = 'Mismatch in breakout count after cli'
@@ -304,7 +312,7 @@ def perform_one_breakout(mode, test_type):
         perform_qos_cli(dut, port_list, 'reload')
 
     # Startup all the newly created interfaces
-    for dut, if_list in zip(vars.dut_list, exp_if_list):
+    for dut, if_list in zip(vars.b2b_dut, vars.exp_if_list):
         for if_name in if_list:
             st.config(dut,
                     'config interface startup {}\n'.format(if_name) +
@@ -317,14 +325,14 @@ def perform_one_breakout(mode, test_type):
     while wait_time < vars.wait_time:
         st.wait(10)
         wait_time += 10
-        result1 = st.show(vars.D1,
+        result1 = st.show(vars.b2b_dut[0],
                           "show int status | egrep '{} |{}_'"
-                          .format(vars.D1D2P1, vars.D1D2P1),
+                          .format(vars.b2b_link[0], vars.b2b_link[0]),
                           skip_tmpl=True)
         lines = result1.splitlines()
         down_ctr = 0
         for line in lines:
-            if vars.D1D2P1 not in line:
+            if vars.b2b_link[0] not in line:
                 continue
             tokens = line.split()
             if tokens[7] != 'up':
@@ -347,7 +355,10 @@ def perform_one_breakout(mode, test_type):
     # for dut in vars.dut_list:
         # st.show(dut, 'show runningconfiguration all', skip_tmpl=True)
     perform_ping_test()
-    perform_traffic_test()
+    if vars.test_info['Traffic_test'] == 'True':
+        # traffic test is only possible with leaf to leaf connection
+        # otherwise it becomes more complicated
+        perform_traffic_test()
 
 def process_brkout_result():
     for key, value in brkout_result.items():

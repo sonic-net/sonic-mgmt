@@ -101,17 +101,17 @@ two_spine_two_leaf_map = {
 
 # This is used in a back 2 back setup. 2 DUTs connected to each other via
 # one link and also having 4 links each to traffic generator
-leaf_to_leaf_map = {
+b2b_ip_map = {
     # Links from leaves to traffic generator
-    'D1T1P1' : '27.1.1.1',
-    'D1T1P2' : '29.1.1.1',
-    'D1T1P3' : '31.1.1.1',
-    'D1T1P4' : '33.1.1.1',
+    'D3T1P1' : '27.1.1.1',
+    'D3T1P2' : '29.1.1.1',
+    'D3T1P3' : '31.1.1.1',
+    'D3T1P4' : '33.1.1.1',
 
-    'D2T1P1' : '35.1.1.1',
-    'D2T1P2' : '37.1.1.1',
-    'D2T1P3' : '39.1.1.1',
-    'D2T1P4' : '41.1.1.1',
+    'D4T1P1' : '35.1.1.1',
+    'D4T1P2' : '37.1.1.1',
+    'D4T1P3' : '39.1.1.1',
+    'D4T1P4' : '41.1.1.1',
 }
 
 one_device_map = {
@@ -305,18 +305,18 @@ def config_two_spine_two_leaf_topo(tb_dict):
     st.show(tb_dict.D4, "show ip interfaces\n", skip_tmpl=True)
     st.show(tb_dict.D4, "show ip route\n", skip_tmpl=True)
 
-def config_2leaf_ixia_links(tb_dict):
+def config_ixia_links(tb_dict, vars):
     global net_map
 
-    # Configure leaf to traffic generator links. This is one time setup
-    net_map = leaf_to_leaf_map
+    # Configure DUT to traffic generator links. This is one time setup
+    net_map = b2b_ip_map
     cfg_dut1 = ''
     cfg_dut2 = ''
     for key, value in net_map.items():
         cfg_flush = 'ip route flush dev {}\nip addr flush dev {}\n'\
                     .format(tb_dict[key], tb_dict[key])
         p1 = key[0:2]
-        if p1 == 'D1':
+        if p1 == 'D3':
             cfg_dut1 += cfg_flush +\
                 'config interface ip add {} {}/24\n'.format(tb_dict[key],
                                                             value)
@@ -324,21 +324,19 @@ def config_2leaf_ixia_links(tb_dict):
             cfg_dut2 += cfg_flush +\
                 'config interface ip add {} {}/24\n'.format(tb_dict[key],
                                                             value)
-    st.config(tb_dict.D1, cfg_dut1, skip_tmpl=True)
-    st.config(tb_dict.D2, cfg_dut2, skip_tmpl=True)
+    st.config(tb_dict.D3, cfg_dut1, skip_tmpl=True)
+    st.config(tb_dict.D4, cfg_dut2, skip_tmpl=True)
 
     # Just for debug display the interfaces
-    st.show(tb_dict.D1, 'show ip interfaces', skip_tmpl=True)
-    st.show(tb_dict.D2, 'show ip interfaces', skip_tmpl=True)
+    st.show(tb_dict.D3, 'show ip interfaces', skip_tmpl=True)
+    st.show(tb_dict.D4, 'show ip interfaces', skip_tmpl=True)
 
 def config_b2b_routes(vars, dut_str):
-    if dut_str == 'D1':
-        peer_dut = vars.D2
-        vars.route_uncfg2 = ''
+    if dut_str == 'D3':
+        peer_dut = vars.D4
         idx = 0
     else:
-        peer_dut = vars.D1
-        vars.route_uncfg1 = ''
+        peer_dut = vars.D3
         idx = 1
 
     # Configure routes on peer DUT to reach networks on local DUT
@@ -352,22 +350,23 @@ def config_b2b_routes(vars, dut_str):
         net = ip_to_net(value)
         cfg_dut += 'ip route add {}/24 via {}\n'.format(net, vars.if_map[i][idx])
         uncfg = 'ip route del {}/24 via {}\n'.format(net, vars.if_map[i][idx])
-        if dut_str == 'D1':
-            vars.route_uncfg2 += uncfg
+        if dut_str == 'D3':
+            vars.route_uncfg[1] += uncfg
         else:
-            vars.route_uncfg1 += uncfg
+            vars.route_uncfg[0] += uncfg
         # We make an attempt to spread the routes across the available links
         i = (i + 1) % num_b2b_links
     st.config(peer_dut, cfg_dut, skip_tmpl=True)
 
 def config_b2b_with_ixia_setup(tb_dict, vars):
-    config_2leaf_ixia_links(tb_dict)
-    config_b2b_routes(vars, 'D1')
-    config_b2b_routes(vars, 'D2')
+    vars.route_uncfg = ['', '']
+    config_ixia_links(tb_dict, vars)
+    config_b2b_routes(vars, 'D3')
+    config_b2b_routes(vars, 'D4')
 
     # Just for debug display the ip route tables on both DUTs
-    st.show(tb_dict.D1, 'ip route', skip_tmpl=True)
-    st.show(tb_dict.D2, 'ip route', skip_tmpl=True)
+    st.show(tb_dict.D3, 'ip route', skip_tmpl=True)
+    st.show(tb_dict.D4, 'ip route', skip_tmpl=True)
 
 def config_one_leaf(tb_dict, t_info):
     global net_map

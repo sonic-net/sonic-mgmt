@@ -1,3 +1,5 @@
+# These commands are to be executed in sequence so they are laid out
+# in a certain way. Atleast within a subblock like scheduler it is executed in sequence
 {
 "CLI_TESTS" : {
   "scheduler" : {
