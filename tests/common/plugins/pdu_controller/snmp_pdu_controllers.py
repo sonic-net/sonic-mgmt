@@ -164,8 +164,8 @@ class snmpPduController(PduControllerBase):
         return value
 
     def _get_pdu_snmp_creds(self, pdu, perm):
-        context = {'secret_group_vars': pdu['secret_group_vars']}
-        if 'pdu_{}_snmp_version'.format(perm) in pdu:
+        if 'pdu_{}_snmp_version'.format(perm) in pdu and 'secret_group_vars' in pdu:
+            context = {'secret_group_vars': pdu['secret_group_vars']}
             version = pdu['pdu_{}_snmp_version'.format(perm)]
             if version == 'v2c':
                 if 'pdu_snmp_{}community'.format(perm) not in pdu:
@@ -213,7 +213,11 @@ class snmpPduController(PduControllerBase):
 
         else:
             snmp_community = pdu['snmp_{}community'.format(perm)]
-            snmp_auth = cmdgen.CommunityData(self._render_value(snmp_community, context))
+            if 'secret_group_vars' in pdu:
+                context = {'secret_group_vars': pdu['secret_group_vars']}
+                snmp_auth = cmdgen.CommunityData(self._render_value(snmp_community, context))
+            else:
+                snmp_auth = cmdgen.CommunityData(snmp_community)
         setattr(self, "{}_snmp_auth".format(perm), snmp_auth)
         return True
 
