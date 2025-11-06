@@ -2387,6 +2387,13 @@ gnmi/test_gnmi.py:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+gnmi/test_gnmi_2038.py:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
 gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
   skip:
     reason: "dut ipv6 mgmt ip not supported"
