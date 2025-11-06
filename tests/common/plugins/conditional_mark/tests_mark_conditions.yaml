@@ -1256,6 +1256,14 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
       - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
+ecmp/test_ecmp_balance.py:
+  skip:
+    reason: "Only support Broadcom T1/T0 topology for now"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t1', 't0']"
+      - "asic_type not in ['broadcom']"
+
 ecmp/test_ecmp_sai_value.py:
   skip:
     reason: "Only support Broadcom T1/T0 topology with 20230531 and above image, 7050cx3 T1 doesn't enable this feature"
