@@ -1,0 +1,689 @@
+leaf1:
+  sonic:
+    config: |
+      sudo counterpoll tunnel enable
+      sudo config interface ipv6 enable use-link-local-only D3T1P1
+      sudo config interface startup D3T1P1
+      sudo config loopback add Loopback0
+      sudo config interface ip add Loopback0 2001:1::1/128
+      sudo config vxlan add VXLAN 2001:1::1
+      sudo config vxlan evpn_nvo add NVO VXLAN
+      sudo config vlan add 2
+      sudo config vlan add 3
+      sudo config vlan add 4
+      sudo config vlan add 5
+      sudo config vlan add 6
+      sudo config vlan add 7
+      sudo config vlan add 8
+      sudo config vlan add 9
+      sudo config vlan add 10
+      sudo config vlan add 11
+      sudo config vlan add 12
+      sudo config vlan add 13
+      sudo config vlan add 14
+      sudo config vlan add 15
+      sudo config vlan add 16
+      sudo config vlan add 17
+      sudo config vlan add 18
+      sudo config vlan add 19
+      sudo config vlan add 20
+      sudo config vlan add 21
+      sudo config vlan add 22
+      sudo config vlan add 23
+      sudo config vlan add 24
+      sudo config vlan add 25
+      sudo config vlan add 26
+      sudo config vlan add 27
+      sudo config vlan add 28
+      sudo config vlan add 29
+      sudo config vlan add 30
+      sudo config vlan add 31
+      sudo config vlan add 32
+      sudo config vlan add 33
+      sudo config vlan add 34
+      sudo config vlan add 35
+      sudo config vlan add 36
+      sudo config vlan add 37
+      sudo config vlan add 38
+      sudo config vlan add 39
+      sudo config vlan add 40
+      sudo config vlan add 41
+      sudo config vlan add 42
+      sudo config vlan add 43
+      sudo config vlan add 44
+      sudo config vlan add 45
+      sudo config vlan add 46
+      sudo config vlan add 47
+      sudo config vlan add 48
+      sudo config vlan add 49
+      sudo config vlan add 50
+      sudo config vlan add 51
+      sudo config vlan add 52
+      sudo config vlan add 53
+      sudo config vlan add 54
+      sudo config vlan add 55
+      sudo config vlan add 56
+      sudo config vlan add 57
+      sudo config vlan add 58
+      sudo config vlan add 59
+      sudo config vlan add 60
+      sudo config vlan add 61
+      sudo config vlan add 62
+      sudo config vlan add 63
+      sudo config vlan add 64
+      sudo config vlan add 65
+      sudo config vlan add 66
+      sudo config vlan add 67
+      sudo config vlan add 68
+      sudo config vlan add 69
+      sudo config vlan add 70
+      sudo config vlan add 71
+      sudo config vlan add 72
+      sudo config vlan add 73
+      sudo config vlan add 74
+      sudo config vlan add 75
+      sudo config vlan add 76
+      sudo config vlan add 77
+      sudo config vlan add 78
+      sudo config vlan add 79
+      sudo config vlan add 80
+      sudo config vlan add 81
+      sudo config vlan add 82
+      sudo config vlan add 83
+      sudo config vlan add 84
+      sudo config vlan add 85
+      sudo config vlan add 86
+      sudo config vlan add 87
+      sudo config vlan add 88
+      sudo config vlan add 89
+      sudo config vlan add 90
+      sudo config vlan add 91
+      sudo config vlan add 92
+      sudo config vlan add 93
+      sudo config vlan add 94
+      sudo config vlan add 95
+      sudo config vlan add 96
+      sudo config vlan add 97
+      sudo config vlan add 98
+      sudo config vlan add 99
+      sudo config vlan add 100
+      sudo config vlan add 101
+      sudo config vxlan map add VXLAN 2 5002
+      sudo config vxlan map add VXLAN 3 5003
+      sudo config vxlan map add VXLAN 4 5004
+      sudo config vxlan map add VXLAN 5 5005
+      sudo config vxlan map add VXLAN 6 5006
+      sudo config vxlan map add VXLAN 7 5007
+      sudo config vxlan map add VXLAN 8 5008
+      sudo config vxlan map add VXLAN 9 5009
+      sudo config vxlan map add VXLAN 10 5010
+      sudo config vxlan map add VXLAN 11 5011
+      sudo config vxlan map add VXLAN 12 5012
+      sudo config vxlan map add VXLAN 13 5013
+      sudo config vxlan map add VXLAN 14 5014
+      sudo config vxlan map add VXLAN 15 5015
+      sudo config vxlan map add VXLAN 16 5016
+      sudo config vxlan map add VXLAN 17 5017
+      sudo config vxlan map add VXLAN 18 5018
+      sudo config vxlan map add VXLAN 19 5019
+      sudo config vxlan map add VXLAN 20 5020
+      sudo config vxlan map add VXLAN 21 5021
+      sudo config vxlan map add VXLAN 22 5022
+      sudo config vxlan map add VXLAN 23 5023
+      sudo config vxlan map add VXLAN 24 5024
+      sudo config vxlan map add VXLAN 25 5025
+      sudo config vxlan map add VXLAN 26 5026
+      sudo config vxlan map add VXLAN 27 5027
+      sudo config vxlan map add VXLAN 28 5028
+      sudo config vxlan map add VXLAN 29 5029
+      sudo config vxlan map add VXLAN 30 5030
+      sudo config vxlan map add VXLAN 31 5031
+      sudo config vxlan map add VXLAN 32 5032
+      sudo config vxlan map add VXLAN 33 5033
+      sudo config vxlan map add VXLAN 34 5034
+      sudo config vxlan map add VXLAN 35 5035
+      sudo config vxlan map add VXLAN 36 5036
+      sudo config vxlan map add VXLAN 37 5037
+      sudo config vxlan map add VXLAN 38 5038
+      sudo config vxlan map add VXLAN 39 5039
+      sudo config vxlan map add VXLAN 40 5040
+      sudo config vxlan map add VXLAN 41 5041
+      sudo config vxlan map add VXLAN 42 5042
+      sudo config vxlan map add VXLAN 43 5043
+      sudo config vxlan map add VXLAN 44 5044
+      sudo config vxlan map add VXLAN 45 5045
+      sudo config vxlan map add VXLAN 46 5046
+      sudo config vxlan map add VXLAN 47 5047
+      sudo config vxlan map add VXLAN 48 5048
+      sudo config vxlan map add VXLAN 49 5049
+      sudo config vxlan map add VXLAN 50 5050
+      sudo config vxlan map add VXLAN 51 5051
+      sudo config vxlan map add VXLAN 52 5052
+      sudo config vxlan map add VXLAN 53 5053
+      sudo config vxlan map add VXLAN 54 5054
+      sudo config vxlan map add VXLAN 55 5055
+      sudo config vxlan map add VXLAN 56 5056
+      sudo config vxlan map add VXLAN 57 5057
+      sudo config vxlan map add VXLAN 58 5058
+      sudo config vxlan map add VXLAN 59 5059
+      sudo config vxlan map add VXLAN 60 5060
+      sudo config vxlan map add VXLAN 61 5061
+      sudo config vxlan map add VXLAN 62 5062
+      sudo config vxlan map add VXLAN 63 5063
+      sudo config vxlan map add VXLAN 64 5064
+      sudo config vxlan map add VXLAN 65 5065
+      sudo config vxlan map add VXLAN 66 5066
+      sudo config vxlan map add VXLAN 67 5067
+      sudo config vxlan map add VXLAN 68 5068
+      sudo config vxlan map add VXLAN 69 5069
+      sudo config vxlan map add VXLAN 70 5070
+      sudo config vxlan map add VXLAN 71 5071
+      sudo config vxlan map add VXLAN 72 5072
+      sudo config vxlan map add VXLAN 73 5073
+      sudo config vxlan map add VXLAN 74 5074
+      sudo config vxlan map add VXLAN 75 5075
+      sudo config vxlan map add VXLAN 76 5076
+      sudo config vxlan map add VXLAN 77 5077
+      sudo config vxlan map add VXLAN 78 5078
+      sudo config vxlan map add VXLAN 79 5079
+      sudo config vxlan map add VXLAN 80 5080
+      sudo config vxlan map add VXLAN 81 5081
+      sudo config vxlan map add VXLAN 82 5082
+      sudo config vxlan map add VXLAN 83 5083
+      sudo config vxlan map add VXLAN 84 5084
+      sudo config vxlan map add VXLAN 85 5085
+      sudo config vxlan map add VXLAN 86 5086
+      sudo config vxlan map add VXLAN 87 5087
+      sudo config vxlan map add VXLAN 88 5088
+      sudo config vxlan map add VXLAN 89 5089
+      sudo config vxlan map add VXLAN 90 5090
+      sudo config vxlan map add VXLAN 91 5091
+      sudo config vxlan map add VXLAN 92 5092
+      sudo config vxlan map add VXLAN 93 5093
+      sudo config vxlan map add VXLAN 94 5094
+      sudo config vxlan map add VXLAN 95 5095
+      sudo config vxlan map add VXLAN 96 5096
+      sudo config vxlan map add VXLAN 97 5097
+      sudo config vxlan map add VXLAN 98 5098
+      sudo config vxlan map add VXLAN 99 5099
+      sudo config vxlan map add VXLAN 100 5100
+      sudo config vxlan map add VXLAN 101 5101
+      sudo config vlan member add 2 D3T1P2
+      sudo config vlan member add 3 D3T1P2
+      sudo config vlan member add 4 D3T1P2
+      sudo config vlan member add 5 D3T1P2
+      sudo config vlan member add 6 D3T1P2
+      sudo config vlan member add 7 D3T1P2
+      sudo config vlan member add 8 D3T1P2
+      sudo config vlan member add 9 D3T1P2
+      sudo config vlan member add 10 D3T1P2
+      sudo config vlan member add 11 D3T1P2
+      sudo config vlan member add 12 D3T1P2
+      sudo config vlan member add 13 D3T1P2
+      sudo config vlan member add 14 D3T1P2
+      sudo config vlan member add 15 D3T1P2
+      sudo config vlan member add 16 D3T1P2
+      sudo config vlan member add 17 D3T1P2
+      sudo config vlan member add 18 D3T1P2
+      sudo config vlan member add 19 D3T1P2
+      sudo config vlan member add 20 D3T1P2
+      sudo config vlan member add 21 D3T1P2
+      sudo config vlan member add 22 D3T1P2
+      sudo config vlan member add 23 D3T1P2
+      sudo config vlan member add 24 D3T1P2
+      sudo config vlan member add 25 D3T1P2
+      sudo config vlan member add 26 D3T1P2
+      sudo config vlan member add 27 D3T1P2
+      sudo config vlan member add 28 D3T1P2
+      sudo config vlan member add 29 D3T1P2
+      sudo config vlan member add 30 D3T1P2
+      sudo config vlan member add 31 D3T1P2
+      sudo config vlan member add 32 D3T1P2
+      sudo config vlan member add 33 D3T1P2
+      sudo config vlan member add 34 D3T1P2
+      sudo config vlan member add 35 D3T1P2
+      sudo config vlan member add 36 D3T1P2
+      sudo config vlan member add 37 D3T1P2
+      sudo config vlan member add 38 D3T1P2
+      sudo config vlan member add 39 D3T1P2
+      sudo config vlan member add 40 D3T1P2
+      sudo config vlan member add 41 D3T1P2
+      sudo config vlan member add 42 D3T1P2
+      sudo config vlan member add 43 D3T1P2
+      sudo config vlan member add 44 D3T1P2
+      sudo config vlan member add 45 D3T1P2
+      sudo config vlan member add 46 D3T1P2
+      sudo config vlan member add 47 D3T1P2
+      sudo config vlan member add 48 D3T1P2
+      sudo config vlan member add 49 D3T1P2
+      sudo config vlan member add 50 D3T1P2
+      sudo config vlan member add 51 D3T1P2
+      sudo config vlan member add 52 D3T1P2
+      sudo config vlan member add 53 D3T1P2
+      sudo config vlan member add 54 D3T1P2
+      sudo config vlan member add 55 D3T1P2
+      sudo config vlan member add 56 D3T1P2
+      sudo config vlan member add 57 D3T1P2
+      sudo config vlan member add 58 D3T1P2
+      sudo config vlan member add 59 D3T1P2
+      sudo config vlan member add 60 D3T1P2
+      sudo config vlan member add 61 D3T1P2
+      sudo config vlan member add 62 D3T1P2
+      sudo config vlan member add 63 D3T1P2
+      sudo config vlan member add 64 D3T1P2
+      sudo config vlan member add 65 D3T1P2
+      sudo config vlan member add 66 D3T1P2
+      sudo config vlan member add 67 D3T1P2
+      sudo config vlan member add 68 D3T1P2
+      sudo config vlan member add 69 D3T1P2
+      sudo config vlan member add 70 D3T1P2
+      sudo config vlan member add 71 D3T1P2
+      sudo config vlan member add 72 D3T1P2
+      sudo config vlan member add 73 D3T1P2
+      sudo config vlan member add 74 D3T1P2
+      sudo config vlan member add 75 D3T1P2
+      sudo config vlan member add 76 D3T1P2
+      sudo config vlan member add 77 D3T1P2
+      sudo config vlan member add 78 D3T1P2
+      sudo config vlan member add 79 D3T1P2
+      sudo config vlan member add 80 D3T1P2
+      sudo config vlan member add 81 D3T1P2
+      sudo config vlan member add 82 D3T1P2
+      sudo config vlan member add 83 D3T1P2
+      sudo config vlan member add 84 D3T1P2
+      sudo config vlan member add 85 D3T1P2
+      sudo config vlan member add 86 D3T1P2
+      sudo config vlan member add 87 D3T1P2
+      sudo config vlan member add 88 D3T1P2
+      sudo config vlan member add 89 D3T1P2
+      sudo config vlan member add 90 D3T1P2
+      sudo config vlan member add 91 D3T1P2
+      sudo config vlan member add 92 D3T1P2
+      sudo config vlan member add 93 D3T1P2
+      sudo config vlan member add 94 D3T1P2
+      sudo config vlan member add 95 D3T1P2
+      sudo config vlan member add 96 D3T1P2
+      sudo config vlan member add 97 D3T1P2
+      sudo config vlan member add 98 D3T1P2
+      sudo config vlan member add 99 D3T1P2
+      sudo config vlan member add 100 D3T1P2
+      sudo config vlan member add 101 D3T1P2
+
+    deconfig: |
+      sudo config vxlan map del VXLAN 2 5002
+      sudo config vxlan map del VXLAN 3 5003
+      sudo config vxlan map del VXLAN 4 5004
+      sudo config vxlan map del VXLAN 5 5005
+      sudo config vxlan map del VXLAN 6 5006
+      sudo config vxlan map del VXLAN 7 5007
+      sudo config vxlan map del VXLAN 8 5008
+      sudo config vxlan map del VXLAN 9 5009
+      sudo config vxlan map del VXLAN 10 5010
+      sudo config vxlan map del VXLAN 11 5011
+      sudo config vxlan map del VXLAN 12 5012
+      sudo config vxlan map del VXLAN 13 5013
+      sudo config vxlan map del VXLAN 14 5014
+      sudo config vxlan map del VXLAN 15 5015
+      sudo config vxlan map del VXLAN 16 5016
+      sudo config vxlan map del VXLAN 17 5017
+      sudo config vxlan map del VXLAN 18 5018
+      sudo config vxlan map del VXLAN 19 5019
+      sudo config vxlan map del VXLAN 20 5020
+      sudo config vxlan map del VXLAN 21 5021
+      sudo config vxlan map del VXLAN 22 5022
+      sudo config vxlan map del VXLAN 23 5023
+      sudo config vxlan map del VXLAN 24 5024
+      sudo config vxlan map del VXLAN 25 5025
+      sudo config vxlan map del VXLAN 26 5026
+      sudo config vxlan map del VXLAN 27 5027
+      sudo config vxlan map del VXLAN 28 5028
+      sudo config vxlan map del VXLAN 29 5029
+      sudo config vxlan map del VXLAN 30 5030
+      sudo config vxlan map del VXLAN 31 5031
+      sudo config vxlan map del VXLAN 32 5032
+      sudo config vxlan map del VXLAN 33 5033
+      sudo config vxlan map del VXLAN 34 5034
+      sudo config vxlan map del VXLAN 35 5035
+      sudo config vxlan map del VXLAN 36 5036
+      sudo config vxlan map del VXLAN 37 5037
+      sudo config vxlan map del VXLAN 38 5038
+      sudo config vxlan map del VXLAN 39 5039
+      sudo config vxlan map del VXLAN 40 5040
+      sudo config vxlan map del VXLAN 41 5041
+      sudo config vxlan map del VXLAN 42 5042
+      sudo config vxlan map del VXLAN 43 5043
+      sudo config vxlan map del VXLAN 44 5044
+      sudo config vxlan map del VXLAN 45 5045
+      sudo config vxlan map del VXLAN 46 5046
+      sudo config vxlan map del VXLAN 47 5047
+      sudo config vxlan map del VXLAN 48 5048
+      sudo config vxlan map del VXLAN 49 5049
+      sudo config vxlan map del VXLAN 50 5050
+      sudo config vxlan map del VXLAN 51 5051
+      sudo config vxlan map del VXLAN 52 5052
+      sudo config vxlan map del VXLAN 53 5053
+      sudo config vxlan map del VXLAN 54 5054
+      sudo config vxlan map del VXLAN 55 5055
+      sudo config vxlan map del VXLAN 56 5056
+      sudo config vxlan map del VXLAN 57 5057
+      sudo config vxlan map del VXLAN 58 5058
+      sudo config vxlan map del VXLAN 59 5059
+      sudo config vxlan map del VXLAN 60 5060
+      sudo config vxlan map del VXLAN 61 5061
+      sudo config vxlan map del VXLAN 62 5062
+      sudo config vxlan map del VXLAN 63 5063
+      sudo config vxlan map del VXLAN 64 5064
+      sudo config vxlan map del VXLAN 65 5065
+      sudo config vxlan map del VXLAN 66 5066
+      sudo config vxlan map del VXLAN 67 5067
+      sudo config vxlan map del VXLAN 68 5068
+      sudo config vxlan map del VXLAN 69 5069
+      sudo config vxlan map del VXLAN 70 5070
+      sudo config vxlan map del VXLAN 71 5071
+      sudo config vxlan map del VXLAN 72 5072
+      sudo config vxlan map del VXLAN 73 5073
+      sudo config vxlan map del VXLAN 74 5074
+      sudo config vxlan map del VXLAN 75 5075
+      sudo config vxlan map del VXLAN 76 5076
+      sudo config vxlan map del VXLAN 77 5077
+      sudo config vxlan map del VXLAN 78 5078
+      sudo config vxlan map del VXLAN 79 5079
+      sudo config vxlan map del VXLAN 80 5080
+      sudo config vxlan map del VXLAN 81 5081
+      sudo config vxlan map del VXLAN 82 5082
+      sudo config vxlan map del VXLAN 83 5083
+      sudo config vxlan map del VXLAN 84 5084
+      sudo config vxlan map del VXLAN 85 5085
+      sudo config vxlan map del VXLAN 86 5086
+      sudo config vxlan map del VXLAN 87 5087
+      sudo config vxlan map del VXLAN 88 5088
+      sudo config vxlan map del VXLAN 89 5089
+      sudo config vxlan map del VXLAN 90 5090
+      sudo config vxlan map del VXLAN 91 5091
+      sudo config vxlan map del VXLAN 92 5092
+      sudo config vxlan map del VXLAN 93 5093
+      sudo config vxlan map del VXLAN 94 5094
+      sudo config vxlan map del VXLAN 95 5095
+      sudo config vxlan map del VXLAN 96 5096
+      sudo config vxlan map del VXLAN 97 5097
+      sudo config vxlan map del VXLAN 98 5098
+      sudo config vxlan map del VXLAN 99 5099
+      sudo config vxlan map del VXLAN 100 5100
+      sudo config vxlan map del VXLAN 101 5101
+      sudo config vxlan evpn_nvo del NVO
+      sudo config vxlan del VXLAN
+      sudo config vlan member del 2 D3T1P2
+      sudo config vlan member del 3 D3T1P2
+      sudo config vlan member del 4 D3T1P2
+      sudo config vlan member del 5 D3T1P2
+      sudo config vlan member del 6 D3T1P2
+      sudo config vlan member del 7 D3T1P2
+      sudo config vlan member del 8 D3T1P2
+      sudo config vlan member del 9 D3T1P2
+      sudo config vlan member del 10 D3T1P2
+      sudo config vlan member del 11 D3T1P2
+      sudo config vlan member del 12 D3T1P2
+      sudo config vlan member del 13 D3T1P2
+      sudo config vlan member del 14 D3T1P2
+      sudo config vlan member del 15 D3T1P2
+      sudo config vlan member del 16 D3T1P2
+      sudo config vlan member del 17 D3T1P2
+      sudo config vlan member del 18 D3T1P2
+      sudo config vlan member del 19 D3T1P2
+      sudo config vlan member del 20 D3T1P2
+      sudo config vlan member del 21 D3T1P2
+      sudo config vlan member del 22 D3T1P2
+      sudo config vlan member del 23 D3T1P2
+      sudo config vlan member del 24 D3T1P2
+      sudo config vlan member del 25 D3T1P2
+      sudo config vlan member del 26 D3T1P2
+      sudo config vlan member del 27 D3T1P2
+      sudo config vlan member del 28 D3T1P2
+      sudo config vlan member del 29 D3T1P2
+      sudo config vlan member del 30 D3T1P2
+      sudo config vlan member del 31 D3T1P2
+      sudo config vlan member del 32 D3T1P2
+      sudo config vlan member del 33 D3T1P2
+      sudo config vlan member del 34 D3T1P2
+      sudo config vlan member del 35 D3T1P2
+      sudo config vlan member del 36 D3T1P2
+      sudo config vlan member del 37 D3T1P2
+      sudo config vlan member del 38 D3T1P2
+      sudo config vlan member del 39 D3T1P2
+      sudo config vlan member del 40 D3T1P2
+      sudo config vlan member del 41 D3T1P2
+      sudo config vlan member del 42 D3T1P2
+      sudo config vlan member del 43 D3T1P2
+      sudo config vlan member del 44 D3T1P2
+      sudo config vlan member del 45 D3T1P2
+      sudo config vlan member del 46 D3T1P2
+      sudo config vlan member del 47 D3T1P2
+      sudo config vlan member del 48 D3T1P2
+      sudo config vlan member del 49 D3T1P2
+      sudo config vlan member del 50 D3T1P2
+      sudo config vlan member del 51 D3T1P2
+      sudo config vlan member del 52 D3T1P2
+      sudo config vlan member del 53 D3T1P2
+      sudo config vlan member del 54 D3T1P2
+      sudo config vlan member del 55 D3T1P2
+      sudo config vlan member del 56 D3T1P2
+      sudo config vlan member del 57 D3T1P2
+      sudo config vlan member del 58 D3T1P2
+      sudo config vlan member del 59 D3T1P2
+      sudo config vlan member del 60 D3T1P2
+      sudo config vlan member del 61 D3T1P2
+      sudo config vlan member del 62 D3T1P2
+      sudo config vlan member del 63 D3T1P2
+      sudo config vlan member del 64 D3T1P2
+      sudo config vlan member del 65 D3T1P2
+      sudo config vlan member del 66 D3T1P2
+      sudo config vlan member del 67 D3T1P2
+      sudo config vlan member del 68 D3T1P2
+      sudo config vlan member del 69 D3T1P2
+      sudo config vlan member del 70 D3T1P2
+      sudo config vlan member del 71 D3T1P2
+      sudo config vlan member del 72 D3T1P2
+      sudo config vlan member del 73 D3T1P2
+      sudo config vlan member del 74 D3T1P2
+      sudo config vlan member del 75 D3T1P2
+      sudo config vlan member del 76 D3T1P2
+      sudo config vlan member del 77 D3T1P2
+      sudo config vlan member del 78 D3T1P2
+      sudo config vlan member del 79 D3T1P2
+      sudo config vlan member del 80 D3T1P2
+      sudo config vlan member del 81 D3T1P2
+      sudo config vlan member del 82 D3T1P2
+      sudo config vlan member del 83 D3T1P2
+      sudo config vlan member del 84 D3T1P2
+      sudo config vlan member del 85 D3T1P2
+      sudo config vlan member del 86 D3T1P2
+      sudo config vlan member del 87 D3T1P2
+      sudo config vlan member del 88 D3T1P2
+      sudo config vlan member del 89 D3T1P2
+      sudo config vlan member del 90 D3T1P2
+      sudo config vlan member del 91 D3T1P2
+      sudo config vlan member del 92 D3T1P2
+      sudo config vlan member del 93 D3T1P2
+      sudo config vlan member del 94 D3T1P2
+      sudo config vlan member del 95 D3T1P2
+      sudo config vlan member del 96 D3T1P2
+      sudo config vlan member del 97 D3T1P2
+      sudo config vlan member del 98 D3T1P2
+      sudo config vlan member del 99 D3T1P2
+      sudo config vlan member del 100 D3T1P2
+      sudo config vlan member del 101 D3T1P2
+
+
+      sudo config vlan del 2
+      sudo config vlan del 3
+      sudo config vlan del 4
+      sudo config vlan del 5
+      sudo config vlan del 6
+      sudo config vlan del 7
+      sudo config vlan del 8
+      sudo config vlan del 9
+      sudo config vlan del 10
+      sudo config vlan del 11
+      sudo config vlan del 12
+      sudo config vlan del 13
+      sudo config vlan del 14
+      sudo config vlan del 15
+      sudo config vlan del 16
+      sudo config vlan del 17
+      sudo config vlan del 18
+      sudo config vlan del 19
+      sudo config vlan del 20
+      sudo config vlan del 21
+      sudo config vlan del 22
+      sudo config vlan del 23
+      sudo config vlan del 24
+      sudo config vlan del 25
+      sudo config vlan del 26
+      sudo config vlan del 27
+      sudo config vlan del 28
+      sudo config vlan del 29
+      sudo config vlan del 30
+      sudo config vlan del 31
+      sudo config vlan del 32
+      sudo config vlan del 33
+      sudo config vlan del 34
+      sudo config vlan del 35
+      sudo config vlan del 36
+      sudo config vlan del 37
+      sudo config vlan del 38
+      sudo config vlan del 39
+      sudo config vlan del 40
+      sudo config vlan del 41
+      sudo config vlan del 42
+      sudo config vlan del 43
+      sudo config vlan del 44
+      sudo config vlan del 45
+      sudo config vlan del 46
+      sudo config vlan del 47
+      sudo config vlan del 48
+      sudo config vlan del 49
+      sudo config vlan del 50
+      sudo config vlan del 51
+      sudo config vlan del 52
+      sudo config vlan del 53
+      sudo config vlan del 54
+      sudo config vlan del 55
+      sudo config vlan del 56
+      sudo config vlan del 57
+      sudo config vlan del 58
+      sudo config vlan del 59
+      sudo config vlan del 60
+      sudo config vlan del 61
+      sudo config vlan del 62
+      sudo config vlan del 63
+      sudo config vlan del 64
+      sudo config vlan del 65
+      sudo config vlan del 66
+      sudo config vlan del 67
+      sudo config vlan del 68
+      sudo config vlan del 69
+      sudo config vlan del 70
+      sudo config vlan del 71
+      sudo config vlan del 72
+      sudo config vlan del 73
+      sudo config vlan del 74
+      sudo config vlan del 75
+      sudo config vlan del 76
+      sudo config vlan del 77
+      sudo config vlan del 78
+      sudo config vlan del 79
+      sudo config vlan del 80
+      sudo config vlan del 81
+      sudo config vlan del 82
+      sudo config vlan del 83
+      sudo config vlan del 84
+      sudo config vlan del 85
+      sudo config vlan del 86
+      sudo config vlan del 87
+      sudo config vlan del 88
+      sudo config vlan del 89
+      sudo config vlan del 90
+      sudo config vlan del 91
+      sudo config vlan del 92
+      sudo config vlan del 93
+      sudo config vlan del 94
+      sudo config vlan del 95
+      sudo config vlan del 96
+      sudo config vlan del 97
+      sudo config vlan del 98
+      sudo config vlan del 99
+      sudo config vlan del 100
+      sudo config vlan del 101
+
+
+  bgp:
+    config: |
+      router bgp 65103
+      bgp router-id 10.200.200.201
+      no bgp ebgp-requires-policy
+      no bgp default ipv4-unicast
+      bgp disable-ebgp-connected-route-check
+      bgp bestpath as-path multipath-relax
+      neighbor OVERLAY peer-group
+      neighbor OVERLAY remote-as external
+      neighbor OVERLAY disable-connected-check
+      neighbor OVERLAY ebgp-multihop 255
+      neighbor OVERLAY update-source Loopback0
+      neighbor TRANSIT peer-group
+      #neighbor TRANSIT bfd
+      neighbor TRANSIT remote-as external
+      neighbor TRANSIT ebgp-multihop 1
+      neighbor 2001:1::11 peer-group OVERLAY
+      neighbor 2001:1::12 peer-group OVERLAY
+      neighbor 2001:1::13 peer-group OVERLAY
+      neighbor 2001:1::14 peer-group OVERLAY
+      neighbor 2001:1::15 peer-group OVERLAY
+      neighbor 2001:1::16 peer-group OVERLAY
+      neighbor 2001:1::17 peer-group OVERLAY
+      neighbor 2001:1::18 peer-group OVERLAY
+      neighbor 2001:1::19 peer-group OVERLAY
+      neighbor 2001:1::1a peer-group OVERLAY
+      neighbor 2001:1::1b peer-group OVERLAY
+      neighbor 2001:1::1c peer-group OVERLAY
+      neighbor 2001:1::1d peer-group OVERLAY
+      neighbor 2001:1::1e peer-group OVERLAY
+      neighbor 2001:1::1f peer-group OVERLAY
+      neighbor 2001:1::20 peer-group OVERLAY
+      neighbor 2001:1::21 peer-group OVERLAY
+      neighbor 2001:1::22 peer-group OVERLAY
+      neighbor 2001:1::23 peer-group OVERLAY
+      neighbor 2001:1::24 peer-group OVERLAY
+      neighbor 2001:1::25 peer-group OVERLAY
+      neighbor 2001:1::26 peer-group OVERLAY
+      neighbor 2001:1::27 peer-group OVERLAY
+      neighbor 2001:1::28 peer-group OVERLAY
+      neighbor 2001:1::29 peer-group OVERLAY
+      neighbor 2001:1::2a peer-group OVERLAY
+      neighbor 2001:1::2b peer-group OVERLAY
+      neighbor 2001:1::2c peer-group OVERLAY
+      neighbor 2001:1::2d peer-group OVERLAY
+      neighbor 2001:1::2e peer-group OVERLAY
+      neighbor 2001:1::2f peer-group OVERLAY
+      neighbor 2001:1::30 peer-group OVERLAY
+
+      neighbor D3T1P1 interface peer-group TRANSIT
+      address-family ipv4 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family ipv6 unicast
+      redistribute connected
+      neighbor TRANSIT activate
+      exit-address-family
+      address-family l2vpn evpn
+      neighbor OVERLAY activate
+      advertise-all-vni
+      advertise ipv4 unicast
+      advertise ipv6 unicast
+      exit-address-family
+      exit
+    deconfig: |
+      no router bgp 65103
+
+
+       

@@ -1355,10 +1355,9 @@ def test_dpb_mtu_40G(dpb_mtu_40G_setup):
         get_cli_out()
         st.report_fail("test_case_failed")
 
-
 @pytest.mark.forty
 def test_dpb_dhcp_40G(dpb_dhcp_40G_setup):
-    ixnetwork, ixnetwork_session, flag = dpb_dhcp_40G_setup
+    ixnetwork, ixnetwork_session, flag = dpb_dhcp_siren_40G_setup
     ixia_teardown(ixnetwork_session)
     st.log("dpb test passed")
     if flag:
@@ -1679,6 +1678,8 @@ def static_config_push(config_file):
             config_dut(node, 'sonic', config['sonic']['config'])
             # st.wait(10)
             config_dut(node, 'bgp', config['bgp']['config'])
+            st.log("Adding QOS reload config")
+            config_dut(node, 'sonic', 'sudo config qos reload')
         st.wait(60)
 
 #####unconfig using static configs#######
