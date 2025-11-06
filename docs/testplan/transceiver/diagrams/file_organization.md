@@ -16,6 +16,8 @@ ansible/files/transceiver/inventory/
 │   ├── vdm.json                            # VDM test attributes
 │   └── pm.json                             # PM test attributes
 │
+├── prerequisites.json                         # OPTIONAL grouped prerequisite tests (pre-category gating)
+│
 └── templates/                              # Validation templates (optional)
     └── deployment_templates.json           # Attribute completeness validation
 ```
@@ -29,6 +31,8 @@ graph TD
     D[system.json] --> B
     E[physical_oir.json] --> B
     F[other category files...] --> B
+    P[(prerequisites.json?)] --> Z[Prerequisite Test Runner]
+    Z --> L[Test Cases]
     
     B --> H[BASE_ATTRIBUTES]
     B --> I[EEPROM_ATTRIBUTES]
@@ -58,6 +62,7 @@ graph TD
 - **Category files**: Modular test-specific attribute definitions for each type of transceiver
 - **Templates**: Optional validation templates for attribute completeness checking
 - **port_attributes_dict**: Final merged data structure used by test cases
+- **prerequisites.json (optional)**: Grouped list of tests executed just-in-time before each category starts
 - **BASE_ATTRIBUTES**: Core transceiver info parsed from dut_info.json
 - **Category-specific attributes**: Merged from respective JSON files using priority hierarchy
 - **Validation**: Optional post-processing step to ensure attribute completeness

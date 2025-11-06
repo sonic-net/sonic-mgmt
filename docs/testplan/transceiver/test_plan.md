@@ -100,6 +100,49 @@ These tests do not require traffic and are standalone, designed to run on a Devi
 
 The following configuration files must be present to enable comprehensive transceiver testing:
 
+### Test Category Prerequisite Tests
+
+Prerequisite tests provide early readiness validation before a category's main test cases execute. They run after attribute resolution and optional validation, serving as gating checks to verify basic functionality before proceeding with the full test suite for a test category.
+
+**File location:** `ansible/files/transceiver/inventory/prerequisites.json`
+
+**Structure:** Grouped by test category, with each entry specifying a test module and function:
+
+```json
+{
+  "eeprom": [
+    {
+      "name": "eeprom_readability",
+      "module": "tests/transceiver/eeprom/test_eeprom_basic.py",
+      "function": "test_eeprom_pages"
+    }
+  ],
+  "dom": [
+    {
+      "name": "dom_basic",
+      "module": "tests/transceiver/dom/test_dom_basic.py",
+      "function": "test_dom_read"
+    }
+  ]
+}
+```
+
+**Execution behavior:**
+
+1. Run immediately before each category's main tests (after attribute resolution and optional validation)
+2. Only the current category's list is loaded and executed; other categories' lists are deferred
+3. Execution order within each category array is preserved
+4. Duplicate tests (same module+function) are executed only once per category
+5. If the file or category key is absent, no prerequisites run for that category
+
+**Common prerequisite test examples:**
+
+- Verify transceiver presence on the port
+- Validate active firmware version matches the expected gold firmware
+- Confirm I2C communication functionality via `sfputil`
+- Verify link operational status (link-up state)
+- Ensure critical system processes (`xcvrd`, `pmon`, `syncd`, `orchagent`) are running
+
 #### 1. DUT Info File
 
 > 📊 **Visual Guide**: See the [File Organization Diagram](diagrams/file_organization.md) for a visual overview of the file structure and relationships.

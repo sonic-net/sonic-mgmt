@@ -9,6 +9,7 @@ graph TB
         B[eeprom.json]
         C[system.json] 
         D[Other category files...]
+    X[(prerequisites.json)]
     end
     
     subgraph "Framework Processing"
@@ -41,6 +42,8 @@ graph TB
     B --> E
     C --> E
     D --> E
+    X --> T[Prerequisite Test Runner]
+    T --> O
     
     E --> F
     F --> G
@@ -82,42 +85,32 @@ sequenceDiagram
     participant PD as port_attributes_dict
     participant V as Validator
     participant TC as Test Cases
-    
-    TC->>AM: Initialize for DUT
-    AM->>DI: Load base transceiver data
-    DI-->>AM: Raw port specifications & metadata
-    
-    AM->>PP: Process port specifications
-    PP->>PP: Expand "Ethernet4:13" → individual ports
-    PP-->>AM: Individual port list
-    
-    AM->>CP: Parse transceiver configurations
-    CP->>CP: Split "AOC-200-QSFPDD-2x100G_200G_SIDE-0xFF-0xFF"
+    participant PRQ as Prerequisites File
+
+    TC->>AM: Initialize framework & load base data
+    AM->>DI: Load dut_info.json
+    DI-->>AM: Port specs & metadata
+    AM->>PP: Expand port specifications
+    PP-->>AM: Expanded port list
+    AM->>CP: Parse transceiver configuration strings
     CP-->>AM: Parsed components
-    
-    AM->>PD: Create BASE_ATTRIBUTES for each port
-    
-    loop For each category file
-        AM->>CF: Load category JSON (eeprom.json, system.json, etc.)
-        CF-->>AM: Category attribute definitions
-        
-        loop For each port
-            AM->>PR: Resolve attributes using 8-level priority
-            PR->>PR: Check DUT → Vendor+PN → Deployment → Platform → Defaults
-            PR-->>AM: Final attribute values
-            AM->>PD: Store in CATEGORY_ATTRIBUTES
+    AM->>PD: Seed BASE_ATTRIBUTES per port
+
+    loop For each category
+        TC->>CF: Load category JSON file
+        CF-->>TC: Raw category attributes
+        TC->>PR: Resolve via 8-level priority hierarchy
+        PR-->>TC: Merged CATEGORY_ATTRIBUTES
+        TC->>PD: Store CATEGORY_ATTRIBUTES
+        opt Attribute Completeness Validation
+            PD->>V: Validate against deployment templates
+            V-->>PD: Results
         end
+        TC->>PRQ: Load category prerequisite list (if present)
+        PRQ->>PRQ: Execute prerequisite tests (gating checks)
+        PRQ-->>TC: Continue if all pass
+        PD-->>TC: Run main category test cases
     end
-    
-    AM->>PD: Attach to DUT host object
-    
-    opt Attribute Completeness Validation
-        PD->>V: Validate against deployment templates
-        V->>V: Compare required vs actual attributes
-        V-->>PD: Validation results (pass/warn/fail)
-    end
-    
-    PD-->>TC: Ready for test execution
 ```
 
 ## Data Transformation Examples
