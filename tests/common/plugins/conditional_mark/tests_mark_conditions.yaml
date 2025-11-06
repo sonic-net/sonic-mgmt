@@ -766,6 +766,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "Skip DHCP relay test on not supported SKUs"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17988 and hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
@@ -2021,6 +2027,10 @@ fdb/test_fdb_mac_learning.py::TestFdbMacLearning::testFdbMacLearning:
 #####            fib              #####
 #######################################
 fib/test_fib.py:
+  xfail:
+    reason: 'Hash test is skipped due to github issue https://github.com/sonic-net/sonic-mgmt/issues/17930'
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17930 and topo_name in ['t1-isolated-d28u1']"
   skip:
     reason: 'Skip on t1-isolated-d32/128 topos'
     conditions:
@@ -2230,6 +2240,10 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
       - "asic_type in ['cisco-8000']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
+  xfail:
+    reason: "Test is skipped due to issue https://github.com/sonic-net/sonic-mgmt/issues/19492"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/19492 and platform in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-nvidia_sn5610n-r0']"
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
@@ -3912,6 +3926,12 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
 #######################################
 #####              sflow          #####
 #######################################
+sflow:
+  skip:
+    reason: "Skip sflow tests on not supported SKUs"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17988 and hwsku in ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2', 'Mellanox-SN5640-C448O16']"
+
 sflow/test_sflow.py:
   skip:
     reason: "Sflow feature is default disabled on vs platform and it is not tested for now"
@@ -4107,6 +4127,11 @@ snmp/test_snmp_queue_counters.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1']"
+  xfail:
+    reason: "Test skipped due to issue #17929 on Mellanox platform"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/17929 and asic_type in ['mellanox']"
+
 
 #######################################
 #####            span             #####
