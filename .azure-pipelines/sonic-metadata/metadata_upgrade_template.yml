@@ -172,36 +172,61 @@ stages:
         scriptLocation: 'inlineScript'
         inlineScript: |
           pwd
+          set -e
+          source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
 
+          trap 'handle_test_failure "upgrade_path::lock_testbed" \
+                            "Locking testbed failed after timeout" \
+                            "LOCK_TESTBED" \
+                            "${{ parameters.TESTBED_NAME }}"' EXIT
+
+          echo "Attempting to lock testbed: ${{ parameters.TESTBED_NAME }}"
           accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
           export ACCESS_TOKEN=$accessToken
 
-          set -e
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "ACCESS_TOKEN is empty. Exiting..."
+            exit 1
+          fi
 
           TIMEOUT=7200
           INTERVAL=60
           wait_time=0
-          until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
 
-              if (( $wait_time >= $TIMEOUT )); then
-                  echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after retrying for $TIMEOUT seconds with interval $INTERVAL"
-                  exit 1
-              fi
-              echo "Lock testbed ${{ parameters.TESTBED_NAME }} failed, wait $INTERVAL seconds to retry"
-              sleep $INTERVAL
-              wait_time=$(expr $wait_time + $INTERVAL)
+          until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py \
+            -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
+
+            if (( wait_time >= TIMEOUT )); then
+              echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after $TIMEOUT seconds"
+              exit 1
+            fi
+
+            echo "Retry: Lock testbed failed, waiting $INTERVAL seconds..."
+            sleep $INTERVAL
+            wait_time=$((wait_time + INTERVAL))
           done
+
+          echo "Testbed locked successfully"
           echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
       displayName: Lock Testbed
       condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
 
-    - task: Bash@3
+    - task: AzureCLI@2
       displayName: remove-topo for ceos, and add-topo for vsonic
       timeoutInMinutes: 30
       inputs:
-        targetType: 'inline'
-        script: |
+        azureSubscription: "SONiC-Automation"
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
           set -ex
+          source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
+
+          trap 'handle_test_failure "upgrade_path::topo_switch_to_vsonic" \
+                "Switching topology from ceos to vsonic failed" \
+                "TOPO_SWITCH" \
+                "${{ parameters.TESTBED_NAME }}"' EXIT
+
           cd ./sonic-mgmt-int/
           cd ansible
 
@@ -210,23 +235,34 @@ stages:
           http_proxy='' https_proxy='' ./testbed-cli.sh -k vsonic add-topo ${{ parameters.TESTBED_NAME }} password.txt
       condition: and(succeeded(), eq('${{ parameters.VM_TYPE }}', 'vsonic'))
 
-    - task: Bash@3
+    - task: AzureCLI@2
       displayName: Deploy Minigraph
       timeoutInMinutes: 30
       inputs:
-        targetType: 'inline'
-        script: |
+        azureSubscription: "SONiC-Automation"
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
           set -ex
-          cd ./sonic-mgmt-int/
+          source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
+
+          trap 'handle_test_failure "upgrade_path::deploy_minigraph" \
+                "Minigraph deployment failed" \
+                "DEPLOY_MINIGRAPH" \
+                "${{ parameters.TESTBED_NAME }}"' EXIT
+
+          cd "$(Build.SourcesDirectory)/sonic-mgmt-int/"
+
           if [[ ${{ parameters.ENABLE_DATAACL }} == True ]]; then
               CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=true"
           else
               CONFIG_PARAMS="$CONFIG_PARAMS -e enable_data_plane_acl=false"
           fi
-          cd ansible
 
+          cd ansible
           http_proxy='' https_proxy='' ./testbed-cli.sh deploy-mg ${{ parameters.TESTBED_NAME }} $INVENTORY_NAME password.txt $CONFIG_PARAMS
           sleep 60
+        workingDirectory: $(Build.SourcesDirectory)
       env:
         INVENTORY_NAME: $(INVENTORY_NAME)
 
@@ -372,13 +408,22 @@ stages:
         testRunTitle: ${{ parameters.TESTBED_NAME}}.upgrade_path
       condition: always()
 
-    - task: Bash@3
+    - task: AzureCLI@2
       displayName: remove-topo for vsonic, and add-topo for ceos
       timeoutInMinutes: 30
       inputs:
-        targetType: 'inline'
-        script: |
+        azureSubscription: "SONiC-Automation"
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
           set -ex
+          source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
+
+          trap 'handle_test_failure "upgrade_path::topo_switch_vsonic_to_ceos" \
+                "Topo switch (vsonic ➝ ceos) failed" \
+                "TOPO_RESTORE" \
+                "${{ parameters.TESTBED_NAME }}"' EXIT
+
           cd ./sonic-mgmt-int/
           cd ansible
 

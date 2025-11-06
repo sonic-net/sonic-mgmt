@@ -18,7 +18,6 @@ ansible/*_tmp
 # Dev tools
 .vscode/
 .idea/
-**/.venv/
 
 .python-version
 
@@ -29,7 +28,5 @@ ansible/group_vars/all/secrets.json
 gcm-diagnose.log
 
 sonic-dump/
-**/common/sai_validation/generated/
-**/common/sai_validation/github.com/
-tests/pfc_headroom_test_params/*.json
-tests/priority/*.json
+
+test_reporting/jupyter-notebooks/jupyter-venv/
