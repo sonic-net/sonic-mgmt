@@ -80,6 +80,7 @@ acl/test_acl_outer_vlan.py:
   #For the current release, will mark the related test cases as XFAIL
   xfail:
     reason: "Cisco platform does not support ACL Outer VLAN ID tests. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -299,6 +300,7 @@ bgp/test_bgp_gr_helper.py:
 bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
   xfail:
     reason: "xfail for IPv6-only topologies. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -364,6 +366,7 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_default:
 bgp/test_bgp_router_id.py::test_bgp_router_id_set:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1752,6 +1755,7 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
       - "platform in ['x86_64-nvidia_sn5640-r0']"
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1808,6 +1812,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1815,6 +1820,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1892,6 +1898,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1899,6 +1906,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1922,6 +1930,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1929,6 +1938,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1952,6 +1962,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -1959,6 +1970,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
     reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -2280,6 +2292,7 @@ fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
       - "'-v6-' in topo_name"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -2334,6 +2347,7 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
       - "'-v6-' in topo_name"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -3984,6 +3998,7 @@ qos/test_voq_watchdog.py:
 radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -3991,6 +4006,7 @@ radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -4002,6 +4018,7 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -4013,6 +4030,7 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -4082,6 +4100,7 @@ route/test_default_route.py::test_default_route_set_src:
 route/test_default_route.py::test_default_route_with_bgp_flap:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name"
@@ -4139,6 +4158,7 @@ route/test_route_perf.py:
       - "'standalone' in topo_name"
   xfail:
     reason: "Test case has high failure rate on t1-la. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18893"
       - "'t0-isolated-d256u256s2' in topo_name"
