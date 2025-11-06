@@ -6,10 +6,9 @@ import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, \
-    REMOTE_PTF_SEND_INTF, VXLAN_UDP_BASE_SRC_PORT
+    REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
-from tests.common import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
