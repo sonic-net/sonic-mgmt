@@ -2265,9 +2265,12 @@ fib/test_fib.py::test_nvgre_hash:
 
 fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
   skip:
-    reason: "Skip for IPv6-only topologies"
+    reason: "Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos"
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -2275,9 +2278,12 @@ fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
 
 fib/test_fib.py::test_nvgre_hash[ipv4-ipv6]:
   skip:
-    reason: "Skip for IPv6-only topologies"
+    reason: "Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos"
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
@@ -2285,11 +2291,12 @@ fib/test_fib.py::test_nvgre_hash[ipv4-ipv6]:
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos, or Skip for IPv6-only topologies'
+    reason: 'Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topo'
     conditions_logical_operator: or
     conditions:
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
       - "'-v6-' in topo_name"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
@@ -2299,8 +2306,10 @@ fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topo'
+    conditions_logical_operator: or
     conditions:
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
     reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
