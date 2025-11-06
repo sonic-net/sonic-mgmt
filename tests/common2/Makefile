@@ -88,7 +88,7 @@ coverage-enforce:  ## Enforce coverage requirements (fails if any module below t
 
 test-bgp:  ## Run only BGP route control tests
 	@echo "Running BGP route control unit tests..."
-	@python3 -m pytest unit_tests/routing/bgp/test_bgp_route_helper.py -m unit_test -v -W ignore::pytest.PytestUnknownMarkWarning
+	@python3 -m pytest unit_tests/routing/bgp/unit_test_bgp_route_helper.py -m unit_test -v -W ignore::pytest.PytestUnknownMarkWarning
 
 clean:  ## Clean up test artifacts
 	@echo "Cleaning up test artifacts..."
