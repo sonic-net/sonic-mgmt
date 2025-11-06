@@ -119,3 +119,66 @@ cc_test(
     ],
     linkopts = ["-lresolv"],
 )
+
+cc_test(
+    name = "packet_forwarding_test",
+    timeout = "eternal",
+    srcs = ["packet_forwarding_tests.cc"],
+    linkstatic = 1,
+    tags = [
+        "exclusive",
+        "external",
+        "guitar",
+        "manual",
+        "notap",
+    ],
+    deps = [
+        ":util",
+        "//infrastructure/thinkit:ondatra_params",
+        "@com_github_sonic_net_sonic_pins//tests/integration/system:packet_forwarding_tests",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed_fixture",
+        "@com_google_absl//absl/log",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "l3_admit_test",
+    srcs = ["l3_admit_test.cc"],
+    tags = [
+        "exclusive",
+        "external",
+        "guitar",
+        "manual",
+        "notap",
+    ],
+    deps = [
+        ":util",
+        "//infrastructure/thinkit:ondatra_params",
+        "@com_github_sonic_net_sonic_pins//tests/forwarding:l3_admit_test",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/log",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "smoke_test",
+    srcs = ["smoke_test.cc"],
+    tags = [
+        "exclusive",
+        "external",
+        "guitar",
+        "manual",
+        "notap",
+    ],
+    deps = [
+        ":util",
+        "//infrastructure/thinkit:ondatra_params",
+        "@com_github_sonic_net_sonic_pins//tests/forwarding:smoke_test",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
