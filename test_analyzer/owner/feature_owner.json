@@ -1798,8 +1798,8 @@
     },
     {
         "feature": "vxlan",
-        "owner": "Sai Kiran Gummaraj",
-        "email": "sagummaraj@microsoft.com",
+        "owner": "Prince Sunny",
+        "email": "prsunny@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -1810,8 +1810,8 @@
                     "vxlan.test_vxlan_decap",
                     "vxlan.test_vxlan_ecmp"
                 ],
-                "owner": "Sai Kiran Gummaraj",
-                "email": "sagummaraj@microsoft.com"
+                "owner": "Prince Sunny",
+                "email": "prsunny@microsoft.com"
             }
         ]
     },
