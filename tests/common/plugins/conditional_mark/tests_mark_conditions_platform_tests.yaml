@@ -522,6 +522,10 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
   skip:
@@ -530,6 +534,12 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_presence:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_serial:
   skip:
@@ -571,10 +581,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
       - "asic_type in ['nvidia-bluefield', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
   xfail:
-    reason: "Platform API 'get_error_description' not implemented"
+    reason: "Platform API 'get_error_description' not implemented. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
-      - "platform in ['x86_64-cel_e1031-r0']"
-      - https://github.com/sonic-net/sonic-buildimage/issues/18229
+      - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
@@ -599,6 +610,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_position_in_parent:
     conditions:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_presence:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_reset_status:
   skip:
@@ -648,6 +665,18 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_temperature:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_dom_real_value:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   skip:
     reason: "Unsupported platform API"
@@ -656,6 +685,10 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
       - "asic_type in ['cisco-8000'] and release in ['202012']"
       - "is_multi_asic==True and release in ['201911']"
       - "asic_type in ['vs']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
   skip:
@@ -689,6 +722,12 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_voltage:
       - "asic_type in ['mellanox', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
 
+platform_tests/api/test_sfp.py::TestSfpApi::test_is_replaceable:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
   skip:
     reason: "Unsupported platform API"
@@ -696,6 +735,10 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
     conditions:
       - "asic_type in ['nvidia-bluefield', 'vs']"
       - "is_multi_asic==True and release in ['201911']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
   skip:
@@ -714,6 +757,10 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
       - "platform in ['x86_64-cel_e1031-r0']"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -944,10 +991,11 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
 
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
-    reason: "Testcase consistently fails, raised issue to track"
+    reason: "Testcase consistently fails, raised issue to track. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
-      - "hwsku in ['Celestica-DX010-C32']"
-      - https://github.com/sonic-net/sonic-mgmt/issues/6518
+      - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6518"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
@@ -1003,9 +1051,17 @@ platform_tests/fwutil/test_fwutil.py::test_fwutil_auto:
 ############################################
 platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_link_flap:
   xfail:
-    reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices"
+    reason: "Testcase ignored due to Github issue 23121 on t1-lag topo for SN2 devices. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
-    - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+platform_tests/link_flap/test_link_flap.py::test_link_flap:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####           mellanox          #####
@@ -1023,6 +1079,12 @@ platform_tests/mellanox/test_check_sfp_eeprom.py:
     conditions:
       - "'SN4' in hwsku and (release in ['202405', '202411'])"
       - "'SN5' in hwsku and (release in ['202405', '202411'])"
+
+platform_tests/mellanox/test_check_sfp_eeprom.py::test_check_sfp_eeprom_with_option_dom:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
@@ -1044,6 +1106,12 @@ platform_tests/mellanox/test_reboot_cause.py:
 #######################################
 #####            sfp              #####
 #######################################
+platform_tests/sfp/test_sfputil.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
     reason: "Get/Set low power mode is not supported in Cisco 8000 platform or in bluefield platform"
@@ -1065,13 +1133,14 @@ platform_tests/sfp/test_sfputil.py::test_check_sfputil_reset:
 #######################################
 platform_tests/test_advanced_reboot.py:
   skip:
-    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412"
+    reason: "Unsupported platform / Skip in PR testing as taking too much time. / Warm reboot is not required for 202412 and this test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-arista_7050_qx32s']"
       - "'dualtor' in topo_name and release in ['202012']"
       - "asic_type in ['vs']"
       - "'isolated' in topo_name"
+      - "topo_type not in ['t0','t0-sonic']"
 
 platform_tests/test_advanced_reboot.py::test_fast_reboot:
   skip:
@@ -1122,11 +1191,13 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
 #######################################
 platform_tests/test_cont_warm_reboot.py:
   skip:
-    reason: "Warm Reboot is not supported in dualtor"
+    reason: "Warm Reboot is not supported in dualtor and this test is not run on this topology currently"
     conditions_logical_operator: or
     conditions:
       - "'dualtor' in topo_name"
       - "'isolated' in topo_name"
+      - "topo_type not in ['t0']"
+      - "is_smartswitch==True"
 
 #######################################
 #####       test_intf_fec.py      #####
@@ -1136,6 +1207,12 @@ platform_tests/test_intf_fec.py:
     reason: "Temporarily skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
+
+platform_tests/test_intf_fec.py::test_verify_fec_histogram:
+   xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 ####        test_kdump.py         #####
@@ -1230,6 +1307,12 @@ platform_tests/test_reboot.py::test_cold_reboot:
       - "hwsku in ['Celestica-DX010-C32']"
       - https://github.com/sonic-net/sonic-mgmt/issues/6767
 
+platform_tests/test_reboot.py::test_continuous_reboot:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip test_fast_reboot for M*/t1/t2 / Fast reboot is broken on dualtor topology. Skipping for now. / Skip for smartswitch topology."
@@ -1277,6 +1360,10 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
     conditions_logical_operator: or
     conditions:
       - "'sw_to3200k' in hwsku or platform in ['armhf-nokia_ixs7215_52x-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####   test_reload_config.py     #####
@@ -1296,7 +1383,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+      - "asic_type in ['cisco-8000']"
 
 #######################################
 ######  test_secure_upgrade.py  #######
@@ -1332,9 +1419,11 @@ platform_tests/test_sequential_restart.py::test_restart_syncd:
 #######################################
 platform_tests/test_service_warm_restart.py:
   skip:
-    reason: "Skipped on mellanox and nvidia asic from 202411 and later"
+    reason: "Skipped on mellanox and nvidia asic from 202411 and later / This test is not run on this topology currently"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['mellanox', 'nvidia']"
+      - "topo_type not in ['t0']"
 
 #######################################
 #####   test_xcvr_info_in_db.py   #####
@@ -1349,8 +1438,14 @@ platform_tests/test_xcvr_info_in_db.py::test_xcvr_info_in_db:
 #######################################
 #####   test_platform_dpu.py   #####
 #######################################
-smartswitch/platform_tests/test_platform_dpu.py::test_data_control_mid_plane_sync:
+smartswitch/platform_tests/test_platform_dpu.py:
   skip:
-    reason: "Test case is skipped on Nvidia smartswitch due to sonic-mgmt issue: https://github.com/sonic-net/sonic-mgmt/issues/19675"
+    reason: "Skip for non-smartswitch topology"
     conditions:
-    - "https://github.com/sonic-net/sonic-mgmt/issues/19675 and 'sn4280' in platform"
+      - "is_smartswitch==False"
+
+smartswitch/platform_tests/test_reload_dpu.py:
+  skip:
+    reason: "Skip for non-smartswitch topology"
+    conditions:
+      - "is_smartswitch==False"

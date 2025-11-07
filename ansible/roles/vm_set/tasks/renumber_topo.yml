@@ -122,8 +122,8 @@
       capabilities:
         - net_admin
       privileged: yes
-      memory: 16G
-      memory_swap: 32G
+      memory: 32G
+      memory_swap: 64G
     become: yes
 
   - name: Update ptf password
