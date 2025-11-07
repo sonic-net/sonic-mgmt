@@ -5,7 +5,7 @@ import logging
 from tests.common.helpers.snapshot_warm_vs_cold_boot_helpers import backup_device_logs, record_diff, \
     run_presnapshot_checks, write_upgrade_path_summary
 from tests.common.snapshot_comparison.warm_vs_cold import AFTER_COLDBOOT, AFTER_WARMBOOT, prune_expected_from_diff
-from utilities import boot_into_base_image, cleanup_prev_images
+from tests.upgrade_path.utilities import boot_into_base_image, cleanup_prev_images
 from tests.common.db_comparison import SonicRedisDBSnapshotter, DBType
 from tests.common import reboot
 from tests.common.helpers.upgrade_helpers import install_sonic
