@@ -8,9 +8,9 @@ pytestmark = [
 
 
 @pytest.fixture(scope="module")
-def setup_storm_handler(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts, tbinfo):
+def setup_fanouthost(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph_facts, tbinfo):
     """
-    A module level fixture to setup PFC storm handler to send XON frames.
+    A module level fixture to setup fanout host to send XON frames.
     """
     duthost = duthosts[rand_one_dut_hostname]
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -28,6 +28,8 @@ def setup_storm_handler(duthosts, rand_one_dut_hostname, fanouthosts, conn_graph
 
     yield dut_port, fanout_port, fanouthost
 
+    fanouthost.file(path="/tmp/pfc_gen.py", state="absent")
+
 
 def read_rx_drops(duthost, port):
     """
@@ -42,12 +44,12 @@ def read_rx_drops(duthost, port):
         return 0
 
 
-def test_xon_not_counted_rx_drop(duthosts, rand_one_dut_hostname, setup_storm_handler):
+def test_xon_xoff_not_counted_rx_drop(duthosts, rand_one_dut_hostname, setup_fanouthost):
     """
     Test to verify XON frame (class enable = 0) does NOT increase RX_DROPS on DUT port.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    dut_port, fanout_port, fanouthost = setup_storm_handler
+    dut_port, fanout_port, fanouthost = setup_fanouthost
 
     # Get baseline before sending XON frames
     rx_drop_base = read_rx_drops(duthost, dut_port)
@@ -59,11 +61,22 @@ def test_xon_not_counted_rx_drop(duthosts, rand_one_dut_hostname, setup_storm_ha
 
     # Send XON
     cmd = "sudo python3 /tmp/pfc_gen.py -p {} -i {} -n {} -t 65535".format(pfc_queue, fanout_port, frame_count)
-
     fanouthost.shell(cmd)
 
-    # Wait sometime for XON to be sent
+    # Wait some time for counters to be updated
     time.sleep(10)
+
+    rx_drop_after = read_rx_drops(duthost, dut_port)
+
+    assert (rx_drop_after - rx_drop_base) <= 10, (
+        f"RX_DROP increased on {dut_port}: before={rx_drop_base} after={rx_drop_after}"
+    )
+
+    rx_drop_base = rx_drop_after
+
+    # Send XOFF in queue 3 and 4
+    cmd = "sudo python3 /tmp/pfc_gen.py -p 24 -i {} -n {} -t 65535".format(fanout_port, frame_count)
+    fanouthost.shell(cmd)
 
     # Wait some time for counters to be updated
     time.sleep(10)
