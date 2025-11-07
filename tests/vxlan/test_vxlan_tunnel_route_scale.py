@@ -6,7 +6,6 @@ import pytest
 import traceback
 from ipaddress import IPv4Address
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
@@ -33,6 +32,7 @@ def get_loopback_ip(cfg_facts):
 
     pytest.fail("Cannot find IPv4 Loopback0 address in LOOPBACK_INTERFACE")
 
+
 def generate_routes(vnet_id: int, count: int):
     base = int(IPv4Address(f"30.{vnet_id}.0.0"))
     return [f"{IPv4Address(base + i)}/32" for i in range(count)]
@@ -44,6 +44,7 @@ def apply_chunk(duthost, payload, config_name):
     duthost.copy(content=content, dest=file_dest)
     duthost.shell(f"sonic-cfggen -j {file_dest} --write-to-db")
     duthost.shell(f"cp {file_dest} /home/admin/")
+
 
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     """
@@ -80,6 +81,7 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     logger.debug(f"Vlan {vlan_id} has available ports: {available_ports}")
     return available_ports
 
+
 def restore_config_db(localhost, duthost, ptfhost, setup_params=None):
     logger.info("Restoring DUT config DB from backup")
     try:
@@ -103,7 +105,9 @@ def restore_config_db(localhost, duthost, ptfhost, setup_params=None):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
     reboot(duthost, localhost)
 
-def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost, tbinfo, num_vnets, routes_per_vnet, vnet_base):
+
+def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
+                       tbinfo, num_vnets, routes_per_vnet, vnet_base):
     ports = get_available_vlan_id_and_ports(config_facts, num_vnets)
     pytest_assert(ports and len(ports) >= num_vnets, "Not enough ports for VNET setup")
 
@@ -191,7 +195,6 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost, tbin
         apply_chunk(duthost, {"VNET_ROUTE_TUNNEL": vnet_routes}, f"vnet_routes_{vnet_name}")
         time.sleep(10)
 
-
     logger.info("Discovering PortChannel egress members ...")
     egress_ptf_if = []
     pc_members = cfg_facts.get("PORTCHANNEL_MEMBER", {})
@@ -222,6 +225,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost, tbin
         "router_mac": duthost.facts["router_mac"],
     }
     return setup_params
+
 
 @pytest.fixture(scope="module", autouse=True)
 def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, scaled_vnet_params, localhost):

@@ -1,6 +1,5 @@
 import ptf
 from ptf.base_tests import BaseTest
-import ptf.testutils as testutils
 from ptf.mask import Mask
 import random
 import logging
