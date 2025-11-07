@@ -107,7 +107,8 @@ cc_test(
     ],
     deps = [
         "@com_github_sonic_net_sonic_pins//dvaas:test_vector_cc_proto",
-        "@com_github_sonic_net_sonic_pins//gutil:status",
+#        "@com_github_sonic_net_sonic_pins//gutil:status",
+        "@com_github_sonic_net_sonic_pins//gutil:testing",
         "//infrastructure/thinkit:ondatra_params",
         "@com_github_sonic_net_sonic_pins//tests/forwarding:arriba_test",
         "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
