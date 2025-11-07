@@ -23,7 +23,10 @@ def set_static_routes(duthost, static_ipmacs_dict):
     # Install Static Routes
     logger.info('Configuring static routes')
     for ip in static_macs:
-        duthost.shell(f'sudo arp -s {ip} {static_macs[ip]}')
+        try:
+            duthost.shell(f'sudo arp -s {ip} {static_macs[ip]}')
+        except Exception as e:  # noqa F841
+            pass
 
     return
 
@@ -142,32 +145,23 @@ def _get_dpu0_lf(local_dir):
 
 
 def set_ha_roles(duthosts, duthost):
-
     if duthost == duthosts[0]:
         # Active side
-        logger.info("Setting up HA creation Active side")
-        active_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0
-        version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0
-        vdpu_ids '["vdpu0_0","vdpu1_0"]'
-        """
-        active_cmd2 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id
-        "haset0_0" owner "dpu"
-        """
+        active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
+        active_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
+
+        logger.info("Setting up HA creation Active side cmd1")
         duthost.shell(active_cmd1)
+        logger.info("Setting up HA creation Active side cmd2")
         duthost.shell(active_cmd2)
     else:
         # Standby side
-        logger.info("Setting up HA creation Standby side")
-        standby_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0"
-        preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]'
-        """
-        standby_cmd2 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified"
-        ha_set_id "haset0_0" owner "dpu"
-        """
+        standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
+        standby_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
+
+        logger.info("Setting up HA creation Standby side cmd1")
         duthost.shell(standby_cmd1)
+        logger.info("Setting up HA creation Standby side cmd2")
         duthost.shell(standby_cmd2)
 
     return
@@ -177,43 +171,92 @@ def set_ha_admin_up(duthosts, duthost):
 
     if duthost == duthosts[0]:
         # Active side
-        logger.info("Setting up HA admin up Active side")
-        active_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false"
-        desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"
-        """
+        active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
+        logger.info("Setting up HA admin up Active side cmd1")
         duthost.shell(active_cmd1)
     else:
         # Standby side
-        logger.info("Setting up HA admin up Standby side")
-        standby_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state
-        "unspecified" ha_set_id "haset0_0" owner "dpu"
-        """
+        standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
+        logger.info("Setting up HA admin up Standby side cmd1")
         duthost.shell(standby_cmd1)
 
     return
 
 
 def set_ha_activate_role(duthosts, duthost):
+    # Extract pending_operation_ids from both Active and Standby sides
+    logger.info('Resting for 30 seconds before attempting to set HA activation role for pending operation id is set')
+    time.sleep(30)
+    retries = 3
+
+    if duthost == duthosts[0]:
+        # Active side
+        cmd = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu0_0:haset0_0'''
+        logger.info("Setting up HA activation role Active side")
+    else:
+        # Standby side
+        cmd = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu1_0:haset0_0'''
+        logger.info("Setting up HA activation role Standby side")
+
+    # Extract the pending_operation_ids UUID using regex
+    uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
+
+    # Execute command and grep for pending_operation_ids
+    while True:
+        result = duthost.shell(f"{cmd} | grep pending_operation_ids")
+        stdout = result['stdout']
+
+        match = re.search(uuid_pattern, stdout)
+
+        if match:
+            pending_operation_id = match.group(0)
+            logger.info(f"Found pending_operation_id on {duthost.hostname}: {pending_operation_id}")
+            logger.info(f"Applying pending_operation_id on {duthost.hostname}")
+            if duthost == duthosts[0]:
+                # Active side
+                cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
+                    pending_operation_id)
+                logger.info("Setting up HA activation role Active side")
+                duthost.shell(cmd)
+            else:
+                cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
+                    pending_operation_id)
+                logger.info("Setting up HA activation role Standby side")
+                duthost.shell(cmd)
+            break
+        else:
+            retries -= 1
+            pending_operation_id = None
+            logger.warning(f"Could not extract pending_operation_id from {duthost.hostname}")
+            logger.info(f"Raw output: {stdout}")
+            logger.info(f"Sleeping for 10 seconds then trying again, retries left: {retries} ")
+            time.sleep(10)
+
+            if retries == 0:
+                return False
+
+    return pending_operation_id
+
+
+"""
+def set_ha_activate_role(duthosts, duthost):
 
     # NEED search for approved_pending_operation_ids
     if duthost == duthosts[0]:
         # Active side
-        active_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active"
-        ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"a42b53b4-d1a3-43a1-afc7-df210c2cdee4\"]
-        """
+        active_cmd1 = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu0_0:haset0_0'''
+        logger.info("Setting up HA activation role Active side cmd1")
+        import pdb; pdb.set_trace()
+        result = duthost.shell(f"{active_cmd1} | grep pending_operation_ids")
         duthost.shell(active_cmd1)
     else:
         # Standby side
-        standby_cmd1 = """docker exec swss python /etc/sonic/proto_utils.py hset
-        DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified"
-        ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"fcfbeae8-ed5a-4fb3-a9cc-fda7fdcffbe3\"]
-        """
+        standby_cmd1 = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu1_0:haset0_0'''
+        logger.info("Setting up HA activation role Standby side cmd1")
         duthost.shell(standby_cmd1)
 
     return
+"""
 
 
 def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_test_case):
