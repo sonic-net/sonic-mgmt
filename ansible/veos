@@ -12216,6 +12216,18 @@ vms_svc_3:
       ansible_host: 10.206.144.244
     VM30095:
       ansible_host: 10.206.144.245
+    VM30096:
+      ansible_host: 172.16.132.128
+    VM30097:
+      ansible_host: 172.16.132.129
+    VM30098:
+      ansible_host: 172.16.132.130
+    VM30099:
+      ansible_host: 172.16.132.131
+    VM30100:
+      ansible_host: 172.16.132.132
+    VM30101:
+      ansible_host: 172.16.132.133
 vms_svc_5:
   hosts:
     VM50000:

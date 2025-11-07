@@ -14,8 +14,8 @@ svcstr-7260cx3-acs-5,Ethernet22/1,svcstr-7260cx3-acs-11,Ethernet64/1,100000,"457
 svcstr-7260cx3-acs-5,Ethernet23/1,svcstr-7260cx3-acs-12,Ethernet64/1,100000,"525-585",Trunk
 svcstr-7260cx3-acs-5,Ethernet65,svcstr-z9332f-01,Ethernet256,10000,"593-600",Trunk
 svcstr-7260cx3-acs-5,Ethernet66,svcstr-z9332f-02,Ethernet257,10000,"601-632",Trunk
-svcstr-7260cx3-acs-5,Ethernet11/1,svcstr-z9332f-03,Ethernet256, 10000,"668",Trunk
-svcstr-7260cx3-acs-5,Ethernet12/1,svcstr-z9332f-04,Ethernet256, 10000,"637-667",Trunk
+svcstr-7260cx3-acs-5,Ethernet63/1,svcstr-z9332f-03,Ethernet256,10000,"668,881-886",Trunk
+svcstr-7260cx3-acs-5,Ethernet64/1,svcstr-z9332f-04,Ethernet256,10000,"637-667",Trunk
 svcstr-7260cx3-acs-5,Ethernet14/1,svcstr-7260cx3-acs-13,Ethernet36/1,100000,"669-700",Trunk
 svcstr-7260cx3-acs-5,Ethernet15/1,svcstr-7260cx3-acs-14,Ethernet36/1,100000,"701-732",Trunk
 svcstr-7260cx3-acs-5,Ethernet24/1,svcstr-7260cx3-acs-15,Ethernet65,10000,"785-848",Trunk
@@ -690,3 +690,10 @@ svcstr-7800-lc5-1,Ethernet224,svcstr-7260cx3-acs-16,Ethernet29/1,100000,877,Acce
 svcstr-7800-lc5-1,Ethernet232,svcstr-7260cx3-acs-16,Ethernet30/1,100000,878,Access,
 svcstr-7800-lc5-1,Ethernet240,svcstr-7260cx3-acs-16,Ethernet31/1,100000,879,Access,
 svcstr-7800-lc5-1,Ethernet248,svcstr-7260cx3-acs-16,Ethernet32/1,100000,880,Access,
+
+svcstr-nh5010-ut2-3,Ethernet24,svcstr-z9332f-03,Ethernet8,400000,881,Access
+svcstr-nh5010-ut2-3,Ethernet48,svcstr-z9332f-03,Ethernet16,400000,882,Access
+svcstr-nh5010-ut2-3,Ethernet52,svcstr-z9332f-03,Ethernet24,400000,883,Access
+svcstr-nh5010-ut2-3,Ethernet96,svcstr-z9332f-03,Ethernet192,400000,884,Access
+svcstr-nh5010-ut2-3,Ethernet100,svcstr-z9332f-03,Ethernet200,400000,885,Access
+svcstr-nh5010-ut2-3,Ethernet120,svcstr-z9332f-03,Ethernet240,400000,886,Access

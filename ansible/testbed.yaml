@@ -4833,3 +4833,18 @@
   inv_name: strsvc
   auto_recover: 'False'
   comment: yatishkoul
+
+- conf-name: vmsvc-ut2-nh5010-3
+  group-name: svc3-2
+  topo: t2_single_node_min_nexthop_ut2
+  ptf_image_name: docker-ptf
+  ptf: svc3-2
+  ptf_ip: 10.206.144.11/24
+  ptf_ipv6: 2a01:111:e205:100::ace:900b
+  server: server_svc_3
+  vm_base: VM30096
+  dut:
+  - svcstr-nh5010-ut2-3
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul
