@@ -6,10 +6,9 @@ import configs.privatelink_config as pl
 import ptf.testutils as testutils
 import pytest
 from constants import LOCAL_PTF_INTF, LOCAL_DUT_INTF, REMOTE_DUT_INTF, REMOTE_PTF_RECV_INTF, \
-    REMOTE_PTF_SEND_INTF, VXLAN_UDP_BASE_SRC_PORT
+    REMOTE_PTF_SEND_INTF
 from gnmi_utils import apply_messages
 from packets import outbound_pl_packets, inbound_pl_packets
-from tests.common import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
@@ -51,7 +50,7 @@ def setup_npu_routes(duthost, dash_pl_config, skip_config, skip_cleanup, dpu_ind
 
 
 @pytest.fixture(autouse=True, scope="module")
-def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip_config, set_vxlan_udp_sport_range):
+def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip_config):
     if skip_config:
         return
     dpuhost = dpuhosts[dpu_index]
@@ -68,7 +67,7 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index)
 
     route_and_mapping_messages = {
-        **pl.PE1_VNET_MAPPING_CONFIG,
+        **pl.PE_VNET_MAPPING_CONFIG,
         **pl.PE_SUBNET_ROUTE_CONFIG,
         **pl.VM_SUBNET_ROUTE_CONFIG
     }
@@ -94,9 +93,6 @@ def common_setup_teardown(localhost, duthost, ptfhost, dpu_index, dpuhosts, skip
     apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
     apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
-
-    if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-        config_reload(dpuhost, safe_reload=True)
 
 
 @pytest.fixture(scope="function", params=["vxlan", "gre"])
@@ -239,7 +235,8 @@ class TestEniCounter:
         packet_number = 1
 
         vm_to_dpu_pkt, _ = outbound_pl_packets(dash_pl_config, outer_encap, inner_packet_type=inner_packet_type)
-        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(dash_pl_config, inner_packet_type=inner_packet_type)
+        pe_to_dpu_pkt, exp_dpu_to_vm_pkt = inbound_pl_packets(
+            dash_pl_config, inner_packet_type=inner_packet_type, vxlan_udp_src_port_mask=16)
 
         with allure.step("send outbound and inbound packet and verify the relevant eni counter"):
             eni_counter_check_point_dict = {"SAI_ENI_STAT_FLOW_CREATED": 1,
