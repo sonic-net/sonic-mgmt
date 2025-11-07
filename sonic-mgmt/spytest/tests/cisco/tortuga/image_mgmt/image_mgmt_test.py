@@ -508,6 +508,9 @@ class ImageMgmtTests(unittest.TestCase):
             im.log("Img Subdirectory is " + str(img_base_dir + "/" + img_dir))
 
         kernel_file = str(img_base_dir + "/" + img_dir) + "/boot/" + "vmlinuz-5.10.0-23-2-amd64"
+        _, _, err = im.exec_cmd("ls " + kernel_file)
+        if "cannot access" in err:
+            kernel_file = str(img_base_dir + "/" + img_dir) + "/boot/" + "vmlinuz-6.1.0-11-2-amd64"
         bkp_kernel_file = kernel_file + ".test_kernel_failure"
 
         im.exec_cmd("sudo mv " + kernel_file + " " + bkp_kernel_file)
