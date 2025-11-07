@@ -19,7 +19,7 @@ all:
           ansible_host: 10.64.246.190
           version: ixnetworkweb_10.25.2405.106
         ixia-apiserver4:
-          ansible_host: 10.64.246.25
+          ansible_host: 10.64.246.29
           version: ixnetworkweb_10.80.2412.123
         str-aresone-api-serv-01:
           ansible_host: 10.64.246.191
@@ -660,7 +660,7 @@ ixia_chassis:
       os: ixia
     t2-aresone-ixia-2:
       ansible_host: 10.3.155.73
-      os: ixia  
+      os: ixia
 
 l1_switch:
   hosts:
@@ -678,6 +678,8 @@ l1_switch:
       ansible_host: 10.64.246.121
     str-ocs-dlx64-acs-05:
       ansible_host: 10.64.246.183
+    str-ocs-dlx64-acs-06:
+      ansible_host: 10.64.246.211
     str-ocs-dlx64-acs-10:
       ansible_host: 10.64.246.185
     str-ocs-dlx64-acs-11:

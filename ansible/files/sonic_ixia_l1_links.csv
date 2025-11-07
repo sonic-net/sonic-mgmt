@@ -255,3 +255,15 @@ str-sn5640-stress-t0-1,Ethernet28,str-ocs-dlx64-acs-11,29
 str-sn5640-stress-t0-1,Ethernet29,str-ocs-dlx64-acs-11,30
 str-sn5640-stress-t0-1,Ethernet30,str-ocs-dlx64-acs-11,31
 str-sn5640-stress-t0-1,Ethernet31,str-ocs-dlx64-acs-11,32
+msr-ixia-4,Card1/Port6,str-ocs-dlx64-acs-06,1|2|3|4
+msr-ixia-4,Card1/Port7,str-ocs-dlx64-acs-06,5|6|7|8
+msr-ixia-4,Card1/Port8,str-ocs-dlx64-acs-06,9|10|11|12
+msr-ixia-4,Card2/Port1,str-ocs-dlx64-acs-06,13|14|15|16
+msr-ixia-4,Card2/Port2,str-ocs-dlx64-acs-06,17|18|19|20
+msr-ixia-4,Card2/Port3,str-ocs-dlx64-acs-06,21|22|23|24
+STR-8102-C19-U24,Ethernet184,str-ocs-dlx64-acs-06,41|42|43|44
+STR-8102-C19-U24,Ethernet188,str-ocs-dlx64-acs-06,45|46|47|48
+STR-8102-C19-U24,Ethernet192,str-ocs-dlx64-acs-06,49|50|51|52
+STR-7050CX3-C19-U37,Ethernet100,str-ocs-dlx64-acs-06,29|30|31|32
+STR-7050CX3-C19-U37,Ethernet104,str-ocs-dlx64-acs-06,33|34|35|36
+STR-7050CX3-C19-U37,Ethernet108,str-ocs-dlx64-acs-06,37|38|39|40
