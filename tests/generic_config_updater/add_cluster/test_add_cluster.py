@@ -35,10 +35,10 @@ ACL_RULE_FILE_PATH = "generic_config_updater/add_cluster/acl/acl_rule_src_dst_po
 ACL_RULE_DST_FILE = "/tmp/test_add_cluster_acl_rule.json"
 ACL_RULE_SKIP_VERIFICATION_LIST = [""]
 
-
 # -----------------------------
 # Helper functions that validate apply-patch changes
 # -----------------------------
+
 
 def verify_bgp_peers_removed_from_asic(duthost, namespace):
     logger.info("{}: Verifying bgp_neighbors info is removed.".format(duthost.hostname))
@@ -116,9 +116,9 @@ def remove_cluster_via_sonic_db_cli(config_facts,
         for interface_key in config_facts["INTERFACE"].keys():
             if interface_key.startswith("Ethernet-Rec"):
                 continue
-            asic_interface_keys.append(interface_key)
             for key, _value in config_facts["INTERFACE"][interface_key].items():
                 asic_interface_keys.append(interface_key + '|' + key)
+            asic_interface_keys.append(interface_key)
         for iface in asic_interface_keys:
             run_and_check(json_namespace,
                           f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB del 'INTERFACE|{iface}'",
@@ -251,7 +251,8 @@ def apply_patch_remove_cluster(config_facts,
                                config_facts_localhost,
                                mg_facts,
                                duthost,
-                               enum_rand_one_asic_namespace):
+                               enum_rand_one_asic_namespace,
+                               cli_namespace_prefix):
     """
     Apply patch to remove cluster information for a given ASIC namespace.
 
@@ -286,19 +287,22 @@ def apply_patch_remove_cluster(config_facts,
     # find active ports
     active_interfaces = get_active_interfaces(config_facts)
 
+    # W/A: TABLE:ACL_TABLE removing whole table instead of detaching ports
+    # https://github.com/sonic-net/sonic-buildimage/issues/24295
+
     # op: remove
     json_patch_asic = [
         {
             "op": "remove",
-            "path": f"{json_namespace}/ACL_TABLE/DATAACL/ports"
+            "path": f"{json_namespace}/ACL_TABLE/DATAACL"
         },
         {
             "op": "remove",
-            "path": f"{json_namespace}/ACL_TABLE/EVERFLOW/ports"
+            "path": f"{json_namespace}/ACL_TABLE/EVERFLOW"
         },
         {
             "op": "remove",
-            "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6/ports"
+            "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6"
         },
         {
             "op": "remove",
@@ -314,15 +318,11 @@ def apply_patch_remove_cluster(config_facts,
         },
         {
             "op": "remove",
-            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE"
-        },
-        {
-            "op": "remove",
             "path": f"{json_namespace}/PORTCHANNEL_MEMBER"
         },
         {
             "op": "remove",
-            "path": f"{json_namespace}/PORTCHANNEL"
+            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE"
         },
         {
             "op": "remove",
@@ -333,20 +333,17 @@ def apply_patch_remove_cluster(config_facts,
     # table INTERFACE
     asic_interface_dict = config_facts["INTERFACE"]
     asic_interface_keys = []
+    asic_interface_ip_prefix_keys = []
     for interface_key in asic_interface_dict.keys():
         if interface_key.startswith("Ethernet-Rec"):
             continue
-        asic_interface_keys.append(interface_key)
         for key, _value in asic_interface_dict[interface_key].items():
             key_to_remove = interface_key + '|' + key.replace("/", "~1")
-            asic_interface_keys.append(key_to_remove)
+            asic_interface_ip_prefix_keys.append(key_to_remove)
+        asic_interface_keys.append(interface_key)
 
-    asic_paths_to_remove = [f"{json_namespace}/INTERFACE/"]
-    asic_keys_to_remove = [asic_interface_keys]
-
-    for path, keys in zip(asic_paths_to_remove, asic_keys_to_remove):
-        for k in keys:
-            asic_paths_list.append(path + k)
+    for key in asic_interface_ip_prefix_keys:
+        asic_paths_list.append(f"{json_namespace}/INTERFACE/" + key)
 
     for path in asic_paths_list:
         json_patch_asic.append({
@@ -385,19 +382,20 @@ def apply_patch_remove_cluster(config_facts,
     json_patch_localhost = []
     logger.info("{}: Removing cluster info for namespace localhost".format(duthost.hostname))
 
-    # INTERFACE keys: in localhost replace the interface name with the interface alias
+    # INTERFACE TABLE: in localhost replace the interface name with the interface alias
+    # INTERFACE ip-prefix
+    localhost_ip_prefix_interface_keys = []
+    for key in asic_interface_ip_prefix_keys:
+        parts = key.split('|')
+        port = parts[0]
+        alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
+        key_to_remove = "{}|{}".format(alias, parts[1])
+        key_to_remove = key_to_remove.replace("/", "~1")
+        localhost_ip_prefix_interface_keys.append(key_to_remove)
+    # INTERFACE name
     localhost_interface_keys = []
     for key in asic_interface_keys:
-        if key.startswith('Ethernet-Rec'):
-            continue
-        parts = key.split('|')
-        key_to_remove = key
-        if len(parts) == 2:
-            port = parts[0]
-            alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
-            key_to_remove = "{}|{}".format(alias, parts[1])
-        else:
-            key_to_remove = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
+        key_to_remove = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
         key_to_remove = key_to_remove.replace("/", "~1")
         localhost_interface_keys.append(key_to_remove)
 
@@ -416,10 +414,10 @@ def apply_patch_remove_cluster(config_facts,
     localhost_pc_interface_keys = []
     for pc_key in pc_keys:
         if pc_key in localhost_pc_interface_dict:
-            localhost_pc_interface_keys.append(pc_key)
             for key, _value in localhost_pc_interface_dict[pc_key].items():
                 key_to_remove = pc_key + '|' + key.replace("/", "~1")
                 localhost_pc_interface_keys.append(key_to_remove)
+            localhost_pc_interface_keys.append(pc_key)
     # ACL TABLE
     acl_ports_localhost = config_facts_localhost["ACL_TABLE"]["DATAACL"]["ports"]
     acl_ports_asic = config_facts["ACL_TABLE"]["DATAACL"]["ports"]
@@ -446,16 +444,14 @@ def apply_patch_remove_cluster(config_facts,
     localhost_paths_to_remove = ["/localhost/BGP_NEIGHBOR/",
                                  "/localhost/DEVICE_NEIGHBOR_METADATA/",
                                  "/localhost/INTERFACE/",
-                                 "/localhost/PORTCHANNEL_INTERFACE/",
                                  "/localhost/PORTCHANNEL_MEMBER/",
-                                 "/localhost/PORTCHANNEL/"
+                                 "/localhost/PORTCHANNEL_INTERFACE/"
                                  ]
 
     localhost_keys_to_remove = [
         config_facts["BGP_NEIGHBOR"].keys() if config_facts.get("BGP_NEIGHBOR") else [],
         config_facts["DEVICE_NEIGHBOR_METADATA"].keys() if config_facts.get("DEVICE_NEIGHBOR_METADATA") else [],
-        localhost_interface_keys,
-        config_facts["PORTCHANNEL"].keys() if config_facts.get("PORTCHANNEL") else [],
+        localhost_ip_prefix_interface_keys,
         localhost_pc_member_keys,
         localhost_pc_interface_keys
     ]
@@ -475,15 +471,45 @@ def apply_patch_remove_cluster(config_facts,
     json_patch = json_patch_localhost + json_patch_asic
     tmpfile = generate_tmpfile(duthost)
     try:
+        logger.info("Applying patch (1/2) to remove cluster info (all except PORTCHANNEL, INTERFACE name).")
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
         verify_bgp_peers_removed_from_asic(duthost, enum_rand_one_asic_namespace)
-        # Verify buffer pg table
-        buffer_pg_info_remove_interfaces = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
-        if buffer_pg_info_remove_interfaces != {}:
-            logger.warning("Didn't find expected BUFFER_PG info in CONFIG_DB after removing the interfaces.")
     finally:
         delete_tmpfile(duthost, tmpfile)
+
+    # W/A TABLE:PORTCHANNEL, INTERFACE names needs to be removed in separate gcu apply operation
+    # https://github.com/sonic-net/sonic-buildimage/issues/24338
+    json_patch_extra = [
+        {
+            "op": "remove",
+            "path": f"{json_namespace}/PORTCHANNEL"
+        }
+    ]
+    for key, _value in config_facts["PORTCHANNEL"].items():
+        json_patch_extra.append({
+            "op": "remove",
+            "path": "/localhost/PORTCHANNEL/{}".format(key),
+        })
+    interface_paths_list = []
+    interface_paths_to_remove = [f"{json_namespace}/INTERFACE/", "/localhost/INTERFACE/"]
+    interface_keys_to_remove = [asic_interface_keys, localhost_interface_keys]
+    for path, keys in zip(interface_paths_to_remove, interface_keys_to_remove):
+        for k in keys:
+            interface_paths_list.append(path + k)
+    for path in interface_paths_list:
+        json_patch_extra.append({
+            "op": "remove",
+            "path": path
+        })
+
+    tmpfile_pc = generate_tmpfile(duthost)
+    try:
+        logger.info("Applying patch (2/2) to remove cluster info (PORTCHANNEL, INTERFACE name).")
+        output = apply_patch(duthost, json_data=json_patch_extra, dest_file=tmpfile_pc)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile_pc)
 
 
 def apply_patch_add_cluster(config_facts,
@@ -535,20 +561,21 @@ def apply_patch_add_cluster(config_facts,
                 "op": "add",
                 "path": f"{json_namespace}/PORTCHANNEL",
                 "value": pc_dict
-            },
-            {
-                "op": "add",
-                "path": "/localhost/PORTCHANNEL",
-                "value": pc_dict
             }
         ]
+        for pc_key, pc_value in pc_dict.items():
+            json_patch_pc.append({
+                "op": "add",
+                "path": "/localhost/PORTCHANNEL/{}".format(pc_key),
+                "value": pc_value
+            })
         tmpfile_pc = generate_tmpfile(duthost)
         try:
+            logger.info("Applying patch (1/2) to add cluster info (PORTCHANNEL).")
             output = apply_patch(duthost, json_data=json_patch_pc, dest_file=tmpfile_pc)
             expect_op_success(duthost, output)
         finally:
             delete_tmpfile(duthost, tmpfile_pc)
-            pass
 
     # op: add
     json_patch_asic = [
@@ -572,11 +599,11 @@ def apply_patch_add_cluster(config_facts,
             "path": f"{json_namespace}/INTERFACE",
             "value": interface_dict
         },
-        {
-            "op": "add",
-            "path": f"{json_namespace}/PORTCHANNEL",
-            "value": pc_dict
-        },
+        # {
+        #     "op": "add",
+        #     "path": f"{json_namespace}/PORTCHANNEL",
+        #     "value": pc_dict
+        # },
         {
             "op": "add",
             "path": f"{json_namespace}/PORTCHANNEL_MEMBER",
@@ -621,18 +648,18 @@ def apply_patch_add_cluster(config_facts,
     # table ACL_TABLE changes
     json_patch_asic.append({
         "op": "add",
-        "path": f"{json_namespace}/ACL_TABLE/DATAACL/ports",
-        "value": config_facts["ACL_TABLE"]["DATAACL"]["ports"]
+        "path": f"{json_namespace}/ACL_TABLE/DATAACL",
+        "value": config_facts["ACL_TABLE"]["DATAACL"]
     })
     json_patch_asic.append({
         "op": "add",
-        "path": f"{json_namespace}/ACL_TABLE/EVERFLOW/ports",
-        "value": config_facts["ACL_TABLE"]["EVERFLOW"]["ports"]
+        "path": f"{json_namespace}/ACL_TABLE/EVERFLOW",
+        "value": config_facts["ACL_TABLE"]["EVERFLOW"]
     })
     json_patch_asic.append({
         "op": "add",
-        "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6/ports",
-        "value": config_facts["ACL_TABLE"]["EVERFLOWV6"]["ports"]
+        "path": f"{json_namespace}/ACL_TABLE/EVERFLOWV6",
+        "value": config_facts["ACL_TABLE"]["EVERFLOWV6"]
     })
 
     ######################
@@ -690,9 +717,9 @@ def apply_patch_add_cluster(config_facts,
     for k, v in list(localhost_interface_dict.items()):
         localost_add_paths_list.append("/localhost/INTERFACE/{}".format(k))
         localost_add_values_list.append(v)
-    for k, v in list(pc_dict.items()):
-        localost_add_paths_list.append("/localhost/PORTCHANNEL/{}".format(k))
-        localost_add_values_list.append(v)
+    # for k, v in list(pc_dict.items()):
+    #     localost_add_paths_list.append("/localhost/PORTCHANNEL/{}".format(k))
+    #     localost_add_values_list.append(v)
     for k, v in list(localhost_pc_interface_dict.items()):
         localost_add_paths_list.append("/localhost/PORTCHANNEL_INTERFACE/{}".format(k))
         localost_add_values_list.append(v)
@@ -728,6 +755,7 @@ def apply_patch_add_cluster(config_facts,
     json_patch = json_patch_localhost + json_patch_asic
     tmpfile = generate_tmpfile(duthost)
     try:
+        logger.info("Applying patch (2/2) to add cluster info (all except PORTCHANNEL).")
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
     finally:
@@ -853,7 +881,9 @@ def setup_add_cluster(tbinfo,
                       initialize_random_variables,
                       initialize_facts,
                       ptfadapter,
-                      acl_config_scenario):
+                      loganalyzer,
+                      acl_config_scenario,
+                      setup_static_route):
     """
     This setup fixture prepares the Downstream LC by applying a patch to remove
     and then re-add the cluster configuration.
@@ -908,13 +938,19 @@ def setup_add_cluster(tbinfo,
                                 ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
 
     with allure.step("Removing cluster info for namespace"):
+        # disable loganalyzer during cluster removal
+        logger.info("Disabling loganalyzer before starting cluster removal.")
+        if loganalyzer and loganalyzer[duthost.hostname]:
+            loganalyzer[duthost.hostname].add_start_ignore_mark()
+
         if len(config_facts["BUFFER_PG"]) <= 6:  # num of active interfaces = num of pg lossless profiles
             logger.info("Removal method gcu - min setup.")
             apply_patch_remove_cluster(config_facts,
                                        config_facts_localhost,
                                        mg_facts,
                                        duthost,
-                                       enum_rand_one_asic_namespace)
+                                       enum_rand_one_asic_namespace,
+                                       cli_namespace_prefix)
         else:
             logger.info("Removal method sonic-db-cli - mid-max setup.")
             remove_cluster_via_sonic_db_cli(config_facts,
@@ -923,11 +959,17 @@ def setup_add_cluster(tbinfo,
                                             duthost,
                                             enum_rand_one_asic_namespace,
                                             cli_namespace_prefix)
+
         # Verify routes removed
         wait_until(5, 1, 0, verify_routev4_existence, duthost,
                    enum_rand_one_frontend_asic_index, bgp_neigh_ip, should_exist=False)
         wait_until(5, 1, 0, verify_routev4_existence, duthost,
                    enum_rand_one_frontend_asic_index, STATIC_DST_IP, should_exist=False)
+
+        # re-enabling loganalyzer during cluster removal
+        logger.info("Re-enabling loganalyzer after cluster removal.")
+        if loganalyzer and loganalyzer[duthost.hostname]:
+            loganalyzer[duthost.hostname].add_end_ignore_mark()
 
     with allure.step("Reload the system with config reload"):
         duthost.shell("config save -y")
@@ -936,6 +978,11 @@ def setup_add_cluster(tbinfo,
                       "All critical services should be fully started!")
         pytest_assert(wait_until(1200, 20, 0, check_interface_status_of_up_ports, duthost),
                       "Not all ports that are admin up on are operationally up")
+
+    with allure.step("Verify config after reload"):
+        tmpfile = generate_tmpfile(duthost)
+        output = apply_patch(duthost, json_data=[], dest_file=tmpfile)
+        expect_op_success(duthost, output)
 
     with allure.step("Adding cluster info for namespace"):
         apply_patch_add_cluster(config_facts,
@@ -970,6 +1017,7 @@ def test_add_cluster(tbinfo,
                      duthosts,
                      initialize_random_variables,
                      ptfadapter,
+                     loganalyzer,
                      acl_config_scenario,
                      cli_namespace_prefix,
                      setup_add_cluster):
@@ -982,7 +1030,8 @@ def test_add_cluster(tbinfo,
 
     # initial test env
     enum_downstream_dut_hostname, enum_upstream_dut_hostname, enum_rand_one_frontend_asic_index, \
-        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, rand_bgp_neigh_ip_name = initialize_random_variables
+        enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
+        rand_bgp_neigh_ip_name = initialize_random_variables
     duthost = duthosts[enum_downstream_dut_hostname]
     duthost_up = duthosts[enum_upstream_dut_hostname]
     asic_id = enum_rand_one_frontend_asic_index
