@@ -22,6 +22,7 @@ pytestmark = [
     pytest.mark.disable_loganalyzer,
 ]
 
+
 # -------------------------------------------------------------------
 # Utility Functions
 # -------------------------------------------------------------------
@@ -43,7 +44,6 @@ def apply_chunk(duthost, payload, config_name):
     file_dest = f"/tmp/{config_name}_chunk.json"
     duthost.copy(content=content, dest=file_dest)
     duthost.shell(f"sonic-cfggen -j {file_dest} --write-to-db")
-    duthost.shell(f"cp {file_dest} /home/admin/")
 
 
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
@@ -107,7 +107,7 @@ def restore_config_db(localhost, duthost, ptfhost, setup_params=None):
 
 
 def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
-                       tbinfo, num_vnets, routes_per_vnet, vnet_base):
+                       tbinfo, num_vnets, routes_per_vnet, vnet_base, vxlan_port):
     ports = get_available_vlan_id_and_ports(config_facts, num_vnets)
     pytest_assert(ports and len(ports) >= num_vnets, "Not enough ports for VNET setup")
 
@@ -127,7 +127,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     ptf_vtep = PTF_VTEP
     vxlan_tun = TUNNEL_NAME
     apply_chunk(duthost, {"VXLAN_TUNNEL": {vxlan_tun: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
-    time.sleep(5)
+    vxlan_router_mac = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")["stdout"].strip()
 
     vnet_ptf_map = {}
 
@@ -155,8 +155,6 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
         ptfhost.shell(f"ip addr add {ingress_ptf_ip}/24 dev {port_name}")
         ptfhost.shell(f"ip link set {port_name} up")
 
-        duthost.shell(f"config vnet add {vnet_name} {vni} {vxlan_tun}")
-
         apply_chunk(
             duthost,
             {
@@ -169,7 +167,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
             },
             f"vnet_{vnet_name}",
         )
-        time.sleep(5)
+        time.sleep(1)
         apply_chunk(
             duthost,
             {
@@ -180,7 +178,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
             },
             f"intf_{vnet_name}",
         )
-    time.sleep(20)
+    time.sleep(5)
     for idx in range(num_vnets):
         vnet_id = idx + 1
         vnet_name = f"Vnet{vnet_id}"
@@ -210,7 +208,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     pytest_assert(egress_ptf_if, "No egress PTF interfaces discovered from PortChannels")
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=duthost.facts["router_mac"])
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
 
     time.sleep(10)
 
@@ -222,13 +220,16 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
         "routes_per_vnet": routes_per_vnet,
         "vnet_ptf_map": vnet_ptf_map,
         "egress_ptf_if": egress_ptf_if,
+        "vxlan_port": vxlan_port,
         "router_mac": duthost.facts["router_mac"],
+        "mac_switch": vxlan_router_mac,
     }
     return setup_params
 
 
 @pytest.fixture(scope="module", autouse=True)
-def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, scaled_vnet_params, localhost):
+def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
+                               scaled_vnet_params, localhost, request):
     duthost = duthosts[rand_one_dut_hostname]
     logger.info(f"Starting VXLAN scale setup on DUT: {duthost.hostname}")
     if duthost.facts.get("asic_type") == "vs":
@@ -244,6 +245,7 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         vnet_base = 10000
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
+        vxlan_port = request.config.option.vxlan_port
 
         logger.info(f"Using num_vnets={num_vnets}, routes_per_vnet={routes_per_vnet}")
 
@@ -256,7 +258,8 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
             tbinfo,
             num_vnets,
             routes_per_vnet,
-            vnet_base
+            vnet_base,
+            vxlan_port
         )
     except Exception as e:
         logger.error("Exception raised in setup: {}".format(repr(e)))

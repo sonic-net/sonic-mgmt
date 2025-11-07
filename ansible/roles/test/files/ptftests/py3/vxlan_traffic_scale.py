@@ -42,12 +42,13 @@ class VXLANScaleTest(BaseTest):
         else:
             self.egress_ptf_if = [int(egress_param)]
 
-        self.router_mac = self.test_params.get("router_mac", "00:aa:bb:cc:dd:ee")
-
-        self.mac_switch = "00:12:34:56:78:9a"
+        self.router_mac = self.test_params.get("router_mac")
+        self.mac_switch = self.test_params.get("mac_switch")
         self.random_mac = "00:aa:bb:cc:dd:ee"
         self.tcp_sport = 1234
         self.tcp_dport = 5000
+        self.vxlan_port = self.test_params['vxlan_port']
+        self.udp_sport = 49366
 
         self.logger = logging.getLogger("VXLANScaleTest")
         self.logger.setLevel(logging.INFO)
@@ -77,8 +78,8 @@ class VXLANScaleTest(BaseTest):
             ip_src=self.dut_vtep,
             ip_dst=self.ptf_vtep,
             ip_ttl=128,
-            udp_sport=49366,
-            udp_dport=4789,
+            udp_sport=self.udp_sport,
+            udp_dport=self.vxlan_port,
             with_udp_chksum=False,
             vxlan_vni=vni,
             inner_frame=inner_exp_pkt,
@@ -94,7 +95,6 @@ class VXLANScaleTest(BaseTest):
         m.set_do_not_care_scapy(scapy.IP, "chksum")
         m.set_do_not_care_scapy(scapy.IP, "id")
         m.set_do_not_care_scapy(scapy.UDP, "sport")
-        m.set_do_not_care_scapy(scapy.UDP, "chksum")
         return m
 
     def runTest(self):
