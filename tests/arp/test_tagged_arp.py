@@ -1,4 +1,3 @@
-
 import pytest
 import ptf.testutils as testutils
 
@@ -93,7 +92,9 @@ def _check_arp_entries(duthost, dummy_ips, dummy_macs, vlan_port_dev, permit_vla
     error["detail"] = None
     try:
         res = duthost.command('show arp')
-        assert res['rc'] == 0
+        assert res['rc'] == 0, \
+            "The 'show arp' command failed. Return code: {}".format(res['rc'])
+
         logger.info('"show arp" output on DUT:\n{}'.format(pprint.pformat(res['stdout_lines'])))
 
         arp_cnt = 0
@@ -110,15 +111,25 @@ def _check_arp_entries(duthost, dummy_ips, dummy_macs, vlan_port_dev, permit_vla
             mac = items[1]
             ifname = items[2]
             vlan_id = int(items[3])
-            assert ip in dummy_ips
-            assert mac in dummy_macs
+            assert ip in dummy_ips, \
+                "Assertion failed: IP '{}' not found in the list of dummy IPs. Dummy IPs: {}".format(ip, dummy_ips)
+            assert mac in dummy_macs, \
+                "Assertion failed: MAC '{}' not found in the list of dummy MACs. Dummy MACs: {}".format(mac, dummy_macs)
             # 'show arp' command gets iface from FDB table,
             # if 'show arp' command was earlier than FDB table update, ifname would be '-'
             if ifname == '-':
                 logger.info('Ignore unknown iface...')
             else:
-                assert ifname == vlan_port_dev
-            assert vlan_id == permit_vlanid
+                assert ifname == vlan_port_dev, \
+                    "Interface name '{}' does not match the expected VLAN port device '{}'.".format(
+                        ifname, vlan_port_dev
+                    )
+
+            assert vlan_id == permit_vlanid, \
+                "VLAN ID '{}' does not match the expected permitted VLAN ID '{}'.".format(
+                    vlan_id, permit_vlanid
+                )
+
         assert arp_cnt == DUMMY_ARP_COUNT, "Expect {} entries, but {} found".format(DUMMY_ARP_COUNT, arp_cnt)
         return True
     except Exception as detail:
