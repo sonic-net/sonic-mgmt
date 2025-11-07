@@ -1283,7 +1283,7 @@ class TestVrfCapacity():
         if (asic_type in ["marvell-teralynx"] and
             platform in ["x86_64-wistron_6512_32r-r0", 
                          "x86_64-wistron_sw_to3200k-r0", 
-                         "x86_64-cel_midstone-r0" ]):
+                         "x86_64-cel_midstone-r0"]):
             self.VRF_CAPACITY = 256
 
         # get cmd line option value, use default if none
