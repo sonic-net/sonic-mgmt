@@ -62,7 +62,7 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
-from tests.common.utilities import get_upstream_neigh_type, file_exists_on_dut
+from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
@@ -2301,18 +2301,15 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
 
 @pytest.fixture(scope='module')
 def enum_downstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "t0":
-        downstream_nbr_type = "server"
-    elif tbinfo["topo"]["type"] == "t1":
-        downstream_nbr_type = "T0"
-    else:
+    downstream_nbr_type = get_downstream_neigh_type(tbinfo, is_upper=True).split(',')
+    if downstream_nbr_type is None:
         downstream_nbr_type = "T1"
 
     for a_dut in duthosts.frontend_nodes:
         minigraph_facts = a_dut.get_extended_minigraph_facts(tbinfo)
         minigraph_neighbors = minigraph_facts['minigraph_neighbors']
         for key, value in minigraph_neighbors.items():
-            if downstream_nbr_type in value['name']:
+            if any(downstream_type in value['name'] for downstream_type in downstream_nbr_type):
                 return a_dut.hostname
 
     pytest.fail("Did not find a dut in duthosts that for topo type {} that has downstream nbr type {}".
