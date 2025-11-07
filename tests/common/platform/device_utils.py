@@ -1121,7 +1121,7 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, dutho
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        if duthost.mgmt_ipv6:
+        if duthost_mgmt_ip['version'] == 'v6':
             duthost.command(IP6TABLES_PREPEND_RULE_CMD)
         else:
             duthost.command(IPTABLES_PREPEND_RULE_CMD)
