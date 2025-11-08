@@ -441,7 +441,7 @@ class MemoryCheckerContainer(object):
 
     def is_monit_mem_ok(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok'
+        return status['status'] in ('Status ok', 'OK')
 
     def is_monit_mem_failed(self):
         status = self.get_monit_mem_status()
@@ -450,11 +450,13 @@ class MemoryCheckerContainer(object):
 
     def is_monit_mem_last_ok(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok' and status['last_exit_value'] == '0'
+        return status['status'] in ('Status ok', 'OK') \
+            and status['last_exit_value'] == '0'
 
     def is_monit_mem_last_failed(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok' and status['last_exit_value'] != '0'
+        return status['status'] in ('Status ok', 'OK') \
+            and status['last_exit_value'] != '0'
 
     def remove(self):
         remove_container(self.duthost, self.name)
