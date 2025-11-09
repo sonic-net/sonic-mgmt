@@ -9,7 +9,7 @@
 
 ## 1. Overview
 
-This enhancement extends generic hash features to support 
+This enhancement extends generic hash features to support
 * Native hash fields for RoCE traffic
   - `SAI_NATIVE_HASH_FIELD_RDMA_BTH_OPCODE`
   - `SAI_NATIVE_HASH_FIELD_RDMA_BTH_DEST_QP`
@@ -39,19 +39,11 @@ This enhancement extends generic hash features to support
 1. `config` commands to set per packet type hash for ECMP/LAG.
 2. `show` commands display per packet type and global hash configuration/capability.
 
-### 2.3 Error handling:
-
-#### 2.3.1 Frontend
-
-- Invalid or unsupported packet type provided to CLI or DB.
-
-#### 2.3.2 Backend
-
-- Invalid removal or update of per packet type hash configs.
-
 ## 3. Scope
 
-Verify per packet type hash config can be independently managed and affects ECMP/LAG distribution only for matching traffic.
+1. Verify per packet type hash config can be independently managed and affects ECMP/LAG distribution only for matching traffic.
+1. Detailed error-handling and capability-driven behavior (e.g., unsupported packet types or hash fields) are validated by separate mock/unit tests and are intentionally not covered by this PTF test plan.
+1. Algorithm behavior is covered by the base generic-hash tests and none in this test plan.
 
 ### 3.1 Scale / Performance
 
@@ -65,10 +57,10 @@ The following command can be used to configure generic hash with packet-type sup
 config
 |--- switch-hash
      |--- global
-          |--- ecmp-hash [packet-type <pkt-type> <add|del>] ARGS
-          |--- lag-hash [packet-type <pkt-type> <add|del>] ARGS
+          |--- ecmp-hash [--packet-type <pkt-type> --action <add|del>] ARGS
+          |--- lag-hash [--packet-type <pkt-type> --action <add|del>] ARGS
           |--- ecmp-hash-algorithm ARG
-          |--- lag-hash-algorithm ARG 
+          |--- lag-hash-algorithm ARG
 ```
 
 
@@ -93,21 +85,25 @@ show
 
 
 **Note:-**
+- _pkt-type (Supported values):_
+  - _all, ipv4, ipv6, ipnip, ipv4-rdma, ipv6-rdma_
 - _In config command:_
-  - _`packet-type <pkt-type> <add|del>`: Optional parameter, if omitted updates default hash_
-    - _`add`: Creates packet-type hash if one doesn't exist, else updates (overwrites) the existing hash fields_
-    - _`del`: Deletes Packet type hash_
+  - _`--packet-type <pkt-type>`: Optional parameter; if omitted, updates global hash_
+  - _`--action <add|del>`: Required when `--packet-type` is specified_
+    - _`add`: Adds the specified hash fields for the given packet-type hash. Duplicate fields are ignored_
+    - _`del`: Removes the specified hash fields for the given packet-type hash. If no hash fields are provided, the given packet-type hash is deleted_
+
 - _In show command:_
   - _`packet-type <pkt-type>` is optional; `all` packet-type is valid only for show_
-  - _If pkt-type omitted: Shows default hash configuration/capabilities_
+  - _If pkt-type omitted: Shows global hash configuration/capabilities_
   - _If pkt-type is all: Shows all packet type hash configuration/capabilities_
 
 
 ### 3.3 CLI usage examples
 1. config switch-hash global ecmp-hash 'SRC_MAC' 'ETHERTYPE'
-1. config switch-hash global ecmp-hash packet-type ipv4 add 'SRC_IP' 'DST_IP'
-1. config switch-hash global lag-hash packet-type ipv6-rdma add 'RDMA_BTH_OPCODE' 'RDMA_BTH_DEST_QP'
-1. config switch-hash global ecmp-hash packet-type ipv4 del
+1. config switch-hash global ecmp-hash --packet-type ipv4 --action add 'SRC_IP' 'DST_IP'
+1. config switch-hash global lag-hash --packet-type ipv6-rdma --action add 'RDMA_BTH_OPCODE' 'RDMA_BTH_DEST_QP'
+1. config switch-hash global ecmp-hash --packet-type ipv4 --action del
 1. show switch-hash global packet-type ipv4
 1. show switch-hash global packet-type all
 
@@ -128,14 +124,16 @@ The test should support t0 and t1 topologies.
 
 ### 4.2 Test case descriptions
 
+**Note:-** _Tests will be repeated for different packet types (where supported by the platform)_
+
 #### 1. test_hash_field_distribution_rdma
 ---
 **Purpose:**  Configure RDMA fields (`RDMA_BTH_OPCODE`, `RDMA_BTH_DEST_QP`) for RDMA packet types; send test traffic and verify egress distribution changes per field.
 
-**Steps:**  
-1. Configure RDMA fields:   
-   - `config switch-hash global ecmp-hash packet-type ipv6-rdma add 'DST_MAC' 'RDMA_BTH_OPCODE' 'RDMA_BTH_DEST_QP'`
-   - `config switch-hash global lag-hash packet-type ipv6-rdma add 'DST_MAC' 'RDMA_BTH_OPCODE' 'RDMA_BTH_DEST_QP'`
+**Steps:**
+1. Configure RDMA fields:
+   - `config switch-hash global ecmp-hash --packet-type ipv6-rdma --action add 'DST_MAC' 'RDMA_BTH_OPCODE' 'RDMA_BTH_DEST_QP'`
+   - `config switch-hash global lag-hash --packet-type ipv6-rdma --action add 'DST_MAC' 'RDMA_BTH_OPCODE' 'RDMA_BTH_DEST_QP'`
 1. Generate RDMA-over-IPv6 packets varying BTH Opcode and Dest_QP.
 1. Observe load-balancing across ECMP/LAG paths.
 
@@ -145,16 +143,17 @@ The test should support t0 and t1 topologies.
 ---
 **Purpose:**  Configure default hash and per packet-type hash; generate matching/non-matching traffic and verify per packet-type config is prioritized for that traffic, default used otherwise.
 
-**Steps:**  
+**Steps:**
 1. Configure default ECMP hash:  `config switch-hash global ecmp-hash 'SRC_MAC' 'ETHERTYPE'`
 1. Select two supported packet types (e.g., packet-type 1: IPv4, packet-type 2: IPv6) and configure unique hashes for each:
 1. The hash fields for packet-type can be selected randomly.
 1. For packet-type 1 (e.g., IPv4):
-   - config switch-hash global ecmp-hash packet-type ipv4 add <IPV4_HASH_FIELD_1> <IPV4_HASH_FIELD_2>
-   - Example: config switch-hash global ecmp-hash packet-type ipv4 add 'SRC_IP' 'DST_IP'
+   - config switch-hash global ecmp-hash --packet-type ipv4 --action add <IPV4_HASH_FIELD_1> <IPV4_HASH_FIELD_2>
+   - Example: config switch-hash global ecmp-hash --packet-type ipv4 --action add 'SRC_IP' 'DST_IP'
 1. Generate traffic corresponding to the selected packet-types.
    - Example: Send both IPv4 and IPv6 packets
 1. Observe hash result.
+1. Repeat the test case for LAG
 
 **Expected Result:**  Packet-type 1 traffic follows per packet-type hash and packet-type 2 traffic continues to use the default global hash.
 
@@ -162,7 +161,7 @@ The test should support t0 and t1 topologies.
 ---
 **Purpose:**  Configure various packet-type hashes, reload/reboot the switch and ensure configuration and data plane behavior persist.
 
-**Steps:**  
+**Steps:**
 1. Configure ECMP and LAG hashes for multiple pkt-types.
 1. Send relevant traffic continuously.
 1. Save config and reboot.
@@ -174,7 +173,7 @@ The test should support t0 and t1 topologies.
 #### 4. test_pkt_type_warm_boot
 ---
 **Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations persist across a warm boot.
-**Steps:** 
+**Steps:**
 1. Configure ECMP/LAG with global and packet-type-specific hashes (example `ecmp_hash`, `ecmp_hash_ipv4`).
 1. Send relevant traffic continuously.
 1. Trigger a warm boot, after boot, verify:
@@ -187,7 +186,7 @@ The test should support t0 and t1 topologies.
 ---
 **Purpose:**  Ensure that both ECMP and LAG packet-type hash configurations persist across fast boot
 
-**Steps:** 
+**Steps:**
 1. Configure ECMP/LAG with global and packet-type hashes.
 1. Send relevant traffic continuously
 1. Trigger a fast boot, after boot, verify:
