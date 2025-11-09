@@ -3716,9 +3716,3 @@ def yang_validation_check(request, duthosts):
             error_summary.append(f"{host}: {result['error']}")
 
         pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))
-
-@pytest.fixture
-def mock_reporter(request, tbinfo):
-    """Provide a fresh mock reporter for each test."""
-    from tests.common.telemetry.tests.common_utils import MockReporter
-    return MockReporter(request=request, tbinfo=tbinfo)
