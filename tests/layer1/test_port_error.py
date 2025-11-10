@@ -29,8 +29,8 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
-    def is_not_supported_nvidia_platform_with_sw_control_enabled(self, duthost, is_sw_control_feature_enabled):
-        return 'nvidia' in not duthost.facts['platform'].lower() or not is_sw_control_feature_enabled
+    def is_supported_nvidia_platform_with_sw_control_disabled(self, duthost, is_sw_control_feature_enabled):
+        return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
 
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_enabled):
@@ -42,8 +42,8 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if is_not_supported_nvidia_platform_with_sw_control_enabled:
-            pytest.skip("SW control feature is not enabled on platform")
+        if is_supported_nvidia_platform_with_sw_control_disabled:
+            pytest.skip("SW control feature is not enabled on Nvidia platform")
 
     @staticmethod
     def get_mac_fault_count(dut, interface, fault_type):
