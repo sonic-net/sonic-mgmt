@@ -5,12 +5,14 @@ Tests for the `reboot and reload ...` commands in DPU
 import logging
 import pytest
 import re
+import time
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
-    num_dpu_modules, check_dpus_are_not_pingable  # noqa: F401
+    dpus_shutdown_and_check, dpus_startup_and_check,\
+    num_dpu_modules, check_dpus_are_not_pingable, check_dpus_reboot_cause  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
 from tests.smartswitch.common.reboot import perform_reboot
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
@@ -52,6 +54,11 @@ def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("Executing post switch reboot dpu check")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "reboot")
+
 
 def test_dpu_status_post_switch_config_reload(duthosts,
                                               enum_rand_one_per_hwsku_hostname,
@@ -78,11 +85,6 @@ def test_dpu_status_post_switch_config_reload(duthosts,
     logging.info("Checking DPU link status and connectivity")
     check_dpu_link_and_status(duthost, dpu_on_list,
                               dpu_off_list, ip_address_list)
-
-    logging.info("Executing post switch reboot dpu check")
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, ip_address_list,
-                         num_dpu_modules, "reboot")
 
 
 @pytest.mark.disable_loganalyzer
@@ -283,7 +285,6 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Executing pre test check")
     ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(duthost, platform_api_conn, num_dpu_modules)
-    dpu_names = [module.get_name(platform_api_conn, index) for index in range(num_dpu_modules)]
 
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Rebooting all DPUs in parallel")
