@@ -155,7 +155,10 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
+    if ":" in duthost.mgmt_ip and not duthost.mgmt_ip.startswith('['):
+        ip = f"[{duthost.mgmt_ip}]"
+    else:
+        ip = duthost.mgmt_ip
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
     target = f"{ip}:{port}"
