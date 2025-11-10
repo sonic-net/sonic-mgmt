@@ -3,7 +3,7 @@ import pytest
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.platform_tests.conftest import check_pmon_uptime_minutes
+from tests.common.platform.processes_utils import check_pmon_uptime_minutes
 
 pytestmark = [
     pytest.mark.topology('any', 't1-multi-asic'),
