@@ -256,7 +256,7 @@ class EverflowPolicerTest(BaseTest):
             exp_pkt['GRE'].proto = 0x88be
 
         masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst") 
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
@@ -265,7 +265,7 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["marvell-prestera", "marvell"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
-        if self.asic_type in ["cisco-8000"]:
+        if self.asic_type in ["cisco-8000"]:  #adding cisco-8000 specific masks 
             erspan_bit_offset = 42
             masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19 , 2) # Mask encap value 
             masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 22 , 10) # Mask the session_id
