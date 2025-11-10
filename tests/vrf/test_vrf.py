@@ -1281,8 +1281,8 @@ class TestVrfCapacity():
         platform = duthost.facts["platform"]
         asic_type = duthost.facts['asic_type']
         if (asic_type in ["marvell-teralynx"] and
-            platform in ["x86_64-wistron_6512_32r-r0", 
-                         "x86_64-wistron_sw_to3200k-r0", 
+            platform in ["x86_64-wistron_6512_32r-r0",
+                         "x86_64-wistron_sw_to3200k-r0",
                          "x86_64-cel_midstone-r0"]):
             self.VRF_CAPACITY = 256
 
