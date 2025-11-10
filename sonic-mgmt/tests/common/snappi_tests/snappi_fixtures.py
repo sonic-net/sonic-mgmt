@@ -1548,6 +1548,10 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
         So the dest for 200.0.0.1 will be 203.0.0.1/32
     '''
     ip_addr = ip_address(addr)
+    if (ip_addr.version == 6):
+        logger.info("Skip arp setting up for ipv6 since ipv6 does not support arp")
+        return
+
     DEST_TO_GATEWAY_MAP[addr] = {}
     DEST_TO_GATEWAY_MAP[addr]['dest'] = str(ip_addr + 3*256*256*256)
     DEST_TO_GATEWAY_MAP[addr]['intf'] = intf
