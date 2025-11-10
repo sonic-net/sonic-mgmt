@@ -314,6 +314,7 @@ def pytest_addoption(parser):
     #   Stress test options         #
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
+    parser.addoption("--stress-test-runs", action="store", type=int, default=25, help="Number of stress test runs")
 
     #################################
     #   Container upgrade test options         #

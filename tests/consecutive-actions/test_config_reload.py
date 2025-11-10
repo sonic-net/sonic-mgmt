@@ -11,12 +11,9 @@ pytestmark = [
     pytest.mark.stress_test  # Use --run-stress-tests to run this test
 ]
 
-TIMES_TO_RUN = 25
-
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.parametrize("run", range(TIMES_TO_RUN))
 def test_config_reload_parallel(duthosts, run):
     """
     Runs config reload on all DUTs in parallel

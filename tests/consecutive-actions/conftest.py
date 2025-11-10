@@ -11,6 +11,14 @@ LOG_ERROR_FAILED_TO_REMOVE_REF_COUNT = (r".*swss[01]#orchagent: :- removeLag: "
 logger = logging.getLogger(__name__)
 
 
+def pytest_generate_tests(metafunc):
+    """Generate test runs based on --stress-test-runs option"""
+    if 'run' in metafunc.fixturenames:
+        stress_test_runs = metafunc.config.getoption("--stress-test-runs")
+        metafunc.parametrize("run", range(stress_test_runs))
+        logger.info("Running stress test {} times".format(stress_test_runs))
+
+
 @pytest.fixture(scope="function", autouse=True)
 def post_health_check(duthosts):
     """

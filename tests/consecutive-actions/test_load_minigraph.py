@@ -14,12 +14,10 @@ pytestmark = [
 
 LOWER_DELAY_BETWEEN_LOAD_MG = 120  # 2 minutes
 UPPER_DELAY_BETWEEN_LOAD_MG = 300  # 5 minutes
-TIMES_TO_RUN = 25
 
 logger = logging.getLogger(__name__)
 
 
-@pytest.mark.parametrize("run", range(TIMES_TO_RUN))
 def test_load_minigraph_consecutive_small_delay(duthosts, run):
     """
     Runs load minigraph on DUTs (in randomised order) with small random delay between each
