@@ -12,7 +12,8 @@ namespace pins_test {
 namespace {
 
 INSTANTIATE_TEST_SUITE_P(
-    pinsPacketForwardingTest, PacketForwardingTestFixture,
+    pinsPacketForwardingTest,
+    PacketForwardingTestFixture,
     testing::Values([]() {
       absl::StatusOr<thinkit::GenericTestbedFixtureParams> params =
           pins::GetOndatraGenericTestbedFixtureParams();

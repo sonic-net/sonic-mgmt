@@ -16,7 +16,7 @@ INSTANTIATE_TEST_SUITE_P(
             pins::GetOndatraMirrorTestbedFixtureParams()
                 .value()
                 .mirror_testbed),
-        .p4info = GetP4InfoFromFlag(),
+        .p4info = GetP4InfoFromFlag().value(),
         .does_not_support_gre_tunnels = true,
     }));
 }  // namespace
