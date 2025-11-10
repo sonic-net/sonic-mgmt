@@ -165,7 +165,10 @@ stages:
           print('##vso[task.setvariable variable=TOPOLOGY_TYPE;]{}'.format(target_testbed['topo']['type']))
           print('##vso[task.setvariable variable=DUT_LIST;]{}'.format(dut_list_str))
 
+    # Step 1: Lock Testbed
     - task: AzureCLI@2
+      displayName: Lock Testbed
+      condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
       inputs:
         azureSubscription: "SONiC-Automation"
         scriptType: 'bash'
@@ -174,42 +177,60 @@ stages:
           pwd
           set -e
           source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
-
-          trap 'handle_test_failure "upgrade_path::lock_testbed" \
-                            "Locking testbed failed after timeout" \
-                            "LOCK_TESTBED" \
-                            "${{ parameters.TESTBED_NAME }}"' EXIT
+          LOCK_FAILED=0
 
           echo "Attempting to lock testbed: ${{ parameters.TESTBED_NAME }}"
-          accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv)
-          export ACCESS_TOKEN=$accessToken
-
-          if [ -z "$ACCESS_TOKEN" ]; then
-            echo "ACCESS_TOKEN is empty. Exiting..."
-            exit 1
-          fi
 
           TIMEOUT=7200
           INTERVAL=60
           wait_time=0
 
-          until python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py \
-            -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
+          # Fetch token once before entering the retry loop
+          accessToken=$(az account get-access-token --resource "$(ELASTICTEST_MSAL_CLIENT_ID)" --query accessToken -o tsv) || accessToken=""
+          export ACCESS_TOKEN=$accessToken
 
-            if (( wait_time >= TIMEOUT )); then
-              echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after $TIMEOUT seconds"
-              exit 1
-            fi
+          if [ -z "$ACCESS_TOKEN" ]; then
+            echo "Failed to acquire access token prior to lock attempts"
+            LOCK_FAILED=1
+          else
+            until \
+              python ./sonic-mgmt-int/.azure-pipelines/nightly/templates/lock_release.py \
+                -t ${{ parameters.TESTBED_NAME }} -a lock -r UpgradePathAZP -o 48; do
 
-            echo "Retry: Lock testbed failed, waiting $INTERVAL seconds..."
-            sleep $INTERVAL
-            wait_time=$((wait_time + INTERVAL))
-          done
+              if (( wait_time >= TIMEOUT )); then
+                echo "Failed to lock testbed ${{ parameters.TESTBED_NAME }} after $TIMEOUT seconds"
+                LOCK_FAILED=1
+                break
+              fi
 
-          echo "Testbed locked successfully"
-          echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
-      displayName: Lock Testbed
-      condition: eq('${{ parameters.SKIP_LOCKING_TESTBED }}', 'false')
+              echo "Retry: Lock testbed failed, waiting $INTERVAL seconds..."
+              sleep $INTERVAL
+              wait_time=$((wait_time + INTERVAL))
+            done
+          fi
+
+          if (( LOCK_FAILED == 1 )); then
+            echo "##vso[task.setvariable variable=LOCK_FAILED]true"
+            exit 1
+          else
+            echo "Testbed locked successfully"
+            echo "##vso[task.setvariable variable=TESTBED_LOCKED]Yes"
+          fi
+
+    # Step 2: Error Handler (Kusto Upload)
+    - task: AzureCLI@2
+      displayName: "Upload to kusto if lock testbed failed"
+      condition: eq(variables['LOCK_FAILED'], 'true')
+      inputs:
+        azureSubscription: "SONiC-Automation"
+        scriptType: 'bash'
+        scriptLocation: 'inlineScript'
+        inlineScript: |
+          source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
+          upload_failure_report "upgrade_path::lock_testbed" \
+            "Locking testbed failed after timeout" \
+            "LOCK_TESTBED" \
+            "${{ parameters.TESTBED_NAME }}"
 
     - task: AzureCLI@2
       displayName: remove-topo for ceos, and add-topo for vsonic
@@ -222,10 +243,10 @@ stages:
           set -ex
           source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
 
-          trap 'handle_test_failure "upgrade_path::topo_switch_to_vsonic" \
+          trap 'upload_failure_report "upgrade_path::topo_switch_to_vsonic" \
                 "Switching topology from ceos to vsonic failed" \
                 "TOPO_SWITCH" \
-                "${{ parameters.TESTBED_NAME }}"' EXIT
+                "${{ parameters.TESTBED_NAME }}"' ERR
 
           cd ./sonic-mgmt-int/
           cd ansible
@@ -246,10 +267,10 @@ stages:
           set -ex
           source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
 
-          trap 'handle_test_failure "upgrade_path::deploy_minigraph" \
+          trap 'upload_failure_report "upgrade_path::deploy_minigraph" \
                 "Minigraph deployment failed" \
                 "DEPLOY_MINIGRAPH" \
-                "${{ parameters.TESTBED_NAME }}"' EXIT
+                "${{ parameters.TESTBED_NAME }}"' ERR
 
           cd "$(Build.SourcesDirectory)/sonic-mgmt-int/"
 
@@ -419,10 +440,10 @@ stages:
           set -ex
           source "$(Build.SourcesDirectory)/sonic-mgmt-int/.azure-pipelines/sonic-metadata/pipeline-helpers.sh"
 
-          trap 'handle_test_failure "upgrade_path::topo_switch_vsonic_to_ceos" \
+          trap 'upload_failure_report "upgrade_path::topo_switch_vsonic_to_ceos" \
                 "Topo switch (vsonic ➝ ceos) failed" \
                 "TOPO_RESTORE" \
-                "${{ parameters.TESTBED_NAME }}"' EXIT
+                "${{ parameters.TESTBED_NAME }}"' ERR
 
           cd ./sonic-mgmt-int/
           cd ansible
