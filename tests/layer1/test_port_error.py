@@ -7,7 +7,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
-from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -31,6 +30,10 @@ class TestMACFault(object):
     @pytest.fixture(autouse=True)
     def is_supported_nvidia_platform_with_sw_control_disabled(self, duthost, is_sw_control_feature_enabled):
         return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
+
+    @pytest.fixture(autouse=True)
+    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost, is_sw_control_feature_enabled):
+        return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled
 
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
