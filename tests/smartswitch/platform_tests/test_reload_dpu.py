@@ -8,7 +8,6 @@ import re
 import time
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
-from tests.common.helpers.platform_api import module
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
