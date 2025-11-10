@@ -176,12 +176,14 @@ def vlan_ping_setup(duthosts, rand_one_dut_hostname, ptfhost, nbrhosts, tbinfo, 
         ptfhost_info[member] = {}
         ptfhost_info[member]["Vlanid"] = vlanid
         ptfhost_info[member]["port_index_list"] = [mg_facts['minigraph_ptf_indices'][member]]
+        port_index = ptfhost_info[member]["port_index_list"][0]
         ptfhost_info[member]["mac"] = (ptfhost.shell(
-            "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % ptfhost_info[member][
-                "port_index_list"][0]))['stdout']
+            "ifconfig eth%d | grep -o -E '([[:xdigit:]]{1,2}:){5}[[:xdigit:]]{1,2}'" % port_index))['stdout']
         ptfhost_info[member]["ipv4"] = str(ip_in_vlan)
-        ptfhost_info[member]["ipv6"] = str(
-            ipaddress.IPv6Interface(ip6).network[ptfhost_info[member]["port_index_list"][0]])
+        ipv6_network = ipaddress.IPv6Interface(ip6).network
+        # Add 2 to port index to avoid conflict with DUT's VLAN interface IPv6 address
+        ipv6_addr = ipv6_network[port_index + 2]
+        ptfhost_info[member]["ipv6"] = str(ipv6_addr)
 
     yield vm_host_info, ptfhost_info
 
