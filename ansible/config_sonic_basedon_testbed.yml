@@ -61,6 +61,11 @@
       set_fact:
         topo: "{{ testbed_facts['topo'] }}"
 
+    - name: set default light mode
+      set_fact:
+        is_light_mode: true
+      when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode is not defined
+
     - name: set ptf image name
       set_fact:
         ptf_image: "{{ testbed_facts['ptf_image_name'] }}"
@@ -476,9 +481,34 @@
         ignore_errors: true
         when: init_cfg_profile is not defined
 
-      - name: Update TACACS server address to PTF IP
+      - name: Determine if sonic management is IPv6
+        set_fact:
+            sonic_mgmt_ipv6: "{{ ansible_host is defined and ansible_host != '' and ':' in ansible_host }}"
+
+      - name: Update TACACS server address to PTF IP (IPv4)
         set_fact:
             tacacs_servers: ["{{ testbed_facts['multi_servers_tacacs_ip'] if 'multi_servers_tacacs_ip' in testbed_facts else testbed_facts['ptf_ip'] }}"]
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - not sonic_mgmt_ipv6|bool
+
+      - name: Validate IPv6 TACACS configuration for IPv6 sonic management
+        fail:
+            msg: "sonic management is IPv6 for {{ inventory_hostname }} but ptf_ipv6 is not configured in testbed file"
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - sonic_mgmt_ipv6|bool
+          - testbed_facts.get('ptf_ipv6', '') == ''
+
+      - name: Update TACACS server address to PTF IP (IPv6) for IPv6 sonic management
+        set_fact:
+            tacacs_servers: ["{{ testbed_facts['ptf_ipv6'] }}"]
+        when:
+          - use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
+          - sonic_mgmt_ipv6|bool
+          - testbed_facts['ptf_ipv6'] is defined and testbed_facts['ptf_ipv6'] != ""
+
+      - debug: msg="sonic_mgmt_ipv6 is {{ sonic_mgmt_ipv6|default(false) }}"
         when: use_ptf_tacacs_server is defined and use_ptf_tacacs_server|bool == true
 
       - debug: msg="tacacs_servers {{ tacacs_servers }}"
@@ -632,7 +662,7 @@
               dest=/tmp/smartswitch.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
 
       - name: Create dns config
         template: src=templates/dns_config.j2
@@ -687,6 +717,7 @@
           port_index_map: "{{ port_index_map | default({}) }}"
           hwsku: "{{ hwsku }}"
           vm_configuration: "{{ configuration if topo == 't1-filterleaf-lag' else omit }}"
+          is_light_mode: "{{ is_light_mode | default(true) }}"
         become: true
 
       - name: Copy macsec profile json to dut
@@ -865,7 +896,7 @@
               dest=/tmp/dpu_extra.json
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
 
       - name: Load DPU config in smartswitch
         load_extra_dpu_config:
@@ -874,7 +905,7 @@
           host_passwords: "{{ sonic_default_passwords }}"
         become: true
         # t1-28-lag is smartswitch topo only
-        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"]
+        when: topo in ["t1-smartswitch-ha","t1-28-lag","smartswitch-t1", "t1-48-lag"] and is_light_mode|bool == true
 
       - name: Configure TACACS
         become: true
