@@ -265,10 +265,10 @@ class EverflowPolicerTest(BaseTest):
         if self.asic_type in ["marvell-prestera", "marvell"]:
             masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
-        if self.asic_type in ["cisco-8000"]:  #adding cisco-8000 specific masks 
+        if self.asic_type in ["cisco-8000"]:
             erspan_bit_offset = 42
-            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19 , 2) # Mask encap value 
-            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 22 , 10) # Mask the session_id
+            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19, 2)  # Mask encap value
+            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 22, 10)  # Mask the session_id
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "timestamp")
@@ -292,9 +292,9 @@ class EverflowPolicerTest(BaseTest):
             elif self.asic_type == "barefoot":
                 pkt = scapy.Ether(pkt).load
             elif self.asic_type == "cisco-8000":
-                pkt = scapy.Ether(pkt)[scapy.GRE].payload 
+                pkt = scapy.Ether(pkt)[scapy.GRE].payload
                 pkt = bytes(pkt)
-                pkt = scapy.Ether(pkt[8:]) # Mask the ERSPAN II header 
+                pkt = scapy.Ether(pkt[8:])  # Mask the ERSPAN II header
             else:
                 pkt = scapy.Ether(pkt)[scapy.GRE].payload
 
