@@ -355,6 +355,10 @@ MGMT: #Anukul Verma / Gourav Sharma
   t0:
     churchill-mono:
       hw:
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
+        - generic_config_updater/test_mgmt_interface.py
         - snmp/test_snmp_cpu.py
         - snmp/test_snmp_memory.py
         - snmp/test_snmp_queue.py
@@ -362,11 +366,30 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_lldp.py
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_link_local.py
+        - gnmi/test_gnmi_appldb.py
+        - gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_countersdb.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnmi_stress.py
+        - gnmi/test_gnoi_killprocess.py
+        - gnmi/test_gnoi_os.py
+        - gnmi/test_gnoi_system_grpc.py
+        - gnmi/test_gnoi_system.py
+        - gnmi/test_gnoi_system_reboot.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
+        - ssh/test_ssh_default_password.py
         - tacacs/test_authorization.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
 
   t0-64:
     mth64:
@@ -597,7 +620,28 @@ L2:
         - pc/test_lag_2.py
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
-
+  t0:
+    churchill-mono:
+      hw:
+        - arp/test_arp_extended.py
+        - arp/test_neighbor_mac_noptf.py
+        - arp/test_stress_arp.py
+        - dhcp_relay/test_dhcp_pkt_recv.py
+        - dhcp_relay/test_dhcp_relay.py
+        - dhcp_relay/test_dhcp_relay_stress.py
+        - dhcp_relay/test_dhcpv6_relay.py
+        - fdb/test_fdb_flush.py
+        - fdb/test_fdb_mac_expire.py
+        - fdb/test_fdb_mac_learning.py
+        - fdb/test_fdb_mac_move.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_portchannel_interface.py
+        - generic_config_updater/test_vlan_interface.py
+        - generic_config_updater/test_dhcp_relay.py
+        - pc/test_lag_2.py
+        - pc/test_po_cleanup.py
+        - pc/test_po_update.py
+        - vlan/test_host_vlan.py
   t2:
     sfd:
       hw:
@@ -656,6 +700,7 @@ ROUTING: #Sridhar Santhanam
         - route/test_static_route.py
         - generic_config_updater/test_bgpl.py
         - log_fidelity/test_bgp_shutdown.py
+  t0:
     churchill-mono:
       hw:
         - bgp/test_bgp_fact.py
