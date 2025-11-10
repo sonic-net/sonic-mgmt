@@ -767,3 +767,137 @@ def collect_mgmt_config_by_console(duthost, localhost):
         logger.info('End: collect mgmt config by  console  ...')
     else:
         logger.warning("dut console is not ready, we can get mgmt config by console")
+
+
+@support_ignore_loganalyzer
+def wait_for_system_up(duthost, localhost, reboot_type='cold', delay=10,
+                       timeout=0, wait=0, wait_warmboot_finalizer=False, warmboot_finalizer_timeout=0,
+                       safe_reboot=False, check_intf_up_ports=False, wait_for_bgp=False, wait_for_ibgp=True):
+    """
+    Waits for DUT to come up after reboot has been triggered by external process
+    :param duthost: DUT host object
+    :param localhost: local host object
+    :param reboot_type: reboot type (cold, fast, warm) - used for timeout/wait defaults
+    :param delay: delay between ssh availability checks
+    :param timeout: timeout for waiting ssh port state change
+    :param wait: time to wait for DUT to initialize
+    :param wait_warmboot_finalizer: Wait for WARMBOOT_FINALIZER done
+    :param warmboot_finalizer_timeout: Timeout for waiting WARMBOOT_FINALIZER
+    :param safe_reboot: arguments to wait DUT ready after reboot
+    :param check_intf_up_ports: arguments to check interface after reboot
+    :param wait_for_bgp: arguments to wait for BGP after reboot
+    :param wait_for_ibgp: True to wait for all iBGP connections to come up after device reboot. This
+                          parameter is only used when `wait_for_bgp` is True
+    :return:
+    """
+    pool = ThreadPool()
+    hostname = duthost.hostname
+    
+    try:
+        tc_name = os.environ.get('PYTEST_CURRENT_TEST', '').split(' ')[0] if os.environ.get('PYTEST_CURRENT_TEST') else ''
+        plt_reboot_ctrl = get_plt_reboot_ctrl(duthost, tc_name, reboot_type) if tc_name else None
+        reboot_ctrl = reboot_ctrl_dict[reboot_type]
+        
+        if timeout == 0:
+            timeout = reboot_ctrl['timeout']
+        if wait == 0:
+            wait = reboot_ctrl['wait']
+        if plt_reboot_ctrl:
+            # use 'wait' and 'timeout' overrides from inventory if they are specified
+            wait = plt_reboot_ctrl.get('wait', wait)
+            timeout = plt_reboot_ctrl.get('timeout', timeout)
+        if warmboot_finalizer_timeout == 0 and 'warmboot_finalizer_timeout' in reboot_ctrl:
+            warmboot_finalizer_timeout = reboot_ctrl['warmboot_finalizer_timeout']
+        if duthost.get_facts().get("modular_chassis") and safe_reboot:
+            wait = max(wait, 600)
+            timeout = max(timeout, 420)
+    except KeyError:
+        raise ValueError('invalid reboot type: "{} for {}"'.format(reboot_type, hostname))
+    
+    logger.info('Wait for system up on {}: wait[{}], timeout[{}]'.format(hostname, wait, timeout))
+    
+    # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
+    ignore_t2_syslog_msgs(duthost)
+    
+    wait_conlsole_connection = 5
+    console_thread_res = pool.apply_async(
+        collect_console_log, args=(duthost, localhost, timeout + wait_conlsole_connection))
+    time.sleep(wait_conlsole_connection)
+    
+    dut_console = None
+    try:
+        wait_for_startup(duthost, localhost, delay, timeout)
+        try:
+            dut_console = console_thread_res.get()
+        except Exception as console_err:
+            logger.warning(f'Failed to get console thread result: {console_err}')
+            dut_console = None
+    except Exception as err:
+        if dut_console:
+            dut_console.disconnect()
+            logger.info('end: collect console log')
+        logger.error('collecting console log thread result: {} on {}'.format(console_thread_res.get(), hostname))
+        pool.terminate()
+        raise Exception(f"dut not start: {err}")
+    
+    logger.info('waiting for switch {} to initialize'.format(hostname))
+    if safe_reboot:
+        # The wait time passed in might not be guaranteed to cover the actual
+        # time it takes for containers to come back up. Therefore, add 5
+        # minutes to the maximum wait time. If it's ready sooner, then the
+        # function will return sooner.
+        
+        # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(200, 10, 0, duthost.is_critical_processes_running_per_asic_or_host, "database"),
+                      "Database not start.")
+        pytest_assert(wait_until(20, 5, 0, duthost.is_service_running, "redis", "database"), "Redis DB not start")
+        
+        duthost.critical_services_tracking_list()
+        pytest_assert(wait_until(wait + 400, 20, 0, duthost.critical_services_fully_started),
+                      "{}: All critical services should be fully started!".format(hostname))
+        wait_critical_processes(duthost)
+        
+        if check_intf_up_ports:
+            pytest_assert(wait_until(wait + 300, 20, 0, check_interface_status_of_up_ports, duthost),
+                          "{}: Not all ports that are admin up on are operationally up".format(hostname))
+        
+        if duthost.facts['asic_type'] == "cisco-8000":
+            # Wait dshell initialization finish
+            pytest_assert(wait_until(wait + 300, 20, 0, check_dshell_ready, duthost),
+                          "dshell not ready")
+    else:
+        time.sleep(wait)
+    
+    # Wait warmboot-finalizer service
+    if (reboot_type == REBOOT_TYPE_WARM or reboot_type == REBOOT_TYPE_FAST) and wait_warmboot_finalizer:
+        logger.info('waiting for warmboot-finalizer service to finish on {}'.format(hostname))
+        ret = wait_until(warmboot_finalizer_timeout, 5, 0, check_warmboot_finalizer_inactive, duthost)
+        if not ret:
+            raise Exception('warmboot-finalizer service timeout on DUT {}'.format(hostname))
+    
+    logger.info('System is up on {}'.format(hostname))
+    if dut_console:
+        dut_console.disconnect()
+        logger.info('end: collect console log')
+    pool.terminate()
+    
+    if wait_for_bgp:
+        bgp_neighbors = duthost.get_bgp_neighbors_per_asic(state="all")
+        if not wait_for_ibgp:
+            # Filter out iBGP neighbors
+            filtered_bgp_neighbors = {}
+            for asic, interfaces in bgp_neighbors.items():
+                filtered_interfaces = {
+                    ip: details for ip, details in interfaces.items()
+                    if details["local AS"] != details["remote AS"]
+                }
+                
+                if filtered_interfaces:
+                    filtered_bgp_neighbors[asic] = filtered_interfaces
+            
+            bgp_neighbors = filtered_bgp_neighbors
+        
+        pytest_assert(
+            wait_until(wait + 300, 10, 0, duthost.check_bgp_session_state_all_asics, bgp_neighbors),
+            "Not all bgp sessions are established after reboot",
+        )
