@@ -251,7 +251,7 @@ class EverflowPolicerTest(BaseTest):
                                                 ip_id=0,
                                                 version=1)
 
-            exp_pkt['ERSPAN II'].ver = 1 
+            exp_pkt['ERSPAN II'].ver = 1
         else:
             exp_pkt['GRE'].proto = 0x88be
 
