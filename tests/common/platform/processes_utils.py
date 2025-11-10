@@ -5,6 +5,7 @@ This script contains re-usable functions for checking status of critical service
 """
 import logging
 import time
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
