@@ -8,7 +8,7 @@ import requests
 import ipaddress
 from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, wait_tcp_connection
+from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
 from bgp_helpers import CONSTANTS_FILE, BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_SENTINEL_PORT_V4, BGP_SENTINEL_NAME_V4
 from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
@@ -88,8 +88,10 @@ def get_dut_listen_range(tbinfo):
     # Find spine route and get the bp_interface's network
     ipv4_subnet, ipv6_subnet, = None, None
     spine_bp_addr = {}
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
     for k, v in tbinfo['topo']['properties']['configuration'].items():
-        if 'spine' in v['properties']:
+        if ((upstream_nbr_type == 'T0' and 'tor' in v['properties']) or
+                (upstream_nbr_type == 'T2' and 'spine' in v['properties'])):
             ipv4_addr = ipaddress.ip_interface(v['bp_interface']['ipv4'].encode().decode())
             ipv6_addr = ipaddress.ip_interface(v['bp_interface']['ipv6'].encode().decode())
             ipv4_subnet = str(ipv4_addr.network)
@@ -362,7 +364,7 @@ def bgp_community(sentinel_community, request):
 
 
 @pytest.fixture(scope="module", params=['IPv4', 'IPv6'])
-def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_community, request):
+def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_community, request, tbinfo):
     duthost = rand_selected_dut
     ptfip, lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ibgp_sessions, ptf_bp_v4, ptf_bp_v6 = common_setup_teardown
 
@@ -373,6 +375,13 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
         pytest.skip("IPv6 IBGP session is not established")
 
     ipv4_routes, ipv6_routes = get_target_routes(duthost)
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
+
+    if upstream_nbr_type == "T0" and "0.0.0.0/0" in ipv4_routes:
+        ipv4_routes.remove("0.0.0.0/0")
+
+    if upstream_nbr_type == "T0" and "::/0" in ipv6_routes:
+        ipv6_routes.remove("::/0")
 
     # Check if the routes are announced to peers
     for route in ipv4_routes + ipv6_routes:
