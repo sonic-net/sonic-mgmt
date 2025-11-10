@@ -256,7 +256,7 @@ class EverflowPolicerTest(BaseTest):
             exp_pkt['GRE'].proto = 0x88be
 
         masked_exp_pkt = Mask(exp_pkt)
-        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst") 
+        masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "dst")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "flags")
         masked_exp_pkt.set_do_not_care_scapy(scapy.IP, "chksum")
 
