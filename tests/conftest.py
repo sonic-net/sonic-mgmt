@@ -315,7 +315,6 @@ def pytest_addoption(parser):
                      help="Skip YANG validation")
 
 
-
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
         topo = config.getoption("topology")
