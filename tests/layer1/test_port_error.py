@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
-from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
+from tests.platform_tests.mellanox.conftest import is_sw_control_feature_enabled
 from tests.common.utilities import wait_until
 
 pytestmark = [
@@ -29,8 +29,8 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost):
-        return 'nvidia' in duthost.facts['platform'].lower() and not check_sc_sai_attribute_value(duthost)
+    def is_not_supported_nvidia_platform_with_sw_control_enabled(self, duthost, is_sw_control_feature_enabled):
+        return 'nvidia' in not duthost.facts['platform'].lower() or not is_sw_control_feature_enabled
 
     @pytest.fixture(autouse=True)
     def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_enabled):
@@ -42,7 +42,7 @@ class TestMACFault(object):
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
 
-        if is_supported_nvidia_platform_with_sw_control_enabled:
+        if is_not_supported_nvidia_platform_with_sw_control_enabled:
             pytest.skip("SW control feature is not enabled on platform")
 
     @staticmethod
