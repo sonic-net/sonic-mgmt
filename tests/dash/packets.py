@@ -511,6 +511,7 @@ def outbound_smartswitch_vnet_packets(
         ip_src=dash_config_info[LOCAL_PA_IP],
         ip_dst=dash_config_info[LOOPBACK_IP],
         udp_dport=vxlan_udp_dport,
+        udp_sport=VXLAN_UDP_BASE_SRC_PORT,
         with_udp_chksum=False,
         vxlan_vni=dash_config_info[VNET1_VNI],
         ip_ttl=64,
