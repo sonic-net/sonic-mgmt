@@ -33,7 +33,7 @@ class TestMACFault(object):
         return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
 
     @pytest.fixture(autouse=True)
-    def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_enabled):
+    def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
