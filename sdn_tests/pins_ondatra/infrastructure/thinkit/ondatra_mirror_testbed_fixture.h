@@ -43,6 +43,7 @@ class OndatraMirrorTestbedFixture : public thinkit::MirrorTestbedInterface {
 
  private:
   OndatraHooks ondatra_hooks_;
+  int teardown_handler_id_ = 0;
   std::unique_ptr<OndatraMirrorTestbed> mirror_testbed_ = nullptr;
 };
 
