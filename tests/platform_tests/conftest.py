@@ -2,7 +2,6 @@ import json
 import pytest
 import os
 import logging
-import re
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
