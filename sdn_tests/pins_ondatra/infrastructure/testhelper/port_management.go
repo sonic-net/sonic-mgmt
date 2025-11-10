@@ -4,6 +4,7 @@ package testhelper
 
 import (
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -840,6 +841,7 @@ func BreakoutStateInfoForPort(t *testing.T, dut *ondatra.DUTDevice, port string,
 	if portInfo == nil {
 		return nil, errors.Errorf("got empty port information for breakout mode %v for port %v", currBreakoutMode, port)
 	}
+	FilterSkippedPorts(t, dut, port, portInfo)
 	// Get physical channels and operational statuses for list of ports in given breakout mode.
 	for p := range portInfo {
 		physicalChannels := testhelperIntfPhysicalChannelsGet(t, dut, p)
@@ -848,6 +850,32 @@ func BreakoutStateInfoForPort(t *testing.T, dut *ondatra.DUTDevice, port string,
 		portInfo[p] = &PortBreakoutInfo{physicalChannels, operStatus, portSpeed}
 	}
 	return portInfo, nil
+}
+
+// FilterSkippedPorts filters out ports that are skipped from the portInfo map.
+func FilterSkippedPorts(t *testing.T, dut *ondatra.DUTDevice, port string,
+	portInfo map[string]*PortBreakoutInfo) {
+	if dut == nil {
+		return
+	}
+	for p, pInfo := range portInfo {
+		if testhelperIntfLookup(t, dut, p).IsPresent() {
+			physicalChannels := testhelperIntfPhysicalChannelsGet(t, dut, p)
+			if !slices.Equal(physicalChannels, pInfo.PhysicalChannels) {
+				t.Fatalf("physical channels mismatch for port on switch, get: %v, want: %v",
+					physicalChannels, pInfo.PhysicalChannels)
+			}
+			portSpeed := testhelperStatePortSpeedGet(t, dut, p)
+			if portSpeed != pInfo.PortSpeed {
+				t.Fatalf("port speed mismatch for port on switch, get: %v, want: %v",
+					portSpeed, pInfo.PortSpeed)
+			}
+		} else {
+			// Filter out skipped
+			delete(portInfo, p)
+			t.Logf("Port %v skipped, port Info: %v", p, pInfo)
+		}
+	}
 }
 
 // WaitForInterfaceState polls interface oper-status until it matches the expected oper-status.
