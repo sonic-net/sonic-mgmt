@@ -19,13 +19,13 @@ DPU_TIMEOUT = 210
 DPU_TIME_INT = 30
 PING_MAX_TIMEOUT = 180
 PING_MAX_TIME_INT = 60
-SWITCH_MAX_DELAY = 100
-SWITCH_MAX_TIMEOUT = 400
+SWITCH_MAX_DELAY = 60
+SWITCH_MAX_TIMEOUT = 900
 INTF_MAX_TIMEOUT = 300
 INTF_TIME_INT = 5
-DPU_MAX_ONLINE_TIMEOUT = 360
-DPU_MAX_PROCESS_UP_TIMEOUT = 400
-DPU_MAX_TIME_INT = 30
+DPU_MAX_ONLINE_TIMEOUT = 900
+DPU_MAX_PROCESS_UP_TIMEOUT = 900
+DPU_MAX_TIME_INT = 60
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
@@ -623,3 +623,22 @@ def check_midplane_status(duthost, dpu_ip, expected_status):
             if reachability is not None:
                 return str(reachability).strip().lower() == expected_status.lower()
     return False
+
+
+def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
+    """
+    Waits and checks parallely whether DPU is on or off
+    Args:
+       duthost: Host handle
+       dpu_list: List of DPUs
+
+    Returns:
+       Returns Nothing
+    """
+    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
+        logging.info("Check power_status of DPUs in parallel")
+        for dpu_name in dpu_list:
+            executor.submit(
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                check_dpu_reboot_cause, duthost, dpu_name, reason
+            )

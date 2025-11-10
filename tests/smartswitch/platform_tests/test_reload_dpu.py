@@ -23,9 +23,11 @@ kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger'
 memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
+MAX_COOL_OFF_TIME = 300
+MIN_COOL_OFF_TIME = 60
 
 
-def test_dpu_status_post_switch_reboot(duthosts,
+def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
                                        platform_api_conn, num_dpu_modules):  # noqa F811, E501
@@ -77,9 +79,14 @@ def test_dpu_status_post_switch_config_reload(duthosts,
     check_dpu_link_and_status(duthost, dpu_on_list,
                               dpu_off_list, ip_address_list)
 
+    logging.info("Executing post switch reboot dpu check")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "reboot")
+
 
 @pytest.mark.disable_loganalyzer
-def test_dpu_status_post_switch_mem_exhaustion(duthosts,
+def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                                                enum_rand_one_per_hwsku_hostname,  # noqa: E501
                                                localhost,
                                                platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -116,9 +123,14 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("Executing dpu check, post switch memory exhaustion reboot")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "reboot")
+
 
 @pytest.mark.disable_loganalyzer
-def test_dpu_status_post_switch_kernel_panic(duthosts,
+def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                                              enum_rand_one_per_hwsku_hostname,
                                              localhost,
                                              platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -154,6 +166,11 @@ def test_dpu_status_post_switch_kernel_panic(duthosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("Executing dpu check, post switch kernel panic reboot")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "reboot")
+
 
 @pytest.mark.disable_loganalyzer
 def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
@@ -179,6 +196,21 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
 
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, ip_address_list)
+
+    logging.info("Checking DPUs reboot reason as Kernal Panic")
+    check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
+
+    logging.info("5 min Cool off period after Kernal Panic")
+    time.sleep(MAX_COOL_OFF_TIME)
+
+    logging.info("Shutdown DPUs after Kernal Panic")
+    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
+
+    logging.info("60 seconds Cool off period after shutdown")
+    time.sleep(MIN_COOL_OFF_TIME)
+
+    logging.info("Starting UP the DPUs")
+    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
@@ -211,6 +243,21 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
+    logging.info("Checking DPUs reboot reason as Kernal Panic")
+    check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
+
+    logging.info("5 min Cool off period after Kernal Panic")
+    time.sleep(MAX_COOL_OFF_TIME)
+
+    logging.info("Shutdown DPUs after Kernal Panic")
+    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
+
+    logging.info("60 seconds Cool off period after shutdown")
+    time.sleep(MIN_COOL_OFF_TIME)
+
+    logging.info("Starting UP the DPUs")
+    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
                          num_dpu_modules, "Non-Hardware")
@@ -240,7 +287,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
 
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
         logging.info("Rebooting all DPUs in parallel")
-        for dpu_name in dpu_names:
+        for dpu_name in dpu_on_list:
             executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name)
 
     logging.info("Executing post test dpu check")
@@ -248,7 +295,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
 
 
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
-                            platform_api_conn, num_dpu_modules):  # noqa: F811, E501
+                            platform_api_conn, num_dpu_modules, localhost):  # noqa: F811, E501
     """
     Test to cold reboot the switch in the DUT.
     Steps:
@@ -270,6 +317,11 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
 
     logging.info("Starting switch reboot...")
     perform_reboot(duthost, REBOOT_TYPE_COLD, None)
+
+    logging.info("Executing post test check")
+    post_test_switch_check(duthost, localhost,
+                           dpu_on_list, dpu_off_list,
+                           ip_address_list)
 
     logging.info("Executing post switch reboot dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
