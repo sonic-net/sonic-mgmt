@@ -12,6 +12,7 @@ from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 
 logger = logging.getLogger(__name__)
 
+
 def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
     """
     @summary: This function checks if pmon uptime is at least the minimal_runtime
@@ -29,6 +30,7 @@ def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
         if match:
             return 60 >= minimal_runtime
     return False
+
 
 def reset_timeout(duthost):
     """
