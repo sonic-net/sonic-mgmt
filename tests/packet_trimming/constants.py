@@ -74,6 +74,10 @@ MODE_TOGGLE_COUNT = 5     # number of times to toggle Symmetric and Asymmetric m
 NORMAL_PACKET_DSCP = 4    # DSCP value for normal packet
 
 BLOCK_DATA_PLANE_SCHEDULER_NAME = "SCHEDULER_BLOCK_DATA_PLANE"
+SCHEDULER_TYPE = "DWRR"
+SCHEDULER_WEIGHT = 15
+SCHEDULER_PIR = 1
+
 DATA_PLANE_QUEUE_LIST = ["0", "1", "2", "3", "4", "5", "6"]
 DEFAULT_QUEUE_SCHEDULER_CONFIG = {
     "0": "scheduler.0",
@@ -87,7 +91,6 @@ DEFAULT_QUEUE_SCHEDULER_CONFIG = {
 
 PACKET_TYPE = ['ipv4_tcp', 'ipv4_udp', 'ipv6_tcp', 'ipv6_udp']
 SERVICE_PORT = "Ethernet512"
-COUNTERPOLL_INTERVAL = 2000
 
 # Constants for packet trimming with SRv6 tests
 SRV6_INNER_SRC_IP = '1.1.1.1'
@@ -163,4 +166,16 @@ SRV6_MY_SID_LIST = [
     [SRV6_MY_LOCATOR_LIST[7][0], SRV6_MY_LOCATOR_LIST[7][1], SRV6_UN, 'default'],
     [SRV6_MY_LOCATOR_LIST[8][0], SRV6_MY_LOCATOR_LIST[8][1], SRV6_UN, 'default'],
     [SRV6_MY_LOCATOR_LIST[9][0], SRV6_MY_LOCATOR_LIST[9][1], SRV6_UN, 'default']
+]
+
+# Drop counter
+SWITCH_INTERVAL = 1000
+PORT_INTERVAL = 100
+QUEUE_INTERVAL = 100
+
+COUNTER_DSCP = 0
+COUNTER_TYPE = [
+    ("switch", "SWITCH_STAT", SWITCH_INTERVAL),
+    ("port", "PORT_STAT", PORT_INTERVAL),
+    ("queue", "QUEUE_STAT", QUEUE_INTERVAL),
 ]
