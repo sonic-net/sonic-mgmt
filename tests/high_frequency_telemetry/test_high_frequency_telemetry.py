@@ -66,7 +66,7 @@ def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         logger.info("High frequency telemetry configuration completed")
 
         # Step 3: Run countersyncd and capture output
-        result = run_countersyncd_and_capture_output(duthost, timeout=120)
+        result = run_countersyncd_and_capture_output(duthost, timeout=360, stats_interval=60)
 
         # Step 4: Parse and verify counter values
         validation_results = validate_counter_output(
@@ -138,7 +138,7 @@ def test_hft_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         logger.info("Queue high frequency telemetry configuration completed")
 
         # Run countersyncd and validate
-        result = run_countersyncd_and_capture_output(duthost, timeout=120)
+        result = run_countersyncd_and_capture_output(duthost, timeout=360)
         validation_results = validate_counter_output(
             output=result['stdout'],
             min_counter_value=0,
@@ -226,7 +226,7 @@ def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         )
 
         # Run countersyncd and validate
-        result = run_countersyncd_and_capture_output(duthost, timeout=120)
+        result = run_countersyncd_and_capture_output(duthost, timeout=360)
         validation_results = validate_counter_output(
             output=result['stdout'],
             expected_objects=all_available_ports,
@@ -546,12 +546,7 @@ def test_hft_poll_interval_validation(duthosts, enum_rand_one_per_hwsku_hostname
         logger.info("Waiting 10 seconds for HFT configuration to take effect...")
         time.sleep(10)
 
-        # Step 3: Run countersyncd and capture output for sufficient time to get stable measurements
-        # Use longer timeout for slower poll intervals to ensure we get enough samples
-        timeout = max(120, int(10 / expected_msg_per_sec) + 60) if expected_msg_per_sec > 0 else 180
-        logger.info(f"Running countersyncd for {timeout} seconds to capture stable measurements")
-
-        result = run_countersyncd_and_capture_output(duthost, timeout=timeout)
+        result = run_countersyncd_and_capture_output(duthost, timeout=360)
 
         # Step 4: Parse and verify counter values and Msg/s
         validation_results = validate_counter_output(

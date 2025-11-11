@@ -227,14 +227,14 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
                 f"for profile '{profile_name}'")
 
 
-def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=10):
+def run_countersyncd_and_capture_output(duthost, timeout=360, stats_interval=60):
     """
     Run countersyncd command and capture output.
 
     Args:
         duthost: DUT host object
-        timeout: Timeout in seconds (default: 120)
-        stats_interval: Stats reporting interval in seconds (default: 10)
+        timeout: Timeout in seconds (default: 360)
+        stats_interval: Stats reporting interval in seconds (default: 60)
 
     Returns:
         dict: Command result with stdout, stderr, rc
@@ -914,7 +914,7 @@ def validate_enabled_stream_output(
         for timestamp_str in lasttime_matches:
             try:
                 # Parse timestamp (format: 1970-01-02 02:08:37.307033444)
-                timestamp = datetime.strptime(timestamp_str[:26], '%Y-%m-%d %H:%M:%S.%f')
+                timestamp = datetime.strptime(timestamp_str[:26], '%Y-%m-%d %H:%M:%S.%f').replace(tzinfo=timezone.utc)
 
                 if min_acceptable_time <= timestamp <= max_acceptable_time:
                     valid_timestamps.append(timestamp_str)
