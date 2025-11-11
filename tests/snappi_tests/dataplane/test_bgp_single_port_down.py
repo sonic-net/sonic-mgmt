@@ -13,8 +13,7 @@ METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
 METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
 METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"
-METRIC_NAME_BGP_CONVERGENCE_ROUTE_TIME_MS: Final[str] = "bgp.convergence.route.time.ms"
-METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS: Final[str] = "bgp.convergence.dataplane.time.ms"
+METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS: Final[str] = "bgp.convergence.dataplane.update.time.ms"
 pytestmark = [pytest.mark.topology("tgen")]
 logger = logging.getLogger(__name__)
 TIMEOUT = 20
@@ -117,7 +116,7 @@ def get_convergence_for_single_session_flap(
     """
     Get the packet loss duration
     """
-    convergence_dataplane_time = GaugeMetric(METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_TIME_MS,
+    convergence_dataplane_time = GaugeMetric(METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS,
                                              "convergence time for port down/Route withdrawl event",
                                              UNIT_SECONDS,
                                              db_reporter)
