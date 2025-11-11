@@ -8,7 +8,7 @@ def configure_pre_sonic_bgp(config_file, nodes, add=True) -> bool:
     """
     Configure or deconfigure FRR/BGP settings that must be applied before SONiC interface configuration.
     Executes pre-sonic-bgp commands via vtysh on specified devices in parallel.
-    
+
     :param config_file: Path to YAML configuration file containing device configurations
     :param nodes: Dictionary mapping device names to SPyTest device objects
     :param add: True to apply configuration, False to remove configuration
@@ -37,7 +37,7 @@ def configure_sonic(config_file, nodes, add=True) -> bool:
     """
     Configure or deconfigure SONiC network interfaces, VXLAN settings, and system parameters.
     Executes SONiC CLI commands on specified devices in parallel.
-    
+
     :param config_file: Path to YAML configuration file containing device configurations
     :param nodes: Dictionary mapping device names to SPyTest device objects
     :param add: True to apply configuration, False to remove configuration
@@ -68,7 +68,7 @@ def configure_bgp(config_file, nodes, add=True) -> bool:
     """
     Configure or deconfigure BGP EVPN settings including neighbors, address families, and route policies.
     Executes BGP configuration commands via vtysh on specified devices in parallel.
-    
+
     :param config_file: Path to YAML configuration file containing device configurations
     :param nodes: Dictionary mapping device names to SPyTest device objects
     :param add: True to apply configuration, False to remove configuration
@@ -76,7 +76,7 @@ def configure_bgp(config_file, nodes, add=True) -> bool:
     """
     config_jobs = []
     with open(config_file, "r") as file:
-        configuration: Dict[str, Dict[str, Dict[str, str]]]= yaml.load(file, Loader=yaml.FullLoader)
+        configuration: Dict[str, Dict[str, Dict[str, str]]] = yaml.load(file, Loader=yaml.FullLoader)
         # list of switches
         for switch, value in configuration.items():
             # needed when we want to operate on specific nodes only
@@ -98,7 +98,7 @@ def configure_devices(config_file, nodes, add=True) -> bool:
     Master function to configure or deconfigure all devices with complete DCI setup.
     Orchestrates the configuration sequence: pre-sonic-bgp → sonic → bgp for add,
     and reverse order (bgp → sonic → pre-sonic-bgp) for remove operations.
-    
+
     :param config_file: Path to YAML configuration file containing device configurations
     :param nodes: Dictionary mapping device names to SPyTest device objects
     :param add: True to apply full configuration, False to remove full configuration
@@ -123,12 +123,12 @@ def configure_devices(config_file, nodes, add=True) -> bool:
     return True
 
 
-def run_clis_on_duts(duts_config, is_bgp = False) -> bool:
+def run_clis_on_duts(duts_config, is_bgp=False) -> bool:
     """
     Execute CLI commands on multiple devices in parallel using vtysh.
     Designed for running specific configuration commands like DCI neighbor settings
     across multiple devices simultaneously for efficient test execution.
-    
+
     :param duts_config: List of tuples where each tuple contains (device, config_commands_list)
     :return: True if all CLI commands execute successfully on all devices, False otherwise
     """

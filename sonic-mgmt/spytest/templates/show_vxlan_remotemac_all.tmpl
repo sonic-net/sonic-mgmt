@@ -1,7 +1,10 @@
-Value VLAN (Vlan\d+)
-Value REMOTE_MAC (..:..:..:..:..:..)
+Value Filldown VLAN (Vlan\d+)
+Value Filldown REMOTE_MAC (..:..:..:..:..:..)
 Value REMOTE_VTEP (([.:\dA-Fa-f]+[:.]+)+([\dA-Fa-f]+)?)
-Value VNI (\d+)
+Value Filldown VNI (\d+)
 
 Start
-  ^[|\s]*${VLAN}[|\s]*${REMOTE_MAC}[|\s]*${REMOTE_VTEP}[|\s]*${VNI} -> Record Start
+  # Match full entry line with all fields
+  ^[|\s]*${VLAN}[|\s]*${REMOTE_MAC}[|\s]*${REMOTE_VTEP}[|\s]*${VNI} -> Record
+  # Match continuation line with only VTEP (when MAC has multiple VTEPs)
+  ^[|\s]+${REMOTE_VTEP}[|\s]*$$ -> Record

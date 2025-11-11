@@ -20,11 +20,9 @@ devices:
     vxr_sim_config:
       shelf:
         ConfigCardPidOverride: HF6100-32D
-        ConfigS1NplPath: /auto/vxr1/sonic-images/yucgu/202405/npl
-        ConfigS1NpsuiteVer: 1.184.1  
     linux_password: cisco123
     linux_username: cisco
-    onie-install:  /auto/vxr1/sonic-images/mrghosh/sonic-cisco-8000_dci_9_24.bin
+    onie-install: /auto/vxr1/sonic-images/abramamu/test/sonic-cisco-8000.bin
     os_type: sonic
     memory: 12GB
     vcpu: 8
@@ -82,22 +80,51 @@ devices:
       sudo modprobe 8021q
       sudo ip link add link eth1 name eth1.10 type vlan id 10
       sudo ip link add link eth1 name eth1.20 type vlan id 20
+      sudo ip link add link eth1 name eth1.30 type vlan id 30
+      sudo ip link add link eth1 name eth1.40 type vlan id 40
+      sudo ip link add link eth1 name eth1.50 type vlan id 50
+      sudo ip link add link eth1 name eth1.60 type vlan id 60
+      sudo ip link add link eth1 name eth1.70 type vlan id 70
+      sudo ip link add link eth1 name eth1.80 type vlan id 80
+      sudo ip link add link eth1 name eth1.90 type vlan id 90
+      sudo ip link add link eth1 name eth1.99 type vlan id 99
       sudo ip link set dev eth1.10 address 00:00:00:00:10:01
       sudo ip link set dev eth1.20 address 00:00:00:00:20:01
+      sudo ip link set dev eth1.30 address 00:00:00:00:30:01
+      sudo ip link set dev eth1.40 address 00:00:00:00:40:01
+      sudo ip link set dev eth1.50 address 00:00:00:00:50:01
+      sudo ip link set dev eth1.60 address 00:00:00:00:60:01
+      sudo ip link set dev eth1.70 address 00:00:00:00:70:01
+      sudo ip link set dev eth1.80 address 00:00:00:00:80:01
+      sudo ip link set dev eth1.90 address 00:00:00:00:90:01
+      sudo ip link set dev eth1.99 address 00:00:00:00:99:01
       sudo ip addr add 10.212.10.1/24 dev eth1.10
       sudo ip addr add 10.212.20.1/24 dev eth1.20
+      sudo ip addr add 10.212.30.1/24 dev eth1.30
+      sudo ip addr add 10.212.40.1/24 dev eth1.40
+      sudo ip addr add 10.212.50.1/24 dev eth1.50
+      sudo ip addr add 10.212.60.1/24 dev eth1.60
+      sudo ip addr add 10.212.70.1/24 dev eth1.70
+      sudo ip addr add 10.212.80.1/24 dev eth1.80
+      sudo ip addr add 10.212.90.1/24 dev eth1.90
+      sudo ip addr add 10.212.99.1/24 dev eth1.99
       sudo ip link set dev eth1.10 up
       sudo ip link set dev eth1.20 up
+      sudo ip link set dev eth1.30 up
+      sudo ip link set dev eth1.40 up
+      sudo ip link set dev eth1.50 up
+      sudo ip link set dev eth1.60 up
+      sudo ip link set dev eth1.70 up
+      sudo ip link set dev eth1.80 up
+      sudo ip link set dev eth1.90 up
+      sudo ip link set dev eth1.99 up
       ip addr
       ping -c 1 10.212.10.10
   HOST2:
       <<: *host
       cli_commands: |
-        echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    eth1:\n      dhcp4: no\n    eth2:\n      dhcp4: no\n  bonds:\n    bond0:\n      dhcp4: no\n      interfaces:\n        - eth1\n        - eth2\n      parameters:\n        mode: 802.3ad\n        transmit-hash-policy: layer3+4\n        mii-monitor-interval: 100\n        lacp-rate: fast\n      addresses:\n        - 10.212.10.2/24\n        - 10:212:10::2/64\n      gateway4: 10.212.10.10" | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
+        echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    eth1:\n      dhcp4: no\n    eth2:\n      dhcp4: no\n  bonds:\n    bond0:\n      dhcp4: no\n      interfaces:\n        - eth1\n        - eth2\n      parameters:\n        mode: 802.3ad\n        transmit-hash-policy: layer3+4\n        mii-monitor-interval: 100\n        lacp-rate: fast\n  vlans:\n    bond0.10:\n      id: 10\n      link: bond0\n      addresses:\n        - 10.212.10.2/24\n      macaddress: 00:00:00:00:10:02\n    bond0.20:\n      id: 20\n      link: bond0\n      addresses:\n        - 10.212.20.2/24\n      macaddress: 00:00:00:00:20:02\n    bond0.30:\n      id: 30\n      link: bond0\n      addresses:\n        - 10.212.30.2/24\n      macaddress: 00:00:00:00:30:02\n    bond0.40:\n      id: 40\n      link: bond0\n      addresses:\n        - 10.212.40.2/24\n      macaddress: 00:00:00:00:40:02\n    bond0.50:\n      id: 50\n      link: bond0\n      addresses:\n        - 10.212.50.2/24\n      macaddress: 00:00:00:00:50:02\n    bond0.60:\n      id: 60\n      link: bond0\n      addresses:\n        - 10.212.60.2/24\n      macaddress: 00:00:00:00:60:02\n    bond0.70:\n      id: 70\n      link: bond0\n      addresses:\n        - 10.212.70.2/24\n      macaddress: 00:00:00:00:70:02\n    bond0.80:\n      id: 80\n      link: bond0\n      addresses:\n        - 10.212.80.2/24\n      macaddress: 00:00:00:00:80:02\n    bond0.90:\n      id: 90\n      link: bond0\n      addresses:\n        - 10.212.90.2/24\n      macaddress: 00:00:00:00:90:02\n    bond0.99:\n      id: 99\n      link: bond0\n      addresses:\n        - 10.212.99.2/24\n      macaddress: 00:00:00:00:99:02" | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
         sudo netplan apply
-        sudo ifconfig eth1 hw ether 00:00:00:00:00:02
-        sudo ifconfig eth2 hw ether 00:00:00:00:00:02
-        sudo ifconfig bond0 hw ether 00:00:00:00:00:02
         ip addr
         ping -c 1 10.212.10.10
 
@@ -108,12 +135,44 @@ devices:
         sudo modprobe 8021q
         sudo ip link add link eth1 name eth1.10 type vlan id 10
         sudo ip link add link eth1 name eth1.20 type vlan id 20
+        sudo ip link add link eth1 name eth1.30 type vlan id 30
+        sudo ip link add link eth1 name eth1.40 type vlan id 40
+        sudo ip link add link eth1 name eth1.50 type vlan id 50
+        sudo ip link add link eth1 name eth1.60 type vlan id 60
+        sudo ip link add link eth1 name eth1.70 type vlan id 70
+        sudo ip link add link eth1 name eth1.80 type vlan id 80
+        sudo ip link add link eth1 name eth1.90 type vlan id 90
+        sudo ip link add link eth1 name eth1.99 type vlan id 99
         sudo ip addr add 10.212.10.3/24 dev eth1.10
         sudo ip addr add 10.212.20.3/24 dev eth1.20
+        sudo ip addr add 10.212.30.3/24 dev eth1.30
+        sudo ip addr add 10.212.40.3/24 dev eth1.40
+        sudo ip addr add 10.212.50.3/24 dev eth1.50
+        sudo ip addr add 10.212.60.3/24 dev eth1.60
+        sudo ip addr add 10.212.70.3/24 dev eth1.70
+        sudo ip addr add 10.212.80.3/24 dev eth1.80
+        sudo ip addr add 10.212.90.3/24 dev eth1.90
+        sudo ip addr add 10.212.99.3/24 dev eth1.99
         sudo ip link set dev eth1.10 address 00:00:00:00:10:03
         sudo ip link set dev eth1.20 address 00:00:00:00:20:03
+        sudo ip link set dev eth1.30 address 00:00:00:00:30:03
+        sudo ip link set dev eth1.40 address 00:00:00:00:40:03
+        sudo ip link set dev eth1.50 address 00:00:00:00:50:03
+        sudo ip link set dev eth1.60 address 00:00:00:00:60:03
+        sudo ip link set dev eth1.70 address 00:00:00:00:70:03
+        sudo ip link set dev eth1.80 address 00:00:00:00:80:03
+        sudo ip link set dev eth1.90 address 00:00:00:00:90:03
+        sudo ip link set dev eth1.99 address 00:00:00:00:99:03
         sudo ip link set dev eth1.10 up
         sudo ip link set dev eth1.20 up
+        sudo ip link set dev eth1.30 up
+        sudo ip link set dev eth1.40 up
+        sudo ip link set dev eth1.50 up
+        sudo ip link set dev eth1.60 up
+        sudo ip link set dev eth1.70 up
+        sudo ip link set dev eth1.80 up
+        sudo ip link set dev eth1.90 up
+        sudo ip link set dev eth1.99 up
         ip addr
         ping -c 1 10.212.10.10
 
@@ -124,14 +183,64 @@ devices:
         sudo modprobe 8021q
         sudo ip link add link eth1 name eth1.10 type vlan id 10
         sudo ip link add link eth1 name eth1.20 type vlan id 20
+        sudo ip link add link eth1 name eth1.30 type vlan id 30
+        sudo ip link add link eth1 name eth1.40 type vlan id 40
+        sudo ip link add link eth1 name eth1.50 type vlan id 50
+        sudo ip link add link eth1 name eth1.60 type vlan id 60
+        sudo ip link add link eth1 name eth1.70 type vlan id 70
+        sudo ip link add link eth1 name eth1.80 type vlan id 80
+        sudo ip link add link eth1 name eth1.90 type vlan id 90
+        sudo ip link add link eth1 name eth1.99 type vlan id 99
         sudo ip addr add 10.212.10.4/24 dev eth1.10
         sudo ip addr add 10.212.20.4/24 dev eth1.20
+        sudo ip addr add 10.212.30.4/24 dev eth1.30
+        sudo ip addr add 10.212.40.4/24 dev eth1.40
+        sudo ip addr add 10.212.50.4/24 dev eth1.50
+        sudo ip addr add 10.212.60.4/24 dev eth1.60
+        sudo ip addr add 10.212.70.4/24 dev eth1.70
+        sudo ip addr add 10.212.80.4/24 dev eth1.80
+        sudo ip addr add 10.212.90.4/24 dev eth1.90
+        sudo ip addr add 10.212.99.4/24 dev eth1.99
         sudo ip link set dev eth1.10 address 00:00:00:00:10:04
         sudo ip link set dev eth1.20 address 00:00:00:00:20:04
+        sudo ip link set dev eth1.30 address 00:00:00:00:30:04
+        sudo ip link set dev eth1.40 address 00:00:00:00:40:04
+        sudo ip link set dev eth1.50 address 00:00:00:00:50:04
+        sudo ip link set dev eth1.60 address 00:00:00:00:60:04
+        sudo ip link set dev eth1.70 address 00:00:00:00:70:04
+        sudo ip link set dev eth1.80 address 00:00:00:00:80:04
+        sudo ip link set dev eth1.90 address 00:00:00:00:90:04
+        sudo ip link set dev eth1.99 address 00:00:00:00:99:04
         sudo ip link set dev eth1.10 up
         sudo ip link set dev eth1.20 up
+        sudo ip link set dev eth1.30 up
+        sudo ip link set dev eth1.40 up
+        sudo ip link set dev eth1.50 up
+        sudo ip link set dev eth1.60 up
+        sudo ip link set dev eth1.70 up
+        sudo ip link set dev eth1.80 up
+        sudo ip link set dev eth1.90 up
+        sudo ip link set dev eth1.99 up
         ip addr
         ping -c 1 10.212.10.10
+
+  HOST5:
+      <<: *host
+      cli_commands: |
+        sudo ifconfig eth1 up
+        sudo ip addr add 10.212.3.5/24 dev eth1
+        sudo ip link set dev eth1 address 00:00:00:00:03:05
+        ip addr
+        ping -c 1 10.212.3.10
+
+  ixia:
+    platform: ixia-web
+    ixia_images:
+      windows: /globalnobackup/jedebarr/IxNetworkWeb_KVM_10.00.2407.119.qcow2
+      chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_10.00_KVM.qcow2
+      load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_10.00_KVM.qcow2
+    data_ports:
+      - data[0..7]
 
   sonic_mgmt :
     platform: linux
@@ -206,3 +315,6 @@ connections:
     hub15:
       - SD8.Ethernet12
       - HOST4.eth1
+    hub16:
+      - SD1.Ethernet15
+      - HOST5.eth1
