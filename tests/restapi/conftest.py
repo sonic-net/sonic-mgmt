@@ -1,6 +1,7 @@
 import logging
 import pytest
 import urllib3
+import ipaddress
 from six.moves.urllib.parse import urlunparse
 
 from tests.common import config_reload
@@ -113,7 +114,18 @@ def construct_url(duthosts, rand_one_dut_hostname):
     def get_endpoint(path):
         duthost = duthosts[rand_one_dut_hostname]
         RESTAPI_PORT = "8081"
-        netloc = duthost.mgmt_ip+":"+RESTAPI_PORT
+
+        # Handle IPv6 addresses by wrapping them in square brackets
+        try:
+            ip_obj = ipaddress.ip_address(duthost.mgmt_ip)
+            if ip_obj.version == 6:
+                netloc = "[{}]:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+            else:
+                netloc = "{}:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+        except ValueError:
+            # If it's not a valid IP address, treat it as hostname and use as-is
+            netloc = "{}:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+
         try:
             tup = ('https', netloc, path, '', '', '')
             endpoint = urlunparse(tup)

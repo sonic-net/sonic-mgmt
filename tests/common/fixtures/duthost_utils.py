@@ -18,7 +18,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
-from tests.common.mellanox_data import is_mellanox_device
+from tests.common.mellanox_data import is_mellanox_device, get_platform_data
 from tests.common.platform.processes_utils import wait_critical_processes
 
 
@@ -543,6 +543,32 @@ def is_support_mock_asic(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     return not is_mellanox_device(duthost)
+
+
+@pytest.fixture(scope='module')
+def is_support_fan(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has fan
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if is_mellanox_device(duthost):
+        platform_data = get_platform_data(duthost)
+        return platform_data['fans']['number'] > 0
+    else:
+        return True
+
+
+@pytest.fixture(scope='module')
+def is_support_psu(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has psu
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if is_mellanox_device(duthost):
+        platform_data = get_platform_data(duthost)
+        return platform_data['psus']['number'] > 0
+    else:
+        return True
 
 
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
