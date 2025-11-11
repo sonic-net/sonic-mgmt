@@ -44,18 +44,20 @@ var (
 
 // RebootParams specify the reboot parameters used by the Reboot API.
 type RebootParams struct {
-	request       any
-	waitTime      time.Duration
-	checkInterval time.Duration
-	lmTTkrID      string // latency measurement testtracker UUID
-	lmTitle       string // latency measurement title
+	request        any
+	waitTime       time.Duration
+	checkInterval  time.Duration
+	requestTimeout time.Duration
+	lmTTkrID       string // latency measurement testtracker UUID
+	lmTitle        string // latency measurement title
 }
 
 // NewRebootParams returns RebootParams structure with default values.
 func NewRebootParams() *RebootParams {
 	return &RebootParams{
-		waitTime:      4 * time.Minute,
-		checkInterval: 20 * time.Second,
+		waitTime:       4 * time.Minute,
+		checkInterval:  20 * time.Second,
+		requestTimeout: 2 * time.Minute,
 	}
 }
 
@@ -79,6 +81,14 @@ func (p *RebootParams) WithCheckInterval(t time.Duration) *RebootParams {
 // 2) RebootRequest protobuf.
 func (p *RebootParams) WithRequest(r any) *RebootParams {
 	p.request = r
+	return p
+}
+
+// WithRequestTimeout adds the timeout for the reboot request.
+// The function will wait for the gNOI server to be down within this duration.
+// Default value is 2 minutes.
+func (p *RebootParams) WithRequestTimeout(timeout time.Duration) *RebootParams {
+	p.requestTimeout = timeout
 	return p
 }
 
@@ -132,28 +142,47 @@ func Reboot(t *testing.T, d *ondatra.DUTDevice, params *RebootParams) error {
 		return nil
 	}
 
-	log.Infof("Polling gNOI server reachability in %v intervals for max duration of %v", params.checkInterval, params.waitTime)
+	rebootRequestTimeout := params.requestTimeout
+	ctx, cancel := context.WithTimeout(context.Background(), rebootRequestTimeout)
+	defer cancel()
+
+	// The switch backend might not have processed the request or might take
+	// sometime to execute the request. So poll for the gNOI server to be down,
+	// or context to expire.
+	pollErr := poll(ctx, 10*time.Second /*(pollInterval)*/, func() pollStatus {
+		err := GNOIAble(t, d)
+		timeElapsed := (time.Now().UnixNano() - timeBeforeReboot) / int64(time.Second)
+		if err == nil {
+			log.Infof("gNOI server is still up after %v seconds", timeElapsed)
+			return continuePoll
+		}
+		log.Infof("gNOI server is down after %v seconds, got error while checking gNOI server reachability: %v as expected", timeElapsed, err)
+		return exitPoll
+	})
+	if pollErr != nil {
+		log.WarningContextf(ctx, "Polling gNOI server to be down within time: %v failed: %v", rebootRequestTimeout, pollErr)
+		log.InfoContextf(ctx, "Continue to check if the switch has rebooted")
+	}
+
+	log.InfoContextf(ctx, "Polling gNOI server reachability in %v intervals for max duration of %v", params.checkInterval, params.waitTime)
 	for timeout := time.Now().Add(params.waitTime); time.Now().Before(timeout); {
-		// The switch backend might not have processed the request or might take
-		// sometime to execute the request. So wait for check interval time and
-		// later verify that the switch rebooted within the specified wait time.
 		time.Sleep(params.checkInterval)
 		doneTime := time.Now()
 		timeElapsed := (doneTime.UnixNano() - timeBeforeReboot) / int64(time.Second)
 
 		if err := GNOIAble(t, d); err != nil {
-			log.Infof("gNOI server not up after %v seconds", timeElapsed)
+			log.InfoContextf(ctx, "gNOI server not up after %v seconds", timeElapsed)
 			continue
 		}
-		log.Infof("gNOI server up after %v seconds", timeElapsed)
+		log.InfoContextf(ctx, "gNOI server up after %v seconds", timeElapsed)
 
 		// An extra check to ensure that the system has rebooted.
 		if bootTime := gnmiSystemBootTimeGet(t, d); bootTime < uint64(timeBeforeReboot) {
-			log.Infof("Switch has not rebooted after %v seconds", timeElapsed)
+			log.InfoContextf(ctx, "Switch has not rebooted after %v seconds", timeElapsed)
 			continue
 		}
 
-		log.Infof("Switch rebooted after %v seconds", timeElapsed)
+		log.InfoContextf(ctx, "Switch rebooted after %v seconds", timeElapsed)
 		return nil
 	}
 
