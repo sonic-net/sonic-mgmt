@@ -30,21 +30,21 @@ class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_nvidia_platform_with_sw_control_disabled(duthost, is_sw_control_feature_enabled):
         return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
-    
+
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_nvidia_platform_with_sw_control_enabled(duthost, is_sw_control_feature_enabled):
         return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled
-    
+
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_platform(duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
-    
+
         if any(platform in duthost.facts['platform'] for platform in SUPPORTED_PLATFORMS):
             skip_release(duthost, ["201811", "201911", "202012", "202205", "202211", "202305", "202405"])
         else:
             pytest.skip("DUT has platform {}, test is not supported".format(duthost.facts['platform']))
-    
+
         if is_supported_nvidia_platform_with_sw_control_disabled:
             pytest.skip("SW control feature is not enabled on Nvidia platform")
 
