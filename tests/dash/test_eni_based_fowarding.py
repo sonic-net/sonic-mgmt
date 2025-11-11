@@ -11,15 +11,15 @@ import ptf.packet as scapy
 from ptf.mask import Mask
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from tests.dash.conftest import get_interface_ip
-SONIC_MGMT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
-sys.path.insert(0, os.path.join(SONIC_MGMT_ROOT, 'ansible', 'module_utils'))
-from smartswitch_utils import smartswitch_hwsku_config
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 from packets import generate_inner_packet, set_do_not_care_layer
 from tests.common import config_reload
-from constants import *
+from constants import *  # noqa: F403
+SONIC_MGMT_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../..'))
+sys.path.insert(0, os.path.join(SONIC_MGMT_ROOT, 'ansible', 'module_utils'))
+from smartswitch_utils import smartswitch_hwsku_config  # noqa: E402
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -37,6 +37,7 @@ NON_EXISTING_ENI_MAC = "F4:93:9F:EF:C4:81"
 logger = logging.getLogger(__name__)
 dataplane_logger = logging.getLogger("dataplane")
 dataplane_logger.setLevel(logging.ERROR)
+
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnmi_server():
@@ -81,7 +82,7 @@ def update_peer_route(duthost, loopback_ips, dash_pl_config):
 
 @pytest.fixture(scope="module")
 def apply_config_db(duthost, dpu_num, mock_pa_ipv4, loopback_ips,
-                    dash_pl_config, vdpus_info, apply_peer_route): # noqa: F811
+                    dash_pl_config, vdpus_info, apply_peer_route):  # noqa: F811
     loopback0_ip, peer_loopback0_ip = loopback_ips
     template_name = "eni_based_forwarding_config_db.j2"
     dest_path = "/tmp/eni_based_forwarding_config_db.json"
@@ -99,7 +100,7 @@ def apply_config_db(duthost, dpu_num, mock_pa_ipv4, loopback_ips,
     }
     render_template_to_host(template_name, duthost, dest_path, **config_db_params)
     rendered_config = duthost.shell(f"cat {dest_path}")['stdout']
-    logger.info(f"Apply configrations to config_db:\n {rendered_config}")
+    logger.info(f"Apply configrations to config_db: \n{rendered_config}")
     duthost.shell(f"config load {dest_path} -y")
 
     yield
@@ -130,17 +131,17 @@ def loopback_ips(duthost):
 
 
 @pytest.fixture(scope="module")
-def apply_appl_db_and_check_acl_rules(duthost, vdpus_info, apply_config_db, mock_pa_ipv4, loopback_ips): # noqa: F811
+def apply_appl_db_and_check_acl_rules(duthost, vdpus_info, apply_config_db, mock_pa_ipv4, loopback_ips):  # noqa: F811
     _, peer_loopback0_ip = loopback_ips
     apply_dash_eni_forward_table(duthost, vdpus_info, active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC)
     logger.info("Check the ENI forwarding ACL rules are applied correctly.")
     pytest_assert(
         wait_until(10, 5, 0, check_acl_table_and_type_tables, duthost),
         "ACL table and type tables are not applied correctly.")
-    pytest_assert(
-        wait_until(10, 5, 0, check_acl_rules, duthost, mock_pa_ipv4, peer_loopback0_ip,
-                   active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC),
-                  "ACL rules are not applied correctly.")
+    pytest_assert(wait_until(
+        10, 5, 0, check_acl_rules, duthost, mock_pa_ipv4, peer_loopback0_ip,
+        active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC),
+        "ACL rules are not applied correctly.")
 
 
 def apply_dash_eni_forward_table(
@@ -161,7 +162,7 @@ def apply_dash_eni_forward_table(
     }
     render_template_to_host(template_name, duthost, dest_path, **appl_db_params)
     rendered_config = duthost.shell(f"cat {dest_path}")['stdout']
-    logger.info(f"Apply configrations to appl_db:\n {rendered_config}")
+    logger.info(f"Apply configrations to appl_db: \n{rendered_config}")
     apply_swssconfig_file(duthost, dest_path)
 
 
@@ -186,14 +187,16 @@ def check_acl_table_and_type_tables(duthost):
             "BIND_POINTS": "PORT,PORTCHANNEL"
         }
     }
-    logger.info(f"Expected ACL tables for ENI based forwarding:\n {expected_tables}")
+    logger.info(f"Expected ACL tables for ENI based forwarding: \n{expected_tables}")
     for table, table_fields in expected_tables.items():
         actual_table = json.loads(duthost.shell(f"redis-cli --json -n 0 HGETALL {table}")['stdout'])
         logger.info(f"Actual table for key {table}: {actual_table}")
         if not actual_table == table_fields:
-            logger.error(f"ACL table {table} is not applied correctly. Expected: {table_fields}, Actual: {actual_table}")
+            logger.error(
+                f"ACL table {table} is not applied correctly. Expected: {table_fields}, Actual: {actual_table}")
             return False
     return True
+
 
 def check_acl_rules(duthost, mock_pa_ipv4, peer_loopback0_ip,
                     active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC,
@@ -232,7 +235,8 @@ def check_acl_rules(duthost, mock_pa_ipv4, peer_loopback0_ip,
             "REDIRECT_ACTION": f"{peer_loopback0_ip}@tunnel_v4,{VNI}"
         }
     }
-    logger.info(f"3 ENIs are configured in this test, expected {len(expected_rules.keys())} ACL rules:\n {expected_rules}")
+    logger.info(
+        f"3 ENIs are configured in this test, expected {len(expected_rules.keys())} ACL rules: \n{expected_rules}")
     actual_rule_num = int(duthost.shell("redis-cli -n 0 keys 'ACL_RULE_TABLE:ENI*' | grep 'ACL' | wc -l")['stdout'])
     if not actual_rule_num == len(expected_rules):
         logger.error(f"Expected {len(expected_rules)} ENI forwarding ACL rules, but got {actual_rule_num}")
@@ -241,13 +245,14 @@ def check_acl_rules(duthost, mock_pa_ipv4, peer_loopback0_ip,
         actual_rule = json.loads(duthost.shell(f"redis-cli --json -n 0 HGETALL {rule_name}")['stdout'])
         logger.info(f"Actual rule for key {rule_name}: {actual_rule}")
         if not actual_rule == rule_fields:
-            logger.error(f"ACL rule {rule_name} is not applied correctly. Expected: {rule_fields}, Actual: {actual_rule}")
+            logger.error(
+                f"ACL rule {rule_name} is not applied correctly. Expected: {rule_fields}, Actual: {actual_rule}")
             return False
     return True
 
 
 @pytest.fixture(scope="module", autouse=True)
-def common_setup_teardown(duthost, apply_appl_db_and_check_acl_rules, dpu_num): # noqa: F811
+def common_setup_teardown(duthost, apply_appl_db_and_check_acl_rules, dpu_num):  # noqa: F811
 
     yield
 
@@ -363,7 +368,9 @@ def test_eni_based_forwarding_non_existing_eni(ptfadapter, dash_pl_config, loopb
     testutils.verify_packet_any_port(ptfadapter, expected_packet, dash_pl_config[REMOTE_PTF_RECV_INTF])
 
 
-def test_eni_based_forwarding_eni_state_change(duthost, ptfadapter, dash_pl_config, vdpus_info, loopback_ips, mock_pa_ipv4):
+def test_eni_based_forwarding_eni_state_change(
+    duthost, ptfadapter, dash_pl_config, vdpus_info, loopback_ips, mock_pa_ipv4
+):
     """
     Validate when the ENI state changes, the ACL rules are updated correctly.
     """
@@ -371,10 +378,10 @@ def test_eni_based_forwarding_eni_state_change(duthost, ptfadapter, dash_pl_conf
     try:
         logger.info("Change the active ENI to standby ENI and vice versa.")
         apply_dash_eni_forward_table(duthost, vdpus_info, active_eni_mac=ENI2_MAC, standby_eni_mac=ENI1_MAC)
-        pytest_assert(
-            wait_until(10, 5, 0, check_acl_rules, duthost, mock_pa_ipv4, peer_loopback0_ip,
-                       active_eni_mac=ENI2_MAC, standby_eni_mac=ENI1_MAC),
-                      "ACL rules are not applied correctly.")
+        pytest_assert(wait_until(
+            10, 5, 0, check_acl_rules, duthost, mock_pa_ipv4, peer_loopback0_ip,
+            active_eni_mac=ENI2_MAC, standby_eni_mac=ENI1_MAC),
+            "ACL rules are not applied correctly.")
         logger.info("Send a packet of the original standby ENI to VIP and expect"
                     " to receive it on the mock local DPU dataplane interface.")
         packet, expected_packet = generate_packet(dash_pl_config, ENI2_MAC, 'active')
@@ -390,10 +397,10 @@ def test_eni_based_forwarding_eni_state_change(duthost, ptfadapter, dash_pl_conf
     finally:
         logger.info("Restore the ENI to their original states.")
         apply_dash_eni_forward_table(duthost, vdpus_info, active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC)
-        pytest_assert(
-            wait_until(10, 5, 0, check_acl_rules, duthost, mock_pa_ipv4, peer_loopback0_ip,
-                       active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC),
-                      "ACL rules are not applied correctly.")
+        pytest_assert(wait_until(
+            10, 5, 0, check_acl_rules, duthost, mock_pa_ipv4, peer_loopback0_ip,
+            active_eni_mac=ENI1_MAC, standby_eni_mac=ENI2_MAC),
+            "ACL rules are not applied correctly.")
 
 
 def test_eni_based_forwarding_tunnel_termination(
