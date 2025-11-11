@@ -70,7 +70,7 @@ def check_running_condition(tbinfo, duthost):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def disable_pfcwd(duthosts):
+def disable_pfcwd(duthosts, swap_syncd):  # noqa: F811
     pfcwd_value = {}
     for duthost in duthosts:
         pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
