@@ -91,7 +91,7 @@ class TestFaultHandling():
             ).format(dut_ingress_sa_table_orig, dut_ingress_sa_table_new)
             return True
         assert wait_until(30, 5, 2, check_new_mka_session), (
-            "New MKA session did not establish within the specified timeout. "
+            "New MKA session did not establish within expected time."
             "Current status: '{}'.".format(
                 check_new_mka_session()
             )
@@ -174,7 +174,7 @@ class TestFaultHandling():
         # The mka should be establishing or established
         # To check whether the MKA establishment happened within 90 seconds
         assert not wait_until(90, 1, 12, check_mka_establishment), (
-            "MKA establishment unexpectedly succeeded within the specified timeout. "
+            "MKA establishment failed. Expected MKA to not establish within expected time, but it did."
             "Current status: '{}'.".format(
                 check_mka_establishment()
             )
