@@ -22,7 +22,6 @@ sys.path.insert(0, os.path.join(SONIC_MGMT_ROOT, 'ansible', 'module_utils'))
 from smartswitch_utils import smartswitch_hwsku_config  # noqa: E402
 
 pytestmark = [
-    pytest.mark.topology('t1'),
     pytest.mark.topology('smartswitch'),
 ]
 
