@@ -38,9 +38,10 @@ def restart_swss_container(duthosts, enum_rand_one_per_hwsku_frontend_hostname, 
     duthost.shell("sudo systemctl restart {}".format(asic.get_service_name("swss")))
 
     # make sure all critical services are up
-    assert wait_until(600, 5, 30, duthost.critical_services_fully_started), \
-        "Not all critical services are fully started after restarting orchagent. " \
-        "Current status: '{}'.".format(duthost.critical_services_fully_started())
+    assert wait_until(600, 5, 30, duthost.critical_services_fully_started), (
+        "Not all critical services started after restarting orchagent. "
+        "Service status: {}".format(duthost.get_critical_services_status())
+    )
 
     # wait for ports to be up and lldp neighbor information has been received by dut
     assert wait_until(300, 20, 60,
