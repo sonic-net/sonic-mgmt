@@ -711,7 +711,7 @@ dash/test_dash_smartswitch_vnet.py:
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
 dash/test_dash_vnet.py:
   skip:
@@ -4952,10 +4952,6 @@ vlan/test_vlan_ping.py:
     conditions:
       - "asic_type in ['broadcom']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19929 and '-v6-' in topo_name"
 
 #######################################
 #####             voq             #####
