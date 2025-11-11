@@ -267,7 +267,7 @@ class EverflowPolicerTest(BaseTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.GRE, "seqnum_present")
         if self.asic_type in ["cisco-8000"]:
             erspan_bit_offset = 42
-            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19, 2)  # Mask encap value
+            masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 19, 2)  # Mask the encap value
             masked_exp_pkt.set_do_not_care(erspan_bit_offset * 8 + 22, 10)  # Mask the session_id
         if exp_pkt.haslayer(scapy.ERSPAN_III):
             masked_exp_pkt.set_do_not_care_scapy(scapy.ERSPAN_III, "span_id")
