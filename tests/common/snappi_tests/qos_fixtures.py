@@ -143,6 +143,7 @@ def reapply_pfcwd(duthost, pfcwd_config):
     if type(pfcwd_config) is dict:
         duthost.copy(content=json.dumps({"PFC_WD": pfcwd_config}, indent=4), dest=file_prefix)
         duthost.shell(f"config load {file_prefix} -y")
+        duthost.shell(f"rm {file_prefix} -y")
     elif type(pfcwd_config) is list:
         output = duthost.shell("ip netns | awk '{print $1}'")['stdout']
         all_asic_list = output.split("\n")
@@ -155,6 +156,7 @@ def reapply_pfcwd(duthost, pfcwd_config):
             duthost.copy(content=json.dumps({"PFC_WD": config}, indent=4), dest=filename)
             all_files.append(filename)
         duthost.shell("config load {} -y".format(",".join(all_files)))
+        duthost.shell("rm -r {}".format(" ".join(all_files)))
     else:
         raise RuntimeError(f"Script problem: Got an unsupported type of pfcwd_config:{pfcwd_config}")
 
