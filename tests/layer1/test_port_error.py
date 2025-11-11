@@ -8,7 +8,6 @@ from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
 from tests.common.utilities import wait_until
-from tests.platform_tests.mellanox.software_control_helper import check_sc_sai_attribute_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -29,12 +28,12 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_disabled(duthost):
-        return 'nvidia' in duthost.facts['platform'].lower() and not check_sc_sai_attribute_value(duthost)
+    def is_supported_nvidia_platform_with_sw_control_disabled(duthost, is_sw_control_feature_enabled):
+        return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
 
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_enabled(duthost):
-        return 'nvidia' in duthost.facts['platform'].lower() and check_sc_sai_attribute_value(duthost)
+    def is_supported_nvidia_platform_with_sw_control_enabled(duthost, is_sw_control_feature_enabled):
+        return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled
 
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_platform(duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
