@@ -30,9 +30,18 @@ def test_loopback_action_basic(duthost, ptfadapter, ports_configuration):
     rif_interfaces = list(ports_configuration.keys())
     intf_count = len(rif_interfaces)
     with allure.step("Verify the rif loopback action default action: loopback traffic will be forwarded"):
-        
-        retry_call(verify_traffic, fargs=[duthost, ptfadapter, rif_interfaces, ports_configuration, [ACTION_FORWARD] * intf_count],
-                   tries=5, delay=1)
+        retry_call(
+            verify_traffic,
+            fargs=[
+                duthost,
+                ptfadapter,
+                rif_interfaces,
+                ports_configuration,
+                [ACTION_FORWARD] * intf_count
+            ],
+            tries=3,
+            delay=1
+        )
     with allure.step("Configure the loopback action to {}".format(ACTION_DROP)):
         config_loopback_action(duthost, rif_interfaces, [ACTION_DROP] * intf_count)
     with allure.step("Verify the loopback action is configured to drop"):
@@ -42,8 +51,18 @@ def test_loopback_action_basic(duthost, ptfadapter, ports_configuration):
             with allure.step("Clear the rif counter"):
                 clear_rif_counter(duthost)
             with allure.step("Check the traffic can not be received on the destination"):
-                retry_call(verify_traffic, fargs=[duthost, ptfadapter, rif_interfaces, ports_configuration, [ACTION_DROP] * intf_count],
-                           tries=5, delay=1)
+                retry_call(
+                    verify_traffic,
+                    fargs=[
+                        duthost,
+                        ptfadapter,
+                        rif_interfaces,
+                        ports_configuration,
+                        [ACTION_DROP] * intf_count
+                    ],
+                    tries=3,
+                    delay=1
+                )
             with allure.step("Check the TX_ERR in rif counter statistic will increase"):
                 verify_rif_tx_err_count(duthost, rif_interfaces, [NUM_OF_TOTAL_PACKETS]*intf_count)
     with allure.step("Configure the loopback action to forward"):
@@ -55,8 +74,18 @@ def test_loopback_action_basic(duthost, ptfadapter, ports_configuration):
             with allure.step("Clear the rif counter"):
                 clear_rif_counter(duthost)
             with allure.step("Check the traffic can be received on the destination"):
-                retry_call(verify_traffic, fargs=[duthost, ptfadapter, rif_interfaces, ports_configuration, [ACTION_FORWARD] * intf_count],
-                           retry_count=3, delay=1)
+                retry_call(
+                    verify_traffic,
+                    fargs=[
+                        duthost,
+                        ptfadapter,
+                        rif_interfaces,
+                        ports_configuration,
+                        [ACTION_FORWARD] * intf_count
+                    ],
+                    tries=5,
+                    delay=1
+                )
             with allure.step("Check the TX_ERR in rif counter statistic will not increase"):
                 verify_rif_tx_err_count(duthost, rif_interfaces, [0] * intf_count)
 
@@ -81,8 +110,18 @@ def test_loopback_action_port_flap(duthost, ptfadapter, ports_configuration):
             with allure.step("Clear the rif counter"):
                 clear_rif_counter(duthost)
             with allure.step("Check the traffic can be received or dropped as expected"):
-                retry_call(verify_traffic, fargs=[duthost, ptfadapter, rif_interfaces, ports_configuration, action_list],
-                            tries=5, delay=1)
+                retry_call(
+                    verify_traffic,
+                    fargs=[
+                        duthost,
+                        ptfadapter,
+                        rif_interfaces,
+                        ports_configuration,
+                        action_list
+                    ],
+                    tries=5,
+                    delay=1
+                )
             with allure.step("Check the TX_ERR in rif counter statistic will increase or not as expected"):
                 verify_rif_tx_err_count(duthost, rif_interfaces, count_list)
 
@@ -104,8 +143,18 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
             with allure.step("Clear the rif counter"):
                 clear_rif_counter(duthost)
             with allure.step("Check the traffic can be received or dropped as expected"):
-                retry_call(verify_traffic, fargs=[duthost, ptfadapter, rif_interfaces, ports_configuration, action_list],
-                           tries=5, delay=1)
+                retry_call(
+                    verify_traffic,
+                    fargs=[
+                        duthost,
+                        ptfadapter,
+                        rif_interfaces,
+                        ports_configuration,
+                        action_list
+                    ],
+                    tries=5,
+                    delay=1
+                )
             with allure.step("Check the TX_ERR in rif counter statistic will increase or not as expected"):
                 verify_rif_tx_err_count(duthost, rif_interfaces, count_list)
     with allure.step("Save configuration"):
@@ -136,7 +185,17 @@ def test_loopback_action_reload(request, duthost, localhost, ptfadapter, ports_c
             with allure.step("Clear the rif counter"):
                 clear_rif_counter(duthost)
             with allure.step("Check the traffic can be received or dropped as expected"):
-                retry_call(verify_traffic, fargs=[duthost, ptfadapter, rif_interfaces, ports_configuration, action_list],
-                           tries=5, delay=1)
+                retry_call(
+                    verify_traffic,
+                    fargs=[
+                        duthost,
+                        ptfadapter,
+                        rif_interfaces,
+                        ports_configuration,
+                        action_list
+                    ],
+                    tries=5,
+                    delay=1
+                )
             with allure.step("Check the TX_ERR in rif counter statistic will increase or not as expected"):
                 verify_rif_tx_err_count(duthost, rif_interfaces, count_list)
