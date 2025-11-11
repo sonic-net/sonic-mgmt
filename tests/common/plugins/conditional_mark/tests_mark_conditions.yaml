@@ -3208,7 +3208,7 @@ ipfwd/test_dip_sip.py:
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx', 'm1']"
+      - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx', 'm1', 'lt2', 'ft2']"
 
 ipfwd/test_dir_bcast.py:
   skip:
@@ -3232,7 +3232,7 @@ ipfwd/test_mtu.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t1', 't2']"
+      - "topo_type not in ['t1', 't2', 'lt2', 'ft2']"
 
 ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
   xfail:
