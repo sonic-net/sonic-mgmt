@@ -174,7 +174,7 @@ class TestFaultHandling():
         # The mka should be establishing or established
         # To check whether the MKA establishment happened within 90 seconds
         assert not wait_until(90, 1, 12, check_mka_establishment), (
-            "MKA establishment failed. Expected MKA to not establish within expected time, but it did."
+            "MKA establishment failed.Expected MKA to not establish within expected time, but it did."
             "Current status: '{}'.".format(
                 check_mka_establishment()
             )
