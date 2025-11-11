@@ -631,7 +631,7 @@ def is_traffic_running(snappi_api, flow_names=[]):
     request = snappi_api.metrics_request()
     request.flow.flow_names = flow_names
     flow_stats = snappi_api.get_metrics(request).flow_metrics
-    return all([int(fs.frames_rx_rate) > 0 for fs in flow_stats])
+    return all([int(fs.frames_tx_rate) > 0 for fs in flow_stats])
 
 
 def is_traffic_stopped(snappi_api, flow_names=[]):
