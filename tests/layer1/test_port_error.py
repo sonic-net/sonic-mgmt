@@ -8,7 +8,7 @@ from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
 from tests.common.utilities import wait_until
-from tests.platform_tests.sfp.software_control.helpers import check_sc_sai_attribute_value
+from tests.platform_tests.mellanox.software_control_helper import check_sc_sai_attribute_value
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
