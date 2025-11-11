@@ -157,17 +157,33 @@ class TestRouteConsistency():
                                                            post_withdraw_route_snapshot[dut_instance_name])
                 else:
                     if dut_instance_name.endswith("UpstreamLc"):
-                        assert num_routes_withdrawn_upstream_lc == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                                       post_withdraw_route_snapshot[dut_instance_name])
+                        assert num_routes_withdrawn_upstream_lc == (
+                            len(self.pre_test_route_snapshot[dut_instance_name])
+                            - len(post_withdraw_route_snapshot[dut_instance_name])
+                        ), (
+                            "The number of routes withdrawn upstream does not match the expected value "
+                            "for DUT instance '{}'.".format(dut_instance_name)
+                        )
+
                     else:
-                        assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                           post_withdraw_route_snapshot[dut_instance_name])
+                        assert num_routes_withdrawn == (
+                            len(self.pre_test_route_snapshot[dut_instance_name])
+                            - len(post_withdraw_route_snapshot[dut_instance_name])
+                        ), (
+                            "The number of routes withdrawn does not match the expected value for "
+                            "DUT instance '{}'.".format(dut_instance_name)
+                        )
 
             logger.info("advertise ipv4 and ipv6 routes for {}".format(topo_name))
             localhost.announce_routes(topo_name=topo_name, ptf_ip=ptf_ip, action="announce", path="../ansible/")
             time.sleep(self.sleep_interval)
 
-            assert wait_until(300, 10, 0, self.route_snapshots_match, duthosts, self.pre_test_route_snapshot)
+            assert wait_until(300, 10, 0, self.route_snapshots_match, duthosts, self.pre_test_route_snapshot), (
+                "Route snapshots did not match within the specified timeout for DUT hosts: '{}'.".format(
+                    duthosts
+                )
+            )
+
             logger.info("Route table is consistent across all the DUTs")
         except Exception as e:
             logger.error("Exception occurred: {}".format(e))
@@ -193,8 +209,13 @@ class TestRouteConsistency():
                                                post_withdraw_route_snapshot[dut_instance_name])
                     logger.debug("num_routes_withdrawn: {}".format(num_routes_withdrawn))
                 else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
+                    assert num_routes_withdrawn == (
+                        len(self.pre_test_route_snapshot[dut_instance_name])
+                        - len(post_withdraw_route_snapshot[dut_instance_name])
+                    ), (
+                        "The number of routes withdrawn does not match the expected value for DUT "
+                        "instance '{}'.".format(dut_instance_name)
+                    )
 
             logger.info("startup bgp sessions for {}".format(duthost.hostname))
             duthost.shell("sudo config bgp startup all")
@@ -203,7 +224,11 @@ class TestRouteConsistency():
             # take the snapshot of route table from all the DUTs
             post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name], (
+                    "The pre-test route snapshot does not match the post-test route snapshot for DUT "
+                    "instance '{}'.".format(dut_instance_name)
+                )
+
             logger.info("Route table is consistent across all the DUTs")
         except Exception:
             # startup bgp back in case of any exception
@@ -246,8 +271,13 @@ class TestRouteConsistency():
                                                post_withdraw_route_snapshot[dut_instance_name])
                     logger.info("num_routes_withdrawn: {}".format(num_routes_withdrawn))
                 else:
-                    assert num_routes_withdrawn == len(self.pre_test_route_snapshot[dut_instance_name] -
-                                                       post_withdraw_route_snapshot[dut_instance_name])
+                    assert num_routes_withdrawn == (
+                        len(self.pre_test_route_snapshot[dut_instance_name])
+                        - len(post_withdraw_route_snapshot[dut_instance_name])
+                    ), (
+                        "The number of routes withdrawn does not match the expected value for DUT "
+                        "instance '{}'.".format(dut_instance_name)
+                    )
 
             logger.info("Recover containers on {}".format(duthost.hostname))
             config_reload(duthost)
@@ -257,7 +287,11 @@ class TestRouteConsistency():
             # take the snapshot of route table from all the DUTs
             post_test_route_snapshot, _ = self.get_route_prefix_snapshot_from_asicdb(duthosts)
             for dut_instance_name in self.pre_test_route_snapshot.keys():
-                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name]
+                assert self.pre_test_route_snapshot[dut_instance_name] == post_test_route_snapshot[dut_instance_name], (
+                    "The pre-test route snapshot does not match the post-test route snapshot for DUT "
+                    "instance '{}'.".format(dut_instance_name)
+                )
+
             logger.info("Route table is consistent across all the DUTs")
         except Exception:
             # startup bgpd back in case of any exception
