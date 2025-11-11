@@ -7,7 +7,7 @@ from tests.common.telemetry.constants import (
 )
 from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, create_traffic_items, \
-    get_duthost_bgp_details, configure_acl_for_route_withdrawl, start_stop, \
+    get_duthost_interface_details, configure_acl_for_route_withdrawl, start_stop, \
     get_stats, check_bgp_state   # noqa: F401, F403, F405, E402
 METRIC_LABEL_TEST_PARAMS_EVENT_TYPE: Final[str] = "test.params.event_type"
 METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
@@ -28,7 +28,7 @@ ROUTE_RANGES = {
 @pytest.mark.parametrize("subnet_type", ["IPv6"])
 @pytest.mark.parametrize("frame_rate", [10])
 @pytest.mark.parametrize("frame_size", [64, 128, 256, 512, 1024, 1518])
-@pytest.mark.parametrize("event_type", ["Port Flap", "Route Withdraw"])
+@pytest.mark.parametrize("event_type", ["Port Flap Down", "Route Withdraw"])
 def test_bgp_sessions(
     duthosts,
     snappi_api,
@@ -54,8 +54,7 @@ def test_bgp_sessions(
         subnet_type in ROUTE_RANGES, "Failing test as no route ranges are provided for {}".format(subnet_type)
     )
     snappi_extra_params.ROUTE_RANGES = ROUTE_RANGES
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
-    snappi_ports = get_snappi_ports
+    snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports, subnet_type, protocol_type="bgp")
     tx_ports = snappi_ports[::2]
     rx_ports = snappi_ports[1::2]
     snappi_extra_params.FLAP_DETAILS = {
@@ -122,8 +121,8 @@ def get_convergence_for_single_session_flap(
                                              "convergence time for port down/Route withdrawl event",
                                              UNIT_SECONDS,
                                              db_reporter)
-    if event_type == "Port Flap":
-        logger.info("Starting Port Flap Test")
+    if event_type == "Port Flap Down":
+        logger.info("Starting Single Port Flap (Down) Test")
         snappi_api.set_config(snappi_config)
         flap_dut_obj = next(
             (dut for dut in duthosts if dut.hostname == snappi_extra_params.FLAP_DETAILS["device_name"]),
@@ -162,15 +161,18 @@ def get_convergence_for_single_session_flap(
             # calculate pld
             wait(20, "For statistics to be collected")
             flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
-            pytest_assert(
-                int(flow_stats[0].loss) == 0,
-                "Total Tx Rx Rates are not equal after link flap",
-            )
-            logger.info('Total Tx and Rx Rates are equal after link flap')
             delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
             pkt_loss_duration = 1000 * (delta_frames / flow_stats[0].frames_tx_rate)
             logger.info("Delta Frames : {}".format(delta_frames))
             pytest_assert(int(delta_frames) != 0, "Delta Frames is 0 after flap, which means no packet drop occurred")
+            snappi_api._ixnetwork.ClearStats()
+            wait(20, "For statistics to be Cleared")
+            flow_stats = get_stats(snappi_api, "Traffic Item Statistics")
+            pytest_assert(
+                int(flow_stats[0].loss) == 0,
+                "Total Tx Rx Rates are not equal after link flap",
+            )
+            logger.info('Traffic has converged back after link flap Down')
             logger.info('--------------------------   Convergence Numbers   ----------------------------------')
             logger.info("Convergence Time for Single Port Flap      : {} (ms)".format(pkt_loss_duration))
             logger.info('--------------------------------------------------------------------------------------')
@@ -200,7 +202,7 @@ def get_convergence_for_single_session_flap(
                 "sudo config interface startup {}\n".format(snappi_extra_params.FLAP_DETAILS["port_name"])
             )
     elif event_type == "Route Withdraw":
-        logger.info("Starting Route Withdraw Test")
+        logger.info("Starting Single Port (Route Withdraw) Test")
         dut_obj = rx_ports[0]['duthost']
         table_name = "AI_ACL_TABLE"
         try:
