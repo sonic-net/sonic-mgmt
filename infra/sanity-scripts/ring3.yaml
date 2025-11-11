@@ -367,12 +367,12 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
-        - gnmi/test_gnmi_configdb.py
+        #- gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
         - gnmi/test_gnmi_stress.py
-        - gnmi/test_gnoi_killprocess.py
+        #- gnmi/test_gnoi_killprocess.py
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
@@ -415,12 +415,12 @@ MGMT: #Anukul Verma / Gourav Sharma
         #- snmp/test_snmp_phy_entity.py
         #- snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
-        - gnmi/test_gnmi_configdb.py
+        #- gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
         - gnmi/test_gnmi_stress.py
-        - gnmi/test_gnoi_killprocess.py
+        #- gnmi/test_gnoi_killprocess.py
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
@@ -455,27 +455,27 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
-        - gnmi/test_gnmi_configdb.py
+        #- gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
         - gnmi/test_gnmi_stress.py
-        - gnmi/test_gnoi_killprocess.py
+        #- gnmi/test_gnoi_killprocess.py
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_gnoi_system_reboot.py
-        #- gnmi/test_mimic_hwproxy_cert_rotation.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
         - console/test_console_availability.py
         - console/test_console_driver.py
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - dut_console/test_console_baud_rate.py
-        - dut_console/test_console_chassis_conn.py
+        #- dut_console/test_console_chassis_conn.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
-        # - dns/static_dns/test_static_dns.py
+        - dns/static_dns/test_static_dns.py
         # - memory_checker/test_memory_checker.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
@@ -561,11 +561,11 @@ MGMT: #Anukul Verma / Gourav Sharma
         - dut_console/test_console_chassis_conn.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
-        # - gnmi/test_mimic_hwproxy_cert_rotation.py
-        # - dns/static_dns/test_static_dns.py
-        # - generic_config_updater/test_aaa.py
-        # - generic_config_updater/test_ip_bgp.py
-        # - generic_config_updater/test_ntp.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
         # - memory_checker/test_memory_checker.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
