@@ -169,7 +169,7 @@
 {% endif %}
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
-          <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+          <Subnets>{{ vlan_param['prefix'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['prefix'] | ansible.utils.ipaddr('prefix') }}</Subnets>
 {% if 'mac' in vlan_param %}
           <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
 {% endif %}
