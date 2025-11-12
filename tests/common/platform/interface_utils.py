@@ -7,6 +7,8 @@ This script contains re-usable functions for checking status of interfaces on SO
 import re
 import logging
 import json
+import functools
+from collections import defaultdict
 from natsort import natsorted
 from .transceiver_utils import all_transceivers_detected
 
@@ -103,9 +105,13 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
     output = dut.command("show interface description")
     intf_status = parse_intf_status(output["stdout_lines"][2:])
     if dut.is_multi_asic:
-        check_intf_presence_command = 'show interface transceiver presence -n {} {}'.format(namespace, {})
+        check_intf_presence_command = 'show interface transceiver presence -n {}'.format(namespace)
     else:
-        check_intf_presence_command = 'show interface transceiver presence {}'
+        check_intf_presence_command = 'show interface transceiver presence'
+    check_inerfaces_presence_output = dut.command(check_intf_presence_command)["stdout_lines"][2:]
+    check_inerfaces_presence_output = (
+        {ports_presence.split()[0]: ports_presence.split()[1] for ports_presence in check_inerfaces_presence_output}
+    )
     for intf in interfaces:
         expected_oper = "up" if intf in mg_ports else "down"
         expected_admin = "up" if intf in mg_ports else "down"
@@ -123,10 +129,10 @@ def check_interface_status(dut, asic_index, interfaces, xcvr_skip_list):
 
         # Cross check the interface SFP presence status
         if intf not in xcvr_skip_list[dut.hostname]:
-            check_presence_output = dut.command(check_intf_presence_command.format(intf))
-            presence_list = check_presence_output["stdout_lines"][2].split()
-            assert intf in presence_list, "Wrong interface name in the output: %s" % str(presence_list)
-            assert 'Present' in presence_list, "Status is not expected, presence status: %s" % str(presence_list)
+            assert intf in check_inerfaces_presence_output, "Wrong interface name in the output for: %s" % str(intf)
+            interface_presence = check_inerfaces_presence_output.get(intf, '')
+            assert 'Present' in interface_presence, \
+                "Status is not expected, presence status: %s" % str({intf: interface_presence})
 
     logging.info("Check interface status using the interface_facts module")
     intf_facts = dut.interface_facts(up_ports=mg_ports, namespace=namespace)["ansible_facts"]
@@ -166,6 +172,7 @@ def check_interface_information(dut, asic_index, interfaces, xcvr_skip_list):
     return True
 
 
+@functools.lru_cache(maxsize=1)
 def get_port_map(dut, asic_index=None):
     """
     @summary: Get the port mapping info from the DUT
@@ -214,14 +221,19 @@ def get_physical_port_indices(duthost, logical_intfs=None):
         # Get interfaces of this asic
         interface_list = get_port_map(duthost, asic_index)
         interfaces_per_asic = {k: v for k, v in list(interface_list.items()) if k in logical_intfs}
-        # logging.info("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
-        for intf in interfaces_per_asic:
-            if asic_index is not None:
-                cmd = 'sonic-db-cli -n asic{} CONFIG_DB HGET "PORT|{}" index'.format(asic_index, intf)
-            else:
-                cmd = 'sonic-db-cli CONFIG_DB HGET "PORT|{}" index'.format(intf)
-            index = duthost.command(cmd)["stdout"]
-            physical_port_index_dict[intf] = (int(index))
+        logging.debug("ASIC index={} interfaces = {}".format(asic_index, interfaces_per_asic))
+        asic_subcommand = f'-n asic{asic_index}' if asic_index is not None else ''
+        cmd_keys = f'sonic-db-cli {asic_subcommand} CONFIG_DB KEYS "PORT|Ethernet*"'
+        cmd_hget = f'sonic-db-cli {asic_subcommand} CONFIG_DB HGET $key index'
+        cmd = f'for key in $({cmd_keys}); do echo "$key : $({cmd_hget})" ; done'  # noqa: E702,E203
+        cmd_out = duthost.command(cmd, _uses_shell=True)["stdout_lines"]
+        cmd_out_dict = {}
+        for line in cmd_out:
+            key, index = line.split(':')
+            intf_name = key.split('|')[1].strip()
+            cmd_out_dict[intf_name] = int(index.strip())
+        for logical_intf in interfaces_per_asic:
+            physical_port_index_dict[logical_intf] = cmd_out_dict.get(logical_intf, None)
 
     return physical_port_index_dict
 
@@ -279,6 +291,28 @@ def get_fec_eligible_interfaces(duthost, supported_speeds):
         if oper == "up" and speed in supported_speeds:
             interfaces.append(intf_name)
         else:
-            logging.info(f"Skip for {intf_name}: oper_state:{oper} speed:{speed}")
+            logging.info(f"Skip for {intf_name}: oper_state: {oper} speed: {speed}")
 
     return interfaces
+
+
+def get_physical_to_logical_port_mapping(physical_port_indices):
+    """
+    @summary: Returns dictionary map of physical ports to corresponding logical port indices
+    """
+    pport_to_lport_mapping = defaultdict(list)
+    for k, v in physical_port_indices.items():
+        pport_to_lport_mapping[v].append(k)
+    logging.debug("Physical to Logical Port Mapping: {}".format(pport_to_lport_mapping))
+    return pport_to_lport_mapping
+
+
+def get_lport_to_first_subport_mapping(duthost, logical_intfs=None):
+    """
+    @summary: Returns the first subport of logical ports.
+    """
+    physical_port_indices = get_physical_port_indices(duthost, logical_intfs)
+    pport_to_lport_mapping = get_physical_to_logical_port_mapping(physical_port_indices)
+    first_subport_dict = {k: pport_to_lport_mapping[v][0] for k, v in physical_port_indices.items()}
+    logging.debug("First subports mapping: {}".format(first_subport_dict))
+    return first_subport_dict

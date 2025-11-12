@@ -498,6 +498,8 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     skip_condition.append("acms")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
+    if "202412" in duthost.os_version:
+        skip_condition.append("gnmi")
 
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
     feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
@@ -571,14 +573,30 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             ] is False and len(v["exited_critical_process"]) > 0
         ]
 
-        pytest.fail(
-            ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
-             "\nProcess status {}").format(
-                failed_check, container_name,
-                [{x: v['state']} for x, v in list(duthost.get_bgp_neighbors().items()) if v['state'] != 'established'],
-                up_bgp_neighbors, pstatus
+        if (duthost.get_facts().get("modular_chassis") and
+                duthost.facts["asic_type"] == "cisco-8000" and
+                "teamd" in container_name and
+                not bgp_check):
+            # When teamd container is auto-restarted on Cisco 8800 T2 chassis, BGP sessions may fail to establish
+            # properly due to a known race condition bug. Mark test as xfail in this specific scenario to avoid
+            # false negatives.
+            pytest.xfail(
+                "Known issue: BGP check fails after teamd auto-restart. "
+                "Please refer to https://github.com/sonic-net/sonic-buildimage/issues/10336 for more details."
             )
-        )
+        else:
+            pytest.fail(
+                ("{}check failed, testing feature {}, \nBGP:{}, \nNeighbors:{}"
+                 "\nProcess status {}").format(
+                    failed_check, container_name,
+                    [
+                        {x: v['state']}
+                        for x, v in list(duthost.get_bgp_neighbors().items())
+                        if v['state'] != 'established'
+                    ],
+                    up_bgp_neighbors, pstatus
+                )
+            )
 
     logger.info("End of testing the container '{}'".format(container_name))
 

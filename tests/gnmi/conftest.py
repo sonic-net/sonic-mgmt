@@ -1,5 +1,4 @@
 import pytest
-import shutil
 import logging
 import os
 import glob
@@ -9,37 +8,16 @@ from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config, create_ext_conf, create_ca_conf
+from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, \
+                                            create_gnmi_certs, delete_gnmi_certs, create_ext_conf
 from tests.common.helpers.ntp_helper import setup_ntp_context
 
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
-
-
-@pytest.fixture(scope="function", autouse=True)
-def skip_non_x86_platform(duthosts, rand_one_dut_hostname):
-    """
-    Skip the current test if DUT is not x86_64 platform.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    platform = duthost.facts["platform"]
-    if 'x86_64' not in platform:
-        pytest.skip("Test not supported for current platform. Skipping the test")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
-    for file in ["gnmi_cli", "gnmi_set", "gnmi_get", "gnoi_client"]:
-        duthost.shell("docker cp %s:/usr/sbin/%s /tmp" % (gnmi_container(duthost), file))
-        ret = duthost.fetch(src="/tmp/%s" % file, dest=".")
-        gnmi_bin = ret.get("dest", None)
-        shutil.copyfile(gnmi_bin, "gnmi/%s" % file)
-        localhost.shell("sudo chmod +x gnmi/%s" % file)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -61,81 +39,10 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
         yield
 
 
-def create_revoked_cert_and_crl(localhost, ptfhost):
-    # Create client key
-    local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
-    localhost.shell(local_command)
-
-    # Create client CSR
-    local_command = "openssl req \
-                        -new \
-                        -key gnmiclient.revoked.key \
-                        -subj '/CN=test.client.revoked.gnmi.sonic' \
-                        -out gnmiclient.revoked.csr"
-    localhost.shell(local_command)
-
-    # Sign client certificate
-    crl_url = "http://{}:1234/crl".format(ptfhost.mgmt_ip)
-    create_ca_conf(crl_url, "crlext.cnf")
-    local_command = "openssl x509 \
-                        -req \
-                        -in gnmiclient.revoked.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiclient.revoked.crt \
-                        -days 825 \
-                        -sha256 \
-                        -extensions req_ext -extfile crlext.cnf"
-    localhost.shell(local_command)
-
-    # create crl config file
-    local_command = "rm -f gnmi/crl/index.txt"
-    localhost.shell(local_command)
-    local_command = "touch gnmi/crl/index.txt"
-    localhost.shell(local_command)
-
-    local_command = "rm -f gnmi/crl/sonic_crl_number"
-    localhost.shell(local_command)
-    local_command = "echo 00 > gnmi/crl/sonic_crl_number"
-    localhost.shell(local_command)
-
-    # revoke cert CRL
-    local_command = "openssl ca \
-                        -revoke gnmiclient.revoked.crt \
-                        -keyfile gnmiCA.key \
-                        -cert gnmiCA.pem \
-                        -config gnmi/crl/crl.cnf"
-
-    localhost.shell(local_command)
-
-    # re-create CRL
-    local_command = "openssl ca \
-                        -gencrl \
-                        -keyfile gnmiCA.key \
-                        -cert gnmiCA.pem \
-                        -out sonic.crl.pem \
-                        -config gnmi/crl/crl.cnf"
-
-    localhost.shell(local_command)
-
-    # copy to PTF for test
-    ptfhost.copy(src='gnmiclient.revoked.crt', dest='/root/')
-    ptfhost.copy(src='gnmiclient.revoked.key', dest='/root/')
-    ptfhost.copy(src='sonic.crl.pem', dest='/root/')
-    ptfhost.copy(src='gnmi/crl/crl_server.py', dest='/root/')
-
-    local_command = "rm \
-                        crlext.cnf \
-                        gnmi/crl/index.* \
-                        gnmi/crl/sonic_crl_number.*"
-    localhost.shell(local_command)
-
-
 @pytest.fixture(scope="module", autouse=True)
 def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
     '''
-    Create GNMI client certificates
+    Setup GNMI server with client certificates
     '''
     duthost = duthosts[rand_one_dut_hostname]
 
@@ -144,99 +51,20 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
 
-    # Create Root key
-    local_command = "openssl genrsa -out gnmiCA.key 2048"
-    localhost.shell(local_command)
-
-    # Create Root cert
-    local_command = "openssl req \
-                        -x509 \
-                        -new \
-                        -nodes \
-                        -key gnmiCA.key \
-                        -sha256 \
-                        -days 1825 \
-                        -subj '/CN=test.gnmi.sonic' \
-                        -out gnmiCA.pem"
-    localhost.shell(local_command)
-
-    # Create server key
-    local_command = "openssl genrsa -out gnmiserver.key 2048"
-    localhost.shell(local_command)
-
-    # Create server CSR
-    local_command = "openssl req \
-                        -new \
-                        -key gnmiserver.key \
-                        -subj '/CN=test.server.gnmi.sonic' \
-                        -out gnmiserver.csr"
-    localhost.shell(local_command)
-
-    # Sign server certificate
-    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
-    local_command = "openssl x509 \
-                        -req \
-                        -in gnmiserver.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiserver.crt \
-                        -days 825 \
-                        -sha256 \
-                        -extensions req_ext -extfile extfile.cnf"
-    localhost.shell(local_command)
-
-    # Create client key
-    local_command = "openssl genrsa -out gnmiclient.key 2048"
-    localhost.shell(local_command)
-
-    # Create client CSR
-    local_command = "openssl req \
-                        -new \
-                        -key gnmiclient.key \
-                        -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr"
-    localhost.shell(local_command)
-
-    # Sign client certificate
-    local_command = "openssl x509 \
-                        -req \
-                        -in gnmiclient.csr \
-                        -CA gnmiCA.pem \
-                        -CAkey gnmiCA.key \
-                        -CAcreateserial \
-                        -out gnmiclient.crt \
-                        -days 825 \
-                        -sha256"
-    localhost.shell(local_command)
-
-    create_revoked_cert_and_crl(localhost, ptfhost)
-
-    # Copy CA certificate, server certificate and client certificate over to the DUT
-    duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiserver.crt', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiserver.key', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiclient.crt', dest='/etc/sonic/telemetry/')
-    duthost.copy(src='gnmiclient.key', dest='/etc/sonic/telemetry/')
-    # Copy CA certificate and client certificate over to the PTF
-    ptfhost.copy(src='gnmiCA.pem', dest='/root/')
-    ptfhost.copy(src='gnmiclient.crt', dest='/root/')
-    ptfhost.copy(src='gnmiclient.key', dest='/root/')
+    create_gnmi_certs(duthost, localhost, ptfhost)
 
     create_checkpoint(duthost, SETUP_ENV_CP)
     apply_cert_config(duthost)
 
     yield
-    # Delete all created certs
-    local_command = "rm \
-                        extfile.cnf \
-                        gnmiCA.* \
-                        gnmiserver.* \
-                        gnmiclient.*"
-    localhost.shell(local_command)
+
+    delete_gnmi_certs(localhost)
 
     # Rollback configuration
     rollback(duthost, SETUP_ENV_CP)
+    # Save the configuration
+    cmd = "config save -y"
+    duthost.shell(cmd, module_ignore_errors=True)
     recover_cert_config(duthost)
 
 
@@ -319,7 +147,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
                         -sha256"
     localhost.shell(local_command)
 
-    create_revoked_cert_and_crl(localhost, ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
 
     # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
@@ -395,7 +223,10 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
+    if ":" in duthost.mgmt_ip and not duthost.mgmt_ip.startswith('['):
+        ip = f"[{duthost.mgmt_ip}]"
+    else:
+        ip = duthost.mgmt_ip
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
     target = f"{ip}:{port}"

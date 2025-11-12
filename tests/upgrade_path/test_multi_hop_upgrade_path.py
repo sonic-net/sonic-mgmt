@@ -1,18 +1,18 @@
 import pytest
 import logging
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
-from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa: F401
+from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.warmboot_sad_cases import SAD_CASE_LIST, get_sad_case_list
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import check_neighbors, \
-    multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore           # noqa F401
+    multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore           # noqa: F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
-    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, restore_image                    # noqa F401
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
+    check_services, install_sonic, multi_hop_warm_upgrade_test_helper, restore_image                    # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa: F401
 from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa: F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -34,13 +34,14 @@ def pytest_generate_tests(metafunc):
                 logging.warning("Unknown SAD case ({}) - skipping it.".format(input_case))
                 continue
             input_sad_list.append(input_case)
-
+        if "multi_sad" in input_sad_list and "sad_bgp" in input_sad_list and "sad_lag" in input_sad_list:
+            input_sad_list.remove("multi_sad")
         metafunc.parametrize("sad_case_type", input_sad_list, scope="module")
 
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
-                                get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa F811
-                                verify_dut_health, consistency_checker_provider, restore_image):               # noqa F811
+                                get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa: F811
+                                verify_dut_health, consistency_checker_provider, restore_image):        # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')
     upgrade_type = request.config.getoption('upgrade_type')
@@ -93,10 +94,10 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
 
 
 def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
-                                         get_advanced_reboot, multihop_advanceboot_loganalyzer_factory, # noqa F811
-                                         verify_dut_health, nbrhosts, fanouthosts, vmhost,              # noqa F811
-                                         backup_and_restore_config_db, advanceboot_neighbor_restore,    # noqa F811
-                                         sad_case_type, restore_image):                                 # noqa F811
+                                         get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa: F811
+                                         verify_dut_health, nbrhosts, fanouthosts, vmhost,              # noqa: F811
+                                         backup_and_restore_config_db, advanceboot_neighbor_restore,    # noqa: F811
+                                         sad_case_type, restore_image):                                 # noqa: F811
 
     duthost = duthosts[rand_one_dut_hostname]
     multi_hop_upgrade_path = request.config.getoption('multi_hop_upgrade_path')

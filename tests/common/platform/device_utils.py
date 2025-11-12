@@ -18,6 +18,8 @@ from tests.common.broadcom_data import is_broadcom_device
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
+from tests.common.devices.duthosts import DutHosts
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
 
 """
 Helper script for fanout switch operations
@@ -82,20 +84,23 @@ def get_dut_psu_line_pattern(dut):
         psu_line_pattern = re.compile(r"PSU\s+(\d)+\s+(OK|NOT OK|NOT PRESENT)")
     elif dut.facts['platform'] == "x86_64-dellemc_z9332f_d1508-r0":
         psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(N/A)")
+    elif dut.facts["asic_type"] in ["mellanox"]:
+        psu_line_pattern = re.compile(r"PSU\s+(\d+).*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     else:
-        """
-        Changed the pattern to match space (s+) and non-space (S+) only.
-        w+ cannot match following examples properly:
-
-        example 1:
-            psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
-            psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
-        example 2:
-            psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
-            psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
-
-        """
-        psu_line_pattern = re.compile(r"^(\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
+        # Changed the pattern to match different PSU name formats and status patterns.
+        # Supports various PSU naming conventions:
+        #
+        # example 1:
+        #     psu1   PWR-500AC-R  L8180S01HTAVP  N/A            N/A            N/A          OK        green
+        #     psu2   PWR-500AC-R  L8180S01HFAVP  N/A            N/A            N/A          OK        green
+        # example 2:
+        #     psutray0.psu0  N/A      N/A               12.05           3.38        40.62  OK        green
+        #     psutray0.psu1  N/A      N/A               12.01           4.12        49.50  OK        green
+        # example 3:
+        #     PSU 9  PSU6.3KW-20A-HV  DTM273501QU      1.00  55.052         11.359         626.386      OK        green
+        #
+        psu_line_pattern = re.compile(
+            r"^(PSU\s+\d+|\S+)\s+.*?(OK|NOT OK|NOT PRESENT|WARNING)\s+(green|amber|red|off|N/A)")
     return psu_line_pattern
 
 
@@ -1131,3 +1136,160 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
         yield conn
     finally:
         conn.close()
+
+
+@pytest.fixture(scope='module')
+def add_platform_api_server_port_nat_for_dpu(
+        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
+    '''
+    This fixture is used to add a NAT rule to the DPU's eth0-midplane interface
+    to forward traffic from NPU to the platform API server on DPU.
+    It is used to test the platform API test on DPU of the Smartswitch.
+    The NAT rule is added before the test and removed after the test.
+    '''
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+        ip_interface_status = duthost.show_and_parse('show ip interface')
+        for item in ip_interface_status:
+            if item['interface'] == "eth0-midplane":
+                dpu_ip = item['ipv4 address/mask'].split('/')[0]
+                logger.info(f'Found DPU IP {dpu_ip} for {duthost.hostname}')
+                break
+        npu_host = create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost)
+        npu_host.command(
+            f'sudo iptables -t nat -A PREROUTING -i eth0 -p tcp --dport \
+            {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
+
+    yield
+
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
+        npu_host.command(
+            f'sudo iptables -t nat -D PREROUTING -i eth0 -p tcp --dport \
+                {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
+
+
+def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
+    host = ansible_adhoc(become=True, args=[], kwargs={})[duthost.hostname]
+    vm = host.options["inventory_manager"].get_host(duthost.hostname).vars
+    ansible_ssh_port = vm.get("ansible_ssh_port", None)
+    logger.info(f'ansible_ssh_port for {duthost.hostname} is {ansible_ssh_port}')
+    return ansible_ssh_port
+
+
+def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): # noqa F811
+    '''
+    Create a NPU host object based on DPU info
+    E.g
+    when one smartswitch setup has following devices:
+    smartswitch-01
+    smartswitch-01-dpu-0
+    smartswitch-01-dpu-1
+    smartswitch-01-dpu-2
+    smartswitch-01-dpu-3
+    when we want run the platform api test on dpu, we pass smartswitch-01-dpu-0 to host-pattern,
+    then we can find the NPU host smartswitch-01 from the setup info,
+    and then create a NPU host object based on the info
+    '''
+    for dut in tbinfo['duts']:
+        npu_host_name = None
+        if 'dpu' not in dut and dut in duthost.hostname:
+            npu_host_name = dut
+            logger.info(f'Found NPU hostname {npu_host_name} for {duthost.hostname}')
+            break
+    if npu_host_name is None:
+        pytest.fail('No NPU host found in testbed')
+    npu_host = DutHosts(ansible_adhoc, tbinfo, request, npu_host_name)[0]
+    return npu_host
+
+
+def get_dpu_ip(duthost, dpu_index):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logging.error("Failed to retrieve config_facts from DUT")
+        return None
+
+    dhcp_server_ipv4_port = config_facts.get('DHCP_SERVER_IPV4_PORT', {})
+    if not dhcp_server_ipv4_port:
+        logging.error("DHCP_SERVER_IPV4_PORT not found in config_facts")
+        return None
+
+    # Navigate through the nested structure: bridge-midplane -> dpu{index} -> ips
+    bridge_midplane = dhcp_server_ipv4_port.get('bridge-midplane', {})
+    if not bridge_midplane:
+        logging.error("bridge-midplane not found in DHCP_SERVER_IPV4_PORT")
+        return None
+
+    dpu_config = bridge_midplane.get('dpu{}'.format(dpu_index), {})
+    if not dpu_config:
+        logging.error("dpu{} not found in bridge-midplane".format(dpu_index))
+        return None
+
+    ips = dpu_config.get('ips', [])
+    if not ips:
+        logging.error("IP address not found in config_facts for dpu_index {}".format(dpu_index))
+        return None
+
+    # Take the first IP and remove any CIDR notation
+    ip = ips[0]
+    return ip.split('/')[0]
+
+
+def get_dpu_port(duthost, dpu_index):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logger.error("Failed to retrieve config_facts from DUT")
+        return None
+
+    dpu_section = config_facts.get('DPU', {})
+    if not dpu_section:
+        logger.error("DPU section not found in config_facts")
+        return None
+
+    dpu_key = 'dpu{}'.format(dpu_index)
+    # Check if the DPU exists in the configuration
+    if dpu_key not in dpu_section:
+        logger.error("DPU '{}' not found in config_facts. Available DPUs: {}".format(
+            dpu_key, list(dpu_section.keys())))
+        return None
+
+    dpu_config = dpu_section[dpu_key]
+    port = dpu_config.get('gnmi_port', None)
+    if port is None:
+        logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
+        return None
+    return port
+
+
+def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
+    # Check DPU ping status
+    logging.info("Checking DPU ping status")
+    dpu_ip = get_dpu_ip(duthost, dpu_index)
+    if not dpu_ip:
+        logging.error(f"Failed to retrieve IP address for DPU {dpuhost_name}")
+        return False
+
+    ping_status = duthost.command(f"ping -c 3 {dpu_ip}", module_ignore_errors=True)
+    if ping_status['rc'] != 0:
+        logging.error(f"Failed to ping DPU {dpuhost_name} at IP {dpu_ip}")
+        return False
+    return True
+
+
+def reboot_dpu_and_wait_for_start_up(duthost, dpuhost_name, dpu_index):
+    logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
+    reboot_status = duthost.command(f"sudo reboot -d dpu{dpu_index}")
+    if reboot_status['rc'] != 0:
+        logging.error(f"Failed to initiate reboot for DPU {dpuhost_name} (DPU index: {dpu_index}). "
+                      f"Command output: {reboot_status}")
+        return False
+
+    logging.info(f"DPU {dpuhost_name} (DPU index: {dpu_index}) reboot initiated successfully")
+
+    # Wait until the system is back up
+    wait_until(180, 15, 0, check_dpu_reachable_from_npu, duthost, dpuhost_name, dpu_index)
+    is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
+    if not is_dpu_reachable:
+        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")
+        return False
+
+    return True

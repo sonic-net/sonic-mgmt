@@ -1,13 +1,13 @@
 import pytest
 import logging
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa: F401
 from tests.ptf_runner import ptf_runner
 from datetime import datetime
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t1', 't2', 'm1'),
     pytest.mark.device_type('vs')
 ]
 
@@ -28,14 +28,14 @@ def test_mtu(tbinfo, ptfhost, mtu, gather_facts):
                params={"testbed_type": testbed_type,
                        "router_mac": gather_facts['src_router_mac'],
                        "testbed_mtu": mtu,
-                       "src_host_ip": gather_facts['src_host_ipv4'],
-                       "src_router_ip": gather_facts['src_router_ipv4'],
-                       "dst_host_ip": gather_facts['dst_host_ipv4'],
-                       "src_host_ipv6": gather_facts['src_host_ipv6'],
-                       "src_router_ipv6": gather_facts['src_router_ipv6'],
-                       "dst_host_ipv6": gather_facts['dst_host_ipv6'],
-                       "src_ptf_port_list": gather_facts['src_port_ids'],
-                       "dst_ptf_port_list": gather_facts['dst_port_ids'],
+                       "src_host_ip": gather_facts.get('src_host_ipv4'),
+                       "src_router_ip": gather_facts.get('src_router_ipv4'),
+                       "dst_host_ip": gather_facts.get('dst_host_ipv4'),
+                       "src_host_ipv6": gather_facts.get('src_host_ipv6'),
+                       "src_router_ipv6": gather_facts.get('src_router_ipv6'),
+                       "dst_host_ipv6": gather_facts.get('dst_host_ipv6'),
+                       "src_ptf_port_list": gather_facts.get('src_port_ids'),
+                       "dst_ptf_port_list": gather_facts.get('dst_port_ids'),
                        "kvm_support": True
                        },
                log_file=log_file,

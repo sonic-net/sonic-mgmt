@@ -390,6 +390,37 @@ def verify_bfd_queue_counters(duthost, dut_intf):
         pytest.fail('Queue 7 packet count is zero, no BFD traffic')
 
 
+@pytest.fixture(autouse=True)
+def ignore_syslog_errors(rand_selected_dut, loganalyzer):
+    """Ignore expected error logs during test execution."""
+    if loganalyzer:
+        loganalyzer[rand_selected_dut.hostname].ignore_regex.extend(
+            [
+                '.*ERR kernel:.*Failed to bind BFD socket to local_addr.*',
+                '.*ERR kernel:.*Failed to create TX socket for session.*',
+                '.*ERR kernel:.*Parsing BFD command.*failed.*',
+                '.*ERR syncd#SDK:.*BFD.ERR.*ioctl failed, error description: Input.output error',
+                '.*ERR syncd#SDK:.*CORE_API.ERR.*Failed in bfd_offload_set().* error:.*',
+                '.*ERR syncd#SDK:.*SAI_BFD.ERR.*.*mlnx_sai_bfd.c.*mlnx_set_offload_bfd_tx_session.*: Error create TX BFD session.*',  # noqa: E501
+                '.*ERR syncd#SDK: :- sendApiResponse: api SAI_COMMON_API_CREATE failed in syncd mode: SAI_STATUS_FAILURE',  # noqa: E501
+                '.*ERR syncd#SDK: :- processQuadEvent: attr: SAI_BFD_SESSION_ATTR_.*',
+                '.*ERR swss#orchagent: :- create: create status: SAI_STATUS_FAILURE.*'
+            ]
+        )
+
+
+def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
+    for addr in neighbor_addrs:
+        logger.info(f"Warming up IPv6 neighbor {addr}")
+        duthost.shell(f"ping -6 -c 1 -W 1 {addr}", module_ignore_errors=True)
+
+    time.sleep(5)  # Wait for NDP entries to be populated
+    ndp_output = duthost.shell("ip -6 neigh show", module_ignore_errors=False)['stdout']
+    logger.info(f"NDP entries:\n{ndp_output}")
+    for addr in neighbor_addrs:
+        assert any(addr in line and "REACHABLE" in line for line in ndp_output.splitlines())
+
+
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
 def test_bfd_basic(request, gnmi_connection,
@@ -413,6 +444,10 @@ def test_bfd_basic(request, gnmi_connection,
         # neighborship can be resolved on PTF side.
         time.sleep(5)
         create_bfd_sessions(ptfhost, duthost, local_addrs, neighbor_addrs, dut_init_first)
+
+        if ipv6:
+            warm_up_ipv6_neighbors(duthost, neighbor_addrs)
+
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up
         # path = STATE_DB/localhost/BFD_SESSION_TABLE/'
         prefix = 'default|default|'

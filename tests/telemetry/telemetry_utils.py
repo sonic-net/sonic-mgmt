@@ -53,9 +53,10 @@ def skip_201911_and_older(duthost):
         pytest.skip("Test not supported for 201911 images. Skipping the test")
 
 
-def check_gnmi_cli_running(ptfhost):
-    program_list = ptfhost.shell("pgrep -f 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py'")["stdout"]
-    return len(program_list) > 0
+def check_gnmi_cli_running(duthost, ptfhost):
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    res = ptfhost.shell(f"netstat -tn | grep \":{env.gnmi_port} .*ESTABLISHED\"")
+    return res and res["rc"] == 0
 
 
 def parse_gnmi_output(gnmi_output, match_no, find_data):
@@ -110,29 +111,23 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
                         intervalms=0, update_count=3, create_connections=1, filter_event_regex="", namespace=None,
                         timeout=-1, polling_interval=10, max_sync_count=-1):
     """ Generate the py_gnmicli command line based on the given params.
-    t                      --target: gNMI target; required
-    p                      --port: port of target; required
-    m                      --mode: get/susbcribe; default get
-    x                      --xpath: gnmi path, table name; required
-    xt                     --xpath_target: gnmi path prefix, db name
-    o                      --host_override, targets hostname for certificate CN
-    subscribe_mode:        0=STREAM, 1=ONCE, 2=POLL; default 0
-    submode:               0=TARGET_DEFINED, 1=ON_CHANGE, 2=SAMPLE; default 2
-    interval:              sample interval in milliseconds, default 10000ms
-    polling_interval:      polling interval in seconds, default 10s
-    max_sync_count:        Max number of sync responses to receive, -1 means no limit. default -1
-    update_count:          Max number of streaming updates to receive. 0 means no limit. default 0
-    create_connections:    Creates TCP connections with gNMI server; default 1; -1 for infinite connections
-    filter_event_regex:    Regex to filter event when querying events path
-    namespace:             namespace for multi-asic
-    timeout:               Subscription duration in seconds; After X seconds, request terminates; default none
+    This version ensures the command runs from the correct directory and within the
+    activated virtual environment to resolve dependency issues.
     """
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     ns = ""
     if namespace is not None:
         ns = "/{}".format(namespace)
-    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
-    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
+
+    # This command structure is critical. It does three things:
+    # 1. Activates the virtual environment using the POSIX-compliant '.' command.
+    # 2. Changes to the gnmi_cli_py directory, which is required for the protobuf imports to work.
+    # 3. Executes the py_gnmicli.py script.
+    cmdFormat = '. /root/env-python3/bin/activate && cd {7}gnmi_cli_py' \
+                ' && python py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
+    cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port,
+                           method, xpath, target, ns,
+                           "ndastreamingservertest", gnxi_path)
 
     if subscribe_mode == SUBSCRIBE_MODE_POLL:
         poll_cmd = " --subscribe_mode {0} --polling_interval {1} --update_count {2} --max_sync_count {3} --timeout {4}"
