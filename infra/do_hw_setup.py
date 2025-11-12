@@ -500,7 +500,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
         '202405c': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202405-27Jun2025-mix.gz',
         '202411': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
         '202501': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202411-27Jun2025-mix.gz',
-        '202505': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-202505-27Jun2025-mix.gz',
+        '202505': 'http://172.26.235.76/IMAGES/anukverm/docker_ptf_202505_8Oct_azure_tagged_latest.tar',
         '202511': '',
         'master': 'http://172.26.235.76/IMAGES/anukverm/docker-ptf_anukverm-master-27Jun2025-mix.gz'
     }
@@ -525,7 +525,7 @@ def load_docker_ptf_image(stream, docker_ptf_url=None):
     #  remove later when proxies are standardized on all testbeds, this works for now
     image_filename = ptf_docker_image_link.split('/')[-1]
     _, _, _ = _run_cmd_in_ssh(client, f"rm {image_filename}")
-    stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {ptf_docker_image_link}', timeout=60 * 10)
+    stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -ncv {ptf_docker_image_link}', timeout=60 * 30)
     log.debug(f"download docker ptf output:\n{stdout}")
     if status_code:
         raise Exception(f"download docker ptf failed: \n{stderr}")
