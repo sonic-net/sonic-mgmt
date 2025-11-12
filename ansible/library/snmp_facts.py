@@ -25,7 +25,6 @@ from ansible.module_utils.debug_utils import config_module_logging
 
 import asyncio
 import pysnmp
-import ipaddress
 
 from pyasn1.type import univ
 from pysnmp.proto import rfc1902
