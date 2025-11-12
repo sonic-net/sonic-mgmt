@@ -257,7 +257,6 @@ class SflowTest(BaseTest):
     def sendTraffic(self):
         src_ip_addr_templ = '192.168.{}.1'
         ip_dst_addr = '192.168.0.4'
-        src_mac = self.dataplane.get_mac(0, 0)
         pktlen = 100
         # send 100 * sampling_rate packets in each interface for better analysis
         for _ in range(0, 100, 1):
@@ -265,6 +264,7 @@ class SflowTest(BaseTest):
             for intf in self.interfaces:
                 ip_src_addr = src_ip_addr_templ.format(str(8 * index))
                 src_port = self.interfaces[intf]['ptf_indices']
+                src_mac = self.dataplane.get_mac(0, src_port)
                 tcp_pkt = testutils.simple_tcp_packet(pktlen=pktlen,
                                                       eth_dst=self.router_mac,
                                                       eth_src=src_mac,
