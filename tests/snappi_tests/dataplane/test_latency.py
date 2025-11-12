@@ -14,7 +14,7 @@ from itertools import product
 
 
 logger = logging.getLogger(__name__)
-pytestmark = [pytest.mark.topology("tgen")]
+pytestmark = [pytest.mark.topology("nut")]
 
 # Test Parameters
 ROUTE_RANGES = {"IPv6": [[["777:777:777::1", 64, 16]]], "IPv4": [[["100.1.1.1", 24, 16]]]}
@@ -362,7 +362,6 @@ def setup_snappi_test(
     base_ip = int(ipadd(base_ip))
     increment = rcount if ip_version == "IPv4" else 1 << 96
     ranges = [[[str(ipadd(base_ip + count * increment)), prefix, rcount]] for count in range(len(snappi_ports))]
-    
 
     snappi_extra_params.protocol_config = {
         "Tx": {
