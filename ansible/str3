@@ -2106,18 +2106,18 @@ sonic_mlnx_4700:
       ansible_hostv6: 2a01:111:e210:3000::a03:92cf
       mgmt_subnet_mask_length: 24
       hwsku: Mellanox-SN4700-O8V48
-      model: MSN4700-WS2FO
-      serial: MT2102X08020
-      base_mac: 1C:34:DA:2D:E8:00
+      model: MSN4700-WS2ROS
+      serial: MT2310XZ0092
+      base_mac: 9C:05:91:3C:CB:00
       syseeprom_info:
         "0x21": "MSN4700"
-        "0x22": "MSN4700-WS2FO"
-        "0x23": "MT2102X08020"
-        "0x24": "1C:34:DA:2D:E8:00"
-        "0x25": "01/11/2021 21:49:02"
-        "0x26": "0"
+        "0x22": "MSN4700-WS2ROS"
+        "0x23": "MT2310XZ0092"
+        "0x24": "9C:05:91:3C:CB:00"
+        "0x25": "11/12/2023 23:01:25"
+        "0x26": "18"
         "0x28": "x86_64-mlnx_msn4700-r0"
-        "0x29": "2019.11-5.2.0020-115200"
+        "0x29": "2022.08-5.3.0010-9600"
         "0x2B": "Mellanox"
     str3-msn4700-02:
       ansible_host: 10.3.146.149
