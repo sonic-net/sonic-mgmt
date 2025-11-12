@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 pytestmark = [pytest.mark.topology("tgen")]
 
 # Test Parameters
-ROUTE_RANGES = {"IPv6": [["777:777:777::1", 64, 5000]], "IPv4": [["100.1.1.1", 24, 5000]]}
+ROUTE_RANGES = {"IPv6": [[["777:777:777::1", 64, 16]]], "IPv4": [[["100.1.1.1", 24, 16]]]}
 
 latency_param_values = {
     "ip_version": ["IPv6"],
@@ -348,7 +348,7 @@ def setup_snappi_test(
     """
 
     snappi_extra_params = SnappiTestParams()
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, ip_version)
+    snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports, ip_version, protocol_type="bgp")
     if port_selector == "half_split":
         port_distrbution = (slice(0, len(snappi_ports) // 2), slice(len(snappi_ports) // 2, None))
         tx_ports, rx_ports = snappi_ports[port_distrbution[0]], snappi_ports[port_distrbution[1]]
@@ -357,17 +357,23 @@ def setup_snappi_test(
         tx_ports, rx_ports = get_ports(snappi_ports, tx_port_count, rx_port_index)
     else:
         raise ValueError(f"Unknown port_selector: {port_selector}")
+    base_ip, prefix, rcount = route_ranges[ip_version][0][0]
+    ipadd = ipaddress.IPv4Address if ip_version == "IPv4" else ipaddress.IPv6Address
+    base_ip = int(ipadd(base_ip))
+    increment = rcount if ip_version == "IPv4" else 1 << 96
+    ranges = [[[str(ipadd(base_ip + count * increment)), prefix, rcount]] for count in range(len(snappi_ports))]
+    
 
     snappi_extra_params.protocol_config = {
         "Tx": {
-            "route_ranges": route_ranges[ip_version],
+            "route_ranges": ranges,
             "protocol_type": protocol_type,
             "ports": tx_ports,
             "subnet_type": ip_version,
             "is_rdma": is_rdma,
         },
         "Rx": {
-            "route_ranges": route_ranges[ip_version],
+            "route_ranges": ranges,
             "protocol_type": protocol_type,
             "ports": rx_ports,
             "subnet_type": ip_version,
@@ -395,8 +401,8 @@ def poll_latency_metrics(
         METRIC_LABEL_TG_FRAME_BYTES: frame_size,
         METRIC_LABEL_TG_RFC2889_ENABLED: rfc2889_enabled,
         "test.params.duration.sec": duration_sec,
-        "test.params.route_count": ROUTE_RANGES[ip_version][0][2],
-        "test.params.route_prefix_length": ROUTE_RANGES[ip_version][0][1],
+        "test.params.route_count": ROUTE_RANGES[ip_version][0][0][2],
+        "test.params.route_prefix_length": ROUTE_RANGES[ip_version][0][0][1],
         **({"test.params.oversubscription_ratio": tx_port_count} if tx_port_count is not None else {}),
     }
 
