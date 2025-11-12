@@ -1,0 +1,109 @@
+.set-or-append SonicTorRebootData <|
+let start_time = datetime('{{ start_time }}') + 1s;
+let end_time = datetime('{{ start_time }}') + 1d;
+let sonic_tor = cluster("azphynet").database("azdhmds").DeviceStatic
+| where Regions != 'test' and OSVersion contains "sonic" and NgsDeviceType == "ToRRouter"
+| project DeviceName = toupper(DeviceName), HardwareSku, OSVersion, Cluster, Regions, CloudType, DeploymentType;
+let reload_cause = cluster("azphynet").database("azphynetmds").ReloadCause
+| where Timestamp >= start_time and Timestamp < end_time and VersionInfo contains "sonic"
+| project DeviceName = toupper(Device),
+          Timestamp,
+          ReloadType = case(ReloadCause contains "warm-reboot", "warm-reboot",
+                             ReloadCause contains "fast-reboot", "fast-reboot",
+                             ReloadCause contains "reboot", "cold-reboot",
+                             ReloadCause contains "First boot", "conversion/buildout",
+                             ReloadCause contains "Hardware", "hardware",
+                             ReloadCause contains "Unable to determine", "unknown",
+                             ReloadCause),
+         ReloadCause = replace_string(ReloadCause, "  ", " ")
+| extend ReloadTimeSplit = split(extract("User issued '(.*)' command \\[User: (.*) Time: (.*)\\]", 3, ReloadCause), ' '),
+         ReloadUser = extract("User issued '(.*)' command \\[User: (.*) Time: (.*)\\]", 2, ReloadCause),
+         ReloadCause = extract("User issued '(.*)' command \\[User: (.*) Time: (.*)\\]", 1, ReloadCause)
+| extend Month = ReloadTimeSplit[1],
+         Day = toint(ReloadTimeSplit[2]),
+         Hour = toint(split(ReloadTimeSplit[3], ':')[0]),
+         Min = toint(split(ReloadTimeSplit[3], ':')[1]),
+         Sec = toreal(split(ReloadTimeSplit[3], ':')[2]),
+         Year = toint(ReloadTimeSplit[5])
+| extend ReloadTime = make_datetime(Year,
+                                    case(Month == 'Jan', 1,
+                                         Month == 'Feb', 2,
+                                         Month == 'Mar', 3,
+                                         Month == 'Apr', 4,
+                                         Month == 'May', 5,
+                                         Month == 'Jun', 6,
+                                         Month == 'Jul', 7,
+                                         Month == 'Aug', 8,
+                                         Month == 'Sep', 9,
+                                         Month == 'Oct', 10,
+                                         Month == 'Nov', 11,
+                                         12), Day, Hour, Min, Sec)
+| project ReloadCause_Time = Timestamp, DeviceName, ReloadType, ReloadTime, ReloadUser;
+let reload_impact = reload_cause
+| join kind=inner sonic_tor on DeviceName
+| where DeviceName == DeviceName1
+| where isnotempty(ReloadTime)
+| join kind=inner (cluster('aznwsdn').database('aznwmds').TorPingSendAggreEvent
+                   | where TIMESTAMP >= start_time and TIMESTAMP <= end_time
+                   | project TIMESTAMP, DeviceName = toupper(TorName), SendCount, NodeId
+                   | summarize SendCount = max(SendCount) by DeviceName, TIMESTAMP, NodeId) on DeviceName
+| where TIMESTAMP >= bin(ReloadTime - 5m, 5m) and TIMESTAMP <= bin(ReloadTime + 10m, 5m)
+| join kind=leftouter (cluster('aznwsdn').database('aznwmds').TorPingRecvAggreEvent
+                       | where TIMESTAMP >= start_time and TIMESTAMP <= end_time
+                       | project TIMESTAMP, DeviceName = toupper(TorName), RecvCount, NodeId
+                       | summarize RecvCount = max(RecvCount) by DeviceName, TIMESTAMP, NodeId) on DeviceName, NodeId, TIMESTAMP
+| distinct *
+| summarize SendCount = sum(SendCount), RecvCount = sum(RecvCount), arg_max(TIMESTAMP, *), Rate = max(RecvCount * 1.0 / SendCount) by DeviceName, ReloadTime, TIMESTAMP
+| order by DeviceName, TIMESTAMP
+| extend NextTimestamp = next(TIMESTAMP), NextDeviceName = next(DeviceName), NextReloadTime = next(ReloadTime)
+| where isnotempty(NextTimestamp) and DeviceName == NextDeviceName and ReloadTime == NextReloadTime
+| extend DownTime = (TIMESTAMP - NextTimestamp) * case(SendCount == 0 or RecvCount == 0, 1.0, SendCount <= RecvCount, 0.0, 1.0 - Rate < 0, 0.0, 1.0 - Rate)
+| summarize Ping_StartTime = min(TIMESTAMP), Ping_EndTime = max(TIMESTAMP), SendCount = sum(SendCount), RecvCount = sum(RecvCount), Availability = min(Rate), arg_max(TIMESTAMP, *), DowntimeEsti = sum(DownTime) by DeviceName, ReloadTime
+| project Ping_StartTime, Ping_EndTime,
+          ReloadTime,
+          DeviceName,
+          OSVersion,
+          HardwareSku,
+          Cluster, Regions, CloudType, DeploymentType,
+          ReloadType,
+          ReloadUser,
+          SendCount,
+          RecvCount,
+          Availability_5m = round(Availability, 4),
+          DowntimeEsti;
+reload_cause
+| join kind=inner sonic_tor on DeviceName
+| join kind=leftouter reload_impact on DeviceName, ReloadTime
+| summarize arg_min(ReloadCause_Time, *) by DeviceName, ReloadTime
+| join kind=leftouter (cluster('azwan.kusto.windows.net').database('FUSE').FuseOsVersionSnapshots
+                       | where Timestamp >= start_time - 7d and Timestamp <= end_time
+                       | project Snapshot_Timestamp = Timestamp, DeviceName = toupper(DeviceName), NSS_Snapshot = Status, OSVersion_Snapshot = OSVersion) on DeviceName
+// We want to choose the snapshot that closest to the reboot event or reload cause record time.
+| extend Status_Timestamp_Diff = iff(isnotempty(ReloadTime), ReloadTime - iff(ReloadTime >= Snapshot_Timestamp, Snapshot_Timestamp, ReloadTime - 30d), ReloadCause_Time - iff(ReloadCause_Time >= Snapshot_Timestamp, Snapshot_Timestamp, ReloadCause_Time - 30d)),
+         Snapshot_Available = iff(isnotempty(ReloadTime), iff(ReloadTime >= Snapshot_Timestamp, 1, 0), iff(ReloadCause_Time >= Snapshot_Timestamp, 1, 0))
+| summarize Snapshot_Available = max(Snapshot_Available), arg_min(Status_Timestamp_Diff, *) by DeviceName, ReloadTime
+| project Ping_StartTime, Ping_EndTime,
+          ReloadCause_Time,
+          ReloadTime,
+          DeviceName,
+          OSVersion,
+          HardwareSku,
+          Snapshot_Timestamp = iff(Snapshot_Available == 1, Snapshot_Timestamp, dynamic(null)),
+          NSS_Snapshot = iff(Snapshot_Available == 1, NSS_Snapshot, dynamic(null)),
+          OSVersion_Snapshot = iff(Snapshot_Available == 1, OSVersion_Snapshot, dynamic(null)),
+          Cluster, Regions, CloudType, DeploymentType,
+          ReloadType,
+          ReloadUser,
+          SendCount,
+          RecvCount,
+          Availability_5m,
+          DowntimeEsti
+| join kind=leftouter (
+cluster("azphynet").database("azphynetmds").ReloadCause
+| where VersionInfo has "SONiC"
+| project Timestamp, Uptime, Device, ReloadCause
+| extend UpTimeHours = extract("(\\d*) hours?", 1, Uptime),
+         UpTimeMins = extract("(\\d*) minutes?", 1, Uptime)
+| extend UptimeNew = iff(isnotempty(UpTimeHours), toint(UpTimeHours) * 1h, 0h) + iff(isnotempty(UpTimeMins), toint(UpTimeMins) * 1m, 0m)
+| project Uptime = UptimeNew, DeviceName = toupper(Device), ReloadCause_Time = Timestamp) on ReloadCause_Time, DeviceName
+| project-away DeviceName1, ReloadCause_Time1;

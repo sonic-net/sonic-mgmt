@@ -1,0 +1,13 @@
+.set-or-append SonicTorRebootDataCisExtension <|
+let start_time = datetime('{{ start_time }}') + 1s;
+let end_time = datetime('{{ start_time }}') + 1d;
+SonicTorRebootData
+| where ReloadCause_Time >= start_time and ReloadCause_Time < end_time
+| extend ClusterNameShort = substring(Cluster, 0, iff(indexof_regex(Cluster, @"-\d+$") == -1, strlen(Cluster), indexof_regex(Cluster, @"-\d+$")))
+| join kind=leftouter (cluster('azcis.kusto.windows.net').database('azcispub').SignaltoLiveTracking
+                       | where isnotempty(ClusterName)
+                       | project ClusterName = substring(ClusterName, 0, iff(indexof_regex(ClusterName, @"-\d+$") == -1, strlen(ClusterName), indexof_regex(ClusterName, @"-\d+$"))),
+                                ActualDockDate, ActualRTEGDate, ActualRTWDate
+                       | summarize arg_max(iff(isempty(ActualRTEGDate), ActualDockDate, ActualRTEGDate), *) by ClusterName
+          ) on $left.ClusterNameShort == $right.ClusterName
+| project ReloadCause_Time, DeviceName, Cluster = ClusterName, ActualDockDate, ActualRTEGDate, ActualRTWDate;
