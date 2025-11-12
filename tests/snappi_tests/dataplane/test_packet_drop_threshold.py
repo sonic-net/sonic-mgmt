@@ -23,7 +23,7 @@ test_results = pd.DataFrame(
     ]
 )
 
-route_ranges = {"IPv6": [["777:777:777::1", 64, 5000]], "IPv4": [["100.1.1.1", 24, 5000]]}
+ROUTE_RANGES = {"IPv6": [[["777:777:777::1", 64, 16]]], "IPv4": [[["100.1.1.1", 24, 16]]]}
 
 
 @pytest.mark.parametrize("ip_version", ["IPv6"])
@@ -47,12 +47,13 @@ def test_packet_drop_threshold(
     """
     no_loss_max_rate = GaugeMetric("no_loss_max_rate", "No Loss Max Rate", UNIT_PERCENT, db_reporter)
     snappi_extra_params = SnappiTestParams()
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, ip_version)
+    snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports, ip_version, protocol_type="bgp")
     port_distrbution = (slice(0, len(snappi_ports) // 2), slice(len(snappi_ports) // 2, None))
     tx_ports, rx_ports = snappi_ports[port_distrbution[0]], snappi_ports[port_distrbution[1]]
+    ranges = ROUTE_RANGES[ip_version]*(len(snappi_ports))
     snappi_extra_params.protocol_config = {
         "Tx": {
-            "route_ranges": route_ranges[ip_version],
+            "route_ranges": ranges,
             "network_group": False,
             "protocol_type": "bgp",
             "ports": tx_ports,
@@ -60,7 +61,7 @@ def test_packet_drop_threshold(
             "is_rdma": False,
         },
         "Rx": {
-            "route_ranges": route_ranges[ip_version],
+            "route_ranges": ranges,
             "network_group": False,
             "protocol_type": "bgp",
             "ports": rx_ports,
