@@ -1847,30 +1847,30 @@
   auto_recover: 'True'
   comment: riffjiang -- Lower T2 work
 
-- conf-name: vms71-t0-7060x6-3
-  group-name: vms71-6
-  topo: t0-isolated-v6-d16u16s2
+- conf-name: vms74-t0-7060x6-512-10
+  group-name: vms74-3
+  topo: t0-isolated-d256u256s2 #258VM
   ptf_image_name: docker-ptf
-  ptf: vms71-6
+  ptf: vms74-3
   ptf_ip: 10.64.247.120/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f778/64
-  server: server_71
-  vm_base: VM41160
+  server: server_74
+  vm_base: VM74118
   dut:
-  - str4-7060x6-64pe-10
+  - str4-7060x6-512-10
   inv_name: str4
   auto_recover: 'True'
   comment: zitingguo
 
 - conf-name: vms74-t1-sn5600-5
   group-name: vms74-2
-  topo: t0-isolated-d2u254s1
+  topo: t0-isolated-d2u254s1 #255VM
   ptf_image_name: docker-ptf
   ptf: vms74-2
   ptf_ip: 10.64.247.103/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f767/64
   server: server_74
-  vm_base: VM74118
+  vm_base: VM74376
   dut:
   - str4-sn5600-5
   inv_name: str4
