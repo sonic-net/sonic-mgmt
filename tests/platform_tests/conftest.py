@@ -62,6 +62,12 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
             sfp_list = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
             logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
             intf_skip_list[dut.hostname].extend(sfp_list)
+        # For lt2-p32o64 topo, skip the admin down interfaces as transceiver may not be present
+        elif tbinfo['topo']['name'] == "lt2-p32o64":
+            intf_skip_list[dut.hostname].extend([
+                'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
+                'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
+                ])
 
     return intf_skip_list
 
