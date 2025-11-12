@@ -544,7 +544,7 @@ def test_bfd_basic(request, gnmi_connection,
                                                    timeout=timedelta(minutes=2))
         logger.debug(f'Suspend check; Wait for {neighbor_addrs[update_idx]}'
                      f' to be Down and others to be Up. Status {status}, actual time {actual_wait}')
-        assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
+        assert status is True
         for idx, neighbor_addr in enumerate(neighbor_addrs):
             if idx == update_idx:
                 wait_until(60, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addr, local_addrs[idx], "Init")
