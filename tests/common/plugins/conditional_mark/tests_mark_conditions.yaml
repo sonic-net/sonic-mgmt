@@ -42,9 +42,11 @@ test_pretest.py:
 #######################################
 acl:
   skip:
-    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "macsec_en==True"
+      - "topo_type in ['m1-128']"
 
 acl/custom_acl_table/test_custom_acl_table.py:
   skip:
@@ -1035,6 +1037,12 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr:
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dualtor/test_bgp_block_loopback1.py:
   skip:
     reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
@@ -1231,6 +1239,12 @@ dualtor_io/test_tor_failure.py:
     reason: "This script would toggle PDU, which is not supported on KVM."
     conditions:
       - "asic_type in ['vs']"
+
+dualtor_mgmt:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
 
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
@@ -3257,9 +3271,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 ixia:
   skip:
-    reason: "Ixia test only support on physical ixia testbed"
+    reason: "Ixia test only support on physical ixia testbed and it is not tested for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "True"
 
 #######################################
 #####            k8s              #####
@@ -3525,6 +3541,12 @@ pfc/test_unknown_mac.py:
 #######################################
 #####         pfc_asym            #####
 #######################################
+pfc_asym:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
 pfc_asym/test_pfc_asym.py:
   skip:
     reason: 'pfc_asym test skip except for on Barefoot platforms'
@@ -3536,11 +3558,12 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
+    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies and '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
+      - "release in ['202412']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -4528,11 +4551,13 @@ stress/test_stress_routes.py:
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "Unsupported platform or asic"
+    reason: "Unsupported platform or asic and not supported on this DUT topology"
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
       - "asic_type in ['mellanox', 'nvidia']"
+      - "'dualtor' in topo_name"
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7060CX-32S-C32','Arista-7060CX-32S-D48C8','Arista-7260CX3-C64','Arista-7260CX3-D108C8','Arista-7260CX3-D108C10']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -4821,9 +4846,11 @@ vlan/test_vlan_ping.py:
 #######################################
 voq:
   skip:
-    reason: "Cisco 8800 doesn't support voq tests"
+    reason: "Cisco 8800 doesn't support voq tests and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name"
 
 voq/test_fabric_cli_and_db.py:
   skip:
@@ -5148,6 +5175,15 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+#######################################
+#####             wol            #####
+#######################################
+wol:
+  skip:
+    reason: "Not supported on this DUT topology"
+    conditions:
+      - "topo_type not in ['mx', 'm0']"
 
 #######################################
 #####             zmq             #####
