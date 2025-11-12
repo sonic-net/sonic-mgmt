@@ -56,7 +56,7 @@ def test_ssh_protocol_version(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     result = duthost.shell("sshd --error", module_ignore_errors=True)
     major_version = result["stderr"].split("OpenSSH_", 1)[1].split(".", 1)[0]
-    if major_version < "7" or '[-1' in result["stderr"]:
+    if int(major_version) < 7 or '[-1' in result["stderr"]:
         pytest.fail(
             "SSHD may support protocol version 1.x, only version 2.x will be passed")
 
