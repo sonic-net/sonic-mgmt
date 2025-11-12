@@ -22,8 +22,7 @@ from tests.common.telemetry.metrics.device import DeviceTemperatureMetrics
 logger = logging.getLogger(__name__)
 POLL_INTERVAL_SEC = 30
 
-
-ROUTE_RANGES = {"IPv6": [["777:777:777::1", 64, 5000]], "IPv4": [["100.1.1.1", 24, 5000]]}
+ROUTE_RANGES = {"IPv6": [[["777:777:777::1", 64, 16]]], "IPv4": [[["100.1.1.1", 24, 16]]]}
 
 capacity_param_values = {
     "subnet_type": ["IPv6"],
@@ -81,8 +80,7 @@ def test_switch_capacity(
         f"for {test_duration} seconds with frame size {frame_size} bytes"
         )
     snappi_extra_params = SnappiTestParams()
-    snappi_ports = get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
-
+    snappi_ports = get_duthost_interface_details(duthosts, get_snappi_ports, subnet_type, protocol_type="bgp")
     port_distrbution = (slice(0, len(snappi_ports) // 2), slice(len(snappi_ports) // 2, None))
     tx_ports, rx_ports = snappi_ports[port_distrbution[0]], snappi_ports[port_distrbution[1]]
 
@@ -90,16 +88,17 @@ def test_switch_capacity(
     for intf in tx_ports + rx_ports:
         dut_tg_port_map[intf["duthost"]].append((intf["peer_port"], f"Port_{intf['port_id']}"))
     dut_tg_port_map = {duthost: dict(ports) for duthost, ports in dut_tg_port_map.items()}
+    ranges = ROUTE_RANGES[subnet_type]*(len(snappi_ports))
     snappi_extra_params.protocol_config = {
         "Tx": {
-            "route_ranges": ROUTE_RANGES[subnet_type],
+            "route_ranges": ranges,
             "protocol_type": "bgp",
             "ports": tx_ports,
             "subnet_type": subnet_type,
             "is_rdma": False,
         },
         "Rx": {
-            "route_ranges": ROUTE_RANGES[subnet_type],
+            "route_ranges": ranges,
             "protocol_type": "bgp",
             "ports": rx_ports,
             "subnet_type": subnet_type,
