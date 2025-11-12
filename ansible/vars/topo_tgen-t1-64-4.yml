@@ -46,7 +46,7 @@ topology:
     - 43
     - 44
     - 45
-    - 48
+    - 49
     - 50
     - 51
     - 52
@@ -73,7 +73,7 @@ topology:
       vm_offset: 1
     ARISTA02T0:
       vlans:
-        - 49
+        - 48
       vm_offset: 2
 
 configuration_properties:
@@ -126,14 +126,14 @@ configuration:
       peers:
         64607:
         - 1.0.0.32
-        - FC00::32
+        - FC00::61
     interfaces:
       Loopback0:
         ipv4: 100.1.0.33/32
         ipv6: 2064:100::33/128
       Ethernet1:
         ipv4: 1.0.0.33/31
-        ipv6: fc00::33/126
+        ipv6: fc00::62/126
     bp_interface:
       ipv4: 10.10.246.33/24
       ipv6: fc0a::33/64
@@ -148,14 +148,14 @@ configuration:
       peers:
         64607:
         - 1.0.0.34
-        - FC00::34
+        - FC00::65
     interfaces:
       Loopback0:
-        ipv4: 100.1.0.35/32
+        ipv4: 100.1.0.36/32
         ipv6: 2064:100::35/128
       Ethernet1:
         ipv4: 1.0.0.35/31
-        ipv6: fc00::35/126
+        ipv6: fc00::66/126
     bp_interface:
       ipv4: 10.10.246.35/24
       ipv6: fc0a::35/64

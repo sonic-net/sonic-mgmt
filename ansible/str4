@@ -48,9 +48,6 @@ all:
         vms71-5:
           ansible_host: 10.64.247.116
           ansible_hostv6: 2a01:111:e210:b000::a40:f774
-        vms71-6:
-          ansible_host: 10.64.247.120
-          ansible_hostv6: 2a01:111:e210:b000::a40:f778
         vms72-1:
           ansible_host: 10.64.247.117
           ansible_hostv6: 2a01:111:e210:b000::a40:f775
@@ -69,12 +66,15 @@ all:
         vms73-8:
           ansible_host: 10.64.247.129
           ansible_hostv6: 2a01:111:e210:b000::a40:f781
-        vms74-2:
-          ansible_host: 10.64.247.103
-          ansible_hostv6: 2a01:111:e210:b000::a40:f767
         vms74-1:
           ansible_host: 10.64.247.121
           ansible_hostv6: 2a01:111:e210:b000::a40:f779
+        vms74-2:
+          ansible_host: 10.64.247.103
+          ansible_hostv6: 2a01:111:e210:b000::a40:f767
+        vms74-3:
+          ansible_host: 10.64.247.120
+          ansible_hostv6: 2a01:111:e210:b000::a40:f778
         vms75-2:
           ansible_host: 10.64.247.119
           ansible_hostv6: 2a01:111:e210:b000::a40:f777
@@ -235,10 +235,6 @@ fanout:
       ansible_host: 10.64.247.108
       ansible_hostv6:
       os: sonic
-    str4-7060x6-64pe-fan-10:
-      ansible_host: 10.64.247.110
-      ansible_hostv6:
-      os: sonic
     str4-7060x6-64pe-fan-11:
       ansible_host: 10.3.146.139
       ansible_hostv6:
@@ -294,6 +290,10 @@ fanout:
     str4-7060x6-512-fan-2:
       ansible_host: 10.64.247.125
       ansible_hostv6: 2a01:111:e210:b000::a40:f77d
+      os: sonic
+    str4-7060x6-512-fan-10:
+      ansible_host: 10.3.155.95
+      ansible_hostv6:
       os: sonic
     str4-7060x6-64pe-fan-13:
       ansible_host: 10.64.247.105
@@ -363,26 +363,6 @@ sonic_arista_7060x6:
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
         "0x2F": "HBG2441052G"
-    str4-7060x6-64pe-10:
-      ansible_host: 10.64.247.109
-      ansible_hostv6: 2a01:111:e210:b000::a40:f76d
-      mgmt_subnet_mask_length: 23
-      hwsku: Arista-7060X6-64PE-C256S2
-      model: DCS-7060X6-64PE
-      serial: HBG2441052R
-      base_mac: 9c:69:ed:5b:10:9a
-      syseeprom_info:
-        "0x21": "DCS-7060X6-64PE"
-        "0x22": "ASY0783905C0"
-        "0x23": "HBG2441052R"
-        "0x24": "9c:69:ed:5b:10:9a"
-        "0x25": "2024/10/17 23:08:12"
-        "0x26": "02"
-        "0x27": "11.22"
-        "0x28": "x86_64-arista_7060x6_64pe"
-        "0x2D": "Arista Networks"
-        "0x2B": "Arista Networks"
-        "0x2F": "HBG2441052R"
     str4-7060x6-64pe-11:
       ansible_host: 10.3.146.138
       ansible_hostv6: 2a01:111:e210:3000::a03:928a
@@ -472,6 +452,27 @@ sonic_arista_7060x6_512:
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       hwsku: Arista-7060X6-64PE-P32O64
+      model: DCS-7060X6-64PE-B
+      serial: HBG25160K1V
+      base_mac: d8:06:f3:37:42:e6
+      syseeprom_info:
+        '0x21': 'DCS-7060X6-64PE-B'
+        '0x22': 'ASY0899401A0'
+        '0x23': 'HBG25160K1V'
+        '0x24': 'd8:06:f3:37:42:e6'
+        '0x25': '2025/04/23 11:08:02'
+        '0x26': '01'
+        '0x27': '02.00'
+        '0x28': 'x86_64-arista_7060x6_64pe_b'
+        '0x2b': 'Arista Networks'
+        '0x2d': 'Arista Networks'
+        '0x2f': 'HBG25160K1V'
+    str4-7060x6-512-10:
+      ansible_host: 10.3.155.94
+      ansible_hostv6: 2a01:111:e210:3000::a03:9b5e
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64PE-B-C512S2
       model: DCS-7060X6-64PE-B
       serial: HBG25160K1V
       base_mac: d8:06:f3:37:42:e6

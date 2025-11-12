@@ -643,7 +643,7 @@ sonic_arista_7280dr3_400G:
     str-7280dr3-4:
       hwsku: Arista-7280DR3AM-36
       sonic_hwsku: Arista-7280DR3AM-36
-      sonic_hw_platform: x86_64-arista_7280dr3a_36
+      sonic_hw_platform: x86_64-arista_7280dr3am_36
       switchids: [0,2]
       voq_inband_ip: [3.3.3.1/32,3.3.3.2/32]
       voq_inband_ipv6: [3333::3:1/128,3333::3:2/128]
@@ -660,8 +660,8 @@ sonic_arista_7280dr3_400G:
         "0x23": "FGN235005R8"
         "0x24": "a4:3f:68:11:ba:28"
         "0x25": "2023/12/15 18:01:29"
-        "0x26": "03.00"
-        "0x27": "11.13"
+        "0x26": "01"
+        "0x27": "03.00"
         "0x28": "x86_64-arista_7280dr3am_36"
         "0x2D": "Arista Networks"
         "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"

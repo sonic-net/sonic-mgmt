@@ -214,14 +214,20 @@
   group-name: vms20-ixia-10
   topo: tgen-t1-64-4
   ptf_image_name: docker-keysight-api-server
-  ptf: vms20-ixia-10
-  ptf_ip: 10.64.246.25/23
+  ptf_imagetag: 10.25.2405.106
+  ptf: ixia-apiserver4
+  ptf_ip: 10.3.145.39/23
   ptf_ipv6:
   server: server_20
   vm_base:
   dut:
   - STR-8102-C19-U24
   inv_name: ixia
+  test_tags: [ ]
+  l1s:
+    - str-ocs-dlx64-acs-06
+  tgs:
+    - msr-ixia-4
   auto_recover: 'False'
   comment: devojha
 
@@ -513,9 +519,9 @@
   auto_recover: 'True'
   comment: v-saidia
 
-- conf-name: vms28-t1-8102-03
+- conf-name: vms28-t0-8102-03
   group-name: vms28-2
-  topo: t1-64-lag
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: vms28-2
   ptf_ip: 10.64.246.239/23
@@ -528,9 +534,9 @@
   auto_recover: 'True'
   comment: sagummaraj
 
-- conf-name: vms28-t1-8102-04
+- conf-name: vms28-t0-8102-04
   group-name: vms28-5
-  topo: t1-64-lag
+  topo: t0-64
   ptf_image_name: docker-ptf
   ptf: vms28-5
   ptf_ip: 10.64.246.242/23
@@ -1841,30 +1847,30 @@
   auto_recover: 'True'
   comment: riffjiang -- Lower T2 work
 
-- conf-name: vms71-t0-7060x6-3
-  group-name: vms71-6
-  topo: t0-isolated-v6-d16u16s2
+- conf-name: vms74-t0-7060x6-512-10
+  group-name: vms74-3
+  topo: t0-isolated-d256u256s2 #258VM
   ptf_image_name: docker-ptf
-  ptf: vms71-6
+  ptf: vms74-3
   ptf_ip: 10.64.247.120/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f778/64
-  server: server_71
-  vm_base: VM41160
+  server: server_74
+  vm_base: VM74118
   dut:
-  - str4-7060x6-64pe-10
+  - str4-7060x6-512-10
   inv_name: str4
   auto_recover: 'True'
   comment: zitingguo
 
 - conf-name: vms74-t1-sn5600-5
   group-name: vms74-2
-  topo: t0-isolated-d2u254s1
+  topo: t0-isolated-d2u254s1 #255VM
   ptf_image_name: docker-ptf
   ptf: vms74-2
   ptf_ip: 10.64.247.103/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f767/64
   server: server_74
-  vm_base: VM74118
+  vm_base: VM74376
   dut:
   - str4-sn5600-5
   inv_name: str4
@@ -4824,6 +4830,21 @@
   - svcstr-7800-lc4-1
   - svcstr-7800-lc5-1
   - svcstr-7808-sup-1
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: yatishkoul
+
+- conf-name: vmsvc-ut2-nh5010-3
+  group-name: svc3-2
+  topo: t2_single_node_min_nexthop_ut2
+  ptf_image_name: docker-ptf
+  ptf: svc3-2
+  ptf_ip: 10.206.144.11/24
+  ptf_ipv6: 2a01:111:e205:100::ace:900b
+  server: server_svc_3
+  vm_base: VM30096
+  dut:
+  - svcstr-nh5010-ut2-3
   inv_name: strsvc
   auto_recover: 'False'
   comment: yatishkoul

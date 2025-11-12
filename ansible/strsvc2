@@ -31,16 +31,20 @@ fanout:
   hosts:
     svcstr2-7260cx3-acs-1:
       ansible_host: 10.206.144.249
-      ansible_hostv6: 
+      ansible_hostv6:
     svcstr2-7260cx3-acs-2:
       ansible_host: 10.206.144.250
       ansible_hostv6: 2a01:111:e205:100::ace:90fa
     svcstr2-7260cx3-acs-3:
       ansible_host: 10.206.144.251
       ansible_hostv6: 2a01:111:e205:100::ace:90fb
-    svcstr2-z9332f-01:
+    svcstr2-8101-fanout-01:
       ansible_host: 10.206.144.252
       ansible_hostv6: 2a01:111:e205:100::ace:90fc
+      os: sonic
+    svcstr2-8101-fanout-02:
+      ansible_host: 10.206.144.253
+      ansible_hostv6: 2a01:111:e205:100::ace:90fd
       os: sonic
     svc5-ixia-2:
       ansible_host: 10.206.144.17

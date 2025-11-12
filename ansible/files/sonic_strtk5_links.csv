@@ -1,4 +1,4 @@
-StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg
 strtk5-7260-root-01,Ethernet3/1,strtk5-7260-fanout-03,Ethernet64/1,100000,"1079-1080",Trunk
 strtk5-7260-root-01,Ethernet47/1,strtk5-8101-fanout-02,etp20a,100000,"177-208,211-232",Trunk
 strtk5-7260-root-01,Ethernet25/1,strtk5-7260-fanout-25,Ethernet64,40000,"233-264",Trunk
