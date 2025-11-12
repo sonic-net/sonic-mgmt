@@ -359,6 +359,7 @@ def create_snappi_config(snappi_api, get_snappi_ports):
         config = create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params)
         pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
         snappi_obj_handles = {k: {"ip": [], "network_group": []} for k in snappi_extra_params.protocol_config}
+        count = 0
         for role, pconfig in snappi_extra_params.protocol_config.items():
             is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
             for index, port_data in enumerate(pconfig['ports']):
@@ -391,12 +392,13 @@ def create_snappi_config(snappi_api, get_snappi_ports):
                             routes = peer.v4_routes.add(name=f"{role}_Network_Group_{index}")
                         else:
                             routes = peer.v6_routes.add(name=f"{role}_Network_Group_{index}")
-                        for rr in pconfig['route_ranges']:
+                        for rr in pconfig['route_ranges'][count]:
                             routes.addresses.add(
                                 address=rr[0],
                                 prefix=rr[1],
                                 count=rr[2],
                             )
+                        count += 1
                         snappi_obj_handles[role]["network_group"].append(routes.name)
         return config, snappi_obj_handles
     return _create_snappi_config
