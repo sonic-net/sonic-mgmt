@@ -441,7 +441,7 @@ def _update_counterpoll_state(duthost, counter_name, state):
 
 
 @pytest.fixture(scope='module')
-def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services):
+def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services, swap_syncd):
     '''
     Module level setup/teardown
     '''
