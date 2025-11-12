@@ -748,31 +748,24 @@ class BaseEverflowTest(object):
                 commands_list.append(command)
             else:
                 for asic_index in duthost.get_frontend_asic_ids():
+                    # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
                     if asic_index is not None:
-                        # Adding IPv6 ERSPAN sessions for each asic, from the CLI is currently not supported.
-                        command = f"sonic-db-cli -n asic{asic_index} CONFIG_DB HSET " \
-                                  f"'MIRROR_SESSION|{session_info['session_name']}' " \
-                                  f"'dscp' '{session_info['session_dscp']}' " \
-                                  f"'dst_ip' '{session_info['session_dst_ipv6']}' " \
-                                  f"'gre_type' '{session_info['session_gre']}' " \
-                                  f"'type' '{session_info['session_type']}' " \
-                                  f"'src_ip' '{session_info['session_src_ipv6']}' 'ttl' '{session_info['session_ttl']}'"
-                        if queue_num:
-                            command += f" 'queue' {queue_num}"
-                        if policer:
-                            command += f" 'policer' {policer}"
+                        command = f"sonic-db-cli -n asic{asic_index} "
                     else:
-                        # Adding IPv6 ERSPAN sessions, from the CLI is currently not supported.
-                        command = f"sonic-db-cli CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' " \
-                                  f"'dscp' '{session_info['session_dscp']}' " \
-                                  f"'dst_ip' '{session_info['session_dst_ipv6']}' " \
-                                  f"'gre_type' '{session_info['session_gre']}' " \
-                                  f"'type' '{session_info['session_type']}' " \
-                                  f"'src_ip' '{session_info['session_src_ipv6']}' 'ttl' '{session_info['session_ttl']}'"
-                        if queue_num:
-                            command += f" 'queue' {queue_num}"
-                        if policer:
-                            command += f" 'policer' {policer}"
+                        command = "sonic-db-cli "
+                    command += (
+                        f"CONFIG_DB HSET 'MIRROR_SESSION|{session_info['session_name']}' "
+                        f"'dscp' '{session_info['session_dscp']}' "
+                        f"'dst_ip' '{session_info['session_dst_ipv6']}' "
+                        f"'gre_type' '{session_info['session_gre']}' "
+                        f"'type' '{session_info['session_type']}' "
+                        f"'src_ip' '{session_info['session_src_ipv6']}' "
+                        f"'ttl' '{session_info['session_ttl']}'"
+                    )
+                    if queue_num:
+                        command += f" 'queue' {queue_num}"
+                    if policer:
+                        command += f" 'policer' {policer}"
                     commands_list.append(command)
 
         elif config_method == CONFIG_MODE_CONFIGLET:
