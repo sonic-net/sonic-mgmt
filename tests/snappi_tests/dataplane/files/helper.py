@@ -87,7 +87,7 @@ def get_duthost_interface_details(duthosts, get_snappi_ports, subnet_type, proto
         pytest_assert(False, f"Unsupported protocol type: {protocol_type}")
 
 
-def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
+def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):  # noqa F811
     """
     Example:
     {
@@ -116,19 +116,27 @@ def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):    # noqa F
     mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
     for duthost in duthosts:
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        doOnce = True
         for index, port in enumerate(get_snappi_ports):
             if port['duthost'] == duthost:
+                if doOnce:
+                    # Note: Just get the dut mac address once
+                    mac = duthost.get_dut_iface_mac(port['peer_port'])
+                    doOnce = False
                 peer_port = port['peer_port']
                 int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-                if subnet_type == 'ipv4':
+                if subnet_type.lower() == 'ipv4':
                     subnet = [ele for ele in int_addrs if "." in ele]
                     port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
-                else:
+                elif subnet_type.lower() == 'ipv6':
                     subnet = [ele for ele in int_addrs if ":" in ele]
                     port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                else:
+                    pytest.fail(f'Invalid subnet type: {subnet_type}')
                 if not subnet:
                     pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
                 port['ipGateway'], port['prefix'] = subnet[0].split("/")
+                port['router_mac_address'] = mac
                 port['src_mac_address'] = mac_address_generator[index]
                 port['subnet'] = subnet[0]
     return get_snappi_ports
