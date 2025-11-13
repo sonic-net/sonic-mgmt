@@ -27,10 +27,6 @@ pdu-96,16,str4-sn5600-2,PSU1
 pdu-97,16,str4-sn5600-2,PSU2
 pdu-96,17,str4-sn5600-3,PSU1
 pdu-97,17,str4-sn5600-3,PSU2
-pdu-97,40,str4-sn5600-4,PSU1
-pdu-242,40,str4-sn5600-4,PSU2
-pdu-81,15,str4-sn5640-7,PSU1
-pdu-82,21,str4-sn5640-7,PSU1
 pdu-108,1,str4-acs-serv-70,PSU1
 pdu-108,2,str4-acs-serv-71,PSU1
 pdu-108,3,str4-acs-serv-72,PSU1

@@ -33,14 +33,6 @@ str4-sn5600-1,10.64.246.46/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
 str4-sn5600-fan-1,10.64.246.48/23,Mellanox-SN5600-C256S1,FanoutLeafSonic,,sonic
 str4-sn5600-2,10.64.246.62/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
 str4-sn5600-3,10.64.246.63/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
-str4-sn5600-4,10.64.246.49/23,Mellanox-SN5600-C224O8,DevSonic,,sonic
-str4-sn5600-fan-4,10.64.246.50/23,Mellanox-SN5600-C224O8,FanoutLeafSonic,,sonic
-str4-sn5600-5,10.64.246.51/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
-str4-sn5600-fan-5,10.64.246.52/23,Mellanox-SN5600-C256S1,FanoutLeafSonic,,sonic
-str4-sn5600-6,10.64.246.65/23,Mellanox-SN5600-C224O8,DevSonic,,sonic
-str4-sn5600-fan-6,10.64.246.66/23,Mellanox-SN5600-C224O8,FanoutLeafSonic,,sonic
-str4-sn5600-7,10.64.246.67/23,Mellanox-SN5600-C224O8,DevSonic,,sonic
-str4-sn5600-fan-7,10.64.246.68/23,Mellanox-SN5600-C224O8,FanoutLeafSonic,,sonic
 str4-sn5640-2,10.64.246.168/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str4-sn5640-fan-2,10.64.246.122/23,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
 str4-sn5640-3,10.64.246.78/23,Mellanox-SN5640-C448O16,DevSonic,,sonic
