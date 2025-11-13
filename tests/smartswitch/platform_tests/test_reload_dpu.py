@@ -25,7 +25,6 @@ memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
 MAX_COOL_OFF_TIME = 300
-MIN_COOL_OFF_TIME = 60
 
 
 def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
@@ -53,10 +52,13 @@ def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("5 min Cool off period after switch reboot")
+    time.sleep(MAX_COOL_OFF_TIME)
+
     logging.info("Executing post switch reboot dpu check")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "reboot")
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
 def test_dpu_status_post_switch_config_reload(duthosts,
@@ -124,10 +126,13 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("5 min Cool off period after switch memory exhaustion")
+    time.sleep(MAX_COOL_OFF_TIME)
+
     logging.info("Executing dpu check, post switch memory exhaustion reboot")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "reboot")
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
 @pytest.mark.disable_loganalyzer
@@ -167,10 +172,13 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("5 min Cool off period after switch kernel panic")
+    time.sleep(MAX_COOL_OFF_TIME)
+
     logging.info("Executing dpu check, post switch kernel panic reboot")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "reboot")
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
 @pytest.mark.disable_loganalyzer
@@ -198,23 +206,25 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
-    logging.info("Checking DPUs reboot reason as Kernal Panic")
+    logging.info("Checking DPUs reboot reason as Kernel Panic")
     check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
 
-    logging.info("5 min Cool off period after Kernal Panic")
+    logging.info("5 min Cool off period after DPUs kernel Panic")
     time.sleep(MAX_COOL_OFF_TIME)
 
-    logging.info("Shutdown DPUs after Kernal Panic")
+    logging.info("Shutdown DPUs after kernel Panic")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    logging.info("60 seconds Cool off period after shutdown")
-    time.sleep(MIN_COOL_OFF_TIME)
+    logging.info("5 min Cool off period after DPUs kernel panic")
+    time.sleep(MAX_COOL_OFF_TIME)
 
     logging.info("Starting UP the DPUs")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
 @pytest.mark.disable_loganalyzer
@@ -247,21 +257,21 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Checking DPUs reboot reason as Kernal Panic")
     check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
 
-    logging.info("5 min Cool off period after Kernal Panic")
+    logging.info("5 min Cool off period after DPUs memory exhaustion")
     time.sleep(MAX_COOL_OFF_TIME)
 
-    logging.info("Shutdown DPUs after Kernal Panic")
+    logging.info("Shutdown DPUs after memory exhaustion")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    logging.info("60 seconds Cool off period after shutdown")
-    time.sleep(MIN_COOL_OFF_TIME)
+    logging.info("5 min Cool off period after DPUs memory exhaustion")
+    time.sleep(MAX_COOL_OFF_TIME)
 
     logging.info("Starting UP the DPUs")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Non-Hardware")
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
@@ -291,7 +301,9 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
             executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name)
 
     logging.info("Executing post test dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
