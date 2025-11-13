@@ -30,6 +30,10 @@ str4-7060x6-512-8,10.64.247.180/23,Arista-7060X6-64PE-P32O64,DevSonic,,sonic
 str4-7060x6-512-9,10.3.155.78/26,Arista-7060X6-64PE-P32O64,DevSonic,,sonic
 str4-7060x6-512-4,10.64.247.163/23,Arista-7060X6-64PE-P64,DevSonic,,sonic
 str4-7060x6-64pe-fan-5,10.64.247.106/23,Arista-7060X6-64PE-P64,FanoutLeafSonic,,sonic
+str4-7060x6-512-12,10.3.155.22/26,Arista-7060X6-64PE-B-P32V128,DevSonic,,sonic
+str4-7060x6-512-fan-12,10.3.155.23/26,Arista-7060X6-64PE-B-P32V128,FanoutLeafSonic,,sonic
+str4-7060x6-512-13,10.3.155.24/26,Arista-7060X6-64PE-B-P32O64,DevSonic,,sonic
+str4-7060x6-512-fan-13,10.3.155.26/26,Arista-7060X6-64PE-B-P32O64,FanoutLeafSonic,,sonic
 str4-sn5600-1,10.64.246.46/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
 str4-sn5600-fan-1,10.64.246.48/23,Mellanox-SN5600-C256S1,FanoutLeafSonic,,sonic
 str4-sn5600-2,10.64.246.62/23,Mellanox-SN5600-C256S1,DevSonic,,sonic
@@ -80,6 +84,8 @@ pdu-122,10.3.154.123,Sentry,Pdu,snmp,
 pdu-123,10.3.154.124,Sentry,Pdu,snmp,
 pdu-119,10.3.154.120,Sentry4,Pdu,snmp,
 pdu-120,10.3.154.121,Sentry4,Pdu,snmp,
+pdu-121,10.3.154.122,Sentry4,Pdu,snmp,
+pdu-122,10.3.154.123,Sentry4,Pdu,snmp,
 pdu-124,10.3.154.125,Sentry4,Pdu,snmp,
 pdu-125,10.3.154.126,Sentry4,Pdu,snmp,
 pdu-126,10.3.154.133,Sentry4,Pdu,snmp,
