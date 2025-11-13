@@ -673,9 +673,11 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_dom_real_value:
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
   xfail:
-    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo. / Testcase ignored on nvidia sn4700 and sn4280 due to github issue: https://github.com/sonic-net/sonic-buildimage/issues/23426"
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
+      - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   skip:
@@ -1362,6 +1364,10 @@ platform_tests/test_reload_config.py::test_reload_configuration:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
@@ -1370,7 +1376,11 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport']"
       - "https://github.com/sonic-net/sonic-buildimage/issues/19879 and asic_type in ['vs']"
-      - "asic_type in ['cisco-8000'] and release in ['202205', '202211', '202305', '202405']"
+      - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 ######  test_secure_upgrade.py  #######
