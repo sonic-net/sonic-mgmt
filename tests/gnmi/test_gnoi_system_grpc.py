@@ -17,17 +17,19 @@ This module contains tests for the gNOI System Services, using gRPC python API.
 system_pb2_grpc, system_pb2 = get_gnoi_system_stubs()
 
 
-def test_gnoi_system_time(grpc_channel, duthosts, rand_one_dut_hostname):
+def test_gnoi_system_time(duthosts, rand_one_dut_hostname, grpc_channel):
     """
     Verify the gNOI System Time API returns the current system time.
     """
     duthost = duthosts[rand_one_dut_hostname]
+    
+    # Get device time in seconds first (before gRPC operations)
+    device_time_result = duthost.shell("date +%s", module_ignore_errors=True)
+    device_time_s = int(device_time_result["stdout"].strip())
+    device_time_ns = device_time_s * int(1e9)
+
     # Use the shared gRPC channel
     stub = system_pb2_grpc.SystemStub(grpc_channel)
-
-    # Get device time in nanoseconds using shell command
-    device_time_result = duthost.shell("date +%s%N", module_ignore_errors=True)
-    device_time_ns = int(device_time_result["stdout"].strip())
 
     # Create and send request
     request = system_pb2.TimeRequest()
