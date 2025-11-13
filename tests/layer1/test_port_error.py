@@ -32,11 +32,11 @@ def collected_ports_num(request):
 class TestMACFault(object):
     @pytest.fixture(scope="class")
     def is_sw_control_feature_enabled(duthost):
-        fixture_path = os.path.join(os.path.dirname(__file__), "..", "platform_tests", "mellanox", "conftest.py")
-        fixture_path = os.path.abspath(fixture_path)
+        fixture_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "platform_tests", "mellanox", "conftest.py")
+        )
         spec = importlib.util.spec_from_file_location("mlx_conftest_module_enabled", fixture_path)
         module = importlib.util.module_from_spec(spec)
-        sys.modules["mlx_conftest_module_enabled"] = module
         spec.loader.exec_module(module)
         return module.is_sw_control_feature_enabled(duthost)
 
