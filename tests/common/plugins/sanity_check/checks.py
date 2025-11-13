@@ -394,10 +394,12 @@ def check_dbmemory(duthosts):
 
 def _check_monit_services_status(check_result, monit_services_status):
     """
-    @summary: Check whether each type of service which was monitored by Monit was in correct status or not.
-              If a service was in "Not monitored" status, sanity check will skip it since this service
-              was temporarily set to not be monitored by Monit.
-    @return: A dictionary contains the testing result (failed or not failed) and the status of each service.
+    @summary: Check whether each type of service which was monitored by Monit
+              was in correct status or not. If a service was in "Not monitored"
+              status, sanity check will skip it since this service was
+              temporarily set to not be monitored by Monit.
+    @return: A dictionary contains the testing result (failed or not failed)
+             and the status of each service.
     """
     check_result["services_status"] = {}
     for service_name, service_info in list(monit_services_status.items()):
@@ -406,6 +408,9 @@ def _check_monit_services_status(check_result, monit_services_status):
         # process in ACMS container was not running in lab devices. We will check
         # again once `acms` process is able to run in lab devices.
         if service_name == "acms|acms" or service_info["service_status"] == "Not monitored":
+            continue
+        # Newer versions of Monit have standardized on OK as a success result
+        if service_info["service_status"] == "OK":
             continue
         if ((service_info["service_type"] == "Filesystem" and service_info["service_status"] != "Accessible")
                 or (service_info["service_type"] == "Process" and service_info["service_status"] != "Running")
