@@ -366,3 +366,248 @@ def announce_route(ptfip, route, port, action=ANNOUNCE):
     logger.info(" action:{}\n ptfip:{}\n route:{}\n port:{}".format(action, ptfip, route, port))
     install_route_from_exabgp(action, ptfip, route, port)
     logger.info("\n--------------------------------------------------------------------------------")
+
+
+def update_tc_to_dscp_map(duthost, tc_to_dscp_map, map_name='REMAP_TEST', interface=None):
+    """
+    Add TC_TO_DSCP_MAP to DUT and optionally apply to interface via PORT_QOS_MAP.
+    Args:
+        duthost: DUT host object
+        tc_to_dscp_map (dict): TC to DSCP mappings (string keys/values)
+        map_name (str): QoS profile name (default: 'REMAP_TEST')
+        interface (str): Interface name to apply map to (optional)
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        # Validate input
+        if not isinstance(tc_to_dscp_map, dict) or not tc_to_dscp_map:
+            logger.error("tc_to_dscp_map must be a non-empty dictionary")
+            return False
+
+        logger.info("Adding TC_TO_DSCP_MAP '{}' ({} entries){}".format(
+            map_name, len(tc_to_dscp_map),
+            " to interface '{}'".format(interface) if interface else " globally"))
+
+        # Step 1: Add TC_TO_DSCP_MAP globally
+        config_data = {'TC_TO_DSCP_MAP': {map_name: tc_to_dscp_map}}
+        cmd = "sonic-cfggen -a '{}' -w".format(json.dumps(config_data))
+        result = duthost.shell(cmd, module_ignore_errors=True)
+
+        if result['rc'] != 0:
+            logger.error("Failed to add TC_TO_DSCP_MAP: {}".format(result.get('stderr', 'Unknown error')))
+            return False
+
+        # Step 2: Update PORT_QOS_MAP if interface specified
+        if interface:
+            port_qos_config = {'PORT_QOS_MAP': {interface: {'tc_to_dscp_map': map_name}}}
+            cmd = "sonic-cfggen -a '{}' -w".format(json.dumps(port_qos_config))
+            result = duthost.shell(cmd, module_ignore_errors=True)
+
+            if result['rc'] != 0:
+                logger.error("Failed to update PORT_QOS_MAP for {}: {}".format(
+                    interface, result.get('stderr', 'Unknown error')))
+                return False
+
+        # Verify update
+        config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
+        updated_map = config_facts.get('TC_TO_DSCP_MAP', {}).get(map_name, {})
+
+        if not updated_map:
+            logger.warning("Verification failed: TC_TO_DSCP_MAP '{}' not found".format(map_name))
+            return False
+
+        logger.info("Verification successful: TC_TO_DSCP_MAP '{}' has {} entries".format(
+            map_name, len(updated_map)))
+
+        # Verify PORT_QOS_MAP if interface specified
+        if interface:
+            port_qos_map = config_facts.get('PORT_QOS_MAP', {}).get(interface, {})
+            if port_qos_map.get('tc_to_dscp_map') != map_name:
+                logger.warning("Verification failed: PORT_QOS_MAP['{}'] does not refer to '{}'".format(
+                    interface, map_name))
+                return False
+            logger.info("Verification successful: PORT_QOS_MAP['{}'] refers to '{}'".format(
+                interface, map_name))
+
+        return True
+
+    except Exception as e:
+        logger.error("Failed to update TC to DSCP map: {}".format(str(e)))
+        return False
+
+
+def remove_qos_map(duthost, map_type, map_name):
+    """
+    Remove a QoS map from DUT configuration.
+    Args:
+        duthost: DUT host object
+        map_type (str): Type of map to remove ('DSCP_TO_TC_MAP', 'TC_TO_QUEUE_MAP', 'TC_TO_DSCP_MAP')
+        map_name (str): Name of the map to remove (e.g., 'REMAP_TEST')
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger.info("Removing {} '{}' from DUT".format(map_type, map_name))
+
+        # Validate input
+        valid_map_types = ['DSCP_TO_TC_MAP', 'TC_TO_QUEUE_MAP', 'TC_TO_DSCP_MAP']
+        if map_type not in valid_map_types:
+            logger.error("Invalid map_type '{}'. Must be one of: {}".format(
+                map_type, ', '.join(valid_map_types)))
+            return False
+
+        if not isinstance(map_name, str) or not map_name:
+            logger.error("map_name must be a non-empty string")
+            return False
+
+        # Remove the map using sonic-cfggen
+        config_data = {map_type: {map_name: None}}
+        cmd = "sonic-cfggen -a '{}' -w".format(json.dumps(config_data))
+        result = duthost.shell(cmd, module_ignore_errors=True)
+
+        if result['rc'] != 0:
+            logger.warning("Failed to remove {} '{}': {}".format(
+                map_type, map_name, result.get('stderr', 'Unknown error')))
+            return False
+
+        logger.info("Successfully removed {} '{}'".format(map_type, map_name))
+
+        # Verify removal
+        config_facts = duthost.asic_instance().config_facts(source="running")["ansible_facts"]
+        remaining_map = config_facts.get(map_type, {}).get(map_name)
+
+        if remaining_map is None:
+            logger.info("Verification successful: {} '{}' removed".format(map_type, map_name))
+            return True
+        else:
+            logger.warning("Verification failed: {} '{}' still exists".format(map_type, map_name))
+            return False
+
+    except Exception as e:
+        logger.error("Failed to remove QoS map: {}".format(str(e)))
+        return False
+
+
+def clear_queue_counters(duthost):
+    """
+    Clear queue counters on DUT.
+    Args:
+        duthost: DUT host object
+    Returns:
+        bool: True if successful, False otherwise
+    """
+    try:
+        logger.info("Clearing queue counters...")
+        result = duthost.shell("sonic-clear queuecounters", module_ignore_errors=True)
+
+        if result['rc'] != 0:
+            logger.error("Failed to clear queue counters: {}".format(result.get('stderr', 'Unknown error')))
+            return False
+
+        logger.info("Queue counters cleared successfully")
+        return True
+
+    except Exception as e:
+        logger.error("Failed to clear queue counters: {}".format(str(e)))
+        return False
+
+
+def get_queue_counter(duthost, port, queue):
+    """
+    Get packet counter for a specific queue on a port.
+    Args:
+        duthost: DUT host object
+        port (str): Interface name (e.g., 'Ethernet0')
+        queue (int): Queue number (0-8)
+    Returns:
+        int: Packet count for the queue, or 0 if not found
+    """
+    try:
+        cmd = "show queue counters {}".format(port)
+        output = duthost.shell(cmd, module_ignore_errors=True)
+
+        if output['rc'] != 0:
+            logger.warning("Failed to get queue counters for {}: {}".format(
+                port, output.get('stderr', 'Unknown error')))
+            return 0
+
+        # Parse output to find the queue counter
+        # Output format:
+        #          Port    TxQ    Counter/pkts    Counter/bytes    Drop/pkts    Drop/bytes
+        #     ---------  -----  --------------  ---------------  -----------  ------------
+        #     Ethernet0    UC0               0                0            0             0
+
+        txq = "UC{}".format(queue)
+        for line in output['stdout_lines']:
+            fields = line.split()
+            if len(fields) >= 3 and fields[0] == port and fields[1] == txq:
+                try:
+                    counter = int(fields[2].replace(',', ''))
+                    logger.info("Queue counter for {}:{} = {}".format(port, txq, counter))
+                    return counter
+                except (ValueError, IndexError):
+                    logger.warning("Failed to parse queue counter from line: {}".format(line))
+                    return 0
+
+        logger.warning("Queue {} not found for port {}".format(txq, port))
+        return 0
+
+    except Exception as e:
+        logger.error("Failed to get queue counter: {}".format(str(e)))
+        return 0
+
+
+def get_dscp_for_tc(dscp_to_tc_map, tc_value):
+    """
+    Find DSCP value that maps to a given TC value.
+    Args:
+        dscp_to_tc_map (dict): DSCP_TO_TC_MAP configuration
+        tc_value (int): TC value to find DSCP for
+    Returns:
+        int: DSCP value that maps to the TC, or None if not found
+    """
+    try:
+        # Reverse lookup: find DSCP that maps to this TC
+        for dscp_str, tc_str in dscp_to_tc_map.items():
+            if int(tc_str) == tc_value:
+                logger.info("Found DSCP {} maps to TC {}".format(dscp_str, tc_value))
+                return int(dscp_str)
+
+        logger.warning("No DSCP found that maps to TC {}".format(tc_value))
+        return None
+
+    except Exception as e:
+        logger.error("Failed to get DSCP for TC {}: {}".format(tc_value, str(e)))
+        return None
+
+
+def get_outgoing_dscp(incoming_dscp, dscp_to_tc_map, tc_to_dscp_map):
+    """Calculate outgoing DSCP: incoming_dscp -> TC -> outgoing_dscp.
+    Args:
+        incoming_dscp (int): Incoming DSCP value (0-63)
+        dscp_to_tc_map (dict): DSCP_TO_TC_MAP configuration
+        tc_to_dscp_map (dict): TC_TO_DSCP_MAP configuration
+    Returns:
+        int: Outgoing DSCP value, or None if mapping not found
+    """
+    # Find TC value for incoming DSCP
+    tc_value = None
+    for dscp_str, tc_str in dscp_to_tc_map.items():
+        if int(dscp_str) == incoming_dscp:
+            tc_value = int(tc_str)
+            break
+
+    if tc_value is None:
+        logger.warning("No TC mapping found for incoming DSCP={}".format(incoming_dscp))
+        return None
+
+    # Find outgoing DSCP for TC value
+    outgoing_dscp_str = tc_to_dscp_map.get(str(tc_value))
+    if outgoing_dscp_str is None:
+        logger.warning("No outgoing DSCP mapping found for TC={}".format(tc_value))
+        return None
+
+    outgoing_dscp = int(outgoing_dscp_str)
+    logger.info("DSCP mapping: {} -> TC={} -> {}".format(incoming_dscp, tc_value, outgoing_dscp))
+    return outgoing_dscp
