@@ -44,10 +44,6 @@ pdu-96,44,str4-8122-fanout-03,PSU1
 pdu-97,44,str4-8122-fanout-03,PSU2
 pdu-96,45,str4-8122-04,PSU1
 pdu-97,45,str4-8122-04,PSU2
-pdu-116,18,str4-7060x6-64pe-10,PSU1
-pdu-117,18,str4-7060x6-64pe-10,PSU2
-pdu-116,19,str4-7060x6-64pe-fan-10,PSU1
-pdu-117,19,str4-7060x6-64pe-fan-10,PSU2
 pdu-94,24,str4-7060x6-64pe-11,PSU1
 pdu-95,24,str4-7060x6-64pe-11,PSU2
 pdu-94,40,str4-7060x6-64pe-fan-11,PSU1

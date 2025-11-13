@@ -1,0 +1,11 @@
+.set-or-append SonicTorRebootDataFuseExtension <|
+let start_time = datetime('{{ start_time }}') + 1s;
+let end_time = datetime('{{ start_time }}') + 1d;
+cluster('azwan').database('FUSE').FUSE
+| where Timestamp > startTime and Timestamp <= end_time
+| where action == "FirmwareUpgrade" and targetState contains "SONiC" and progress == "Finished"
+| project DeviceName = toupper(device), FUSE_StartTime = startTime, FUSE_EndTime = endTime, FUSE_Action = action, FUSE_Result = jobResult
+| join kind=leftouter (SonicTorRebootAnalysis | where ReloadTime > start_time and ReloadTime <= end_time) on DeviceName
+| where ReloadTime >= FUSE_StartTime and ReloadTime <= FUSE_EndTime
+| project ReloadCause_Time, DeviceName, ReloadTime, FUSE_Action, FUSE_StartTime, FUSE_EndTime, FUSE_Result
+| distinct *;
