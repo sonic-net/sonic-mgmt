@@ -1,0 +1,192 @@
+# The following block creates and configures user azure
+- name: Set init credential
+  set_fact:
+    ansible_user: "{{ init_user }}"
+    ansible_password: "{{ init_password }}"
+    ansible_sudo_pass: "{{ init_sudo_pass }}"
+
+- name: Load host_vars variable
+  include_vars: "host_vars/{{ inventory_hostname | upper }}.yml"
+
+- name: Create user azure
+  user:
+    name: "{{ server_user }}"
+    state: present
+    home: "/home/{{ server_user }}"
+    groups: sudo
+    append: true
+    create_home: true
+    shell: /bin/bash
+
+- name: Set home directory mode
+  file:
+    path: "/home/{{ server_user }}"
+    mode: "0755"
+
+- name: Grant NOPASSWD to sudo group
+  shell: sed -i "/^%sudo\s*ALL=(ALL:ALL)\s*ALL$/ c\%sudo ALL=(ALL:ALL) NOPASSWD:ALL" /etc/sudoers
+
+- name: Rotate the password
+  shell: "echo {{ server_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
+  ignore_errors: true
+
+- name: Install ifconfig
+  package:
+    name: net-tools
+    state: present
+
+# The following block renames mgmt interface
+
+- set_fact:
+    netplan_installer_config_path: "/etc/netplan/00-installer-config.yaml"
+    persistent_net_path: "/etc/udev/rules.d/70-persistent-net.rules"
+    target_mgmt_intf_name: "eno1"
+    target_br_name: "br1"
+
+- name: Verify mgmt interface up
+  shell: ifconfig | grep {{ ansible_host }} -E1 | head -1 | grep -o "<[A-Z,]*UP[A-Z,]*>"
+
+#  use mgmt_intf_name from host_vars. otherwise, this will command will return 'br1' after first run.
+- name: Find mgmt interface name
+  shell: ifconfig | grep {{ ansible_host }} -E1 | grep -o "^\w*"
+  register: mgmt_intf_name
+
+- set_fact: mgmt_intf_name="{{ mgmt_intf_name.stdout }}"
+
+- name: Print mgmt interface name
+  debug:
+    msg: "mgmt interface of {{ ansible_host }} is {{ mgmt_intf_name }}"
+
+- name: Rename mgmt interface
+  when: mgmt_intf_name != target_mgmt_intf_name and mgmt_intf_name != target_br_name
+  block:
+    - name: Find PCI id of mgmt interface
+      shell: ls -la /sys/class/net/ | grep -i "{{ mgmt_intf_name }}$" | grep -o "[^/]*/[^/]*/[^/]*$" | grep -o "^[^/]*"
+      register: mgmt_intf_pci_id
+
+    - set_fact: mgmt_intf_pci_id="{{ mgmt_intf_pci_id.stdout }}"
+
+    - name: Print PCI id of mgmt interface
+      debug:
+        msg: "PCI id of mgmt interface {{ mgmt_intf_name }} is {{ mgmt_intf_pci_id }}"
+
+    - name: Rename mgmt interface
+      shell: sed -i "s/{{ mgmt_intf_name }}/{{ target_mgmt_intf_name }}/g" {{ netplan_installer_config_path }}
+
+    - name: Add line to persistent-net.rules
+      shell: echo "ACTION==\"add\", SUBSYSTEM==\"net\", KERNELS==\"{{ mgmt_intf_pci_id }}\", NAME:=\"{{ target_mgmt_intf_name }}\"" > {{ persistent_net_path }}
+
+    - name: Reboot
+      reboot:
+        msg: "Reboot to apply mgmt interface name change"
+
+    - name: Verify mgmt interface up
+      shell: ifconfig | grep {{ ansible_host }} -E1 | head -1 | grep -o "<[A-Z,]*UP[A-Z,]*>"
+
+    - name: Verify mgmt interface name changed successfully
+      shell: ifconfig | grep {{ ansible_host }} -E1 | grep -o "^\w*" | grep -xF {{ target_mgmt_intf_name }}
+
+    - name: Print mgmt interface name changed successfully
+      debug:
+        msg: "Mgmt interface name changed successfully from {{ mgmt_intf_name }} to {{ target_mgmt_intf_name }}"
+
+    - set_fact: mgmt_intf_name="{{ target_mgmt_intf_name }}"
+
+# The following block renames Mellanox interfaces
+
+- name: Find Mellanox NIC PCI id
+  shell: lspci -D | grep -i ethernet | grep -i Mellanox | grep -o "^[^ ]*"
+  register: mellanox_intf_pci_id
+
+- set_fact: mellanox_intf_pci_id="{{ mellanox_intf_pci_id.stdout.splitlines() }}"
+
+- name: Print PCI id of Mellanox interfaces
+  debug:
+    msg: "PCI id of Mellanox interfaces is {{ mellanox_intf_pci_id }}"
+
+- name: Fill out mellanox_intf_pci_id_to_name_map
+  set_fact:
+    mellanox_intf_pci_id_to_name_map: "{{ mellanox_intf_pci_id_to_name_map | default({}) | combine ({item: \"ens4f\" + (i | string)}) }}"
+  loop: "{{ mellanox_intf_pci_id }}"
+  loop_control:
+    index_var: i
+
+- name: Print PCI id of Mellanox interfaces
+  debug:
+    msg: "PCI id of Mellanox interfaces is {{ mellanox_intf_pci_id_to_name_map }}"
+
+- name: Check Mellanox interfaces name
+  shell: ls -la /sys/class/net/ | grep -i {{ item.key }} | grep -o "[^/]*$" | grep -xF {{ item.value }}
+  register: result
+  loop: "{{ mellanox_intf_pci_id_to_name_map | dict2items }}"
+  ignore_errors: True
+
+- name: Unfold result
+  set_fact:
+    check_pass: "{{ check_pass | default(True) and item.rc == 0 }}"
+  loop: "{{ result.results }}"
+
+- name: Rename Mellanox interface
+  when: not check_pass
+  block:
+    - name: Add line to persistent-net.rules
+      shell: echo "ACTION==\"add\", SUBSYSTEM==\"net\", KERNELS==\"{{ item.key }}\", NAME:=\"{{ item.value }}\"" >> {{ persistent_net_path }}
+      loop: "{{ mellanox_intf_pci_id_to_name_map | dict2items }}"
+
+    - name: Reboot
+      reboot:
+        msg: "Reboot to apply Mellanox interfaces name change"
+
+    - name: Verify Mellanox interfaces name changed successfully
+      shell: ls -la /sys/class/net/ | grep -i {{ item.key }} | grep -o "[^/]*$" | grep -xF {{ item.value }}
+      loop: "{{ mellanox_intf_pci_id_to_name_map | dict2items }}"
+
+    - name: Print Mellanox interfaces name changed successfully
+      debug:
+        msg: "Mellanox interfaces name changed successfully"
+
+# The following block applies netplan testbed config
+
+- set_fact:
+    netplan_testbed_config_path: "/etc/netplan/50-testbed-config.yaml"
+
+- name: Check if netplan_installer_config exists
+  stat:
+    path: "{{ netplan_installer_config_path }}"
+  register: stat_result
+
+- name: Backup initial netplan config
+  shell: mv {{ netplan_installer_config_path }} {{ netplan_installer_config_path }}.bak
+  when: stat_result.stat.exists
+
+- name: Check if netplan_testbed_config exists
+  stat:
+    path: "{{ netplan_testbed_config_path }}"
+  register: stat_result
+
+- name: Apply new netplan config
+  when: not stat_result.stat.exists
+  block:
+    - name: Create new netplan config
+      template:
+        src: 50-testbed-config.yaml.j2
+        dest: "{{ netplan_testbed_config_path }}"
+
+    - name: Apply new netplan
+      shell: netplan apply
+
+    - name: Verify bridge up
+      shell: ifconfig {{ mgmt_bridge }} | head -1 | grep -o "<[A-Z,]*UP[A-Z,]*>"
+
+    - name: Verify bridge IP set successfully
+      shell: ifconfig {{ mgmt_bridge }} | head -2 | tail -1 | grep -o "[0-9.]*" | head -1 | grep -xF {{ ansible_host }}
+
+    - name: Verify mgmt interface up
+      shell: ifconfig {{ mgmt_intf_name }} | head -1 | grep -o "<[A-Z,]*UP[A-Z,]*>"
+
+    - name: Verify Mellanox interface up
+      shell: ifconfig {{ external_port }} | head -1 | grep -o "<[A-Z,]*UP[A-Z,]*>"
+
+    - name: Print new netplan config applied successfully
+      debug:
+        msg: "New netplan config applied successfully"

@@ -75,9 +75,6 @@ all:
         vms74-3:
           ansible_host: 10.64.247.120
           ansible_hostv6: 2a01:111:e210:b000::a40:f778
-        vms75-2:
-          ansible_host: 10.64.247.119
-          ansible_hostv6: 2a01:111:e210:b000::a40:f777
         vms75-3:
           ansible_host: 10.64.246.208
           ansible_hostv6: 2a01:111:e210:b000::a40:f6d0
@@ -90,6 +87,9 @@ all:
         vms76-1:
           ansible_host: 10.3.155.90
           ansible_hostv6: 2a01:111:e210:8a::a03:9b5a
+        vms77-1:
+          ansible_host: 10.64.247.119
+          ansible_hostv6: 2a01:111:e210:b000::a40:f777
 
     pdu:
       hosts:
@@ -231,10 +231,6 @@ fanout:
       ansible_host: 10.64.247.111
       ansible_hostv6:
       os: sonic
-    str4-7060x6-64pe-fan-9:
-      ansible_host: 10.64.247.108
-      ansible_hostv6:
-      os: sonic
     str4-7060x6-64pe-fan-11:
       ansible_host: 10.3.146.139
       ansible_hostv6:
@@ -242,22 +238,6 @@ fanout:
     str4-sn5600-fan-1:
       ansible_host: 10.64.246.48
       ansible_hostv6: 2a01:111:e210:b000::a40:f630
-      os: sonic
-    str4-sn5600-fan-4:
-      ansible_host: 10.64.246.50
-      ansible_hostv6: 2a01:111:e210:b000::a40:f632
-      os: sonic
-    str4-sn5600-fan-5:
-      ansible_host: 10.64.246.52
-      ansible_hostv6: 2a01:111:e210:b000::a40:f634
-      os: sonic
-    str4-sn5600-fan-6:
-      ansible_host: 10.64.246.66
-      ansible_hostv6: 2a01:111:e210:b000::a40:f642
-      os: sonic
-    str4-sn5600-fan-7:
-      ansible_host: 10.64.246.68
-      ansible_hostv6: 2a01:111:e210:b000::a40:f644
       os: sonic
     str4-sn5640-fan-2:
       ansible_host: 10.64.246.122
@@ -293,6 +273,10 @@ fanout:
       os: sonic
     str4-7060x6-512-fan-10:
       ansible_host: 10.3.155.95
+      ansible_hostv6:
+      os: sonic
+    str4-7060x6-512-fan-11:
+      ansible_host: 10.3.155.87
       ansible_hostv6:
       os: sonic
     str4-7060x6-64pe-fan-13:
@@ -343,26 +327,6 @@ sonic_arista_7060x6:
         "0x2D": "Arista Networks"
         "0x2B": "Arista Networks"
         "0x2F": "HBG241000K8"
-    str4-7060x6-64pe-9:
-      ansible_host: 10.64.247.107
-      ansible_hostv6: 2a01:111:e210:b000::a40:f76b
-      mgmt_subnet_mask_length: 23
-      hwsku: Arista-7060X6-64PE-O128S2
-      model: DCS-7060X6-64PE
-      serial: HBG2441052G
-      base_mac: 9c:69:ed:4c:1e:50
-      syseeprom_info:
-        "0x21": "DCS-7060X6-64PE"
-        "0x22": "ASY0783905C0"
-        "0x23": "HBG2441052G"
-        "0x24": "9c:69:ed:4c:1e:50"
-        "0x25": "2024/10/17 23:07:46"
-        "0x26": "01"
-        "0x27": "02.00"
-        "0x28": "x86_64-arista_7060x6_64pe"
-        "0x2D": "Arista Networks"
-        "0x2B": "Arista Networks"
-        "0x2F": "HBG2441052G"
     str4-7060x6-64pe-11:
       ansible_host: 10.3.146.138
       ansible_hostv6: 2a01:111:e210:3000::a03:928a
@@ -473,6 +437,27 @@ sonic_arista_7060x6_512:
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
       hwsku: Arista-7060X6-64PE-B-C512S2
+      model: DCS-7060X6-64PE-B
+      serial: HBG25160K1V
+      base_mac: d8:06:f3:37:42:e6
+      syseeprom_info:
+        '0x21': 'DCS-7060X6-64PE-B'
+        '0x22': 'ASY0899401A0'
+        '0x23': 'HBG25160K1V'
+        '0x24': 'd8:06:f3:37:42:e6'
+        '0x25': '2025/04/23 11:08:02'
+        '0x26': '01'
+        '0x27': '02.00'
+        '0x28': 'x86_64-arista_7060x6_64pe_b'
+        '0x2b': 'Arista Networks'
+        '0x2d': 'Arista Networks'
+        '0x2f': 'HBG25160K1V'
+    str4-7060x6-512-11:
+      ansible_host: 10.3.155.85
+      ansible_hostv6: 2a01:111:e210:3000::a03:9b55
+      mgmt_subnet_mask_length: 26
+      mgmt_subnet_v6_mask_length: 122
+      hwsku: Arista-7060X6-64PE-B-C448O16
       model: DCS-7060X6-64PE-B
       serial: HBG25160K1V
       base_mac: d8:06:f3:37:42:e6
@@ -614,90 +599,6 @@ sonic_nvidia_sn5600:
         "0x2B": "Nvidia"
         "0x2D": "Nvidia"
         "0xFE": "0x86ED774E"
-    str4-sn5600-4:
-      ansible_host: 10.64.246.49
-      ansible_hostv6: 2a01:111:e210:b000::a40:f631
-      mgmt_subnet_mask_length: 23
-      hwsku: Mellanox-SN5600-C224O8
-      model: SN5600
-      serial: MT2438XZ0HP9
-      base_mac: B0:CF:0E:B0:DE:00
-      syseeprom_info:
-        "0x21": "SN5600"
-        "0x22": "920-9N42F-00RI-7C0"
-        "0x23": "MT2438XZ0HP9"
-        "0x24": "B0:CF:0E:B0:DE:00"
-        "0x25": "09/25/2024 14:07:38"
-        "0x26": "0"
-        "0x28": "x86_64-nvidia_sn5600-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
-        "0x2B": "Nvidia"
-        "0x2D": "Nvidia"
-        "0xFE": "0xF931D612"
-    str4-sn5600-5:
-      ansible_host: 10.64.246.51
-      ansible_hostv6: 2a01:111:e210:b000::a40:f633
-      mgmt_subnet_mask_length: 23
-      hwsku: Mellanox-SN5600-C256S1
-      model: SN5600
-      serial: MT2438XZ0HP6
-      base_mac: B0:CF:0E:B0:D8:00
-      syseeprom_info:
-        "0x21": "SN5600"
-        "0x22": "920-9N42F-00RI-7C0"
-        "0x23": "MT2438XZ0HP6"
-        "0x24": "B0:CF:0E:B0:D8:00"
-        "0x25": "09/25/2024 14:54:49"
-        "0x26": "0"
-        "0x28": "x86_64-nvidia_sn5600-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
-        "0x2B": "Nvidia"
-        "0x2D": "Nvidia"
-        "0xFE": "0xC178779D"
-    str4-sn5600-6:
-      ansible_host: 10.64.246.65
-      ansible_hostv6: 2a01:111:e210:b000::a40:f641
-      mgmt_subnet_mask_length: 23
-      hwsku: Mellanox-SN5600-C224O8
-      model: SN5600
-      serial: MT2452XZ085Z
-      base_mac: B0:CF:0E:BA:92:00
-      syseeprom_info:
-        "0x21": "SN5600"
-        "0x22": "920-9N42F-00RI-7C0"
-        "0x23": "MT2452XZ085Z"
-        "0x24": "B0:CF:0E:BA:92:00"
-        "0x25": "12/24/2024 18:06:43"
-        "0x26": "0"
-        "0x28": "x86_64-nvidia_sn5600-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
-        "0x2B": "Nvidia"
-        "0x2D": "Nvidia"
-        "0xFE": "0x4CFCEFC7"
-    str4-sn5600-7:
-      ansible_host: 10.64.246.67
-      ansible_hostv6: 2a01:111:e210:b000::a40:f643
-      mgmt_subnet_mask_length: 23
-      hwsku: Mellanox-SN5600-C256S1
-      model: SN5600
-      serial: MT2452XZ084D
-      base_mac: B0:CF:0E:BA:2A:00
-      syseeprom_info:
-        "0x21": "SN5600"
-        "0x22": "920-9N42F-00RI-7C0"
-        "0x23": "MT2452XZ084D"
-        "0x24": "B0:CF:0E:BA:2A:00"
-        "0x25": "12/24/2024 18:02:22"
-        "0x26": "0"
-        "0x28": "x86_64-nvidia_sn5600-r0"
-        "0x29": "2022.08-5.3.0010-115200"
-        "0x2A": "512"
-        "0x2B": "Nvidia"
-        "0x2D": "Nvidia"
-        "0xFE": "0xFF0F2F0F"
 
 sonic_nvidia_sn5640:
   hosts:
@@ -875,6 +776,9 @@ server:
       ansible_hostv6: 2a01:111:e210:8a::150
       mgmt_subnet_mask_length: 26
       mgmt_subnet_v6_mask_length: 122
+    str4-acs-serv-77:
+      ansible_host: 10.64.246.216
+      ansible_hostv6: 2a01:111:e210:b000::a40:f6d8
     str4-acs-serv-13:
       ansible_host: 10.64.247.246
       ansible_hostv6: 2a01:111:e210:b000::a40:f7f6

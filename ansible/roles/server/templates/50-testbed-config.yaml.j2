@@ -1,0 +1,35 @@
+network:
+  version: 2
+  ethernets:
+{% for intf in ansible_facts['interfaces'] %}
+{% if intf.startswith('eno') %}
+    {{ ansible_facts[intf]['device'] }}:
+      dhcp4: no
+      dhcp6: no
+{% endif %}
+{% endfor %}
+{% for intf in external_interface_list %}
+    {{ intf }}:
+      dhcp4: no
+      dhcp6: no
+      mtu: 9216
+      match:
+        macaddress: "{{ ansible_facts[intf]['macaddress'] }}"
+      set-name: {{ intf | regex_replace('enp.*(\d)$', 'ens4f\\1') }}
+{% endfor %}
+
+  bridges:
+    {{ mgmt_bridge }}:
+      dhcp4: no
+      dhcp6: no
+      interfaces: [{{ mgmt_intf_name }}]
+      addresses: {{ mgmt_bridge_addresses }}
+      routes:
+        - to: default
+          metric: 100
+          via: {{ mgmt_gw }}
+        - to: ::/0
+          via: {{ mgmt_gw_v6 }}
+      nameservers:
+        addresses: {{ dns_servers }}
+        search: [corp.microsoft.com]

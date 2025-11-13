@@ -1,0 +1,321 @@
+
+- name: Switch to user azure
+  set_fact:
+    ansible_user: "{{ server_user }}"
+    ansible_password: "{{ server_password }}"
+
+
+- name: Load host_vars variable
+  include_vars: "host_vars/{{ inventory_hostname | upper }}.yml"
+
+# solution for https://askubuntu.com/questions/322514/terminal-command-with-sudo-takes-a-long-time.
+# this issue may be seen when deploying topo with large VMs
+- name: adding hostname into /etc/hosts
+  lineinfile:
+    path: /etc/hosts
+    regexp: "^127.0.0.1 {{ ansible_facts['hostname'] }}"
+    line: "127.0.0.1 {{ ansible_facts['hostname'] }}"
+  become: yes
+
+- name: append http proxy settings to .bashrc
+  ansible.builtin.lineinfile:
+    path: /home/azure/.bashrc
+    regexp: '^export http_proxy={{ proxy_env["http_proxy"] | default({}) }}$'
+    line: 'export http_proxy={{ proxy_env["http_proxy"] | default({}) }}'
+    owner: azure
+    group: azure
+    create: yes
+  become: yes
+
+- name: append https proxy settings to .bashrc
+  ansible.builtin.lineinfile:
+    path: /home/azure/.bashrc
+    regexp: "^export https_proxy={{ proxy_env['https_proxy'] | default({}) }}$"
+    line: "export https_proxy={{ proxy_env['https_proxy'] | default({}) }}"
+    owner: azure
+    group: azure
+    create: yes
+  become: yes
+
+- name: append proxy settings to apt.conf.d
+  ansible.builtin.lineinfile:
+    path: '/etc/apt/apt.conf.d/30proxies'
+    regexp: '^Acquire::http::Proxy'
+    line: 'Acquire::http::Proxy "{{ proxy_env["http_proxy"] | default({}) }}";'
+    create: yes
+  become: yes
+
+# The following block configures ifupdown
+
+- name: copy etc_interface file
+  copy:
+    src: etc_interfaces_file
+    dest: /etc/network/interfaces
+  become: yes
+
+- name: Install ifupdown
+  package:
+    name: ifupdown
+    state: present
+
+- name: Print ifupdown config applied successfully
+  debug:
+    msg: "Ifupdown config applied successfully"
+
+# The following block configures timesyncd
+
+- set_fact:
+    ntp_config_path: "/etc/systemd/timesyncd.conf"
+    ntp_server: "{{ ntp_servers[0] }}"
+
+- name: Check if NTP server config is correct
+  shell: systemctl status systemd-timesyncd.service | grep Status | grep -o "[^0-9]{{ ntp_server | regex_escape }}[^0-9]"
+  register: ntp_server_check_result
+  ignore_errors: True
+
+- name: Config NTP server
+  when: ntp_server_check_result.rc != 0
+  block:
+    - name: Config NTP server
+      shell: sed -i "s/#NTP=/NTP={{ ntp_server }}/g" {{ ntp_config_path }}
+
+    - name: Restart timesyncd
+      systemd:
+        name: systemd-timesyncd.service
+        state: restarted
+
+    - name: Check if NTP server config is correct
+      shell: systemctl status systemd-timesyncd.service | grep Status | grep -o "[^0-9]{{ ntp_server }}[^0-9]"
+
+# The following block configures swap
+
+- set_fact:
+    fstab_path: "/etc/fstab"
+    target_swap_size: "256"
+
+- name: Find swap info
+  shell: swapon --show | tail -n +2 | awk '{print $3}' | grep -o "[0-9]*G$" | tr -d G
+  register: beginning_swap_info
+
+- name: Calculate beginning swap size
+  set_fact:
+    beginning_swap_size: "{{ beginning_swap_info.stdout_lines | map('int') | sum }}"
+
+- name: Print beginning swap size
+  debug:
+    msg: "Beginning total swap size is {{ beginning_swap_size }}"
+
+- name: Expand swap size
+  when: beginning_swap_size | int < target_swap_size | int
+  block:
+    - name: Find all swap files
+      shell: swapon --show | grep file | awk '{print $1}'
+      register: current_swap_files
+
+    - name: Turn off swap files
+      shell: swapoff -v {{ item }}
+      loop: "{{ current_swap_files.stdout_lines }}"
+
+    - name: Remove entries from fstab
+      shell: sed -i "/^\{{ item | regex_escape | replace('/', '\/') }}\s/d" {{ fstab_path }}
+      loop: "{{ current_swap_files.stdout_lines }}"
+
+    - name: Remove swap files
+      file:
+        path: "{{ item }}"
+        state: absent
+      loop: "{{ current_swap_files.stdout_lines }}"
+
+    - name: Find swap info
+      shell: swapon --show | tail -n +2 | awk '{print $3}' | grep -o "[0-9]*G$" | tr -d G
+      register: current_swap_info
+
+    - name: Calculate current swap size
+      set_fact:
+        current_swap_size: "{{ current_swap_info.stdout_lines | map('int') | sum }}"
+
+    - name: Calculate swap file size
+      set_fact:
+        swap_file_size: "{{ target_swap_size | int - current_swap_size | int }}"
+
+    - set_fact:
+        swap_file_path: "/swap.{{ swap_file_size }}g.img"
+
+    - name: Print creating swap file
+      debug:
+        msg: "Creating swap file {{ swap_file_path }} of size {{ swap_file_size }}"
+
+    - name: Create swap file
+      shell: fallocate -l {{ swap_file_size }}G {{ swap_file_path }}
+
+    - name: Change swap file permission
+      file:
+        path: "{{ swap_file_path }}"
+        mode: "600"
+
+    - name: Mkswap
+      shell: mkswap {{ swap_file_path }}
+
+    - name: Turn on swap file
+      shell: swapon {{ swap_file_path }}
+
+    - name: Add entry to fstab
+      shell: echo "{{ swap_file_path }} none swap sw 0 0" >> {{ fstab_path }}
+
+    - name: Find swap info
+      shell: swapon --show | tail -n +2 | awk '{print $3}' | grep -o "[0-9]*G$" | tr -d G
+      register: ending_swap_info
+
+    - name: Calculate current swap size
+      set_fact:
+        ending_swap_size: "{{ ending_swap_info.stdout_lines | map('int') | sum }}"
+
+    - name: Verify swap size
+      fail:
+        msg: "Swap size is not correctly set to {{ target_swap_size }} but {{ ending_swap_size }}"
+      when: ending_swap_size != target_swap_size
+
+    - name: Print created swap file successfully
+      debug:
+        msg: "Created swap file {{ swap_file_path }} of size {{ swap_file_size }} successfully"
+
+    - name: Print ending swap size
+      debug:
+        msg: "Current total swap size is {{ ending_swap_size }}"
+
+# The following block installs docker
+
+- set_fact:
+    preinstall_package_list:
+      - ca-certificates
+      - curl
+      - gnupg
+      - lsb-release
+    docker_package_list:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    key_ring_path: "/etc/apt/keyrings"
+    docker_url: "https://download.docker.com/linux/ubuntu"
+    docker_key_url: "https://download.docker.com/linux/ubuntu/gpg"
+    key_file_name: "docker.gpg"
+    docker_source_name: "docker.list"
+    docker_source_path: "/etc/apt/sources.list.d/docker.list"
+
+- name: Gather package facts
+  package_facts:
+    manager: auto
+
+- name: Install docker
+  when: packages is not superset(docker_package_list)
+  block:
+    - name: Install preinstall packages
+      package:
+        name: "{{ preinstall_package_list }}"
+        state: present
+
+    - name: Create directory
+      file:
+        path: /etc/apt/keyrings
+        state: directory
+
+    - name: Get docker key
+      shell: curl -fsSL -x "{{ proxy_env["http_proxy"] | default('') }}" "{{ docker_key_url }}" | sudo gpg --yes --dearmor -o "{{ key_ring_path }}/{{ key_file_name }}" --no-tty
+
+    - name: Find architecture
+      shell: dpkg --print-architecture
+      register: arch
+
+    - name: Find lsb
+      shell: lsb_release -cs
+      register: lsb
+
+    - name: Create docker source file
+      template:
+        src: "{{ docker_source_name }}"
+        dest: "{{ docker_source_path }}"
+
+    - name: Update apt
+      apt:
+        update_cache: yes
+
+    - name: Install docker packages
+      package:
+        name: "{{ docker_package_list }}"
+        state: present
+
+    - name: Test docker ps
+      shell: docker ps
+
+- name: Add user to docker group
+  shell: usermod -aG docker azure
+
+- name: replace docker daemon with custom configuration
+  copy:
+    src: docker_daemon.json
+    dest: /etc/docker/daemon.json
+  become: yes
+
+- name: ensurce docker.service.d directory exists
+  file:
+    path: /etc/systemd/system/docker.service.d
+    state: directory
+  become: yes
+
+- name: copy docker_http_proxy file
+  template:
+    src: docker_http-proxy.cfg.j2
+    dest: /etc/systemd/system/docker.service.d/http-proxy.conf
+  become: yes
+
+- name: copy docker https proxy file
+  template:
+    src: docker_https-proxy.cfg.j2
+    dest: /etc/systemd/system/docker.service.d/https-proxy.conf
+  become: yes
+
+# Miscellaneous
+
+- set_fact:
+    sysinfo_path: "/etc/update-motd.d/50-landscape-sysinfo"
+
+- name: Check if sysinfo exists
+  stat:
+    path: "{{ sysinfo_path }}"
+  register: stat_result
+
+- name: Backup sysinfo
+  shell: mv {{ sysinfo_path }} {{ sysinfo_path }}.bak
+  when: stat_result.stat.exists
+
+# The following block switchs to using cgroupv1
+
+- set_fact:
+    grub_path: "/etc/default/grub"
+
+- name: Find cgroup version
+  shell: docker info | grep "Cgroup Version:" | awk '{print $3}'
+  register: cgroup_version
+
+- name: Switch to using cgroupv1
+  when: cgroup_version.stdout == "2"
+  block:
+    - name: Add kernel parameter to grub config
+      shell: sed -i "s/^GRUB_CMDLINE_LINUX_DEFAULT=\"[^\"]*/& systemd.unified_cgroup_hierarchy=0/g" "{{ grub_path }}"
+
+    - name: Update grub
+      shell: update-grub
+
+    - name: Reboot
+      reboot:
+        msg: "Reboot to apply grub config change"
+
+    - name: Find cgroup version
+      shell: docker info | grep "Cgroup Version:" | awk '{print $3}'
+      register: new_cgroup_version
+      failed_when: new_cgroup_version.stdout != "1"
+
+    - name: Print switched to using cgroupv1 successfully
+      debug:
+        msg: "Switched to using cgroupv1 successfully"

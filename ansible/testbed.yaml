@@ -1862,20 +1862,6 @@
   auto_recover: 'True'
   comment: zitingguo
 
-- conf-name: vms74-t1-sn5600-5
-  group-name: vms74-2
-  topo: t0-isolated-d2u254s1 #255VM
-  ptf_image_name: docker-ptf
-  ptf: vms74-2
-  ptf_ip: 10.64.247.103/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f767/64
-  server: server_74
-  vm_base: VM74376
-  dut:
-  - str4-sn5600-5
-  inv_name: str4
-  comment: wendachu
-
 - conf-name: vms73-t0-7060x6-512-1
   group-name: vms73-4
   topo: t0-isolated-d32u32s2
@@ -1951,20 +1937,20 @@
   auto_recover: 'True'
   comment: dashuaizhang
 
-- conf-name: vms75-t1-7060x6-9
-  group-name: vms75-2
-  topo: t1-isolated-d128
+- conf-name: vms77-t1-7060x6-11
+  group-name: vms77-1
+  topo: t1-isolated-d448u15-lag # 463VM
   ptf_image_name: docker-ptf
-  ptf: vms75-2
+  ptf: vms77-1
   ptf_ip: 10.64.247.119/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f777/64
-  server: server_75
-  vm_base: VM75022
+  server: server_str4_77
+  vm_base: VM77200
   dut:
-  - str4-7060x6-64pe-9
+  - str4-7060x6-512-11
   inv_name: str4
   auto_recover: 'True'
-  comment: dashuaizhang
+  comment: zitingguo
 
 - conf-name: vms91-t0-7060x6-moby-512-1
   group-name: vms91-4
@@ -2022,51 +2008,6 @@
   vm_base: VM70000
   dut:
   - str4-sn5600-1
-  inv_name: str4
-  auto_recover: 'True'
-  comment: janetcui
-
-- conf-name: vms70-t1-sn5600-2
-  group-name: vms70-5
-  topo: t1-isolated-d28u1
-  ptf_image_name: docker-ptf
-  ptf: vms70-5
-  ptf_ip: 10.64.247.102/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f766/64
-  server: server_70
-  vm_base: VM70197
-  dut:
-  - str4-sn5600-4
-  inv_name: str4
-  auto_recover: 'True'
-  comment: janetcui
-
-- conf-name: vms73-t1-sn5600-4
-  group-name: vms73-7
-  topo: t1-isolated-d28u1
-  ptf_image_name: docker-ptf
-  ptf: vms73-7
-  ptf_ip: 10.64.247.144/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f790/64
-  server: server_73
-  vm_base: VM73048
-  dut:
-  - str4-sn5600-6
-  inv_name: str4
-  auto_recover: 'True'
-  comment: janetcui
-
-- conf-name: vms73-t1-sn5600-5
-  group-name: vms71-5
-  topo: t1-isolated-v6-d28u1
-  ptf_image_name: docker-ptf
-  ptf: vms71-5
-  ptf_ip: 10.64.247.116/23
-  ptf_ipv6: 2a01:111:e210:b000::a40:f774/64
-  server: server_71
-  vm_base: VM41232
-  dut:
-  - str4-sn5600-7
   inv_name: str4
   auto_recover: 'True'
   comment: janetcui
