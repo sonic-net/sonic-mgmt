@@ -139,6 +139,15 @@ acstests:
       - "True"
 
 #######################################
+#####          acstests              #####
+#######################################
+acstests:
+  skip:
+    reason: "It is not  tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####            arp              #####
 #######################################
 arp/test_arp_dualtor.py::test_proxy_arp_for_standby_neighbor:
@@ -749,6 +758,12 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
+dash:
+  skip:
+    reason: "Not supported on this DUT topology."
+    conditions:
+      - "'dpu' not in topo_name"
+
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -3887,6 +3902,15 @@ ptftests:
       - "True"
 
 #######################################
+#####     ptftests      #####
+#######################################
+ptftests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
@@ -4479,6 +4503,24 @@ saitests:
       - "True"
 
 #######################################
+#####           sai_qualify       #####
+#######################################
+sai_qualify:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
+#####              saitests         #####
+#######################################
+saitests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####              scp            #####
 #######################################
 scp/test_scp_copy.py::test_scp_copy:
@@ -4486,6 +4528,15 @@ scp/test_scp_copy.py::test_scp_copy:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+#######################################
+#####            scripts         #####
+#######################################
+scripts:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####            scripts         #####
