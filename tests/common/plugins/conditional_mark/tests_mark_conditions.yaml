@@ -2575,7 +2575,7 @@ generic_config_updater/test_pfcwd_interval.py:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'cisco-8000']"
       - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 
