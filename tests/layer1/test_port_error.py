@@ -34,7 +34,6 @@ class TestMACFault(object):
     def is_sw_control_feature_enabled(duthost):
         fixture_path = os.path.join(os.path.dirname(__file__), "..", "platform_tests", "mellanox", "conftest.py")
         fixture_path = os.path.abspath(fixture_path)
-    
         spec = importlib.util.spec_from_file_location("mlx_conftest_module_enabled", fixture_path)
         module = importlib.util.module_from_spec(spec)
         sys.modules["mlx_conftest_module_enabled"] = module
