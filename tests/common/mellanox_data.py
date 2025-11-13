@@ -14,6 +14,7 @@ SWITCH_HWSKUS = SPC1_HWSKUS + SPC2_HWSKUS + SPC3_HWSKUS + SPC4_HWSKUS + SPC5_HWS
 
 LOSSY_ONLY_HWSKUS = ['Mellanox-SN5600-C256S1', 'Mellanox-SN5600-C224O8', 'Mellanox-SN5640-C512S2',
                      'Mellanox-SN5640-C448O16']
+NO_QOS_HWSKUS = []
 
 PSU_CAPABILITIES = [
     ['psu{}_curr', 'psu{}_curr_in', 'psu{}_power', 'psu{}_power_in', 'psu{}_volt', 'psu{}_volt_in', 'psu{}_volt_out'],
