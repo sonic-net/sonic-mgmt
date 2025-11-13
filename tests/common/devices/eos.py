@@ -454,15 +454,15 @@ class EosHost(AnsibleHostBase):
             output = self.eos_command(commands=[command])['stdout'][0]
             forwardingModel = output["interfaces"][interface_name]["forwardingModel"]
             if forwardingModel == "routed":
-                assert interface_name.startswith("Ethernet")
-                intf_id = interface_name.strip("Ethernet")
-                kernelintf_name = "eth" + intf_id
-                command = "bash ifconfig {} | grep ether | awk '{{print $2}}'".format(kernelintf_name)
-                mac = self.eos_command(commands=[command])['stdout'][0]
-                return mac
-            else:
-                mac = output["interfaces"][interface_name]["physicalAddress"]
-                return mac
+                self.eos_config(
+                    lines=['switchport'],
+                    parents=['interface {}'.format(interface_name)])
+                output = self.eos_command(commands=[command])['stdout'][0]
+                self.eos_config(
+                    lines=['no switchport'],
+                    parents=['interface {}'.format(interface_name)])
+            mac = output["interfaces"][interface_name]["physicalAddress"]
+            return mac
         except Exception as e:
             logger.error('Failed to get MAC address for interface "{}", exception: {}'.format(interface_name, repr(e)))
             return None
