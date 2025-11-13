@@ -8,10 +8,13 @@
 # You will need:
 # mgmt_bridge: typically expected to be br1
 # mgmt_prefixlen: prefixlen of mgmt network
+# mgmt_intf_name: name of nic connected to mgmt network.
 # mgmt_gw: gateway of mgmt network
 # external_port: name of outgoing nic
 # mgmt_bridge_addresses: list mgmt ip used to access server
-# The script works on Ubuntu 22.04.4 only
+# prerequisite:
+# - The script works on Ubuntu 22.04.4 only
+# - The server should have disk setup ready. The script will not handle disk partition and lvm setup.
 - hosts: server
   gather_facts: no
   roles:

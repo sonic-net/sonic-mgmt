@@ -1,0 +1,5 @@
+# ifupdown has been replaced by netplan(5) on this system.  See
+# /etc/netplan for current configuration.
+# To re-enable ifupdown on this system, you can run:
+#    sudo apt install ifupdown
+source-directory interfaces.d

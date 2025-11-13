@@ -1,0 +1,171 @@
+- name: Set init credential
+  set_fact:
+    ansible_user: "{{ init_user }}"
+    ansible_password: "{{ init_password }}"
+    ansible_sudo_pass: "{{ init_sudo_pass }}"
+
+- name: Load host_vars variable
+  include_vars: "host_vars/{{ inventory_hostname | upper }}.yml"
+
+- name: Gather facts
+  ansible.builtin.setup:
+
+# The following block creates and configures user azure
+- name: Create user azure
+  user:
+    name: "{{ server_user }}"
+    state: present
+    home: "/home/{{ server_user }}"
+    groups: sudo
+    append: true
+    create_home: true
+    shell: /bin/bash
+
+- name: Set home directory mode
+  file:
+    path: "/home/{{ server_user }}"
+    mode: "0755"
+
+- name: Grant NOPASSWD to sudo group
+  shell: sed -i "/^%sudo\s*ALL=(ALL:ALL)\s*ALL$/ c\%sudo ALL=(ALL:ALL) NOPASSWD:ALL" /etc/sudoers
+
+- name: Rotate the password
+  shell: "echo {{ server_user }}:{{ ansible_altpasswords[0] }} | sudo chpasswd"
+  ignore_errors: true
+
+- name: append proxy settings to apt.conf.d
+  ansible.builtin.lineinfile:
+    path: '/etc/apt/apt.conf.d/30proxies'
+    regexp: '^Acquire::http::Proxy'
+    line: 'Acquire::http::Proxy "{{ proxy_env["http_proxy"] | default({}) }}";'
+    create: yes
+  become: yes
+
+- name: Install ifconfig
+  package:
+    name: net-tools
+    state: present
+
+# The following block renames mgmt interface
+
+- set_fact:
+    netplan_installer_config_path: "/etc/netplan/00-installer-config.yaml"
+    persistent_net_path: "/etc/udev/rules.d/70-persistent-net.rules"
+    target_br_name: "br1"
+
+# Double check if the current configured mgmt interface matches with the mgmt_intf_name from host_vars.
+# The current interface could be 'br1' after first run. If it's the case, we will skip netplan config.
+- set_fact: current_mgmt_intf_name="{{ ansible_facts['default_ipv4']['interface'] }}"
+
+- name: Verify expected mgmt interface is up
+  shell: ip link show {{ mgmt_intf_name }} | grep -o "state UP"
+
+- name: Print mgmt interface name
+  debug:
+    msg: "current mgmt interface of {{ ansible_host }} is {{ current_mgmt_intf_name }}"
+
+- name: extend mgmt_bridge_addresses to include ansible_host and ansible_hostv6 if not already present
+  set_fact:
+    mgmt_bridge_addresses: "{{ (mgmt_bridge_addresses | default([])) | union([ansible_host + '/' + (ansible_facts['default_ipv4']['prefix'] | string), ansible_hostv6 + '/64']) }}"
+
+# The following find the Mellanox interfaces
+- name: Find Mellanox NIC PCI id
+  shell: lspci -D | grep -i ethernet | grep -i Mellanox | grep -o "^[^ ]*"
+  register: mellanox_intf_pci_id
+
+- set_fact: mellanox_intf_pci_id="{{ mellanox_intf_pci_id.stdout.splitlines() }}"
+
+- name: Print PCI id of Mellanox interfaces
+  debug:
+    msg: "PCI id of Mellanox interfaces is {{ mellanox_intf_pci_id }}"
+
+- name: Get actual interface name from PCI ID
+  shell: ls -la /sys/class/net/ | grep -i {{ item }} | grep -o "[^/]*$"
+  register: actual_intf_name
+  loop: "{{ mellanox_intf_pci_id }}"
+
+- name: Create PCI ID to actual interface name mapping
+  set_fact:
+    mellanox_intf_pci_id_to_name_map: "{{ mellanox_intf_pci_id_to_name_map | default({}) | combine({item.item: item.stdout}) }}"
+  loop: "{{ actual_intf_name.results }}"
+
+- name: Print PCI id of Mellanox interfaces
+  debug:
+    msg: "PCI id of Mellanox interfaces is {{ mellanox_intf_pci_id_to_name_map }}"
+
+- name: Check Mellanox interfaces name
+  shell: ls -la /sys/class/net/ | grep -i {{ item.key }} | grep -o "[^/]*$"
+  register: result
+  loop: "{{ mellanox_intf_pci_id_to_name_map | dict2items }}"
+  ignore_errors: True
+
+- name: get external interface name list
+  set_fact:
+    external_interface_list: "{{ mellanox_intf_pci_id_to_name_map.values() | list }}"
+
+# The following block applies netplan testbed config
+- set_fact:
+    netplan_testbed_config_path: "/etc/netplan/50-testbed-config.yaml"
+
+- name: Check if netplan_installer_config exists
+  stat:
+    path: "{{ netplan_installer_config_path }}"
+  register: stat_result
+
+- name: Backup initial netplan config
+  shell: mv {{ netplan_installer_config_path }} {{ netplan_installer_config_path }}.bak
+  when: stat_result.stat.exists
+
+- name: Check if netplan_testbed_config exists
+  stat:
+    path: "{{ netplan_testbed_config_path }}"
+  register: stat_result
+
+- name: Fail if current mgmt interface name doesn't match with the mgmt_intf_name in host_vars
+  when: not stat_result.stat.exists and current_mgmt_intf_name != mgmt_intf_name
+  fail:
+    msg: "mgmt interface name {{ current_mgmt_intf_name }} doesn't match the expected mgmt interface name {{ mgmt_intf_name }}. Cannot proceed with netplan config."
+
+- name: Set skip flag when netplan config exists or mgmt interface name doesn't match
+  set_fact:
+    skip_netplan_config: "{{ stat_result.stat.exists or current_mgmt_intf_name != mgmt_intf_name }}"
+
+- name: Apply new netplan config
+  when: not skip_netplan_config
+  block:
+    - name: Create new netplan config
+      template:
+        src: 50-testbed-config.yaml.j2
+        dest: "{{ netplan_testbed_config_path }}"
+
+    - name: Show the content of the remote file in multiple lines
+      ansible.builtin.shell: cat {{ netplan_testbed_config_path }}
+      register: netplan_config_content
+
+    - name: Display remote netplan config content
+      ansible.builtin.debug:
+        msg: "{{ netplan_config_content.stdout_lines }}"
+
+    - name: Pause for manual check
+      pause:
+        prompt: "Pls check netplan config. Then press Enter to continue"
+
+    - name: Apply new netplan
+      shell: netplan apply
+
+    - name: Verify bridge up
+      shell: ip link show {{ mgmt_bridge }} | grep -o "state UP"
+
+    - name: Verify bridge IP set successfully
+      shell: ip addr show {{ mgmt_bridge }} | grep inet | grep -oE '\b([0-9]{1,3}\.){3}[0-9]{1,3}\b' | grep -xF {{ ansible_host }}
+
+    - name: Verify mgmt interface up
+      shell: ip link show {{ mgmt_intf_name }} | grep -o "state UP"
+
+    - name: Verify Mellanox interface up
+      shell: ip link show {{ external_port }} | grep -o "state UP"
+      ignore_errors: true
+
+    - name: Print new netplan config applied successfully
+      debug:
+        msg: "New netplan config applied successfully"
