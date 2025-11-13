@@ -22,8 +22,8 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401, F405
-
+from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
+from tests.common.helpers.assertions import pytest_require
 logger = logging.getLogger(__name__)
 
 
