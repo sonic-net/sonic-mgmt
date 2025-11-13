@@ -579,7 +579,6 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
 
 @pytest.fixture(scope="module")
 def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
-
     """
     Populate tgen ports info of T0 testbed and returns as a list
     Args:
@@ -612,7 +611,6 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
-
     speed_type = {
                   '10000': 'speed_10_gbps',
                   '25000': 'speed_25_gbps',
@@ -645,46 +643,36 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-            ipv4_entry = next((a for a in int_addrs if '.' in a), None)
-            if ipv4_entry:
-                port['peer_ip'], port['prefix'] = ipv4_entry.split('/')
-                port['ip'] = get_addrs_in_subnet(ipv4_entry, 2)[1]
-            else:
-                port['peer_ip'] = dutIps[port_id]
-                port['prefix'] = prefix_length
-                port['ip'] = tgenIps[port_id]
-                try:
-                    logger.info('Pre-Configuring Dut: {} with port {} with IP {}/{}'.format(
-                                                                                        duthost.hostname,
-                                                                                        port['peer_port'],
-                                                                                        dutIps[port_id],
-                                                                                        prefix_length))
-                    duthost.command('sudo config interface ip add {} {}/{} \n' .format(
-                                                                                        port['peer_port'],
-                                                                                        dutIps[port_id],
-                                                                                        prefix_length))
-                except Exception:
-                    pytest_assert(False, "Unable to configure IPv4 on the interface {}".format(port['peer_port']))
-            ipv6_entry = next((a for a in int_addrs if ':' in a), None)
-            if ipv6_entry:
-                port['peer_ipv6'], port['ipv6_prefix'] = ipv6_entry.split('/')
-                port['ipv6'] = get_ipv6_addrs_in_subnet(ipv6_entry, 2)[1]
-            else:
-                port['peer_ipv6'] = dutv6Ips[port_id]
-                port['ipv6_prefix'] = v6_prefix_length
-                port['ipv6'] = tgenv6Ips[port_id]
-                try:
-                    logger.info('Pre-Configuring Dut: {} with port {} with IPv6 {}/{}'.format(
-                                                                                        duthost.hostname,
-                                                                                        port['peer_port'],
-                                                                                        dutv6Ips[port_id],
-                                                                                        v6_prefix_length))
-                    duthost.command('sudo config interface ip add {} {}/{} \n' .format(
-                                                                                        port['peer_port'],
-                                                                                        dutv6Ips[port_id],
-                                                                                        v6_prefix_length))
-                except Exception:
-                    pytest_assert(False, "Unable to configure IPv6 on the interface {}".format(port['peer_port']))
+            for ipver, addr_type in (("ipv4", "IPv4"), ("ipv6", "IPv6")):
+                entry = next((a for a in int_addrs if (":" in a) == (ipver == "ipv6")), None)
+                if ipver == "ipv4":
+                    dut_list, tgen_list, mask = dutIps, tgenIps, prefix_length
+                    peer_ip_key, prefix_key, ip_key = "peer_ip", "prefix", "ip"
+                else:
+                    dut_list, tgen_list, mask = dutv6Ips, tgenv6Ips, v6_prefix_length
+                    peer_ip_key, prefix_key, ip_key = "peer_ipv6", "ipv6_prefix", "ipv6"
+                if entry:
+                    # Already configured on DUT
+                    port[peer_ip_key], port[prefix_key] = entry.split("/")
+                    port[ip_key] = get_addrs_in_subnet(entry, 1, exclude_ips=[entry.split("/")[0]])[0]
+                else:
+                    # Assign and configure new IPs
+                    port[peer_ip_key] = dut_list[port_id]
+                    port[prefix_key] = mask
+                    port[ip_key] = tgen_list[port_id]
+                    try:
+                        logger.info(
+                            f"Pre-configuring {addr_type}: {duthost.hostname} "
+                            f"port {peer_port} -> {dut_list[port_id]}/{mask}"
+                        )
+                        duthost.command(
+                            f"sudo config interface ip add {peer_port} {dut_list[port_id]}/{mask}"
+                        )
+                    except Exception as e:
+                        pytest.fail(
+                            f"Unable to configure {addr_type} on {peer_port}: {e}",
+                            pytrace=False,
+                        )
     return snappi_ports
 
 
