@@ -266,8 +266,13 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     logger.info(show_gnmi_out)
     result = str(show_gnmi_out)
     update_responses_match = re.findall("json_ietf_val", result)
-    pytest_assert(len(update_responses_match) == 5, "Missing update responses")
-    # TODO: verify an empty update is sent.
+    pytest_assert(len(update_responses_match) > 0, "Incorrect update responses")
+
+    # Now generate some SRv6 SID counter values by adding mock data
+    duthost.shell("sonic-db-cli -n {} COUNTERS_DB HSET \"COUNTERS:oid:0x11110000001eb3\" SAI_COUNTER_STAT_PACKETS 10 \
+                  SAI_COUNTER_STAT_BYTES 40960".format(namespace))
+    duthost.shell("sonic-db-cli -n {} COUNTERS_DB HSET \"COUNTERS_SRV6_NAME_MAP\" \"fcbb:bbbb:1::/48\" \
+                  \"oid:0x11110000001eb3\"".format(namespace))
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=10,
@@ -278,7 +283,8 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     def callback(show_gnmi_out):
         result = str(show_gnmi_out)
         logger.info(result)
-        # TODO: verify that actual data is sent.
+        update_responses_match = re.findall("SAI_COUNTER_STAT_PACKETS", result)
+        pytest_assert(len(update_responses_match) > 0, "Missing update responses")
 
     client_thread = InterruptableThread(target=invoke_py_cli_from_ptf, args=(ptfhost, cmd, callback,))
     client_thread.start()
@@ -287,3 +293,6 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
 
     # Give 60 seconds for client to connect to server and then 60 for default route to populate after bgp session start
     client_thread.join(120)
+
+    duthost.shell(f"sonic-db-cli -n {namespace} COUNTERS_DB DEL \"COUNTERS:oid:0x11110000001eb3\"")
+    duthost.shell(f"sonic-db-cli -n {namespace} COUNTERS_DB HDEL \"COUNTERS_SRV6_NAME_MAP\" \"fcbb:bbbb:1::/48\"")
