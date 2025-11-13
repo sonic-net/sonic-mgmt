@@ -55,9 +55,9 @@ class QosParamCisco(object):
         # 0: Max queue depth in bytes
         # 1: Flow control configuration on this device, either 'separate' or 'shared'.
         # 2: Number of packets margin for the quantized queue watermark tests.
-        asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3),
-                       "gr": (24576000, 18000, 384, 1350, 2, 3),
-                       "gr2": (None, 1, 512, 64, 1, 3)}
+        asic_params = {"gb": (6144000, 3072, 384, 1350, 2, 3, 0),
+                       "gr": (24576000, 18000, 384, 1350, 2, 3, 0),
+                       "gr2": (None, 2, 512, 64, 3, 4, -40)}
         self.supports_autogen = dutAsic in asic_params and topo == "topo-any"
         if self.supports_autogen:
             # Asic dependent parameters
@@ -66,7 +66,8 @@ class QosParamCisco(object):
              self.buffer_size,
              self.preferred_packet_size,
              self.lossless_pause_tuning_pkts,
-             self.lossless_drop_tuning_pkts) = asic_params[dutAsic]
+             self.lossless_drop_tuning_pkts,
+             self.lossy_drop_tuning_pkts) = asic_params[dutAsic]
 
             self.flow_config = self.get_expected_flow_config()
 
@@ -85,11 +86,14 @@ class QosParamCisco(object):
 
             # Calculate real lossless/lossy thresholds while accounting for maxes
             if max_queue_depth is None:
+                egress_pool_reserved_buffer = 12582912  # 12MB reserve of the pool
                 dynamic_th = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["dynamic_th"])
                 alpha = 2 ** dynamic_th
-                theoretical_drop_thr = int(self.egress_pool_size * alpha / (1. + alpha))
-                self.lossy_drop_bytes = (self.gr_get_hw_thr_buffs(theoretical_drop_thr // self.buffer_size) *
-                                         self.buffer_size)
+                profile_reserved_memory = int(self.bufferConfig["BUFFER_PROFILE"]["egress_lossy_profile"]["size"])
+                theoretical_drop_thr = int(profile_reserved_memory +
+                                           (self.egress_pool_size - egress_pool_reserved_buffer) * alpha / (1. + alpha))
+                self.lossy_drop_bytes = ((self.gr_get_hw_thr_buffs(theoretical_drop_thr // self.buffer_size, True)
+                                         + self.lossy_drop_tuning_pkts) * self.buffer_size)
                 self.log("Lossy queue drop theoretical {} adjusted to {}".format(theoretical_drop_thr,
                                                                                  self.lossy_drop_bytes))
                 pre_pad_pause = attempted_pause
@@ -309,18 +313,21 @@ class QosParamCisco(object):
             return mantissa, exp
         return None, None
 
-    def gr2_get_mantissa_exp(self, thr):
+    def gr2_get_mantissa_exp(self, thr, is_lossy=False):
         mantissa_len = 5
         exponent = max(thr.bit_length() - mantissa_len, 0)
         mantissa = thr >> exponent
+        if is_lossy:
+            # gr2 lossy egress drop threshold is 1 off due to queue occupancy is quantized
+            mantissa += 1
         return mantissa, exponent
 
-    def gr_get_hw_thr_buffs(self, thr):
+    def gr_get_hw_thr_buffs(self, thr, is_lossy=False):
         ''' thr must be in units of buffers '''
         if self.dutAsic == "gr":
             mantissa, exp = self.gr_get_mantissa_exp(thr)
         elif self.dutAsic == "gr2":
-            mantissa, exp = self.gr2_get_mantissa_exp(thr)
+            mantissa, exp = self.gr2_get_mantissa_exp(thr, is_lossy)
         else:
             assert False, "Invalid asic {} for gr_get_hw_thr_buffs".format(self.dutAsic)
         if mantissa is None or exp is None:
@@ -464,6 +471,8 @@ class QosParamCisco(object):
                       "pkts_num_hysteresis": self.hysteresis_bytes // self.buffer_size // packet_buffs,
                       "pkts_num_dismiss_pfc": 2,
                       "packet_size": packet_size}
+            if self.dutAsic == "gr2":
+                params["pkts_num_margin"] = 6
             self.write_params("xon_{}".format(param_i), params)
 
     def __define_pg_shared_watermark(self):
@@ -482,12 +491,18 @@ class QosParamCisco(object):
             lossless_params.update({"dscp": 3,
                                     "pg": 3,
                                     "pkts_num_trig_pfc": (self.lossless_drop_thr // self.buffer_size)})
+            if self.dutAsic == "gr2":
+                lossless_params["pkts_num_margin"] = 6
+                lossless_params["pkts_num_margin_lower_bound"] = 3
             self.write_params("wm_pg_shared_lossless", lossless_params)
         if self.should_autogen(["wm_pg_shared_lossy"]):
             lossy_params = common_params.copy()
             lossy_params.update({"dscp": self.dscp_queue0,
                                  "pg": 0,
                                  "pkts_num_trig_egr_drp": self.lossy_drop_bytes // self.buffer_size})
+            if self.dutAsic == "gr2":
+                lossy_params["pkts_num_margin"] = 14
+                lossy_params["pkts_num_margin_lower_bound"] = 6
             self.write_params("wm_pg_shared_lossy", lossy_params)
 
     def __define_buffer_pool_watermark(self):
@@ -504,6 +519,7 @@ class QosParamCisco(object):
                                "packet_size": packet_size}
             if self.dutAsic == "gr2":
                 lossless_params["pkts_num_margin"] = 8
+                lossless_params["extra_cap_margin"] = 20
             self.write_params("wm_buf_pool_lossless", lossless_params)
         if self.should_autogen(["wm_buf_pool_lossy"]):
             lossy_params = {"dscp": self.dscp_queue0,
@@ -516,6 +532,7 @@ class QosParamCisco(object):
                             "packet_size": packet_size}
             if self.dutAsic == "gr2":
                 lossy_params["pkts_num_margin"] = 8
+                lossy_params["extra_cap_margin"] = 25
             self.write_params("wm_buf_pool_lossy", lossy_params)
 
     def __define_q_shared_watermark(self):
@@ -536,6 +553,8 @@ class QosParamCisco(object):
                             "pkts_num_trig_egr_drp": self.lossy_drop_bytes // self.buffer_size,
                             "pkts_num_margin": self.q_wmk_margin,
                             "cell_size": self.buffer_size}
+            if self.dutAsic == "gr2":
+                lossy_params["pkts_num_margin"] = 9
             self.write_params("wm_q_shared_lossy", lossy_params)
 
     def __define_lossy_queue_voq(self):
@@ -578,6 +597,8 @@ class QosParamCisco(object):
                       "pkts_num_margin": 4,
                       "packet_size": self.preferred_packet_size,
                       "cell_size": self.buffer_size}
+            if self.dutAsic == "gr2":
+                params["pkts_num_margin"] = 8
             self.write_params("lossy_queue_1", params)
 
     def __define_lossless_voq(self):
@@ -622,9 +643,6 @@ class QosParamCisco(object):
         if self.should_autogen(["wm_q_wm_all_ports"]):
             lossy_lossless_action_thr = min(self.lossy_drop_bytes, self.pause_thr)
             pkts_num_leak_out = 0
-            if self.dutAsic == "gr2":
-                # Send a burst of leakout packets to optimize runtime. Expected leakout is around 950
-                pkts_num_leak_out = 800
             self.log("In __define_q_watermark_all_ports, using min lossy-drop/lossless-pause threshold of {}".format(
                 lossy_lossless_action_thr))
             params = {"ecn": 1,
@@ -633,6 +651,11 @@ class QosParamCisco(object):
                       "cell_size": self.buffer_size,
                       "pkts_num_leak_out": pkts_num_leak_out,
                       "packet_size": packet_size}
+            if self.dutAsic == "gr2":
+                # Send a burst of leakout packets to optimize runtime. Expected leakout is around 250
+                params["pkts_num_leak_out"] = 200
+                # Decrease pkt_count due to lossy drop threshold inaccuracy
+                params["pkt_count"] -= 8
             self.write_params("wm_q_wm_all_ports", params)
 
     def __define_pg_drop(self):
