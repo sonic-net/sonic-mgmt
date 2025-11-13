@@ -19,7 +19,8 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
-from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 """
 Helper script for fanout switch operations
@@ -52,7 +53,7 @@ FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
-
+IP6TABLES_PREPEND_RULE_CMD = 'ip6tables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 test_report = dict()
 
 
@@ -1080,9 +1081,10 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip,  # noqa: F811
+                               localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+    dut_ip = duthost_mgmt_ip['mgmt_ip']
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -1097,12 +1099,15 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         supervisor_conf = [
             '[program:platform_api_server]',
-            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
-                                                                                     else '2', SERVER_PORT),
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {} {}'.format(
+                '3' if py3_platform_api_available else '2',
+                SERVER_PORT,
+                '--ipv6' if duthost_mgmt_ip['version'] == 'v6' else ''),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
             'stderr_logfile=syslog',
+            'startsec=0',
         ]
         dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
         pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
@@ -1116,7 +1121,10 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+        if duthost_mgmt_ip['version'] == 'v6':
+            duthost.command(IP6TABLES_PREPEND_RULE_CMD)
+        else:
+            duthost.command(IPTABLES_PREPEND_RULE_CMD)
 
         # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
@@ -1127,9 +1135,8 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+def platform_api_conn(duthost_mgmt_ip, start_platform_api_service):  # noqa: F811
+    dut_ip = duthost_mgmt_ip['mgmt_ip']
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
     try:
@@ -1140,7 +1147,7 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
 
 @pytest.fixture(scope='module')
 def add_platform_api_server_port_nat_for_dpu(
-        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
+        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
     '''
     This fixture is used to add a NAT rule to the DPU's eth0-midplane interface
     to forward traffic from NPU to the platform API server on DPU.
@@ -1168,7 +1175,7 @@ def add_platform_api_server_port_nat_for_dpu(
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
 
 
-def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
+def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa: F811
     host = ansible_adhoc(become=True, args=[], kwargs={})[duthost.hostname]
     vm = host.options["inventory_manager"].get_host(duthost.hostname).vars
     ansible_ssh_port = vm.get("ansible_ssh_port", None)
@@ -1176,7 +1183,7 @@ def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
     return ansible_ssh_port
 
 
-def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): # noqa F811
+def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost):  # noqa: F811
     '''
     Create a NPU host object based on DPU info
     E.g
