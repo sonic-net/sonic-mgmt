@@ -1,6 +1,5 @@
 import logging
 import os
-import sys
 import importlib.util
 import pytest
 import random
