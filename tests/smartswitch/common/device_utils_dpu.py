@@ -627,10 +627,12 @@ def check_midplane_status(duthost, dpu_ip, expected_status):
 
 def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
     """
-    Waits and checks parallely whether DPU is on or off
+    Waits and checks in parallel the reboot cause of DPUs.
     Args:
        duthost: Host handle
        dpu_list: List of DPUs
+       num_dpu_modules: Number of DPU modules
+       reason: Expected reboot cause to check for
 
     Returns:
        Returns Nothing
