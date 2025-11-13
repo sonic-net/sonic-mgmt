@@ -256,7 +256,7 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     logger.info('Start telemetry poll mode testing')
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=2,
-                              xpath="\"COUNTERS\" \"SID:*\"",  # noqa: W605
+                              xpath="\"COUNTERS/SID:*\"",  # noqa: W605
                               target="COUNTERS_DB", max_sync_count=-1, update_count=5, timeout=30, namespace=namespace)
 
     ptf_result = ptfhost.shell(cmd)
@@ -268,15 +268,19 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     update_responses_match = re.findall("json_ietf_val", result)
     pytest_assert(len(update_responses_match) > 0, "Incorrect update responses")
 
+    if namespace != "":
+        SONIC_DB_CLI = f"sonic-db-cli -n {namespace}"
+    else:
+        SONIC_DB_CLI = "sonic-db-cli"
     # Now generate some SRv6 SID counter values by adding mock data
-    duthost.shell("sonic-db-cli -n {} COUNTERS_DB HSET \"COUNTERS:oid:0x11110000001eb3\" SAI_COUNTER_STAT_PACKETS 10 \
-                  SAI_COUNTER_STAT_BYTES 40960".format(namespace))
-    duthost.shell("sonic-db-cli -n {} COUNTERS_DB HSET \"COUNTERS_SRV6_NAME_MAP\" \"fcbb:bbbb:1::/48\" \
-                  \"oid:0x11110000001eb3\"".format(namespace))
+    duthost.shell(f"{SONIC_DB_CLI} COUNTERS_DB HSET \"COUNTERS:oid:0x11110000001eb3\" SAI_COUNTER_STAT_PACKETS 10 \
+                  SAI_COUNTER_STAT_BYTES 40960")
+    duthost.shell(f"{SONIC_DB_CLI} COUNTERS_DB HSET \"COUNTERS_SRV6_NAME_MAP\" \"fcbb:bbbb:1::/48\" \
+                  \"oid:0x11110000001eb3\"")
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=10,
-                              xpath="\"COUNTERS\" \"SID:*\"",  # noqa: W605
+                              xpath="\"COUNTERS/SID:*\"",  # noqa: W605
                               target="COUNTERS_DB", max_sync_count=-1, update_count=10,
                               timeout=120, namespace=namespace)
 
@@ -294,5 +298,5 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     # Give 60 seconds for client to connect to server and then 60 for default route to populate after bgp session start
     client_thread.join(120)
 
-    duthost.shell(f"sonic-db-cli -n {namespace} COUNTERS_DB DEL \"COUNTERS:oid:0x11110000001eb3\"")
-    duthost.shell(f"sonic-db-cli -n {namespace} COUNTERS_DB HDEL \"COUNTERS_SRV6_NAME_MAP\" \"fcbb:bbbb:1::/48\"")
+    duthost.shell(f"{SONIC_DB_CLI} COUNTERS_DB DEL \"COUNTERS:oid:0x11110000001eb3\"")
+    duthost.shell(f"{SONIC_DB_CLI} COUNTERS_DB HDEL \"COUNTERS_SRV6_NAME_MAP\" \"fcbb:bbbb:1::/48\"")
