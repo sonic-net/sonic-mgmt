@@ -19,7 +19,13 @@
 
 import logging
 import copy
-from .snmp_pdu_controllers import get_pdu_controller
+import pysnmp
+if pysnmp.version[0] >= 5:
+    # Use pysnmp 5.x+ compatible implementation (includes 7.x)
+    from .snmp_pdu_controllers import get_pdu_controller
+else:
+    # Use pysnmp 4.x compatible implementation
+    from .snmp_pdu_controllers_legacy import get_pdu_controller
 
 logger = logging.getLogger(__name__)
 
