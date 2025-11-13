@@ -1,4 +1,7 @@
 import logging
+import os
+import sys
+import importlib.util
 import pytest
 import random
 import time
@@ -28,7 +31,7 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(scope="class")
-    def  is_sw_control_feature_enabled(duthost):
+    def is_sw_control_feature_enabled(duthost):
         fixture_path = os.path.join(os.path.dirname(__file__), "..", "platform_tests", "mellanox", "conftest.py")
         fixture_path = os.path.abspath(fixture_path)
     
