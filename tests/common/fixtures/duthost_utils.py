@@ -8,6 +8,7 @@ import collections
 import ipaddress
 import time
 import json
+import re
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
@@ -852,6 +853,30 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
                               cmd_desc="netstat")
 
     return duthosts
+
+
+@pytest.fixture(scope="module")
+def duthost_mgmt_ip(duthost):
+    """
+    Gets the management IP address (v4 or v6) on eth0.
+    Defaults to IPv4 on a dual stack configuration.
+    """
+    ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
+    ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
+
+    mgmt_interface = duthost.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+    if mgmt_interface:
+        match = ipv4_regex.search(mgmt_interface)
+        if match:
+            return {"mgmt_ip": match.group(1), "version": "v4"}
+
+    mgmt_interface = duthost.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+    if mgmt_interface:
+        match = ipv6_regex.search(mgmt_interface)
+        if match:
+            return {"mgmt_ip": match.group(1), "version": "v6"}
+
+    pt_assert(False, "Failed to find duthost mgmt ip")
 
 
 def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
