@@ -42,9 +42,11 @@ test_pretest.py:
 #######################################
 acl:
   skip:
-    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "macsec_en==True"
+      - "topo_type in ['m1-128']"
 
 acl/custom_acl_table/test_custom_acl_table.py:
   skip:
@@ -70,24 +72,62 @@ acl/test_acl.py:
     reason: "Skip acl for isolated-v6 topology"
     conditions:
       - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
   #For the current release, will mark the related test cases as XFAIL
   xfail:
-    reason: "Cisco platform does not support ACL Outer VLAN ID tests"
+    reason: "Cisco platform does not support ACL Outer VLAN ID tests. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'t0-isolated-d256u256s2' in topo_name"
   skip:
     reason: "Skip running on dualtor testbed"
     conditions:
       - "'dualtor' in topo_name"
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_dropped[ipv4]:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_forwarded[ipv4]:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv4]:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 acl/test_stress_acl.py:
   skip:
     reason: "skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+
+acl/test_stress_acl.py::test_acl_add_del_stress:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+#######################################
+#####          acstests              #####
+#######################################
+acstests:
+  skip:
+    reason: "It is not  tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####            arp              #####
@@ -127,6 +167,10 @@ arp/test_neighbor_mac_noptf.py:
     reason: "Not supported in standalone topologies."
     conditions:
       - "'standalone' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 arp/test_stress_arp.py::test_ipv4_arp:
   xfail:
@@ -153,12 +197,19 @@ arp/test_wr_arp.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/16502 and 'dualtor' in topo_name"
       - "'standalone' in topo_name"
+      - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
 
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
@@ -265,9 +316,11 @@ bgp/test_bgp_gr_helper.py:
 
 bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
   xfail:
-    reason: "xfail for IPv6-only topologies"
+    reason: "xfail for IPv6-only topologies. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_multipath_relax.py:
   skip:
@@ -316,6 +369,10 @@ bgp/test_bgp_router_id.py:
     reason: "Not supported on multi-asic"
     conditions:
       - "is_multi_asic==True"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_default:
   xfail:
@@ -325,9 +382,11 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_default:
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_set:
   xfail:
-    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style"
+    reason: "xfail for IPv6-only topologies, issue with trying to parse with IPv4 style. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
   xfail:
@@ -397,6 +456,12 @@ bgp/test_bgp_speaker.py::test_bgp_speaker_bgp_sessions:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19917 and '-v6-' in topo_name"
 
+bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 bgp/test_bgp_suppress_fib.py:
   skip:
     reason: "Not supported before release 202411."
@@ -404,6 +469,12 @@ bgp/test_bgp_suppress_fib.py:
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+
+bgp/test_bgp_update_replication.py:
+  xfail:
+    reason: "Testcase is not stable on dualtor-aa setup due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/21110"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
 
 bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
   xfail:
@@ -480,6 +551,10 @@ cacl/test_cacl_application.py:
     reason: "skip test_cacl_application in PR test temporarily"
     conditions:
       - "asic_type in ['vs']"
+  xfail:
+    reason: "Wait PR https://github.com/sonic-net/sonic-host-services/pull/301 include in sonic-buildimage"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21175"
 
 cacl/test_cacl_application.py::test_cacl_acl_loader_commands_internal:
   skip:
@@ -516,6 +591,12 @@ cacl/test_ebtables_application.py:
 #######################################
 #####           configlet         #####
 #######################################
+configlet:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 configlet/test_add_rack.py:
   skip:
     reason: "AddRack is not yet supported on multi-ASIC platform"
@@ -601,6 +682,12 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
+dash:
+  skip:
+    reason: "Not supported on this DUT topology."
+    conditions:
+      - "'dpu' not in topo_name"
+
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -639,7 +726,7 @@ dash/test_dash_smartswitch_vnet.py:
     reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
-      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28']"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
 
 dash/test_dash_vnet.py:
   skip:
@@ -685,9 +772,11 @@ db_migrator/test_migrate_dns.py::test_migrate_dns_03:
 #######################################
 decap/test_decap.py:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Skip on t1-isolated-d32/128 and v6 topos'
+    conditions_logical_operator: or
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+      - "'-v6-' in topo_name"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   skip:
@@ -696,6 +785,10 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
     conditions:
       - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000'])"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
   skip:
@@ -704,6 +797,10 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
     conditions:
       - "(asic_type in ['broadcom'] and release not in ['201811', '201911']) or (asic_type in ['cisco-8000']) or (asic_type in ['marvell-prestera', 'marvell'])"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
@@ -713,6 +810,10 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
       - "(topo_name in ['t1-backend', 't0-backend']) or (asic_type in ['broadcom'] and release in ['201811', '201911'])"
       - "'7260CX3' in hwsku and release in ['202305'] and 't1' in topo_type"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
@@ -753,6 +854,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
@@ -916,6 +1023,15 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
       - "release in ['201911', '202106']"
 
 #######################################
+#####         dhcp_server        #####
+#######################################
+dhcp_server:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -936,15 +1052,39 @@ drop_packets/test_drop_counters.py::test_acl_egress_drop:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19921 and '-v6-' in topo_name"
 
+drop_packets/test_drop_counters.py::test_broken_ip_header:
+   xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
+   xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
   xfail:
     reason: "xfail for IPv6-only topologies, issue with valid_ipv4"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19921 and '-v6-' in topo_name"
 
+drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr:
+   xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dualtor/test_bgp_block_loopback1.py:
   skip:
     reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
@@ -1142,6 +1282,12 @@ dualtor_io/test_tor_failure.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_mgmt:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
     reason: "Has flaky issue on kvm testbed"
@@ -1243,6 +1389,14 @@ ecmp/inner_hashing/test_wr_inner_hashing_lag.py:
       - "asic_type not in ['mellanox', 'vs']"
       - "'dualtor' in topo_name"
 
+ecmp/test_ecmp_balance.py:
+  skip:
+    reason: "Only support Broadcom T1/T0 topology for now"
+    conditions_logical_operator: or
+    conditions:
+      - "topo_type not in ['t1', 't0']"
+      - "asic_type not in ['broadcom']"
+
 ecmp/test_ecmp_sai_value.py:
   skip:
     reason: "Only support Broadcom T1/T0 topology with 20230531 and above image, 7050cx3 T1 doesn't enable this feature"
@@ -1281,6 +1435,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspa
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv4-cli-default]:
   skip:
@@ -1295,6 +1453,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_prot
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_both_subnets[erspan_ipv4-cli-default]:
   skip:
@@ -1385,6 +1547,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirror
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirroring[erspan_ipv6-cli-default]:
   skip:
@@ -1407,6 +1573,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_range_mirroring[erspan_ipv4-cli-default]:
   skip:
@@ -1483,6 +1653,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring[erspan_ipv6-cli-default]:
   skip:
@@ -1491,6 +1665,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_application_mirroring[erspan_ipv4-cli-default]:
   skip:
@@ -1539,6 +1717,10 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mi
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mirroring[erspan_ipv6-cli-default]:
   skip:
@@ -1630,15 +1812,17 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan_ipv6-default]:
   skip:
-    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3 and Arista-7060CX"
-    conditions_logical_operator: and
+    reason: "SAI_STATUS_NOT_SUPPORTED for everflow over IPv6 on Arista-7260CX3 and Arista-7060CX. Or skip everflow per interface IPv6 test on unsupported platforms x86_64-nvidia_sn5640-r0."
+    conditions_logical_operator: or
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
-      - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+      - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s'] and https://github.com/sonic-net/sonic-mgmt/issues/19096"
+      - "platform in ['x86_64-nvidia_sn5640-r0']"
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
@@ -1691,15 +1875,19 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1714,12 +1902,20 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-upstream-default]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv6-cli-downstream-default]:
   xfail:
@@ -1758,18 +1954,26 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1782,18 +1986,26 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1806,18 +2018,26 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
-    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp"
+    reason: "xfail for IPv6-only topologies, need support for IPv6 bgp. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
   skip:
@@ -1854,6 +2074,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1862,6 +2086,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1876,12 +2104,20 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-upstream-default]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
@@ -1916,6 +2152,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1924,6 +2164,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1944,6 +2188,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1952,6 +2200,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1972,6 +2224,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -1980,6 +2236,10 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096"
       - "platform in ['x86_64-arista_7260cx3_64', 'x86_64-arista_7060_cx32s']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####            fdb              #####
@@ -2004,18 +2264,36 @@ fib/test_fib.py:
     reason: 'Skip on t1-isolated-d32/128 topos'
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_basic_fib[True-True-1514]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
-fib/test_fib.py::test_hash[ipv4:
+fib/test_fib.py::test_hash[ipv4]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+fib/test_fib.py::test_hash[ipv6]:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_ipinip_hash:
   skip:
@@ -2049,41 +2327,61 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
-fib/test_fib.py::test_nvgre_hash[ipv4-ipv4:
+fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
   skip:
-    reason: "Skip for IPv6-only topologies"
+    reason: "Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos"
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_nvgre_hash[ipv4-ipv6]:
   skip:
-    reason: "Skip for IPv6-only topologies"
+    reason: "Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos"
+    conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos, or Skip for IPv6-only topologies'
+    reason: 'Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topo'
     conditions_logical_operator: or
     conditions:
-      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
       - "'-v6-' in topo_name"
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
+      - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
-    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
   skip:
-    reason: 'Skip on t1-isolated-d32/128 topos'
+    reason: 'Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topo'
+    conditions_logical_operator: or
     conditions:
+      - "asic_type in ['vs', 'broadcom'] or topo_type in ['m0', 'mx', 'm1']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
-    reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/19923 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
@@ -2098,12 +2396,20 @@ fib/test_fib.py::test_vxlan_hash[ipv4-ipv4]:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_vxlan_hash[ipv4-ipv6]:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
   skip:
@@ -2113,9 +2419,11 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
       - "'-v6-' in topo_name"
   xfail:
-    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304"
+    reason: "Testcase ignored due to sonic-mgmt issue https://github.com/sonic-net/sonic-mgmt/issues/18304. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
@@ -2123,11 +2431,12 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
     conditions:
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
   xfail:
-    reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "Testcase ignored due to sonic-mgmt issue (https://github.com/sonic-net/sonic-mgmt/issues/18304) or xfail for IPv6-only topologies, still have IPv4 function used. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/19923 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####   generic_config_updater    #####
@@ -2203,10 +2512,18 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237'
+    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237 or test is not supported on this platform'
     conditions_logical_operator: "OR"
     conditions:
       - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8'] and https://github.com/sonic-net/sonic-mgmt/issues/11237"
+      - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+
+generic_config_updater/test_eth_interface.py::test_replace_lanes:
+  skip:
+    reason: 'Skipping test due to bug of https://github.com/sonic-net/sonic-mgmt/issues/21130'
+    conditions_logical_operator: "OR"
+    conditions:
+      - https://github.com/sonic-net/sonic-mgmt/issues/21130
 
 generic_config_updater/test_eth_interface.py::test_toggle_pfc_asym:
   skip:
@@ -2300,7 +2617,7 @@ generic_config_updater/test_pfcwd_interval.py:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'cisco-8000']"
       - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 
@@ -2350,6 +2667,20 @@ gnmi:
     conditions:
       - "release in ['202412']"
 
+gnmi/test_gnmi.py:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_appldb.py::test_gnmi_appldb_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
 gnmi/test_gnmi_configdb.py:
   skip:
     reason: "This feature is not supported for multi asic. Skipping these test for T2 and multi asic."
@@ -2366,6 +2697,90 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/17436"
       - "release in ['202412']"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_replace_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_get_authenticate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_incremental_02:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_onchange_02:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_streaming_sample_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_01:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_countersdb.py::test_gnmi_counterdb_streaming_sample_02:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_countersdb.py::test_gnmi_output:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+gnmi/test_gnmi_countersdb.py::test_gnmi_queue_buffer_cnt:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnoi_killprocess.py:
   skip:
@@ -2398,9 +2813,11 @@ hash/test_generic_hash.py:
       - "https://github.com/sonic-net/sonic-mgmt/issues/15340 and 'dualtor-aa' in topo_name"
       - "'-v6-' in topo_name"
   xfail:
-    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results."
+    reason: "This case is not supported on many platforms and often encounters issues. We can still run it, but we won’t rely on or validate the results. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "topo_type in ['t0', 't1']"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
@@ -2429,12 +2846,20 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
     reason: "On Mellanox platforms, due to HW limitation, it would not support CRC algorithm on INNER_IP_PROTOCOL field. For broadcom, ECMP/LAG hash not supported in broadcom SAI"
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
   skip:
@@ -2683,6 +3108,12 @@ hash/test_generic_hash.py::test_reboot[CRC-INNER_IP_PROTOCOL:
     conditions:
     - "asic_type in ['broadcom', 'mellanox']"
 
+hash/test_generic_hash.py::test_reboot[CRC-INNER_L4_SRC_PORT:
+   xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
   skip:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
@@ -2707,6 +3138,15 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
     reason: "With IP Protocol alone, we don't have enough entropy to distribute the packets evenly"
     conditions:
       - "asic_type in ['cisco-8000']"
+
+#######################################
+#####          http              #####
+#######################################
+http:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
 
 #######################################
 #####    iface_loopback_action    #####
@@ -2847,6 +3287,12 @@ ipfwd/test_dir_bcast.py:
       - "asic_type in ['broadcom']"
       - https://github.com/sonic-net/sonic-mgmt/issues/18786
 
+ipfwd/test_dir_bcast.py::test_dir_bcast:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 ipfwd/test_mtu.py:
   skip:
     reason: "Unsupported topology."
@@ -2876,9 +3322,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 ixia:
   skip:
-    reason: "Ixia test only support on physical ixia testbed"
+    reason: "Ixia test only support on physical ixia testbed and it is not tested for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "True"
 
 #######################################
 #####            k8s              #####
@@ -2932,10 +3380,26 @@ lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
     reason: "Not M0/Mx/M1 scenario"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+      - "'dualtor' in topo_name"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -2957,6 +3421,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
 #######################################
 #####           mclag             #####
 #######################################
+mclag:
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+       - "'dualtor' in topo_name"
+
 mclag/test_mclag_l3.py:
   skip:
     reason: "Mclag test only support on t0-mclag platform which is not in PR test"
@@ -2977,6 +3447,14 @@ memory_checker/test_memory_checker.py:
 #######################################
 #####            mpls             #####
 #######################################
+mpls:
+  skip:
+    reason: "Skip running on dualtor testbed and '202412' for now"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "release in ['202412']"
+      - "'dualtor' in topo_name"
+
 mpls/test_mpls.py:
   skip:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
@@ -3016,6 +3494,15 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
+#####           mx              #####
+#######################################
+mx:
+  skip:
+    reason: "Test is only applicable to m0, mx, and m1 topologies"
+    conditions:
+      - "topo_type not in ['m0', 'mx', 'm1']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
@@ -3031,9 +3518,11 @@ nat:
 #######################################
 ospf:
   skip:
-    reason: "Neighbor type must be sonic, skip in PR testing"
+    reason: "Neighbor type must be sonic, skip in PR testing and it is skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "release in ['202412']"
 
 #######################################
 #####    override_config_table    #####
@@ -3054,6 +3543,10 @@ packet_trimming:
     conditions:
       - "asic_type in ['vs']"
       - "hwsku not in ['Arista-7060X6-64PE-B-C448O16', 'Arista-7060X6-64PE-B-C512S2', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####           pc               #####
@@ -3130,6 +3623,12 @@ pfc/test_unknown_mac.py:
 #######################################
 #####         pfc_asym            #####
 #######################################
+pfc_asym:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
 pfc_asym/test_pfc_asym.py:
   skip:
     reason: 'pfc_asym test skip except for on Barefoot platforms'
@@ -3141,11 +3640,12 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
+    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies and '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
+      - "release in ['202412']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -3172,7 +3672,7 @@ pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_r
      reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21067 or https://github.com/sonic-net/sonic-mgmt/issues/21082"
      conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21067 and 't0-56' in topo_type and asic_type in ['mellanox']"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_type in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_name in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
 
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
@@ -3189,11 +3689,11 @@ pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_no_traffic:
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
 
-pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy[IPv6.*:
-  xfail:
-    reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21083"
+pfcwd/test_pfcwd_timer_accuracy.py::TestPfcwdAllTimer::test_pfcwd_timer_accuracy:
+  skip:
+    reason: "ipv6 mgmt ip is not supported, see check_timer_accuracy_test.yml#43"
     conditions:
-    - "https://github.com/sonic-net/sonic-mgmt/issues/21083 and asic_type in ['mellanox']"
+    - "is_mgmt_ipv6_only==True"
 
 pfcwd/test_pfcwd_warm_reboot.py:
    skip:
@@ -3245,11 +3745,21 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
     conditions:
     - "https://github.com/sonic-net/sonic-buildimage/issues/23426 and ('sn4700' in platform or 'sn4280' in platform)"
 
+platform_tests/test_reload_config.py::test_reload_configuration:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
     reason: "Skip test_reload_configuration_checks on Cisco platform due to unstable results"
     conditions:
       - "asic_type in ['cisco-8000']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####     process_monitoring      #####
@@ -3263,6 +3773,15 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
       - "release in ['202412']"
 
 #######################################
+#####     ptftests      #####
+#######################################
+ptftests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####           qos               #####
 #######################################
 qos:
@@ -3272,6 +3791,8 @@ qos:
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "macsec_en==True"
+      # ipv6 mgmt ip is not supported, see fixture dut_disable_ipv6 in qos_sai_base.py
+      - "is_mgmt_ipv6_only==True"
 
 qos/test_buffer.py:
   skip:
@@ -3359,6 +3880,10 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
     reason: "Uniform decap mode is not supported on Mellanox dualtor testbed due to the mode is pipe to support dscp remapping"
     conditions:
       - "'dualtor' in topo_name and asic_type in ['mellanox']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 qos/test_qos_masic.py:
   skip:
@@ -3603,15 +4128,19 @@ qos/test_voq_watchdog.py:
 #######################################
 radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
   skip:
@@ -3619,9 +4148,11 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
   skip:
@@ -3629,9 +4160,11 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####          read_mac           #####
@@ -3697,9 +4230,11 @@ route/test_default_route.py::test_default_route_set_src:
 
 route/test_default_route.py::test_default_route_with_bgp_flap:
   xfail:
-    reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
+    reason: "xfail for IPv6-only topologies, need add support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
@@ -3712,6 +4247,18 @@ route/test_route_bgp_ecmp.py:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20730"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20730 and '-v6-' in topo_name"
+
+route/test_route_bgp_ecmp.py::test_route_bgp_ecmp:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+route/test_route_consistency.py::TestRouteConsistency::test_route_withdraw_advertise:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 route/test_route_flap.py:
   skip:
@@ -3741,9 +4288,11 @@ route/test_route_perf.py:
     conditions:
       - "'standalone' in topo_name"
   xfail:
-    reason: "Test case has high failure rate on t1-lag"
+    reason: "Test case has high failure rate on t1-la. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18893"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 route/test_static_route.py:
   skip:
@@ -3776,6 +4325,48 @@ route/test_static_route.py::test_static_route_ecmp_ipv6:
       - "https://github.com/sonic-net/sonic-buildimage/issues/4930"
       - "release in ['201811', '201911']"
       - "'standalone' in topo_name"
+
+route/test_static_route.py::test_static_route_ipv6:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+#######################################
+#####           sai_qualify       #####
+#######################################
+sai_qualify:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
+#####              saitests         #####
+#######################################
+saitests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
+#####              scp            #####
+#######################################
+scp/test_scp_copy.py::test_scp_copy:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+#######################################
+#####            scripts         #####
+#######################################
+scripts:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####              sflow          #####
@@ -3833,6 +4424,18 @@ snappi_tests:
     conditions:
       - "asic_type in ['vs']"
 
+snappi_tests/dash:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
+
+snappi_tests/dataplane:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
+
 snappi_tests/ecn/test_ecn_marking_with_pfc_quanta_variance_with_snappi.py:
   skip:
     reason: "Current test case only work with cisco platform"
@@ -3853,6 +4456,12 @@ snappi_tests/ecn/test_red_accuracy_with_snappi:
       - "topo_type in ['tgen']"
       - "asic_type in ['vs']"
 
+snappi_tests/lacp:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
+
 snappi_tests/pfc/test_global_pause_with_snappi.py:
   skip:
     reason: "Global pause is not supported in cisco-8000. / Snappi test only support on physical tgen testbed"
@@ -3872,6 +4481,12 @@ snappi_tests/pfcwd/test_pfcwd_actions.py::test_pfcwd_frwd_over_subs_40_09:
     reason: "Forward action is not supported in cisco-8000."
     conditions:
       - "asic_type in ['cisco-8000']"
+
+snappi_tests/reboot:
+  skip:
+    reason: "Skipping dash on 2025 releases"
+    conditions:
+      - "'2025' in release"
 
 #######################################
 #####            snmp             #####
@@ -3899,6 +4514,12 @@ snmp/test_snmp_link_local.py:
     conditions:
       - "asic_type in ['vs']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15081"
+
+snmp/test_snmp_lldp.py::test_snmp_lldp:
+  skip:
+    reason: "ipv6 mgmt ip is not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
 
 snmp/test_snmp_loopback.py::test_snmp_loopback:
   skip:
@@ -3945,6 +4566,10 @@ snmp/test_snmp_queue_counters.py:
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14007"
       - "topo_type in ['m0', 'mx', 'm1']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####            span             #####
@@ -3978,12 +4603,13 @@ srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
+    reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 srv6/test_srv6_static_config.py:
   skip:
@@ -4009,6 +4635,12 @@ srv6/test_srv6_vlan_forwarding.py:
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
+srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 #######################################
 #####             ssh             #####
 #######################################
@@ -4024,15 +4656,26 @@ ssh/test_ssh_stress.py::test_ssh_stress:
     conditions: https://github.com/paramiko/paramiko/issues/1508
 
 #######################################
+#####             stress          #####
+#######################################
+stress/test_stress_routes.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
+#######################################
 #####     sub_port_interfaces     #####
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "Unsupported platform or asic"
+    reason: "Unsupported platform or asic and not supported on this DUT topology"
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
       - "asic_type in ['mellanox', 'nvidia']"
+      - "'dualtor' in topo_name"
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7060CX-32S-C32','Arista-7060CX-32S-D48C8','Arista-7260CX3-C64','Arista-7260CX3-D108C8','Arista-7260CX3-D108C10']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -4069,6 +4712,12 @@ sub_port_interfaces/test_sub_port_l2_forwarding.py::test_sub_port_l2_forwarding[
 #######################################
 #####             syslog          #####
 #######################################
+syslog/test_logrotate.py::test_orchagent_logrotate:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
+
 syslog/test_syslog.py:
   xfail:
     reason: "Generic internal image issue"
@@ -4144,11 +4793,40 @@ telemetry/test_events.py:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
+telemetry/test_events.py::test_events:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions_logical_operator: and
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
     conditions:
       - "(is_multi_asic==True) and (release in ['201811', '201911'])"
+
+telemetry/test_telemetry.py::test_osbuild_version:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry.py::test_sysuptime:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry.py::test_telemetry_ouput:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
   skip:
@@ -4158,6 +4836,72 @@ telemetry/test_telemetry.py::test_telemetry_queue_buffer_cnt:
       - "(switch_type=='voq')"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-mgmt/issues/15393"
+      - "is_mgmt_ipv6_only==True and https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry.py::test_virtualdb_table_streaming:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_cert_rotation.py::test_telemetry_cert_rotate:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_add:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_cert_rotation.py::test_telemetry_post_cert_del:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_poll.py::test_poll_mode_default_route:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_poll.py::test_poll_mode_delete:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_poll.py::test_poll_mode_no_table_or_key:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_poll.py::test_poll_mode_present_table_delayed_key:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+#######################################
+#####           nbr               #####
+#######################################
+test_nbr_health.py:
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
+      - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #####         pktgen              #####
@@ -4214,19 +4958,17 @@ vlan/test_vlan_ping.py:
     conditions:
       - "asic_type in ['broadcom']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
-  xfail:
-    reason: "xfail for IPv6-only topologies, need to add support for IPv6-only"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19929 and '-v6-' in topo_name"
 
 #######################################
 #####             voq             #####
 #######################################
 voq:
   skip:
-    reason: "Cisco 8800 doesn't support voq tests"
+    reason: "Cisco 8800 doesn't support voq tests and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name"
 
 voq/test_fabric_cli_and_db.py:
   skip:
@@ -4553,6 +5295,15 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
 
 #######################################
+#####             wol            #####
+#######################################
+wol:
+  skip:
+    reason: "Not supported on this DUT topology"
+    conditions:
+      - "topo_type not in ['mx', 'm0']"
+
+#######################################
 #####             zmq             #####
 #######################################
 zmq/test_gnmi_zmq.py:
@@ -4562,3 +5313,10 @@ zmq/test_gnmi_zmq.py:
     conditions:
       - "'arista' in platform"
       - "'isolated' in topo_name"
+
+zmq/test_gnmi_zmq.py::test_gnmi_zmq:
+  skip:
+    reason: "dut ipv6 mgmt ip not supported"
+    conditions:
+      - "is_mgmt_ipv6_only==True"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
