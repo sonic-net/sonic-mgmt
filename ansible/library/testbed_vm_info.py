@@ -1,39 +1,66 @@
-#!/usr/bin/env python
-
+#!/usr/bin/python
 from ansible.module_utils.basic import AnsibleModule
 import re
 import yaml
 import traceback
 import ipaddress
+import os
 
-try:
-    from ansible.parsing.dataloader import DataLoader
-    from ansible.inventory.manager import InventoryManager
-    has_dataloader = True
-except ImportError:
-    has_dataloader = False
+# NOTE:
+# Direct usage of Ansible internal controller APIs (DataLoader, InventoryManager, etc.)
+# from within custom modules is no longer supported/recommended starting Ansible 2.14.
+# This module previously attempted to import and use InventoryManager to resolve
+# host variables. We now always parse the provided inventory YAML file directly
+# using standard YAML loading which keeps the module self‑contained and future proof.
 
 DOCUMENTATION = '''
-module: testbed_vm_info.py
-Ansible_version_added:  2.0.0.2
-short_description: Gather all related VMs info
-Description:
-       When deploy testbed topology with VM connected to SONiC,
-       gather neighbor VMs info for generating SONiC minigraph file
- options:
-    base_vm:  base vm name defined in testbed.csv for the deployed topology; required: True
-    topo:     topology name defined in testbed.csv for the deployed topology; required: True
-    vm_file:  the virtual machine file path; default: 'veos'
-
-Ansible_facts:
-    'neighbor_eosvm_mgmt':  all VM hosts management IPs
-    'topoall':              topology information
-
+module: testbed_vm_info
+version_added: 2.0.0.2
+short_description: Gather related VM management information for a testbed topology
+description:
+    - When deploying a testbed topology with VMs connected to SONiC, gather neighbor VM management IPs
+        and full topology information used for generating SONiC minigraph files.
+    - Updated for Ansible >= 2.14 compatibility by removing direct usage of internal Ansible controller APIs.
+options:
+    base_vm:
+        description: Base VM name defined in testbed.csv for the deployed topology.
+        required: true
+        type: str
+    topo:
+        description: Topology name defined in testbed.csv for the deployed topology.
+        required: true
+        type: str
+    vm_file:
+        description: Path to the VM inventory YAML file.
+        required: false
+        type: str
+        default: veos
+notes:
+    - This module no longer imports ansible.parsing.dataloader or ansible.inventory.manager; inventory data is parsed
+      directly via YAML.
+    - The inventory file must be accessible from the target host where this module runs.
+author:
+    - SONiC Community
+returns:
+    ansible_facts:
+        description: Collected facts.
+        returned: always
+        type: dict
+        contains:
+            neighbor_eosvm_mgmt:
+                description: Mapping of neighbor device logical names to VM management IPs.
+                type: dict
+            topoall:
+                description: Raw topology YAML content loaded from topology definition file.
+                type: dict
 '''
 
 EXAMPLES = '''
-    - name: gather vm information
-      testbed_vm_info: base_vm='VM0100' topo='t1' vm_file='veos'
+- name: Gather VM information
+    testbed_vm_info:
+        base_vm: "VM0100"
+        topo: "t1"
+        vm_file: "veos"  # path accessible to the target host
 '''
 
 # Here are the assumption/expectation of files to gather VM information,
@@ -43,7 +70,7 @@ VM_INV_FILE = 'veos'
 TGEN_MGMT_NETWORK = '10.65.32.0/24'
 
 
-class TestbedVMFacts():
+class TestbedVMFacts:
     """
     Retrieve testbed VMs management information that for a specified toplogy defined in testbed.yaml
 
@@ -52,12 +79,10 @@ class TestbedVMFacts():
     def __init__(self, toponame, base_vm, vm_file):
         CLET_SUFFIX = "-clet"
         self.toponame = re.sub(CLET_SUFFIX + "$", "", toponame)
-        self.topofile = TOPO_PATH + 'topo_' + self.toponame + '.yml'
+        self.topofile = os.path.join(TOPO_PATH, f'topo_{self.toponame}.yml')
         self.base_vm = base_vm
         self.vm_file = vm_file
-        if has_dataloader:
-            self.inv_mgr = InventoryManager(
-                loader=DataLoader(), sources=self.vm_file)
+        self._inventory_cache = None  # lazy‑loaded parsed inventory content
 
     def get_neighbor_eos(self):
         eos = {}
@@ -80,15 +105,52 @@ class TestbedVMFacts():
             eos[eos_name] = vm_name
         return eos
 
+    def get_neighbor_dpu(self):
+        dpu = {}
+        with open(self.topofile) as f:
+            vm_topology = yaml.safe_load(f)
+        self.topoall = vm_topology
+
+        if len(self.base_vm) > 2:
+            vm_start_index = int(self.base_vm[2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(self.base_vm) - 2)
+
+        if 'DPUs' not in vm_topology['topology']:
+            return dpu
+
+        for dpu_name, dpu_value in vm_topology['topology']['DPUs'].items():
+            vm_name = vm_name_fmt % (vm_start_index + dpu_value['vm_offset'])
+            dpu[dpu_name] = vm_name
+
+        return dpu
+
+    def _load_inventory(self):
+        if self._inventory_cache is not None:
+            return self._inventory_cache
+        if not os.path.exists(self.vm_file):
+            raise IOError(f"Inventory file not found: {self.vm_file}")
+        with open(self.vm_file, 'r') as f:
+            try:
+                data = yaml.safe_load(f) or {}
+            except yaml.YAMLError as e:
+                raise ValueError(f"Failed to parse inventory yaml {self.vm_file}: {e}")
+        self._inventory_cache = data
+        return data
+
     def gather_veos_vms(self):
-        yaml_data = {}
-        with open(self.vm_file, 'r') as default_f:
-            yaml_data = yaml.safe_load(default_f)
+        """Parse inventory YAML and return a mapping host-> {ansible_host: ip} for groups named vms_*"""
+        yaml_data = self._load_inventory()
         result_dict = {}
+        # inventory may have 'all' root with children pointing to group names
+        # We flatten by directly scanning top-level keys for vms_* groups.
         for group_name, group_content in yaml_data.items():
+            if not isinstance(group_content, dict):
+                continue
             if group_name.startswith('vms_'):
-                for host_name, host_info in group_content.get('hosts', {}).items():
-                    result_dict[host_name] = {'ansible_host': host_info.get('ansible_host', '')}
+                hosts_section = group_content.get('hosts', {}) or {}
+                for host_name, host_info in hosts_section.items():
+                    if isinstance(host_info, dict):
+                        result_dict[host_name] = {'ansible_host': host_info.get('ansible_host', '')}
         return result_dict
 
 
@@ -111,21 +173,15 @@ def main():
         vm_facts = TestbedVMFacts(
             m_args['topo'], m_args['base_vm'], m_args['vm_file'])
         neighbor_eos = vm_facts.get_neighbor_eos()
-        if has_dataloader:
-            hosts = vm_facts.inv_mgr.hosts
-        else:
-            hosts = vm_facts.gather_veos_vms()
+        neighbor_eos.update(vm_facts.get_neighbor_dpu())
+        hosts = vm_facts.gather_veos_vms()
         tgen_mgmt_ips = list(ipaddress.ip_network(TGEN_MGMT_NETWORK.encode().decode()))
         for index, eos in enumerate(neighbor_eos):
             vm_name = neighbor_eos[eos]
             if 'tgen' in topo_type:
                 vm_mgmt_ip[eos] = str(tgen_mgmt_ips[index])
             elif vm_name in hosts:
-                if has_dataloader:
-                    vm_mgmt_ip[eos] = vm_facts.inv_mgr.get_host(
-                        vm_name).get_vars()['ansible_host']
-                else:
-                    vm_mgmt_ip[eos] = hosts[vm_name]['ansible_host']
+                vm_mgmt_ip[eos] = hosts[vm_name]['ansible_host']
             else:
                 err_msg = "Cannot find the vm {} in VM inventory file {}, please make sure you have enough VMs" \
                           "for the topology you are using."
