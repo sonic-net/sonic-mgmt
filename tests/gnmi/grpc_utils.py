@@ -1,5 +1,9 @@
 import sys
 import os
+import grpc
+import logging
+
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 
 def get_gnoi_system_stubs():
@@ -16,3 +20,52 @@ def get_gnoi_system_stubs():
     sys.path.append(os.path.abspath(PROTO_ROOT))
     from gnoi.system import system_pb2_grpc, system_pb2
     return system_pb2_grpc, system_pb2
+
+
+def create_grpc_channel(duthost):
+    """
+    Create a gRPC channel with secure credentials.
+
+    This function replaces the grpc_channel fixture to avoid SSL state sharing
+    issues between forked processes during shell operations.
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        grpc.Channel: Configured gRPC channel
+    """
+    # Get DUT gRPC server address and port
+    ip = duthost.mgmt_ip
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    port = env.gnmi_port
+    target = f"{ip}:{port}"
+
+    # Load the TLS certificates
+    with open("gnmiCA.pem", "rb") as f:
+        root_certificates = f.read()
+    with open("gnmiclient.crt", "rb") as f:
+        client_certificate = f.read()
+    with open("gnmiclient.key", "rb") as f:
+        client_key = f.read()
+
+    # Create SSL credentials
+    credentials = grpc.ssl_channel_credentials(
+        root_certificates=root_certificates,
+        private_key=client_key,
+        certificate_chain=client_certificate,
+    )
+
+    # Create gRPC channel
+    logging.info("Creating gRPC secure channel to %s", target)
+    channel = grpc.secure_channel(target, credentials)
+
+    try:
+        grpc.channel_ready_future(channel).result(timeout=10)
+        logging.info("gRPC channel is ready")
+    except grpc.FutureTimeoutError as e:
+        logging.error("Error: gRPC channel not ready: %s", e)
+        channel.close()
+        raise Exception("Failed to connect to gRPC server") from e
+
+    return channel
