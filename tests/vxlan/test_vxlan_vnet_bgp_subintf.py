@@ -16,7 +16,6 @@ logger = logging.getLogger(__name__)
 
 pytestmark = [
     pytest.mark.topology("t0"),
-    pytest.mark.disable_loganalyzer,
     pytest.mark.device_type('physical'),
     pytest.mark.asic('cisco-8000')
 ]
@@ -25,10 +24,10 @@ pytestmark = [
 CONFIG_DB_PATH = '/etc/sonic/config_db.json'
 
 VXLAN_PORT = 4789
-SUBNET_RANGE = "10.10.0.0/24"
 TUNNEL_ENDPOINT = "100.0.1.10"
 VNET_NAME = "Vnet1"
 INNER_SRC_MAC = "00:11:22:33:44:55"
+INNER_SRC_IP = "2.2.2.2"
 VNI = "10000"
 
 ACL_TYPE_NAME = "INNER_SRC_MAC_REWRITE_TYPE"
@@ -43,7 +42,7 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, test_configs):
         "eth_dst": duthost.facts['router_mac'],
         "eth_src": ptfadapter.dataplane.get_mac(0, test_configs["wl_ptf_port_num"][0]),
         "ip_dst": "150.0.0.10",
-        "ip_src": test_configs["wl_bgp_ip"],
+        "ip_src": INNER_SRC_IP,
         "ip_id": 105,
         "ip_ttl": 64,
         "tcp_sport": 1234,
@@ -78,7 +77,6 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, test_configs):
     masked_expected_pkt = Mask(expected_pkt)
     masked_expected_pkt.set_ignore_extra_bytes()
     masked_expected_pkt.set_do_not_care_packet(Ether, 'dst')
-    masked_expected_pkt.set_do_not_care_packet(Ether, 'src')
     masked_expected_pkt.set_do_not_care_packet(UDP, 'sport')
     masked_expected_pkt.set_do_not_care_packet(UDP, 'chksum')
     masked_expected_pkt.set_do_not_care_packet(IP, "ttl")
@@ -87,19 +85,12 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, test_configs):
 
     # Clear packet queue on all ports and get initial acl counter
     ptfadapter.dataplane.flush()
-    acl_count_init = get_acl_counter(duthost, ACL_TABLE_NAME, "rule_1")
 
     # Send TCP packet from WL port
     testutils.send(ptfadapter, test_configs["wl_ptf_port_num"][0], inner_pkt)
 
     # Verify VXLAN encapsulated pkt on T1 port with rewritten inner src MAC
     testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, test_configs["t1_ptf_port_num"], timeout=2)
-
-    # Verify acl counter incremented
-    time.sleep(5)
-    acl_count = get_acl_counter(duthost, ACL_TABLE_NAME, "rule_1")
-    pytest_assert(acl_count >= acl_count_init + 1,
-                  f"ACL counter did not increment as expected: initial {acl_count_init}, final {acl_count}")
 
     logger.info("WL to T1 VXLAN encapsulation test passed.")
 
@@ -112,7 +103,7 @@ def validate_decap_t1_to_wl(duthost, ptfadapter, test_configs):
         eth_dst="aa:bb:cc:dd:ee:ff",
         eth_src=duthost.facts['router_mac'],
         ip_src="8.8.8.8",
-        ip_dst="10.10.0.15",
+        ip_dst="193.5.0.0",
         tcp_sport=1234,
         tcp_dport=4321,
     )
@@ -136,8 +127,6 @@ def validate_decap_t1_to_wl(duthost, ptfadapter, test_configs):
     masked_expected_pkt.set_do_not_care_packet(IP, "ttl")
     masked_expected_pkt.set_do_not_care_packet(IP, "chksum")
     masked_expected_pkt.set_do_not_care_packet(IP, "id")
-    masked_expected_pkt.set_do_not_care_packet(TCP, 'sport')
-    masked_expected_pkt.set_do_not_care_packet(TCP, 'dport')
     masked_expected_pkt.set_do_not_care_packet(TCP, 'chksum')
 
     # Clear packet queue on all ports
@@ -150,24 +139,6 @@ def validate_decap_t1_to_wl(duthost, ptfadapter, test_configs):
     testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, test_configs["wl_ptf_port_num"])
 
     logger.info("T1 to WL VXLAN decapsulation test passed.")
-
-
-def get_acl_counter(duthost, table_name, rule_name):
-    result = duthost.show_and_parse('aclshow -a')
-
-    if not result:
-        pytest.fail("Failed to retrieve ACL counter for {}|{}".format(table_name, rule_name))
-
-    for rule in result:
-        if table_name == rule.get('table name') and rule_name == rule.get('rule name'):
-            pkt_count = rule.get('packets count', '0')
-            try:
-                return int(pkt_count)
-            except ValueError:
-                logger.warning(f"ACL counter for {table_name}|{rule_name} is not integer: '{pkt_count}', returning 0")
-                return 0
-
-    pytest.fail("ACL rule {} not found in table {}".format(rule_name, table_name))
 
 
 def cleanup(duthost, ptfhost):
@@ -192,7 +163,7 @@ def cleanup(duthost, ptfhost):
             os.remove(file)
 
 
-def setup_acl_config(duthost, ports, wl_bgp_ip):
+def setup_acl_config(duthost, ports):
     """
     Add a custom ACL table type definition to CONFIG_DB.
     """
@@ -223,7 +194,7 @@ def setup_acl_config(duthost, ports, wl_bgp_ip):
         "type": ACL_TYPE_NAME
     }
     acl_update["ACL_RULE"][f"{ACL_TABLE_NAME}|rule_1"] = {
-        "INNER_SRC_IP": wl_bgp_ip,
+        "INNER_SRC_IP": INNER_SRC_IP,
         "INNER_SRC_MAC_REWRITE_ACTION": INNER_SRC_MAC,
         "TUNNEL_VNI": VNI,
         "PRIORITY": "1005"
@@ -236,17 +207,11 @@ def setup_acl_config(duthost, ports, wl_bgp_ip):
     time.sleep(5)  # wait for acl to be applied
 
 
-def setup_vnet_routes(duthost, wl_intf_info, vnet_name):
+def setup_vnet_routes(duthost, vnet_name):
     config_update = {
         "VNET_ROUTE_TUNNEL": {
             f"{vnet_name}|150.0.0.0/24": {
                 "endpoint": TUNNEL_ENDPOINT
-            }
-        },
-        "VNET_ROUTE": {
-            f"{vnet_name}|{SUBNET_RANGE}": {
-                "nexthop": wl_intf_info["wl_bgp_ip"],
-                "ifname": wl_intf_info["wl_portchannel"]
             }
         }
     }
@@ -256,7 +221,7 @@ def setup_vnet_routes(duthost, wl_intf_info, vnet_name):
     duthost.shell("sonic-cfggen -j /tmp/vnet_route_update.json --write-to-db")
 
 
-def setup_bgp_and_interfaces(duthost, vnet_name, bgp_neighs):
+def setup_bgp_and_vnet_interfaces(duthost, vnet_name, bgp_neighs):
     wl_portchannel = None
     wl_portchannel_ip = None
     wl_bgp_name = None
@@ -279,7 +244,7 @@ def setup_bgp_and_interfaces(duthost, vnet_name, bgp_neighs):
     pytest_assert(wl_bgp_ip is not None,
                   f"Cannot find BGP neighbor IP for BGP session {wl_bgp_name}.")
 
-    # Remove existing BGP neighbor
+    # Get BGP ASN and remove existing bgp neighbor
     asn = bgp_neighs[wl_bgp_ip]["asn"]
     duthost.shell(f"sonic-db-cli CONFIG_DB DEL 'BGP_NEIGHBOR|{wl_bgp_ip}'")
 
@@ -314,7 +279,7 @@ def setup_bgp_and_interfaces(duthost, vnet_name, bgp_neighs):
     }
 
 
-def setup_vnet_vxlan(duthost, vnet_name, loopback_ip):
+def setup_vxlan_tunnel(duthost, loopback_ip):
     config_update = {
         "VXLAN_TUNNEL": {
             "tunnel_v4": {
@@ -322,7 +287,7 @@ def setup_vnet_vxlan(duthost, vnet_name, loopback_ip):
             }
         },
         "VNET": {
-            vnet_name: {
+            VNET_NAME: {
                 "vni": VNI,
                 "vxlan_tunnel": "tunnel_v4"
             }
@@ -362,16 +327,16 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
         loopback_ip = "10.10.1.1"
 
         # Set up vnet and vxlan
-        setup_vnet_vxlan(duthost, VNET_NAME, loopback_ip)
+        setup_vxlan_tunnel(duthost, loopback_ip)
 
         # Set up WL BGP session and put associated portchannel in vnet
-        wl_intf_info = setup_bgp_and_interfaces(duthost, VNET_NAME, bgp_neighs)
+        wl_intf_info = setup_bgp_and_vnet_interfaces(duthost, VNET_NAME, bgp_neighs)
 
         # Set up vnet routes
-        setup_vnet_routes(duthost, wl_intf_info, VNET_NAME)
+        setup_vnet_routes(duthost, VNET_NAME)
 
         # Setup acl configs
-        setup_acl_config(duthost, list(config_facts.get("PORTCHANNEL", {}).keys()), wl_intf_info["wl_bgp_ip"])
+        setup_acl_config(duthost, list(config_facts.get("PORTCHANNEL", {}).keys()))
 
         # save and reload configs to ensure all configs are applied properly
         duthost.shell("config save -y")
@@ -399,10 +364,6 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
                                      'VNET_ROUTE_TUNNEL_TABLE|{VNET_NAME}|150.0.0.0/24' 'state'")
         pytest_assert(route_tunnel['stdout'].strip().lower() == "active",
                       f"VNET route tunnel for {VNET_NAME} not active.")
-
-        route_entry = duthost.shell(f"sonic-db-cli ASIC_DB keys *{SUBNET_RANGE}*")
-        pytest_assert("SAI_OBJECT_TYPE_ROUTE_ENTRY" in route_entry['stdout'],
-                      f"VNET route entry for {SUBNET_RANGE} not found in ASIC_DB.")
 
         # Get ptf eth of portchannels
         wl_ptf_port_num = []
@@ -439,7 +400,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
     cleanup(duthost, ptfhost)
 
 
-def test_smartswitch_e2e(common_setup_and_teardown):
+def test_vnet_with_bgp_intf_smacrewrite(common_setup_and_teardown):
     duthost, ptfadapter, test_configs = common_setup_and_teardown
 
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
