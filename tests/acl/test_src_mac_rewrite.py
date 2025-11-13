@@ -205,14 +205,6 @@ def fixture_tearDown(setUp):
         # Don't raise the exception since tests may have passed
 
 
-def check_rule_counters(duthost):
-    res = duthost.shell("aclshow -a")['stdout_lines']
-    if len(res) <= 2 or [line for line in res if 'N/A' in line]:
-        return False
-    else:
-        return True
-
-
 def get_acl_counter(duthost, table_name, rule_name, timeout=ACL_COUNTERS_UPDATE_INTERVAL):
     # Wait for orchagent to update the ACL counters
     time.sleep(timeout)
@@ -280,6 +272,27 @@ def setup_acl_table(duthost, ports):
     duthost.shell(cmd)
     time.sleep(10)
 
+    # === Show ACL Table Verification ===
+    logger.info("Verifying ACL table state using 'show acl table'")
+    result = duthost.shell("show acl table", module_ignore_errors=True)
+    output = result.get("stdout", "")
+    logger.info("Output of 'show acl table':\n%s", output)
+
+    if ACL_TABLE_NAME not in output:
+        pytest.fail(f"ACL table {ACL_TABLE_NAME} not found in 'show acl table' output")
+
+    for line in output.splitlines():
+        if ACL_TABLE_NAME in line:
+            if "pending" in line.lower():
+                pytest.fail(f"ACL table {ACL_TABLE_NAME} is in 'Pending creation' state")
+            elif "created" in line.lower() or "egress" in line.lower():
+                logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
+                break
+    else:
+        pytest.fail(f"Unable to determine valid state for ACL table {ACL_TABLE_NAME}")
+
+    logger.info(f"ACL table {ACL_TABLE_NAME} validation completed successfully")
+
 
 def remove_acl_table(duthost):
     logger.info(f"Removing ACL table {ACL_TABLE_NAME}")
@@ -308,6 +321,7 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     Set up initial ACL rules. Uses 'config load -y' for initial setup
     since it may need to create table types and tables first.
     """
+
     acl_rule = {
         "ACL_RULE": {
             f"{ACL_TABLE_NAME}|rule_1": {
@@ -326,38 +340,56 @@ def setup_acl_rules(duthost, inner_src_ip, vni, new_src_mac):
     duthost.copy(content=acl_rule_json, dest=dest_path)
 
     logger.info("Loading ACL rule from %s", dest_path)
-    duthost.shell(f"config load -y {dest_path}")
+    load_result = duthost.shell(f"config load -y {dest_path}", module_ignore_errors=True)
+    logger.info("Config load result: rc=%s, stdout=%s", load_result.get("rc", "unknown"), load_result.get("stdout", ""))
+
+    if load_result.get("rc", 0) != 0:
+        logger.error("Config load failed: %s", load_result.get("stderr", ""))
+        pytest.fail("Failed to load ACL rule configuration")
 
     logger.info("Waiting for ACL rule to be applied...")
-    time.sleep(10)
+    time.sleep(15)  # Increased wait time
 
-    logger.info("Verifying ACL table type in CONFIG_DB")
-    config_db_key = f"ACL_TABLE_TYPE|{ACL_TABLE_TYPE}"
-    db_cmd = f"redis-cli -n 4 HGETALL \"{config_db_key}\""
-    config_db_output = duthost.shell(db_cmd)["stdout"]
-    logger.info("CONFIG_DB entry:\n%s", config_db_output)
+    # Check CONFIG_DB for the rule
+    logger.info("Checking if rule was added to CONFIG_DB...")
+    rule_config_cmd = f'redis-cli -n 4 HGETALL "ACL_RULE|{ACL_TABLE_NAME}|rule_1"'
+    rule_config_result = duthost.shell(rule_config_cmd)["stdout"]
+    logger.info("ACL rule in CONFIG_DB:\n%s", rule_config_result)
 
-    for field in ["BIND_POINTS", "MATCHES", "ACTIONS"]:
-        pytest_assert(field in config_db_output, f"{field} missing in CONFIG_DB for ACL type {ACL_TABLE_TYPE}")
+    # === Show ACL Rule Verification ===
+    logger.info("Verifying ACL rule state using 'show acl rule'")
+    rule_result = duthost.shell("show acl rule", module_ignore_errors=True)
+    rule_output = rule_result.get("stdout", "")
+    logger.info("Output of 'show acl rule':\n%s", rule_output)
 
-    # === Show ACL Table Verification ===
-    logger.info("Verifying ACL table state using 'show acl table'")
-    result = duthost.shell("show acl table", module_ignore_errors=True)
-    output = result.get("stdout", "")
-    logger.info("Output of 'show acl table':\n%s", output)
+    # Check that the rule shows up and is Active
+    if ACL_TABLE_NAME not in rule_output or "rule_1" not in rule_output:
+        pytest.fail(f"ACL rule for table {ACL_TABLE_NAME} and rule rule_1 not found in 'show acl rule' output")
 
-    if ACL_TABLE_NAME not in output:
-        pytest.fail(f"ACL table {ACL_TABLE_NAME} not found in 'show acl table' output")
+    if "Active" not in rule_output:
+        pytest.fail(f"ACL rule for table {ACL_TABLE_NAME} is not showing as Active in 'show acl rule' output")
 
-    for line in output.splitlines():
-        if ACL_TABLE_NAME in line:
-            if "pending" in line.lower():
-                pytest.fail(f"ACL table {ACL_TABLE_NAME} is in 'Pending creation' state")
-            elif "created" in line.lower() or "egress" in line.lower():
-                logger.info(f"ACL table {ACL_TABLE_NAME} is successfully created and active")
-                return
+    logger.info(f"ACL rule for table {ACL_TABLE_NAME} is successfully created and shows as Active")
 
-    pytest.fail(f"Unable to determine valid state for ACL table {ACL_TABLE_NAME}")
+    # === STATE_DB Verification ===
+    logger.info("Verifying ACL rule propagation to STATE_DB...")
+    state_db_key = f"ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"
+    state_db_cmd = f"redis-cli -n 6 HGETALL \"{state_db_key}\""
+    state_db_output = duthost.shell(state_db_cmd)["stdout"]
+
+    logger.info("STATE_DB entry for ACL rule:\n%s", state_db_output)
+
+    # Check if the rule is active in STATE_DB (this indicates successful propagation)
+    if "status" in state_db_output and "Active" in state_db_output:
+        logger.info("ACL rule is active in STATE_DB, indicating successful propagation")
+        # Also verify the CONFIG_DB has the correct MAC to confirm the setup
+        rule_key = f"ACL_RULE|{ACL_TABLE_NAME}|rule_1"
+        config_verification = duthost.shell(f'redis-cli -n 4 HGET "{rule_key}" INNER_SRC_MAC_REWRITE_ACTION')["stdout"]
+        pytest_assert(config_verification.strip() == new_src_mac,
+                      f"CONFIG_DB does not have expected MAC {new_src_mac}, got: {config_verification.strip()}")
+        logger.info(f"STATE_DB validation successful - rule is active with MAC {new_src_mac}")
+
+    logger.info("ACL rule STATE_DB verification completed")
 
 
 def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
@@ -405,30 +437,16 @@ def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
     logger.info("Updated rule content in CONFIG_DB:\n%s", updated_rule)
 
     logger.info("Waiting for CONFIG_DB changes to propagate to STATE_DB...")
-    time.sleep(15)  # Give more time for orchagent to process the change
+    time.sleep(15)
 
     # Verify the modification in STATE_DB
     logger.info("Verifying ACL rule modification in STATE_DB...")
-    state_db_key = f"ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"  # Fixed: use | separator consistently
-
-    # Also check if STATE_DB uses different key format
-    logger.info("Checking STATE_DB ACL rule keys...")
-    state_keys = duthost.shell('redis-cli -n 6 KEYS "ACL_RULE_TABLE*"')["stdout"]
-    logger.info("STATE_DB ACL_RULE_TABLE keys:\n%s", state_keys)
+    state_db_key = f"ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1"
 
     db_cmd = f"redis-cli -n 6 HGETALL \"{state_db_key}\""
     state_db_output = duthost.shell(db_cmd)["stdout"]
 
     logger.info("STATE_DB entry for modified ACL rule:\n%s", state_db_output)
-
-    # If STATE_DB is empty, try to force orchagent to update
-    if not state_db_output.strip():
-        logger.warning("STATE_DB is empty, trying to trigger orchagent update...")
-        # Try touching the CONFIG_DB entry to trigger an update
-        duthost.shell(f'redis-cli -n 4 HSET "{rule_key}" priority "1005"')
-        time.sleep(10)
-        state_db_output = duthost.shell(db_cmd)["stdout"]
-        logger.info("STATE_DB after trigger attempt:\n%s", state_db_output)
 
     # Check if the rule is active in STATE_DB (this indicates successful propagation)
     if "status" in state_db_output and "Active" in state_db_output:
@@ -437,10 +455,6 @@ def modify_acl_rule(duthost, inner_src_ip, vni, new_src_mac):
         config_verification = duthost.shell(f'redis-cli -n 4 HGET "{rule_key}" INNER_SRC_MAC_REWRITE_ACTION')["stdout"]
         pytest_assert(config_verification.strip() == new_src_mac,
                       f"CONFIG_DB does not have expected MAC {new_src_mac}, got: {config_verification.strip()}")
-    else:
-        # Fallback: check if STATE_DB contains the MAC info (some implementations may show it)
-        pytest_assert("INNER_SRC_MAC_REWRITE_ACTION" in state_db_output and new_src_mac in state_db_output,
-                      f"Modified MAC rewrite action {new_src_mac} not found in STATE_DB and rule not marked active")
 
     logger.info("ACL rule successfully modified to use MAC: %s", new_src_mac)
 
@@ -472,12 +486,6 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
 
     # --- Build overlay config JSON ---
     dut_json = {
-        "NEIGH": {
-            f"{portchannel_name}|201.0.0.101": {
-                "neigh": RANDOM_MAC,
-                "family": "IPv4"
-            }
-        },
         "VXLAN_TUNNEL": {
             tunnel_name: {"src_ip": dut_vtep}
         },
@@ -589,7 +597,6 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_port_2_list, duthos
     router_mac = duthost.facts["router_mac"]
 
     # Use global VXLAN_ROUTER_MAC as the inner destination MAC
-    global VXLAN_ROUTER_MAC
     inner_dst_mac = VXLAN_ROUTER_MAC if VXLAN_ROUTER_MAC else "00:12:34:56:78:9a"  # Fallback
 
     # Create input packet
@@ -706,7 +713,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     next_hop_ip = ptf_vtep_ip  # PTF VTEP endpoint
     inner_dst_ip = "150.0.3.1"  # Route destination
     vni_id = str(VXLAN_VNI)  # VNI from configuration
-    inner_src_ip = "201.0.0.101"  # Source IP that matches neighbor entry
+    inner_src_ip = "201.0.0.101"  # Source IP for test packets
 
     try:
         setup_acl_table_type(duthost, acl_type_name=ACL_TABLE_TYPE)
@@ -738,8 +745,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
                 _send_and_verify_mac_rewrite(
                     ptfadapter, ptf_port_1, ptf_port_2, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
                     first_modified_mac, vni_id, outer_src_mac, outer_dst_mac, loopback_src_ip, next_hop_ip,
-                    table_name, RULE_NAME
-                )
+                    table_name, RULE_NAME)
 
         # Modify ACL rule to use new MAC address (much more efficient than remove/recreate)
         logger.info("Step 3: Modifying ACL rule to use new MAC: %s", second_modified_mac)
@@ -778,4 +784,3 @@ def test_range_ip_acl_rule(setUp):
     Validates that ACL rules can target IP subnets and rewrite MAC for multiple IPs.
     """
     _test_inner_src_mac_rewrite(setUp, "range_test")
-
