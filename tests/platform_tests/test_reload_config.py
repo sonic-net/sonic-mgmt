@@ -62,6 +62,7 @@ def test_reload_configuration(duthosts, enum_rand_one_per_hwsku_hostname,
     if config_force_option_supported(duthost):
         assert wait_until(360, 20, 0, config_system_checks_passed, duthost), (
             "System checks did not pass within the allotted time after config reload. "
+            "Current status: '{}'.".format(config_system_checks_passed(duthost))
         )
 
     logging.info("Reload configuration")
@@ -224,7 +225,8 @@ def test_reload_configuration_checks(duthosts, enum_rand_one_per_hwsku_hostname,
     if not duthost.get_facts().get("modular_chassis"):
         # Check if all containers have started
         assert wait_until(300, 10, 0, check_docker_status, duthost), (
-            "Not all Docker containers reached the 'fully started' state within 300 seconds "
+            "Not all Docker containers reached the 'fully started' state within the timeout. "
+            "Current status: '{}'.".format(check_docker_status(duthost))
         )
 
         # To ensure the system is stable enough, wait for another 30s
