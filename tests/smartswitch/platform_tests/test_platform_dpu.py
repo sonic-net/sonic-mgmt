@@ -26,9 +26,6 @@ pytestmark = [
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INT = 30
 
-# Cool off time period after shutting down DPUs
-COOL_OFF_TIME = 60
-
 # DPU Memory Threshold
 DPU_MEMORY_THRESHOLD = 90
 
@@ -70,9 +67,6 @@ def test_reboot_cause(duthosts, dpuhosts,
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    logging.info("60 seconds Cool off period after shutdown")
-    time.sleep(COOL_OFF_TIME)
-
     logging.info("Starting UP the DPUs in parallel")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
     post_test_dpus_check(duthost, dpuhosts,
@@ -105,9 +99,6 @@ def test_pcie_link(duthosts, dpuhosts,
 
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
-
-    logging.info("60 seconds Cool off period after shutdown")
-    time.sleep(COOL_OFF_TIME)
 
     output_pcie_info = duthost.command(CMD_PCIE_INFO)["stdout_lines"]
     try:
@@ -177,9 +168,6 @@ def test_system_health_state(duthosts, dpuhosts,
 
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
-
-    logging.info("60 seconds Cool off period after shutdown")
-    time.sleep(COOL_OFF_TIME)
 
     try:
         for index in range(len(dpu_on_list)):
