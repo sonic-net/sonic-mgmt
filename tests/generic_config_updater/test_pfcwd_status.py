@@ -153,7 +153,11 @@ def extract_pfcwd_config(duthost, start_pfcwd):
         pfcwd_config: dict of dicts with interface as the 1st level key and 'action', 'detect_time',
                       'restore_time' as the 2nd level keys
     """
-    output = duthost.command('show pfcwd config')
+    # Add flag to show all internal interfaces (for multi-asic systems)
+    cmd = 'show pfcwd config'
+    if duthost.is_multi_asic:
+        cmd += ' -d all'
+    output = duthost.command(cmd)
     pytest_assert('Ethernet' in output['stdout'], 'No ports found in the pfcwd config')
 
     pfcwd_config = defaultdict()
