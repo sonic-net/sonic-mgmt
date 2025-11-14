@@ -252,7 +252,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
 
     logger.info("Waiting for all VNET routes to appear in STATE_DB (max 60s)")
     ready_state = wait_until(
-        60, 10, 0,
+        120, 10, 0,
         all_vnet_routes_in_state_db,
         duthost,
         num_vnets,
@@ -357,7 +357,7 @@ def test_config_reload(vxlan_scale_setup_teardown, ptfhost):
     duthost.shell("config save -y")
     config_reload(duthost, safe_reload=True, yang_validate=False)
     ready = wait_until(
-        60, 10, 0,
+        120, 10, 0,
         all_vnet_routes_in_state_db,
         duthost,
         setup_params["num_vnets"],

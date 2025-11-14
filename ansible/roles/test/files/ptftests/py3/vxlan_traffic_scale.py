@@ -101,7 +101,8 @@ class VXLANScaleTest(BaseTest):
         self.logger.info("Starting VXLAN scale TCP verification test...")
         self.dataplane.flush()
 
-        total_failures = 0
+        # Track failures per VNET
+        failures = {vnet_name: 0 for vnet_name in self.vnet_ptf_map}
 
         for vnet_name, mapping in self.vnet_ptf_map.items():
             vnet_id = mapping["vnet_id"]
@@ -155,13 +156,21 @@ class VXLANScaleTest(BaseTest):
                         self, masked_exp_pkt, self.egress_ptf_if, timeout=2
                     )
                 except Exception as e:
-                    total_failures += 1
+                    failures[vnet_name] += 1
                     self.logger.error(
                         f"[FAIL] {vnet_name}: dst={dst_ip}, ingress={ptf_intf_name}, "
                         f"vni={vni}, error={repr(e)}"
                     )
 
-        if total_failures > 0:
-            self.fail(f"{total_failures} VXLAN route verifications failed")
+        # ---- Summary ----
+        self.logger.info("---- VXLAN Scale Test Failure Summary ----")
+        for vnet_name, count in failures.items():
+            self.logger.info(f"{vnet_name}: {count} failures")
 
-        self.logger.info("VXLANScaleTest completed successfully.")
+        total_failures = sum(failures.values())
+        self.logger.info(f"TOTAL FAILURES: {total_failures}")
+
+        if total_failures > 0:
+            self.fail(f"VXLAN verification failed with {total_failures} packet misses")
+        else:
+            self.logger.info("VXLANScaleTest completed successfully.")
