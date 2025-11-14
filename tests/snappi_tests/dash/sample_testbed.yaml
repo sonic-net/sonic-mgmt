@@ -19,6 +19,10 @@
   num_udpbg_cards: 1
   num_dpus: 1
   dpu_ports_list: 5, 6
+  active_ethpass_ip: 220.0.4.1
+  active_mac: 24:d5:e4:32:4e:10
+  standby_ethpass_ip: 220.0.4.2
+  standby_mac: 24:d5:e4:32:4e:11
   ports_list:
     Traffic1@Network1:
       - [ 1, 1, 1 ]
