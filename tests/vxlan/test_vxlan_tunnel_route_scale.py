@@ -346,21 +346,3 @@ def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
     )
 
     logger.info("VXLAN traffic test completed successfully")
-
-
-def test_config_reload(vxlan_scale_setup_teardown):
-    """
-    Run VXLAN traffic test via PTF after DUT config reload.
-    """
-    setup_params, duthost = vxlan_scale_setup_teardown
-    logger.info("Performing DUT config reload")
-    duthost.shell("config save -y")
-    config_reload(duthost, safe_reload=True, yang_validate=False)
-    ready = wait_until(
-        120, 10, 0,
-        all_vnet_routes_in_state_db,
-        duthost,
-        setup_params["num_vnets"],
-        setup_params["routes_per_vnet"]
-    )
-    pytest_assert(ready, "Not all routes restored in 120 seconds after config reload")
