@@ -266,8 +266,8 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"],
-                                 executable="/bin/bash")
+    duthost.shell(reboot_ss_ctrl_dict[reboot_type]["command"],
+                    executable="/bin/bash")
 
     return ['None', dut_datetime]
 

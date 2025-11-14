@@ -202,8 +202,7 @@ def test_system_health_state(duthosts, dpuhosts,
                                 'Online', 'up')
 
 
-def test_dpu_console(duthosts, dpuhosts,
-                     enum_rand_one_per_hwsku_hostname,
+def test_dpu_console(duthosts, enum_rand_one_per_hwsku_hostname,
                      platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: To Verify `DPU console access`
@@ -216,7 +215,6 @@ def test_dpu_console(duthosts, dpuhosts,
         if rc:
             continue
 
-        dpu_hostname = dpuhosts[index].hostname
         # Check if it's a Mellanox ASIC
         if is_mellanox_device(duthost):
             command = ('sudo python -c "import pexpect; '
@@ -237,13 +235,13 @@ def test_dpu_console(duthosts, dpuhosts,
                        'child.sendline(\'\\r\\r\'); '
                        'child.expect(r\' \'); '
                        'child.sendline(\'exit\\rexit\\r\'); '
-                       'child.expect(r\'%s login: \'); '
+                       'child.expect(r\'sonic login: \'); '
                        'print(child.after.decode()); child.close()"'
-                       % (index, dpu_hostname))
+                       % (index))
 
         logging.info("Checking console access of {}".format(dpu_name))
         output_dpu_console = duthost.shell(command)
-        pytest_assert(output_dpu_console['stdout'] == '%s login: ' % (dpu_hostname),
+        pytest_assert(output_dpu_console['stdout'] == 'sonic login: ',
                       "{} console is not accessible"
                       .format(dpu_name))
 
