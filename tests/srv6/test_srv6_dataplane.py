@@ -26,7 +26,7 @@ from tests.common.helpers.srv6_helper import create_srv6_packet, send_verify_srv
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.asic("mellanox", "broadcom"),
+    pytest.mark.asic("mellanox", "broadcom", "vpp"),
     pytest.mark.topology("t0", "t1")
 ]
 
@@ -70,12 +70,38 @@ def get_ptf_src_port_and_dut_port_and_neighbor(dut, tbinfo):
     for entry in neighbor_table:
         intf = entry[0]
         if intf in ports_map:
-            return intf, ports_map[intf], entry[1]  # local intf, ptf_src_port, neighbor hostname
+            # Check if this interface is part of a portchannel
+            ptf_ports = [ports_map[intf]]
+
+            # Check if the interface is a member of any portchannel
+            if 'minigraph_portchannels' in dut_mg_facts:
+                for pc_name, pc_info in dut_mg_facts['minigraph_portchannels'].items():
+                    if intf in pc_info.get('members', []):
+                        # Found a portchannel - get PTF ports for all members
+                        logger.info("Interface {} is a member of portchannel {}".format(intf, pc_name))
+                        ptf_ports = []
+                        for member in pc_info['members']:
+                            if member in ports_map:
+                                ptf_ports.append(ports_map[member])
+                                logger.info("Added portchannel member {} with PTF port {}".format(
+                                    member, ports_map[member]))
+                        break
+
+            return intf, ptf_ports, entry[1]  # local intf, ptf_src_ports (list), neighbor hostname
 
     pytest.skip("No active LLDP neighbor found for {}".format(dut))
 
 
-def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh):
+def run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh):
+    # Convert single port to list for uniform handling
+    if isinstance(ptf_src_ports, int):
+        ptf_src_ports_list = [ptf_src_ports]
+    else:
+        ptf_src_ports_list = ptf_src_ports
+
+    # Use the first port for sending packets
+    ptf_src_port = ptf_src_ports_list[0]
+
     for i in range(0, 10):
         # generate a random payload
         payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
@@ -100,7 +126,7 @@ def run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapte
         expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
         expected_pkt['IPv6'].hlim -= 1
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
-        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_src_port], True, ptfadapter)
+        runSendReceive(injected_pkt, ptf_src_port, expected_pkt, ptf_src_ports_list, True, ptfadapter)
 
 
 @pytest.fixture()
@@ -118,13 +144,13 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         cli_options = " -n " + duthost.get_namespace_from_asic_id(asic_index)
         dut_asic = duthost.asic_instance[asic_index]
         dut_mac = dut_asic.get_router_mac()
-        dut_port, ptf_src_port, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
+        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(dut_asic, tbinfo)
     else:
         cli_options = ''
         dut_mac = duthost._get_router_mac()
-        dut_port, ptf_src_port, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
+        dut_port, ptf_src_ports, neighbor = get_ptf_src_port_and_dut_port_and_neighbor(duthost, tbinfo)
 
-    logger.info("Doing test on DUT port {} | PTF port {}".format(dut_port, ptf_src_port))
+    logger.info("Doing test on DUT port {} | PTF ports {}".format(dut_port, ptf_src_ports))
 
     neighbor_ip = None
     # get neighbor IP
@@ -141,6 +167,8 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         for line in lines:
             if dut_port in line:
                 dut_port = line.split()[1]
+                logger.info("Using portchannel interface: {}".format(dut_port))
+                break
 
     sonic_db_cli = "sonic-db-cli" + cli_options
 
@@ -169,7 +197,7 @@ def setup_uN(duthosts, enum_frontend_dut_hostname, enum_frontend_asic_index, tbi
         "duthost": duthost,
         "dut_mac": dut_mac,
         "dut_port": dut_port,
-        "ptf_src_port": ptf_src_port,
+        "ptf_src_ports": ptf_src_ports,
         "neighbor_ip": neighbor_ip,
         "cli_options": cli_options,
         "ptf_port_ids": ptf_port_ids
@@ -213,6 +241,11 @@ class SRv6Base():
             if duthost.facts["asic_type"] == "broadcom" and \
                (srv6_packet['srh_seg_left'] or srv6_packet['srh_seg_list']):
                 logger.info("Skip the test for Broadcom ASIC with SRH")
+                continue
+
+            if duthost.facts["asic_type"] == "vpp" and \
+               (srv6_packet['validate_usd_flavor']):
+                logger.info("Skip the test for VPP with USD flavor.")
                 continue
 
             logger.info('-------------------------------------------------------------------------')
@@ -348,11 +381,11 @@ class TestSRv6DataPlaneBase(SRv6Base):
 def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
-    ptf_src_port = setup_uN['ptf_src_port']
+    ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reload the config
     duthost.command("config reload -y -f")
@@ -372,18 +405,18 @@ def test_srv6_dataplane_after_config_reload(setup_uN, ptfadapter, ptfhost, with_
                   "IP table not updating MAC for neighbour")
 
     # verify the forwarding works after config reload
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
-    ptf_src_port = setup_uN['ptf_src_port']
+    ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # restart BGP service, which will restart the BGP container
     if duthost.is_multi_asic:
@@ -402,26 +435,27 @@ def test_srv6_dataplane_after_bgp_restart(setup_uN, ptfadapter, ptfhost, with_sr
 
     pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
     # verify the forwarding works after BGP restart
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
 def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, with_srh, loganalyzer):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
-    ptf_src_port = setup_uN['ptf_src_port']
+    ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
 
     # Reloading the configuration will restart eth0 and update the TACACS settings.
     # This change may introduce a delay, potentially causing temporary TACACS reporting errors.
-    loganalyzer[duthost.hostname].ignore_regex.extend([r".*tac_connect_single: .*",
-                                                       r".*nss_tacplus: .*"])
+    if loganalyzer and duthost.hostname and duthost.hostname in loganalyzer:
+        loganalyzer[duthost.hostname].ignore_regex.extend([r".*tac_connect_single: .*",
+                                                           r".*nss_tacplus: .*"])
 
     # verify the forwarding works
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
     # reboot DUT
-    reboot(duthost, localhost, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
+    reboot(duthost, localhost, wait=300, safe_reboot=True, check_intf_up_ports=True, wait_for_bgp=True)
 
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
     # wait for the config to be reprogrammed
@@ -433,7 +467,7 @@ def test_srv6_dataplane_after_reboot(setup_uN, ptfadapter, ptfhost, localhost, w
 
     pytest_assert(wait_until(60, 5, 0, is_bgp_route_synced, duthost), "BGP route is not synced")
     # verify the forwarding works after reboot
-    run_srv6_traffic_test(duthost, dut_mac, ptf_src_port, neighbor_ip, ptfadapter, ptfhost, with_srh)
+    run_srv6_traffic_test(duthost, dut_mac, ptf_src_ports, neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
 @pytest.mark.parametrize("with_srh", [True, False])
@@ -441,9 +475,13 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     duthost = setup_uN['duthost']
     dut_mac = setup_uN['dut_mac']
     dut_port = setup_uN['dut_port']
-    ptf_src_port = setup_uN['ptf_src_port']
+    ptf_src_ports = setup_uN['ptf_src_ports']
     neighbor_ip = setup_uN['neighbor_ip']
     ptf_port_ids = setup_uN['ptf_port_ids']
+
+    # Use the first port to send traffic
+    first_ptf_port = ptf_src_ports[0] if isinstance(ptf_src_ports, list) else ptf_src_ports
+
     # Verify that the ASIC DB has the SRv6 SID entries
     sonic_db_cli = "sonic-db-cli" + setup_uN['cli_options']
     assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
@@ -462,7 +500,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     if with_srh:
         injected_pkt = simple_ipv6_sr_packet(
             eth_dst=dut_mac,
-            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+            eth_src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode(),
             ipv6_src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1",
             ipv6_dst="fcbb:bbbb:3:2::",
             srh_seg_left=1,
@@ -471,7 +509,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
                 dport=4791) / Raw(load=payload)
         )
     else:
-        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, first_ptf_port).decode()) \
                        / IPv6(src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1", dst="fcbb:bbbb:3:2::") \
                        / IPv6(dst=neighbor_ip, src=ptfhost.mgmt_ipv6 if ptfhost.mgmt_ipv6 else "1000::1") \
                        / UDP(dport=4791) / Raw(load=payload)
@@ -484,7 +522,7 @@ def test_srv6_no_sid_blackhole(setup_uN, ptfadapter, ptfhost, with_srh):
     expected_pkt = Mask(expected_pkt)
     expected_pkt.set_do_not_care_packet(Ether, "dst")
     expected_pkt.set_do_not_care_packet(Ether, "src")
-    send_packet(ptfadapter, ptf_src_port, injected_pkt, count=pkt_count)
+    send_packet(ptfadapter, first_ptf_port, injected_pkt, count=pkt_count)
     verify_no_packet_any(ptfadapter, expected_pkt, ptf_port_ids, 0, 1)
 
     # verify that the RX_DROP counter is incremented
