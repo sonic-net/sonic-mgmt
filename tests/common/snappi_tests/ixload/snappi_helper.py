@@ -24,6 +24,7 @@ def set_static_routes(duthost, static_ipmacs_dict):
     logger.info('Configuring static routes')
     for ip in static_macs:
         try:
+            logger.info(f'{duthost.hostname} setting: sudo arp -s {ip} {static_macs[ip]}')
             duthost.shell(f'sudo arp -s {ip} {static_macs[ip]}')
         except Exception as e:  # noqa F841
             pass
@@ -151,41 +152,66 @@ def set_ha_roles(duthosts, duthost):
         active_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
 
         logger.info("Setting up HA creation Active side cmd1")
-        duthost.shell(active_cmd1)
+        output_cmd1 = duthost.shell(active_cmd1)
+        logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
+
+        time.sleep(2)
         logger.info("Setting up HA creation Active side cmd2")
-        duthost.shell(active_cmd2)
+        output_cmd2 = duthost.shell(active_cmd2)
+        logger.info(f"Active side cmd2 output: {output_cmd2['stdout']}")
     else:
         # Standby side
         standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
         standby_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
 
         logger.info("Setting up HA creation Standby side cmd1")
-        duthost.shell(standby_cmd1)
+        output_cmd1 = duthost.shell(standby_cmd1)
+        logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
+
+        time.sleep(2)
         logger.info("Setting up HA creation Standby side cmd2")
-        duthost.shell(standby_cmd2)
+        output_cmd2 = duthost.shell(standby_cmd2)
+        logger.info(f"Standby side cmd2 output: {output_cmd2['stdout']}")
 
     return
 
 
-def set_ha_admin_up(duthosts, duthost):
+def set_ha_admin_up(duthosts, duthost, tbinfo):
 
     if duthost == duthosts[0]:
         # Active side
+        standby_ethpass_ip = tbinfo['standby_ethpass_ip']
+        standby_mac = tbinfo['standby_mac']
+
         active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
         logger.info("Setting up HA admin up Active side cmd1")
-        duthost.shell(active_cmd1)
+        output_cmd1 = duthost.shell(active_cmd1)
+        logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
+
+        time.sleep(2)
+        output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
+        output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
     else:
         # Standby side
+        active_ethpass_ip = tbinfo['active_ethpass_ip']
+        active_mac = tbinfo['active_mac']
+
         standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
         logger.info("Setting up HA admin up Standby side cmd1")
-        duthost.shell(standby_cmd1)
+        output_cmd1 = duthost.shell(standby_cmd1)
+        logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
+
+        time.sleep(2)
+        output = duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')  # noqa: F841
+        output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
 
     return
 
 
 def set_ha_activate_role(duthosts, duthost):
     # Extract pending_operation_ids from both Active and Standby sides
-    logger.info('Resting for 30 seconds before attempting to set HA activation role for pending operation id is set')
+    logger.info(f'{duthost.hostname} Resting for 30 seconds before attempting to set HA activation role for pending '
+                f'operation id is set')
     time.sleep(30)
     retries = 3
 
@@ -217,12 +243,14 @@ def set_ha_activate_role(duthosts, duthost):
                 cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
                     pending_operation_id)
                 logger.info("Setting up HA activation role Active side")
-                duthost.shell(cmd)
+                output = duthost.shell(cmd)
+                logger.info(f"Active side output after cmd output: {output['stdout']}")
             else:
                 cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
                     pending_operation_id)
                 logger.info("Setting up HA activation role Standby side")
-                duthost.shell(cmd)
+                output = duthost.shell(cmd)
+                logger.info(f"Standby side output after cmd output: {output['stdout']}")
             break
         else:
             retries -= 1
@@ -238,28 +266,7 @@ def set_ha_activate_role(duthosts, duthost):
     return pending_operation_id
 
 
-"""
-def set_ha_activate_role(duthosts, duthost):
-
-    # NEED search for approved_pending_operation_ids
-    if duthost == duthosts[0]:
-        # Active side
-        active_cmd1 = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu0_0:haset0_0'''
-        logger.info("Setting up HA activation role Active side cmd1")
-        import pdb; pdb.set_trace()
-        result = duthost.shell(f"{active_cmd1} | grep pending_operation_ids")
-        duthost.shell(active_cmd1)
-    else:
-        # Standby side
-        standby_cmd1 = r'''docker exec dash-hadpu0 swbus-cli show hamgrd actor /hamgrd/0/ha-scope/vdpu1_0:haset0_0'''
-        logger.info("Setting up HA activation role Standby side cmd1")
-        duthost.shell(standby_cmd1)
-
-    return
-"""
-
-
-def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_test_case):
+def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_index, ha_test_case):
     logger.info(f"Preparing to load DPU configs on DUT for dpu_index={dpu_index}")
     username = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_user']
     password = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_password']
@@ -378,25 +385,29 @@ def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_
                     duthost.shell("docker restart dash-hadpu0")
                     logger.info(f'Removing interface from {duthost.hostname}: '
                                 f'sudo config interface ip rem Ethernet0 18.{dpu_index}.202.1/31')
+                    time.sleep(2)
                     output = net_connect_jump.send_command_timing(
                         f'sudo config interface ip rem Ethernet0 18.{dpu_index}.202.1/31', delay_factor=2)
                     logger.info(
                         f'Deleting route on {duthost.hostname}: sudo ip route del 0.0.0.0/0 via 169.254.200.254')
+                    time.sleep(2)
                     output = net_connect_jump.send_command_timing(
                         'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                     logger.info(
                         f'Adding route on {duthost.hostname}: '
                         f'sudo config route add prefix 0.0.0.0/0 nexthop 20.{dpu_index}.202.0')
+                    time.sleep(2)
                     output = net_connect_jump.send_command_timing(
                         f'sudo config route add prefix 0.0.0.0/0 nexthop 20.{dpu_index}.202.0', delay_factor=2)
+                    active_ethpass_ip = tbinfo['active_ethpass_ip']
+                    active_mac = tbinfo['active_mac']
                     logger.info(
-                        f'Adding to arp table on {duthost.hostname}: sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10')  # noqa:  E231
-                    output = net_connect_jump.send_command_timing(
-                        'sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10', delay_factor=2)
+                        f'Adding to arp table on {duthost.hostname}: sudo arp -s {active_ethpass_ip} {active_mac}')  # noqa:  E231
+                    output = duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')
                     logger.info(
                         f'Pinging standby side loopback intf from {duthost.hostname}: '
-                        f'sudo arp -s 220.0.4.1 24:d5:e4:32:4e:10')  # noqa:  E231
-                    output_ping = duthost.command("ping -c 3 220.0.4.1", module_ignore_errors=True)
+                        f'ping -c 3 {active_ethpass_ip}')  # noqa:  E231
+                    output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
 
                 else:
                     # DPU0 initial active side
@@ -404,19 +415,24 @@ def _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_
                     duthost.shell("docker restart dash-hadpu0")
                     logger.info(f'Deleting route on {duthost.hostname}: '
                                 f'sudo ip route del 0.0.0.0/0 via 169.254.200.254')
+                    time.sleep(2)
                     output = net_connect_jump.send_command_timing(
                         'sudo ip route del 0.0.0.0/0 via 169.254.200.254', delay_factor=2)
                     logger.info(f'Adding route on {duthost.hostname}: '
                                 f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0')
+                    time.sleep(2)
                     output = net_connect_jump.send_command_timing(
                         f'sudo config route add prefix 0.0.0.0/0 nexthop 18.{dpu_index}.202.0', delay_factor=2)
+
+                    standby_ethpass_ip = tbinfo['standby_ethpass_ip']
+                    standby_mac = tbinfo['standby_mac']
                     logger.info(
-                        f'Adding to arp table on {duthost.hostname}: sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11')  # noqa:  E231
-                    output = net_connect_jump.send_command_timing(
-                        'sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11', delay_factor=2)
+                        f'Adding to arp table on {duthost.hostname}: sudo arp -s {standby_ethpass_ip} {standby_mac}')  # noqa:  E231
+                    output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
                     logger.info(
-                        f'Pinging active side loopback intf from {duthost.hostname}: sudo arp -s 220.0.4.2 24:d5:e4:32:4e:11')  # noqa:  E231
-                    output_ping = duthost.command("ping -c 3 220.0.4.2", module_ignore_errors=True)  # noqa: F841
+                        f'Pinging active side loopback intf from {duthost.hostname}: sudo ping -c 3 {standby_ethpass_ip}')  # noqa:  E231
+                    output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}",  # noqa: F841
+                                                  module_ignore_errors=True)
     except Exception as e:
         logger.error(f"{duthost.hostname} Error during DPU configuration: {str(e)}")
         raise
@@ -469,6 +485,7 @@ def _docker_run_config_on_dut(duthost, remote_dir, dpu_index, remote_basename):
 def load_dpu_configs_on_dut(
         duthosts,
         duthost,
+        tbinfo,
         dpu_index,
         passing_dpus,
         local_dir=None,
@@ -482,7 +499,8 @@ def load_dpu_configs_on_dut(
     Load DPU config JSONs by running gnmi_client in a Docker container on the DUT.
     """
 
-    local_files, local_dir = _set_routes_on_dut(duthosts, duthost, local_files, local_dir, dpu_index, ha_test_case)
+    local_files, local_dir = _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_index,
+                                                ha_test_case)
     remote_dir = f"{remote_dir}/dpu{dpu_index}"
     _ensure_remote_dir_on_dut(duthost, remote_dir)
     _telemetry_run_on_dut(duthost)
@@ -794,7 +812,6 @@ def npu_startup(duthosts, duthost, localhost):
         # SKIP AHEAD for now to the ping
         dpus_online_result = wait_for_all_dpus_online(duthost, timeout)
         dpus_online_result = True
-        # wait(wait_time, msg=f"Wait for system to be stable on DUT {duthost.hostname}.")
 
         if dpus_online_result is False:
             retries -= 1
@@ -817,7 +834,7 @@ def npu_startup(duthosts, duthost, localhost):
     return True
 
 
-def dpu_startup(duthosts, duthost, static_ipmacs_dict, ha_test_case):
+def dpu_startup(duthosts, duthost, tbinfo, static_ipmacs_dict, ha_test_case):
 
     logger.info(f"Pinging each DPU on {duthost.hostname}")
     """
@@ -842,8 +859,8 @@ def dpu_startup(duthosts, duthost, static_ipmacs_dict, ha_test_case):
     # Determine which IPs to ping based on duthost
     if len(duthosts) > 1 and duthost == duthosts[1]:
         # For duthosts[1], ping 20.0.202.1, 20.1.202.1, ..., 20.7.202.1
-        ip_list_to_ping = [f"20.{i}.202.1" for i in range(8)]
-        logger.info(f"Using standby side IPs for {duthost.hostname}: {ip_list_to_ping}")
+        ip_list_to_ping = [f"169.254.200.{i+1}" for i in range(8)]
+        logger.info(f"Using standby side midplane IPs for {duthost.hostname}: {ip_list_to_ping}")
     elif len(duthosts) > 1 and duthost == duthosts[0]:
         # For duthosts[0], ping 18.0.202.1, ..., 18.7.202.1
         ip_list_to_ping = [f"18.{i}.202.1" for i in range(8)]
@@ -891,6 +908,7 @@ def dpu_startup(duthosts, duthost, static_ipmacs_dict, ha_test_case):
                 load_dpu_configs_on_dut,
                 duthosts=duthosts,
                 duthost=duthost,
+                tbinfo=tbinfo,
                 dpu_index=target_dpu_index,
                 passing_dpus=passing_dpus,
                 remote_dir=remote_dir,

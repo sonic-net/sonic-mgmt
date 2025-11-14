@@ -144,8 +144,8 @@ def setup_config_npu_dpu(request, duthosts, localhost, tbinfo, ha_test_case=None
     def run_npu_startup(duthosts, duthost, localhost, key):
         npu_dpu_startup_results[key] = npu_startup(duthosts, duthost, localhost)
 
-    def run_dpu_startup(duthosts, duthost, static_ipsmacs_dict, ha_test_case, key):
-        dpu_startup_results[key] = dpu_startup(duthosts, duthost, static_ipsmacs_dict, ha_test_case)
+    def run_dpu_startup(duthosts, duthost, tbinfo, static_ipsmacs_dict, ha_test_case, key):
+        dpu_startup_results[key] = dpu_startup(duthosts, duthost, tbinfo, static_ipsmacs_dict, ha_test_case)
 
     npu_dpu_startup_enabled = request.config.getoption("--npu_dpu_startup")
 
@@ -199,9 +199,9 @@ def setup_config_npu_dpu(request, duthosts, localhost, tbinfo, ha_test_case=None
             # Create threads with wrapper function for DPU startup
             dpu_startup_results = {}
             dpu_thread1 = threading.Thread(target=run_dpu_startup,
-                                           args=(duthosts, duthost1, static_ipsmacs_dict1, ha_test_case, 'dpu1'))
+                                           args=(duthosts, duthost1, tbinfo, static_ipsmacs_dict1, ha_test_case, 'dpu1'))  # noqa: E501
             dpu_thread2 = threading.Thread(target=run_dpu_startup,
-                                           args=(duthosts, duthost2, static_ipsmacs_dict2, ha_test_case, 'dpu2'))
+                                           args=(duthosts, duthost2, tbinfo, static_ipsmacs_dict2, ha_test_case, 'dpu2'))  # noqa: E501
 
             # Start both DPU threads
             dpu_thread1.start()
@@ -237,8 +237,8 @@ def setup_config_npu_dpu(request, duthosts, localhost, tbinfo, ha_test_case=None
             set_ha_roles(duthosts, duthost1)
             set_ha_roles(duthosts, duthost2)
 
-            set_ha_admin_up(duthosts, duthost1)
-            set_ha_admin_up(duthosts, duthost2)
+            set_ha_admin_up(duthosts, duthost1, tbinfo)
+            set_ha_admin_up(duthosts, duthost2, tbinfo)
 
             set_ha_activate_role(duthosts, duthost1)
             set_ha_activate_role(duthosts, duthost2)
