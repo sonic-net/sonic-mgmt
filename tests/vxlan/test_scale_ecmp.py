@@ -5,7 +5,7 @@ from ipaddress import IPv4Address
 import pytest
 import logging
 import traceback
-from tests.common.reboot import reboot
+from tests.common.config_reload import config_reload
 from tests.ptf_runner import ptf_runner
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
@@ -17,6 +17,8 @@ ecmp_utils = Ecmp_Utils()
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical'),
+    pytest.mark.asic('cisco-8000')
 ]
 
 VNET_NAME = "Vnet1"
@@ -165,10 +167,6 @@ def one_vnet_setup_teardown(
     - Passes num_endpoints from scaled_vnet_params
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.facts["asic_type"] == "vs":
-        pytest.skip("VS topology not supported")
-
-    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
     try:
         cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
@@ -184,38 +182,39 @@ def one_vnet_setup_teardown(
         logger.error("Exception raised in setup: {}".format(repr(e)))
         logger.error(json.dumps(
             traceback.format_exception(*sys.exc_info()), indent=2))
-        duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-        reboot(duthost, localhost)
+        config_reload(duthost, safe_reload=True, yang_validate=False)
         pytest.fail("Vnet testing setup failed")
 
     yield setup_params, duthost, ptfhost
 
-    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-    reboot(duthost, localhost)
+    config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
 # ---------- PTF runner helper ----------
 def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets):
     logger.info(f"Calling VXLAN ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
-    params.update(
-        {
-            "endpoints": endpoints,
-            "num_packets": num_packets,
-        }
-    )
+
+    endpoints_file = "/tmp/ptf_endpoints.json"
+    ptfhost.copy(content=json.dumps(endpoints), dest=endpoints_file)
+    ptf_params = params.copy()
+    ptf_params.update({
+        "endpoints_file": endpoints_file,
+        "num_packets": num_packets
+    })
+    params_path = "/tmp/ptf_params.json"
+    ptfhost.copy(content=json.dumps(ptf_params), dest=params_path)
 
     ptf_runner(
         ptfhost,
         "ptftests",
         "vxlan_ecmp_ptftest.VxlanEcmpTest",
         platform_dir="ptftests",
-        params=params,
+        params={"params_file": params_path},
         log_file="/tmp/vxlan_ecmp_ptftest.log",
     )
 
 
 # ---------- Tests ----------
-
 def test_ecmp_two_endpoints(ptfhost, one_vnet_setup_teardown):
     logger.info("Running test_ecmp_two_endpoints")
     setup, duthost, _ = one_vnet_setup_teardown
