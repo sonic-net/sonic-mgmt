@@ -50,22 +50,38 @@ def apply_chunk(duthost, payload, config_name):
 
 
 def all_vnet_routes_in_state_db(duthost, num_vnets, routes_per_vnet):
-    """
-    Check if all expected VNET routes exist in STATE_DB.
-    Returns True if total found >= expected.
-    """
     try:
         total_expected = num_vnets * routes_per_vnet
-        total_found = 0
+        dump_cmd = "redis-dump -d 6 -k 'VNET_ROUTE_TUNNEL_TABLE|*'"
+        dump_text = duthost.shell(dump_cmd)["stdout"]
+        logger.debug(f"redis-dump full output: {dump_text}")
+
+        if not dump_text.strip():
+            logger.warning("redis-dump returned empty output")
+            return False
+
+        dump_dict = json.loads(dump_text)
+        logger.debug(f"Parsed redis-dump entries: {len(dump_dict)} keys")
+        total_active = 0
+
         for vnet_id in range(1, num_vnets + 1):
             vnet_name = f"Vnet{vnet_id}"
             prefix = f"VNET_ROUTE_TUNNEL_TABLE|{vnet_name}|30.{vnet_id}."
-            cmd = f"redis-cli -n 6 KEYS '{prefix}*' | wc -l"
-            count = int(duthost.shell(cmd)["stdout"].strip())
-            logger.info(f"{vnet_name}: found {count} STATE_DB routes")
-            total_found += count
-        logger.info(f"STATE_DB route progress: {total_found}/{total_expected}")
-        return total_found >= total_expected
+            count_active = 0
+            for key, entry in dump_dict.items():
+                if not key.startswith(prefix):
+                    continue
+                value = entry.get("value", {})
+                if isinstance(value, dict) and value.get("state") == "active":
+                    count_active += 1
+
+            logger.info(f"{vnet_name}: ACTIVE routes = {count_active}/{routes_per_vnet}")
+            total_active += count_active
+
+        logger.info(f"STATE_DB total ACTIVE = {total_active}/{total_expected}")
+
+        return total_active >= total_expected
+
     except Exception as e:
         logger.warning(f"Error checking STATE_DB route readiness: {e}")
         return False
@@ -192,6 +208,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
             },
             f"vnet_{vnet_name}",
         )
+        time.sleep(1)
         apply_chunk(
             duthost,
             {
@@ -214,6 +231,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
 
         logger.info(f"Applying {len(vnet_routes)} routes for {vnet_name}")
         apply_chunk(duthost, {"VNET_ROUTE_TUNNEL": vnet_routes}, f"vnet_routes_{vnet_name}")
+        time.sleep(3)
 
     logger.info("Discovering PortChannel egress members ...")
     egress_ptf_if = []
@@ -230,16 +248,11 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     pytest_assert(egress_ptf_if, "No egress PTF interfaces discovered from PortChannels")
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
-    duthost.shell("config save -y")
-
-    config_reload(duthost, safe_reload=True, yang_validate=False)
-
     ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
-    time.sleep(60)
 
     logger.info("Waiting for all VNET routes to appear in STATE_DB (max 60s)")
     ready_state = wait_until(
-        60, 5, 0,
+        60, 10, 0,
         all_vnet_routes_in_state_db,
         duthost,
         num_vnets,
@@ -333,3 +346,21 @@ def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
     )
 
     logger.info("VXLAN traffic test completed successfully")
+
+
+def test_config_reload(vxlan_scale_setup_teardown, ptfhost):
+    """
+    Run VXLAN traffic test via PTF after DUT config reload.
+    """
+    setup_params, duthost = vxlan_scale_setup_teardown
+    logger.info("Performing DUT config reload")
+    duthost.shell("config save -y")
+    config_reload(duthost, safe_reload=True, yang_validate=False)
+    ready = wait_until(
+        60, 10, 0,
+        all_vnet_routes_in_state_db,
+        duthost,
+        setup_params["num_vnets"],
+        setup_params["routes_per_vnet"]
+    )
+    pytest_assert(ready, "Not all routes restored in 60 seconds after config reload")

@@ -99,6 +99,7 @@ class VXLANScaleTest(BaseTest):
 
     def runTest(self):
         self.logger.info("Starting VXLAN scale TCP verification test...")
+        self.dataplane.flush()
 
         total_failures = 0
 
@@ -158,10 +159,6 @@ class VXLANScaleTest(BaseTest):
                     self.logger.error(
                         f"[FAIL] {vnet_name}: dst={dst_ip}, ingress={ptf_intf_name}, "
                         f"vni={vni}, error={repr(e)}"
-                    )
-                    raise AssertionError(
-                        f"VXLAN verification failed for {vnet_name} "
-                        f"(dst={dst_ip}, ingress={ptf_intf_name}, vni={vni})"
                     )
 
         if total_failures > 0:
