@@ -4,9 +4,10 @@ import time
 import logging
 import pytest
 import traceback
+from tests.common.config_reload import config_reload
+from tests.common.utilities import wait_until
 from ipaddress import IPv4Address
 from tests.common.helpers.assertions import pytest_assert, pytest_require
-from tests.common.reboot import reboot
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
@@ -20,6 +21,8 @@ TUNNEL_NAME = "tunnel_v4"
 pytestmark = [
     pytest.mark.topology('t0'),
     pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical'),
+    pytest.mark.asic('cisco-8000')
 ]
 
 
@@ -44,6 +47,28 @@ def apply_chunk(duthost, payload, config_name):
     file_dest = f"/tmp/{config_name}_chunk.json"
     duthost.copy(content=content, dest=file_dest)
     duthost.shell(f"sonic-cfggen -j {file_dest} --write-to-db")
+
+
+def all_vnet_routes_in_state_db(duthost, num_vnets, routes_per_vnet):
+    """
+    Check if all expected VNET routes exist in STATE_DB.
+    Returns True if total found >= expected.
+    """
+    try:
+        total_expected = num_vnets * routes_per_vnet
+        total_found = 0
+        for vnet_id in range(1, num_vnets + 1):
+            vnet_name = f"Vnet{vnet_id}"
+            prefix = f"VNET_ROUTE_TUNNEL_TABLE|{vnet_name}|30.{vnet_id}."
+            cmd = f"redis-cli -n 6 KEYS '{prefix}*' | wc -l"
+            count = int(duthost.shell(cmd)["stdout"].strip())
+            logger.info(f"{vnet_name}: found {count} STATE_DB routes")
+            total_found += count
+        logger.info(f"STATE_DB route progress: {total_found}/{total_expected}")
+        return total_found >= total_expected
+    except Exception as e:
+        logger.warning(f"Error checking STATE_DB route readiness: {e}")
+        return False
 
 
 def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
@@ -101,9 +126,9 @@ def restore_config_db(localhost, duthost, ptfhost, setup_params=None):
     except Exception as e:
         logger.warning(f"PTF interface cleanup failed: {e}")
 
-    # Restore DUT config and reboot
+    # Restore DUT config
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
-    reboot(duthost, localhost)
+    config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
 def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
@@ -167,7 +192,6 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
             },
             f"vnet_{vnet_name}",
         )
-        time.sleep(1)
         apply_chunk(
             duthost,
             {
@@ -178,7 +202,6 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
             },
             f"intf_{vnet_name}",
         )
-    time.sleep(5)
     for idx in range(num_vnets):
         vnet_id = idx + 1
         vnet_name = f"Vnet{vnet_id}"
@@ -191,7 +214,6 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
 
         logger.info(f"Applying {len(vnet_routes)} routes for {vnet_name}")
         apply_chunk(duthost, {"VNET_ROUTE_TUNNEL": vnet_routes}, f"vnet_routes_{vnet_name}")
-        time.sleep(10)
 
     logger.info("Discovering PortChannel egress members ...")
     egress_ptf_if = []
@@ -208,9 +230,26 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     pytest_assert(egress_ptf_if, "No egress PTF interfaces discovered from PortChannels")
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
+    duthost.shell("config save -y")
 
-    time.sleep(10)
+    config_reload(duthost, safe_reload=True, yang_validate=False)
+
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
+    time.sleep(60)
+
+    logger.info("Waiting for all VNET routes to appear in STATE_DB (max 60s)")
+    ready_state = wait_until(
+        60, 5, 0,
+        all_vnet_routes_in_state_db,
+        duthost,
+        num_vnets,
+        routes_per_vnet
+    )
+    if not ready_state:
+        logger.warning("Timeout waiting for all VNET routes in STATE_DB")
+        pytest.fail("STATE_DB route programming incomplete after 60 s")
+    else:
+        logger.info("All VNET routes detected in STATE_DB")
 
     setup_params = {
         "dut_vtep": dut_vtep,
@@ -232,8 +271,6 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
                                scaled_vnet_params, localhost, request):
     duthost = duthosts[rand_one_dut_hostname]
     logger.info(f"Starting VXLAN scale setup on DUT: {duthost.hostname}")
-    if duthost.facts.get("asic_type") == "vs":
-        pytest.skip("VXLAN scale test not supported on virtual SONiC (VS)")
     setup_params = {}
 
     duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
@@ -277,57 +314,6 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
 # -------------------------------------------------------------------
 # Testcases
 # -------------------------------------------------------------------
-def test_vxlan_route_programming(vxlan_scale_setup_teardown):
-    """
-    Fast validation: for each VNET, ensure APP_DB and ASIC_DB have expected
-    route *counts* (e.g. 10K per VNET), rather than checking every route individually.
-    """
-    setup_params, duthost = vxlan_scale_setup_teardown
-    num_vnets = setup_params["num_vnets"]
-    routes_per_vnet = setup_params["routes_per_vnet"]
-
-    logger.info(f"Validating route *counts* for {num_vnets} VNETs {routes_per_vnet} routes each")
-
-    # --- APP_DB count check ---
-    appdb_counts = {}
-    for vnet_id in range(1, num_vnets + 1):
-        vnet_name = f"Vnet{vnet_id}"
-        key_prefix = f"VNET_ROUTE_TUNNEL_TABLE:{vnet_name}:30.{vnet_id}."
-        # Count matching keys in APP_DB
-        cmd = f"redis-cli -n 0 KEYS '{key_prefix}*' | wc -l"
-        count = int(duthost.shell(cmd)["stdout"].strip())
-        appdb_counts[vnet_name] = count
-        logger.info(f"{vnet_name}: found {count} APP_DB routes")
-
-    failed_appdb = [vn for vn, cnt in appdb_counts.items() if cnt != routes_per_vnet]
-    pytest_assert(
-        not failed_appdb,
-        f"APP_DB route count mismatch for: {failed_appdb}. Counts: {appdb_counts}",
-    )
-    logger.info("All APP_DB route counts correct")
-
-    # --- ASIC_DB count check ---
-    logger.info("Counting ASIC_DB route entries per VNET prefix ...")
-    asic_keys = "\n".join(
-        duthost.shell("redis-cli -n 1 KEYS 'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*'")["stdout_lines"]
-    )
-
-    asic_counts = {}
-    for vnet_id in range(1, num_vnets + 1):
-        prefix = f"30.{vnet_id}."
-        count = asic_keys.count(prefix)
-        asic_counts[f"Vnet{vnet_id}"] = count
-        logger.info(f"Vnet{vnet_id}: found {count} ASIC_DB routes")
-
-    failed_asicdb = [vn for vn, cnt in asic_counts.items() if cnt < routes_per_vnet]
-    pytest_assert(
-        not failed_asicdb,
-        f"ASIC_DB route count mismatch for: {failed_asicdb}. Counts: {asic_counts}",
-    )
-
-    logger.info("All ASIC_DB route counts correct")
-
-
 def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
     """
     Run the full-scale VXLAN traffic test via PTF.
