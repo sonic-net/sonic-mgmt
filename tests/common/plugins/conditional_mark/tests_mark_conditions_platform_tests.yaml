@@ -916,7 +916,7 @@ platform_tests/api/test_watchdog.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
-      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-dell_s6000_s1220-r0']"
+      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0', 'x86_64-dell_s6000_s1220-r0']"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
@@ -957,6 +957,12 @@ platform_tests/cli/test_show_chassis_module.py::test_show_chassis_module_status:
 #######################################
 #####  cli/test_show_platform.py  #####
 #######################################
+platform_tests/cli/test_show_chassis_module.py:
+  skip:
+    reason: "Skip modular chassis specific commands on disaggregated chassis"
+    conditions:
+      - "'t2_single_node' in topo_name"
+
 platform_tests/cli/test_show_platform.py::test_show_platform_fan:
   skip:
     reason: "Unsupported platform API"
@@ -1185,6 +1191,15 @@ platform_tests/test_advanced_reboot.py::test_warm_reboot_sad:
       - "asic_type in ['vs']"
       - "'isolated' in topo_name"
       - "is_smartswitch==True"
+
+#######################################
+#####   test_chassis_reboot.py  #####
+#######################################
+platform_tests/test_chassis_reboot.py:
+  skip:
+    reason: "Skip modular chassis specific test on disaggregated chassis"
+    conditions:
+      - "'t2_single_node' in topo_name"
 
 #######################################
 #####   test_cont_warm_reboot.py  #####
