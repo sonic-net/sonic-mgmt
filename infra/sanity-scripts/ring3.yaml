@@ -103,11 +103,14 @@ FWD:
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t0:
     churchill-mono:
+      sim:
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
       hw:
         - acl/test_acl.py
         - acl/test_stress_acl.py
         - crm/test_crm.py::test_crm_neighbor
         - crm/test_crm_available.py
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
         - drop_packets/test_drop_counters.py
         - everflow/test_everflow_ipv6.py
         - everflow/test_everflow_testbed.py
