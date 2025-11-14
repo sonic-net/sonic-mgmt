@@ -248,9 +248,9 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     pytest_assert(egress_ptf_if, "No egress PTF interfaces discovered from PortChannels")
     logger.info(f"Egress PTF interfaces: {egress_ptf_if}")
 
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port)
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=vxlan_port, dutmac=vxlan_router_mac)
 
-    logger.info("Waiting for all VNET routes to appear in STATE_DB (max 60s)")
+    logger.info("Waiting for all VNET routes to appear in STATE_DB (max 120s)")
     ready_state = wait_until(
         120, 10, 0,
         all_vnet_routes_in_state_db,
@@ -260,7 +260,7 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     )
     if not ready_state:
         logger.warning("Timeout waiting for all VNET routes in STATE_DB")
-        pytest.fail("STATE_DB route programming incomplete after 60 s")
+        pytest.fail("STATE_DB route programming incomplete after 120 s")
     else:
         logger.info("All VNET routes detected in STATE_DB")
 
@@ -348,7 +348,7 @@ def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
     logger.info("VXLAN traffic test completed successfully")
 
 
-def test_config_reload(vxlan_scale_setup_teardown, ptfhost):
+def test_config_reload(vxlan_scale_setup_teardown):
     """
     Run VXLAN traffic test via PTF after DUT config reload.
     """
@@ -363,4 +363,4 @@ def test_config_reload(vxlan_scale_setup_teardown, ptfhost):
         setup_params["num_vnets"],
         setup_params["routes_per_vnet"]
     )
-    pytest_assert(ready, "Not all routes restored in 60 seconds after config reload")
+    pytest_assert(ready, "Not all routes restored in 120 seconds after config reload")
