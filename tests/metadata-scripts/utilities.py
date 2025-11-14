@@ -5,6 +5,7 @@ from ipaddress import ip_network, IPv4Network, IPv6Network
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.dut_utils import patch_rsyslog
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.reboot import REBOOT_TYPE_COLD, REBOOT_TYPE_SOFT
 from tests.common.helpers.upgrade_helpers import install_sonic, check_sonic_version, reboot
 
@@ -78,6 +79,36 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     """
     Installs and boots the DUT into the base_image.
     """
+    target_version = _install_base_image(duthost, base_image, tbinfo)
+    # Perform a cold reboot
+    logger.info("Cold reboot the DUT to make the base image as current")
+    # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
+    reboot_type = 'hard' if "s6100" in duthost.facts["platform"] else 'cold'
+    reboot(duthost, localhost, reboot_type=reboot_type)
+    check_sonic_version(duthost, target_version)
+    if "201811" in target_version or "201911" in target_version:
+        fix_forced_mgmt_routes_config(duthost)
+
+
+def boot_into_base_image_t2(duthosts, localhost, base_image, tbinfo):
+    target_vers = {}
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            future = executor.submit(_install_base_image, duthost, base_image, tbinfo)
+            target_vers[duthost] = future.get()  # Should all be the same, but following best practice
+
+    # Rebooting the supervisor host will reboot all T2 DUTs
+    suphost = duthosts.supervisor_nodes[0]
+    reboot(suphost, localhost, reboot_type='cold', safe_reboot=True)
+
+    for duthost in duthosts:
+        target_version = target_vers[duthost]
+        check_sonic_version(duthost, target_version)
+        if "201811" in target_version or "201911" in target_version:
+            fix_forced_mgmt_routes_config(duthost)
+
+
+def _install_base_image(duthost, base_image, tbinfo):
     logger.info("Installing base image {}".format(base_image))
     try:
         target_version = install_sonic(duthost, base_image, tbinfo)
@@ -97,14 +128,8 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
         duthost.shell("rm -f /host/old_config/config_db.json")
         duthost.shell("rm -f /host/old_config/golden_config_db.json", module_ignore_errors=True)
-    # Perform a cold reboot
-    logger.info("Cold reboot the DUT to make the base image as current")
-    # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
-    reboot_type = 'hard' if "s6100" in duthost.facts["platform"] else 'cold'
-    reboot(duthost, localhost, reboot_type=reboot_type)
-    check_sonic_version(duthost, target_version)
-    if "201811" in target_version or "201911" in target_version:
-        fix_forced_mgmt_routes_config(duthost)
+
+    return target_version
 
 
 def cleanup_prev_images(duthost):
@@ -118,8 +143,8 @@ def cleanup_prev_images(duthost):
 def sonic_update_firmware(duthost, localhost, image_url, upgrade_type):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
-    pytest_assert(os.path.exists(metadata_scripts_path), "SONiC Metadata scripts not found in {}"
-            .format(metadata_scripts_path))
+    pytest_assert(os.path.exists(metadata_scripts_path),
+                  "SONiC Metadata scripts not found in {}".format(metadata_scripts_path))
 
     cleanup_prev_images(duthost)
     logger.info("Step 1 Copy the scripts to the DUT")
