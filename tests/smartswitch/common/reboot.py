@@ -29,7 +29,8 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
                 sync_reboot_history_queue_with_dut(duthost)
 
                 logger.info("Rebooting the switch {} with type {}".format(hostname, reboot_type))
-                return duthost.command("sudo reboot")
+                duthost.shell("sudo reboot &", executable="/bin/bash")
+                return
             else:
                 logger.info("Rebooting the DPU {} with type {}".format(dpu_name, reboot_type))
                 return duthost.command("sudo reboot -d {}".format(dpu_name))
@@ -51,7 +52,7 @@ def perform_reboot(duthost, reboot_type=REBOOT_TYPE_COLD, dpu_name=None):
         pytest.skip("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
 
     res = log_and_perform_reboot(duthost, reboot_type, dpu_name)
-    if res['failed'] is True:
+    if res and res['failed'] is True:
         if dpu_name is None:
             pytest.fail("Failed to reboot the {} with type {}".format(duthost.hostname, reboot_type))
         else:

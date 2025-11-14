@@ -148,7 +148,7 @@ command : command to reboot the smartswitch DUT
 '''
 reboot_ss_ctrl_dict = {
     REBOOT_TYPE_COLD: {
-        "command": "reboot",
+        "command": "sudo reboot &",
         "timeout": 300,
         "wait": 120,
         "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",
@@ -266,9 +266,10 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"])
+    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"],
+                                 executable="/bin/bash")
 
-    return [reboot_res, dut_datetime]
+    return ['None', dut_datetime]
 
 
 def check_dshell_ready(duthost):
