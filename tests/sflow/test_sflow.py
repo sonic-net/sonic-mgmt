@@ -61,8 +61,7 @@ def setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, config_sflow_feature
 
     upstream_ports = []
     if len(mg_facts["minigraph_portchannels"]) == 0:
-        topo = tbinfo["topo"]["type"]
-        upstream_neigh_type = get_upstream_neigh_type(topo)
+        upstream_neigh_type = get_upstream_neigh_type(tbinfo)
         upstream_ports = get_neighbor_port_list(duthost, upstream_neigh_type)
     else:
         for port_channel, interfaces in list(mg_facts['minigraph_portchannels'].items()):
@@ -118,7 +117,7 @@ def config_dut_ports(duthost, ports, vlan):
     # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address.
     # Hence config reload is done as workaround. ##FIXME
     for i in range(len(ports)):
-        duthost.command('config vlan member del %s %s' % (vlan, ports[i]))
+        duthost.command('config vlan member del %s %s' % (vlan, ports[i]), module_ignore_errors=True)
         duthost.command('config interface ip add %s %s/24' %
                         (ports[i], var['dut_intf_ips'][i]))
     duthost.command('config save -y')

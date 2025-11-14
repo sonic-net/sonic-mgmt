@@ -5,6 +5,10 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+GNMI_CERT_NAME = "test.client.gnmi.sonic"
+TELEMETRY_CONTAINER = "telemetry"
+
+
 @lru_cache(maxsize=None)
 class GNMIEnvironment(object):
     TELEMETRY_MODE = 0
@@ -50,10 +54,10 @@ class GNMIEnvironment(object):
     def generate_telemetry_config(self, duthost):
         cmd = "docker images | grep -w sonic-telemetry"
         if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-            cmd = "docker ps | grep -w telemetry"
+            cmd = "docker ps | grep -w {}".format(TELEMETRY_CONTAINER)
             if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
                 self.gnmi_config_table = "TELEMETRY"
-                self.gnmi_container = "telemetry"
+                self.gnmi_container = TELEMETRY_CONTAINER
                 # GNMI program is telemetry or gnmi-native
                 res = duthost.shell("docker exec %s supervisorctl status" % self.gnmi_container,
                                     module_ignore_errors=True)
@@ -106,7 +110,23 @@ IP      = %s
     return
 
 
-def create_revoked_cert_and_crl(localhost, ptfhost):
+def get_ptf_crl_server_ip(duthost, ptfhost):
+    """
+    Get the appropriate PTF IP address for CRL server based on DUT management IP type.
+    If DUT is IPv6-only, use PTF IPv6 address; otherwise use IPv4.
+    """
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+    if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+        # Use IPv6 address with brackets for URL
+        return "[{}]".format(ptfhost.mgmt_ipv6)
+    else:
+        # Use IPv4 address
+        return ptfhost.mgmt_ip
+
+
+def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     # Create client key
     local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
     localhost.shell(local_command)
@@ -120,7 +140,9 @@ def create_revoked_cert_and_crl(localhost, ptfhost):
     localhost.shell(local_command)
 
     # Sign client certificate
-    crl_url = "http://{}:1234/crl".format(ptfhost.mgmt_ip)
+    # Get appropriate PTF IP address based on DUT management IP type
+    ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost) if duthost else ptfhost.mgmt_ip
+    crl_url = "http://{}:1234/crl".format(ptf_ip)
     create_ca_conf(crl_url, "crlext.cnf")
     local_command = "openssl x509 \
                         -req \
@@ -231,8 +253,8 @@ def create_gnmi_certs(duthost, localhost, ptfhost):
     local_command = "openssl req \
                         -new \
                         -key gnmiclient.key \
-                        -subj '/CN=test.client.gnmi.sonic' \
-                        -out gnmiclient.csr"
+                        -subj '/CN={}' \
+                        -out gnmiclient.csr".format(GNMI_CERT_NAME)
     localhost.shell(local_command)
 
     # Sign client certificate

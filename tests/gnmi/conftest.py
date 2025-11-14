@@ -1,5 +1,4 @@
 import pytest
-import shutil
 import logging
 import os
 import glob
@@ -19,28 +18,6 @@ from tests.common.helpers.ntp_helper import setup_ntp_context
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
-
-
-@pytest.fixture(scope="function", autouse=True)
-def skip_non_x86_platform(duthosts, rand_one_dut_hostname):
-    """
-    Skip the current test if DUT is not x86_64 platform.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    platform = duthost.facts["platform"]
-    if 'x86_64' not in platform:
-        pytest.skip("Test not supported for current platform. Skipping the test")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def download_gnmi_client(duthosts, rand_one_dut_hostname, localhost):
-    duthost = duthosts[rand_one_dut_hostname]
-    for file in ["gnmi_cli", "gnmi_set", "gnmi_get", "gnoi_client"]:
-        duthost.shell("docker cp %s:/usr/sbin/%s /tmp" % (gnmi_container(duthost), file))
-        ret = duthost.fetch(src="/tmp/%s" % file, dest=".")
-        gnmi_bin = ret.get("dest", None)
-        shutil.copyfile(gnmi_bin, "gnmi/%s" % file)
-        localhost.shell("sudo chmod +x gnmi/%s" % file)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -170,7 +147,7 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
                         -sha256"
     localhost.shell(local_command)
 
-    create_revoked_cert_and_crl(localhost, ptfhost)
+    create_revoked_cert_and_crl(localhost, ptfhost, duthost)
 
     # Copy CA certificate, server certificate and client certificate over to the DUT
     duthost.copy(src='gnmiCA.pem', dest='/etc/sonic/telemetry/')
@@ -246,7 +223,10 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
+    if ":" in duthost.mgmt_ip and not duthost.mgmt_ip.startswith('['):
+        ip = f"[{duthost.mgmt_ip}]"
+    else:
+        ip = duthost.mgmt_ip
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
     target = f"{ip}:{port}"
