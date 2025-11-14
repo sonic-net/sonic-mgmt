@@ -1,20 +1,19 @@
 import pytest
 import logging
-from utilities import boot_into_base_image, cleanup_prev_images, sonic_update_firmware
+from utilities import boot_into_base_image, boot_into_base_image_t2, cleanup_prev_images, sonic_update_firmware
 from postupgrade_helper import run_postupgrade_actions, run_bgp_neighbor
 from tests.common.helpers.dut_utils import patch_rsyslog
-from tests.common import reboot
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.platform.device_utils import advanceboot_loganalyzer, advanceboot_neighbor_restore, \
-    verify_dut_health, verify_testbed_health
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
+    verify_dut_health, verify_testbed_health                                                            # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
 from tests.common.platform.warmboot_sad_cases import get_sad_case_list, SAD_CASE_LIST
-from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot  # lgtm[py/unused-import]
+from tests.platform_tests.verify_dut_health import add_fail_step_to_reboot  # lgtm[py/unused-import]    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -37,8 +36,8 @@ def upgrade_path_lists(request, upgrade_type_params, base_image, target_image):
 
 @pytest.fixture
 def skip_cancelled_case(request, upgrade_type_params):
-    if "test_cancelled_upgrade_path" in request.node.name\
-        and upgrade_type_params not in ["warm", "fast"]:
+    if "test_cancelled_upgrade_path" in request.node.name and \
+            upgrade_type_params not in ["warm", "fast"]:
         pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
 
 
@@ -97,10 +96,11 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
                        modify_reboot_script=None, allow_fail=False):
     """Sets up the test environment for an A->B upgrade test."""
     logger.info("Test upgrade path from {} to {} on {}".format(from_image, to_image, duthost.hostname))
-    cleanup_prev_images(duthost)
 
     # Install and reboot into base image
-    boot_into_base_image(duthost, localhost, from_image, tbinfo)
+    if tbinfo['topo']['type'] != 't2':  # We do this all at once seperately for T2
+        cleanup_prev_images(duthost)
+        boot_into_base_image(duthost, localhost, from_image, tbinfo)
 
     # Install target image
     logger.info("Upgrading {} to {}".format(duthost.hostname, to_image))
@@ -119,9 +119,9 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
 
 def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                                 upgrade_path_lists, skip_cancelled_case, tbinfo, request,
-                                get_advanced_reboot, advanceboot_loganalyzer,
-                                add_fail_step_to_reboot, verify_dut_health,
-                                consistency_checker_provider):
+                                get_advanced_reboot, advanceboot_loganalyzer,  # noqa: F811
+                                add_fail_step_to_reboot, verify_dut_health,    # noqa: F811
+                                consistency_checker_provider):                 # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
@@ -146,9 +146,9 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
 
 
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-                      upgrade_path_lists, tbinfo, request, get_advanced_reboot,
-                      advanceboot_loganalyzer, verify_dut_health,
-                      consistency_checker_provider):
+                      upgrade_path_lists, tbinfo, request, get_advanced_reboot,  # noqa: F811
+                      advanceboot_loganalyzer, verify_dut_health,                # noqa: F811
+                      consistency_checker_provider):                             # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -178,6 +178,11 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
     upgrade_type = REBOOT_TYPE_COLD
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
+
+    # Boot whole chassis into base image first
+    for duthost in duthosts:
+        cleanup_prev_images(duthost)
+    boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
 
     def upgrade_path_preboot_setup(dut):
         setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo,
@@ -211,9 +216,9 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
 
 
 def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-                            upgrade_path_lists, tbinfo, request, get_advanced_reboot,
-                            advanceboot_loganalyzer, verify_dut_health,
-                            consistency_checker_provider):
+                             upgrade_path_lists, tbinfo, request, get_advanced_reboot,  # noqa: F811
+                             advanceboot_loganalyzer, verify_dut_health,                # noqa: F811
+                             consistency_checker_provider):                             # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -237,15 +242,16 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
 
 
 def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
-                               upgrade_path_lists, tbinfo, request, get_advanced_reboot, advanceboot_loganalyzer,
-                               verify_dut_health, nbrhosts, fanouthosts, vmhost, backup_and_restore_config_db,
-                               consistency_checker_provider, advanceboot_neighbor_restore, sad_case_type):
+                               upgrade_path_lists, tbinfo, request, get_advanced_reboot,                   # noqa: F811
+                               advanceboot_loganalyzer, verify_dut_health, nbrhosts, fanouthosts, vmhost,  # noqa: F811
+                               backup_and_restore_config_db, consistency_checker_provider,                 # noqa: F811
+                               advanceboot_neighbor_restore, sad_case_type):                               # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
     sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts,
-        fanouthosts, vmhost, tbinfo, sad_case_type)
+                                                          fanouthosts, vmhost, tbinfo, sad_case_type)
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
