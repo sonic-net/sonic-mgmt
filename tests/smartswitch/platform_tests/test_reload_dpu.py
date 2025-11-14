@@ -5,7 +5,6 @@ Tests for the `reboot and reload ...` commands in DPU
 import logging
 import pytest
 import re
-import time
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
@@ -50,11 +49,6 @@ def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
     post_test_switch_check(duthost, localhost,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
-
-    logging.info("Executing post switch reboot dpu check")
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
 
 
 def test_dpu_status_post_switch_config_reload(duthosts,

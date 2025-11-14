@@ -4,7 +4,6 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
-import time
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
