@@ -2120,7 +2120,6 @@ str4-7060x6-512-12,Ethernet216,str4-7060x6-512-fan-12,Ethernet216,800000,1627,Ac
 str4-7060x6-512-12,Ethernet224,str4-7060x6-512-fan-12,Ethernet224,800000,1628,Access,on
 str4-7060x6-512-12,Ethernet232,str4-7060x6-512-fan-12,Ethernet232,800000,1629,Access,on
 str4-7060x6-512-12,Ethernet240,str4-7060x6-512-fan-12,Ethernet240,800000,1630,Access,on
-str4-7060x6-512-12,Ethernet248,str4-7060x6-512-fan-12,Ethernet248,800000,1631,Access,off
 str4-7060x6-512-12,Ethernet256,str4-7060x6-512-fan-12,Ethernet256,200000,1632,Access,on
 str4-7060x6-512-12,Ethernet258,str4-7060x6-512-fan-12,Ethernet258,200000,1633,Access,on
 str4-7060x6-512-12,Ethernet260,str4-7060x6-512-fan-12,Ethernet260,200000,1634,Access,on
@@ -2280,7 +2279,6 @@ str4-7060x6-512-13,Ethernet216,str4-7060x6-512-fan-13,Ethernet216,800000,1787,Ac
 str4-7060x6-512-13,Ethernet224,str4-7060x6-512-fan-13,Ethernet224,800000,1788,Access,on
 str4-7060x6-512-13,Ethernet232,str4-7060x6-512-fan-13,Ethernet232,800000,1789,Access,on
 str4-7060x6-512-13,Ethernet240,str4-7060x6-512-fan-13,Ethernet240,800000,1790,Access,on
-str4-7060x6-512-13,Ethernet248,str4-7060x6-512-fan-13,Ethernet248,800000,1791,Access,off
 str4-7060x6-512-13,Ethernet256,str4-7060x6-512-fan-13,Ethernet256,400000,1792,Access,on
 str4-7060x6-512-13,Ethernet260,str4-7060x6-512-fan-13,Ethernet260,400000,1793,Access,on
 str4-7060x6-512-13,Ethernet264,str4-7060x6-512-fan-13,Ethernet264,400000,1794,Access,on
