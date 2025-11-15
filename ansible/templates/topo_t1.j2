@@ -46,7 +46,7 @@ configuration:
       Loopback0:
         ipv4: {{vm.loopback_ipv4}}/32
         ipv6: {{vm.loopback_ipv6}}/128
-      {%- if vm.vlans|length > 1 %}
+      {%- if vm.num_lags > 0 %}
       {%- for idx in range(vm.vlans|length) %}
       Ethernet{{idx+1}}:
         lacp: 1

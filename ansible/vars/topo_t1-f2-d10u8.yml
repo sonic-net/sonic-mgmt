@@ -365,6 +365,8 @@ configuration:
         ipv4: 100.1.0.57/32
         ipv6: 2064:100:0:39::/128
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv4: 10.0.0.113/31
         ipv6: fc00::e2/126
     bp_interface:
@@ -385,6 +387,8 @@ configuration:
         ipv4: 100.1.0.59/32
         ipv6: 2064:100:0:3b::/128
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv4: 10.0.0.117/31
         ipv6: fc00::ea/126
     bp_interface:
@@ -405,6 +409,8 @@ configuration:
         ipv4: 100.1.0.61/32
         ipv6: 2064:100:0:3d::/128
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv4: 10.0.0.121/31
         ipv6: fc00::f2/126
     bp_interface:
@@ -425,6 +431,8 @@ configuration:
         ipv4: 100.1.0.63/32
         ipv6: 2064:100:0:3f::/128
       Ethernet1:
+        lacp: 1
+      Port-Channel1:
         ipv4: 10.0.0.125/31
         ipv6: fc00::fa/126
     bp_interface:
