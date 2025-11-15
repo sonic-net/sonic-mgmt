@@ -169,8 +169,8 @@ hw_port_cfg = {
                           "lag_list": LinkList(
                                 LagLink(0, 1), LagLink(2, 3), LagLink(4, 5), LagLink(6, 7), LagLink(8, 9),
                                 LagLink(16, 17), LagLink(18, 19), LagLink(20, 21), LagLink(22, 23), LagLink(24, 25),
-                                LagLink(56), LagLink(57), LagLink(58), LagLink(59),
-                                LagLink(60), LagLink(61), LagLink(62), LagLink(63)),
+                                LagLink(56), LagLink(58), LagLink(60), LagLink(62),
+                                LagLink(64), LagLink(66), LagLink(68), LagLink(70)),
                           'skip_ports': PortList(*list(range(10, 16)), *list(range(26, 44)), *list(range(52, 64))),
                           'skip_links': [link for port in range(44, 52) for link in [32 + (port - 32) * 2 + 1]],
                           'peer_ports': [],
