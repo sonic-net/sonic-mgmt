@@ -4,6 +4,7 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
+import time
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -24,6 +25,9 @@ pytestmark = [
 # Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INT = 30
+
+# Cool off time period after shutting down DPUs
+COOL_OFF_TIME = 300
 
 # DPU Memory Threshold
 DPU_MEMORY_THRESHOLD = 90
@@ -167,6 +171,9 @@ def test_system_health_state(duthosts, dpuhosts,
 
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
+
+    logging.info("5 minutes Cool off period after shutdown")
+    time.sleep(COOL_OFF_TIME)
 
     try:
         for index in range(len(dpu_on_list)):

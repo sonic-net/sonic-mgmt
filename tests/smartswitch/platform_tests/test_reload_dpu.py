@@ -5,6 +5,7 @@ Tests for the `reboot and reload ...` commands in DPU
 import logging
 import pytest
 import re
+import time
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
@@ -23,9 +24,10 @@ kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger'
 memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
+MAX_COOL_OFF_TIME = 300
 
 
-def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
+def test_dpu_status_post_switch_reboot(duthosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
                                        platform_api_conn, num_dpu_modules):  # noqa F811, E501
@@ -196,6 +198,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     logging.info("Shutdown DPUs after kernel Panic")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
+    logging.info("5 min Cool off period after DPUs Shutdown")
+    time.sleep(MAX_COOL_OFF_TIME)
+
     logging.info("Starting UP the DPUs")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
@@ -238,6 +243,9 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Shutdown DPUs after memory exhaustion")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
+    logging.info("5 min Cool off period after DPUs Shutdown")
+    time.sleep(MAX_COOL_OFF_TIME)
+
     logging.info("Starting UP the DPUs")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
@@ -275,7 +283,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
+                         num_dpu_modules, "Non-Hardware")
 
 
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,

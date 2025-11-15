@@ -26,7 +26,6 @@ INTF_TIME_INT = 5
 DPU_MAX_ONLINE_TIMEOUT = 900
 DPU_MAX_PROCESS_UP_TIMEOUT = 900
 DPU_MAX_TIME_INT = 60
-DPU_DELAY = 120
 REBOOT_CAUSE_TIMEOUT = 30
 REBOOT_CAUSE_INT = 10
 PING_TIMEOUT = 30
@@ -578,7 +577,7 @@ def dpus_shutdown_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules shutdown {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, DPU_DELAY,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "off", dpu_name
             )
 
@@ -602,7 +601,7 @@ def dpus_startup_and_check(duthost, dpu_list, num_dpu_modules):
                 f"sudo config chassis modules startup {dpu_name}"
             )
             executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, DPU_DELAY,
+                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
                 check_dpu_module_status, duthost, "on", dpu_name
             )
 
