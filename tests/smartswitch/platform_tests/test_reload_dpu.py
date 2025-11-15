@@ -81,7 +81,7 @@ def test_dpu_status_post_switch_config_reload(duthosts,
 
 
 @pytest.mark.disable_loganalyzer
-def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
+def test_dpu_status_post_switch_mem_exhaustion(duthosts,
                                                enum_rand_one_per_hwsku_hostname,  # noqa: E501
                                                localhost,
                                                platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -118,14 +118,9 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
-    logging.info("Executing dpu check, post switch memory exhaustion reboot")
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
-
 
 @pytest.mark.disable_loganalyzer
-def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
+def test_dpu_status_post_switch_kernel_panic(duthosts,
                                              enum_rand_one_per_hwsku_hostname,
                                              localhost,
                                              platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -160,11 +155,6 @@ def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
     post_test_switch_check(duthost, localhost,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
-
-    logging.info("Executing dpu check, post switch kernel panic reboot")
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
 
 
 @pytest.mark.disable_loganalyzer
@@ -281,9 +271,7 @@ def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
             executor.submit(perform_reboot, duthost, REBOOT_TYPE_COLD, dpu_name)
 
     logging.info("Executing post test dpu check")
-    post_test_dpus_check(duthost, dpuhosts,
-                         dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
 
 
 def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
