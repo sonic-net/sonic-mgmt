@@ -4371,14 +4371,6 @@ scripts:
 #######################################
 #####              sflow          #####
 #######################################
-sflow/test_sflow.py:
-  skip:
-    reason: "Sflow feature is default disabled on vs platform and it is not tested for now"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vs']"
-      - "True"
-
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
