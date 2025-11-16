@@ -396,7 +396,7 @@ def restore_config_db(dut):
     """
     dut.command("sudo cp {} {}".format(_TEMP_CONFIG_DB, _CONFIG_DB))
     dut.command("sudo rm -f {}".format(_TEMP_CONFIG_DB))
-    config_reload(dut)
+    config_reload(dut, safe_reload=True, check_intf_up_ports=True)
 
 
 def uninstall_trap(dut, feature_name, trap_id):
@@ -538,6 +538,18 @@ def is_trap_installed(duthost, trap_id):
     assert "hw_status" in output[trap_id], f"hw_status not found for trap {trap_id}"
 
     return output[trap_id]["hw_status"] == "installed"
+
+
+def is_trap_uninstalled(duthost, trap_id):
+    """
+    Checks if a specific trap is uninstalled by parsing the output of `show copp configuration`.
+    Args:
+        dut (SonicHost): The target device
+        trap_id: The trap ID to check.
+    Returns:
+        bool: True if the trap is uninstalled, False otherwise.
+    """
+    return not is_trap_installed(duthost, trap_id)
 
 
 def get_trap_hw_status(duthost):
