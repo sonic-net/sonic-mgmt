@@ -195,12 +195,22 @@ def config_sflow(duthost, sflow_status='enable'):
 
 @pytest.fixture(scope='module')
 def config_sflow_feature(request, duthost):
-    # Enable sFlow feature on DUT if enable_sflow_feature argument was passed
-    if request.config.getoption("--enable_sflow_feature"):
-        feature_status, _ = duthost.get_feature_status()
-        if feature_status['sflow'] == 'disabled':
-            duthost.shell("sudo config feature state sflow enabled")
-            time.sleep(2)
+    feature_status, _ = duthost.get_feature_status()
+
+    if 'sflow' not in feature_status:
+        pytest.skip("sflow feature is not supported")
+
+    sflow_disabled_by_default = feature_status['sflow'] == 'disabled'
+    if sflow_disabled_by_default:
+        logger.info("sflow feature is disabled by default, enabling it for this test run")
+        duthost.shell("sudo config feature state sflow enabled")
+        time.sleep(2)
+
+    yield
+
+    if sflow_disabled_by_default:
+        logger.info("Disabling sflow feature")
+        duthost.shell("sudo config feature state sflow disabled")
 # ----------------------------------------------------------------------------------
 
 
