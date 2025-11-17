@@ -10,12 +10,41 @@ import gzip
 import base64
 
 
+# Constants
+INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
+
+
 def get_bgp_ipv6_routes(module):
     cmd = "docker exec bgp vtysh -c 'show ipv6 route bgp json'"
     rc, out, err = module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
     if rc != 0:
         module.fail_json(msg=f"Failed to get bgp routes: {err}")
     return json.loads(out)
+
+
+def perform_action(module, action, connection_type, targets, all_neighbors):
+    """
+    Perform actions (shutdown/startup) on BGP sessions or interfaces.
+    """
+
+    # Action on Interfaces
+    if connection_type == "ports":
+        ports_str = ",".join(targets)
+        cmd = INTERFACE_COMMAND_TEMPLATE.format(action=action, target=ports_str)
+        execute_command(module, cmd)
+        logging.info(f"Interfaces {action} completed.")
+
+    else:
+        logging.info("No valid targets for %s.", action)
+
+
+def execute_command(module, cmd):
+    """Helper function to execute shell commands."""
+    logging.info("Running command: %s", cmd)
+    rc, out, err = module.run_command(cmd, executable="/bin/bash", use_unsafe_shell=True)
+    if rc != 0:
+        module.fail_json(msg=f"Command failed: {err}")
+    logging.info("Command completed successfully.")
 
 
 def compare_routes(running_routes, expected_routes):
