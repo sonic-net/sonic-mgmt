@@ -79,7 +79,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
 
 
 #######################################
-#####    Managment Test Cases     #####
+#####    mgmt Test Cases     #####
 #######################################
 mvrf/test_mgmtvrf.py::TestReboot:
   skip:
@@ -89,9 +89,17 @@ mvrf/test_mgmtvrf.py::TestServices::test_ntp:
   skip:
     reason: "Skip NTP test on sim as it always fails, test requires analysis and fix"
 
-dut_console/test_console_chassis_conn.py::test_console_availability_serial_ports:
+gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_halt_dpus:
   skip:
-    reason: "Disabling Test case which are only for T2 Chassis but running for T0/T1."
+    reason: "Halt reboot should not be running on non-smartswitch"
+    conditions:
+    conditions_logical_operator: or
+      - "is_smartswitch == False"
+      - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+
+gnmi/test_gnmi_configdb.py::test_gnmi_configdb_full_01:
+  skip:
+    reason: "The test refers to a stale implementation of GNOI.System.Reboot."
 
 #######################################
 #####           pc               #####

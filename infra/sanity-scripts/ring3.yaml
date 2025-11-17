@@ -363,7 +363,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
-        #- gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
@@ -409,9 +409,9 @@ MGMT: #Anukul Verma / Gourav Sharma
         #- snmp/test_snmp_psu.py
         #- snmp/test_snmp_pfc_counters.py
         #- snmp/test_snmp_phy_entity.py
-        #- snmp/test_snmp_link_local.py
+        - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
-        #- gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
@@ -433,7 +433,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_udevrule.py
         #- http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
-        #- ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
@@ -451,7 +451,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
-        #- gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
@@ -508,7 +508,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_v2mib.py
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_lldp.py
-        #- snmp/test_snmp_link_local.py
+        - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
@@ -517,7 +517,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        #- tacacs/test_authorization.py
+        - tacacs/test_authorization.py
         #- tacacs/test_ro_disk.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
@@ -528,7 +528,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_udevrule.py
         #- http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
-        #- ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
@@ -554,7 +554,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - dut_console/test_console_baud_rate.py
-        - dut_console/test_console_chassis_conn.py
+        #- dut_console/test_console_chassis_conn.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
