@@ -42,9 +42,11 @@ test_pretest.py:
 #######################################
 acl:
   skip:
-    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run"
+    reason: "Acl testsuite is still not enabled for macsec enable sonic-mgmt run and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "macsec_en==True"
+      - "topo_type in ['m1-128']"
 
 acl/custom_acl_table/test_custom_acl_table.py:
   skip:
@@ -113,6 +115,15 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name"
+
+#######################################
+#####          acstests              #####
+#######################################
+acstests:
+  skip:
+    reason: "It is not  tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####            arp              #####
@@ -189,6 +200,12 @@ arp/test_wr_arp.py:
 #######################################
 #####            bfd              #####
 #######################################
+bfd:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 bfd/test_bfd.py:
   skip:
     reason: "Test not supported for platforms other than Nvidia 4280/4600c/4700/5600 and cisco-8102. Skipping the test / KVM do not support bfd test"
@@ -570,6 +587,12 @@ cacl/test_ebtables_application.py:
 #######################################
 #####           configlet         #####
 #######################################
+configlet:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 configlet/test_add_rack.py:
   skip:
     reason: "AddRack is not yet supported on multi-ASIC platform"
@@ -655,6 +678,12 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
+dash:
+  skip:
+    reason: "Not supported on this DUT topology."
+    conditions:
+      - "'dpu' not in topo_name"
+
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
@@ -821,6 +850,12 @@ decap/test_subnet_decap.py::test_vlan_subnet_decap:
 #######################################
 #####         dhcp_relay        #####
 #######################################
+dhcp_relay:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dhcp_relay/test_dhcp_counter_stress.py::test_dhcpcom_relay_counters_stress:
   xfail:
     reason: "7215 has low performance, and can only take low stress (about 5 pps)"
@@ -984,6 +1019,15 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
       - "release in ['201911', '202106']"
 
 #######################################
+#####         dhcp_server        #####
+#######################################
+dhcp_server:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
+#######################################
 #####         drop_packets        #####
 #######################################
 drop_packets:
@@ -1031,6 +1075,12 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr:
 #######################################
 #####           dualtor           #####
 #######################################
+dualtor:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
 dualtor/test_bgp_block_loopback1.py:
   skip:
     reason: "KVM do not support dualtor tunnel functionality, lower tor bgp verify would fail."
@@ -1227,6 +1277,12 @@ dualtor_io/test_tor_failure.py:
     reason: "This script would toggle PDU, which is not supported on KVM."
     conditions:
       - "asic_type in ['vs']"
+
+dualtor_mgmt:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
 
 dualtor_mgmt/test_dualtor_bgp_update_delay.py:
   xfail:
@@ -2446,7 +2502,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     reason: "This test is not run on this asic type, topology, or version currently"
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "hwsku in ['Cisco-8800-LC-48H-C48']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
 
@@ -2557,7 +2613,7 @@ generic_config_updater/test_pfcwd_interval.py:
     reason: "This test can only support mellanox platforms. This test is not run on this hwsku currently"
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox']"
+      - "asic_type not in ['mellanox', 'cisco-8000']"
       - hwsku in ['Mellanox-SN5600-C224O8', 'Mellanox-SN5600-C256S1', 'Mellanox-SN5640-C448O16', 'Mellanox-SN5640-C512S2',
                    'Arista-7060X6-64PE-C256S2', 'Arista-7060X6-64PE-C224O8', 'Arista-7060X6-64PE-B-C512S2', 'Arista-7060X6-64PE-B-C448O16']
 
@@ -3080,6 +3136,15 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####          http              #####
+#######################################
+http:
+  skip:
+    reason: "It is skipped for '202412' for now"
+    conditions:
+      - "release in ['202412']"
+
+#######################################
 #####    iface_loopback_action    #####
 #######################################
 iface_loopback_action/test_iface_loopback_action.py:
@@ -3253,9 +3318,11 @@ ipfwd/test_nhop_group.py::test_nhop_group_member_order_capability:
 #######################################
 ixia:
   skip:
-    reason: "Ixia test only support on physical ixia testbed"
+    reason: "Ixia test only support on physical ixia testbed and it is not tested for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "True"
 
 #######################################
 #####            k8s              #####
@@ -3323,6 +3390,12 @@ lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
 #######################################
 #####           macsec            #####
 #######################################
+macsec:
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+      - "'dualtor' in topo_name"
+
 macsec/test_dataplane.py::TestDataPlane::test_server_to_neighbor:
   skip:
     reason: 'test_server_to_neighbor needs downstream neighbors, which is not present in this topo'
@@ -3344,6 +3417,12 @@ macsec/test_interop_protocol.py::TestInteropProtocol::test_snmp:
 #######################################
 #####           mclag             #####
 #######################################
+mclag:
+  skip:
+    reason: "Skip running on dualtor testbed"
+    conditions:
+       - "'dualtor' in topo_name"
+
 mclag/test_mclag_l3.py:
   skip:
     reason: "Mclag test only support on t0-mclag platform which is not in PR test"
@@ -3364,6 +3443,14 @@ memory_checker/test_memory_checker.py:
 #######################################
 #####            mpls             #####
 #######################################
+mpls:
+  skip:
+    reason: "Skip running on dualtor testbed and '202412' for now"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "release in ['202412']"
+      - "'dualtor' in topo_name"
+
 mpls/test_mpls.py:
   skip:
     reason: "MPLS TCs are not supported on Barefoot plarforms"
@@ -3403,6 +3490,15 @@ mvrf/test_mgmtvrf.py::TestReboot::test_warmboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
 #######################################
+#####           mx              #####
+#######################################
+mx:
+  skip:
+    reason: "Test is only applicable to m0, mx, and m1 topologies"
+    conditions:
+      - "topo_type not in ['m0', 'mx', 'm1']"
+
+#######################################
 #####           nat               #####
 #######################################
 nat:
@@ -3418,9 +3514,11 @@ nat:
 #######################################
 ospf:
   skip:
-    reason: "Neighbor type must be sonic, skip in PR testing"
+    reason: "Neighbor type must be sonic, skip in PR testing and it is skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs']"
+      - "release in ['202412']"
 
 #######################################
 #####    override_config_table    #####
@@ -3521,6 +3619,12 @@ pfc/test_unknown_mac.py:
 #######################################
 #####         pfc_asym            #####
 #######################################
+pfc_asym:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
 pfc_asym/test_pfc_asym.py:
   skip:
     reason: 'pfc_asym test skip except for on Barefoot platforms'
@@ -3532,11 +3636,12 @@ pfc_asym/test_pfc_asym.py:
 #######################################
 pfcwd:
   skip:
-    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies."
+    reason: "Pfcwd tests skipped on M* testbed, and some isolated topologies and '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
       - *lossyTopos
+      - "release in ['202412']"
 
 pfcwd/test_pfc_config.py::TestPfcConfig::test_forward_action_cfg:
    skip:
@@ -3662,6 +3767,15 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
+
+#######################################
+#####     ptftests      #####
+#######################################
+ptftests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
 
 #######################################
 #####           qos               #####
@@ -4215,6 +4329,24 @@ route/test_static_route.py::test_static_route_ipv6:
       - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
+#####           sai_qualify       #####
+#######################################
+sai_qualify:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
+#####              saitests         #####
+#######################################
+saitests:
+  skip:
+    reason: "It is not tested for now"
+    conditions:
+      - "True"
+
+#######################################
 #####              scp            #####
 #######################################
 scp/test_scp_copy.py::test_scp_copy:
@@ -4224,16 +4356,17 @@ scp/test_scp_copy.py::test_scp_copy:
       - "'t0-isolated-d256u256s2' in topo_name"
 
 #######################################
-#####              sflow          #####
+#####            scripts         #####
 #######################################
-sflow/test_sflow.py:
+scripts:
   skip:
-    reason: "Sflow feature is default disabled on vs platform and it is not tested for now"
-    conditions_logical_operator: or
+    reason: "It is not tested for now"
     conditions:
-      - "asic_type in ['vs']"
       - "True"
 
+#######################################
+#####              sflow          #####
+#######################################
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -4524,11 +4657,13 @@ stress/test_stress_routes.py:
 #######################################
 sub_port_interfaces:
   skip:
-    reason: "Unsupported platform or asic"
+    reason: "Unsupported platform or asic and not supported on this DUT topology"
     conditions_logical_operator: or
     conditions:
       - "is_multi_asic==True or asic_gen not in ['td2', 'spc1', 'spc2', 'spc3', 'spc4'] and asic_type not in ['barefoot','marvell-teralynx']"
       - "asic_type in ['mellanox', 'nvidia']"
+      - "'dualtor' in topo_name"
+      - "hwsku in ['Arista-7050CX3-32S-C32', 'Arista-7060CX-32S-C32','Arista-7060CX-32S-D48C8','Arista-7260CX3-C64','Arista-7260CX3-D108C8','Arista-7260CX3-D108C10']"
 
 sub_port_interfaces/test_show_subinterface.py::test_subinterface_status[port]:
   skip:
@@ -4817,9 +4952,11 @@ vlan/test_vlan_ping.py:
 #######################################
 voq:
   skip:
-    reason: "Cisco 8800 doesn't support voq tests"
+    reason: "Cisco 8800 doesn't support voq tests and not supported on this DUT topology"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
+      - "'t2' not in topo_name"
 
 voq/test_fabric_cli_and_db.py:
   skip:
@@ -5098,6 +5235,12 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
     conditions:
       - "'t1-isolated' in topo_name"
 
+vxlan/test_vxlan_multi_tunnel.py:
+  skip:
+    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+
 vxlan/test_vxlan_route_advertisement.py:
   skip:
     reason: "VxLAN route advertisement can only run on cisco , mnlx and marvell-teralynx platforms. "
@@ -5144,6 +5287,15 @@ wan/lacp/test_wan_lag_min_link.py::test_lag_min_link:
     conditions:
       - "len(minigraph_portchannels) < 2"
       - "not any(len(v['members']) > 1 for _, v in minigraph_portchannels.items())"
+
+#######################################
+#####             wol            #####
+#######################################
+wol:
+  skip:
+    reason: "Not supported on this DUT topology"
+    conditions:
+      - "topo_type not in ['mx', 'm0']"
 
 #######################################
 #####             zmq             #####
