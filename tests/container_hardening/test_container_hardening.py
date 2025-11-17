@@ -17,7 +17,8 @@ CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 PRIVILEGED_CONTAINERS = [
     "syncd",
     "gbsyncd",
-    # gnmi is temporarily in privileged mode, remove when https://github.com/sonic-net/sonic-buildimage/issues/24542 is closed
+    # gnmi is temporarily in privileged mode, remove when
+    # https://github.com/sonic-net/sonic-buildimage/issues/24542 is closed
     "gnmi",
 ]
 
