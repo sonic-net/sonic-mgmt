@@ -38,6 +38,7 @@ THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 VPD_DATA_FILE = "/var/run/hw-management/eeprom/vpd_data"
 
 BF_3_PLATFORM = 'arm64-nvda_bf-bf3comdpu'
+AMD_ELBA_PLATFORM = 'arm64-elba-asic-flash128-r0'
 
 
 @pytest.fixture(scope='module')
@@ -501,7 +502,7 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     supported_disks = ["SATA", "NVME", "EMMC"]
 
     platform_ssd_device_path_dict = {BF_3_PLATFORM: "/dev/nvme0"}
-    unsupported_ssd_values_per_platform = {}
+    unsupported_ssd_values_per_platform = {AMD_ELBA_PLATFORM: ["Temperature"]}
 
     # Build specific path to SSD device based on platform/ssd path mapping dict
     platform = duthost.facts['platform']
