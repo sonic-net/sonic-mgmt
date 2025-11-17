@@ -3,7 +3,7 @@ import logging
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper
 from tests.common.helpers.upgrade_helpers import restore_image            # noqa: F401
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image
+from tests.upgrade_path.utilities import cleanup_prev_images, boot_into_base_image, boot_into_base_image_t2
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot   # noqa: F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa: F401
 from tests.common.platform.device_utils import verify_dut_health, verify_testbed_health    # noqa: F401
@@ -49,9 +49,10 @@ def upgrade_path_lists(request):
 def setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
                        upgrade_type, modify_reboot_script=None, allow_fail=False):
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
-    cleanup_prev_images(duthost)
-    # Install base image
-    boot_into_base_image(duthost, localhost, from_image, tbinfo)
+    if tbinfo['topo']['type'] != 't2':  # We do this all at once seperately for T2
+        cleanup_prev_images(duthost)
+        # Install base image
+        boot_into_base_image(duthost, localhost, from_image, tbinfo)
 
     # Install target image
     logger.info("Upgrading to {}".format(to_image))
@@ -112,6 +113,10 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
     _, from_image, to_image, _, _ = upgrade_path_lists
     upgrade_type = REBOOT_TYPE_COLD
     logger.info("Test upgrade path from {} to {}".format(from_image, to_image))
+
+    for duthost in duthosts:
+        cleanup_prev_images(duthost)
+    boot_into_base_image_t2(duthosts, localhost, from_image, tbinfo)
 
     def upgrade_path_preboot_setup(dut):
         setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo, upgrade_type)
