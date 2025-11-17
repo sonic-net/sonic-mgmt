@@ -37,7 +37,7 @@ PTF_PORT = "ptf_port"
 IPV6_KEY = "ipv6"
 MAX_BGP_SESSIONS_DOWN_COUNT = 0
 MAX_DOWNTIME = 10  # seconds
-MAX_DOWNTIME_ONE_PORT_FLAPPING = 30  # seconds
+MAX_DOWNTIME_PORT_FLAPPING = 30  # seconds
 MAX_DOWNTIME_UNISOLATION = 300  # seconds
 MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE = 30  # seconds
 PKTS_SENDING_TIME_SLOT = 1  # seconds
@@ -404,14 +404,18 @@ def remove_routes_with_nexthops(candidate_routes, nexthop_to_remove, result_rout
             result_routes[prefix] = value
 
 
-def check_bgp_routes_converged(duthost, expected_routes, shutdown_ports, timeout=MAX_CONVERGENCE_WAIT_TIME, interval=1,
+def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=None, connection_type='none',
+                               shutdown_all_connections=False, timeout=MAX_CONVERGENCE_WAIT_TIME, interval=1,
                                log_path="/tmp", compressed=False, action='no_action'):
+    shutdown_connections = shutdown_connections or []
     logger.info("Start to check bgp routes converged")
     expected_routes_json = json.dumps(expected_routes, separators=(',', ':'))
 
     result = duthost.check_bgp_ipv6_routes_converged(
         expected_routes=expected_routes_json,
-        shutdown_ports=shutdown_ports,
+        shutdown_connections=shutdown_connections,
+        connection_type=connection_type,
+        shutdown_all_connections=shutdown_all_connections,
         timeout=timeout,
         interval=interval,
         log_path=log_path,
@@ -431,11 +435,12 @@ def check_bgp_routes_converged(duthost, expected_routes, shutdown_ports, timeout
         }
         return ret
     else:
-        # When routes convergence fail, if the action is shutdown and shutdown_ports is not empty, restore interfaces
-        if action == 'shutdown' and shutdown_ports:
-            logger.info(f"Recover interfaces {shutdown_ports} after failure")
-            duthost.no_shutdown_multiple(shutdown_ports)
-        pytest.fail(f"BGP routes are not stable in {timeout} seconds")
+        # When routes convergence fail, if the action is shutdown and shutdown_connections is not empty
+        # restore interfaces
+        if action == 'shutdown' and shutdown_connections:
+            logger.info(f"Recover interfaces {shutdown_connections} after failure")
+            duthost.no_shutdown_multiple(shutdown_connections)
+        pytest.fail(f"BGP routes aren't stable in {timeout} seconds")
 
 
 def compress_expected_routes(expected_routes):
@@ -443,6 +448,101 @@ def compress_expected_routes(expected_routes):
     compressed = gzip.compress(json_str.encode('utf-8'))
     b64_str = base64.b64encode(compressed).decode('utf-8')
     return b64_str
+
+
+def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, connection_type, action, downtime_threshold):
+    global global_icmp_type, current_test, test_results
+    current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
+    global_icmp_type += 1
+    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
+    all_flap = flapping_count == 'all'
+
+    # We are currently treating also shutdown action as a setup mechanism for startup action
+    # So we only do the selection of flapping and injection neighbors when action is shutdown
+    # And we reuse the same selection for startup action
+    if action == 'shutdown':
+        bgp_neighbors = list(bgp_peers_info.keys())
+        pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
+
+        # Choose target neighbors (to flap) and injection (to keep traffic stable)
+        if all_flap is True:
+            flapping_neighbors = bgp_neighbors
+            injection_neighbor = random.choice(bgp_neighbors)
+            logger.info(f"[FLAP TEST] All neighbors are flapping: {len(flapping_neighbors)}")
+        else:
+            flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
+            injection_neighbor_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]
+            injection_neighbor = random.choice(injection_neighbor_candidates)
+            logger.info(f"[FLAP TEST] Flapping neighbors count: {len(flapping_neighbors)}, "
+                        f"Flapping neighbors: {flapping_neighbors}")
+
+        flapping_ports = [bgp_peers_info[neighbor][DUT_PORT] for neighbor in flapping_neighbors]
+        logger.info(f"Flapping ports: {flapping_ports}")
+        injection_dut_port = bgp_peers_info[injection_neighbor][DUT_PORT]
+        logger.info(f"[FLAP TEST] Injection neighbor: {injection_neighbor}, "
+                    f"Injection DUT port: {injection_dut_port}")
+
+        injection_port = [info[PTF_PORT] for info in bgp_peers_info.values() if info[DUT_PORT] == injection_dut_port][0]
+        logger.info("Injection port: %s", injection_port)
+
+        if connection_type == 'ports':
+            flapping_connections = flapping_ports
+
+        startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=True)
+        neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
+        prefixes = neighbor_ecmp_routes[injection_neighbor]
+
+        nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
+        expected_routes = deepcopy(startup_routes)
+        remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
+        compressed_routes = compress_expected_routes(expected_routes)
+    else:
+        compressed_routes = transient_setup['compressed_startup_routes']
+        injection_port = transient_setup['injection_port']
+        flapping_connections = transient_setup['flapping_connections']
+        prefixes = transient_setup['prefixes']
+
+    pkts = generate_packets(
+        prefixes,
+        duthost.facts['router_mac'],
+        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
+    )
+
+    terminated = Event()
+    traffic_thread = Thread(
+        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
+    )
+    flush_counters(pdp, exp_mask)
+    traffic_thread.start()
+    start_time = datetime.datetime.now()
+    try:
+        result = check_bgp_routes_converged(
+            duthost=duthost,
+            expected_routes=compressed_routes,
+            shutdown_connections=flapping_connections,
+            connection_type=connection_type,
+            shutdown_all_connections=all_flap,
+            timeout=MAX_CONVERGENCE_WAIT_TIME,
+            compressed=True,
+            action=action
+        )
+        terminated.set()
+        traffic_thread.join()
+        end_time = datetime.datetime.now()
+        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, downtime_threshold)
+        if not result.get("converged"):
+            pytest.fail("BGP routes are not stable in long time")
+    finally:
+        # Ensure traffic is stopped
+        terminated.set()
+        traffic_thread.join()
+
+    return {
+        "flapping_connections": flapping_connections,
+        "injection_port": injection_port,
+        "compressed_startup_routes": compress_expected_routes(startup_routes),
+        "prefixes": prefixes
+    } if action == 'shutdown' else {}
 
 
 def test_port_flap_with_syslog(
@@ -503,7 +603,7 @@ def test_port_flap_with_syslog(
         duthost.no_shutdown_multiple(flapping_ports)
 
 
-@pytest.mark.parametrize("flapping_port_count", [1, 10, 20])
+@pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
 def test_sessions_flapping(
     request,
     duthost,
@@ -524,67 +624,14 @@ def test_sessions_flapping(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_ONE_PORT_FLAPPING.
     '''
-    global current_test
-    current_test = request.node.name + f"_flapping_port_count_{flapping_port_count}"
-    global global_icmp_type
-    global_icmp_type += 1
     pdp = ptfadapter.dataplane
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
-    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
-    bgp_neighbors = [hostname for hostname in bgp_peers_info.keys()]
-
-    # Select flapping ports randomly
-    random.shuffle(bgp_neighbors)
-    flapping_neighbors, unflapping_neighbors = bgp_neighbors[:flapping_port_count], bgp_neighbors[flapping_port_count:]
-    flapping_ports = [bgp_peers_info[neighbor][DUT_PORT] for neighbor in flapping_neighbors]
-    unflapping_ports = [bgp_peers_info[neighbor][DUT_PORT] for neighbor in unflapping_neighbors]
-    logger.info("Flapping_port_count is %d, flapping ports: %s and unflapping ports %s",
-                flapping_port_count, flapping_ports, unflapping_ports)
-
-    # Select a random unflapping neighbor to send packets
-    injection_bgp_neighbor = random.choice(unflapping_neighbors)
-    injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
-    logger.info("Injection BGP neighbor: %s. Injection dut port: %s", injection_bgp_neighbor, injection_dut_port)
-    injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
-    logger.info("Injection port: %s", injection_port)
-
-    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
-    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
-    pkts = generate_packets(
-        neighbor_ecmp_routes[injection_bgp_neighbor],
-        duthost.facts['router_mac'],
-        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
-    )
-
-    nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
-    expected_routes = deepcopy(startup_routes)
-    remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
-    compressed_expected_routes = compress_expected_routes(expected_routes)
-    terminated = Event()
-    traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
-    )
-    flush_counters(pdp, exp_mask)
-    traffic_thread.start()
-    start_time = datetime.datetime.now()
-
-    try:
-        result = check_bgp_routes_converged(
-            duthost,
-            compressed_expected_routes,
-            flapping_ports,
-            MAX_CONVERGENCE_WAIT_TIME,
-            compressed=True,
-            action='shutdown'
-        )
-        terminated.set()
-        traffic_thread.join()
-        end_time = datetime.datetime.now()
-        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_ONE_PORT_FLAPPING)
-        if not result.get("converged"):
-            pytest.fail("BGP routes are not stable in long time")
-    finally:
-        duthost.no_shutdown_multiple(flapping_ports)
+    downtime_threshold = MAX_DOWNTIME_UNISOLATION if flapping_port_count == 'all' else MAX_DOWNTIME_PORT_FLAPPING
+    # Measure shutdown convergence
+    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports',
+                              'shutdown', downtime_threshold)
+    # Measure startup convergence
+    flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup', downtime_threshold)
 
 
 def test_nexthop_group_member_scale(
@@ -740,91 +787,5 @@ def test_nexthop_group_member_scale(
     traffic_thread.join()
     end_time = datetime.datetime.now()
     validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE)
-    if not result.get("converged"):
-        pytest.fail("BGP routes are not stable in long time")
-
-
-def test_device_unisolation(
-    request,
-    duthost,
-    ptfadapter,
-    bgp_peers_info,
-    setup_routes_before_test,
-    tbinfo
-):
-    '''
-    This test is for the worst scenario that all ports are flapped,
-    verify control/data plane have acceptable convergence time.
-    Steps:
-        Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sessions ports on T1 DUT.)
-        Wait for routes are stable.
-        Start and keep sending packets with all routes to all ports via ptf.
-        Startup all ports and wait for routes are stable.
-        Stop sending packets.
-        Estimate control/data plane convergence time.
-    Expected result:
-        Dataplane downtime is less than MAX_DOWNTIME_UNISOLATION.
-    '''
-    global current_test
-    current_test = request.node.name
-    global global_icmp_type
-    global_icmp_type += 1
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
-    exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
-
-    bgp_ports = [bgp_info[DUT_PORT] for bgp_info in bgp_peers_info.values()]
-
-    injection_bgp_neighbor = random.choice(list(bgp_peers_info.keys()))
-    injection_dut_port = bgp_peers_info[injection_bgp_neighbor][DUT_PORT]
-    injection_port = [i[PTF_PORT] for i in bgp_peers_info.values() if i[DUT_PORT] == injection_dut_port][0]
-    logger.info("Injection port: %s", injection_port)
-
-    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
-    neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
-    pkts = generate_packets(
-        neighbor_ecmp_routes[injection_bgp_neighbor],
-        duthost.facts['router_mac'],
-        pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
-    )
-
-    nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in bgp_ports]
-    expected_routes = deepcopy(startup_routes)
-    remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
-    try:
-        compressed_expected_routes = compress_expected_routes(expected_routes)
-        result = check_bgp_routes_converged(
-            duthost,
-            compressed_expected_routes,
-            bgp_ports,
-            MAX_CONVERGENCE_WAIT_TIME,
-            compressed=True,
-            action='shutdown'
-        )
-        if not result.get("converged"):
-            pytest.fail("BGP routes are not stable in long time")
-    except Exception:
-        duthost.no_shutdown_multiple(bgp_ports)
-
-    terminated = Event()
-    traffic_thread = Thread(
-        target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
-    )
-    flush_counters(pdp, exp_mask)
-    start_time = datetime.datetime.now()
-    traffic_thread.start()
-    compressed_expected_routes = compress_expected_routes(startup_routes)
-    result = check_bgp_routes_converged(
-        duthost,
-        compressed_expected_routes,
-        bgp_ports,
-        MAX_CONVERGENCE_WAIT_TIME,
-        compressed=True,
-        action='startup'
-    )
-    terminated.set()
-    traffic_thread.join()
-    end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, MAX_DOWNTIME_UNISOLATION)
     if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
