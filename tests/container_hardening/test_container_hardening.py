@@ -15,9 +15,9 @@ CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 # db and pmon will be privileged hardening
 # syncd, gbsyncd, and swss cannot be privileged hardening
 PRIVILEGED_CONTAINERS = [
-    "pmon",
     "syncd",
     "gbsyncd",
+    # gnmi is temporarily in privileged mode, remove when https://github.com/sonic-net/sonic-buildimage/issues/24542 is closed
     "gnmi",
 ]
 
