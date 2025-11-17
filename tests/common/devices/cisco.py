@@ -104,7 +104,9 @@ class CiscoHost(AnsibleHostBase):
             proxy_user = self._ssh_proxy.get('proxy_user', None)
             proxy_host = self._ssh_proxy.get('proxy_host', None)
             if proxy_user and proxy_host:
-                evars['ansible_paramiko_proxy_command'] = f'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -W %h:%p {proxy_user}@{proxy_host}'
+                evars['ansible_paramiko_proxy_command'] = \
+                    'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ' + \
+                    f'-W %h:%p {proxy_user}@{proxy_host}'
         else:
             raise Exception("Does not have module: {}".format(module_name))
         self.host.options['variable_manager'].extra_vars.update(evars)

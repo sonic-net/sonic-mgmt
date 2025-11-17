@@ -3,7 +3,6 @@ import json
 import logging
 import re
 import os
-import copy
 
 from tests.common.devices.base import AnsibleHostBase
 
@@ -72,7 +71,9 @@ class EosHost(AnsibleHostBase):
             proxy_user = self._ssh_proxy.get('proxy_user', None)
             proxy_host = self._ssh_proxy.get('proxy_host', None)
             if proxy_user and proxy_host:
-                evars['ansible_paramiko_proxy_command'] = f'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -W %h:%p {proxy_user}@{proxy_host}'
+                evars['ansible_paramiko_proxy_command'] = \
+                    'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ' + \
+                    f'-W %h:%p {proxy_user}@{proxy_host}'
             logger.info(f'Extra vars to be added for {self.hostname}: {evars}')
         else:
             if not self.shell_user or not self.shell_passwd:
@@ -83,13 +84,15 @@ class EosHost(AnsibleHostBase):
                 'ansible_user': self.shell_user,
                 'ansible_password': self.shell_passwd,
                 'ansible_ssh_user': self.shell_user,
-                    'ansible_ssh_pass': self.shell_passwd,
-                    'ansible_become_method': 'sudo'
+                'ansible_ssh_pass': self.shell_passwd,
+                'ansible_become_method': 'sudo'
             }
             proxy_user = self._ssh_proxy.get('proxy_user', None)
             proxy_host = self._ssh_proxy.get('proxy_host', None)
             if proxy_user and proxy_host:
-                evars['ansible_ssh_extra_args'] = f"-o ProxyCommand='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no -W %h:%p {proxy_user}@{proxy_host}'"
+                evars['ansible_ssh_extra_args'] = \
+                    "-o ProxyCommand='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no " + \
+                    f"-W %h:%p {proxy_user}@{proxy_host}'"
         self.host.options['variable_manager'].extra_vars.update(evars)
         logger.info(f"Final extra vars for host {self.hostname}: {self.host.options['variable_manager'].extra_vars}")
         return super(EosHost, self).__getattr__(module_name)

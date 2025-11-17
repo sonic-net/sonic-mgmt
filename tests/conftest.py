@@ -968,7 +968,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request, localhost
             # Variable `ansible_ssh_proxy_host` can use value of `ansible_host` or `ansibl_hostv6`.
             # Some vmhosts may only be accessible from IPv4, while others may only be accessible from IPv6.
             # There is no standard way to know which one to use, so we let user to define it in inventory.
-            'proxy_host': vmhost_var_ansible_ssh_proxy_host if vmhost_var_ansible_ssh_proxy_host else vmhost_var_ansible_host,
+            'proxy_host': vmhost_var_ansible_ssh_proxy_host \
+            if vmhost_var_ansible_ssh_proxy_host else vmhost_var_ansible_host,
         }
 
         for neighbor_name, neighbor in vms.items():
