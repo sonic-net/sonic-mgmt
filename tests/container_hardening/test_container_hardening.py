@@ -12,7 +12,7 @@ logger = logging.getLogger(__name__)
 
 CONTAINER_NAME_REGEX = r"([a-zA-Z_-]+)(\d*)([a-zA-Z_-]+)(\d*)$"
 # Skip testing on following containers
-# db and pmon will be privileged hardening
+# The following containers cannot be privileged hardening
 # syncd, gbsyncd, and swss cannot be privileged hardening
 PRIVILEGED_CONTAINERS = [
     "syncd",
