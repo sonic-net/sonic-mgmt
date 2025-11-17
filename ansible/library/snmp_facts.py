@@ -18,7 +18,31 @@
 
 from collections import defaultdict
 from ansible.module_utils.basic import AnsibleModule
-import six
+
+import logging
+import datetime
+from ansible.module_utils.debug_utils import config_module_logging
+
+import asyncio
+import pysnmp
+
+from pyasn1.type import univ
+from pysnmp.proto import rfc1902
+
+if pysnmp.version[0] < 5:
+    from pysnmp.entity.rfc3413.oneliner import cmdgen
+else:
+    from pysnmp.hlapi.v3arch.asyncio import (
+        cmdgen,
+        UdpTransportTarget,
+        get_cmd,
+        walk_cmd,
+        SnmpEngine,
+        ContextData,
+        ObjectType,
+        ObjectIdentity
+    )
+
 DOCUMENTATION = '''
 ---
 module: snmp_facts
@@ -99,15 +123,6 @@ EXAMPLES = '''
 '''
 
 
-try:
-    from pysnmp.proto import rfc1902
-    from pysnmp.entity.rfc3413.oneliner import cmdgen
-    from pyasn1.type import univ
-    has_pysnmp = True
-except Exception:
-    has_pysnmp = False
-
-
 class DefineOid(object):
 
     def __init__(self, dotprefix=False):
@@ -116,7 +131,7 @@ class DefineOid(object):
         else:
             dp = ""
 
-        # From SNMPv2-MIB
+        # From SNMPv2-MIB, refer to https://mibs.observium.org/mib/SNMPv2-MIB/
         self.sysDescr = dp + "1.3.6.1.2.1.1.1.0"
         self.sysObjectId = dp + "1.3.6.1.2.1.1.2.0"
         self.sysUpTime = dp + "1.3.6.1.2.1.1.3.0"
@@ -124,7 +139,8 @@ class DefineOid(object):
         self.sysName = dp + "1.3.6.1.2.1.1.5.0"
         self.sysLocation = dp + "1.3.6.1.2.1.1.6.0"
 
-        # From IF-MIB
+        # From IF-MIB, refer to https://mibs.observium.org/mib/IF-MIB/
+        self.ifEntry = dp + "1.3.6.1.2.1.2.2.1"                 # For walk_cmd
         self.ifIndex = dp + "1.3.6.1.2.1.2.2.1.1"
         self.ifDescr = dp + "1.3.6.1.2.1.2.2.1.2"
         self.ifType = dp + "1.3.6.1.2.1.2.2.1.3"
@@ -133,19 +149,21 @@ class DefineOid(object):
         self.ifPhysAddress = dp + "1.3.6.1.2.1.2.2.1.6"
         self.ifAdminStatus = dp + "1.3.6.1.2.1.2.2.1.7"
         self.ifOperStatus = dp + "1.3.6.1.2.1.2.2.1.8"
+        self.ifInUcastPkts = dp + "1.3.6.1.2.1.2.2.1.11"
+        self.ifInDiscards = dp + "1.3.6.1.2.1.2.2.1.13"
+        self.ifInErrors = dp + "1.3.6.1.2.1.2.2.1.14"
+        self.ifOutUcastPkts = dp + "1.3.6.1.2.1.2.2.1.17"
+        self.ifOutDiscards = dp + "1.3.6.1.2.1.2.2.1.19"
+        self.ifOutErrors = dp + "1.3.6.1.2.1.2.2.1.20"
+
+        self.ifXEntry = dp + "1.3.6.1.2.1.31.1.1.1"            # For walk_cmd
+        self.ifHCInOctets = dp + "1.3.6.1.2.1.31.1.1.1.6"
+        self.ifHCOutOctets = dp + "1.3.6.1.2.1.31.1.1.1.10"
         self.ifHighSpeed = dp + "1.3.6.1.2.1.31.1.1.1.15"
         self.ifAlias = dp + "1.3.6.1.2.1.31.1.1.1.18"
 
-        self.ifInDiscards = dp + "1.3.6.1.2.1.2.2.1.13"
-        self.ifOutDiscards = dp + "1.3.6.1.2.1.2.2.1.19"
-        self.ifInErrors = dp + "1.3.6.1.2.1.2.2.1.14"
-        self.ifOutErrors = dp + "1.3.6.1.2.1.2.2.1.20"
-        self.ifHCInOctets = dp + "1.3.6.1.2.1.31.1.1.1.6"
-        self.ifHCOutOctets = dp + "1.3.6.1.2.1.31.1.1.1.10"
-        self.ifInUcastPkts = dp + "1.3.6.1.2.1.2.2.1.11"
-        self.ifOutUcastPkts = dp + "1.3.6.1.2.1.2.2.1.17"
-
-        # From entity table MIB
+        # From entity table MIB, refer to https://mibs.observium.org/mib/ENTITY-MIB/
+        self.entPhysicalEntry = dp + "1.3.6.1.2.1.47.1.1.1.1"          # For walk_cmd
         self.entPhysDescr = dp + "1.3.6.1.2.1.47.1.1.1.1.2"
         self.entPhysContainedIn = dp + "1.3.6.1.2.1.47.1.1.1.1.4"
         self.entPhysClass = dp + "1.3.6.1.2.1.47.1.1.1.1.5"
@@ -159,38 +177,43 @@ class DefineOid(object):
         self.entPhysModelName = dp + "1.3.6.1.2.1.47.1.1.1.1.13"
         self.entPhysIsFRU = dp + "1.3.6.1.2.1.47.1.1.1.1.16"
 
-        # From entity sensor MIB
+        # From entity sensor MIB, refer to https://mibs.observium.org/mib/ENTITY-SENSOR-MIB/
+        self.entPhySensorEntry = dp + "1.3.6.1.2.1.99.1.1.1"            # For walk_cmd
         self.entPhySensorType = dp + "1.3.6.1.2.1.99.1.1.1.1"
         self.entPhySensorScale = dp + "1.3.6.1.2.1.99.1.1.1.2"
         self.entPhySensorPrecision = dp + "1.3.6.1.2.1.99.1.1.1.3"
         self.entPhySensorValue = dp + "1.3.6.1.2.1.99.1.1.1.4"
         self.entPhySensorOperStatus = dp + "1.3.6.1.2.1.99.1.1.1.5"
 
-        # From IP-MIB
+        # From IP-MIB, refer to https://mibs.observium.org/mib/IP-MIB/
+        self.ipAddrEntry = dp + "1.3.6.1.2.1.4.20.1"        # For walk_cmd
         self.ipAdEntAddr = dp + "1.3.6.1.2.1.4.20.1.1"
         self.ipAdEntIfIndex = dp + "1.3.6.1.2.1.4.20.1.2"
         self.ipAdEntNetMask = dp + "1.3.6.1.2.1.4.20.1.3"
 
-        # From LLDP-MIB: lldpLocalSystemData
+        # From LLDP-MIB: lldpLocalSystemData, refer to https://mibs.observium.org/mib/LLDP-MIB/
         self.lldpLocChassisIdSubtype = dp + "1.0.8802.1.1.2.1.3.1"
         self.lldpLocChassisId = dp + "1.0.8802.1.1.2.1.3.2"
         self.lldpLocSysName = dp + "1.0.8802.1.1.2.1.3.3"
         self.lldpLocSysDesc = dp + "1.0.8802.1.1.2.1.3.4"
 
-        # From LLDP-MIB: lldpLocPortTable
+        # From LLDP-MIB: lldpLocPortTable, refer to https://mibs.observium.org/mib/LLDP-MIB/
+        self.lldpLocPortEntry = dp + "1.0.8802.1.1.2.1.3.7.1"  # For walk_cmd
         self.lldpLocPortIdSubtype = dp + "1.0.8802.1.1.2.1.3.7.1.2"  # + .ifindex
         self.lldpLocPortId = dp + "1.0.8802.1.1.2.1.3.7.1.3"  # + .ifindex
         self.lldpLocPortDesc = dp + "1.0.8802.1.1.2.1.3.7.1.4"  # + .ifindex
 
-        # From LLDP-MIB: lldpLocManAddrTables
+        # From LLDP-MIB: lldpLocManAddrTables, refer to https://mibs.observium.org/mib/LLDP-MIB/
+        self.lldpLocManAddrEntry = dp + "1.0.8802.1.1.2.1.3.8.1"  # For walk_cmd
         self.lldpLocManAddrLen = dp + "1.0.8802.1.1.2.1.3.8.1.3"  # + .subtype + .man addr
         self.lldpLocManAddrIfSubtype = dp + \
             "1.0.8802.1.1.2.1.3.8.1.4"  # + .subtype + .man addr
         self.lldpLocManAddrIfId = dp + "1.0.8802.1.1.2.1.3.8.1.5"  # + .subtype + .man addr
         self.lldpLocManAddrOID = dp + "1.0.8802.1.1.2.1.3.8.1.6"  # + .subtype + .man addr
 
-        # From LLDP-MIB: lldpRemTable
+        # From LLDP-MIB: lldpRemTable, refer to https://mibs.observium.org/mib/LLDP-MIB/
         # + .time mark + .ifindex + .rem index
+        self.lldpRemEntry = dp + "1.0.8802.1.1.2.1.4.1.1"  # For walk_cmd
         self.lldpRemChassisIdSubtype = dp + "1.0.8802.1.1.2.1.4.1.1.4"
         # + .time mark + .ifindex + .rem index
         self.lldpRemChassisId = dp + "1.0.8802.1.1.2.1.4.1.1.5"
@@ -209,8 +232,9 @@ class DefineOid(object):
         # + .time mark + .ifindex + .rem index
         self.lldpRemSysCapEnabled = dp + "1.0.8802.1.1.2.1.4.1.1.12"
 
-        # From LLDP-MIB: lldpRemManAddrTable
+        # From LLDP-MIB: lldpRemManAddrTable, refer to https://mibs.observium.org/mib/LLDP-MIB/
         # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
+        self.lldpRemManAddrEntry = dp + "1.0.8802.1.1.2.1.4.2.1"  # For walk_cmd
         self.lldpRemManAddrIfSubtype = dp + "1.0.8802.1.1.2.1.4.2.1.3"
         # + .time mark + .ifindex + .rem index + .addr_subtype + .man addr
         self.lldpRemManAddrIfId = dp + "1.0.8802.1.1.2.1.4.2.1.4"
@@ -232,24 +256,31 @@ class DefineOid(object):
         self.sysTotalFreeSwap = dp + "1.3.6.1.4.1.2021.4.4.0"
 
         # From Cisco private MIB (PFC and queue counters)
+        # Refer to https://mibs.observium.org/mib/CISCO-PFC-EXT-MIB/
+        self.cpfcIfEntry = dp + "1.3.6.1.4.1.9.9.813.1.1.1"  # For walk_cmd
         self.cpfcIfRequests = dp + "1.3.6.1.4.1.9.9.813.1.1.1.1"  # + .ifindex
         self.cpfcIfIndications = dp + "1.3.6.1.4.1.9.9.813.1.1.1.2"  # + .ifindex
+        self.cpfcIfPriorityEntry = dp + "1.3.6.1.4.1.9.9.813.1.2.1"  # For walk_cmd
         self.requestsPerPriority = dp + "1.3.6.1.4.1.9.9.813.1.2.1.2"  # + .ifindex.prio
         self.indicationsPerPriority = dp + "1.3.6.1.4.1.9.9.813.1.2.1.3"  # + .ifindex.prio
         # + .ifindex.IfDirection.QueueID
-        self.csqIfQosGroupStats = dp + "1.3.6.1.4.1.9.9.580.1.5.5.1.4"
+        self.csqIfQosGroupStatsEntry = dp + "1.3.6.1.4.1.9.9.580.1.5.5.1"  # For walk_cmd
+        self.csqIfQosGroupStatsValue = dp + "1.3.6.1.4.1.9.9.580.1.5.5.1.4"
 
         # From Cisco private MIB (PSU)
+        # Refer to https://mibs.observium.org/mib/CISCO-ENTITY-FRU-CONTROL-MIB/
+        self.cefcFRUPowerStatusEntry = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1"  # For walk_cmd
         self.cefcFRUPowerOperStatus = dp + "1.3.6.1.4.1.9.9.117.1.1.2.1.2"  # + .psuindex
 
-        # ipCidrRouteTable MIB
-        self.ipCidrRouteEntry = dp + \
+        # ipCidrRouteTable MIB, refer to https://mibs.observium.org/mib/IP-FORWARD-MIB/
+        self.ipCidrRouteDest = dp + \
             "1.3.6.1.2.1.4.24.4.1.1.0.0.0.0.0.0.0.0.0"  # + .next hop IP
         self.ipCidrRouteStatus = dp + \
             "1.3.6.1.2.1.4.24.4.1.16.0.0.0.0.0.0.0.0.0"  # + .next hop IP
 
-        # Dot1q MIB
-        self.dot1qTpFdbEntry = dp + "1.3.6.1.2.1.17.7.1.2.2.1.2"  # + .VLAN.MAC
+        # Dot1q MIB, refer to https://mibs.observium.org/mib/Q-BRIDGE-MIB/
+        self.dot1qTpFdbEntry = dp + "1.3.6.1.2.1.17.7.1.2.2.1"   # For walk_cmd
+        self.dot1qTpFdbPort = dp + "1.3.6.1.2.1.17.7.1.2.2.1.2"  # + .VLAN.MAC
 
 
 def decode_hex(hexstring):
@@ -278,10 +309,8 @@ def lookup_adminstatus(int_adminstatus):
         2: 'down',
         3: 'testing'
     }
-    if int_adminstatus in adminstatus_options.keys():
-        return adminstatus_options[int_adminstatus]
-    else:
-        return ""
+
+    return adminstatus_options.get(int_adminstatus, "")
 
 
 def lookup_operstatus(int_operstatus):
@@ -294,39 +323,23 @@ def lookup_operstatus(int_operstatus):
         6: 'notPresent',
         7: 'lowerLayerDown'
     }
-    if int_operstatus in operstatus_options.keys():
-        return operstatus_options[int_operstatus]
-    else:
-        return ""
+    return operstatus_options.get(int_operstatus, "")
 
 
 def decode_type(module, current_oid, val):
-    if six.PY3:
-        tagMap = {
-            rfc1902.Counter32.tagSet: int,
-            rfc1902.Gauge32.tagSet: int,
-            rfc1902.Integer32.tagSet: int,
-            rfc1902.IpAddress.tagSet: str,
-            univ.Null.tagSet: str,
-            univ.ObjectIdentifier.tagSet: str,
-            rfc1902.OctetString.tagSet: str,
-            rfc1902.TimeTicks.tagSet: int,
-            rfc1902.Counter64.tagSet: int
-        }
-    else:
-        tagMap = {
-            rfc1902.Counter32.tagSet: long,     # noqa: F821
-            rfc1902.Gauge32.tagSet: long,       # noqa: F821
-            rfc1902.Integer32.tagSet: long,     # noqa: F821
-            rfc1902.IpAddress.tagSet: str,
-            univ.Null.tagSet: str,
-            univ.ObjectIdentifier.tagSet: str,
-            rfc1902.OctetString.tagSet: str,
-            rfc1902.TimeTicks.tagSet: long,     # noqa: F821
-            rfc1902.Counter64.tagSet: long      # noqa: F821
-        }
+    tagMap = {
+        rfc1902.Counter32.tagSet: int,
+        rfc1902.Gauge32.tagSet: int,
+        rfc1902.Integer32.tagSet: int,
+        rfc1902.IpAddress.tagSet: str,
+        univ.Null.tagSet: str,
+        univ.ObjectIdentifier.tagSet: str,
+        rfc1902.OctetString.tagSet: str,
+        rfc1902.TimeTicks.tagSet: int,
+        rfc1902.Counter64.tagSet: int
+    }
 
-    if val is None or not val:
+    if val is None:
         module.fail_json(
             msg="Unable to convert ASN1 type to python type. No value was returned for OID %s" % current_oid)
 
@@ -339,34 +352,20 @@ def decode_type(module, current_oid, val):
     return pyVal
 
 
-def main():
-    module = AnsibleModule(
-        argument_spec=dict(
-            host=dict(required=True),
-            # https://github.com/sonic-net/sonic-buildimage/blob/7a21cab07dbd0ace80833a57e391dec0ebde9978/dockers/docker-snmp/snmpd.conf.j2#L197
-            # In snmpd.conf, we set the timeout as 5s and 4 retries.
-            # Total time window = 4 * 5 = 20 seconds
-            timeout=dict(reqired=False, type='int', default=20),
-            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
-            community=dict(required=False, default=False),
-            username=dict(required=False),
-            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
-            integrity=dict(required=False, choices=['md5', 'sha']),
-            privacy=dict(required=False, choices=['des', 'aes']),
-            authkey=dict(required=False),
-            privkey=dict(required=False),
-            is_dell=dict(required=False, default=False, type='bool'),
-            is_eos=dict(required=False, default=False, type='bool'),
-            include_swap=dict(required=False, default=False, type='bool'),
-            removeplaceholder=dict(required=False)),
-        required_together=(['username', 'level', 'integrity', 'authkey'], [
-                           'privacy', 'privkey'],),
-        supports_check_mode=False)
+def Tree():
+    return defaultdict(Tree)
 
+
+def oid_parent_child(parent, child):
+    return child.startswith(parent + '.')
+
+
+def oid_same(oid1, oid2):
+    return oid1 == oid2
+
+
+def main_legacy(module):
     m_args = module.params
-
-    if not has_pysnmp:
-        module.fail_json(msg='Missing required pysnmp module (check docs)')
 
     cmdGen = cmdgen.CommandGenerator()
 
@@ -412,8 +411,6 @@ def main():
     p = DefineOid(dotprefix=True)
     # Use v without a prefix to use with return values
     v = DefineOid(dotprefix=False)
-
-    def Tree(): return defaultdict(Tree)
 
     results = Tree()
 
@@ -930,7 +927,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
-        cmdgen.MibVariable(p.csqIfQosGroupStats,),
+        cmdgen.MibVariable(p.csqIfQosGroupStatsValue,),
         lookupMib=False,
     )
 
@@ -941,7 +938,7 @@ def main():
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
-            if v.csqIfQosGroupStats in current_oid:
+            if v.csqIfQosGroupStatsValue in current_oid:
                 ifIndex = int(current_oid.split('.')[-4])
                 ifDirection = int(current_oid.split('.')[-3])
                 queueId = int(current_oid.split('.')[-2])
@@ -969,7 +966,7 @@ def main():
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
         cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
-        cmdgen.MibVariable(p.ipCidrRouteEntry,),
+        cmdgen.MibVariable(p.ipCidrRouteDest,),
         cmdgen.MibVariable(p.ipCidrRouteStatus,),
         lookupMib=False,
     )
@@ -981,9 +978,9 @@ def main():
         for oid, val in varBinds:
             current_oid = oid.prettyPrint()
             current_val = val.prettyPrint()
-            if v.ipCidrRouteEntry in current_oid:
+            if v.ipCidrRouteDest in current_oid:
                 # extract next hop ip from oid
-                next_hop = current_oid.split(v.ipCidrRouteEntry + ".")[1]
+                next_hop = current_oid.split(v.ipCidrRouteDest + ".")[1]
                 results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
             if v.ipCidrRouteStatus in current_oid:
                 next_hop = current_oid.split(v.ipCidrRouteStatus + ".")[1]
@@ -1048,7 +1045,7 @@ def main():
         errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
             snmp_auth,
             cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
-            cmdgen.MibVariable(p.dot1qTpFdbEntry,),
+            cmdgen.MibVariable(p.dot1qTpFdbPort,),
             lookupMib=False,
         )
 
@@ -1059,10 +1056,10 @@ def main():
             for oid, val in varBinds:
                 current_oid = oid.prettyPrint()
                 current_val = val.prettyPrint()
-                if v.dot1qTpFdbEntry in current_oid:
+                if v.dot1qTpFdbPort in current_oid:
                     # extract fdb info from oid
                     items = current_oid.split(
-                        v.dot1qTpFdbEntry + ".")[1].split(".")
+                        v.dot1qTpFdbPort + ".")[1].split(".")
                     # VLAN + MAC(6)
                     if len(items) != 7:
                         continue
@@ -1075,4 +1072,824 @@ def main():
     module.exit_json(ansible_facts=results)
 
 
-main()
+class SnmpFactsCollector:
+    def __init__(self, module):
+        self.module = module
+        self.m_args = module.params
+        self.results = Tree()
+        self.context = ContextData()
+        self.snmp_engine = SnmpEngine()
+        self.transport = None
+        self.logger = logging.getLogger(__name__)
+
+        self._init_auth()
+
+        # Use p to prefix OIDs with a dot for polling
+        self.p = DefineOid(dotprefix=True)
+        # Use v without a prefix to use with return values
+        self.v = DefineOid(dotprefix=False)
+
+    def _init_auth(self):
+        # Verify that we receive a community when using snmp v2
+        if self.m_args['version'] == "v2" or self.m_args['version'] == "v2c":
+            if self.m_args['community'] is False:
+                self.module.fail_json(
+                    msg='Community not set when using snmp version 2'
+                )
+
+        if self.m_args['version'] == "v3":
+            if self.m_args['username'] is None:
+                self.module.fail_json(
+                    msg='Username not set when using snmp version 3'
+                )
+
+            if self.m_args['level'] == "authPriv" and self.m_args['privacy'] is None:
+                self.module.fail_json(
+                    msg='Privacy algorithm not set when using authPriv'
+                )
+
+            if self.m_args['integrity'] == "sha":
+                integrity_proto = cmdgen.usmHMACSHAAuthProtocol
+            elif self.m_args['integrity'] == "md5":
+                integrity_proto = cmdgen.usmHMACMD5AuthProtocol
+
+            if self.m_args['privacy'] == "aes":
+                privacy_proto = cmdgen.usmAesCfb128Protocol
+            elif self.m_args['privacy'] == "des":
+                privacy_proto = cmdgen.usmDESPrivProtocol
+
+        # Use SNMP Version 2
+        if self.m_args['version'] == "v2" or self.m_args['version'] == "v2c":
+            self.snmp_auth = cmdgen.CommunityData(self.m_args['community'])
+
+        # Use SNMP Version 3 with authNoPriv
+        elif self.m_args['level'] == "authNoPriv":
+            self.snmp_auth = cmdgen.UsmUserData(
+                self.m_args['username'],
+                authKey=self.m_args['authkey'],
+                authProtocol=integrity_proto
+            )
+        # Use SNMP Version 3 with authPriv
+        else:
+            self.snmp_auth = cmdgen.UsmUserData(
+                self.m_args['username'],
+                authKey=self.m_args['authkey'],
+                privKey=self.m_args['privkey'],
+                authProtocol=integrity_proto,
+                privProtocol=privacy_proto
+            )
+
+    async def setup(self):
+        self.transport = await UdpTransportTarget.create(
+            (self.m_args['host'], 161),
+            timeout=self.m_args['timeout']
+        )
+
+    async def _collect_system(self):
+        self.logger.info("Starting _collect_system")
+        errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.sysDescr,)),
+            ObjectType(ObjectIdentity(self.p.sysObjectId,)),
+            ObjectType(ObjectIdentity(self.p.sysUpTime,)),
+            ObjectType(ObjectIdentity(self.p.sysContact,)),
+            ObjectType(ObjectIdentity(self.p.sysName,)),
+            ObjectType(ObjectIdentity(self.p.sysLocation,)),
+            lookupMib=False
+        )
+        if errorIndication:
+            self.module.fail_json(
+                msg=f"{str(errorIndication)} querying system information."
+            )
+
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if oid_same(current_oid, self.v.sysDescr):
+                self.results['ansible_sysdescr'] = current_val
+            elif oid_same(current_oid, self.v.sysObjectId):
+                self.results['ansible_sysobjectid'] = current_val
+            elif oid_same(current_oid, self.v.sysUpTime):
+                self.results['ansible_sysuptime'] = current_val
+            elif oid_same(current_oid, self.v.sysContact):
+                self.results['ansible_syscontact'] = current_val
+            elif oid_same(current_oid, self.v.sysName):
+                self.results['ansible_sysname'] = current_val
+            elif oid_same(current_oid, self.v.sysLocation):
+                self.results['ansible_syslocation'] = current_val
+        self.logger.info("Finished _collect_system")
+
+    async def _collect_interfaces(self):
+        self.logger.info("Starting _collect_interfaces")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.ifEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ifTable."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+
+                if oid_parent_child(self.v.ifIndex, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifindex'] = current_val
+                elif oid_parent_child(self.v.ifDescr, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['name'] = current_val
+                elif oid_parent_child(self.v.ifType, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['type'] = current_val
+                elif oid_parent_child(self.v.ifMtu, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['mtu'] = current_val
+                elif oid_parent_child(self.v.ifSpeed, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['speed'] = current_val
+                elif oid_parent_child(self.v.ifPhysAddress, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['mac'] = decode_mac(current_val)
+                elif oid_parent_child(self.v.ifAdminStatus, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['adminstatus'] = lookup_adminstatus(int(current_val))
+                elif oid_parent_child(self.v.ifOperStatus, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['operstatus'] = lookup_operstatus(int(current_val))
+                elif oid_parent_child(self.v.ifInUcastPkts, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifInUcastPkts'] = current_val
+                elif oid_parent_child(self.v.ifInDiscards, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifInDiscards'] = current_val
+                elif oid_parent_child(self.v.ifInErrors, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifInErrors'] = current_val
+                elif oid_parent_child(self.v.ifOutUcastPkts, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifOutUcastPkts'] = current_val
+                elif oid_parent_child(self.v.ifOutDiscards, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifOutDiscards'] = current_val
+                elif oid_parent_child(self.v.ifOutErrors, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifOutErrors'] = current_val
+
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.ifXEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ifXTable."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+
+                if oid_parent_child(self.v.ifHCInOctets, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifHCInOctets'] = current_val
+                elif oid_parent_child(self.v.ifHCOutOctets, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifHCOutOctets'] = current_val
+                elif oid_parent_child(self.v.ifHighSpeed, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['ifHighSpeed'] = current_val
+                elif oid_parent_child(self.v.ifAlias, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['description'] = current_val
+        self.logger.info("Finished _collect_interfaces")
+
+    async def _collect_physical_entities(self):
+        self.logger.info("Starting _collect_physical_entities")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.entPhysicalEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying entPhysicalTable."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                entity_oid = int(current_oid.rsplit('.', 1)[-1])
+
+                if oid_parent_child(self.v.entPhysDescr, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysDescr'] = current_val
+                elif oid_parent_child(self.v.entPhysContainedIn, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysContainedIn'] = int(current_val)
+                elif oid_parent_child(self.v.entPhysClass, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysClass'] = int(current_val)
+                elif oid_parent_child(self.v.entPhyParentRelPos, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhyParentRelPos'] = int(current_val)
+                elif oid_parent_child(self.v.entPhysName, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysName'] = current_val
+                elif oid_parent_child(self.v.entPhysHwVer, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysHwVer'] = current_val
+                elif oid_parent_child(self.v.entPhysFwVer, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysFwVer'] = current_val
+                elif oid_parent_child(self.v.entPhysSwVer, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysSwVer'] = current_val
+                elif oid_parent_child(self.v.entPhysSerialNum, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysSerialNum'] = current_val
+                elif oid_parent_child(self.v.entPhysMfgName, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysMfgName'] = current_val
+                elif oid_parent_child(self.v.entPhysModelName, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysModelName'] = current_val
+                elif oid_parent_child(self.v.entPhysIsFRU, current_oid):
+                    self.results['snmp_physical_entities'][entity_oid]['entPhysIsFRU'] = int(current_val)
+        self.logger.info("Finished _collect_physical_entities")
+
+    async def _collect_sensors(self):
+        self.logger.info("Starting _collect_sensors")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.entPhySensorEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying entPhySensorEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                sensor_oid = int(current_oid.rsplit('.', 1)[-1])
+
+                if oid_parent_child(self.v.entPhySensorType, current_oid):
+                    self.results['snmp_sensors'][sensor_oid]['entPhySensorType'] = current_val
+                elif oid_parent_child(self.v.entPhySensorScale, current_oid):
+                    self.results['snmp_sensors'][sensor_oid]['entPhySensorScale'] = int(current_val)
+                elif oid_parent_child(self.v.entPhySensorPrecision, current_oid):
+                    self.results['snmp_sensors'][sensor_oid]['entPhySensorPrecision'] = current_val
+                elif oid_parent_child(self.v.entPhySensorValue, current_oid):
+                    self.results['snmp_sensors'][sensor_oid]['entPhySensorValue'] = current_val
+                elif oid_parent_child(self.v.entPhySensorOperStatus, current_oid):
+                    self.results['snmp_sensors'][sensor_oid]['entPhySensorOperStatus'] = current_val
+        self.logger.info("Finished _collect_sensors")
+
+    async def _collect_ipaddr(self):
+        self.logger.info("Starting _collect_ipaddr")
+        ipv4_networks = Tree()
+        all_ipv4_addresses = []
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.ipAddrEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ipAddrEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                curIPList = current_oid.rsplit('.', 4)[-4:]
+                curIP = ".".join(curIPList)
+
+                if oid_parent_child(self.v.ipAdEntAddr, current_oid):
+                    ipv4_networks[curIP]['address'] = current_val
+                    all_ipv4_addresses.append(current_val)
+                elif oid_parent_child(self.v.ipAdEntIfIndex, current_oid):
+                    ipv4_networks[curIP]['interface'] = current_val
+                elif oid_parent_child(self.v.ipAdEntNetMask, current_oid):
+                    ipv4_networks[curIP]['netmask'] = current_val
+
+        interface_to_ipv4 = {}
+        for ipv4_network in ipv4_networks:
+            current_interface = ipv4_networks[ipv4_network]['interface']
+            current_network = {
+                'address': ipv4_networks[ipv4_network]['address'],
+                'netmask': ipv4_networks[ipv4_network]['netmask']
+            }
+            if current_interface not in interface_to_ipv4:
+                interface_to_ipv4[current_interface] = []
+                interface_to_ipv4[current_interface].append(current_network)
+            else:
+                interface_to_ipv4[current_interface].append(current_network)
+
+        for interface in interface_to_ipv4:
+            self.results['snmp_interfaces'][int(interface)]['ipv4'] = interface_to_ipv4[interface]
+
+        self.results['ansible_all_ipv4_addresses'] = all_ipv4_addresses
+        self.logger.info("Finished _collect_ipaddr")
+
+    async def _collect_lldp_sys(self):
+        self.logger.info("Starting _collect_lldp_sys")
+        errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.lldpLocChassisIdSubtype,)),
+            ObjectType(ObjectIdentity(self.p.lldpLocChassisId,)),
+            ObjectType(ObjectIdentity(self.p.lldpLocSysName,)),
+            ObjectType(ObjectIdentity(self.p.lldpLocSysDesc,)),
+            lookupMib=False
+        )
+        if errorIndication:
+            self.module.fail_json(
+                msg=f"{str(errorIndication)} querying lldp system information."
+            )
+
+        for oid, val in varBinds:
+            current_oid = oid.prettyPrint()
+            current_val = val.prettyPrint()
+            if oid_same(current_oid, self.v.lldpLocChassisIdSubtype):
+                self.results['snmp_lldp']['lldpLocChassisIdSubtype'] = current_val
+            elif oid_same(current_oid, self.v.lldpLocChassisId):
+                self.results['snmp_lldp']['lldpLocChassisId'] = current_val
+            elif oid_same(current_oid, self.v.lldpLocSysName):
+                self.results['snmp_lldp']['lldpLocSysName'] = current_val
+            elif oid_same(current_oid, self.v.lldpLocSysDesc):
+                self.results['snmp_lldp']['lldpLocSysDesc'] = current_val
+        self.logger.info("Finished _collect_lldp_sys")
+
+    async def _collect_lldp_ports(self):
+        self.logger.info("Starting _collect_lldp_ports")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.lldpLocPortEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying lldpLocPortEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+
+                if oid_parent_child(self.v.lldpLocPortIdSubtype, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpLocPortIdSubtype'] = current_val
+                elif oid_parent_child(self.v.lldpLocPortId, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpLocPortId'] = current_val
+                elif oid_parent_child(self.v.lldpLocPortDesc, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpLocPortDesc'] = current_val
+        self.logger.info("Finished _collect_lldp_ports")
+
+    async def _collect_lldp_locman(self):
+        self.logger.info("Starting _collect_lldp_locman")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.lldpLocManAddrEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying lldpLocManAddrEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.lldpLocManAddrLen, current_oid):
+                    self.results['snmp_lldp']['lldpLocManAddrLen'] = current_val
+                elif oid_parent_child(self.v.lldpLocManAddrIfSubtype, current_oid):
+                    self.results['snmp_lldp']['lldpLocManAddrIfSubtype'] = current_val
+                elif oid_parent_child(self.v.lldpLocManAddrIfId, current_oid):
+                    self.results['snmp_lldp']['lldpLocManAddrIfId'] = current_val
+                elif oid_parent_child(self.v.lldpLocManAddrOID, current_oid):
+                    self.results['snmp_lldp']['lldpLocManAddrOID'] = current_val
+        self.logger.info("Finished _collect_lldp_locman")
+
+    async def _collect_lldp_rem(self):
+        self.logger.info("Starting _collect_lldp_rem")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.lldpRemEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying lldpRemEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                ifIndex = int(current_oid.split('.')[12])
+
+                if oid_parent_child(self.v.lldpRemChassisIdSubtype, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemChassisIdSubtype'] = current_val
+                elif oid_parent_child(self.v.lldpRemChassisId, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemChassisId'] = current_val
+                elif oid_parent_child(self.v.lldpRemPortIdSubtype, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemPortIdSubtype'] = current_val
+                elif oid_parent_child(self.v.lldpRemPortId, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemPortId'] = current_val
+                elif oid_parent_child(self.v.lldpRemPortDesc, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemPortDesc'] = current_val
+                elif oid_parent_child(self.v.lldpRemSysName, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemSysName'] = current_val
+                elif oid_parent_child(self.v.lldpRemSysDesc, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemSysDesc'] = current_val
+                elif oid_parent_child(self.v.lldpRemSysCapSupported, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemSysCapSupported'] = current_val
+                elif oid_parent_child(self.v.lldpRemSysCapEnabled, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemSysCapEnabled'] = current_val
+        self.logger.info("Finished _collect_lldp_rem")
+
+    async def _collect_lldp_rem_man_addr(self):
+        self.logger.info("Starting _collect_lldp_rem_man_addr")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.lldpRemManAddrEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying lldpRemManAddrEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                ifIndex = int(current_oid.split('.')[12])
+
+                if oid_parent_child(self.v.lldpRemManAddrIfSubtype, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfSubtype'] = current_val
+                elif oid_parent_child(self.v.lldpRemManAddrIfId, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrIfId'] = current_val
+                elif oid_parent_child(self.v.lldpRemManAddrOID, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['lldpRemManAddrOID'] = current_val
+        self.logger.info("Finished _collect_lldp_rem_man_addr")
+
+    async def _collect_dell_cpu(self):
+        self.logger.info("Starting _collect_dell_cpu")
+        if self.m_args['is_dell']:
+            errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+                self.snmp_engine,
+                self.snmp_auth,
+                self.transport,
+                ContextData(),
+                ObjectType(ObjectIdentity(self.p.ChStackUnitCpuUtil5sec,)),
+                lookupMib=False
+            )
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ChStackUnitCpuUtil5sec"
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                if oid_same(current_oid, self.v.ChStackUnitCpuUtil5sec):
+                    self.results['ansible_ChStackUnitCpuUtil5sec'] = decode_type(self.module, current_oid, val)
+        self.logger.info("Finished _collect_dell_cpu")
+
+    async def _collect_sys_mem(self):
+        self.logger.info("Starting _collect_sys_mem")
+        if not self.m_args['is_eos']:
+            errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+                self.snmp_engine,
+                self.snmp_auth,
+                self.transport,
+                ContextData(),
+                ObjectType(ObjectIdentity(self.p.sysTotalMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalFreeMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalSharedMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalBuffMemory,)),
+                ObjectType(ObjectIdentity(self.p.sysCachedMemory,)),
+                lookupMib=False
+            )
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying system memory."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                if oid_same(current_oid, self.v.sysTotalMemory):
+                    self.results['ansible_sysTotalMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalFreeMemory):
+                    self.results['ansible_sysTotalFreeMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalSharedMemory):
+                    self.results['ansible_sysTotalSharedMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalBuffMemory):
+                    self.results['ansible_sysTotalBuffMemory'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysCachedMemory):
+                    self.results['ansible_sysCachedMemory'] = decode_type(self.module, current_oid, val)
+        self.logger.info("Finished _collect_sys_mem")
+
+    async def _collect_swap(self):
+        self.logger.info("Starting _collect_swap")
+        if self.m_args['include_swap']:
+            errorIndication, errorStatus, errorIndex, varBinds = await get_cmd(
+                self.snmp_engine,
+                self.snmp_auth,
+                self.transport,
+                ContextData(),
+                ObjectType(ObjectIdentity(self.p.sysTotalSwap,)),
+                ObjectType(ObjectIdentity(self.p.sysTotalFreeSwap,)),
+                lookupMib=False
+            )
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying swap."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                if oid_same(current_oid, self.v.sysTotalSwap):
+                    self.results['ansible_sysTotalSwap'] = decode_type(self.module, current_oid, val)
+                elif oid_same(current_oid, self.v.sysTotalFreeSwap):
+                    self.results['ansible_sysTotalFreeSwap'] = decode_type(self.module, current_oid, val)
+        self.logger.info("Finished _collect_swap")
+
+    async def _collect_cisco_pfc_if(self):
+        self.logger.info("Starting _collect_cisco_pfc_if")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.cpfcIfEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying cpfcIfEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+                ifIndex = int(current_oid.rsplit('.', 1)[-1])
+
+                if oid_parent_child(self.v.cpfcIfRequests, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['cpfcIfRequests'] = current_val
+                elif oid_parent_child(self.v.cpfcIfIndications, current_oid):
+                    self.results['snmp_interfaces'][ifIndex]['cpfcIfIndications'] = current_val
+        self.logger.info("Finished _collect_cisco_pfc_if")
+
+    async def _collect_cisco_pfc_priority(self):
+        self.logger.info("Starting _collect_cisco_pfc_priority")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.cpfcIfPriorityEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying cpfcIfPriorityEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.requestsPerPriority, current_oid):
+                    ifIndex = int(current_oid.split('.')[-2])
+                    prio = int(current_oid.split('.')[-1])
+                    self.results['snmp_interfaces'][ifIndex]['requestsPerPriority'][prio] = current_val
+                elif oid_parent_child(self.v.indicationsPerPriority, current_oid):
+                    ifIndex = int(current_oid.split('.')[-2])
+                    prio = int(current_oid.split('.')[-1])
+                    self.results['snmp_interfaces'][ifIndex]['indicationsPerPriority'][prio] = current_val
+        self.logger.info("Finished _collect_cisco_pfc_priority")
+
+    async def _collect_cisco_qos(self):
+        self.logger.info("Starting _collect_cisco_qos")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.csqIfQosGroupStatsEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying csqIfQosGroupStatsEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.csqIfQosGroupStatsValue, current_oid):
+                    ifIndex = int(current_oid.split('.')[-4])
+                    ifDirection = int(current_oid.split('.')[-3])
+                    queueId = int(current_oid.split('.')[-2])
+                    counterId = int(current_oid.split('.')[-1])
+                    self.results['snmp_interfaces'][ifIndex]['queues'][ifDirection][queueId][counterId] = current_val
+        self.logger.info("Finished _collect_cisco_qos")
+
+    async def _collect_cisco_psu(self):
+        self.logger.info("Starting _collect_cisco_psu")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.cefcFRUPowerStatusEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying cefcFRUPowerStatusEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.cefcFRUPowerOperStatus, current_oid):
+                    psuIndex = int(current_oid.split('.')[-1])
+                    self.results['snmp_psu'][psuIndex]['operstatus'] = current_val
+        self.logger.info("Finished _collect_cisco_psu")
+
+    async def _collect_ip_route(self):
+        self.logger.info("Starting _collect_ip_route")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.ipCidrRouteDest)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ipCidrRouteDest."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.ipCidrRouteDest, current_oid):
+                    next_hop = current_oid.split(self.v.ipCidrRouteDest + ".")[1]
+                    self.results['snmp_cidr_route'][next_hop]['route_dest'] = current_val
+
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.ipCidrRouteStatus)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying ipCidrRouteStatus."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.ipCidrRouteStatus, current_oid):
+                    next_hop = current_oid.split(self.v.ipCidrRouteStatus + ".")[1]
+                    self.results['snmp_cidr_route'][next_hop]['status'] = current_val
+
+        self.logger.info("Finished _collect_ip_route")
+
+    async def _collect_fdb(self):
+        self.logger.info("Starting _collect_fdb")
+        async for errorIndication, errorStatus, errorIndex, varBinds in walk_cmd(
+            self.snmp_engine,
+            self.snmp_auth,
+            self.transport,
+            ContextData(),
+            ObjectType(ObjectIdentity(self.p.dot1qTpFdbEntry)),
+            lookupMib=False,
+            lexicographicMode=False
+        ):
+            if errorIndication:
+                self.module.fail_json(
+                    msg=f"{str(errorIndication)} querying dot1qTpFdbEntry."
+                )
+
+            for oid, val in varBinds:
+                current_oid = oid.prettyPrint()
+                current_val = val.prettyPrint()
+
+                if oid_parent_child(self.v.dot1qTpFdbPort, current_oid):
+                    # extract fdb info from oid
+                    items = current_oid.split(self.v.dot1qTpFdbPort + ".")[1].split(".")
+                    # VLAN + MAC(6)
+                    if len(items) != 7:
+                        continue
+                    mac_str = "{:02x}:{:02x}:{:02x}:{:02x}:{:02x}:{:02x}".format(
+                        int(items[1]), int(items[2]), int(items[3]), int(items[4]), int(items[5]), int(items[6])
+                    )
+                    # key must be string
+                    key = items[0] + '.' + mac_str
+                    self.results['snmp_fdb'][key] = current_val
+        self.logger.info("Finished _collect_fdb")
+
+    async def collect_all(self):
+        if self.transport is None:
+            raise Exception("Transport not initialized. Call setup() first.")
+        await asyncio.gather(
+            self._collect_system(),
+            self._collect_interfaces(),
+            self._collect_physical_entities(),
+            self._collect_sensors(),
+            self._collect_ipaddr(),
+            self._collect_lldp_sys(),
+            self._collect_lldp_ports(),
+            self._collect_lldp_locman(),
+            self._collect_lldp_rem(),
+            self._collect_lldp_rem_man_addr(),
+            self._collect_dell_cpu(),
+            self._collect_sys_mem(),
+            self._collect_swap(),
+            self._collect_cisco_pfc_if(),
+            self._collect_cisco_pfc_priority(),
+            self._collect_cisco_qos(),
+            self._collect_cisco_psu(),
+            self._collect_ip_route(),
+            self._collect_fdb()
+        )
+
+
+async def main(module):
+    collector = SnmpFactsCollector(module)
+    await collector.setup()
+    await collector.collect_all()
+    module.exit_json(ansible_facts=collector.results)
+
+
+if __name__ == "__main__":
+    module = AnsibleModule(
+        argument_spec=dict(
+            host=dict(required=True),
+            # https://github.com/sonic-net/sonic-buildimage/blob/7a21cab07dbd0ace80833a57e391dec0ebde9978/dockers/docker-snmp/snmpd.conf.j2#L197
+            # In snmpd.conf, we set the timeout as 5s and 4 retries.
+            # Total time window = 4 * 5 = 20 seconds
+            timeout=dict(reqired=False, type='int', default=20),
+            version=dict(required=True, choices=['v2', 'v2c', 'v3']),
+            community=dict(required=False, default=False),
+            username=dict(required=False),
+            level=dict(required=False, choices=['authNoPriv', 'authPriv']),
+            integrity=dict(required=False, choices=['md5', 'sha']),
+            privacy=dict(required=False, choices=['des', 'aes']),
+            authkey=dict(required=False),
+            privkey=dict(required=False),
+            is_dell=dict(required=False, default=False, type='bool'),
+            is_eos=dict(required=False, default=False, type='bool'),
+            include_swap=dict(required=False, default=False, type='bool'),
+            removeplaceholder=dict(required=False)
+        ),
+        required_together=(
+            ['username', 'level', 'integrity', 'authkey'],
+            ['privacy', 'privkey'],
+        ),
+        supports_check_mode=False
+    )
+
+    timestamp = datetime.datetime.now().isoformat()
+    config_module_logging(f'snmp_facts_{module.params["host"]}_{timestamp}')
+
+    if pysnmp.version[0] < 5:
+        main_legacy(module)
+    else:
+        asyncio.run(main(module))
