@@ -54,6 +54,7 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
+@pytest.mark.disable_loganalyzer
 def test_reboot_cause(duthosts, dpuhosts,
                       enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):    # noqa: F811
@@ -77,6 +78,7 @@ def test_reboot_cause(duthosts, dpuhosts,
                          num_dpu_modules, "Switch rebooted DPU")
 
 
+@pytest.mark.disable_loganalyzer
 def test_pcie_link(duthosts, dpuhosts,
                    enum_rand_one_per_hwsku_hostname,
                    platform_api_conn, num_dpu_modules):   # noqa: F811
@@ -157,6 +159,7 @@ def test_restart_pmon(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
                          num_dpu_modules, "Switch rebooted DPU")
 
 
+@pytest.mark.disable_loganalyzer
 def test_system_health_state(duthosts, dpuhosts,
                              enum_rand_one_per_hwsku_hostname,
                              platform_api_conn, num_dpu_modules):  # noqa: F811
