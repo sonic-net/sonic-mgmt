@@ -498,7 +498,7 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     cmds_list = [CMD_SHOW_PLATFORM, "ssdhealth"]
-    supported_disks = ["SATA", "NVME"]
+    supported_disks = ["SATA", "NVME", "EMMC"]
 
     platform_ssd_device_path_dict = {BF_3_PLATFORM: "/dev/nvme0"}
     unsupported_ssd_values_per_platform = {}
