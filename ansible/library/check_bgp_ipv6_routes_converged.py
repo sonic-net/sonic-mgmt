@@ -102,7 +102,7 @@ def main():
     else:
         expected_routes = json.loads(module.params['expected_routes'])
 
-    shutdown_connections = module.params.get('shutdown_connections', 'none') 
+    shutdown_connections = module.params.get('shutdown_connections', 'none')
     connection_type = module.params['connection_type']
     shutdown_all_connections = module.params['shutdown_all_connections']
     timeout = module.params['timeout']
@@ -114,7 +114,7 @@ def main():
     logging.info("start time: %s", datetime.datetime.fromtimestamp(start_time).strftime("%H:%M:%S"))
 
     if not shutdown_connections or action == 'no_action':
-        logging.info(f"No connections or action is 'no_action', skipping interface operation.")
+        logging.info("No connections or action is 'no_action', skipping interface operation.")
     else:
         # interface operation based on action
         perform_action(module, action, connection_type, shutdown_connections, shutdown_all_connections)
