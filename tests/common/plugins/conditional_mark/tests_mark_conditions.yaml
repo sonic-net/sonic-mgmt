@@ -2443,12 +2443,10 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
 #######################################
 
 fips/test_fips.py::test_fips:
-  skip:
+  xfail:
     reason: "Skip fips test due to known issue"
-    conditions_logical_operator: and
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24528"
-      - "'trixie' in build_version"
 
 #######################################
 #####   generic_config_updater    #####
