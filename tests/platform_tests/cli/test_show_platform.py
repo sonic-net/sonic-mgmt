@@ -594,6 +594,9 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    if duthost.facts["platform"] == AMD_ELBA_PLATFORM:
+        pytest.skip(f"Skip the test, as it is not supported on AMD ELBA DPU : {AMD_ELBA_PLATFORM}.")
+
     cmd = "show platform pcieinfo -c"
 
     logging.info("Verifying output of '{}' on '{}' ...".format(cmd, duthost.hostname))
