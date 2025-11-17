@@ -121,6 +121,7 @@
         - python3-lxml
         - libvirt-daemon-system
         - qemu-system-x86
+        - chrony
       become: yes
       when: host_distribution_version.stdout >= "20.04"
   when: package_installation|bool

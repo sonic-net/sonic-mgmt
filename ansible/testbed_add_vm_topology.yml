@@ -80,6 +80,12 @@
     fail: msg="Define topo variable with -e topo=something"
     when: topo is not defined
 
+  - name: Set server port MTU to 9216
+    command: ip link set dev {{ external_port }} mtu 9216
+    become: yes
+    when: external_port is defined
+    ignore_errors: yes
+
   - name: Set ptf_imagetag
     set_fact:
       ptf_imagetag: >-
