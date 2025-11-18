@@ -72,10 +72,10 @@ bjw2-can-7215-5,10.150.22.175/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-6,10.150.22.177/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-7,10.150.22.179/23,Nokia-M0-7215,DevSonic,,sonic
 bjw2-can-7215-8,10.150.22.181/23,Nokia-M0-7215,DevSonic,,sonic
-bjw2-can-7215a1-1,10.150.22.211/23,Nokia-7215-A1,DevSonic,,sonic
-bjw2-can-7215a1-2,10.150.22.213/23,Nokia-7215-A1,DevSonic,,sonic
-bjw2-can-7215a1-3,10.150.23.251/23,Nokia-7215-A1,DevSonic,,sonic
-bjw2-can-7215a1-4,10.150.23.253/23,Nokia-7215-A1,DevSonic,,sonic
+bjw2-can-7215a1-1,10.150.22.211/23,Nokia-7215-A1-G48S4,DevSonic,,sonic
+bjw2-can-7215a1-2,10.150.22.213/23,Nokia-7215-A1-G48S4,DevSonic,,sonic
+bjw2-can-7215a1-3,10.150.23.251/23,Nokia-7215-A1-G48S4,DevSonic,,sonic
+bjw2-can-7215a1-4,10.150.23.253/23,Nokia-7215-A1-G48S4,DevSonic,,sonic
 bjw2-can-720dt-1,10.150.22.183/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw2-can-720dt-2,10.150.22.185/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw2-can-720dt-3,10.150.22.187/23,Arista-720DT-G48S4,DevSonic,,sonic
