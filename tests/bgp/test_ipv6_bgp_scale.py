@@ -451,6 +451,23 @@ def compress_expected_routes(expected_routes):
 
 
 def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, connection_type, action, downtime_threshold):
+    """
+    Orchestrates interface/BGP session flapping and recovery on the DUT, generating test traffic to assess both
+    control and data plane convergence behavior. This function is designed for use in test scenarios
+    where some or all BGP neighbors or ports are shut down and restarted.
+
+    Behavior:
+      - On shutdown action: Randomly selects (or selects all) BGP neighbors/ports to flap, as well as an injection port
+        to use for sending traffic during the event. It computes expected post-flap routes and sets up traffic streams.
+      - On startup action: Reuses the previously determined injection/flapping selections to restore connectivity and
+        again validates route convergence and traffic recovery.
+      - Measures and validates data plane downtime across the operations, helping to detect issues in convergence times.
+      - Returns details about the selected connections and test traffic for subsequent phases.
+
+    Returns:
+        For shutdown phase: dict with flapping_connections, injection_port, compressed_startup_routes, prefixes.
+        For startup phase: empty dict.
+    """
     global global_icmp_type, current_test, test_results
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
@@ -613,16 +630,15 @@ def test_sessions_flapping(
     setup_routes_before_test
 ):
     '''
-    This test is to make sure When BGP sessions are flapping,
-    control plane is functional and data plane has no downtime or acceptable downtime.
-    Steps:
-        Start and keep sending packets with all routes to the random one open port via ptf.
-        Shutdown flapping_port_count random port(s) that establishing bgp sessions.
-        Wait for routes are stable, check if all nexthops connecting the shut down ports are disappeared in routes.
-        Stop packet sending
-        Estimate data plane down time by check packet count sent, received and duration.
+    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    flapped (brought down and back up), simulating various failure or maintenance scenarios.
+
+    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+
+    Parameters range from flapping a single session to all sessions.
+
     Expected result:
-        Dataplane downtime is less than MAX_DOWNTIME_ONE_PORT_FLAPPING.
+        Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
     '''
     pdp = ptfadapter.dataplane
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
