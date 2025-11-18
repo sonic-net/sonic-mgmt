@@ -46,6 +46,14 @@ dut_ports_info = {
             ("1000", ["etp{}".format(i) for i in range(1, 49)]),
             ("10000", ["etp{}".format(i) for i in range(49, 53)]),
             ],
+        "Nokia-7215-A1-G48S4": [
+            ("1000", ["etp{}".format(i) for i in range(1, 49)]),
+            ("10000", ["etp{}".format(i) for i in range(49, 53)]),
+            ],
+        "Nokia-7215-A1-MGX-G48S4": [
+            ("1000", ["etp{}".format(i) for i in range(1, 49)]),
+            ("10000", ["etp{}".format(i) for i in range(49, 53)]),
+            ],
         "Celestica-E1031-T48S4": [
             ("1000", ["etp{}".format(i) for i in range(1, 49)]),
             ("10000", ["etp{}".format(i) for i in range(49, 53)]),
