@@ -586,10 +586,12 @@ def test_port_flap_with_syslog(
     duthost.shell('sudo logger "%s"' % LOG_STAMP)
     try:
         result = check_bgp_routes_converged(
-            duthost,
-            compressed_expected_routes,
-            flapping_ports,
-            MAX_CONVERGENCE_WAIT_TIME,
+            duthost=duthost,
+            expected_routes=compressed_expected_routes,
+            shutdown_connections=flapping_ports,
+            connection_type='ports',
+            shutdown_all_connections=False,
+            timeout=MAX_CONVERGENCE_WAIT_TIME,
             compressed=True,
             action='shutdown'
         )
@@ -741,10 +743,12 @@ def test_nexthop_group_member_scale(
     try:
         compressed_expected_routes = compress_expected_routes(expected_routes)
         result = check_bgp_routes_converged(
-            duthost,
-            compressed_expected_routes,
-            [],
-            MAX_CONVERGENCE_WAIT_TIME,
+            duthost=duthost,
+            expected_routes=compressed_expected_routes,
+            shutdown_connections=[],
+            connection_type='none',
+            shutdown_all_connections=False,
+            timeout=MAX_CONVERGENCE_WAIT_TIME,
             compressed=True,
             action='no_action'
         )
@@ -792,10 +796,12 @@ def test_nexthop_group_member_scale(
                                servers_dut_interfaces.get(ptf_ip, ''))
     compressed_startup_routes = compress_expected_routes(startup_routes)
     result = check_bgp_routes_converged(
-        duthost,
-        compressed_startup_routes,
-        [],
-        MAX_CONVERGENCE_WAIT_TIME,
+        duthost=duthost,
+        expected_routes=compressed_startup_routes,
+        shutdown_connections=[],
+        connection_type='none',
+        shutdown_all_connections=False,
+        timeout=MAX_CONVERGENCE_WAIT_TIME,
         compressed=True,
         action='no_action'
     )

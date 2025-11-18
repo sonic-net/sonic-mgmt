@@ -101,7 +101,7 @@ def main():
     else:
         expected_routes = json.loads(module.params['expected_routes'])
 
-    shutdown_connections = module.params.get('shutdown_connections', 'none')
+    shutdown_connections = module.params.get('shutdown_connections', []) 
     connection_type = module.params['connection_type']
     shutdown_all_connections = module.params['shutdown_all_connections']
     timeout = module.params['timeout']
