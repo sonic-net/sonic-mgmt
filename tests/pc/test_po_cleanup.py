@@ -1,5 +1,7 @@
 import pytest
 import logging
+
+from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -35,6 +37,15 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
             ".*teamsyncd: :- cleanTeamSync.*"
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(expectRegex)
+
+
+@pytest.fixture(autouse=True)
+def disable_route_check_for_duthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    logging.info("Stopping route check on DUT {}".format(duthost.hostname))
+    stop_route_checker_on_duthost(duthost)
+
+    yield
 
 
 def check_kernel_po_interface_cleaned(duthost, asic_index):
