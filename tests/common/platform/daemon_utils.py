@@ -19,7 +19,7 @@ def check_pmon_daemon_status(dut):
     daemons = dut.get_pmon_daemon_states()
     ret = True
     for daemon, state in list(daemons.items()):
-        if daemon in unsupported_daemon_values_per_platform.get(platform, [])
+        if daemon in unsupported_daemon_values_per_platform.get(platform, []):
             logging.info(f"Daemon '{daemon}' in State '{state}', is not supported in Platform '{platform}'")
             continue
         logging.debug("Daemon %s status is %s" % (daemon, state))
