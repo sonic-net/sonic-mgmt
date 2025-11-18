@@ -441,7 +441,7 @@ def _update_counterpoll_state(duthost, counter_name, state):
 
 
 @pytest.fixture(scope='module')
-def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services):
+def setup_module(rand_selected_dut, rand_unselected_dut, update_docker_services, swap_syncd):
     '''
     Module level setup/teardown
     '''
@@ -556,7 +556,12 @@ def run_ptf_test(ptfhost, test_case='', test_params={}):
 
 
 @pytest.fixture(scope='module', autouse=True)
-def disable_voq_watchdog_dualtor(duthosts, rand_selected_dut):
+def disable_voq_watchdog_dualtor(duthosts, rand_selected_dut, swap_syncd):
+    """
+    Disable VOQ watchdog for dualtor tests.
+    Note: This fixture depends on swap_syncd to ensure VOQ watchdog is disabled
+    AFTER the config reload that happens during syncd swap.
+    """
     get_src_dst_asic_and_duts = {}
     get_src_dst_asic_and_duts["single_asic_test"] = True
     get_src_dst_asic_and_duts["dst_dut"] = rand_selected_dut
