@@ -643,6 +643,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
+    #amd elba dpu specific check; if not, default will be executed in else
     if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
         cmd_output = duthost.shell('redis-dump -d 6 -k "EEPROM_INFO|0x24" -y | grep Value')['stdout_lines'][0]
         router_mac = cmd_output.split('"')[3]
@@ -708,3 +709,4 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
         finally:
             duthost.command("rm -rf {}".format(tar_file))
             duthost.command("rm -rf {}".format(extracted_dump_folder_path))
+
