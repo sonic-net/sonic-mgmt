@@ -33,9 +33,8 @@ def perform_action(module, action, connection_type, targets, all_neighbors):
         cmd = INTERFACE_COMMAND_TEMPLATE.format(action=action, target=ports_str)
         execute_command(module, cmd)
         logging.info(f"Interfaces {action} completed.")
-
     else:
-        logging.info("No valid targets for %s.", action)
+        logging.info("No valid connection type provided for %s.", action)
 
 
 def execute_command(module, cmd):
