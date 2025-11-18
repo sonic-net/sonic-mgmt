@@ -54,4 +54,37 @@ The migration from `common` to `common2` will be performed step by step:
 
 ## Directory Structure
 
-The `common2` directory will follow a well-organized structure to separate different types of utilities and fixtures. The structure will evolve as the migration progresses.
+The `common2` directory follows a domain-based organization structure designed for scalability and maintainability. For detailed guidelines and structure documentation, see [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md).
+
+### Overview
+```
+tests/common2/
+├── routing/           # Routing protocol utilities (BGP, OSPF, static)
+├── switching/         # Layer 2 switching utilities (VLAN, FDB, STP)
+├── platform/          # Platform-specific utilities (hardware, drivers, thermal)
+├── network/           # Core networking utilities (interfaces, IP, packets)
+├── security/          # Security-related utilities (ACL, auth, MACsec)
+├── monitoring/        # Monitoring and telemetry utilities
+├── qos/              # QoS utilities (PFC, schedulers)
+├── system/           # System-level utilities (config, reboot, health)
+├── utilities/        # Cross-cutting utilities (connection, validation, templates)
+└── unit_tests/       # Unit tests organized by domain
+```
+
+### Current Modules
+
+#### Routing
+- **BGP**: ExaBGP route control and management (`routing/bgp/bgp_route_control.py`)
+  - Route announcement and withdrawal
+  - Community and local preference support
+  - Bulk operations and error handling
+
+### Adding New Utilities
+
+When adding new utilities to `common2`:
+
+1. Review the [DIRECTORY_STRUCTURE.md](DIRECTORY_STRUCTURE.md) guidelines
+2. Determine the appropriate domain directory
+3. Follow naming conventions and code quality standards
+4. Include comprehensive unit tests
+5. Update documentation
