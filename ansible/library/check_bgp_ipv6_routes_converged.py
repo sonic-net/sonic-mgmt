@@ -12,7 +12,7 @@ import base64
 
 # Constants
 INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
-
+BGP_COMMAND_TEMPLATE = "sudo config bgp {action} {target}"
 
 def get_bgp_ipv6_routes(module):
     cmd = "docker exec bgp vtysh -c 'show ipv6 route bgp json'"
@@ -26,9 +26,19 @@ def perform_action(module, action, connection_type, targets, all_neighbors):
     """
     Perform actions (shutdown/startup) on BGP sessions or interfaces.
     """
-
+    # Action on BGP sessions
+    if connection_type == "bgp_sessions":
+        if all_neighbors:
+            cmd = BGP_COMMAND_TEMPLATE.format(action=action, target="all")
+            execute_command(module, cmd)
+        else:
+            for session in targets:
+                target_session = "neighbor " + session
+                cmd = BGP_COMMAND_TEMPLATE.format(action=action, target=target_session)
+                execute_command(module, cmd)
+        logging.info(f"BGP sessions {action} completed.")
     # Action on Interfaces
-    if connection_type == "ports":
+    elif connection_type == "ports":
         ports_str = ",".join(targets)
         cmd = INTERFACE_COMMAND_TEMPLATE.format(action=action, target=ports_str)
         execute_command(module, cmd)
