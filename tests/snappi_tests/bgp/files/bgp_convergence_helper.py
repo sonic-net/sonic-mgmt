@@ -662,7 +662,7 @@ def get_rib_in_convergence(snappi_api,
     route_names = NG_LIST
     bgp_config.events.cp_events.enable = True
     bgp_config.events.dp_events.enable = True
-    bgp_config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
+    bgp_config.events.dp_events.rx_rate_threshold = 90/multipath
     snappi_api.set_config(bgp_config)
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
