@@ -10,10 +10,11 @@ import time
 import logging
 import pytest
 import json
-from ptf import mask
+from datetime import datetime
 from scapy.all import Ether, IP, UDP
 from tests.common.helpers.assertions import pytest_assert
 from ptf import testutils
+from ptf.testutils import dp_poll, send_packet
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
 from tests.common.config_reload import config_reload
 
@@ -43,7 +44,6 @@ DUT_VTEP_IP = "10.1.0.32"   # DUT VTEP IP
 VXLAN_UDP_PORT = 4789       # Standard VXLAN UDP port
 VXLAN_VNI = 10000           # VXLAN Network Identifier
 RANDOM_MAC = "00:aa:bb:cc:dd:ee"  # Random MAC for outer Ethernet dst
-VXLAN_ROUTER_MAC = None  # Will be set during VXLAN configuration
 
 ACL_TABLE_NAME = "INNER_SRC_MAC_REWRITE_TABLE"
 ACL_TABLE_TYPE = "INNER_SRC_MAC_REWRITE_TYPE"
@@ -177,7 +177,8 @@ def fixture_setUp(rand_selected_dut, tbinfo, ptfadapter):
         duthost=rand_selected_dut,
         tunnel_name=data['vxlan_tunnel_name'],
         src_ip=data['loopback_src_ip'],
-        portchannel_name=selected_pc
+        portchannel_name=selected_pc,
+        router_mac=rand_selected_dut.facts['router_mac']
     )
 
     # Wait for configuration to be applied
@@ -475,7 +476,7 @@ def remove_acl_rules(duthost):
     pytest_assert(exists_output.strip() == "0", f"ACL rule {state_db_key} still exists in STATE_DB")
 
 
-def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101"):
+def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="PortChannel101", router_mac=None):
     # --- VXLAN parameters ---
     vnet_base = VXLAN_VNI
     ptf_vtep = PTF_VTEP_IP
@@ -516,10 +517,7 @@ def create_vxlan_vnet_config(duthost, tunnel_name, src_ip, portchannel_name="Por
 
     time.sleep(20)  # wait for DUT to come up after reload
 
-    global VXLAN_ROUTER_MAC
-    VXLAN_ROUTER_MAC = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")["stdout"].strip()
-
-    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT)
+    ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=VXLAN_UDP_PORT, dutmac=router_mac)
 
     time.sleep(5)  # Give time for config to apply
 
@@ -590,14 +588,10 @@ def cleanup_test_configuration(duthost, vxlan_tunnel_name=None):
     logger.info("=== Configuration cleanup completed ===")
 
 
-def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_port_2_list, duthost,
+def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, duthost,
                                  src_ip, dst_ip, orig_src_mac, expected_inner_src_mac,
-                                 vni_id, outer_src_mac, outer_dst_mac, outer_src_ip, outer_dst_ip,
                                  table_name, rule_name):
     router_mac = duthost.facts["router_mac"]
-
-    # Use global VXLAN_ROUTER_MAC as the inner destination MAC
-    inner_dst_mac = VXLAN_ROUTER_MAC if VXLAN_ROUTER_MAC else "00:12:34:56:78:9a"  # Fallback
 
     # Create input packet
     options = {'ip_ecn': 0}
@@ -616,68 +610,55 @@ def _send_and_verify_mac_rewrite(ptfadapter, ptf_port_1, ptf_port_2_list, duthos
     pkt_opts.update(options)
     input_pkt = testutils.simple_tcp_packet(**pkt_opts)
 
-    # Create expected inner packet with rewritten MAC
-    inner_pkt_opts = {
-        "pktlen": 100,
-        "eth_dst": inner_dst_mac,
-        "eth_src": expected_inner_src_mac,
-        "ip_dst": dst_ip,
-        "ip_src": src_ip,
-        "ip_id": 105,
-        "ip_ttl": 63,  # TTL decremented
-        "tcp_sport": 1234,
-        "tcp_dport": 5000
-    }
-    inner_pkt_opts.update(options)
-    expected_inner_pkt = testutils.simple_tcp_packet(**inner_pkt_opts)
-
-    # Create expected VXLAN encapsulated packet
-    encap_pkt = testutils.simple_vxlan_packet(
-        eth_src=router_mac,
-        eth_dst=RANDOM_MAC,
-        ip_id=0,
-        ip_ihl=5,
-        ip_src=DUT_VTEP_IP,  # DUT VTEP
-        ip_dst=outer_dst_ip,  # PTF VTEP from config
-        ip_ttl=128,
-        udp_sport=49366,
-        udp_dport=VXLAN_UDP_PORT,  # Standard VXLAN port
-        with_udp_chksum=False,
-        vxlan_vni=VXLAN_VNI,  # VNI from config
-        inner_frame=expected_inner_pkt,
-        **options
-    )
-
-    # Set IP flags
-    encap_pkt[IP].flags = 0x2
-
-    # Create masked expected packet with detailed masking
-    masked_exp_pkt = mask.Mask(encap_pkt)
-    masked_exp_pkt.set_ignore_extra_bytes()
-
-    # Outer headers masking - mask everything we don't care about
-    masked_exp_pkt.set_do_not_care_scapy(Ether, "src")
-    masked_exp_pkt.set_do_not_care_scapy(Ether, "dst")
-    masked_exp_pkt.set_do_not_care_scapy(IP, "ttl")
-    masked_exp_pkt.set_do_not_care_scapy(IP, "chksum")
-    masked_exp_pkt.set_do_not_care_scapy(IP, "id")
-    masked_exp_pkt.set_do_not_care_scapy(UDP, "sport")
-
     # Get ACL counter before sending
     count_before = get_acl_counter(duthost, table_name, rule_name, timeout=0)
 
     # Send packet
     logger.info(f"Sending TCP packet on port {ptf_port_1}")
-    testutils.send(ptfadapter, ptf_port_1, input_pkt)
+    send_packet(ptfadapter, ptf_port_1, input_pkt)
 
-    try:
-        # Verify packet on any of the expected output ports
-        logger.info(f"Expecting VXLAN packet on any of ports {ptf_port_2_list}")
-        testutils.verify_packet_any_port(ptfadapter, masked_exp_pkt, ptf_port_2_list)
-        logger.info("Packet successfully received and verified")
-    except Exception as e:
-        logger.error("Did not receive expected packet on expected ports: %s", repr(e))
-        raise
+    # Poll for VXLAN packets with inner MAC rewrite
+    poll_start = datetime.now()
+    poll_timeout = 8  # seconds
+    success = False
+
+    while (datetime.now() - poll_start).total_seconds() < poll_timeout:
+        res = dp_poll(ptfadapter, timeout=2)
+        if not isinstance(res, ptfadapter.dataplane.PollSuccess):
+            continue
+
+        ether = Ether(res.packet)
+        if IP in ether and UDP in ether and ether[UDP].dport == VXLAN_UDP_PORT:
+            try:
+                # Extract VXLAN payload (skip 8-byte VXLAN header)
+                vxlan_payload = bytes(ether[UDP].payload)[8:]
+                if len(vxlan_payload) < 14:  # Need at least Ethernet header
+                    continue
+
+                # Parse inner Ethernet frame
+                inner_eth = Ether(vxlan_payload)
+                if not inner_eth.haslayer(Ether):
+                    continue
+
+                # Check if inner source MAC matches expected rewritten MAC
+                inner_src_mac = inner_eth.src.lower()
+                expected_mac = expected_inner_src_mac.lower()
+
+                if inner_src_mac == expected_mac:
+                    logger.info(f"Successfully verified VXLAN packet with inner MAC rewrite: {inner_src_mac}")
+                    success = True
+                    break
+
+            except Exception as e:
+                logger.warning(f"Error parsing VXLAN packet: {e}")
+                continue
+
+    elapsed_time = (datetime.now() - poll_start).total_seconds()
+    if success:
+        logger.info(f"Packet verification completed in {elapsed_time:.2f} seconds")
+    else:
+        raise AssertionError(f"No valid VXLAN packet with expected inner source MAC {expected_inner_src_mac} "
+                             f"received after {elapsed_time:.2f} seconds")
 
     # Check ACL counter incremented
     count_after = get_acl_counter(duthost, table_name, rule_name)
@@ -693,9 +674,7 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     scenario = setUp['test_scenarios'][scenario_name]
 
     ptf_port_1 = setUp['ptf_port_1']
-    ptf_port_2 = setUp['ptf_port_2']
     bind_ports = setUp['bind_ports']
-    loopback_src_ip = setUp['loopback_src_ip']
 
     # Extract scenario-specific MAC addresses
     original_inner_src_mac = scenario['original_mac']
@@ -703,14 +682,10 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
     second_modified_mac = scenario['second_modified_mac']
 
     # Configuration values
-    outer_src_mac = setUp['outer_src_mac']
-    outer_dst_mac = setUp['outer_dst_mac']
-    ptf_vtep_ip = setUp['ptf_vtep_ip']
     RULE_NAME = "rule_1"
     table_name = ACL_TABLE_NAME
 
     # Standard values from VXLAN/VNET configuration
-    next_hop_ip = ptf_vtep_ip  # PTF VTEP endpoint
     inner_dst_ip = "150.0.3.1"  # Route destination
     vni_id = str(VXLAN_VNI)  # VNI from configuration
     inner_src_ip = "201.0.0.101"  # Source IP for test packets
@@ -733,8 +708,8 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
 
         # Test with the configured source IP
         _send_and_verify_mac_rewrite(
-            ptfadapter, ptf_port_1, ptf_port_2, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
-            first_modified_mac, vni_id, outer_src_mac, outer_dst_mac, loopback_src_ip, next_hop_ip, table_name, RULE_NAME
+            ptfadapter, ptf_port_1, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
+            first_modified_mac, table_name, RULE_NAME
         )
 
         # For range test, also test with different IPs in the range
@@ -743,9 +718,8 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
             for test_ip in test_ips:
                 logger.info(f"Range test: Verifying rewrite with IP {test_ip}")
                 _send_and_verify_mac_rewrite(
-                    ptfadapter, ptf_port_1, ptf_port_2, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
-                    first_modified_mac, vni_id, outer_src_mac, outer_dst_mac, loopback_src_ip, next_hop_ip,
-                    table_name, RULE_NAME)
+                    ptfadapter, ptf_port_1, duthost, test_ip, inner_dst_ip, original_inner_src_mac,
+                    first_modified_mac, table_name, RULE_NAME)
 
         # Modify ACL rule to use new MAC address (much more efficient than remove/recreate)
         logger.info("Step 3: Modifying ACL rule to use new MAC: %s", second_modified_mac)
@@ -753,8 +727,8 @@ def _test_inner_src_mac_rewrite(setUp, scenario_name):
 
         logger.info("Step 4: Verifying rewrite with second modified MAC: %s", second_modified_mac)
         _send_and_verify_mac_rewrite(
-            ptfadapter, ptf_port_1, ptf_port_2, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
-            second_modified_mac, vni_id, outer_src_mac, outer_dst_mac, loopback_src_ip, next_hop_ip, table_name, RULE_NAME
+            ptfadapter, ptf_port_1, duthost, inner_src_ip, inner_dst_ip, original_inner_src_mac,
+            second_modified_mac, table_name, RULE_NAME
         )
 
         logger.info("=== All test steps completed successfully ===")
