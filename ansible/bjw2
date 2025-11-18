@@ -879,7 +879,7 @@ sonic_nokia_7215:
 
 sonic_nokia_7215a1:
   vars:
-    hwsku: Nokia-7215-A1
+    hwsku: Nokia-7215-A1-G48S4
     iface_speed: 1000
   hosts:
     bjw2-can-7215a1-1:

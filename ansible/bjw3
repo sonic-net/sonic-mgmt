@@ -501,7 +501,7 @@ sonic_arista_7260cx3:
 
 sonic_nokia_7215a1d:
   vars:
-    hwsku: Nokia-7215-A1
+    hwsku: Nokia-7215-A1-MGX-G48S4
     iface_speed: 1000
   hosts:
     bjw3-can-7215a1d-1:
