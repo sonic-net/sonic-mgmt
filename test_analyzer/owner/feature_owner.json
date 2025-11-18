@@ -825,6 +825,21 @@
         ]
     },
     {
+        "feature": "layer1",
+        "owner": "Prince George",
+        "email": "prgeor@microsoft.com",
+        "scripts": [
+            {
+                "scripts": [
+                    "layer1.test_fec_error",
+                    "layer1.test_port_error"
+                ],
+                "owner": "Prince George",
+                "email": "prgeor@microsoft.com"
+            }
+        ]
+    },
+    {
         "feature": "lldp",
         "owner": "Zhaohui Sun",
         "email": "zhaohuisun@microsoft.com",
