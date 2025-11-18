@@ -168,7 +168,13 @@ def vxlan_setup_config(config_facts, cfg_facts, duthost, dut_indx, ptfhost,
     ptf_vtep = PTF_VTEP
     vxlan_tun = TUNNEL_NAME
     apply_chunk(duthost, {"VXLAN_TUNNEL": {vxlan_tun: {"src_ip": dut_vtep}}}, "vxlan_tunnel")
-    vxlan_router_mac = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")["stdout"].strip()
+    res = duthost.shell("redis-cli -n 0 hget 'SWITCH_TABLE:switch' vxlan_router_mac")
+    vxlan_router_mac = res["stdout"].strip()
+
+    if not vxlan_router_mac:
+        vxlan_router_mac = duthost.facts["router_mac"]
+
+    logger.info(f"Using VXLAN router MAC: {vxlan_router_mac}")
 
     vnet_ptf_map = {}
 
