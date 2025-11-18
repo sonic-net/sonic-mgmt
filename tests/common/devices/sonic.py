@@ -89,8 +89,8 @@ class SonicHost(AnsibleHostBase):
         if proxy_user and proxy_host:
             evars = {
                 'ansible_ssh_extra_args':
-                    'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ' +
-                    f'-W %h:%p {proxy_user}@{proxy_host}'
+                    "-o ProxyCommand='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no " +
+                    f"-W %h:%p {proxy_user}@{proxy_host}'"
             }
             self.host.options['variable_manager'].extra_vars.update(evars)
 
