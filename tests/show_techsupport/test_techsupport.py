@@ -643,38 +643,68 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
-    since = str(randint(1, 5)) + " minute ago"
-    platform_dump_name = "platform-dump.tar.gz"
-    sai_sdk_dump_folder_name = "sai_sdk_dump"
-    platform_dump_folder_name = "platform-dump"
+    if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
+        cmd_output = duthost.shell('redis-dump -d 6 -k "EEPROM_INFO|0x24" -y | grep Value')['stdout_lines'][0]
+        router_mac = cmd_output.split('"')[3]
+        mac = '.'.join(re.findall('.{4}', router_mac.replace(':', '').lower()))
 
-    tar_file = gen_dump_file(duthost, since)
-    extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
+        since = str(randint(1, 5)) + " minute ago"
+        platform_dump_name = f"DSC_TechSupport_{mac}_*.tar.gz"
+        platform_dump_folder_name = "polaris_techsupport"
 
-    try:
-        with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
-            is_platform_dump_tar_gz_exist = duthost.shell("ls {}/{}/{}".format(
-                extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"]
-            assert is_platform_dump_tar_gz_exist, \
-                "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
+        tar_file = gen_dump_file(duthost, since)
+        extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
 
-        with allure.step('validate that {} includes the expected files'.format(platform_dump_name)):
-            validate_platform_dump_files(duthost, extracted_dump_folder_path, platform_dump_folder_name,
-                                         platform_dump_name)
+        try:
+            with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
+                dsc_techsupport_tar_gz = duthost.shell("ls {}/{}/{}".format(
+                    extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"][0]
+                assert dsc_techsupport_tar_gz, \
+                    "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
 
-        with allure.step('Validate that the dump file contains sai_sdk_dump folder'):
-            is_existing_sai_sdk_dump_folder = duthost.shell(
-                "find {} -maxdepth 1 -type d -name {}".format(
-                    extracted_dump_folder_path, sai_sdk_dump_folder_name))["stdout_lines"]
-            assert is_existing_sai_sdk_dump_folder, \
-                "Folder {} doesn't exist in dump archive".format(sai_sdk_dump_folder_name)
+            with allure.step('Validate DSC_TechSupport is not empty folder'):
+                cmd = f"tar -ztvf {dsc_techsupport_tar_gz} | awk -F'/' '{{if ($NF != \"\") print $NF}}'"
+                dsc_tech_support_files = duthost.shell(cmd)["stdout_lines"]             
+                assert len(dsc_tech_support_files), \
+                    "Folder {} is empty. Expected not an empty folder".format(dsc_techsupport_tar_gz)
+        except AssertionError as err:
+            raise AssertionError(err)
+        finally:
+            duthost.command("rm -rf {}".format(tar_file))
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))        
+    else:
+        since = str(randint(1, 5)) + " minute ago"
+        platform_dump_name = "platform-dump.tar.gz"
+        sai_sdk_dump_folder_name = "sai_sdk_dump"
+        platform_dump_folder_name = "platform-dump"
 
-        with allure.step('Validate sai_sdk_dump is not empty folder'):
-            sai_sdk_dump = duthost.shell("ls {}/sai_sdk_dump/".format(extracted_dump_folder_path))["stdout_lines"]
-            assert len(sai_sdk_dump), \
-                "Folder {} in dump archive is empty. Expected not an empty folder".format(sai_sdk_dump_folder_name)
-    except AssertionError as err:
-        raise AssertionError(err)
-    finally:
-        duthost.command("rm -rf {}".format(tar_file))
-        duthost.command("rm -rf {}".format(extracted_dump_folder_path))
+        tar_file = gen_dump_file(duthost, since)
+        extracted_dump_folder_name, extracted_dump_folder_path = extract_file_from_tar_file(duthost, tar_file)
+
+        try:
+            with allure.step('Validate that the dump file contains {} archive'.format(platform_dump_name)):
+                is_platform_dump_tar_gz_exist = duthost.shell("ls {}/{}/{}".format(
+                    extracted_dump_folder_path, platform_dump_folder_name, platform_dump_name))["stdout_lines"]
+                assert is_platform_dump_tar_gz_exist, \
+                    "{} doesn't exist in {}".format(platform_dump_name, extracted_dump_folder_name)
+
+            with allure.step('validate that {} includes the expected files'.format(platform_dump_name)):
+                validate_platform_dump_files(duthost, extracted_dump_folder_path, platform_dump_folder_name,
+                                            platform_dump_name)
+
+            with allure.step('Validate that the dump file contains sai_sdk_dump folder'):
+                is_existing_sai_sdk_dump_folder = duthost.shell(
+                    "find {} -maxdepth 1 -type d -name {}".format(
+                        extracted_dump_folder_path, sai_sdk_dump_folder_name))["stdout_lines"]
+                assert is_existing_sai_sdk_dump_folder, \
+                    "Folder {} doesn't exist in dump archive".format(sai_sdk_dump_folder_name)
+
+            with allure.step('Validate sai_sdk_dump is not empty folder'):
+                sai_sdk_dump = duthost.shell("ls {}/sai_sdk_dump/".format(extracted_dump_folder_path))["stdout_lines"]
+                assert len(sai_sdk_dump), \
+                    "Folder {} in dump archive is empty. Expected not an empty folder".format(sai_sdk_dump_folder_name)
+        except AssertionError as err:
+            raise AssertionError(err)
+        finally:
+            duthost.command("rm -rf {}".format(tar_file))
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))
