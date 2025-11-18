@@ -318,6 +318,9 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
 
+    if duthost.facts["platform"] == AMD_ELBA_PLATFORM:
+        pytest.skip(f"Skip the test, as it is not supported on AMD ELBA DPU : {AMD_ELBA_PLATFORM}.")
+
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
         wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
@@ -351,6 +354,9 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform psustatus --json`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+
+    if duthost.facts["platform"] == AMD_ELBA_PLATFORM:
+        pytest.skip(f"Skip the test, as it is not supported on AMD ELBA DPU : {AMD_ELBA_PLATFORM}.")
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
