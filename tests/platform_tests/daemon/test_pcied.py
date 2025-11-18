@@ -43,6 +43,10 @@ expected_pcied_devices_status = "PASSED"
 @pytest.fixture(scope="module", autouse=True)
 def setup(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
+
+    if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
+        pytest.skip(f"Daemon 'pcied' not supported in AMD platform '{duthost.facts['platform']}' ; Skip This TC")
+
     daemon_en_status = check_pmon_daemon_enable_status(duthost, daemon_name)
     # add delay for pcied ready
     time.sleep(60)
