@@ -20,14 +20,19 @@
 {{ '\n    ' }}},
 {%     elif k == 'BGP_PEER_RANGE' %}
     "BGP_PEER_RANGE": {
+{%         set neighbors = cfg_t0['BGP_NEIGHBOR'] %}
+{%         for neigh, data in neighbors.items() %}
+{%             if data['name'] == 'ARISTA03T1' and ':' not in neigh %}
         "Vnet2|BGPSLBPassive": {
             "ip_range": [
-                "10.0.0.60/30"
+                "{{ data['local_addr'] }}/29"
             ],
-            "peer_asn": "64600",
-            "src_address": "10.0.0.60",
+            "peer_asn": "{{ data['asn'] }}",
+            "src_address": "{{ data['local_addr'] }}",
             "name": "BGPSLBPassive"
         }
+{%             endif %}
+{%         endfor %}
     },
 {%     elif k == 'LOOPBACK_INTERFACE' %}
     "LOOPBACK_INTERFACE": {
