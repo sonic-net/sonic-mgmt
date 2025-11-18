@@ -1513,8 +1513,6 @@ Failures in this category:
             for _, icm_row in matching_icm_rows.iterrows():
                 icm_dict = {
                     'AI_flaky_category': icm_row.get('AI_flaky_category', 'N/A'),
-                    'ModulePath': icm_row['ModulePath'],
-                    'TestCase': icm_row['TestCase'],
                     'Branch': icm_row['Branch'],
                     'FailureSummary': icm_row['FailureSummary']
                 }
