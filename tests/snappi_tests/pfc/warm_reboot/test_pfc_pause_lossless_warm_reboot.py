@@ -11,7 +11,6 @@ from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_testbed_config, is_pfc_enabled, get_snappi_ports, get_snappi_ports_single_dut, \
     get_snappi_ports_multi_dut, is_snappi_multidut  # noqa: F401
-
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list, \
     lossy_prio_list  # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
@@ -32,7 +31,7 @@ def test_pfc_pause_single_lossless_prio_reboot(snappi_api,  # noqa: F811
                                                rand_one_dut_hostname,
                                                rand_one_dut_portname_oper_up,
                                                rand_lossless_prio,
-                                               all_prio_list,
+                                               all_prio_list,  # noqa: F811
                                                get_snappi_ports,  # noqa: F811
                                                prio_dscp_map,  # noqa: F811
                                                reboot_type):
@@ -108,7 +107,7 @@ def test_pfc_pause_multi_lossless_prio_reboot(snappi_api,  # noqa: F811
                                               duthosts,
                                               rand_one_dut_hostname,
                                               rand_one_dut_portname_oper_up,
-                                              get_snappi_ports,
+                                              get_snappi_ports,  # noqa: F811
                                               lossless_prio_list,  # noqa: F811
                                               lossy_prio_list,  # noqa: F811
                                               prio_dscp_map,  # noqa: F811
