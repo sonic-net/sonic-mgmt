@@ -112,16 +112,10 @@ def setup_ptf(ptfhost, collector_ports):
 
 
 def config_dut_ports(duthost, ports, vlan):
-    # https://github.com/sonic-net/sonic-buildimage/issues/2665
-    # Introducing config vlan member add and remove for the test port due to above mentioned PR.
-    # Even though port is deleted from vlan , the port shows its master as Bridge upon assigning ip address.
-    # Hence config reload is done as workaround. ##FIXME
     for i in range(len(ports)):
         duthost.command('config vlan member del %s %s' % (vlan, ports[i]), module_ignore_errors=True)
         duthost.command('config interface ip add %s %s/24' %
                         (ports[i], var['dut_intf_ips'][i]))
-    duthost.command('config save -y')
-    config_reload(duthost, config_source='config_db', wait=120)
     time.sleep(5)
 
 # ----------------------------------------------------------------------------------$
