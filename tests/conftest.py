@@ -34,7 +34,8 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session        # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session, \
+    stop_route_checker_on_duthost, start_route_checker_on_duthost                           # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
@@ -3019,7 +3020,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+                    executor.submit(stop_route_checker_on_duthost, duthost)
 
             yield
 
@@ -3029,7 +3030,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+                    executor.submit(start_route_checker_on_duthost, duthost)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
