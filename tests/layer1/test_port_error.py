@@ -28,7 +28,7 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_disabled(duthost, request):
+    def is_supported_nvidia_platform_with_sw_control_disabled(self, duthost, request):
         try:
             sw_control_feature_enabled = request.getfixturevalue("is_sw_control_feature_enabled")
         except Exception:
@@ -37,7 +37,7 @@ class TestMACFault(object):
         return 'nvidia' in duthost.facts['platform'].lower() and not sw_control_feature_enabled
 
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_enabled(duthost, request):
+    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost, request):
         try:
             sw_control_feature_enabled = request.getfixturevalue("is_sw_control_feature_enabled")
         except Exception:
@@ -46,7 +46,7 @@ class TestMACFault(object):
         return 'nvidia' in duthost.facts['platform'].lower() and sw_control_feature_enabled
 
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_platform(duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
+    def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
         if 'ptp' not in tbinfo['topo']['name']:
             pytest.skip("Skipping test: Not applicable for non-PTP topology")
 
