@@ -162,16 +162,25 @@ class TestRouteConsistency():
                             - len(post_withdraw_route_snapshot[dut_instance_name])
                         ), (
                             "The number of routes withdrawn upstream does not match the expected value "
-                            "for DUT instance '{}'.".format(dut_instance_name)
+                            "for DUT instance '{}'. "
+                            "Pre-test snapshot length: {}, Post-withdraw snapshot length: {}."
+                            .format(
+                                dut_instance_name,
+                                len(self.pre_test_route_snapshot[dut_instance_name]),
+                                len(post_withdraw_route_snapshot[dut_instance_name])
+                            )
                         )
-
                     else:
                         assert num_routes_withdrawn == (
                             len(self.pre_test_route_snapshot[dut_instance_name])
                             - len(post_withdraw_route_snapshot[dut_instance_name])
                         ), (
-                            "The number of routes withdrawn does not match the expected value for "
-                            "DUT instance '{}'.".format(dut_instance_name)
+                            "The number of routes withdrawn does not match the expected value for DUT instance '{}'. "
+                            "Pre-test snapshot length: {}, Post-withdraw snapshot length: {}.".format(
+                                dut_instance_name,
+                                len(self.pre_test_route_snapshot[dut_instance_name]),
+                                len(post_withdraw_route_snapshot[dut_instance_name])
+                            )
                         )
 
             logger.info("advertise ipv4 and ipv6 routes for {}".format(topo_name))
@@ -213,8 +222,13 @@ class TestRouteConsistency():
                         len(self.pre_test_route_snapshot[dut_instance_name])
                         - len(post_withdraw_route_snapshot[dut_instance_name])
                     ), (
-                        "The number of routes withdrawn does not match the expected value for DUT "
-                        "instance '{}'.".format(dut_instance_name)
+                        "Routes withdrawn mismatch for DUT instance '{}'. "
+                        "Pre-test count: {}, Post-withdraw count: {}."
+                        .format(
+                            dut_instance_name,
+                            len(self.pre_test_route_snapshot[dut_instance_name]),
+                            len(post_withdraw_route_snapshot[dut_instance_name])
+                        )
                     )
 
             logger.info("startup bgp sessions for {}".format(duthost.hostname))
@@ -275,8 +289,12 @@ class TestRouteConsistency():
                         len(self.pre_test_route_snapshot[dut_instance_name])
                         - len(post_withdraw_route_snapshot[dut_instance_name])
                     ), (
-                        "The number of routes withdrawn does not match the expected value for DUT "
-                        "instance '{}'.".format(dut_instance_name)
+                        "Routes withdrawn mismatch for DUT instance '{}'. "
+                        "Pre-test count: {}, Post-withdraw count: {}.".format(
+                            dut_instance_name,
+                            len(self.pre_test_route_snapshot[dut_instance_name]),
+                            len(post_withdraw_route_snapshot[dut_instance_name])
+                        )
                     )
 
             logger.info("Recover containers on {}".format(duthost.hostname))
