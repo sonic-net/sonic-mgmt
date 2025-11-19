@@ -2699,7 +2699,7 @@ gnmi/test_gnmi_configdb.py::test_gnmi_configdb_subscribe_authenticate:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
 gnmi/test_gnmi_countersdb.py:
-  skip:
+  xfail:
     reason: "This test does not supported multi-asic. Skipping test for multi-asic DUTs."
     conditions:
       - "is_multi_asic==True"
