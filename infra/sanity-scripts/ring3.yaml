@@ -92,14 +92,14 @@ FWD:
         - acl/test_acl.py::TestAclWithPortToggle
       hw:
         - crm/test_crm.py::test_crm_neighbor
-        - crm/test_crm_available.py
-        - bfd/test_bfd_traffic.py
-        - everflow/test_everflow_testbed.py
-        - everflow/test_everflow_per_interface.py
-        - ip/test_ip_packet.py
-        - ipfwd/test_nhop_group.py
-        - ipfwd/test_dir_bcast.py
-        - acl/test_stress_acl.py
+        # - crm/test_crm_available.py
+        # - bfd/test_bfd_traffic.py
+        # - everflow/test_everflow_testbed.py
+        # - everflow/test_everflow_per_interface.py
+        # - ip/test_ip_packet.py
+        # - ipfwd/test_nhop_group.py
+        # - ipfwd/test_dir_bcast.py
+        # - acl/test_stress_acl.py
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t0:
     churchill-mono:

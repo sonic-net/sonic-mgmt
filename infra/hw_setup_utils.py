@@ -1010,10 +1010,8 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
     t1 = testbed_info_dict['ucs_tb']
     t2 = testbed_info_dict['mth_tb']
     t = testbed_info_dict['topology']
-    log.debug(skip_tests)
-    skip_tests_string = testbed_info_dict['skip_tests']+" "+skip_tests.replace(",", " ") if 'skip_tests' in testbed_info_dict else skip_tests.replace(",", " ")
-    skip_folders_list = testbed_info_dict['skip_folder']+" "+skip_folders.replace(",", " ") if 'skip_folder' in testbed_info_dict else skip_folders.replace(",", " ")
-    log.debug(f'skip_folders_list: {skip_folders_list}')
+    log.debug(f'skip_tests: {skip_tests}')
+    log.debug(f'skip_folders: {skip_folders}')
     docker_prompt = testbed_info_dict['docker_prompt']
     allure_id = create_allure_id(build_id, image_id, testbed)
     run_tests_log_file = ""
@@ -1053,7 +1051,7 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
         if test_suites == "All":
             extra_params = testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else ""
             run_tests_log_file = f"run_all_tests_{datetime.now().strftime('%Y%m%d%H%M%S')}.log"
-            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p {dut_log_dir} -s \"{skip_tests_string}\" -S \"{skip_folders_list}\" > {run_tests_log_file} 2>&1 &"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1} -d {t2} -m individual -u -e -rapP -e --alluredir={allure_directory} {extra_params} -t {t},any -p {dut_log_dir} -s \"{skip_tests}\" -S \"{skip_folders}\" > {run_tests_log_file} 2>&1 &"
         else:
             extra_params = "-O -e --disable_loganalyzer -e --qos_swap_syncd=False" if test_suites=="qos" else ""
             extra_params = extra_params+" "+testbed_info_dict["extra_run_params"] if 'extra_run_params' in testbed_info_dict else extra_params
@@ -1067,7 +1065,7 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
             formatted_time = now.strftime("%Y%m%d%H%M%S")
             test_name_output = test_name.replace("/","_").replace(".py","")
             run_tests_log_file = f"run_test_{test_name_output}_{formatted_time}.log"
-            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders_list}\" -u {extra_params} -c {test_name} -s \"{skip_tests_string}\" -p {dut_log_dir} > {run_tests_log_file} 2>&1 &"
+            run_cmd = f"{RUN_TESTS_PREFIX} ./run_tests.sh -n {t1}{dut_flag} -e -rapP -e --alluredir={allure_directory} -S \"{skip_folders}\" -u {extra_params} -c {test_name} -s \"{skip_tests}\" -p {dut_log_dir} > {run_tests_log_file} 2>&1 &"
     
     log.debug(f'To check logs of the tests, go to ucs:{dut_log_dir}')
     stdout, stderr, status_code = _run_cmd_in_ssh_container(client, container_name, run_cmd)

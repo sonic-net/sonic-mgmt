@@ -197,13 +197,16 @@ def run_test(args):
 
     dut_run_log_folder = f'{image_id}_jenkins_logs_{build_id}_{testbed}'
     dut_log_dir = f'/run_logs/{dut_run_log_folder}'
+    # Create skip test/folders string, add in the pre-defined skips from testbed config
+    skip_tests_final = testbed_info_dict['skip_tests']+" "+skip_tests.replace(",", " ") if 'skip_tests' in testbed_info_dict else skip_tests.replace(",", " ")
+    skip_folders_final = testbed_info_dict['skip_folder']+" "+skip_folders.replace(",", " ") if 'skip_folder' in testbed_info_dict else skip_folders.replace(",", " ")
     if testfile and test_tag:
         sftp = client.open_sftp()
         remote_file_path = f"/home/sonic/ring3-time-{build_id}.txt"
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
         with sftp.file(remote_file_path, mode='a') as remote_file:
             for test_suite in test_suites_array:
-                exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders, skip_tests, local_log_dir, remote_file)
+                exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, "", "", local_log_dir, remote_file)
                 if exit_code!=0:
                     time.sleep(30)
                     client.close()
@@ -219,13 +222,13 @@ def run_test(args):
     elif test_suites_arg and "," in test_suites_arg:
         test_suites_array = test_suites_arg.split(",")
         for test_suite in test_suites_array:
-            exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders, skip_tests, local_log_dir)
+            exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders_final, skip_tests_final, local_log_dir)
             if exit_code!=0:
                 time.sleep(30)
                 client.close()
                 return exit_code
     elif test_suites_arg:
-        exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites_arg, test_suites_arg, skip_folders, skip_tests, local_log_dir)
+        exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites_arg, test_suites_arg, skip_folders_final, skip_tests_final, local_log_dir)
     else:
         log.error(f"No tests found! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")
         return -1
