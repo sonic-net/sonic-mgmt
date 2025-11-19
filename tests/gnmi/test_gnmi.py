@@ -191,9 +191,9 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
 
     # Start CRL server with appropriate bind address
     if bind_addr:
-        ptfhost.shell(f'nohup python /root/crl_server.py --bind {bind_addr} &')
+        ptfhost.shell(f'nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &')
     else:
-        ptfhost.shell('nohup python /root/crl_server.py &')
+        ptfhost.shell('nohup /root/env-python3/bin/python /root/crl_server.py &')
 
     logger.warning("crl server started")
 
@@ -209,7 +209,7 @@ def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
     yield
 
     # pkill will use the kill signal -9 as exit code, need ignore error
-    ptfhost.shell("pkill -9 -f 'python /root/crl_server.py'", module_ignore_errors=True)
+    ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
