@@ -1094,7 +1094,8 @@ class BaseEverflowTest(object):
                     padded = binascii.unhexlify("0" * 44) + bytes(padded)
         if asic_type in ["barefoot", "cisco-8000", "marvell-teralynx"] \
            or platform_asic == "broadcom-dnx" \
-           or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]:
+           or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131"] \
+           or hwsku.startswith("Nokia-7215-A1"):
             if six.PY2:
                 padded = binascii.unhexlify("0" * 24) + str(padded)
             else:
