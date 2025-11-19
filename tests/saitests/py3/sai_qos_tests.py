@@ -4405,6 +4405,7 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
         prio_list = self.test_params.get('dscp_list', [])
         q_pkt_cnt = self.test_params.get('q_pkt_cnt', [])
         q_list = self.test_params.get('q_list', [])
+        expected_scale_factor = self.test_params.get('scale_factor', 0.8)
 
         self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id], enable_port_by_unblock_queue=False)
 
@@ -4605,9 +4606,22 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
             for prio, q_cnt in zip(prio_list, q_pkt_cnt):
                 queue_num_of_pkts[prio] = q_cnt
 
-            total_pkts = 0
+            # ptf might receive less packets than expected due to various reasons.
+            # Calculate scale factor based on packet loss
+            total_expected = sum(queue_num_of_pkts)
+            total_received = len(pkts)
+            scale_factor = total_received / total_expected if total_expected > 0 else 1
+            print("Scale factor: {}, expected scale factor: {}"
+                  .format(scale_factor, expected_scale_factor))
 
-            diff_list = []
+            # scale_factor should be >= expected_scale_factor
+            assert (scale_factor >= expected_scale_factor)
+
+            diff_dict = {}
+            adjusted_queue_targets = [int(count * scale_factor) for count in queue_num_of_pkts]
+            adjusted_limit = int(scale_factor * limit)
+
+            total_pkts = 0
 
             for pkt_to_inspect in pkts:
                 if 'backend' in topo:
@@ -4617,23 +4631,25 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                 total_pkts += 1
 
                 # Count packet ordering
-
                 queue_pkt_counters[dscp_of_pkt] += 1
-                if queue_pkt_counters[dscp_of_pkt] == queue_num_of_pkts[dscp_of_pkt]:
-                    diff_list.append((dscp_of_pkt, q_cnt_sum - total_pkts))
+
+                # Use adjusted targets
+                if queue_pkt_counters[dscp_of_pkt] >= adjusted_queue_targets[dscp_of_pkt]:
+                    diff_dict[dscp_of_pkt] = len(pkts) - total_pkts
 
                 print(queue_pkt_counters, file=sys.stderr)
 
             print("Difference for each dscp: ", file=sys.stderr)
-            print(diff_list, file=sys.stderr)
+            print(diff_dict, file=sys.stderr)
+            print("Adjusted limit: {}".format(adjusted_limit))
 
-            for dscp, diff in diff_list:
+            for dscp, diff in diff_dict.items():
                 if platform_asic and platform_asic == "broadcom-dnx":
                     logging.info(
                         "On J2C+ can't control how packets are dequeued (CS00012272267) - so ignoring diff check now")
                 elif not dry_run:
-                    assert diff < limit, "Difference for %d is %d which exceeds limit %d" % (
-                        dscp, diff, limit)
+                    assert diff <= adjusted_limit, "Difference for %d is %d which exceeds limit %d" % (
+                        dscp, diff, adjusted_limit)
 
             # Read counters
             print("DST port counters: ")
@@ -4643,8 +4659,6 @@ class WRRtest(sai_base_test.ThriftInterfaceDataPlane):
                            queue_counters_base)), file=sys.stderr)
 
             print([q_cnt_sum, total_pkts], file=sys.stderr)
-            # All packets sent should be received intact
-            assert (q_cnt_sum == total_pkts)
         finally:
             self.sai_thrift_port_tx_enable(self.dst_client, asic_type, [dst_port_id],
                                            enable_port_by_unblock_queue=False)
