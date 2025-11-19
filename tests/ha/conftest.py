@@ -125,10 +125,48 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
         if ns["namespace"] not in visited_namespaces:
             remove_namespace(ptfhost, ns["namespace"])
             visited_namespaces.add(ns["namespace"])
+
+###############################################################################
+# VLAN CONFIG GENERATORS
+###############################################################################
+
+
+def generate_vlan_config(
+    vlan_id=55,
+    vlan_description="DPU Management VLAN",
+    svi_ip="20.0.200.14/28",
+    member_start=224,
+    member_count=8,
+    member_step=8
+):
+    vlan_name = f"Vlan{vlan_id}"
+
+    # auto-generate members dynamically
+    members = [f"Ethernet{member_start + i * member_step}" for i in range(member_count)]
+
+    vlan = {
+        vlan_name: {
+            "description": vlan_description,
+            "vlanid": str(vlan_id)
+        }
+    }
+
+    vlan_interface = {
+        vlan_name: {},
+        f"{vlan_name}|{svi_ip}": {}
+    }
+
+    vlan_member = {
+        f"{vlan_name}|{member}": {"tagging_mode": "untagged"}
+        for member in members
+    }
+
+    return vlan, vlan_interface, vlan_member
+
+
 ###############################################################################
 # DUT01 CONFIG GENERATORS
 ###############################################################################
-
 
 def generate_dpu_config(
     dpu_count=8,
@@ -176,6 +214,8 @@ def generate_remote_dpu_config(
 
 
 def generate_full_config():
+    # Generate VLAN config
+    vlan, vlan_intf, vlan_member = generate_vlan_config()
     return {
         "DPU": generate_dpu_config(),
         "REMOTE_DPU": generate_remote_dpu_config(),
@@ -205,6 +245,9 @@ def generate_full_config():
             "Loopback0|10.1.0.32/32": {},
             "Loopback0|FC00:1::32/128": {}
         },
+        "VLAN": vlan,
+        "VLAN_INTERFACE": vlan_intf,
+        "VLAN_MEMBER": vlan_member,
         "FEATURE": {
             "dash-ha": {
                 "auto_restart": "disabled",
@@ -256,34 +299,31 @@ def generate_dut2_dpu_config(
     return dpu
 
 
-def generate_dut2_remote_dpu_config():
-
+def generate_dut2_remote_dpu_config(
+    cluster_id=0,
+    npu_ipv4="10.1.0.32",
+    pa_prefix="20.0.200.",
+    pa_start=1,
+    dpu_count=8,
+    swbus_start=23606,
+):
     remote = {}
 
-    # Remote DUT01 (dpu0_x)
-    for i in range(2):
-        remote[f"dpu0_{i}"] = {
-            "dpu_id": str(i),
-            "npu_ipv4": "10.1.0.32",
-            "pa_ipv4": f"20.0.200.{i}",
-            "swbus_port": str(23606 + i),
-            "type": "cluster",
-        }
-
-    # Remote DUT03 (dpu2_x)
-    for i in range(2):
-        remote[f"dpu2_{i}"] = {
-            "dpu_id": str(i),
-            "npu_ipv4": "10.1.2.32",
-            "pa_ipv4": f"20.0.202.{i}",
-            "swbus_port": str(23606 + i),
-            "type": "cluster",
+    for dpu_id in range(dpu_count):
+        remote[f"dpu{cluster_id}_{dpu_id}"] = {
+            "dpu_id": str(dpu_id),
+            "npu_ipv4": npu_ipv4,
+            "pa_ipv4": f"{pa_prefix}{pa_start + dpu_id}",
+            "swbus_port": str(swbus_start + dpu_id),
+            "type": "cluster"
         }
 
     return remote
 
 
 def generate_dut2_full_config():
+    # Generate VLAN config
+    vlan, vlan_intf, vlan_member = generate_vlan_config()
 
     return {
         "DPU": generate_dut2_dpu_config(),
@@ -314,7 +354,9 @@ def generate_dut2_full_config():
             "Loopback0|10.1.1.32/32": {},
             "Loopback0|FC00:1::32/128": {}
         },
-
+        "VLAN": vlan,
+        "VLAN_INTERFACE": vlan_intf,
+        "VLAN_MEMBER": vlan_member,
         "FEATURE": {
             "dash-ha": {
                 "auto_restart": "disabled",
@@ -366,6 +408,7 @@ def setup_ha_config(duthosts):
     dut1 = duthosts[0]
     cfg1 = generate_full_config()
     tmp1 = "/tmp/dut1_ha_config.json"
+
     dut1.copy(content=json.dumps(cfg1, indent=4), dest=tmp1)
     dut1.shell(f"cat {tmp1} | jq .")
     dut1.shell(f"sudo config load -y {tmp1}")
