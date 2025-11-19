@@ -1,6 +1,4 @@
 import logging
-import os
-import importlib.util
 import pytest
 import random
 import time
@@ -10,7 +8,6 @@ from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
 from tests.common.utilities import wait_until
-from test.platform_tests.mellanox.conftest import is_sw_control_feature_enabled
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
