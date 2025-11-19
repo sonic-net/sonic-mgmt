@@ -10,6 +10,7 @@ from tests.common.utilities import skip_release
 from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
 from tests.common.utilities import wait_until
+from test.platform_tests.mellanox.conftest import is_sw_control_feature_enabled
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
@@ -29,16 +30,6 @@ def collected_ports_num(request):
 
 
 class TestMACFault(object):
-    @pytest.fixture(scope="class")
-    def is_sw_control_feature_enabled(duthost):
-        fixture_path = os.path.abspath(
-            os.path.join(os.path.dirname(__file__), "..", "platform_tests", "mellanox", "conftest.py")
-        )
-        spec = importlib.util.spec_from_file_location("mlx_conftest_module_enabled", fixture_path)
-        module = importlib.util.module_from_spec(spec)
-        spec.loader.exec_module(module)
-        return module.is_sw_control_feature_enabled(duthost)
-
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_nvidia_platform_with_sw_control_disabled(duthost, is_sw_control_feature_enabled):
         return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
