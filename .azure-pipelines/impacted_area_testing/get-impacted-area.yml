@@ -129,11 +129,11 @@ steps:
         PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
 
         if [[ $? -eq 0 ]] && echo "$PR_CHECKERS" | jq empty > /dev/null 2>&1; then
-          echo "PR_CHECKERS is valid JSON: $PR_CHECKERS"
+          echo "PR_CHECKERS is valid list: $PR_CHECKERS"
           echo "All validations passed successfully"
           break
         else
-          echo "PR_CHECKERS generation failed or invalid JSON: $PR_CHECKERS"
+          echo "PR_CHECKERS generation failed or invalid list: $PR_CHECKERS"
         fi
       else
         echo "TEST_SCRIPTS is not valid JSON: $TEST_SCRIPTS"
