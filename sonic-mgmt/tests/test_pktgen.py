@@ -12,11 +12,6 @@ pytestmark = [
     pytest.mark.device_type('vs')
 ]
 
-ignoreRegex = [
-                ".*ERR kernel.*leaba_module_device.*on error",
-                ".*ERR kernel.*leaba_module_device.*received packets while buffer is full"
-]
-
 CLEANUP_CMDS = [
                 "modprobe pktgen",
 ]
@@ -102,7 +97,6 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
             asichost.command(cmd.format(port))
 
     try:
-        loganalyzer.ignore_regex.extend(ignoreRegex)
         with loganalyzer:
             # Send packet
             asichost.command("sh -c \"sudo echo 'start' > /proc/net/pktgen/pgctrl\"")

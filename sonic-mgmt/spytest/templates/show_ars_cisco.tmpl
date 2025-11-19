@@ -1,8 +1,9 @@
-Value ARS_NAME (\S+)
+Value ARS_PROFILE_NAME (\S+)
+Value ENABLE_ALL_PACKETS (\S+)
 Value ARS_MODE (\S+)
 Value ARS_IDLE_TIME (\S+)
 
 Start
-  ^\s*NAME\s+MODE\s+IDLE TIME\s*$$
-  ^-+\s+-+\s+-+\s*$$
-  ^\s*${ARS_NAME}\s+${ARS_MODE}\s+${ARS_IDLE_TIME}\s*$$ -> Record
+  ^\s*NAME\s+ENABLE ALL PACKETS\s+MODE\s+IDLE TIME\s*$$
+  ^-+\s+-+\s+-+\s+-+\s*$$
+  ^\s*${ARS_PROFILE_NAME}\s+${ENABLE_ALL_PACKETS}\s+${ARS_MODE}\s+${ARS_IDLE_TIME}\s*$$ -> Record

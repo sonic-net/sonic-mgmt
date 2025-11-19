@@ -98,6 +98,13 @@ devices:
     credentials: {username: vxr, password: cisco123, altpassword: YourPaSsWoRd}
     properties: {config: default, build: default, services: default, params: def_dut, speed: default}
 
+  HOST5:
+    device_type: linux_ssh
+    access: {protocol: ssh, ip: 192.168.122.205, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 15, username: cisco, password: cisco}
+    credentials: {username: vxr, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
   T1:
     device_type: TGEN
     properties: {type: ixia, version: 10.00, ip: 192.168.122.188, ix_server: 192.168.122.138}
@@ -116,6 +123,7 @@ topology:
       Ethernet1_9: {EndDevice: DC2GW1, EndPort: Ethernet1_9, params: def_link}   # DC1GW1:Ethernet1_9 -> DC2GW1:Ethernet1_9
       Ethernet1_10: {EndDevice: DC3GW1, EndPort: Ethernet1_8, params: def_link}   # DC1GW1:Ethernet1_10 -> DC3GW1:Ethernet1_8
       Ethernet1_11: {EndDevice: DC3GW1, EndPort: Ethernet1_9, params: def_link}  # DC1GW1:Ethernet1_11 -> DC3GW1:Ethernet1_9
+      Ethernet1_16: {EndDevice: HOST5, EndPort: eth1, params: def_link}         # DC3GW1:Ethernet1_15 -> HOST5:eth1
 
   # DC1 Gateway 2 (DC1GW2) - Device D2
   DC1GW2:
@@ -200,7 +208,7 @@ topology:
       # Host server connections
       Ethernet1_13: {EndDevice: HOST4, EndPort: eth1, params: def_link}         # Leaf4:Ethernet1_13 -> HOST4:eth1
 
-  # Host server devices for testing workloads
+  # Host server devices for testing workloads - Devices D9 to D13
   HOST1:
     interfaces:
       eth1: {EndDevice: Leaf1, EndPort: Ethernet1_13, params: def_link}  # HOST1:eth1 -> Leaf1:Ethernet1_13
@@ -217,3 +225,7 @@ topology:
   HOST4:
     interfaces:
       eth1: {EndDevice: Leaf4, EndPort: Ethernet1_13, params: def_link}  # HOST4:eth1 -> Leaf4:Ethernet1_13
+  
+  HOST5:
+    interfaces:
+      eth1: {EndDevice: DC1GW1, EndPort: Ethernet1_16, params: def_link}  # HOST5:eth1 -> DC1GW1:Ethernet1_15

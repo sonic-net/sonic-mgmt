@@ -22,6 +22,7 @@ dc1gw1:
         sudo config interface startup D1D3P2
         sudo config interface startup D1D4P1
         sudo config interface startup D1D4P2
+        sudo config interface startup D1D13P1
         sudo config interface ip add D1D3P1 51.53.1.51/24
         sudo config interface ip add D1D3P2 51.53.2.51/24
         sudo config interface ip add D1D4P1 51.54.1.51/24
@@ -32,28 +33,77 @@ dc1gw1:
         sudo config interface ip add Loopback11 101.101.101.101/32
         sudo config vlan add 10
         sudo config vlan add 20
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
         sudo config vxlan add vxlan-local fd27::233:d0c6:feda
         sudo config vxlan evpn_nvo add NVO-LOCAL vxlan-local
         sudo config vxlan map add vxlan-local 10 5010
         sudo config vxlan map add vxlan-local 20 5020
+        sudo config vxlan map add vxlan-local 30 5030
+        sudo config vxlan map add vxlan-local 40 5040
+        sudo config vxlan map add vxlan-local 50 5050
+        sudo config vxlan map add vxlan-local 60 5060
+        sudo config vxlan map add vxlan-local 70 5070
+        sudo config vxlan map add vxlan-local 80 5080
+        sudo config vxlan map add vxlan-local 90 5090
+        sudo config vxlan map add vxlan-local 99 5099
         sudo config vxlan add vxlan-remote 101.101.101.101
         sudo config vxlan evpn_nvo add NVO-REMOTE vxlan-remote
         sudo config vxlan map add vxlan-remote 10 5011
         sudo config vxlan map add vxlan-remote 20 5021
+        sudo config vxlan map add vxlan-remote 30 5031
+        sudo config vxlan map add vxlan-remote 40 5041
+        sudo config vxlan map add vxlan-remote 50 5051
+        sudo config vxlan map add vxlan-remote 60 5061
+        sudo config vxlan map add vxlan-remote 70 5071
+        sudo config vxlan map add vxlan-remote 80 5081
+        sudo config vxlan map add vxlan-remote 90 5091
+        sudo config vxlan map add vxlan-remote 99 5100
+        sudo config interface ip add D1D13P1 10.212.3.10/24 
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
 
       deconfig: |
         sudo config vxlan map del vxlan-remote 10 5011
         sudo config vxlan map del vxlan-remote 20 5021
+        sudo config vxlan map del vxlan-remote 30 5031
+        sudo config vxlan map del vxlan-remote 40 5041
+        sudo config vxlan map del vxlan-remote 50 5051
+        sudo config vxlan map del vxlan-remote 60 5061
+        sudo config vxlan map del vxlan-remote 70 5071
+        sudo config vxlan map del vxlan-remote 80 5081
+        sudo config vxlan map del vxlan-remote 90 5091
+        sudo config vxlan map del vxlan-remote 99 5100
         sudo config vxlan evpn_nvo del NVO-REMOTE
         sudo config vxlan del vxlan-remote
         sudo config vxlan map del vxlan-local 10 5010
         sudo config vxlan map del vxlan-local 20 5020
+        sudo config vxlan map del vxlan-local 30 5030
+        sudo config vxlan map del vxlan-local 40 5040
+        sudo config vxlan map del vxlan-local 50 5050
+        sudo config vxlan map del vxlan-local 60 5060
+        sudo config vxlan map del vxlan-local 70 5070
+        sudo config vxlan map del vxlan-local 80 5080
+        sudo config vxlan map del vxlan-local 90 5090
+        sudo config vxlan map del vxlan-local 99 5099
         sudo config vxlan evpn_nvo del NVO-LOCAL
         sudo config vxlan del vxlan-local
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback11 101.101.101.101/32
         sudo config interface ip rem Loopback10 fd27::233:d0c6:feda/128
         sudo config interface ip rem Loopback1 10.10.10.10/32
@@ -62,6 +112,7 @@ dc1gw1:
         sudo config interface ip rem D1D4P1 51.54.1.51/24
         sudo config interface ip rem D1D3P2 51.53.2.51/24
         sudo config interface ip rem D1D3P1 51.53.1.51/24
+        sudo config interface ip rem D1D13P1 10.212.30.10/24
         sudo config interface ipv6 disable use-link-local-only D1D6P2
         sudo config interface ipv6 disable use-link-local-only D1D6P1
         sudo config interface ipv6 disable use-link-local-only D1D5P2
@@ -192,28 +243,76 @@ dc1gw2:
         sudo config interface ip add Loopback11 101.101.101.101/32
         sudo config vlan add 10
         sudo config vlan add 20
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
         sudo config vxlan add vxlan-local fd27::233:d0c6:feda
         sudo config vxlan evpn_nvo add NVO-LOCAL vxlan-local
         sudo config vxlan map add vxlan-local 10 5010
         sudo config vxlan map add vxlan-local 20 5020
+        sudo config vxlan map add vxlan-local 30 5030
+        sudo config vxlan map add vxlan-local 40 5040
+        sudo config vxlan map add vxlan-local 50 5050
+        sudo config vxlan map add vxlan-local 60 5060
+        sudo config vxlan map add vxlan-local 70 5070
+        sudo config vxlan map add vxlan-local 80 5080
+        sudo config vxlan map add vxlan-local 90 5090
+        sudo config vxlan map add vxlan-local 99 5099
         sudo config vxlan add vxlan-remote 101.101.101.101
         sudo config vxlan evpn_nvo add NVO-REMOTE vxlan-remote
         sudo config vxlan map add vxlan-remote 10 5011
         sudo config vxlan map add vxlan-remote 20 5021
+        sudo config vxlan map add vxlan-remote 30 5031
+        sudo config vxlan map add vxlan-remote 40 5041
+        sudo config vxlan map add vxlan-remote 50 5051
+        sudo config vxlan map add vxlan-remote 60 5061
+        sudo config vxlan map add vxlan-remote 70 5071
+        sudo config vxlan map add vxlan-remote 80 5081
+        sudo config vxlan map add vxlan-remote 90 5091
+        sudo config vxlan map add vxlan-remote 99 5100
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
 
       deconfig: |
         sudo config vxlan map del vxlan-remote 10 5011
         sudo config vxlan map del vxlan-remote 20 5021
+        sudo config vxlan map del vxlan-remote 30 5031
+        sudo config vxlan map del vxlan-remote 40 5041
+        sudo config vxlan map del vxlan-remote 50 5051
+        sudo config vxlan map del vxlan-remote 60 5061
+        sudo config vxlan map del vxlan-remote 70 5071
+        sudo config vxlan map del vxlan-remote 80 5081
+        sudo config vxlan map del vxlan-remote 90 5091
+        sudo config vxlan map del vxlan-remote 99 5100
         sudo config vxlan evpn_nvo del NVO-REMOTE
         sudo config vxlan del vxlan-remote
         sudo config vxlan map del vxlan-local 10 5010
         sudo config vxlan map del vxlan-local 20 5020
+        sudo config vxlan map del vxlan-local 30 5030
+        sudo config vxlan map del vxlan-local 40 5040
+        sudo config vxlan map del vxlan-local 50 5050
+        sudo config vxlan map del vxlan-local 60 5060
+        sudo config vxlan map del vxlan-local 70 5070
+        sudo config vxlan map del vxlan-local 80 5080
+        sudo config vxlan map del vxlan-local 90 5090
+        sudo config vxlan map del vxlan-local 99 5099
         sudo config vxlan evpn_nvo del NVO-LOCAL
         sudo config vxlan del vxlan-local
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback11 101.101.101.101/32
         sudo config interface ip rem Loopback10 fd27::233:d0c6:feda/128
         sudo config interface ip rem Loopback1 20.20.20.20/32
@@ -354,28 +453,76 @@ dc2gw1:
         sudo config interface ip add Loopback11 102.102.102.102/32
         sudo config vlan add 10
         sudo config vlan add 20
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
         sudo config vxlan add vxlan-local fd28::233:d0c6:fed3
         sudo config vxlan evpn_nvo add NVO-LOCAL vxlan-local
         sudo config vxlan map add vxlan-local 10 7010
         sudo config vxlan map add vxlan-local 20 7020
+        sudo config vxlan map add vxlan-local 30 7030
+        sudo config vxlan map add vxlan-local 40 7040
+        sudo config vxlan map add vxlan-local 50 7050
+        sudo config vxlan map add vxlan-local 60 7060
+        sudo config vxlan map add vxlan-local 70 7070
+        sudo config vxlan map add vxlan-local 80 7080
+        sudo config vxlan map add vxlan-local 90 7090
+        sudo config vxlan map add vxlan-local 99 7099
         sudo config vxlan add vxlan-remote 102.102.102.102
         sudo config vxlan evpn_nvo add NVO-REMOTE vxlan-remote
         sudo config vxlan map add vxlan-remote 10 5011
         sudo config vxlan map add vxlan-remote 20 5021
+        sudo config vxlan map add vxlan-remote 30 5031
+        sudo config vxlan map add vxlan-remote 40 5041
+        sudo config vxlan map add vxlan-remote 50 5051
+        sudo config vxlan map add vxlan-remote 60 5061
+        sudo config vxlan map add vxlan-remote 70 5071
+        sudo config vxlan map add vxlan-remote 80 5081
+        sudo config vxlan map add vxlan-remote 90 5091
+        sudo config vxlan map add vxlan-remote 99 5100
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
 
       deconfig: |
         sudo config vxlan map del vxlan-remote 10 5011
         sudo config vxlan map del vxlan-remote 20 5021
+        sudo config vxlan map del vxlan-remote 30 5031
+        sudo config vxlan map del vxlan-remote 40 5041
+        sudo config vxlan map del vxlan-remote 50 5051
+        sudo config vxlan map del vxlan-remote 60 5061
+        sudo config vxlan map del vxlan-remote 70 5071
+        sudo config vxlan map del vxlan-remote 80 5081
+        sudo config vxlan map del vxlan-remote 90 5091
+        sudo config vxlan map del vxlan-remote 99 5100
         sudo config vxlan evpn_nvo del NVO-REMOTE
         sudo config vxlan del vxlan-remote
         sudo config vxlan map del vxlan-local 10 7010
         sudo config vxlan map del vxlan-local 20 7020
+        sudo config vxlan map del vxlan-local 30 7030
+        sudo config vxlan map del vxlan-local 40 7040
+        sudo config vxlan map del vxlan-local 50 7050
+        sudo config vxlan map del vxlan-local 60 7060
+        sudo config vxlan map del vxlan-local 70 7070
+        sudo config vxlan map del vxlan-local 80 7080
+        sudo config vxlan map del vxlan-local 90 7090
+        sudo config vxlan map del vxlan-local 99 7099
         sudo config vxlan evpn_nvo del NVO-LOCAL
         sudo config vxlan del vxlan-local
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback11 102.102.102.102/32
         sudo config interface ip rem Loopback100 30.30.30.30/32
         sudo config interface ip rem Loopback0 200.200.200.3/32
@@ -517,28 +664,76 @@ dc3gw1:
         sudo config interface ip add Loopback11 103.103.103.103/32
         sudo config vlan add 10
         sudo config vlan add 20
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
         sudo config vxlan add vxlan-local fd29::233:d0c6:fed4
         sudo config vxlan evpn_nvo add NVO-LOCAL vxlan-local
         sudo config vxlan map add vxlan-local 10 8010
         sudo config vxlan map add vxlan-local 20 8020
+        sudo config vxlan map add vxlan-local 30 8030
+        sudo config vxlan map add vxlan-local 40 8040
+        sudo config vxlan map add vxlan-local 50 8050
+        sudo config vxlan map add vxlan-local 60 8060
+        sudo config vxlan map add vxlan-local 70 8070
+        sudo config vxlan map add vxlan-local 80 8080
+        sudo config vxlan map add vxlan-local 90 8090
+        sudo config vxlan map add vxlan-local 99 8099
         sudo config vxlan add vxlan-remote 103.103.103.103
         sudo config vxlan evpn_nvo add NVO-REMOTE vxlan-remote
         sudo config vxlan map add vxlan-remote 10 5011
         sudo config vxlan map add vxlan-remote 20 5021
+        sudo config vxlan map add vxlan-remote 30 5031
+        sudo config vxlan map add vxlan-remote 40 5041
+        sudo config vxlan map add vxlan-remote 50 5051
+        sudo config vxlan map add vxlan-remote 60 5061
+        sudo config vxlan map add vxlan-remote 70 5071
+        sudo config vxlan map add vxlan-remote 80 5081
+        sudo config vxlan map add vxlan-remote 90 5091
+        sudo config vxlan map add vxlan-remote 99 5100
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
 
       deconfig: |
         sudo config vxlan map del vxlan-remote 10 5011
         sudo config vxlan map del vxlan-remote 20 5021
+        sudo config vxlan map del vxlan-remote 30 5031
+        sudo config vxlan map del vxlan-remote 40 5041
+        sudo config vxlan map del vxlan-remote 50 5051
+        sudo config vxlan map del vxlan-remote 60 5061
+        sudo config vxlan map del vxlan-remote 70 5071
+        sudo config vxlan map del vxlan-remote 80 5081
+        sudo config vxlan map del vxlan-remote 90 5091
+        sudo config vxlan map del vxlan-remote 99 5100
         sudo config vxlan evpn_nvo del NVO-REMOTE
         sudo config vxlan del vxlan-remote
         sudo config vxlan map del vxlan-local 10 8010
         sudo config vxlan map del vxlan-local 20 8020
+        sudo config vxlan map del vxlan-local 30 8030
+        sudo config vxlan map del vxlan-local 40 8040
+        sudo config vxlan map del vxlan-local 50 8050
+        sudo config vxlan map del vxlan-local 60 8060
+        sudo config vxlan map del vxlan-local 70 8070
+        sudo config vxlan map del vxlan-local 80 8080
+        sudo config vxlan map del vxlan-local 90 8090
+        sudo config vxlan map del vxlan-local 99 8099
         sudo config vxlan evpn_nvo del NVO-LOCAL
         sudo config vxlan del vxlan-local
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback11 103.103.103.103/32
         sudo config interface ip rem Loopback100 40.40.40.40/32
         sudo config interface ip rem Loopback0 200.200.200.4/32
@@ -664,27 +859,69 @@ leaf1:
         sudo config interface ipv6 enable use-link-local-only D5D1P2
         sudo config interface ipv6 enable use-link-local-only D5D2P1
         sudo config interface ipv6 enable use-link-local-only D5D2P2
-        sudo config interface startup Ethernet1_13
-        sudo config interface startup Ethernet1_14
+        sudo config interface startup D5D9P1
+        sudo config interface startup D5D10P1
         sudo config interface ip add Loopback0 fd27::233:d0c6:fed5/128
+        sudo config vlan add 3 
         sudo config vlan add 10
         sudo config vlan add 20
-        sudo config vlan member add -m 10,20 Ethernet1_13
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
+        sudo config vlan member add -m 10,20,30,40,50,60,70,80,90,99 D5D9P1
         sudo config portchannel add PortChannel2
-        sudo config portchannel member add PortChannel2 Ethernet1_14
-        sudo config vlan member add -u 10 PortChannel2
+        sudo config portchannel member add PortChannel2 D5D10P1
+        sudo config vlan member add -m 10,20,30,40,50,60,70,80,90,99 PortChannel2
         sudo config vxlan add vxlan-local fd27::233:d0c6:fed5
         sudo config vxlan evpn_nvo add NVO vxlan-local
         sudo config vxlan map add vxlan-local 10 5010
         sudo config vxlan map add vxlan-local 20 5020
+        sudo config vxlan map add vxlan-local 30 5030
+        sudo config vxlan map add vxlan-local 40 5040
+        sudo config vxlan map add vxlan-local 50 5050
+        sudo config vxlan map add vxlan-local 60 5060
+        sudo config vxlan map add vxlan-local 70 5070
+        sudo config vxlan map add vxlan-local 80 5080
+        sudo config vxlan map add vxlan-local 90 5090
+        sudo config vxlan map add vxlan-local 99 5099
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
         sudo config interface ip add Vlan10 10.212.10.10/24
         sudo config interface ip add Vlan10 fd00:212:10::10/64
         sudo config interface ip add Vlan20 10.212.20.10/24
         sudo config interface ip add Vlan20 fd00:212:20::10/64
+        sudo config interface ip add Vlan30 10.212.30.10/24
+        sudo config interface ip add Vlan30 fd00:212:30::10/64
+        sudo config interface ip add Vlan40 10.212.40.10/24
+        sudo config interface ip add Vlan40 fd00:212:40::10/64
+        sudo config interface ip add Vlan50 10.212.50.10/24
+        sudo config interface ip add Vlan50 fd00:212:50::10/64
+        sudo config interface ip add Vlan60 10.212.60.10/24
+        sudo config interface ip add Vlan60 fd00:212:60::10/64
+        sudo config interface ip add Vlan70 10.212.70.10/24
+        sudo config interface ip add Vlan70 fd00:212:70::10/64
+        sudo config interface ip add Vlan80 10.212.80.10/24
+        sudo config interface ip add Vlan80 fd00:212:80::10/64
+        sudo config interface ip add Vlan90 10.212.90.10/24
+        sudo config interface ip add Vlan90 fd00:212:90::10/64
+        sudo config interface ip add Vlan99 10.212.99.10/24
+        sudo config interface ip add Vlan99 fd00:212:99::10/64
         sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
         sudo config vlan static-anycast-gateway enable 10
+        sudo config vlan static-anycast-gateway enable 20
+        sudo config vlan static-anycast-gateway enable 30
+        sudo config vlan static-anycast-gateway enable 40
+        sudo config vlan static-anycast-gateway enable 50
+        sudo config vlan static-anycast-gateway enable 60
+        sudo config vlan static-anycast-gateway enable 70
+        sudo config vlan static-anycast-gateway enable 80
+        sudo config vlan static-anycast-gateway enable 90
+        sudo config vlan static-anycast-gateway enable 99
         sudo config interface sys-mac add PortChannel2 00:44:33:22:11:00
         sudo config interface evpn-esi add PortChannel2 auto-system-mac
 
@@ -692,21 +929,64 @@ leaf1:
         sudo config interface evpn-esi del PortChannel2
         sudo config interface sys-mac del PortChannel2
         sudo config vlan static-anycast-gateway disable 10
+        sudo config vlan static-anycast-gateway disable 20
+        sudo config vlan static-anycast-gateway disable 30
+        sudo config vlan static-anycast-gateway disable 40
+        sudo config vlan static-anycast-gateway disable 50
+        sudo config vlan static-anycast-gateway disable 60
+        sudo config vlan static-anycast-gateway disable 70
+        sudo config vlan static-anycast-gateway disable 80
+        sudo config vlan static-anycast-gateway disable 90
+        sudo config vlan static-anycast-gateway disable 99
         sudo config static-anycast-gateway mac_address del
         sudo config interface ip remove Vlan10 10.212.10.10/24
         sudo config interface ip remove Vlan10 fd00:212:10::10/64
         sudo config interface ip remove Vlan20 10.212.20.10/24
         sudo config interface ip remove Vlan20 fd00:212:20::10/64
+        sudo config interface ip remove Vlan30 10.212.30.10/24
+        sudo config interface ip remove Vlan30 fd00:212:30::10/64
+        sudo config interface ip remove Vlan40 10.212.40.10/24
+        sudo config interface ip remove Vlan40 fd00:212:40::10/64
+        sudo config interface ip remove Vlan50 10.212.50.10/24
+        sudo config interface ip remove Vlan50 fd00:212:50::10/64
+        sudo config interface ip remove Vlan60 10.212.60.10/24
+        sudo config interface ip remove Vlan60 fd00:212:60::10/64
+        sudo config interface ip remove Vlan70 10.212.70.10/24
+        sudo config interface ip remove Vlan70 fd00:212:70::10/64
+        sudo config interface ip remove Vlan80 10.212.80.10/24
+        sudo config interface ip remove Vlan80 fd00:212:80::10/64
+        sudo config interface ip remove Vlan90 10.212.90.10/24
+        sudo config interface ip remove Vlan90 fd00:212:90::10/64
+        sudo config interface ip remove Vlan99 10.212.99.10/24
+        sudo config interface ip remove Vlan99 fd00:212:99::10/64
+        sudo config vxlan map del vxlan-local 3 5003
         sudo config vxlan map del vxlan-local 10 5010
         sudo config vxlan map del vxlan-local 20 5020
+        sudo config vxlan map del vxlan-local 30 5030
+        sudo config vxlan map del vxlan-local 40 5040
+        sudo config vxlan map del vxlan-local 50 5050
+        sudo config vxlan map del vxlan-local 60 5060
+        sudo config vxlan map del vxlan-local 70 5070
+        sudo config vxlan map del vxlan-local 80 5080
+        sudo config vxlan map del vxlan-local 90 5090
+        sudo config vxlan map del vxlan-local 99 5099
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del vxlan-local
-        sudo config vlan member del 10 PortChannel2
-        sudo config portchannel member del PortChannel2 Ethernet1_14
+        sudo config vlan member del -m 10,20,30,40,50,60,70,80,90,99 PortChannel2
+        sudo config portchannel member del PortChannel2 D5D10P1
         sudo config portchannel del PortChannel2
-        sudo config vlan member del -m 10,20 Ethernet1_13
+        sudo config vlan member del -m 10,20,30,40,50,60,70,80,90,99 D5D9P1
+        sudo config vlan del 3
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback0 fd27::233:d0c6:fed5/128
         sudo config interface ipv6 disable use-link-local-only D5D2P2
         sudo config interface ipv6 disable use-link-local-only D5D2P1
@@ -773,29 +1053,8 @@ leaf1:
         advertise ipv6 unicast
         exit-address-family
         exit
-        vrf Vrf01
-        vni 5030
-        exit
-        router bgp 65105 vrf Vrf01
-        bgp bestpath as-path multipath-relax
-        address-family ipv4 unicast
-        redistribute connected
-        exit-address-family
-        address-family ipv6 unicast
-        redistribute connected
-        exit-address-family
-        address-family l2vpn evpn
-        no use-es-l3nhg
-        advertise ipv4 unicast
-        advertise ipv6 unicast
-        exit-address-family
-        exit
 
       deconfig: |
-        vrf Vrf01
-        no vni 5030
-        exit
-        no router bgp 65105 vrf Vrf01
         no router bgp 65105
         end
         exit
@@ -820,21 +1079,66 @@ leaf2:
         sudo config interface ipv6 enable use-link-local-only D6D1P2
         sudo config interface ipv6 enable use-link-local-only D6D2P1
         sudo config interface ipv6 enable use-link-local-only D6D2P2
-        sudo config interface startup Ethernet1_13
+        sudo config interface startup D6D10P1
         sudo config interface ip add Loopback0 fd27::233:d0c6:fed6/128
         sudo config vlan add 10
+        sudo config vlan add 20
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
         sudo config portchannel add PortChannel2
-        sudo config portchannel member add PortChannel2 Ethernet1_13
-        sudo config vlan member add -u 10 PortChannel2
+        sudo config portchannel member add PortChannel2 D6D10P1
+        sudo config vlan member add -m 10,20,30,40,50,60,70,80,90,99 PortChannel2
         sudo config vxlan add vxlan-local fd27::233:d0c6:fed6
         sudo config vxlan evpn_nvo add NVO vxlan-local
         sudo config vxlan map add vxlan-local 10 5010
+        sudo config vxlan map add vxlan-local 20 5020
+        sudo config vxlan map add vxlan-local 30 5030
+        sudo config vxlan map add vxlan-local 40 5040
+        sudo config vxlan map add vxlan-local 50 5050
+        sudo config vxlan map add vxlan-local 60 5060
+        sudo config vxlan map add vxlan-local 70 5070
+        sudo config vxlan map add vxlan-local 80 5080
+        sudo config vxlan map add vxlan-local 90 5090
+        sudo config vxlan map add vxlan-local 99 5099
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
         sudo config interface ip add Vlan10 10.212.10.10/24
         sudo config interface ip add Vlan10 fd00:212:10::10/64
+        sudo config interface ip add Vlan20 10.212.20.10/24
+        sudo config interface ip add Vlan20 fd00:212:20::10/64
+        sudo config interface ip add Vlan30 10.212.30.10/24
+        sudo config interface ip add Vlan30 fd00:212:30::10/64
+        sudo config interface ip add Vlan40 10.212.40.10/24
+        sudo config interface ip add Vlan40 fd00:212:40::10/64
+        sudo config interface ip add Vlan50 10.212.50.10/24
+        sudo config interface ip add Vlan50 fd00:212:50::10/64
+        sudo config interface ip add Vlan60 10.212.60.10/24
+        sudo config interface ip add Vlan60 fd00:212:60::10/64
+        sudo config interface ip add Vlan70 10.212.70.10/24
+        sudo config interface ip add Vlan70 fd00:212:70::10/64
+        sudo config interface ip add Vlan80 10.212.80.10/24
+        sudo config interface ip add Vlan80 fd00:212:80::10/64
+        sudo config interface ip add Vlan90 10.212.90.10/24
+        sudo config interface ip add Vlan90 fd00:212:90::10/64
+        sudo config interface ip add Vlan99 10.212.99.10/24
+        sudo config interface ip add Vlan99 fd00:212:99::10/64
         sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
         sudo config vlan static-anycast-gateway enable 10
+        sudo config vlan static-anycast-gateway enable 20
+        sudo config vlan static-anycast-gateway enable 30
+        sudo config vlan static-anycast-gateway enable 40
+        sudo config vlan static-anycast-gateway enable 50
+        sudo config vlan static-anycast-gateway enable 60
+        sudo config vlan static-anycast-gateway enable 70
+        sudo config vlan static-anycast-gateway enable 80
+        sudo config vlan static-anycast-gateway enable 90
+        sudo config vlan static-anycast-gateway enable 99
         sudo config interface sys-mac add PortChannel2 00:44:33:22:11:00
         sudo config interface evpn-esi add PortChannel2 auto-system-mac
 
@@ -842,16 +1146,61 @@ leaf2:
         sudo config interface evpn-esi del PortChannel2
         sudo config interface sys-mac del PortChannel2
         sudo config vlan static-anycast-gateway disable 10
+        sudo config vlan static-anycast-gateway disable 20
+        sudo config vlan static-anycast-gateway disable 30
+        sudo config vlan static-anycast-gateway disable 40
+        sudo config vlan static-anycast-gateway disable 50
+        sudo config vlan static-anycast-gateway disable 60
+        sudo config vlan static-anycast-gateway disable 70
+        sudo config vlan static-anycast-gateway disable 80
+        sudo config vlan static-anycast-gateway disable 90
+        sudo config vlan static-anycast-gateway disable 99
         sudo config static-anycast-gateway mac_address del
         sudo config interface ip remove Vlan10 10.212.10.10/24
         sudo config interface ip remove Vlan10 fd00:212:10::10/64
+        sudo config interface ip remove Vlan20 10.212.20.10/24
+        sudo config interface ip remove Vlan20 fd00:212:20::10/64
+        sudo config interface ip remove Vlan30 10.212.30.10/24
+        sudo config interface ip remove Vlan30 fd00:212:30::10/64
+        sudo config interface ip remove Vlan40 10.212.40.10/24
+        sudo config interface ip remove Vlan40 fd00:212:40::10/64
+        sudo config interface ip remove Vlan50 10.212.50.10/24
+        sudo config interface ip remove Vlan50 fd00:212:50::10/64
+        sudo config interface ip remove Vlan60 10.212.60.10/24
+        sudo config interface ip remove Vlan60 fd00:212:60::10/64
+        sudo config interface ip remove Vlan70 10.212.70.10/24
+        sudo config interface ip remove Vlan70 fd00:212:70::10/64
+        sudo config interface ip remove Vlan80 10.212.80.10/24
+        sudo config interface ip remove Vlan80 fd00:212:80::10/64
+        sudo config interface ip remove Vlan90 10.212.90.10/24
+        sudo config interface ip remove Vlan90 fd00:212:90::10/64
+        sudo config interface ip remove Vlan99 10.212.99.10/24
+        sudo config interface ip remove Vlan99 fd00:212:99::10/64
         sudo config vxlan map del vxlan-local 10 5010
+        sudo config vxlan map del vxlan-local 20 5020
+        sudo config vxlan map del vxlan-local 30 5030
+        sudo config vxlan map del vxlan-local 40 5040
+        sudo config vxlan map del vxlan-local 50 5050
+        sudo config vxlan map del vxlan-local 60 5060
+        sudo config vxlan map del vxlan-local 70 5070
+        sudo config vxlan map del vxlan-local 80 5080
+        sudo config vxlan map del vxlan-local 90 5090
+        sudo config vxlan map del vxlan-local 99 5099
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del vxlan-local
-        sudo config vlan member del 10 PortChannel2
-        sudo config portchannel member del PortChannel2 Ethernet1_13
+        sudo config vlan member del -m 10,20,30,40,50,60,70,80,90,99 PortChannel2
+        sudo config portchannel member del PortChannel2 D6D10P1
         sudo config portchannel del PortChannel2
         sudo config vlan del 10
+        sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback0 fd27::233:d0c6:fed6/128
         sudo config interface ipv6 disable use-link-local-only D6D2P2
         sudo config interface ipv6 disable use-link-local-only D6D2P1
@@ -918,29 +1267,8 @@ leaf2:
         advertise ipv6 unicast
         exit-address-family
         exit
-        vrf Vrf01
-        vni 5030
-        exit
-        router bgp 65106 vrf Vrf01
-        bgp bestpath as-path multipath-relax
-        address-family ipv4 unicast
-        redistribute connected
-        exit-address-family
-        address-family ipv6 unicast
-        redistribute connected
-        exit-address-family
-        address-family l2vpn evpn
-        no use-es-l3nhg
-        advertise ipv4 unicast
-        advertise ipv6 unicast
-        exit-address-family
-        exit
 
       deconfig: |
-        vrf Vrf01
-        no vni 5030
-        exit
-        no router bgp 65106 vrf Vrf01
         no router bgp 65106
         end
         exit
@@ -963,21 +1291,53 @@ leaf3:
         swssloglevel -l INFO -c fdbsyncd
         sudo config interface ipv6 enable use-link-local-only D7D3P1
         sudo config interface ipv6 enable use-link-local-only D7D3P2
-        sudo config interface startup D7H3P1
+        sudo config interface startup D7D11P1
         sudo config interface ip add Loopback0 fd28::233:d0c6:fed7/128
         sudo config vlan add 10
         sudo config vlan add 20
-        sudo config vlan member add -m 10,20 Ethernet1_13
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
+        sudo config vlan member add -m 10,20,30,40,50,60,70,80,90,99 D7D11P1
         sudo config vxlan add vxlan-local fd28::233:d0c6:fed7
         sudo config vxlan evpn_nvo add NVO vxlan-local
         sudo config vxlan map add vxlan-local 10 7010
         sudo config vxlan map add vxlan-local 20 7020
+        sudo config vxlan map add vxlan-local 30 7030
+        sudo config vxlan map add vxlan-local 40 7040
+        sudo config vxlan map add vxlan-local 50 7050
+        sudo config vxlan map add vxlan-local 60 7060
+        sudo config vxlan map add vxlan-local 70 7070
+        sudo config vxlan map add vxlan-local 80 7080
+        sudo config vxlan map add vxlan-local 90 7090
+        sudo config vxlan map add vxlan-local 99 7099
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
         sudo config interface ip add Vlan10 10.212.10.10/24
         sudo config interface ip add Vlan10 fd00:212:10::10/64
         sudo config interface ip add Vlan20 10.212.20.10/24
         sudo config interface ip add Vlan20 fd00:212:20::10/64
+        sudo config interface ip add Vlan30 10.212.30.10/24
+        sudo config interface ip add Vlan30 fd00:212:30::10/64
+        sudo config interface ip add Vlan40 10.212.40.10/24
+        sudo config interface ip add Vlan40 fd00:212:40::10/64
+        sudo config interface ip add Vlan50 10.212.50.10/24
+        sudo config interface ip add Vlan50 fd00:212:50::10/64
+        sudo config interface ip add Vlan60 10.212.60.10/24
+        sudo config interface ip add Vlan60 fd00:212:60::10/64
+        sudo config interface ip add Vlan70 10.212.70.10/24
+        sudo config interface ip add Vlan70 fd00:212:70::10/64
+        sudo config interface ip add Vlan80 10.212.80.10/24
+        sudo config interface ip add Vlan80 fd00:212:80::10/64
+        sudo config interface ip add Vlan90 10.212.90.10/24
+        sudo config interface ip add Vlan90 fd00:212:90::10/64
+        sudo config interface ip add Vlan99 10.212.99.10/24
+        sudo config interface ip add Vlan99 fd00:212:99::10/64
         sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
         sudo config vlan static-anycast-gateway enable 10
 
@@ -988,13 +1348,45 @@ leaf3:
         sudo config interface ip remove Vlan10 fd00:212:10::10/64
         sudo config interface ip remove Vlan20 10.212.20.10/24
         sudo config interface ip remove Vlan20 fd00:212:20::10/64
-        sudo config vxlan map del vxlan-local 20 7020
+        sudo config interface ip remove Vlan30 10.212.30.10/24
+        sudo config interface ip remove Vlan30 fd00:212:30::10/64
+        sudo config interface ip remove Vlan40 10.212.40.10/24
+        sudo config interface ip remove Vlan40 fd00:212:40::10/64
+        sudo config interface ip remove Vlan50 10.212.50.10/24
+        sudo config interface ip remove Vlan50 fd00:212:50::10/64
+        sudo config interface ip remove Vlan60 10.212.60.10/24
+        sudo config interface ip remove Vlan60 fd00:212:60::10/64
+        sudo config interface ip remove Vlan70 10.212.70.10/24
+        sudo config interface ip remove Vlan70 fd00:212:70::10/64
+        sudo config interface ip remove Vlan80 10.212.80.10/24
+        sudo config interface ip remove Vlan80 fd00:212:80::10/64
+        sudo config interface ip remove Vlan90 10.212.90.10/24
+        sudo config interface ip remove Vlan90 fd00:212:90::10/64
+        sudo config interface ip remove Vlan99 10.212.99.10/24
+        sudo config interface ip remove Vlan99 fd00:212:99::10/64
         sudo config vxlan map del vxlan-local 10 7010
+        sudo config vxlan map del vxlan-local 20 7020
+        sudo config vxlan map del vxlan-local 30 7030
+        sudo config vxlan map del vxlan-local 40 7040
+        sudo config vxlan map del vxlan-local 50 7050
+        sudo config vxlan map del vxlan-local 60 7060
+        sudo config vxlan map del vxlan-local 70 7070
+        sudo config vxlan map del vxlan-local 80 7080
+        sudo config vxlan map del vxlan-local 90 7090
+        sudo config vxlan map del vxlan-local 99 7099
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del vxlan-local
-        sudo config vlan member del -m 10,20 Ethernet1_13
+        sudo config vlan member del -m 10,20,30,40,50,60,70,80,90,99 D7D11P1
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback0 fd28::233:d0c6:fed7/128
         sudo config interface ipv6 disable use-link-local-only D7D3P2
         sudo config interface ipv6 disable use-link-local-only D7D3P1
@@ -1051,29 +1443,8 @@ leaf3:
         advertise ipv6 unicast
         exit-address-family
         exit
-        vrf Vrf01
-        vni 5030
-        exit
-        router bgp 65107 vrf Vrf01
-        bgp bestpath as-path multipath-relax
-        address-family ipv4 unicast
-        redistribute connected
-        exit-address-family
-        address-family ipv6 unicast
-        redistribute connected
-        exit-address-family
-        address-family l2vpn evpn
-        no use-es-l3nhg
-        advertise ipv4 unicast
-        advertise ipv6 unicast
-        exit-address-family
-        exit
 
       deconfig: |
-        vrf Vrf01
-        no vni 5030
-        exit
-        no router bgp 65107 vrf Vrf01
         no router bgp 65107
         end
         exit
@@ -1096,23 +1467,56 @@ leaf4:
         swssloglevel -l INFO -c fdbsyncd
         sudo config interface ipv6 enable use-link-local-only D8D4P1
         sudo config interface ipv6 enable use-link-local-only D8D4P2
-        sudo config interface startup Ethernet1_13
+        sudo config interface startup D8D12P1
         sudo config interface ip add Loopback0 fd29::233:d0c6:fed8/128
         sudo config vlan add 10
         sudo config vlan add 20
-        sudo config vlan member add -m 10,20 Ethernet1_13
+        sudo config vlan add 30
+        sudo config vlan add 40
+        sudo config vlan add 50
+        sudo config vlan add 60
+        sudo config vlan add 70
+        sudo config vlan add 80
+        sudo config vlan add 90
+        sudo config vlan add 99
+        sudo config vlan member add -m 10,20,30,40,50,60,70,80,90,99 D8D12P1
         sudo config vxlan add vxlan-local fd29::233:d0c6:fed8
         sudo config vxlan evpn_nvo add NVO vxlan-local
         sudo config vxlan map add vxlan-local 10 8010
         sudo config vxlan map add vxlan-local 20 8020
+        sudo config vxlan map add vxlan-local 30 8030
+        sudo config vxlan map add vxlan-local 40 8040
+        sudo config vxlan map add vxlan-local 50 8050
+        sudo config vxlan map add vxlan-local 60 8060
+        sudo config vxlan map add vxlan-local 70 8070
+        sudo config vxlan map add vxlan-local 80 8080
+        sudo config vxlan map add vxlan-local 90 8090
+        sudo config vxlan map add vxlan-local 99 8099
         sudo counterpoll tunnel enable
         sudo counterpoll tunnel interval 2000
         sudo config interface ip add Vlan10 10.212.10.10/24
         sudo config interface ip add Vlan10 fd00:212:10::10/64
         sudo config interface ip add Vlan20 10.212.20.10/24
         sudo config interface ip add Vlan20 fd00:212:20::10/64
+        sudo config interface ip add Vlan30 10.212.30.10/24
+        sudo config interface ip add Vlan30 fd00:212:30::10/64
+        sudo config interface ip add Vlan40 10.212.40.10/24
+        sudo config interface ip add Vlan40 fd00:212:40::10/64
+        sudo config interface ip add Vlan50 10.212.50.10/24
+        sudo config interface ip add Vlan50 fd00:212:50::10/64
+        sudo config interface ip add Vlan60 10.212.60.10/24
+        sudo config interface ip add Vlan60 fd00:212:60::10/64
+        sudo config interface ip add Vlan70 10.212.70.10/24
+        sudo config interface ip add Vlan70 fd00:212:70::10/64
+        sudo config interface ip add Vlan80 10.212.80.10/24
+        sudo config interface ip add Vlan80 fd00:212:80::10/64
+        sudo config interface ip add Vlan90 10.212.90.10/24
+        sudo config interface ip add Vlan90 fd00:212:90::10/64
+        sudo config interface ip add Vlan99 10.212.99.10/24
+        sudo config interface ip add Vlan99 fd00:212:99::10/64
         sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
         sudo config vlan static-anycast-gateway enable 10
+        sudo config interface breakout Ethernet1_32 4x100G -yfl
 
       deconfig: |
         sudo config vlan static-anycast-gateway disable 10
@@ -1121,13 +1525,45 @@ leaf4:
         sudo config interface ip remove Vlan10 fd00:212:10::10/64
         sudo config interface ip remove Vlan20 10.212.20.10/24
         sudo config interface ip remove Vlan20 fd00:212:20::10/64
+        sudo config interface ip remove Vlan30 10.212.30.10/24
+        sudo config interface ip remove Vlan30 fd00:212:30::10/64
+        sudo config interface ip remove Vlan40 10.212.40.10/24
+        sudo config interface ip remove Vlan40 fd00:212:40::10/64
+        sudo config interface ip remove Vlan50 10.212.50.10/24
+        sudo config interface ip remove Vlan50 fd00:212:50::10/64
+        sudo config interface ip remove Vlan60 10.212.60.10/24
+        sudo config interface ip remove Vlan60 fd00:212:60::10/64
+        sudo config interface ip remove Vlan70 10.212.70.10/24
+        sudo config interface ip remove Vlan70 fd00:212:70::10/64
+        sudo config interface ip remove Vlan80 10.212.80.10/24
+        sudo config interface ip remove Vlan80 fd00:212:80::10/64
+        sudo config interface ip remove Vlan90 10.212.90.10/24
+        sudo config interface ip remove Vlan90 fd00:212:90::10/64
+        sudo config interface ip remove Vlan99 10.212.99.10/24
+        sudo config interface ip remove Vlan99 fd00:212:99::10/64
         sudo config vxlan map del vxlan-local 10 8010
         sudo config vxlan map del vxlan-local 20 8020
+        sudo config vxlan map del vxlan-local 30 8030
+        sudo config vxlan map del vxlan-local 40 8040
+        sudo config vxlan map del vxlan-local 50 8050
+        sudo config vxlan map del vxlan-local 60 8060
+        sudo config vxlan map del vxlan-local 70 8070
+        sudo config vxlan map del vxlan-local 80 8080
+        sudo config vxlan map del vxlan-local 90 8090
+        sudo config vxlan map del vxlan-local 99 8099
         sudo config vxlan evpn_nvo del NVO
         sudo config vxlan del vxlan-local
-        sudo config vlan member del -m 10,20 Ethernet1_13
+        sudo config vlan member del -m 10,20,30,40,50,60,70,80,90,99 D8D12P1
         sudo config vlan del 10
         sudo config vlan del 20
+        sudo config vlan del 30
+        sudo config vlan del 40
+        sudo config vlan del 50
+        sudo config vlan del 60
+        sudo config vlan del 70
+        sudo config vlan del 80
+        sudo config vlan del 90
+        sudo config vlan del 99
         sudo config interface ip rem Loopback0 fd29::233:d0c6:fed8/128
         sudo config interface ipv6 disable use-link-local-only D8D4P2
         sudo config interface ipv6 disable use-link-local-only D8D4P1
@@ -1184,29 +1620,8 @@ leaf4:
         advertise ipv6 unicast
         exit-address-family
         exit
-        vrf Vrf01
-        vni 5030
-        exit
-        router bgp 65108 vrf Vrf01
-        bgp bestpath as-path multipath-relax
-        address-family ipv4 unicast
-        redistribute connected
-        exit-address-family
-        address-family ipv6 unicast
-        redistribute connected
-        exit-address-family
-        address-family l2vpn evpn
-        no use-es-l3nhg
-        advertise ipv4 unicast
-        advertise ipv6 unicast
-        exit-address-family
-        exit
 
       deconfig: |
-        vrf Vrf01
-        no vni 5030
-        exit
-        no router bgp 65108 vrf Vrf01
         no router bgp 65108
         end
         exit

@@ -524,7 +524,7 @@ def modify_config_file(config_file,var_dict):
         st.report_fail("config file copy failed")
     st.wait(2)
     for item, value in var_dict.items():
-        if re.match("(D.D.P.)|(D.T.P.)", item):
+        if re.match(r"(D\d+D\d+P\d+)|(D\d+T\d+P\d+)", item):
             find_and_replace(dir_path+output_yaml_file, item, value)
     return dir_path+output_yaml_file
 

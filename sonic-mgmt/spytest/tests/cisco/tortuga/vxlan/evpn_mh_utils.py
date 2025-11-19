@@ -43,7 +43,7 @@ def get_df_ndf_node(dut1, dut2, esi):
         
     return df_node, ndf_node
 
-def change_fdb_ageout(ageout_time = "600"):
+def change_fdb_ageout(ageout_time = "600", skip_duts_with = ""):
     # Define the JSON content to be written to the file
     data = [
         {
@@ -64,7 +64,7 @@ def change_fdb_ageout(ageout_time = "600"):
 
     st.log("File {} has been created with the specified content.".format(filename))
     for dut in st.get_dut_names():
-        if "leaf" in dut:
+        if "leaf" in dut or (skip_duts_with and not skip_duts_with in dut):
             utils_obj.copy_files_to_dut(dut, [filename], '/home/cisco')
             st.config(dut,"docker cp /home/cisco/ageout.json swss:/",sudo=False, split_cmds=False)
             st.config(dut,"docker exec -it swss swssconfig ageout.json",sudo=False, split_cmds=False)

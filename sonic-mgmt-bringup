@@ -1,0 +1,83 @@
+# oci-sonic-mgmt
+
+## Important links
+Testbed overview: https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Overview.md
+Testbed setup: https://github.com/sonic-net/sonic-mgmt/blob/master/docs/testbed/README.testbed.Setup.md
+
+Please make sure to install all the packages as described in Testbed setup link above
+
+## Setup Details:
+### Important files one needs to know and modify for their testbed.
+
+- sonic-mgmt/ansible/files
+  - sonic_lab_console_links.csv 
+  - sonic_lab_devices.csv
+  - sonic_lab_links.csv
+  - sonic_lab_pdu_links.csv
+
+- sonic-mgmt/ansible/group_vars
+  - all
+    - creds.yml
+    - labinfo.json
+  - fanout
+    - secrets.yml
+  - lab
+    - lab.yml
+    - secrets.yml
+  - vm_host
+    - creds.yml
+    - main.yml
+
+- sonic-mgmt/ansible/lab
+- sonic-mgmt/ansible/testbed.yaml
+- sonic-mgmt/ansible/veos
+- sonic-mgmt/ansible/host_vars
+  - sonic-ucs-m6-23.yml
+- sonic-mgmt/ansible/password.txt
+
+ 
+
+## Steps to bring up the topology
+
+## Load docker images on UCS docker repo:
+- `docker load < sept090425-sonic-mgmt.tar.gz` (Sonic-mgmt container)
+- `docker load < docker-ptf.gz` (PTF docker)
+- `docker load < debian-bookworm.tar.gz` (Bookworm debian container for cEOS)
+- `docker import cEOS64-lab-4.32.5M.tar.xz ceosimage:4.32.5M`
+- `docker tag ceosimage:4.32.5M ceosimage:4.32.5M-1`
+- `docker tag debian:bookworm sonicdev-microsoft.azurecr.io:443/debian:bookworm`
+
+## Bring up topology on UCS and connect with DUT
+  `./testbed-cli.sh -k ceos add-topo super-t1 ./lab -e 'root_fanout_connect=false' -vvv |& tee add-topo.log`
+
+## Deploy Minigraph file on the DUT - creates minigraph, loads it into the DUT, reloads the DUT
+  `./testbed-cli.sh deploy-mg super-t1 lab ./password.txt -vvvv |& tee deploy.log`
+
+## Running a nightly
+  `./run_tests.sh -n super-t1 -d m623-dut -m individual -t t1,any -p /run_logs/202505-oci/0906_nightly |& tee /run_logs/oci-nightly.log`
+
+## Runny specific test folder
+  `./run_tests.sh -n super-t1 -d m623-dut -m individual -t t1,any -p /run_logs/202505-oci/0906_nightly -c fib |& tee /run_logs/oci-fib.log`
+
+## Steps to make fanout switch as a passthrough
+  - docker exec -it syncd bash
+  - supervisorctl start dshell_client
+  #### Wait for 5 minutes
+  #### If it says it is already running, ignore and move to the next command.
+  /usr/bin/dshell_client.py -i
+  #### The following is inside the dshell Client.
+  - d0=sdk.la_get_device(0)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_L2CP0)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_LACP)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_ARP)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_L2CP2)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_DHCPV4_SERVER)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_DHCPV4_CLIENT)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_DHCPV6_SERVER)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_DHCPV6_CLIENT)
+  - d0.clear_trap_configuration(sdk.la_event_e_ETHERNET_CISCO_PROTOCOLS)
+  - d0.clear_trap_configuration(sdk.la_event_e_L3_ISIS_OVER_L3)
+  - quit()
+  - exit
+
+

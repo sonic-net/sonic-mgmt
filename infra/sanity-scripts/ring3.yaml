@@ -103,11 +103,14 @@ FWD:
         - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
   t0:
     churchill-mono:
+      sim:
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
       hw:
         - acl/test_acl.py
         - acl/test_stress_acl.py
         - crm/test_crm.py::test_crm_neighbor
         - crm/test_crm_available.py
+        - cisco/platform_tests/test_serviceability_basic.py::test_show_platform_npu_all
         - drop_packets/test_drop_counters.py
         - everflow/test_everflow_ipv6.py
         - everflow/test_everflow_testbed.py
@@ -150,16 +153,9 @@ FWD:
   t1:
     lightning,superbolt:
       sim:
-        - drop_packets/test_drop_counters.py::test_absent_ip_header
-        - drop_packets/test_drop_counters.py::test_acl_drop
-        - drop_packets/test_drop_counters.py::test_not_expected_vlan_tag_drop
-        - drop_packets/test_drop_counters.py::test_src_ip_is_loopback_addr
-        - drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr
-        - drop_packets/test_drop_counters.py::test_unicast_ip_incorrect_eth_dst
-        - everflow/test_everflow_ipv6.py::test_src_ipv6_mirroring
-        - everflow/test_everflow_ipv6.py::test_invalid_tcp_rule
-      hw:
-        - generic_config_updater/test_dynamic_acl.py
+        - everflow/test_everflow_ipv6.py
+        - hash/test_generic_hash.py::test_algorithm_config
+        - hash/test_generic_hash.py::test_backend_error_messages
 
 PLT:
   t0-64:
@@ -355,6 +351,10 @@ MGMT: #Anukul Verma / Gourav Sharma
   t0:
     churchill-mono:
       hw:
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
+        - generic_config_updater/test_mgmt_interface.py
         - snmp/test_snmp_cpu.py
         - snmp/test_snmp_memory.py
         - snmp/test_snmp_queue.py
@@ -362,11 +362,30 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_lldp.py
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_link_local.py
+        - gnmi/test_gnmi_appldb.py
+        - gnmi/test_gnmi_configdb.py
+        - gnmi/test_gnmi_countersdb.py
+        - gnmi/test_gnmi.py
+        - gnmi/test_gnmi_smartswitch.py
+        - gnmi/test_gnmi_stress.py
+        #- gnmi/test_gnoi_killprocess.py
+        - gnmi/test_gnoi_os.py
+        - gnmi/test_gnoi_system_grpc.py
+        - gnmi/test_gnoi_system.py
+        - gnmi/test_gnoi_system_reboot.py
+        - console/test_console_availability.py
+        - console/test_console_driver.py
+        - console/test_console_loopback.py
+        - console/test_console_reversessh.py
+        - console/test_console_udevrule.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
+        - ssh/test_ssh_default_password.py
         - tacacs/test_authorization.py
+        - restapi/test_restapi.py
+        - restapi/test_restapi_vxlan_ecmp.py
 
   t0-64:
     mth64:
@@ -390,14 +409,14 @@ MGMT: #Anukul Verma / Gourav Sharma
         #- snmp/test_snmp_psu.py
         #- snmp/test_snmp_pfc_counters.py
         #- snmp/test_snmp_phy_entity.py
-        #- snmp/test_snmp_link_local.py
+        - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_configdb.py
         - gnmi/test_gnmi_countersdb.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
         - gnmi/test_gnmi_stress.py
-        - gnmi/test_gnoi_killprocess.py
+        #- gnmi/test_gnoi_killprocess.py
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
@@ -414,7 +433,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_udevrule.py
         #- http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
-        #- ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
@@ -437,22 +456,22 @@ MGMT: #Anukul Verma / Gourav Sharma
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_smartswitch.py
         - gnmi/test_gnmi_stress.py
-        - gnmi/test_gnoi_killprocess.py
+        #- gnmi/test_gnoi_killprocess.py
         - gnmi/test_gnoi_os.py
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_gnoi_system_reboot.py
-        #- gnmi/test_mimic_hwproxy_cert_rotation.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
         - console/test_console_availability.py
         - console/test_console_driver.py
         - console/test_console_loopback.py
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - dut_console/test_console_baud_rate.py
-        - dut_console/test_console_chassis_conn.py
+        #- dut_console/test_console_chassis_conn.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
-        # - dns/static_dns/test_static_dns.py
+        - dns/static_dns/test_static_dns.py
         # - memory_checker/test_memory_checker.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
@@ -489,7 +508,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - snmp/test_snmp_v2mib.py
         - snmp/test_snmp_interfaces.py
         - snmp/test_snmp_lldp.py
-        #- snmp/test_snmp_link_local.py
+        - snmp/test_snmp_link_local.py
         - gnmi/test_gnmi.py
         - gnmi/test_gnmi_appldb.py
         - gnmi/test_gnmi_countersdb.py
@@ -498,7 +517,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - gnmi/test_gnoi_system_grpc.py
         - gnmi/test_gnoi_system.py
         - gnmi/test_mimic_hwproxy_cert_rotation.py
-        #- tacacs/test_authorization.py
+        - tacacs/test_authorization.py
         #- tacacs/test_ro_disk.py
         - restapi/test_restapi.py
         - restapi/test_restapi_vxlan_ecmp.py
@@ -509,7 +528,7 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_udevrule.py
         #- http/test_http_copy.py
         #- mvrf/test_mgmtvrf.py
-        #- ssh/test_ssh_ciphers.py
+        - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
         - ssh/test_ssh_default_password.py
         - passw_hardening/test_passw_hardening.py
@@ -535,14 +554,14 @@ MGMT: #Anukul Verma / Gourav Sharma
         - console/test_console_reversessh.py
         - console/test_console_udevrule.py
         - dut_console/test_console_baud_rate.py
-        - dut_console/test_console_chassis_conn.py
+        #- dut_console/test_console_chassis_conn.py
         - dut_console/test_escape_character.py
         - dut_console/test_idle_timeout.py
-        # - gnmi/test_mimic_hwproxy_cert_rotation.py
-        # - dns/static_dns/test_static_dns.py
-        # - generic_config_updater/test_aaa.py
-        # - generic_config_updater/test_ip_bgp.py
-        # - generic_config_updater/test_ntp.py
+        - gnmi/test_mimic_hwproxy_cert_rotation.py
+        - dns/static_dns/test_static_dns.py
+        - generic_config_updater/test_aaa.py
+        - generic_config_updater/test_ip_bgp.py
+        - generic_config_updater/test_ntp.py
         # - memory_checker/test_memory_checker.py
         - ssh/test_ssh_ciphers.py
         - ssh/test_ssh_limit.py
@@ -557,6 +576,32 @@ MGMT: #Anukul Verma / Gourav Sharma
 L2:
   t0-64:
     mth64:
+      sim:
+        - arp/test_arp_extended.py
+        - arp/test_neighbor_mac_noptf.py
+        #- arp/test_stress_arp.py
+        - dhcp_relay/test_dhcp_pkt_recv.py
+        - dhcp_relay/test_dhcp_relay.py
+        #- dhcp_relay/test_dhcp_relay_stress.py
+        - dhcp_relay/test_dhcpv6_relay.py
+        - fdb/test_fdb.py
+        - fdb/test_fdb_flush.py
+        #- fdb/test_fdb_mac_expire.py
+        - fdb/test_fdb_mac_learning.py
+        #- fdb/test_fdb_mac_move.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_portchannel_interface.py
+        - generic_config_updater/test_vlan_interface.py
+        #- lldp/test_lldp.py
+        - lldp/test_lldp_syncd.py
+        - pc/test_lag_2.py
+        #- pc/test_lag_member.py
+        - pc/test_po_cleanup.py
+        - pc/test_po_update.py
+        #- snmp/test_snmp_fdb.py
+        - vlan/test_autostate_disabled.py
+        - vlan/test_host_vlan.py
+        #- vlan/test_vlan.py
       hw:
         - arp/test_arp_extended.py
         - arp/test_neighbor_mac_noptf.py
@@ -597,7 +642,28 @@ L2:
         - pc/test_lag_2.py
         - pc/test_po_cleanup.py
         - pc/test_po_update.py
-
+  t0:
+    churchill-mono:
+      hw:
+        - arp/test_arp_extended.py
+        - arp/test_neighbor_mac_noptf.py
+        - arp/test_stress_arp.py
+        - dhcp_relay/test_dhcp_pkt_recv.py
+        - dhcp_relay/test_dhcp_relay.py
+        - dhcp_relay/test_dhcp_relay_stress.py
+        - dhcp_relay/test_dhcpv6_relay.py
+        - fdb/test_fdb_flush.py
+        - fdb/test_fdb_mac_expire.py
+        - fdb/test_fdb_mac_learning.py
+        - fdb/test_fdb_mac_move.py
+        - generic_config_updater/test_dhcp_relay.py
+        - generic_config_updater/test_portchannel_interface.py
+        - generic_config_updater/test_vlan_interface.py
+        - generic_config_updater/test_dhcp_relay.py
+        - pc/test_lag_2.py
+        - pc/test_po_cleanup.py
+        - pc/test_po_update.py
+        - vlan/test_host_vlan.py
   t2:
     sfd:
       hw:
@@ -656,6 +722,7 @@ ROUTING: #Sridhar Santhanam
         - route/test_static_route.py
         - generic_config_updater/test_bgpl.py
         - log_fidelity/test_bgp_shutdown.py
+  t0:
     churchill-mono:
       hw:
         - bgp/test_bgp_fact.py

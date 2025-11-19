@@ -1,6 +1,7 @@
 import pytest
+import re
 
-from dci.const import CONFIG_FILE_PATH_DEFAULT
+from dci.const import CONFIG_FILE_PATH_DEFAULT, get_traffic_pairs, get_ping_anycast
 from dci.config import configure_devices
 from dci.send_and_verify_traffic import send_ping_and_verify_traffic
 from dci.ixia.configure import configure_ixia_session
@@ -93,6 +94,8 @@ def testbed_vars(deploy_leaf_on_ixia=False):
         nodes["host2"] = tb_vars.D10
         nodes["host3"] = tb_vars.D11
         nodes["host4"] = tb_vars.D12
+        nodes["host5"] = tb_vars.D13
+
     return tb_vars, nodes
 
 
@@ -110,6 +113,19 @@ def setup(command_line_args):
     data["tb_vars"] = tb_vars
     data["nodes"] = nodes
 
+    # Store port connections for link failure tests
+    # Based on tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml topology
+    data["ports"] = {
+        "D1D5P1": tb_vars.D1D5P1,  # DC1GW1:Ethernet1_1 -> Leaf1:Ethernet1_1
+        "D1D5P2": tb_vars.D1D5P2,  # DC1GW1:Ethernet1_2 -> Leaf1:Ethernet1_2
+        "D1D6P1": tb_vars.D1D6P1,  # DC1GW1:Ethernet1_5 -> Leaf2:Ethernet1_1
+        "D1D6P2": tb_vars.D1D6P2,  # DC1GW1:Ethernet1_6 -> Leaf2:Ethernet1_2
+        "D2D5P1": tb_vars.D2D5P1,  # DC1GW2:Ethernet1_1 -> Leaf1:Ethernet1_5
+        "D2D5P2": tb_vars.D2D5P2,  # DC1GW2:Ethernet1_2 -> Leaf1:Ethernet1_6
+        "D2D6P1": tb_vars.D2D6P1,  # DC1GW2:Ethernet1_5 -> Leaf2:Ethernet1_5
+        "D2D6P2": tb_vars.D2D6P2,  # DC1GW2:Ethernet1_6 -> Leaf2:Ethernet1_6
+    }
+
     config_file = command_line_args["config_file"]
 
     updated_config_file = vxlan_utils.modify_config_file(config_file, tb_vars)
@@ -120,22 +136,8 @@ def setup(command_line_args):
         pytest.skip("Test is currently supported only on VXR platform")
 
     if not command_line_args["deploy_leaf_on_ixia"]:
-        data["traffic_pairs"] = [
-            ({"name": nodes["host1"], "ip": "10.212.10.1"}, {"name": nodes["host3"], "ip": "10.212.10.3"}),
-            ({"name": nodes["host1"], "ip": "10.212.20.1"}, {"name": nodes["host3"], "ip": "10.212.20.3"}),
-            ({"name": nodes["host2"], "ip": "10.212.10.2"}, {"name": nodes["host3"], "ip": "10.212.10.3"}),
-            ({"name": nodes["host1"], "ip": "10.212.10.1"}, {"name": nodes["host4"], "ip": "10.212.10.4"}),
-            ({"name": nodes["host1"], "ip": "10.212.20.1"}, {"name": nodes["host4"], "ip": "10.212.20.4"}),
-            ({"name": nodes["host2"], "ip": "10.212.10.2"}, {"name": nodes["host4"], "ip": "10.212.10.4"}),
-            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
-            ({"name": nodes["host3"], "ip": "10.212.20.3"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
-            ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
-            ({"name": nodes["host4"], "ip": "10.212.20.4"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
-            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
-            ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
-            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host4"], "ip": "10.212.10.4"}),
-            ({"name": nodes["host3"], "ip": "10.212.20.3"}, {"name": nodes["host4"], "ip": "10.212.20.4"}),
-        ]
+        data["traffic_pairs"] = get_traffic_pairs(nodes)
+        data["ping_anycast"] = get_ping_anycast(nodes)
 
     data["use_ubuntu_hosts"] = True
     if command_line_args["deploy_leaf_on_ixia"]:
@@ -146,11 +148,30 @@ def setup(command_line_args):
         config_file = command_line_args["ixia_config_file"]
         api_key = command_line_args["ixia_api_key"]
         ixia_vm_ip = wa.net.tb.devices["T1"]["properties"]["ix_server"]
-        data["session_assistant"] = configure_ixia_session(ixia_vm_ip, api_key, config_file, get_session_id(api_key=api_key))
+        data["session_assistant"] = configure_ixia_session(
+            ixia_vm_ip, api_key, config_file, get_session_id(api_key=api_key)
+        )
 
     if not command_line_args["cleanup"] and not command_line_args["no_config"]:
         configure_devices(updated_config_file, nodes, add=True)
-        if not send_ping_and_verify_traffic(st.getwa(), data["traffic_pairs"], use_ubuntu_hosts=data.get("use_ubuntu_hosts", False)):
+        st.wait(60, "waiting on device to reach stable state post configuration")
+        # Initiate mac learning by sending traffic from hosts to their respective leafs
+        send_ping_and_verify_traffic(
+            st.getwa(),
+            data["ping_anycast"],
+            use_ubuntu_hosts=data.get("use_ubuntu_hosts", False),
+            single_direction=True,
+            ignore_validation=True,
+            packet_count=2,
+        )
+        # Test regular traffic pairs (bidirectional)
+        if not send_ping_and_verify_traffic(
+            st.getwa(),
+            data["traffic_pairs"],
+            use_ubuntu_hosts=data.get("use_ubuntu_hosts", False),
+            packet_count=5,
+            max_percent_loss=10.0,
+        ):
             st.report_fail("test_case_failed", "Initial ping test failed after configuration")
 
     # Always yield data regardless of conditions
@@ -158,7 +179,7 @@ def setup(command_line_args):
         yield data
 
     # Cleanup code runs after tests complete
-    mh_utils.change_fdb_ageout("6000")
+    mh_utils.change_fdb_ageout("60000", skip_duts_with="HOST")
     configure_devices(updated_config_file, nodes, add=False)
     if command_line_args["cleanup"]:
         st.abort_run(0, "Cleanup done, exiting", False)

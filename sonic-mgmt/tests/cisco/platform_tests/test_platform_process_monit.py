@@ -50,7 +50,7 @@ def run_platform_process_check(duthost):
     """
     Run the platform process check script on the DUT and return (rc, stdout).
     """
-    cmd = f"{PLATFORM_PROCESS_SCRIPT_PATH}"
+    cmd = f"{PLATFORM_PROCESS_SCRIPT_PATH} --test-mode"
     result = duthost.shell(cmd, module_ignore_errors=True)
     return result['rc'], result['stdout']
 
