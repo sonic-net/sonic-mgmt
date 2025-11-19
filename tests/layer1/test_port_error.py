@@ -28,12 +28,22 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_disabled(duthost, is_sw_control_feature_enabled):
-        return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
+    def is_supported_nvidia_platform_with_sw_control_disabled(duthost, request):
+        try:
+            sw_control_feature_enabled = request.getfixturevalue("is_sw_control_feature_enabled")
+        except Exception:
+            sw_control_feature_enabled = False
+
+        return 'nvidia' in duthost.facts['platform'].lower() and not sw_control_feature_enabled
 
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_enabled(duthost, is_sw_control_feature_enabled):
-        return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled
+    def is_supported_nvidia_platform_with_sw_control_enabled(duthost, request):
+        try:
+            sw_control_feature_enabled = request.getfixturevalue("is_sw_control_feature_enabled")
+        except Exception:
+            sw_control_feature_enabled = False
+
+        return 'nvidia' in duthost.facts['platform'].lower() and sw_control_feature_enabled
 
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_platform(duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
