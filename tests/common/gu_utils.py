@@ -365,8 +365,10 @@ def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_con
     Vlan1000                          fc02:1000::1/64                             up/up         N/A             N/A
                                       fe80::5054:ff:feda:c6af%Vlan1000/64                       N/A             N/A
     """
-    address_family = "ip" if is_ipv4 else "ipv6"
-    output = duthost.shell("show {} interfaces | grep -w {} || true".format(address_family, intf_name))
+    # Use -d all flag for multi-ASIC systems to show interfaces from all namespaces
+    display_option = "-d all" if duthost.is_multi_asic else ""
+    output = duthost.shell("show {} interfaces {} | grep -w {} || true".format(
+        address_family, display_option, intf_name))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
