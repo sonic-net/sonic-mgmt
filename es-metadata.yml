@@ -1,0 +1,8 @@
+schemaVersion: 0.0.1
+isProduction: false
+accountableOwners:
+  service: 08529a75-2ad5-413d-ab86-eb22ba5628fb
+routing:
+  defaultAreaPath:
+    org: msazure
+    path: One\Networking\Sonic\Platform
