@@ -21,8 +21,8 @@ KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
 
 class CounterpollConstants:
     COUNTERPOLL_SHOW = 'counterpoll show'
-    COUNTERPOLL_DISABLE = 'counterpoll {} disable'
-    COUNTERPOLL_ENABLE = 'counterpoll {} enable'
+    COUNTERPOLL_DISABLE = 'counterpoll {} {} disable'
+    COUNTERPOLL_ENABLE = 'counterpoll {} {} enable'
     COUNTERPOLL_RESTORE = 'counterpoll {} {}'
     COUNTERPOLL_INTERVAL_STR = 'counterpoll {} interval {}'
     COUNTERPOLL_QUEST = 'counterpoll --help'
@@ -32,6 +32,8 @@ class CounterpollConstants:
     STATUS = 'status'
     STDOUT = 'stdout'
     PG_DROP = 'pg-drop'
+    WRED_QUEUE = 'wredqueue'
+    WRED_PORT = 'wredport'
     PG_DROP_STAT_TYPE = 'PG_DROP_STAT'
     QUEUE_STAT_TYPE = 'QUEUE_STAT'
     QUEUE = 'queue'
@@ -45,6 +47,8 @@ class CounterpollConstants:
     QUEUE_WATERMARK_STAT_TYPE = 'QUEUE_WATERMARK_STAT'
     PG_WATERMARK_STAT_TYPE = 'PG_WATERMARK_STAT'
     BUFFER_POOL_WATERMARK_STAT_TYPE = 'BUFFER_POOL_WATERMARK_STAT'
+    WRED_ECN_QUEUE_STAT_TYPE = 'WRED_ECN_QUEUE_STAT'
+    WRED_ECN_PORT_STAT_TYPE = 'WRED_ECN_PORT_STAT'
     ACL = 'acl'
     ACL_TYPE = "ACL"
     COUNTERPOLL_MAPPING = {PG_DROP_STAT_TYPE: PG_DROP,
@@ -55,6 +59,8 @@ class CounterpollConstants:
                            BUFFER_POOL_WATERMARK_STAT_TYPE: WATERMARK,
                            QUEUE_WATERMARK_STAT_TYPE: WATERMARK,
                            PG_WATERMARK_STAT_TYPE: WATERMARK,
+                           WRED_ECN_QUEUE_STAT_TYPE: WRED_QUEUE,
+                           WRED_ECN_PORT_STAT_TYPE: WRED_PORT,
                            ACL_TYPE: ACL}
     PORT_BUFFER_DROP_INTERVAL = '10000'
     COUNTERPOLL_INTERVAL = {PORT_BUFFER_DROP: 10000}
