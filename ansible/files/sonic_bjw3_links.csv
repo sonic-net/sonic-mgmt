@@ -1,4 +1,4 @@
-StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,Auton,eg,FECDisable
+StartDevice,StartPort,EndDevice,EndPort,BandWidth,VlanID,VlanMode,AutoNeg,FECDisable
 bjw3-can-7050c-5,Ethernet1/1,bjw3-can-7050-leaf-1,Ethernet1/1,10000,2,Access,,
 bjw3-can-7050c-5,Ethernet1/2,bjw3-can-7050-leaf-1,Ethernet1/2,10000,3,Access,,
 bjw3-can-7050c-5,Ethernet1/3,bjw3-can-7050-leaf-1,Ethernet1/3,10000,4,Access,,
