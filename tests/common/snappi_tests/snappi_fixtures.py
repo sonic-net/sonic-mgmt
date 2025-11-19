@@ -20,7 +20,7 @@ from tests.common.snappi_tests.common_helpers import get_addrs_in_subnet, get_pe
 from tests.common.snappi_tests.snappi_helpers import SnappiFanoutManager, get_snappi_port_location, \
     get_macs, get_ip_addresses, subnet_mask_from_hosts   # noqa: F401
 from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length, dut_ip_for_non_macsec_port
 from tests.common.macsec.macsec_config_helper import set_macsec_profile, enable_macsec_port, disable_macsec_port, \
@@ -1059,15 +1059,7 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     for index, port in enumerate(snappi_ports):
         if port['duthost'] == duthost:
             peer_port = port['peer_port']
-            if port['asic_value'] is None:
-                int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
-            else:
-                new_port = int(peer_port.split('Ethernet')[1])
-                if new_port == 0:
-                    m_port = 'Ethernet1/1'
-                else:
-                    m_port = 'Ethernet{}/1'.format(int(new_port/8) + 1)
-                int_addrs = list(config_facts['INTERFACE'][m_port].keys())
+            int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             subnet = [ele for ele in int_addrs if "." in ele]
             if port['port_id'] == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
                 logger.info('Removing existing IP {} from interface {}'.format(subnet[0], port['peer_port']))
