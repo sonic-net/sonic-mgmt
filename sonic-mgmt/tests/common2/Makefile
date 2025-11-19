@@ -3,8 +3,11 @@
 # Configuration
 PYTHON := python3
 MIN_COVERAGE := 80
-COVERAGE_SOURCES := $(filter-out check_coverage.py test_%.py,$(wildcard *.py))
-COVERAGE_TARGETS := $(patsubst %.py,%,$(COVERAGE_SOURCES))
+# Find Python modules in subdirectories, excluding test files, __init__.py, and utility scripts
+COVERAGE_SOURCES := $(shell find . -name "*.py" -not -path "./unit_tests/*" -not -path "./.pytest_cache/*" -not -path "./htmlcov/*" -not -path "./__pycache__/*" -not -name "test_*.py" -not -name "__init__.py" -not -name "check_coverage.py" -not -name "setup.py" -not -name "conftest.py")
+# Convert file paths to module import paths for pytest-cov (e.g., ./routing/bgp/bgp_route_control.py -> routing.bgp.bgp_route_control)
+COVERAGE_TARGETS := $(patsubst ./%.py,%,$(COVERAGE_SOURCES))
+COVERAGE_MODULES := $(subst /,.,$(COVERAGE_TARGETS))
 
 .PHONY: help test test-verbose test-coverage test-coverage-enforced coverage-report coverage-check coverage-enforce clean list-modules set-min-coverage test-bgp
 
@@ -25,7 +28,8 @@ test-coverage:  ## Run unit tests with coverage report (requires pytest-cov: pip
 	@if python3 -c "import pytest_cov" 2>/dev/null; then \
 		if [ -n "$(COVERAGE_SOURCES)" ]; then \
 			$(PYTHON) -m pytest -m unit_test \
-				$(addprefix --cov=,$(COVERAGE_TARGETS)) \
+				--cov=. \
+				--cov-config=.coveragerc \
 				--cov-report=term-missing \
 				--cov-report=html:htmlcov \
 				--tb=short \
@@ -44,7 +48,8 @@ test-coverage-enforced:  ## Run unit tests with coverage and enforce minimum thr
 	@if python3 -c "import pytest_cov" 2>/dev/null; then \
 		if [ -n "$(COVERAGE_SOURCES)" ]; then \
 			$(PYTHON) -m pytest -m unit_test \
-				$(addprefix --cov=,$(COVERAGE_TARGETS)) \
+				--cov=. \
+				--cov-config=.coveragerc \
 				--cov-report=term-missing \
 				--cov-report=html:htmlcov \
 				--cov-fail-under=$(MIN_COVERAGE) \
@@ -83,7 +88,7 @@ coverage-enforce:  ## Enforce coverage requirements (fails if any module below t
 
 test-bgp:  ## Run only BGP route control tests
 	@echo "Running BGP route control unit tests..."
-	@python3 -m pytest unit_tests/test_bgp_route_helper.py -m unit_test -v -W ignore::pytest.PytestUnknownMarkWarning
+	@python3 -m pytest unit_tests/routing/bgp/unit_test_bgp_route_helper.py -m unit_test -v -W ignore::pytest.PytestUnknownMarkWarning
 
 clean:  ## Clean up test artifacts
 	@echo "Cleaning up test artifacts..."
