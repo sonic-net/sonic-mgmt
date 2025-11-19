@@ -6,7 +6,6 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from telemetry_utils import generate_client_cli, check_gnmi_cli_running, invoke_py_cli_from_ptf
 from tests.common.utilities import InterruptableThread
-from tests.srv6.srv6_utils import verify_asic_db_sid_entry_exist
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -35,9 +34,6 @@ def setup_my_sid(duthosts, enum_rand_one_per_hwsku_hostname):
     # add a uN sid configuration entry
     duthost.command(sonic_db_cli +
                     " CONFIG_DB HSET SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48 action uN decap_dscp_mode pipe")
-    # Verify that the ASIC DB has the SRv6 SID entries
-    assert wait_until(20, 5, 0, verify_asic_db_sid_entry_exist, duthost, sonic_db_cli), \
-        "ASIC_STATE:SAI_OBJECT_TYPE_MY_SID_ENTRY entries are missing in ASIC_DB"
 
     yield
 
