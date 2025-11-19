@@ -35,6 +35,8 @@ from .qos_helpers import dutBufferConfig, disable_voq_watchdog
 from tests.common.snappi_tests.qos_fixtures import get_pfcwd_config, reapply_pfcwd
 from tests.common.snappi_tests.common_helpers import \
         stop_pfcwd, disable_packet_aging, enable_packet_aging
+from tests.common.utilities import is_ipv6_only_topology
+
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +46,7 @@ class QosBase:
     Common APIs
     """
     SUPPORTED_T0_TOPOS = [
-        "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56", "dualtor-64",
+        "t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "t0-d18u8s4", "dualtor-56", "dualtor-64",
         "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
@@ -60,6 +62,7 @@ class QosBase:
                            "td3", "th3", "j2c+", "jr2", "th5"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
+    LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32C-C28S4']
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -150,8 +153,11 @@ class QosBase:
             Raises:
                 RunAnsibleModuleFail if ptf test fails
         """
-        custom_options = " --disable-ipv6 --disable-vxlan --disable-geneve" \
+        ip_type = testParams.get("ip_type", "ipv4")
+        custom_options = " --disable-vxlan --disable-geneve" \
                          " --disable-erspan --disable-mpls --disable-nvgre"
+        if ip_type != "ipv6":
+            custom_options += " --disable-ipv6"
         # Append a suffix to the logfile name if log_suffix is present in testParams
         log_suffix = testParams.get("log_suffix", "")
         logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
@@ -959,7 +965,7 @@ class QosSaiBase(QosBase):
     def dutConfig(
             self, request, duthosts, configure_ip_on_ptf_intfs, get_src_dst_asic_and_duts,
             lower_tor_host, tbinfo, dualtor_ports_for_duts, dut_qos_maps,  # noqa: F811
-            is_supported_per_dir, lossy_queue_traffic_direction
+            is_supported_per_dir, lossy_queue_traffic_direction, ip_type
     ):
         """
             Build DUT host config pertaining to QoS SAI tests
@@ -1006,6 +1012,9 @@ class QosSaiBase(QosBase):
             for key, value in src_mgFacts['minigraph_ports'].items()
             if not key.startswith("Ethernet-BP")
             }
+        bgp_peer_ip_key = "peer_ipv6" if ip_type == "ipv6" else "peer_ipv4"
+        ip_version = 6 if ip_type == "ipv6" else 4
+        vlan_info = {}
 
         # LAG ports in T1 TOPO need to be removed in Mellanox devices
         if topo in self.SUPPORTED_T0_TOPOS or (topo in self.SUPPORTED_PTF_TOPOS and isMellanoxDevice(src_dut)):
@@ -1021,13 +1030,15 @@ class QosSaiBase(QosBase):
                     dutLagInterfaces.append(src_mgFacts["minigraph_ptf_indices"][intf])
 
             config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
+            vlan_info = config_facts[src_dut.hostname].get('VLAN', {})
             port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
             low_speed_portIds = []
-            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
+            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS + self.LOW_SPEED_PORT_SKUS and 'backend' not in topo:
                 for speed, portlist in port_speeds.items():
                     if int(speed) < 40000:
                         for portname in portlist:
-                            low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
+                            if portname in src_mgFacts["minigraph_ptf_indices"]:
+                                low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
 
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                                              for port in src_mgFacts["minigraph_ports"].keys())
@@ -1054,7 +1065,7 @@ class QosSaiBase(QosBase):
             for portConfig in intf_map:
                 intf = portConfig["attachto"].split(".")[0]
                 portIndex = src_mgFacts["minigraph_ptf_indices"][intf]
-                if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == 4:
+                if ipaddress.ip_interface(portConfig['peer_addr']).ip.version == ip_version:
                     if portIndex in testPortIds[src_dut_index][src_asic_index]:
                         portIpMap = {'peer_addr': portConfig["peer_addr"]}
                         if 'vlan' in portConfig:
@@ -1114,14 +1125,14 @@ class QosSaiBase(QosBase):
             testPortIds[src_dut_index] = {}
             for dut_asic in get_src_dst_asic_and_duts['all_asics']:
                 dutPortIps[src_dut_index][dut_asic.asic_index] = {}
-                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo).items():
+                for iface, addr in dut_asic.get_active_ip_interfaces(tbinfo, ip_type=ip_type).items():
                     vlan_id = None
                     if iface.startswith("Ethernet"):
                         portName = iface
                         if "." in iface:
                             portName, vlan_id = iface.split(".")
                         portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                        portIpMap = {'peer_addr': addr[bgp_peer_ip_key]}
                         if vlan_id is not None:
                             portIpMap['vlan_id'] = vlan_id
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
@@ -1130,7 +1141,7 @@ class QosSaiBase(QosBase):
                             iter(src_mgFacts["minigraph_portchannels"][iface]["members"])
                         )
                         portIndex = src_mgFacts["minigraph_ptf_indices"][portName]
-                        portIpMap = {'peer_addr': addr["peer_ipv4"]}
+                        portIpMap = {'peer_addr': addr[bgp_peer_ip_key]}
                         dutPortIps[src_dut_index][dut_asic.asic_index].update({portIndex: portIpMap})
                     # If the leaf router is using separated DSCP_TO_TC_MAP on uplink/downlink ports.
                     # we also need to test them separately
@@ -1142,11 +1153,11 @@ class QosSaiBase(QosBase):
                         neighName = src_mgFacts["minigraph_neighbors"].get(portName, {}).get("name", "").lower()
                         if 't0' in neighName:
                             downlinkPortIds.append(portIndex)
-                            downlinkPortIps.append(addr["peer_ipv4"])
+                            downlinkPortIps.append(addr[bgp_peer_ip_key])
                             downlinkPortNames.append(portName)
                         elif 't2' in neighName:
                             uplinkPortIds.append(portIndex)
-                            uplinkPortIps.append(addr["peer_ipv4"])
+                            uplinkPortIps.append(addr[bgp_peer_ip_key])
                             uplinkPortNames.append(portName)
 
                 testPortIds[src_dut_index][dut_asic.asic_index] = sorted(
@@ -1387,7 +1398,9 @@ class QosSaiBase(QosBase):
             "srcDutInstance": src_dut,
             "dstDutInstance": dst_dut,
             "dualTor": request.config.getoption("--qos_dual_tor"),
-            "dualTorScenario": len(dualtor_ports_for_duts) != 0 and "dualtor" not in tbinfo["topo"]["name"]
+            "dualTorScenario": len(dualtor_ports_for_duts) != 0 and "dualtor" not in tbinfo["topo"]["name"],
+            "ip_type": ip_type,
+            "vlan_info": vlan_info
         }
 
     @pytest.fixture(scope='class')
@@ -1936,6 +1949,42 @@ class QosSaiBase(QosBase):
                 self.__loadSwssConfig(duthost)
             self.__deleteTmpSwitchConfig(duthost)
 
+    @pytest.fixture(scope='class', autouse=True)
+    def update_delay_first_probe_time_for_v6_top(self, get_src_dst_asic_and_duts, tbinfo, dutConfig):
+        """
+        Update delay first probe time for v6 t0 topology.
+        Because when generating arp by sending NS packet, the default delay first probe time is 5 seconds,
+        which is too short to let the ip neighbor status changed from delay to probe, then to fail.
+        Therefore, we need to update the delay first probe time to a very large value
+        so that the arp entries can work during executing the qos sai case.
+        """
+        ip_type = dutConfig.get('ip_type', 'ipv4')
+        if ip_type != 'ipv6' or 't0' not in tbinfo["topo"]["type"]:
+            yield
+            return
+
+        Vlan_name = list(dutConfig['vlan_info'].keys())[0]
+        dut_asic = get_src_dst_asic_and_duts['src_asic']
+        file_path_v6_delay_first_probe_time = f"/proc/sys/net/ipv6/neigh/{Vlan_name}/delay_first_probe_time"
+        cmd_get_v6_delay_first_probe_time = f"cat {file_path_v6_delay_first_probe_time}"
+
+        # a very large value 100000 seconds which far exceeds the qos sai case execution time
+        # so that the status of tested ip v6 neighbor item not be changed from delay to probe, then to fail.
+        new_v6_delay_first_probe_time = 100000
+
+        original_v6_delay_first_probe_time = dut_asic.shell(cmd_get_v6_delay_first_probe_time)['stdout']
+
+        cmd_update_v6_delay_first_probe_time = \
+            f"echo {new_v6_delay_first_probe_time} | sudo tee {file_path_v6_delay_first_probe_time}"
+        dut_asic.shell(cmd_update_v6_delay_first_probe_time)
+
+        yield
+
+        cmd_restore_v6_delay_first_probe_time = \
+            f"echo {original_v6_delay_first_probe_time} | sudo tee {file_path_v6_delay_first_probe_time}"
+        dut_asic.shell(cmd_restore_v6_delay_first_probe_time)
+        return
+
     @pytest.fixture(scope='function', autouse=True)
     def populateArpEntries_T2(
             self, duthosts, get_src_dst_asic_and_duts, ptfhost, dutTestParams, dutConfig):
@@ -1983,7 +2032,8 @@ class QosSaiBase(QosBase):
     @pytest.fixture(scope='class', autouse=True)
     def populateArpEntries(
         self, duthosts, get_src_dst_asic_and_duts, lossy_queue_traffic_direction,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa: F811
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host,  # noqa: F811
+        ip_type, update_delay_first_probe_time_for_v6_top  # noqa: F811
     ):
         """
             Update ARP entries of QoS SAI test ports
@@ -2012,13 +2062,19 @@ class QosSaiBase(QosBase):
 
         self.populate_arp_entries(
             get_src_dst_asic_and_duts, ptfhost, dutTestParams,
-            dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host)
+            dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host, ip_type)
 
         yield
         return
 
     @pytest.fixture(scope='module', autouse=True)
-    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts):  # noqa: F811
+    def dut_disable_ipv6(self, duthosts, tbinfo, lower_tor_host, swapSyncd_on_selected_duts, ip_type):  # noqa: F811
+
+        if ip_type == "ipv6":
+            logger.info("skip dut_disable_ipv6 fixture for ipv6")
+            yield
+            return
+
         if 'dualtor' in tbinfo['topo']['name']:
             dut_list = [lower_tor_host]
         else:
@@ -2677,7 +2733,8 @@ class QosSaiBase(QosBase):
 
     def populate_arp_entries(
         self, get_src_dst_asic_and_duts,
-        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host  # noqa: F811
+        ptfhost, dutTestParams, dutConfig, releaseAllPorts, handleFdbAging, tbinfo, lower_tor_host,  # noqa: F811
+        ip_type='ipv4'
     ):
         """
         Update ARP entries of QoS SAI test ports
@@ -2688,16 +2745,20 @@ class QosSaiBase(QosBase):
         dut_asic.command('sonic-clear arp')
 
         saiQosTest = None
-        if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulate"
-        elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
-            saiQosTest = "sai_qos_tests.ARPpopulatePTF"
+        if ip_type == "ipv6":
+            saiQosTest = "sai_qos_tests.ARPpopulateIPv6"
         else:
-            for dut_asic in get_src_dst_asic_and_duts['all_asics']:
-                result = dut_asic.command("arp -n")
-                pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(dut_asic.sonichost.hostname))
-                if result["stdout"].find("incomplete") == -1:
-                    saiQosTest = "sai_qos_tests.ARPpopulate"
+            if dutTestParams["topo"] in self.SUPPORTED_T0_TOPOS:
+                saiQosTest = "sai_qos_tests.ARPpopulate"
+            elif dutTestParams["topo"] in self.SUPPORTED_PTF_TOPOS:
+                saiQosTest = "sai_qos_tests.ARPpopulatePTF"
+            else:
+                for dut_asic in get_src_dst_asic_and_duts['all_asics']:
+                    result = dut_asic.command("arp -n")
+                    pytest_assert(result["rc"] == 0, "failed to run arp command on {0}".format(
+                        dut_asic.sonichost.hostname))
+                    if result["stdout"].find("incomplete") == -1:
+                        saiQosTest = "sai_qos_tests.ARPpopulate"
 
         if saiQosTest:
             testParams = dutTestParams["basicParams"]
@@ -2705,7 +2766,8 @@ class QosSaiBase(QosBase):
             testParams.update({
                 "testPortIds": dutConfig["testPortIds"],
                 "testPortIps": dutConfig["testPortIps"],
-                "testbed_type": dutTestParams["topo"]
+                "testbed_type": dutTestParams["topo"],
+                "ip_type": ip_type
             })
             self.runPtfTest(
                 ptfhost, testCase=saiQosTest, testParams=testParams
@@ -3013,6 +3075,11 @@ def set_queue_pir(interface, queue, rate):
             logging.info(f"Device not support per dir: {lossy_queue_dir_test}")
         yield lossy_queue_dir_test
 
+    @pytest.fixture(scope='module', autouse=True)
+    def ip_type(self, tbinfo):
+        ip_type = "ipv6" if is_ipv6_only_topology(tbinfo) else "ipv4"
+        yield ip_type
+
     def get_src_and_dst_ports_when_support_per_dir(self, uplinkPortIds, downlinkPortIds, lossy_queue_traffic_direction):
         if 'src_uplink_dst_downlink' == lossy_queue_traffic_direction:
             src_port_ids = uplinkPortIds
@@ -3069,7 +3136,7 @@ def set_queue_pir(interface, queue, rate):
         queue_dynamic_th_map = {}
         weights_list = []
         for queue in queue_table_postfix_list:
-            key_str = f"BUFFER_PROFILE_TABLE:queue{queue}_downlink_lossy_profile"
+            key_str = f"BUFFER_PROFILE_TABLE:queue{queue}_downlink_lossy_profile"  # noqa: E231
             dynamic_th_res = duthost.run_redis_cmd(argv=["redis-cli", "-n", 0, "HGET", key_str, "dynamic_th"])
             if dynamic_th_res:
                 queue_dynamic_th_map[queue] = dynamic_th_res[0]
