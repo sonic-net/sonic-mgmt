@@ -140,9 +140,8 @@ class TestInteropProtocol():
                 check_bgp_established, ctrl_port, upstream_links[ctrl_port]
             ), (
                 "BGP session did not establish within the specified timeout for port '{}'. "
-                "Current status: '{}'.".format(
-                    ctrl_port,
-                    check_bgp_established(ctrl_port, upstream_links[ctrl_port])["status"]
+                "Upstream link details: '{}'.".format(
+                    ctrl_port, upstream_links[ctrl_port]
                 )
             )
 
@@ -165,9 +164,8 @@ class TestInteropProtocol():
                 check_bgp_established, ctrl_port, upstream_links[ctrl_port]
             ), (
                 "BGP session for control port '{}' did not reach 'Established'. "
-                "Current state: {}.".format(
-                    ctrl_port,
-                    check_bgp_established(ctrl_port, upstream_links[ctrl_port])
+                "Upstream link details: {}.".format(
+                    ctrl_port, upstream_links[ctrl_port]
                 )
             )
 
@@ -189,9 +187,8 @@ class TestInteropProtocol():
                 check_bgp_established, ctrl_port, upstream_links[ctrl_port]
             ), (
                 "Assertion failed: BGP session for control port '{}' did not reach 'Established' state "
-                "within the timeout period. Current BGP state: {}.".format(
-                    ctrl_port,
-                    check_bgp_established(ctrl_port, upstream_links[ctrl_port])
+                "within the timeout period. Upstream link details: {}.".format(
+                    ctrl_port, upstream_links[ctrl_port]
                 )
             )
 
