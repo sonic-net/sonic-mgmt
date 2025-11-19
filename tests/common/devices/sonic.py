@@ -1931,7 +1931,9 @@ Totals               6450                 6449
 
     def get_interfaces_status(self, namespace=None):
         '''
-        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Get interfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Can be called with namespace for multi-asic devices to get output on specific namespace. If no namespace
+        is provided, the output will be from all namespaces.
 
         Example output:
             {
