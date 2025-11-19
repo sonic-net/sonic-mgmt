@@ -139,12 +139,13 @@ def generate_dpu_config(
 ):
     dpu = {}
     for idx in range(dpu_count):
+        pa_idx = idx + 1
         dpu[f"dpu0_{idx}"] = {
             "dpu_id": str(idx),
             "gnmi_port": "50051",
             "local_port": "8080",
             "orchagent_zmq_port": "8100",
-            "pa_ipv4": f"{pa_prefix}{idx}",
+            "pa_ipv4": f"{pa_prefix}{pa_idx}",
             "state": "up",
             "swbus_port": str(swbus_start + idx),
             "vdpu_id": f"vdpu0_{idx}",
@@ -238,13 +239,14 @@ def generate_dut2_dpu_config(
     dpu = {}
 
     for idx in range(dpu_count):
+        pa_idx = idx + 1
         dpu[f"dpu1_{idx}"] = {
             "dpu_id": str(idx),
             "gnmi_port": "50051",
             "local_port": "8080",
             "midplane_ipv4": f"{midplane_prefix}{idx+1}",
             "orchagent_zmq_port": "8100",
-            "pa_ipv4": f"{pa_prefix}{idx}",
+            "pa_ipv4": f"{pa_prefix}{pa_idx}",
             "state": "up",
             "swbus_port": str(swbus_start + idx),
             "vdpu_id": f"vdpu1_{idx}",
