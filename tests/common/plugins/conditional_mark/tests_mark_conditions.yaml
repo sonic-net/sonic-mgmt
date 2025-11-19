@@ -4247,18 +4247,14 @@ qos/test_voq_watchdog.py:
 #######################################
 radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
@@ -4267,10 +4263,8 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
@@ -4279,10 +4273,8 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/11322 and 'dualtor-64' in topo_name"
   xfail:
-    reason: "xfail for IPv6-only topologies, need to added support for IPv6-only. Or test case has issue on the t0-isolated-d256u256s2 topo."
-    conditions_logical_operator: or
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
