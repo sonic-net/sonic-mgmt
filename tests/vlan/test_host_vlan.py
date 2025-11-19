@@ -5,12 +5,12 @@ import time
 import tempfile
 import json
 
-from scapy.all import sniff
+from scapy.all import sniff, Raw
 from ptf import testutils
 
 from tests.common.dualtor.mux_simulator_control import mux_server_url                                   # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
-from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv4_address, is_ipv6_address
 from tests.common.utilities import wait_until, delete_running_config
 from tests.common.utilities import skip_release
 from tests.common.helpers.assertions import pytest_assert
@@ -23,6 +23,7 @@ DUT_VLAN_INTF_MAC = "00:00:11:22:33:44"
 DUT_ICMP_DUMP_FILE = "/tmp/icmp.pcap"
 HOST_PORT_FLOODING_CHECK_COUNT = 5
 ICMP_PKT_SRC_IP = "1.1.1.1"
+ICMP_PKT_SRC_IPV6 = "2001:db8::1"
 ICMP_PKT_COUNT = 10
 ICMP_PKT_FINGERPRINT = "HOSTVLANFLOODINGTEST"
 
@@ -30,7 +31,7 @@ ICMP_PKT_FINGERPRINT = "HOSTVLANFLOODINGTEST"
 @contextlib.contextmanager
 def log_icmp_updates(duthost, iface, save_path):
     """Capture icmp packets to file."""
-    start_pcap = "tcpdump -i %s -w %s icmp" % (iface, save_path)
+    start_pcap = "tcpdump -i %s -w %s icmp or icmp6" % (iface, save_path)
     stop_pcap = "pkill -f '%s'" % start_pcap
     start_pcap = "nohup %s &" % start_pcap
     duthost.shell(start_pcap)
@@ -49,8 +50,21 @@ def testbed_params(duthosts, rand_one_dut_hostname, tbinfo):
     vlan_intf_name = list(mg_facts["minigraph_vlans"].keys())[0]
     vlan_member_ports = mg_facts["minigraph_vlans"][vlan_intf_name]["members"]
     vlan_member_ports_to_ptf_ports = {_: mg_facts["minigraph_ptf_indices"][_] for _ in vlan_member_ports}
-    vlan_intf = [_ for _ in mg_facts["minigraph_vlan_interfaces"] if _["attachto"] == vlan_intf_name
-                 and is_ipv4_address(_["addr"])][0]
+
+    # Try to find IPv4 address first, fall back to IPv6 if not found
+    vlan_intf_ipv4 = [_ for _ in mg_facts["minigraph_vlan_interfaces"] if _["attachto"] == vlan_intf_name
+                      and is_ipv4_address(_["addr"])]
+    vlan_intf_ipv6 = [_ for _ in mg_facts["minigraph_vlan_interfaces"] if _["attachto"] == vlan_intf_name
+                      and is_ipv6_address(_["addr"])]
+
+    # Prefer IPv4, but use IPv6 if no IPv4 is available
+    if vlan_intf_ipv4:
+        vlan_intf = vlan_intf_ipv4[0]
+    elif vlan_intf_ipv6:
+        vlan_intf = vlan_intf_ipv6[0]
+    else:
+        pytest.fail("No IPv4 or IPv6 address found for VLAN interface %s" % vlan_intf_name)
+
     return vlan_intf, vlan_member_ports_to_ptf_ports
 
 
@@ -138,13 +152,28 @@ def test_host_vlan_no_floodling(
     test_ptf_port_mac = ptfadapter.dataplane.get_mac(0, test_ptf_port)
     dut_ports_to_check = selected_test_ports[1:]
 
-    icmp_pkt = testutils.simple_icmp_packet(
-        eth_dst=vlan_intf_mac,
-        eth_src=test_ptf_port_mac,
-        ip_src=ICMP_PKT_SRC_IP,
-        ip_dst=vlan_intf["addr"],
-        icmp_data=ICMP_PKT_FINGERPRINT
-    )
+    # Determine if we're using IPv4 or IPv6 and create appropriate ICMP packet
+    is_ipv4 = is_ipv4_address(vlan_intf["addr"])
+
+    if is_ipv4:
+        icmp_pkt = testutils.simple_icmp_packet(
+            eth_dst=vlan_intf_mac,
+            eth_src=test_ptf_port_mac,
+            ip_src=ICMP_PKT_SRC_IP,
+            ip_dst=vlan_intf["addr"],
+            icmp_data=ICMP_PKT_FINGERPRINT
+        )
+    else:
+        # For IPv6, simple_icmpv6_packet doesn't support icmp_data parameter
+        # So we build the packet and add Raw payload manually
+        icmp_pkt = testutils.simple_icmpv6_packet(
+            eth_dst=vlan_intf_mac,
+            eth_src=test_ptf_port_mac,
+            ipv6_src=ICMP_PKT_SRC_IPV6,
+            ipv6_dst=vlan_intf["addr"]
+        )
+        # Add custom payload data to the ICMPv6 packet for fingerprinting
+        icmp_pkt = icmp_pkt / Raw(load=ICMP_PKT_FINGERPRINT)
 
     ptfadapter.before_send = lambda *kargs, **kwargs: time.sleep(.5)
     for dut_port_to_check in dut_ports_to_check:

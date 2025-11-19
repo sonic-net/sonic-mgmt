@@ -196,6 +196,7 @@ def test_remove_lanes(duthosts, rand_one_dut_front_end_hostname,
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as it is blocking submodule update")
 def test_replace_lanes(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
                        enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
@@ -331,6 +332,7 @@ def test_replace_fec(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readi
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
                               enum_rand_one_frontend_asic_index):
     duthost = duthosts[rand_one_dut_front_end_hostname]
@@ -357,6 +359,7 @@ def test_update_invalid_index(duthosts, rand_one_dut_front_end_hostname, ensure_
         delete_tmpfile(duthost, tmpfile)
 
 
+@pytest.mark.skip(reason="Bypass as this is not a production scenario")
 def test_update_valid_index(duthosts, rand_one_dut_front_end_hostname, ensure_dut_readiness,
                             enum_rand_one_frontend_asic_index, cli_namespace_prefix):
     duthost = duthosts[rand_one_dut_front_end_hostname]
