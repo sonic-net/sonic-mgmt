@@ -215,7 +215,10 @@ def generate_remote_dpu_config(
 
 def generate_full_config():
     # Generate VLAN config
-    vlan, vlan_intf, vlan_member = generate_vlan_config()
+    vlan, vlan_intf, vlan_member = generate_vlan_config(
+        svi_ip="20.0.200.14/28"
+    )
+
     return {
         "DPU": generate_dpu_config(),
         "REMOTE_DPU": generate_remote_dpu_config(),
@@ -323,7 +326,9 @@ def generate_dut2_remote_dpu_config(
 
 def generate_dut2_full_config():
     # Generate VLAN config
-    vlan, vlan_intf, vlan_member = generate_vlan_config()
+    vlan, vlan_intf, vlan_member = generate_vlan_config(
+        svi_ip="20.0.201.14/28"
+    )
 
     return {
         "DPU": generate_dut2_dpu_config(),
