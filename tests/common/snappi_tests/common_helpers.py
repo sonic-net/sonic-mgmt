@@ -187,29 +187,23 @@ def get_pg_dropped_packets(duthost, phys_intf, prio, asic_value=None):
     return dropped_packets
 
 
-def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=[]):
+def get_addrs_in_subnet(subnet, number_of_ip, exclude_ips=None):
     """
-    Get N IP addresses in a subnet (supports both IPv4 and IPv6).
-
-    Args:
-        subnet (str): IPv4 or IPv6 subnet, e.g., '192.168.1.0/24' or '2001:db8::/32'
-        number_of_ip (int): Number of IP addresses to retrieve
-        exclude_ips (list): List of IP addresses to exclude from the result
-
-    Returns:
-        list: List of N IP addresses in this subnet, excluding specified addresses.
+    Efficiently yield N IPs from a subnet, skipping excluded IPs.
+    Handles large IPv6 subnets quickly.
     """
-    try:
-        ip_network = IPNetwork(subnet)
-        # Generate the list of usable IP addresses
-        ip_addrs = [str(ip) for ip in ip_network.iter_hosts()]
-        # Exclude provided IPs
-        ip_addrs = [ip for ip in ip_addrs if ip not in exclude_ips]
-        # Return the first 'number_of_ips' addresses
-        return ip_addrs[:number_of_ip]
-    except Exception as e:
-        print(f"Error processing subnet {subnet}: {e}")
-        return []
+    net = ipaddress.ip_network(subnet, strict=False)
+    exclude_set = set(exclude_ips) if exclude_ips else set()
+    results = []
+
+    # Calculate the first usable host (for IPv4, skip network & broadcast)
+    hosts = net.hosts() if net.version == 4 else net.hosts()
+    for addr in hosts:
+        if str(addr) not in exclude_set:
+            results.append(str(addr))
+            if len(results) == number_of_ip:
+                break
+    return results
 
 
 def get_peer_snappi_chassis(conn_data, dut_hostname):
