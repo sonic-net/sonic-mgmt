@@ -92,6 +92,8 @@ class AdvancedReboot:
         self.allowMacJump = kwargs["allow_mac_jumping"] if "allow_mac_jumping" in kwargs else False
         self.advanceboot_loganalyzer = kwargs["advanceboot_loganalyzer"] if "advanceboot_loganalyzer"\
                                                                             in kwargs else None
+        self.consistency_checker_provider = kwargs["consistency_checker_provider"] if "consistency_checker_provider"\
+                                                                                      in kwargs else None
         self.other_vendor_nos = kwargs['other_vendor_nos'] if 'other_vendor_nos' in kwargs else False
         self.__dict__.update(kwargs)
         self.__extractTestParam()
@@ -557,6 +559,50 @@ class AdvancedReboot:
         if int(acl_proc_count) != 1:
             error_list.append("Expected one ACL manager process running. Actual: {}".format(acl_proc_count))
 
+    def check_asic_and_db_consistency(self):
+        """
+        Check ASIC_DB and ASIC consistency, logging out any inconsistencies that are found.
+        """
+        if not self.consistency_checker_provider.is_consistency_check_supported(self.duthost):
+            os_version = self.duthost.image_facts()["ansible_facts"]["ansible_image_facts"]["current"]
+            platform = self.duthost.facts['platform']
+            logger.info((f"Consistency check is not supported on this platform ({platform}) and "
+                        f"version ({os_version})"))
+            return
+
+        with self.consistency_checker_provider.get_consistency_checker(self.duthost) as consistency_checker:
+            inconsistencies = consistency_checker.check_consistency()
+            not_implemented_attributes = set()
+            mismatched_attributes = {}
+            failed_to_query_asic_attributes = {}
+
+            for sai_object, summary in inconsistencies.items():
+                # Not implemented attributes
+                object_name = sai_object.split(":")[1]
+                for attr in summary["attributeNotImplemented"]:
+                    not_implemented_attributes.add(f"{object_name}.{attr}")
+
+                # Mismatched attributes
+                mismatched_attributes = {
+                    attr: summary["attributes"][attr] for attr
+                    in summary["mismatchedAttributes"]
+                }
+                if mismatched_attributes:
+                    mismatched_attributes[sai_object] = mismatched_attributes
+
+                # Failed to query ASIC attributes
+                if summary["failedToQueryAsic"]:
+                    failed_to_query_asic_attributes[sai_object] = summary["failedToQueryAsic"]
+
+            if not_implemented_attributes:
+                logger.warning(f"Not implemented attributes: {not_implemented_attributes}")
+
+            if mismatched_attributes:
+                logger.error(f"Mismatched attributes found: {mismatched_attributes}")
+
+            if failed_to_query_asic_attributes:
+                logger.error(f"Failed to query ASIC attributes: {failed_to_query_asic_attributes}")
+
     def runRebootTest(self):
         # Run advanced-reboot.ReloadTest for item in preboot/inboot list
         count = 0
@@ -597,6 +643,8 @@ class AdvancedReboot:
             finally:
                 if self.postboot_setup:
                     self.postboot_setup()
+                if self.consistency_checker_provider:
+                    self.check_asic_and_db_consistency()
                 # capture the test logs, and print all of them in case of failure, or a summary in case of success
                 log_dir = self.__fetchTestLogs(rebootOper)
                 self.print_test_logs_summary(log_dir)
