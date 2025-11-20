@@ -18,3 +18,112 @@
       - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/sonic:/var/sonic
       - /{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr:/etc/frr
   delegate_to: "{{ VM_host[0] }}"
+
+- name: Wait for container to be fully started
+  pause:
+    seconds: 5
+
+- name: Load config_db.json into SONiC ConfigDB
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} config load /var/sonic/config_db.json -y
+  delegate_to: "{{ VM_host[0] }}"
+  register: config_load_result
+  failed_when: false
+
+- name: Display config load result
+  debug:
+    msg:
+      - "Config load stdout: {{ config_load_result.stdout }}"
+      - "Config load stderr: {{ config_load_result.stderr }}"
+      - "Config load rc: {{ config_load_result.rc }}"
+  when: config_load_result is defined
+
+- name: Fail if config load had errors
+  fail:
+    msg: "Config load failed: {{ config_load_result.stderr }}"
+  when: config_load_result.rc != 0 and config_load_result.rc is defined
+
+- name: Wait for configuration to be applied
+  pause:
+    seconds: 3
+
+- name: Bring up front panel interface in container
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set {{ item }} up
+  delegate_to: "{{ VM_host[0] }}"
+  loop: "{{ host['interfaces'].keys() | select('match', '^Ethernet[0-9]+$') | list }}"
+  vars:
+    host: "{{ configuration[inventory_hostname] }}"
+  register: ifup_result
+  failed_when: false
+
+- name: Bring up backplane interface if defined
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} ip link set eth_bp up
+  delegate_to: "{{ VM_host[0] }}"
+  when: configuration[inventory_hostname]['bp_interface'] is defined
+  register: bp_ifup_result
+  failed_when: false
+
+- name: Set proper ownership for FRR config files
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} chown -R frr:frr /etc/frr
+  delegate_to: "{{ VM_host[0] }}"
+  register: chown_result
+  failed_when: false
+
+- name: Set proper permissions for FRR config files
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} chmod 640 /etc/frr/*.conf
+  delegate_to: "{{ VM_host[0] }}"
+  register: chmod_result
+  failed_when: false
+
+- name: Start zebra daemon in cSONiC container
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl start zebra
+  delegate_to: "{{ VM_host[0] }}"
+  register: zebra_start
+  failed_when: false
+
+- name: Start bgpd daemon in cSONiC container
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl start bgpd
+  delegate_to: "{{ VM_host[0] }}"
+  register: bgpd_start
+  failed_when: false
+
+- name: Display zebra startup status
+  debug:
+    msg: "Zebra daemon status: {{ zebra_start.stdout }}"
+  when: zebra_start.stdout is defined
+
+- name: Display bgpd startup status
+  debug:
+    msg: "BGPd daemon status: {{ bgpd_start.stdout }}"
+  when: bgpd_start.stdout is defined
+
+- name: Check FRR daemon status
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} supervisorctl status
+  delegate_to: "{{ VM_host[0] }}"
+  register: daemon_status
+  failed_when: false
+
+- name: Display all daemon statuses
+  debug:
+    msg: "{{ daemon_status.stdout_lines }}"
+  when: daemon_status.stdout_lines is defined
+
+- name: Verify BGP is running
+  become: yes
+  command: docker exec csonic_{{ vm_set_name }}_{{ inventory_hostname }} vtysh -c "show bgp summary"
+  delegate_to: "{{ VM_host[0] }}"
+  register: bgp_summary
+  failed_when: false
+  ignore_errors: yes
+
+- name: Display BGP summary
+  debug:
+    msg: "{{ bgp_summary.stdout_lines }}"
+  when: bgp_summary.stdout_lines is defined

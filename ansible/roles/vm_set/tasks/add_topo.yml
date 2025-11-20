@@ -220,7 +220,7 @@
   - include_tasks: add_ceos_list.yml
     when: vm_type is defined and vm_type == "ceos"
 
-  - include_tasks: add_cnet_list.yml
+  - include_tasks: add_csonic_list.yml
     when: vm_type is defined and (vm_type == "csonic")
 
   - name: Bind topology {{ topo }} to VMs. base vm = {{ VM_base }}

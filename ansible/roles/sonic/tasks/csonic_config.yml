@@ -49,3 +49,15 @@
   template: src="zebra-{{ topo }}-{{ props.swrole }}.j2"
             dest="/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr/zebra.conf"
   delegate_to: "{{ VM_host[0] }}"
+
+- name: create frr daemons config
+  become: yes
+  template: src="frr-daemons"
+            dest="/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr/daemons"
+  delegate_to: "{{ VM_host[0] }}"
+
+- name: create vtysh config
+  become: yes
+  template: src="frr-vtysh.conf"
+            dest="/{{ csonic_image_mount_dir }}/csonic_{{ vm_set_name }}_{{ inventory_hostname }}/frr/vtysh.conf"
+  delegate_to: "{{ VM_host[0] }}"
