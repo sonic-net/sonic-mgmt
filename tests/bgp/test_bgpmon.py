@@ -48,7 +48,7 @@ def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR, is_ipv6=False)
         else:
             port_indices.append(mg_facts['minigraph_ptf_indices'][port])
 
-    turn port_indices
+    return port_indices
 
 
 @pytest.fixtu
