@@ -38,7 +38,7 @@ strtk5-7260-root-01,Ethernet55/1,strtk5-7260-fanout-36,Ethernet36/1,100000,"2589
 strtk5-7260-root-01,Ethernet27/1,strtk5-7060cx-fanout-01,Ethernet32/1,100000,"1752-1765,1767-1770",Trunk
 strtk5-7260-root-01,Ethernet28/1,strtk5-7060cx-fanout-02,Ethernet32/1,100000,"457-487",Trunk
 strtk5-7260-root-01,Ethernet29/1,strtk5-7060cx-fanout-03,Ethernet32/1,100000,"1214-1224,1385-1404",Trunk
-strtk5-7260-root-01,Ethernet30/1,strtk5-e1031-fanout-01,Ethernet48,100000,"925-936,969-1004",Trunk
+strtk5-7260-root-01,Ethernet30/1,strtk5-e1031-fanout-01,Ethernet48,10000,"925-936,969-1004",Trunk
 strtk5-7260-root-01,Ethernet31/1,strtk5-7215-05,Ethernet48,10000,"2781-2828",Trunk
 strtk5-7260-root-01,Ethernet32/1,strtk5-7260-fanout-27,Ethernet64/1,100000,"1087-1128,1193-1213",Trunk
 strtk5-7260-root-01,Ethernet33/1,strtk5-7260-fanout-29,Ethernet64/1,100000,"146-176,2829-2860",Trunk
