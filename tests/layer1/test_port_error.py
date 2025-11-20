@@ -15,7 +15,7 @@ pytestmark = [
 ]
 
 pytest_plugins = [
-    "test.platform_tests.mellanox.conftest"
+    "tests.platform_tests.mellanox.conftest"
 ]
 
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
