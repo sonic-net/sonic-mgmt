@@ -51,7 +51,7 @@ def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR, is_ipv6=False)
     return port_indices
 
 
-@pytest.fixtu
+@pytest.fixture
 def common_setup_teardown(dut_with_default_route, tbinfo):
     duthost = dut_with_default_route
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
@@ -80,10 +80,10 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
     for lo_intf in mg_facts['minigraph_lo_interfaces']:
         if is_ipv6_only and ':' in lo_intf['addr']:
             local_addr = lo_intf['addr']
-            bak
+            break
         elif not is_ipv6_only and ':' not in lo_intf['addr']:
             local_addr = lo_intf['addr']
-            bak
+            break
 
     pytest_assert(local_addr, "Failed to get appropriate loopback addss")
 
@@ -115,15 +115,15 @@ def build_syn_pkt(local_addr, peer_addr, is_ipv6=False):
             tcp_flags="S"
         )
         exp_packet = Mask(pkt)
-        exp_packet.set_do_not_ca_scapy(scapy.Ether, "dst")
-        exp_packet.set_do_not_ca_scapy(scapy.Ether, "src")
+        exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
 
-        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "version")
-        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "tc")
-        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "fl")
-        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "plen")
-        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "nh")
-        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "hlim")
+        exp_packet.set_do_not_care_scapy(scapy.IPv6, "version")
+        exp_packet.set_do_not_care_scapy(scapy.IPv6, "tc")
+        exp_packet.set_do_not_care_scapy(scapy.IPv6, "fl")
+        exp_packet.set_do_not_care_scapy(scapy.IPv6, "plen")
+        exp_packet.set_do_not_care_scapy(scapy.IPv6, "nh")
+        exp_packet.set_do_not_care_scapy(scapy.IPv6, "hlim")
     else:
         pkt = testutils.simple_tcp_packet(
             pktlen=54,
@@ -133,16 +133,16 @@ def build_syn_pkt(local_addr, peer_addr, is_ipv6=False):
             tcp_flags="S"
         )
         exp_packet = Mask(pkt)
-        exp_packet.set_do_not_ca_scapy(scapy.Ether, "dst")
-        exp_packet.set_do_not_ca_scapy(scapy.Ether, "src")
+        exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
+        exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
 
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "version")
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "ihl")
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "tos")
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "len")
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "id")
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "flags")
-        exp_packet.set_do_not_ca_scapy(scapy.IP, "frag")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "version")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "ihl")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "tos")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "len")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "id")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "flags")
+        exp_packet.set_do_not_care_scapy(scapy.IP, "frag")
         exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
         exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
         exp_packet.set_do_not_care_scapy(scapy.IP, "options")
