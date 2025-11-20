@@ -307,9 +307,9 @@ def test_hft_disabled_stream(duthosts, enum_rand_one_per_hwsku_hostname,
 
         # Define state sequence: enabled -> disabled -> enabled
         state_sequence = [
-            ("enabled", 60),   # Phase 1: 60 seconds enabled
-            ("disabled", 60),  # Phase 2: 60 seconds disabled
-            ("enabled", 60)    # Phase 3: 60 seconds enabled again
+            ("enabled", 240),   # Phase 1: 240 seconds enabled
+            ("disabled", 240),  # Phase 2: 240 seconds disabled
+            ("enabled", 240)    # Phase 3: 240 seconds enabled again
         ]
 
         logger.info("Starting continuous countersyncd monitoring with state transitions...")
@@ -401,9 +401,9 @@ def test_hft_config_deletion_stream(duthosts, enum_rand_one_per_hwsku_hostname,
     try:
         # Define configuration sequence: create -> delete -> create
         config_sequence = [
-            ("create", 60),   # Phase 1: 60 seconds with configuration
-            ("delete", 60),   # Phase 2: 60 seconds without configuration
-            ("create", 60)    # Phase 3: 60 seconds with configuration again
+            ("create", 240),   # Phase 1: 240 seconds with configuration
+            ("delete", 240),   # Phase 2: 240 seconds without configuration
+            ("create", 240)    # Phase 3: 240 seconds with configuration again
         ]
 
         logger.info("Starting continuous countersyncd monitoring with configuration transitions...")
@@ -675,9 +675,9 @@ def test_hft_port_shutdown_stream(duthosts, enum_rand_one_per_hwsku_hostname,
 
         # Define port state sequence: up -> down -> up
         port_state_sequence = [
-            ("up", 60),     # Phase 1: 60 seconds with port up
-            ("down", 60),   # Phase 2: 60 seconds with port down
-            ("up", 60)      # Phase 3: 60 seconds with port up again
+            ("up", 240),     # Phase 1: 240 seconds with port up
+            ("down", 240),   # Phase 2: 240 seconds with port down
+            ("up", 240)      # Phase 3: 240 seconds with port up again
         ]
 
         logger.info("Starting continuous countersyncd monitoring with port state transitions and PTF traffic...")

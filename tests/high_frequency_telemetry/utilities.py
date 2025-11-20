@@ -227,14 +227,14 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
                 f"for profile '{profile_name}'")
 
 
-def run_countersyncd_and_capture_output(duthost, timeout=360, stats_interval=60):
+def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=10):
     """
     Run countersyncd command and capture output.
 
     Args:
         duthost: DUT host object
-        timeout: Timeout in seconds (default: 360)
-        stats_interval: Stats reporting interval in seconds (default: 60)
+        timeout: Timeout in seconds (default: 120)
+        stats_interval: Stats reporting interval in seconds (default: 10)
 
     Returns:
         dict: Command result with stdout, stderr, rc
@@ -281,7 +281,7 @@ class CountersyncdMonitor:
 
         # Start countersyncd in background and redirect output to file
         countersyncd_cmd = (
-            f'nohup docker exec swss countersyncd -e --max-stats-per-report 0 '
+            f'nohup docker exec swss countersyncd -e --max-stats-per-report 0 --stats-interval 60 '
             f' > {self.output_file} 2>&1 &'
         )
         logger.info(
@@ -753,7 +753,7 @@ def validate_counter_output(
 
     if expect_disabled:
         return validate_disabled_stream_output(
-            output, expected_objects, expected_poll_interval
+            output, expected_objects
         )
     else:
         return validate_enabled_stream_output(
@@ -951,7 +951,7 @@ def validate_enabled_stream_output(
     }
 
 
-def validate_disabled_stream_output(output, expected_objects, expected_poll_interval):
+def validate_disabled_stream_output(output, expected_objects):
     """
     Validate output for disabled streams - expect no active data flow or zero values.
     """
@@ -1006,20 +1006,19 @@ def validate_disabled_stream_output(output, expected_objects, expected_poll_inte
     msg_per_sec_matches = []
     msg_validation_passed = True
 
-    if expected_poll_interval:
-        msg_pattern = r'Msg/s:\s+(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)'
-        msg_per_sec_matches = re.findall(msg_pattern, stable_output)
+    msg_pattern = r'Msg/s:\s+(\d+(?:\.\d+)?(?:[eE][+-]?\d+)?)'
+    msg_per_sec_matches = re.findall(msg_pattern, stable_output)
 
-        if msg_per_sec_matches:
-            msg_values = [float(m) for m in msg_per_sec_matches]
-            non_zero_msg_rates = [m for m in msg_values if m > 0]
+    if msg_per_sec_matches:
+        msg_values = [float(m) for m in msg_per_sec_matches]
+        non_zero_msg_rates = [m for m in msg_values if m > 0]
 
-            pytest_assert(
-                len(non_zero_msg_rates) == 0,
-                f"Expected all Msg/s to be 0 for disabled stream, but found: {non_zero_msg_rates}")
-            logger.info(f"Successfully verified {len(msg_per_sec_matches)} Msg/s values are 0 (stream disabled)")
-        else:
-            logger.info("No Msg/s values found - this is expected for disabled streams")
+        pytest_assert(
+            len(non_zero_msg_rates) == 0,
+            f"Expected all Msg/s to be 0 for disabled stream, but found: {non_zero_msg_rates}")
+        logger.info(f"Successfully verified {len(msg_per_sec_matches)} Msg/s values are 0 (stream disabled)")
+    else:
+        logger.info("No Msg/s values found - this is expected for disabled streams")
 
     # Check for specific objects - they
     # might not appear at all in disabled streams
