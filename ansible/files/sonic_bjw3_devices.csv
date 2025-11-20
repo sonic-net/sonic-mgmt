@@ -4,6 +4,10 @@ bjw3-can-7260-leaf-25,10.150.238.15/23,Arista-7260CX3,FanoutLeaf,,
 bjw3-can-7050-leaf-1,10.150.238.65/23,Arista-7050CX3-32S-S128,FanoutLeafSonic,,sonic
 bjw3-can-7050-leaf-2,10.150.238.67/23,Arista-7050CX3-32S-S128,FanoutLeafSonic,,sonic
 bjw3-can-7050-leaf-3,10.150.238.69/23,Arista-7050CX3-32S-S128,FanoutLeafSonic,,sonic
+bjw3-can-7260-leaf-26,10.150.238.97/23,Arista-7260CX3,FanoutLeaf,,
+bjw3-can-7260-leaf-27,10.150.238.100/23,Arista-7260CX3,FanoutLeaf,,
+bjw3-can-7260-leaf-28,10.150.238.103/23,Arista-7260CX3,FanoutLeaf,,
+bjw3-can-7260-leaf-29,10.150.238.106/23,Arista-7260CX3,FanoutLeaf,,
 bjw3-can-7260-leaf-34,10.150.238.71/23,Arista-7260CX3,FanoutLeaf,,
 bjw3-can-7260-leaf-35,10.150.238.73/23,Arista-7260CX3,FanoutLeaf,,
 bjw3-can-7260-leaf-36,10.150.238.75/23,Arista-7260CX3,FanoutLeaf,,
@@ -33,6 +37,14 @@ bjw3-can-7050c-8,10.150.238.85/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw3-can-7050c-9,10.150.238.87/23,Arista-7050CX3-32C-C28S16,devsonic,,sonic
 bjw3-can-7050c-10,10.150.238.89/23,Arista-7050CX3-32C-C28S16,devsonic,,sonic
 bjw3-can-7050c-11,10.150.238.95/23,Arista-7050CX3-32C-S128,devsonic,,sonic
+bjw3-can-7060-1,10.150.238.96/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-2,10.150.238.98/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-3,10.150.238.99/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-4,10.150.238.101/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-5,10.150.238.102/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-6,10.150.238.104/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-7,10.150.238.105/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-7060-8,10.150.238.107/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw3-pdu-126-62,10.150.126.62,Vertiv,Pdu,snmp,
 bjw3-pdu-126-63,10.150.126.63,Vertiv,Pdu,snmp,
 bjw3-pdu-126-64,10.150.126.64,Vertiv,Pdu,snmp,
@@ -41,6 +53,8 @@ bjw3-pdu-126-66,10.150.126.66,Vertiv,Pdu,snmp,
 bjw3-pdu-126-67,10.150.126.67,Vertiv,Pdu,snmp,
 bjw3-pdu-126-68,10.150.126.68,Vertiv,Pdu,snmp,
 bjw3-pdu-126-69,10.150.126.69,Vertiv,Pdu,snmp,
+bjw3-pdu-126-72,10.150.126.72,Vertiv,Pdu,snmp,
+bjw3-pdu-126-73,10.150.126.73,Vertiv,Pdu,snmp,
 bjw3-pdu-126-74,10.150.126.74,Vertiv,Pdu,snmp,
 bjw3-pdu-126-75,10.150.126.75,Vertiv,Pdu,snmp,
 bjw3-pdu-126-76,10.150.126.76,Vertiv,Pdu,snmp,

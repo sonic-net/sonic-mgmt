@@ -49,6 +49,24 @@ all:
         bjw3-8-1:
           ansible_host: 10.150.239.12
           ansible_hostv6: 2404:f801:10:16::a96:ef0b
+        bjw3-4-2:
+          ansible_host: 10.150.239.13
+          ansible_hostv6: 2404:f801:10:16::a96:ef0c
+        bjw3-8-2:
+          ansible_host: 10.150.239.14
+          ansible_hostv6: 2404:f801:10:16::a96:ef0d
+        bjw3-3-3:
+          ansible_host: 10.150.239.15
+          ansible_hostv6: 2404:f801:10:16::a96:ef0e
+        bjw3-2-3:
+          ansible_host: 10.150.239.16
+          ansible_hostv6: 2404:f801:10:16::a96:ef0f
+        bjw3-4-3:
+          ansible_host: 10.150.239.17
+          ansible_hostv6: 2404:f801:10:16::a96:ef10
+        bjw3-8-3:
+          ansible_host: 10.150.239.18
+          ansible_hostv6: 2404:f801:10:16::a96:ef11
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -171,7 +189,18 @@ fanout:
     bjw3-can-7260-leaf-42:
       ansible_host: 10.150.238.94
       ansible_hostv6: 2404:f801:10:16::a96:ee5e
-
+    bjw3-can-7260-leaf-26:
+      ansible_host: 10.150.238.97
+      ansible_hostv6: 2404:f801:10:16::a96:ee61
+    bjw3-can-7260-leaf-27:
+      ansible_host: 10.150.238.100
+      ansible_hostv6: 2404:f801:10:16::a96:ee64
+    bjw3-can-7260-leaf-28:
+      ansible_host: 10.150.238.103
+      ansible_hostv6: 2404:f801:10:16::a96:ee67
+    bjw3-can-7260-leaf-29:
+      ansible_host: 10.150.238.106
+      ansible_hostv6: 2404:f801:10:16::a96:ee6a
 
 sonic:
   vars:
@@ -183,6 +212,7 @@ sonic:
     sonic_arista_7050C_C28S16:
     sonic_arista_7260cx3:
     sonic_nokia_7215a1d:
+    sonic_arista_7060cx:
 
 
 server:
@@ -519,6 +549,76 @@ sonic_nokia_7215a1d:
       base_mac:
       syseeprom_info:
         "0x21": "7215 IXS-A1"
+
+
+sonic_arista_7060cx:
+  hosts:
+    bjw3-can-7060-1:
+      ansible_host: 10.150.238.96
+      ansible_hostv6: 2404:f801:10:16::a96:ee60
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-2:
+      ansible_host: 10.150.238.98
+      ansible_hostv6: 2404:f801:10:16::a96:ee62
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-3:
+      ansible_host: 10.150.238.99
+      ansible_hostv6: 2404:f801:10:16::a96:ee63
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-4:
+      ansible_host: 10.150.238.101
+      ansible_hostv6: 2404:f801:10:16::a96:ee65
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-5:
+      ansible_host: 10.150.238.102
+      ansible_hostv6: 2404:f801:10:16::a96:ee66
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-6:
+      ansible_host: 10.150.238.104
+      ansible_hostv6: 2404:f801:10:16::a96:ee68
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-7:
+      ansible_host: 10.150.238.105
+      ansible_hostv6: 2404:f801:10:16::a96:ee69
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7060-8:
+      ansible_host: 10.150.238.107
+      ansible_hostv6: 2404:f801:10:16::a96:ee6b
+      hwsku: Arista-7060CX-32S-C32
+      model: DCS-7060CX-32S
+      serial:
+      base_mac:
+      syseeprom_info:
+  vars:
+    iface_speed: 100000
 
 
 mgmt:
