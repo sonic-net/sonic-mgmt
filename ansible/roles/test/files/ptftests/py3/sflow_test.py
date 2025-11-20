@@ -33,6 +33,12 @@ import logging
 import ast
 import subprocess
 
+# Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
+# Over many samples it should converge to a mean of 1:N
+NUM_SAMPLES = 100
+MIN_EXPECTED_SAMPLES = 0.6 * NUM_SAMPLES
+MAX_EXPECTED_SAMPLES = 1.4 * NUM_SAMPLES
+
 
 class SflowTest(BaseTest):
     def __init__(self):
@@ -234,20 +240,19 @@ class SflowTest(BaseTest):
         logging.info("packets collected from interfaces ifindex : %s" %
                      data['flow_port_count'])
         logging.info("Expected number of packets from each port : %s to %s" % (
-            100 * 0.6, 100 * 1.4))
+            MIN_EXPECTED_SAMPLES, MAX_EXPECTED_SAMPLES))
         for port in self.interfaces:
             # NOTE: hsflowd is sending index instead of ifindex.
             index = self.interfaces[port]['port_index']
             logging.info("....%s : Flow packets collected from port %s = %s" % (
                 collector, port, data['flow_port_count'][index]))
             if port in self.enabled_intf:
-                # Checking samples with tolerance of 40 % as the sampling is random and not deterministic.
-                # Over many samples it should converge to a mean of 1:N
-                # Number of packets sent = 100 * sampling rate of interface
+                # Number of packets sent = NUM_SAMPLES * sampling rate of interface
                 self.assertTrue(
-                    100 * 0.6 <= data['flow_port_count'][index] <= 100 * 1.4,
+                    MIN_EXPECTED_SAMPLES <= data['flow_port_count'][index] <= MAX_EXPECTED_SAMPLES,
                     "Expected Number of samples are not collected from Interface %s in collector %s , Received %s"
-                    % (port, collector, data['flow_port_count'][index]))
+                    " which is outside the acceptable range of %s to %s"
+                    % (port, collector, data['flow_port_count'][index], MIN_EXPECTED_SAMPLES, MAX_EXPECTED_SAMPLES))
             else:
                 self.assertTrue(data['flow_port_count'][index] == 0,
                                 "Packets are collected from Non Sflow interface %s in collector %s" % (port, collector))
@@ -258,8 +263,8 @@ class SflowTest(BaseTest):
         src_ip_addr_templ = '192.168.{}.1'
         ip_dst_addr = '192.168.0.4'
         pktlen = 100
-        # send 100 * sampling_rate packets in each interface for better analysis
-        for _ in range(0, 100, 1):
+        # send NUM_SAMPLES * sampling_rate packets in each interface for better analysis
+        for _ in range(0, NUM_SAMPLES, 1):
             index = 0
             for intf in self.interfaces:
                 ip_src_addr = src_ip_addr_templ.format(str(8 * index))
