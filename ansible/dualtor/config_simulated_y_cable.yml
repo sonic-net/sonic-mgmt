@@ -41,6 +41,7 @@
     dut_side: "{% if dut_index|int == 0 %}upper_tor{% else %}lower_tor{% endif %}"
 
 # Inject mux simulator config
+# Test CODEOWNERS
 # Below step is required after these PRs are merged:
 # * https://github.com/sonic-net/sonic-platform-common/pull/213
 # * https://github.com/sonic-net/sonic-platform-daemons/pull/197
