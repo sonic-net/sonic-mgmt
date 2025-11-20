@@ -15,11 +15,9 @@ from tests.common.utilities import wait_tcp_connection
 from tests.common.utilities import is_ipv6_only_topology
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME, BGP_MONITOR_PORT
 
-
 pytestmark = [
     pytest.mark.topology('any'),
 ]
-
 
 BGP_PORT = 179
 BGP_CONNECT_TIMEOUT = 121
