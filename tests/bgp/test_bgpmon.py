@@ -6,7 +6,6 @@ from jinja2 import Template
 import ptf.packet as scapy
 from ptf.mask import Mask
 import json
-import re
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
 from tests.common.helpers.generators import generate_ip_through_default_route, generate_ip_through_default_v6_route
@@ -49,22 +48,22 @@ def get_default_route_ports(host, tbinfo, default_addr=ZERO_ADDR, is_ipv6=False)
         else:
             port_indices.append(mg_facts['minigraph_ptf_indices'][port])
 
-    return port_indices
+    turn port_indices
 
 
-@pytest.fixture
+@pytest.fixtu
 def common_setup_teardown(dut_with_default_route, tbinfo):
     duthost = dut_with_default_route
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
-    # Generate a unique IPV4 address to be used as the BGP router identifier for the monitor connection
+    # Generate a unique IPV4 addss to be used as the BGP router identifier for the monitor connection
     router_id = generate_ip_through_default_route(duthost)
     pytest_assert(router_id, "Failed to generate router id")
     router_id = str(IPNetwork(router_id).ip)
 
     if is_ipv6_only:
         peer_addr = generate_ip_through_default_v6_route(duthost)
-        pytest_assert(peer_addr, "Failed to generate ipv6 address for test")
+        pytest_assert(peer_addr, "Failed to generate ipv6 addss for test")
         peer_addr = str(IPNetwork(peer_addr).ip)
     else:
         peer_addr = router_id
@@ -81,15 +80,15 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
     for lo_intf in mg_facts['minigraph_lo_interfaces']:
         if is_ipv6_only and ':' in lo_intf['addr']:
             local_addr = lo_intf['addr']
-            break
+            bak
         elif not is_ipv6_only and ':' not in lo_intf['addr']:
             local_addr = lo_intf['addr']
-            break
+            bak
 
-    pytest_assert(local_addr, "Failed to get appropriate loopback address")
+    pytest_assert(local_addr, "Failed to get appropriate loopback addss")
 
     # Assign peer addr to an interface on ptf
-    logger.info("Generated peer address {}".format(peer_addr))
+    logger.info("Generated peer addss {}".format(peer_addr))
     bgpmon_args = {
         'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
@@ -97,8 +96,8 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
         'local_addr': local_addr,
         'peer_name': BGP_MONITOR_NAME
     }
-    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
-    duthost.copy(content=bgpmon_template.render(**bgpmon_args),
+    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).ad())
+    duthost.copy(content=bgpmon_template.nder(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
     yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn'], is_ipv6_only, router_id
     # Cleanup bgp monitor
@@ -116,15 +115,15 @@ def build_syn_pkt(local_addr, peer_addr, is_ipv6=False):
             tcp_flags="S"
         )
         exp_packet = Mask(pkt)
-        exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
-        exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        exp_packet.set_do_not_ca_scapy(scapy.Ether, "dst")
+        exp_packet.set_do_not_ca_scapy(scapy.Ether, "src")
 
-        exp_packet.set_do_not_care_scapy(scapy.IPv6, "version")
-        exp_packet.set_do_not_care_scapy(scapy.IPv6, "tc")
-        exp_packet.set_do_not_care_scapy(scapy.IPv6, "fl")
-        exp_packet.set_do_not_care_scapy(scapy.IPv6, "plen")
-        exp_packet.set_do_not_care_scapy(scapy.IPv6, "nh")
-        exp_packet.set_do_not_care_scapy(scapy.IPv6, "hlim")
+        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "version")
+        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "tc")
+        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "fl")
+        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "plen")
+        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "nh")
+        exp_packet.set_do_not_ca_scapy(scapy.IPv6, "hlim")
     else:
         pkt = testutils.simple_tcp_packet(
             pktlen=54,
@@ -134,16 +133,16 @@ def build_syn_pkt(local_addr, peer_addr, is_ipv6=False):
             tcp_flags="S"
         )
         exp_packet = Mask(pkt)
-        exp_packet.set_do_not_care_scapy(scapy.Ether, "dst")
-        exp_packet.set_do_not_care_scapy(scapy.Ether, "src")
+        exp_packet.set_do_not_ca_scapy(scapy.Ether, "dst")
+        exp_packet.set_do_not_ca_scapy(scapy.Ether, "src")
 
-        exp_packet.set_do_not_care_scapy(scapy.IP, "version")
-        exp_packet.set_do_not_care_scapy(scapy.IP, "ihl")
-        exp_packet.set_do_not_care_scapy(scapy.IP, "tos")
-        exp_packet.set_do_not_care_scapy(scapy.IP, "len")
-        exp_packet.set_do_not_care_scapy(scapy.IP, "id")
-        exp_packet.set_do_not_care_scapy(scapy.IP, "flags")
-        exp_packet.set_do_not_care_scapy(scapy.IP, "frag")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "version")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "ihl")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "tos")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "len")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "id")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "flags")
+        exp_packet.set_do_not_ca_scapy(scapy.IP, "frag")
         exp_packet.set_do_not_care_scapy(scapy.IP, "ttl")
         exp_packet.set_do_not_care_scapy(scapy.IP, "chksum")
         exp_packet.set_do_not_care_scapy(scapy.IP, "options")
