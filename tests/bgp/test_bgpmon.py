@@ -56,14 +56,14 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
     duthost = dut_with_default_route
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
-    # Generate a unique IPV4 addss to be used as the BGP router identifier for the monitor connection
+    # Generate a unique IPV4 address to be used as the BGP router identifier for the monitor connection
     router_id = generate_ip_through_default_route(duthost)
     pytest_assert(router_id, "Failed to generate router id")
     router_id = str(IPNetwork(router_id).ip)
 
     if is_ipv6_only:
         peer_addr = generate_ip_through_default_v6_route(duthost)
-        pytest_assert(peer_addr, "Failed to generate ipv6 addss for test")
+        pytest_assert(peer_addr, "Failed to generate ipv6 address for test")
         peer_addr = str(IPNetwork(peer_addr).ip)
     else:
         peer_addr = router_id
@@ -85,7 +85,7 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
             local_addr = lo_intf['addr']
             break
 
-    pytest_assert(local_addr, "Failed to get appropriate loopback addss")
+    pytest_assert(local_addr, "Failed to get appropriate loopback address")
 
     # Assign peer addr to an interface on ptf
     logger.info("Generated peer address {}".format(peer_addr))
