@@ -88,7 +88,7 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
     pytest_assert(local_addr, "Failed to get appropriate loopback addss")
 
     # Assign peer addr to an interface on ptf
-    logger.info("Generated peer addss {}".format(peer_addr))
+ logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
         'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
@@ -96,8 +96,8 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
         'local_addr': local_addr,
         'peer_name': BGP_MONITOR_NAME
     }
-    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).ad())
-    duthost.copy(content=bgpmon_template.nder(**bgpmon_args),
+    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    duthost.copy(content=bgpmon_template.render(**bgpmon_args),
                  dest=BGPMON_CONFIG_FILE)
     yield local_addr, peer_addr, peer_ports, mg_facts['minigraph_bgp_asn'], is_ipv6_only, router_id
     # Cleanup bgp monitor
