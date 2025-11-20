@@ -562,8 +562,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "HBG25230JKC"
     str4-7060x6-512-13:
-      ansible_host: 10.64.247.205
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7cd
+      ansible_host: 10.3.155.97
+      ansible_hostv6: 2a01:111:e210:b000::a03:9b61
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7060X6-64PE-B-P32O64
       model: DCS-7060X6-64PE-B
