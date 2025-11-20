@@ -1,12 +1,11 @@
 #!/usr/bin/python
 import subprocess
-import re
 import os
 import os.path
-import re
 import docker
-from ansible.module_utils.basic import *
+from ansible.module_utils.basic import AnsibleModule
 import traceback
+import datetime
 from pprint import pprint
 
 DOCUMENTATION = '''
@@ -39,7 +38,7 @@ VM_SET_NAME_MAX_LEN = 8  # used in interface names. So restricted
 CMD_DEBUG_FNAME = "/tmp/cnet_network.cmds.%s.txt"
 EXCEPTION_DEBUG_FNAME = "/tmp/cnet_network.exception.%s.txt"
 
-OVS_FP_BRIDGE_REGEX = 'br-%s-\d+'
+OVS_FP_BRIDGE_REGEX = r'br-%s-\d+'
 OVS_FP_BRIDGE_TEMPLATE = 'br-%s-%d'
 FP_TAP_TEMPLATE = '%s-t%d'
 BP_TAP_TEMPLATE = '%s-back'
@@ -47,6 +46,7 @@ MGMT_TAP_TEMPLATE = '%s-m'
 INT_TAP_TEMPLATE = 'eth%d'
 RETRIES = 3
 cmd_debug_fname = None
+
 
 class CeosNetwork(object):
     def __init__(self, ctn_name, vm_name, mgmt_br_name, fp_mtu, max_fp_num):
@@ -172,7 +172,7 @@ class CeosNetwork(object):
         process = subprocess.Popen(cmd, stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         stdout, stderr = process.communicate()
         ret_code = process.returncode
-            # Decode from bytes → str
+        # Decode from bytes → str
         stdout = stdout.decode("utf-8", errors="ignore")
         stderr = stderr.decode("utf-8", errors="ignore")
 
@@ -209,7 +209,7 @@ class CeosNetwork(object):
         cli = docker.from_env()
         try:
             ctn = cli.containers.get(ctn_name)
-        except:
+        except Exception:
             return None
         return ctn.attrs['State']['Pid']
     
@@ -234,12 +234,14 @@ class CeosNetwork(object):
                 br_to_ifs[cur_br].append(terms[0])
                 if_to_br[terms[0]] = cur_br
         return br_to_ifs, if_to_br
-    
+
+
 def check_params(module, params, mode):
     for param in params:
         if param not in module.params:
             raise Exception("Parameter %s is required in %s mode" % (param, mode))
     return
+
 
 def main():
     module = AnsibleModule(
@@ -270,6 +272,7 @@ def main():
             traceback.print_exc(file=fp)
         module.fail_json(msg=str(error))
     module.exit_json(changed=True)
+
 
 if __name__ == "__main__":
     main()

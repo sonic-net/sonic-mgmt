@@ -99,8 +99,10 @@ options:
     vm_offset:
         description:
             - VM offset index from the topology
-            - Determines which internal Ethernet interface to create (0=Ethernet0, 1=Ethernet4, 2=Ethernet8, 3=Ethernet12)
-            - All VMs use -t0 naming on host side, but different Ethernet ports internally based on vm_offset
+            - Determines which internal Ethernet interface to create
+              (0=Ethernet0, 1=Ethernet4, 2=Ethernet8, 3=Ethernet12)
+            - All VMs use -t0 naming on host side, but different
+              Ethernet ports internally based on vm_offset
             - Default: 0 (creates Ethernet0)
         required: false
         type: int
@@ -223,7 +225,8 @@ class CsonicNetwork(object):
     The key difference is SONiC expects Ethernet0, Ethernet4, Ethernet8 naming convention.
     """
 
-    def __init__(self, ctn_name, vm_name, mgmt_br_name, fp_mtu, max_fp_num, vm_offset=0, sonic_naming=True, bp_bridge=None):
+    def __init__(self, ctn_name, vm_name, mgmt_br_name, fp_mtu, max_fp_num,
+                 vm_offset=0, sonic_naming=True, bp_bridge=None):
         self.ctn_name = ctn_name
         self.vm_name = vm_name
         self.fp_mtu = fp_mtu
@@ -267,7 +270,6 @@ class CsonicNetwork(object):
             )
 
             self.add_if_to_ovs_bridge(fp_name, fp_br_name)
-
 
         # Determine internal interface name
         if self.sonic_naming:
@@ -314,21 +316,22 @@ class CsonicNetwork(object):
         # Create veth pair if external interface doesn't exist
         if CsonicNetwork.intf_not_exists(ext_if):
             CsonicNetwork.cmd("ip link add %s type veth peer name %s" %
-                            (ext_if, t_int_if))
+                              (ext_if, t_int_if))
 
         # Set MTU if specified
         if self.fp_mtu != DEFAULT_MTU:
             CsonicNetwork.cmd("ip link set dev %s mtu %d" %
-                            (ext_if, self.fp_mtu))
+                              (ext_if, self.fp_mtu))
             if CsonicNetwork.intf_exists(t_int_if):
                 CsonicNetwork.cmd("ip link set dev %s mtu %d" %
-                                (t_int_if, self.fp_mtu))
+                                  (t_int_if, self.fp_mtu))
             elif CsonicNetwork.intf_exists(t_int_if, self.pid):
                 CsonicNetwork.cmd("nsenter -t %s -n ip link set dev %s mtu %d" %
-                                (self.pid, t_int_if, self.fp_mtu))
+                                  (self.pid, t_int_if, self.fp_mtu))
             elif CsonicNetwork.intf_exists(int_if, self.pid):
                 CsonicNetwork.cmd(
-                    "nsenter -t %s -n ip link set dev %s mtu %d" % (self.pid, int_if, self.fp_mtu))
+                    "nsenter -t %s -n ip link set dev %s mtu %d" %
+                    (self.pid, int_if, self.fp_mtu))
 
         # Bring up external interface on host
         CsonicNetwork.iface_up(ext_if)
@@ -338,7 +341,7 @@ class CsonicNetwork(object):
                 and CsonicNetwork.intf_not_exists(t_int_if, self.pid) \
                 and CsonicNetwork.intf_not_exists(int_if, self.pid):
             CsonicNetwork.cmd("ip link set netns %s dev %s" %
-                            (self.pid, t_int_if))
+                              (self.pid, t_int_if))
 
         # Rename to final name inside container
         if CsonicNetwork.intf_exists(t_int_if, self.pid) and CsonicNetwork.intf_not_exists(int_if, self.pid):
