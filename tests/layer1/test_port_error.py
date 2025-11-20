@@ -14,7 +14,6 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
-
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
 cmd_sfp_presence = "sudo sfpshow presence"
 
