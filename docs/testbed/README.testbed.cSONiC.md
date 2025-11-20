@@ -65,8 +65,3 @@ Run the following commands to deploy the T0 topology:
 
         cd /data/sonic-mgmt/ansible
         ./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k csonic add-topo vms-kvm-t0 password.txt
-
-
-
-
-
