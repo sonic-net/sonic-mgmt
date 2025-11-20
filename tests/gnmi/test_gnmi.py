@@ -186,7 +186,7 @@ def setup_crl_server_on_ptf(ptfhost):
     yield
 
     # pkill will use the kill signal -9 as exit code, need ignore error
-    ptfhost.shell("pkill -9 -f 'python /root/crl_server.py'", module_ignore_errors=True)
+    ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
