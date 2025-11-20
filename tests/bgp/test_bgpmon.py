@@ -88,7 +88,7 @@ def common_setup_teardown(dut_with_default_route, tbinfo):
     pytest_assert(local_addr, "Failed to get appropriate loopback addss")
 
     # Assign peer addr to an interface on ptf
- logger.info("Generated peer address {}".format(peer_addr))
+    logger.info("Generated peer address {}".format(peer_addr))
     bgpmon_args = {
         'db_table_name': 'BGP_MONITORS',
         'peer_addr': peer_addr,
