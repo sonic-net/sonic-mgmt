@@ -1,17 +1,18 @@
 import logging
 import os
 import pytest
-import time
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts      # noqa: F401
 from tests.common.helpers.pfc_storm import PFCMultiStorm
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.pfcwd_helper import start_wd_on_ports, start_background_traffic     # noqa: F401
 from tests.common.helpers.pfcwd_helper import EXPECT_PFC_WD_DETECT_RE, EXPECT_PFC_WD_RESTORE_RE, \
-    fetch_vendor_specific_diagnosis_re
+    fetch_vendor_specific_diagnosis_re, verify_all_ports_pfc_storm_in_expected_state
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_enum_rand_one_per_hwsku_frontend_host_m # noqa F401, E501
 from tests.common.helpers.pfcwd_helper import send_background_traffic
 from tests.common import config_reload
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 TEMPLATES_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "templates")
 FILE_DIR = os.path.join(os.path.dirname(os.path.realpath(__file__)), "files")
@@ -224,9 +225,18 @@ class TestPfcwdAllPortStorm(object):
         with loganalyzer:
             if action == "storm":
                 storm_hndle.start_pfc_storm()
+                expected_state = "storm"
             elif action == "restore":
                 storm_hndle.stop_pfc_storm()
-            time.sleep(5)
+                expected_state = "restore"
+
+            # Wait for the expected state on all ports instead of fixed sleep
+            logger.info(f"Waiting for all ports to reach {expected_state} state")
+            pytest_assert(
+                wait_until(60, 2, 5, verify_all_ports_pfc_storm_in_expected_state, duthost,
+                           storm_hndle, expected_state),
+                f"Not all ports reached expected state {expected_state}"
+            )
 
     def test_all_port_storm_restore(
             self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
