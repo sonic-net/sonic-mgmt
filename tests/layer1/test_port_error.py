@@ -14,6 +14,10 @@ pytestmark = [
     pytest.mark.topology('any')
 ]
 
+pytest_plugins = [
+    "test.platform_tests.mellanox.conftest"
+]
+
 SUPPORTED_PLATFORMS = ["arista_7060x6", "nvidia_sn5640", "nvidia_sn5600"]
 cmd_sfp_presence = "sudo sfpshow presence"
 
