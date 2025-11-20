@@ -162,6 +162,17 @@ leaf0:
         sudo config interface ipv6 disable use-link-local-only D3D1P1 
         sudo config interface ipv6 disable use-link-local-only D3D1P2 
 
+    bgp_preconfig:
+      config: |
+        vrf Vrf01
+        vni 1000
+        exit
+
+      deconfig: |
+        vrf Vrf01
+        no vni 1000
+        exit
+
     bgp:
       config: |
         log syslog debugging
@@ -203,9 +214,6 @@ leaf0:
         advertise ipv4 unicast
         exit-address-family
         exit
-        vrf Vrf01
-        vni 1000
-        exit
         router bgp 65000 vrf Vrf01
         address-family ipv4 unicast
         redistribute connected
@@ -218,9 +226,6 @@ leaf0:
 
       deconfig: |
         log syslog informational
-        vrf Vrf01
-        no vni 1000
-        exit
         no router bgp 65000 vrf Vrf01
         no router bgp 65000
         end
@@ -272,6 +277,17 @@ leaf1:
         sudo config interface ipv6 disable use-link-local-only D4D2P1 
         sudo config interface ipv6 disable use-link-local-only D4D2P2 
 
+    bgp_preconfig:
+      config: |
+        vrf Vrf01
+        vni 1000
+        exit
+
+      deconfig: |
+        vrf Vrf01
+        no vni 1000
+        exit
+
     bgp:
       config: |
         log syslog debugging
@@ -313,9 +329,6 @@ leaf1:
         advertise ipv4 unicast
         exit-address-family
         exit
-        vrf Vrf01
-        vni 1000
-        exit
         router bgp 65001 vrf Vrf01
         address-family ipv4 unicast
         redistribute connected
@@ -328,9 +341,6 @@ leaf1:
 
       deconfig: |
         log syslog informational
-        vrf Vrf01
-        no vni 1000
-        exit
         no router bgp 65001 vrf Vrf01
         no router bgp 65001
         end

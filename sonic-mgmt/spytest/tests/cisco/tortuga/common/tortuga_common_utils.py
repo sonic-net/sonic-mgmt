@@ -341,7 +341,7 @@ def config_node(node, config, type=''):
 def config_static(node, config_domain, add, config_file, device_type = 'sonic'):
 
     domain = ''
-    if config_domain == 'bgp':
+    if 'bgp' in config_domain:
         domain = 'vtysh'
 
     with open(config_file) as c:

@@ -60,6 +60,9 @@ def setup_teardown_l3vni():
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            if 'leaf' in node:
+                common_obj.config_static(node, 'bgp_preconfig', True, updated_config_file)
+                st.wait(2)
             common_obj.config_static(node, 'sonic', True, updated_config_file)
             st.wait(2)
             common_obj.config_static(node, 'bgp', True, updated_config_file)
@@ -84,6 +87,10 @@ def setup_teardown_l3vni():
     with open(updated_config_file) as c:
         config_list = yaml.load(c, Loader=yaml.FullLoader)
         for node, config in config_list.items():
+            if 'leaf' in node:
+                common_obj.config_static(node, 'bgp_preconfig', False, updated_config_file)
+                # Wait for delayed VNI deletion
+                st.wait(30)
             common_obj.config_static(node, 'bgp', False, updated_config_file)
             st.wait(4)
             common_obj.config_static(node, 'sonic', False, updated_config_file)
