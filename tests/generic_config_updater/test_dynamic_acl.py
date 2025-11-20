@@ -173,13 +173,14 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     if topo == "m0_l3" or tbinfo['topo']['name'] in topos_no_portchannels:
         upstream_neigh_type = get_all_upstream_neigh_type(topo)
         downstream_neigh_type = get_all_downstream_neigh_type(topo)
-        pytest_require(len(upstream_neigh_type) > 0 and downstream_neigh_type is not None,
+        pytest_require(len(upstream_neigh_type) > 0 and len(downstream_neigh_type) > 0,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
             port_id = mg_facts["minigraph_ptf_indices"][interface]
-            if downstream_neigh_type in neighbor["name"].upper():
-                downstream_ports.append(interface)
-                downstream_port_ids.append(port_id)
+            for downstream_type in downstream_neigh_type:
+                if downstream_type in neighbor["name"].upper():
+                    downstream_ports.append(interface)
+                    downstream_port_ids.append(port_id)
             for upstream_type in upstream_neigh_type:
                 if upstream_type in neighbor["name"].upper():
                     upstream_ports.append(interface)

@@ -2285,7 +2285,8 @@ def enum_upstream_dut_hostname(duthosts, tbinfo):
 
 @pytest.fixture(scope='module')
 def enum_downstream_dut_hostname(duthosts, tbinfo):
-    downstream_nbr_type = get_downstream_neigh_type(tbinfo, is_upper=True).split(',')
+    s = get_downstream_neigh_type(tbinfo, is_upper=True).split(',')
+    downstream_nbr_type = [item.strip() for item in s if item.strip()]
     if downstream_nbr_type is None:
         downstream_nbr_type = "T1"
 
