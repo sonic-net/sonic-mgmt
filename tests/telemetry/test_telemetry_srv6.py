@@ -1,7 +1,6 @@
 import logging
 import pytest
 import re
-import time
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from telemetry_utils import generate_client_cli, check_gnmi_cli_running, invoke_py_cli_from_ptf
@@ -42,6 +41,14 @@ def setup_my_sid(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost.command(sonic_db_cli + " CONFIG_DB DEL SRV6_MY_SIDS\\|loc1\\|fcbb:bbbb:1::/48")
 
 
+def check_srv6_stats(duthost):
+    res = duthost.shell("show srv6 stats")
+    if len(res["stdout_lines"]) > 2:
+        # At least one sid counter was populated
+        return True
+    return False
+
+
 @pytest.mark.parametrize('setup_streaming_telemetry', [False], indirect=True)
 def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
                                      setup_streaming_telemetry, gnxi_path, setup_my_sid):
@@ -71,7 +78,7 @@ def test_poll_mode_srv6_sid_counters(duthosts, enum_rand_one_per_hwsku_hostname,
 
     # Now generate some SRv6 SID counter values by adding mock data
     duthost.shell("counterpoll srv6 enable")
-    time.sleep(10)
+    wait_until(30, 1, 5, check_srv6_stats, duthost)
 
     cmd = generate_client_cli(duthost=duthost, gnxi_path=gnxi_path, method=METHOD_SUBSCRIBE,
                               subscribe_mode=SUBSCRIBE_MODE_POLL, polling_interval=10,
