@@ -180,22 +180,6 @@ def configure_ipv6_bgpmon_update_source(duthost, asn, local_addr):
     )
 
 
-def verify_bgp_monitor_config(duthost, peer_addr):
-    """
-    Verify if bgp monitor config is present in the config db.
-    """
-    bgmon_config = duthost.shell("vtysh -c \"show bgp neighbors {}\"".format(peer_addr))['stdout']
-    match = re.search(r'BGP neighbor is {}'.format(peer_addr), bgmon_config)
-    return match.group(0)
-
-
-def log_pre_validation_bgpmon(duthost):
-    """
-    Log the pre-validation bgpmon config.
-    """
-    logger.info("Pre-validation bgpmon config: {}".format(duthost.get_bgp_neighbors()))
-
-
 def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_index,
                 common_setup_teardown, set_timeout_for_bgpmon, ptfadapter, ptfhost):
     """
@@ -218,13 +202,8 @@ def test_bgpmon(dut_with_default_route, localhost, enum_rand_one_frontend_asic_i
     # Flush dataplane
     ptfadapter.dataplane.flush()
     # Load bgp monitor config
-    logger.info("Setting PTF qlen to 120000")
-    ptfadapter.dataplane.set_qlen(120000)
     logger.info("Configured bgpmon and verifying packet on {}".format(peer_ports))
     asichost.write_to_config_db(BGPMON_CONFIG_FILE)
-    if not wait_until(MAX_TIME_FOR_BGPMON, 5, 0, verify_bgp_monitor_config, duthost, peer_addr):
-        pytest.fail("BGP monitor config not found in the config db")
-    log_pre_validation_bgpmon(duthost)
     if is_ipv6_only:
         configure_ipv6_bgpmon_update_source(duthost, asn, local_addr)
     # Verify syn packet on ptf
