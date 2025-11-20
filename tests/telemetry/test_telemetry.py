@@ -40,7 +40,7 @@ def load_new_cfg(duthost, data):
 def get_buffer_queues_cnt(ptfhost, gnxi_path, dut_ip, interface, gnmi_port):
     cnt = 0
     for i in range(MAX_UC_CNT):
-        cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
+        cmd = '/root/env-python3/bin/python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} \
             -p {1} -m get -x COUNTERS_QUEUE_NAME_MAP/{2}:{3} \
             -xt COUNTERS_DB -o "ndastreamingservertest" \
             '.format(dut_ip, gnmi_port, interface, i)
@@ -129,7 +129,8 @@ def test_telemetry_ouput(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost,
             "Skipping test as no Ethernet0 frontpanel port on supervisor")
     logger.info('start telemetry output testing')
     dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
+    cmd = '/root/env-python3/bin/python ' + gnxi_path + \
+        'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x COUNTERS/Ethernet0 -xt \
         COUNTERS_DB -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     show_gnmi_out = ptfhost.shell(cmd)['stdout']
     logger.info("GNMI Server output")
@@ -272,8 +273,9 @@ def test_sysuptime(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost, gnxi_pat
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     skip_201911_and_older(duthost)
     dut_ip = duthost.mgmt_ip
-    cmd = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
-           -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
+    cmd = '/root/env-python3/bin/python ' + gnxi_path + \
+        'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m get -x proc/uptime -xt OTHERS \
+        -o "ndastreamingservertest"'.format(dut_ip, env.gnmi_port)
     system_uptime_info = ptfhost.shell(cmd)["stdout_lines"]
     system_uptime_1st = 0
     found_system_uptime_field = False
