@@ -60,7 +60,7 @@ class CeosNetwork(object):
             raise Exception("canot find pid for %s" % (self.ctn_name))
         self.host_ifaces = CeosNetwork.ifconfig('ifconfig -a')
         return
-    
+
     def init_network(self):
         # create mgmt link
         mp_name = MGMT_TAP_TEMPLATE % (self.vm_name)
@@ -75,7 +75,7 @@ class CeosNetwork(object):
         # create backplane
         self.add_veth_if_to_docker(BP_TAP_TEMPLATE % (self.vm_name), INT_TAP_TEMPLATE % (self.max_fp_num + 1))
         return
-    
+
     def update(self):
         errmsg = []
         i = 0
@@ -94,7 +94,7 @@ class CeosNetwork(object):
         if i == 3:
             raise Exception("update failed for %d times. %s" % (i, "|".join(errmsg)))
         return
-    
+
     def add_veth_if_to_docker(self, ext_if, int_if):
         self.update()
         if ext_if in self.host_ifaces and int_if not in self.cntr_ifaces:
@@ -121,7 +121,7 @@ class CeosNetwork(object):
             CeosNetwork.cmd("nsenter -t %s -n ip link set dev %s name %s" % (self.pid, t_int_if, int_if))
         CeosNetwork.iface_up(int_if, self.pid)
         return
-    
+
     def add_if_to_ovs_bridge(self, intf, bridge):
         """
         add interface to ovs bridge
@@ -135,35 +135,35 @@ class CeosNetwork(object):
         if intf not in self.host_if_to_br:
             CeosNetwork.cmd("brctl addif %s %s" % (bridge, intf))
         return
-    
+
     def remove_if_from_bridge(self, intf, bridge):
         self.update()
         if intf in self.host_if_to_br:
             CeosNetwork.cmd("brctl delif %s %s" % (self.host_if_to_br[intf], intf))
         return
-    
+
     @staticmethod
     def iface_up(iface_name, pid=None):
         return CeosNetwork.iface_updown(iface_name, 'up', pid)
-    
+
     @staticmethod
     def iface_down(iface_name, pid=None):
         return CeosNetwork.iface_updown(iface_name, 'down', pid)
-    
+
     @staticmethod
     def iface_updown(iface_name, state, pid):
         if pid is None:
             return CeosNetwork.cmd('ip link set %s %s' % (iface_name, state))
         else:
             return CeosNetwork.cmd('nsenter -t %s -n ip link set %s %s' % (pid, iface_name, state))
-        
+
     @staticmethod
     def iface_disable_txoff(iface_name, pid=None):
         if pid is None:
             return CeosNetwork.cmd('ethtool -K %s tx off' % (iface_name))
         else:
             return CeosNetwork.cmd('nsenter -t %s -n ethtool -K %s tx off' % (pid, iface_name))
-        
+
     @staticmethod
     def cmd(cmdline):
         with open(cmd_debug_fname, 'a') as fp:
@@ -181,7 +181,7 @@ class CeosNetwork(object):
         with open(cmd_debug_fname, 'a') as fp:
             pprint("OUTPUT: %s" % stdout, fp)
         return stdout
-    
+
     @staticmethod
     def get_ovs_br_ports(bridge):
         out = CeosNetwork.cmd('ovs-vsctl list-ports %s' % bridge)
@@ -190,7 +190,7 @@ class CeosNetwork(object):
             if port != "":
                 ports.add(port)
         return ports
-    
+
     @staticmethod
     def ifconfig(cmdline):
         out = CeosNetwork.cmd(cmdline)
@@ -203,7 +203,7 @@ class CeosNetwork(object):
             if not row[0].isspace():
                 ifaces.add(terms[0].rstrip(':'))
         return ifaces
-    
+
     @staticmethod
     def get_pid(ctn_name):
         cli = docker.from_env()
@@ -212,7 +212,7 @@ class CeosNetwork(object):
         except Exception:
             return None
         return ctn.attrs['State']['Pid']
-    
+
     @staticmethod
     def brctl_show():
         out = CeosNetwork.cmd("brctl show")

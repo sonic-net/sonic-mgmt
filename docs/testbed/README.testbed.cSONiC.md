@@ -21,7 +21,7 @@ Modify the CLI help text to include cSONiC as a valid VM type:
         - include_tasks: csonic.yml
           when: vm_type == "csonic"
 4. Create roles/eos/tasks/csonic.yml
- 
+
     This new task file will:
 Include cSONiC-specific variables:
 
@@ -34,18 +34,18 @@ Include cSONiC-specific variables:
 
 6. Update ansible/group_vars/vm_host/main.yml
 Add csonic to the list of supported VM types:
-        
+
         supported_vm_types: [ "veos", "ceos", "vsonic", "vcisco", "csonic" ]
 7. Create ansible/group_vars/vm_host/csonic.yml
 Assign the cSONiC image file and URL:
-        
+
         csonic_image_filename: docker-sonic-vs
         csonic_image: docker-sonic-vs
         csonic_image_url:
             - "http://example.com/docker-sonic-vs"
 8. Modify roles/vm_set/tasks/add_topo.yml
 Update cEOS network creation logic to also handle cSONiC:
-        
+
         - include_tasks: add_ceos_list.yml
           when: vm_type is defined and (vm_type == "ceos" or vm_type == "csonic")
 9. Create ansible/roles/vm_set/library/cnet_network.py
