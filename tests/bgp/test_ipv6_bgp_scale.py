@@ -541,7 +541,7 @@ def _select_targets(bgp_peers_info, all_flap, flapping_count):
     return flapping_neighbors, injection_neighbor, flapping_ports, injection_port
 
 
-def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, connection_type, action, downtime_threshold):
+def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count, connection_type, action, downtime_threshold):
     """
     Orchestrates interface/BGP session flapping and recovery on the DUT, generating test traffic to assess both
     control and data plane convergence behavior. This function is designed for use in test scenarios
@@ -563,6 +563,8 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     global global_icmp_type, current_test, test_results
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
+    pdp = ptfadapter.dataplane
+    pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
 
@@ -674,14 +676,12 @@ def test_sessions_flapping(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
     '''
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
     downtime_threshold = MAX_DOWNTIME_UNISOLATION if flapping_port_count == 'all' else MAX_DOWNTIME_PORT_FLAPPING
     # Measure shutdown convergence
-    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports',
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_port_count, 'ports',
                               'shutdown', downtime_threshold)
     # Measure startup convergence
-    flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup', downtime_threshold)
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_port_count, 'ports', 'startup', downtime_threshold)
 
 
 @pytest.mark.parametrize("flapping_neighbor_count", [1, 10])
@@ -703,14 +703,12 @@ def test_bgp_admin_flap(
     Expected result:
         Dataplane downtime is less than MAX_BGP_SESSION_DOWNTIME or MAX_DOWNTIME_UNISOLATION for all ports.
     """
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
     downtime_threshold = MAX_DOWNTIME_UNISOLATION if flapping_neighbor_count == 'all' else MAX_BGP_SESSION_DOWNTIME
     # Measure shutdown convergence
-    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_neighbor_count,
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_neighbor_count,
                               'bgp_sessions', 'shutdown', downtime_threshold)
     # Measure startup convergence
-    flapper(duthost, pdp, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup', downtime_threshold)
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup', downtime_threshold)
 
 
 def test_nexthop_group_member_scale(
