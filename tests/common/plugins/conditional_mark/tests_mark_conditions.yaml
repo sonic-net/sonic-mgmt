@@ -3912,6 +3912,10 @@ qos/test_qos_sai.py::TestQosSai:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiPfcXoffLimitRefactor:
+  xfail:
+    reason: "XFAIL the refactoring code in development stage"
+
 qos/test_qos_sai.py::TestQosSai::testIPIPQosSaiDscpToPgMapping:
   skip:
     reason: "For DSCP to PG mapping on IPinIP traffic , mellanox device has different behavior to community. For mellanox device, testQosSaiDscpToPgMapping can cover the scenarios / Unsupported testbed type."

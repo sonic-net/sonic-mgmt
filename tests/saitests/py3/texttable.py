@@ -92,40 +92,59 @@ class TextTable():
         return merged
 
 
+    def get_field_value(self, raw_first_value, field_index):
+        for row in self.table:
+            if row[0] == raw_first_value:
+                return row[field_index]
+        return None
+
+
+    def get_field_index(self, field_name):
+        if field_name in self._field_names:
+            return self._field_names.index(field_name)
+        return None
+
+
 if __name__ == '__main__':
-    table1 = TextTable(['f1', 'f22', 'f333', 'f4444', 'f55555',
+    table1 = TextTable(['port', 'f1', 'f22', 'f333', 'f4444', 'f55555',
                        'f666666', 'f7777777', 'f88888888', 'f999999999'])
     print('table1 only fields')
     print(table1)
 
-    table1.add_row(['v999999999', 'v88888888', 'v7777777',
+    table1.add_row(['port1', 'v999999999', 'v88888888', 'v7777777',
                    'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
     print('table1 add row')
     print(table1)
+
+    # Test get_value method
+    print('Value of port1, field index 1:', table1.get_value('port1', 2))  # Should print 'v88888888'
+
+    # Test get_field_index method
+    print('Field index of f22:', table1.get_field_index('f22'))  # Should print 1
 
     table2 = TextTable()
     print('table2 empty')
     print(table2)
 
-    table2.field_names = ['1f', '2ff', '3fff', '4ffff', '5fffff']
+    table2.field_names = ['port', '1f', '2ff', '3fff', '4ffff', '5fffff']
     print('table2 set fields')
     print(table2)
 
-    table2.add_row(['1', '2', '3', '4', '5'])
+    table2.add_row(['port2', '1', '2', '3', '4', '5'])
     print('table2 add row')
     print(table2)
 
-    table3 = TextTable(['field'] + ['f1', 'f22', 'f333', 'f4444',
+    table3 = TextTable(['port', 'field'] + ['f1', 'f22', 'f333', 'f4444',
                        'f55555', 'f666666', 'f7777777', 'f88888888', 'f999999999'])
     print('table3 only fields')
     print(table3)
 
-    table3.add_row([''] + ['v999999999', 'v88888888', 'v7777777',
+    table3.add_row(['port3', ''] + ['v999999999', 'v88888888', 'v7777777',
                    'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
     print('table3 add row')
     print(table3)
 
-    table3.add_row(['row2'] + ['v999999999', 'v88888888', 'v7777777',
+    table3.add_row(['port3', 'row2'] + ['v999999999', 'v88888888', 'v7777777',
                    'v666666', 'v55555', 'v4444', 'v333', 'v22', 'v1'])
     print('table3 more rows')
     print(table3)
