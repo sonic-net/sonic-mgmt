@@ -21,5 +21,6 @@ sonic-mgmt/spytest/tests/cisco @pevenkat @bhavani @rraguraj @jsanghra @aspant
 # tests
 sonic-mgmt/tests/cisco/platform_tests    @mridul @pevenkat @bhavani @rraguraj
 sonic-mgmt/tests/cisco @pevenkat @bhavani @rraguraj @anamehra @mridul @jsanghra
+sonic-mgmt/tests/cisco/fault_handler @pevenkat @bhavani @anamehra
 sonic-mgmt/tests @pevenkat @bhavani
 sonic-mgmt/ansible @pevenkat @bhavani
