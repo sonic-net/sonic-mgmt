@@ -564,6 +564,8 @@ def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
     pdp = ptfadapter.dataplane
+    if hasattr(pdp, "clear_masks"):
+        pdp.clear_masks()
     pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
