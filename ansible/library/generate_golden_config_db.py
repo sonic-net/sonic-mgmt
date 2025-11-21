@@ -467,7 +467,6 @@ class GenerateGoldenConfigDBModule(object):
         dhcp_server_ipv4_config = {
             "DHCP_SERVER_IPV4": {
                 "bridge-midplane": {
-                    "gateway": "169.254.200.254",
                     "lease_time": "600000000",
                     "mode": "PORT",
                     "netmask": "255.255.255.0",
