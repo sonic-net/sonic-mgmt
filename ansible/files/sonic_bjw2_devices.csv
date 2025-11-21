@@ -21,6 +21,8 @@ bjw2-can-720dt-leaf-17,10.150.22.212/23,Arista-720DT-G48S4,FanoutLeafSonic,,soni
 bjw2-can-720dt-leaf-18,10.150.22.214/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-720dt-leaf-19,10.150.23.252/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-720dt-leaf-20,10.150.23.254/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
+bjw2-can-720dt-leaf-21,10.150.22.79/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
+bjw2-can-720dt-leaf-22,10.150.22.81/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw2-can-7260-leaf-1,10.150.22.44/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-2,10.150.22.46/23,Arista-7260CX3,FanoutLeaf,,
 bjw2-can-7260-leaf-3,10.150.22.48/23,Arista-7260CX3,FanoutLeaf,,
@@ -123,6 +125,8 @@ bjw2-can-8101c1-4,10.150.23.247/23,Cisco-8101C01-C32,DevSonic,,sonic
 bjw2-can-8101c1-5,10.150.23.249/23,Cisco-8101C01-V64,DevSonic,,sonic
 bjw2-can-8101c1-6,10.150.22.59/23,Cisco-8101C01-V64,DevSonic,,sonic
 bjw2-can-8101c1-7,10.150.22.62/23,Cisco-8101C01-V64,DevSonic,,sonic
+bjw2-can-e1031-1,10.150.22.78/23,Celestica-E1031-T48S4,DevSonic,,sonic
+bjw2-can-e1031-2,10.150.22.80/23,Celestica-E1031-T48S4,DevSonic,,sonic
 bjw2-pdu-127-166,10.150.127.166,Vertiv,Pdu,snmp,
 bjw2-pdu-126-80,10.150.126.80,Vertiv,Pdu,snmp,
 bjw2-pdu-126-81,10.150.126.81,Vertiv,Pdu,snmp,
