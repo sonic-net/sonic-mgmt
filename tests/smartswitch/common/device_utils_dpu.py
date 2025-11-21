@@ -522,12 +522,14 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
         f"Crictical process check for {dpu_name} has been failed"
     )
 
-    logging.info(f"Checking reboot cause of {dpu_name}")
-    pytest_assert(
-        wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
-                   check_dpu_reboot_cause, duthost, dpu_name, reboot_cause),
-        f"Reboot cause for DPU {dpu_name} is incorrect"
-    )
+    if reboot_cause:
+        logging.info(f"Checking reboot cause of {dpu_name}")
+        pytest_assert(
+            wait_until(REBOOT_CAUSE_TIMEOUT, REBOOT_CAUSE_INT, 0,
+                       check_dpu_reboot_cause, duthost,
+                       dpu_name, reboot_cause),
+            f"Reboot cause for DPU {dpu_name} is incorrect"
+        )
 
 
 def post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
