@@ -38,6 +38,7 @@ IPV6_KEY = "ipv6"
 MAX_BGP_SESSIONS_DOWN_COUNT = 0
 MAX_DOWNTIME = 10  # seconds
 MAX_DOWNTIME_PORT_FLAPPING = 30  # seconds
+MAX_BGP_SESSION_DOWNTIME = MAX_DOWNTIME_PORT_FLAPPING  # reused
 MAX_DOWNTIME_UNISOLATION = 300  # seconds
 MAX_DOWNTIME_NEXTHOP_GROUP_MEMBER_CHANGE = 30  # seconds
 PKTS_SENDING_TIME_SLOT = 1  # seconds
@@ -438,8 +439,17 @@ def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=No
         # When routes convergence fail, if the action is shutdown and shutdown_connections is not empty
         # restore interfaces
         if action == 'shutdown' and shutdown_connections:
-            logger.info(f"Recover interfaces {shutdown_connections} after failure")
-            duthost.no_shutdown_multiple(shutdown_connections)
+            if connection_type == 'ports':
+                logger.info(f"Recover interfaces {shutdown_connections} after failure")
+                duthost.no_shutdown_multiple(shutdown_connections)
+            if connection_type == 'bgp_sessions':
+                if shutdown_all_connections:
+                    logger.info("Recover all BGP sessions after failure")
+                    duthost.shell("sudo config bgp startup all")
+                else:
+                    for session in shutdown_connections:
+                        logger.info(f"Recover BGP session {session} after failure")
+                        duthost.shell(f"sudo config bgp startup neighbor {session}")
         pytest.fail(f"BGP routes aren't stable in {timeout} seconds")
 
 
@@ -637,12 +647,12 @@ def test_sessions_flapping(
     setup_routes_before_test
 ):
     '''
-    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    Validates that both control plane and data plane remain functional with acceptable downtime when ports are
     flapped (brought down and back up), simulating various failure or maintenance scenarios.
 
-    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+    Uses the flapper function to orchestrate the flapping of ports and measure convergence times.
 
-    Parameters range from flapping a single session to all sessions.
+    Parameters range from flapping a single port to all ports.
 
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
@@ -655,6 +665,35 @@ def test_sessions_flapping(
                               'shutdown', downtime_threshold)
     # Measure startup convergence
     flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup', downtime_threshold)
+
+
+@pytest.mark.parametrize("flapping_neighbor_count", [1, 10])
+def test_bgp_admin_flap(
+    request,
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    flapping_neighbor_count
+):
+    """
+    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    flapped (brought down and back up), simulating various failure or maintenance scenarios.
+
+    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+
+    Parameters range from flapping a single session to all sessions.
+
+    Expected result:
+        Dataplane downtime is less than MAX_BGP_SESSION_DOWNTIME or MAX_DOWNTIME_UNISOLATION for all ports.
+    """
+    pdp = ptfadapter.dataplane
+    pdp.set_qlen(PACKET_QUEUE_LENGTH)
+    downtime_threshold = MAX_DOWNTIME_UNISOLATION if flapping_neighbor_count == 'all' else MAX_BGP_SESSION_DOWNTIME
+    # Measure shutdown convergence
+    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_neighbor_count,
+                              'bgp_sessions', 'shutdown', downtime_threshold)
+    # Measure startup convergence
+    flapper(duthost, pdp, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup', downtime_threshold)
 
 
 def test_nexthop_group_member_scale(

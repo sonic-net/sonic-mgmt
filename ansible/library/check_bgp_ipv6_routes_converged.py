@@ -14,6 +14,7 @@ import base64
 INTERFACE_COMMAND_TEMPLATE = "sudo config interface {action} {target}"
 BGP_COMMAND_TEMPLATE = "sudo config bgp {action} {target}"
 
+
 def get_bgp_ipv6_routes(module):
     cmd = "docker exec bgp vtysh -c 'show ipv6 route bgp json'"
     rc, out, err = module.run_command(cmd, executable='/bin/bash', use_unsafe_shell=True)
@@ -112,7 +113,7 @@ def main():
         expected_routes = json.loads(module.params['expected_routes'])
 
     shutdown_connections = module.params.get('shutdown_connections', [])
-    connection_type = module.params['connection_type']
+    connection_type = module.params.get('connection_type', 'none')
     shutdown_all_connections = module.params['shutdown_all_connections']
     timeout = module.params['timeout']
     interval = module.params['interval']
