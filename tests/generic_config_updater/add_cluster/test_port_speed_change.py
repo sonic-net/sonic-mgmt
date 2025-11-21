@@ -243,9 +243,10 @@ def get_fec_for_speed(duthost, speed):
     return SPEED_FEC_MAP.get(speed, None)
 
 
-def get_port_index_in_acl_table(duthost, acl_table, port):
+def get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, port):
 
-    cmd = "sudo sonic-db-cli -n asic0 CONFIG_DB HGET \"ACL_TABLE|{}\" ports@".format(acl_table)
+    cmd = "sudo sonic-db-cli -n {} CONFIG_DB HGET \"ACL_TABLE|{}\" ports@".format(enum_rand_one_asic_namespace,
+                                                                                  acl_table)
     output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
     ports_in_acl_table = output.split(',')
     pytest_assert(ports_in_acl_table, f"Failed to get any ports in acl table {acl_table}.")
@@ -283,12 +284,14 @@ def apply_patch_change_port_cluster(config_facts,
                 "value": config_facts["ACL_TABLE"][acl_table]
             })
         elif operation == "remove":
-            json_patch_acl.append({
-                "op": "remove",
-                "path": "{}/ACL_TABLE/{}/ports/{}".format(json_namespace, acl_table,
-                                                          get_port_index_in_acl_table(
-                                                              duthost, acl_table, selected_random_port))
-            })
+            if acl_table not in config_facts["ACL_TABLE"]:
+                continue
+            pindex = get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, selected_random_port)
+            if pindex is not None:
+                json_patch_acl.append({
+                    "op": "remove",
+                    "path": "{}/ACL_TABLE/{}/ports/{}".format(json_namespace, acl_table, pindex)
+                })
     # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
     bgp_neigh_name, bgp_neigh_intfs, bgp_neigh_ipv4, bgp_neigh_ipv6 = get_interface_neighbor_and_intfs(
         mg_facts, selected_random_port)
