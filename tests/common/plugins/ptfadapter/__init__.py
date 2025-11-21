@@ -245,3 +245,24 @@ def nbr_ptfadapter(request, nbrhosts, nbr_device_numbers, ptfadapter):
 
     ptfadapter.reinit({"device_sockets": device_sockets})
     return ptfadapter
+
+
+@pytest.fixture(autouse=True, scope="function")
+def clean_ptf_dataplane(ptfadapter):
+    """
+    Drain queued packets and clear mask counters before and after each test.
+    The idea is that each test should start with clean dataplane state without
+    having to restart ptfadapter fixture for each test.
+
+    Takes in the function scope so that each parametrized test case also gets a clean dataplane.
+    """
+    dp = ptfadapter.dataplane
+    if hasattr(dp, "drain"):
+        dp.drain()
+    if hasattr(dp, "clear_masks"):
+        dp.clear_masks()
+    yield
+    if hasattr(dp, "drain"):
+        dp.drain()
+    if hasattr(dp, "clear_masks"):
+        dp.clear_masks()

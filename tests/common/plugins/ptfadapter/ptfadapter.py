@@ -133,6 +133,7 @@ class PtfTestAdapter(BaseTest):
 
     def _attach_cleanup_helpers(self):
         dp = self.dataplane
+
         def drain(max_per_port=800):
             """
             Best-effort non-blocking drain of residual queued packets per port.
@@ -148,14 +149,18 @@ class PtfTestAdapter(BaseTest):
                         drained += 1
             except Exception:
                 pass
+
         def clear_masks():
             """
             Remove any previously registered Mask counters to avoid cumulative match overhead.
             """
             try:
-                if hasattr(dp, "mask_rx_cnt"): dp.mask_rx_cnt.clear()
-                if hasattr(dp, "mask_tx_cnt"): dp.mask_tx_cnt.clear()
-                if hasattr(dp, "masked_packets"): dp.masked_packets.clear()
+                if hasattr(dp, "mask_rx_cnt"):
+                    dp.mask_rx_cnt.clear()
+                if hasattr(dp, "mask_tx_cnt"):
+                    dp.mask_tx_cnt.clear()
+                if hasattr(dp, "masked_packets"):
+                    dp.masked_packets.clear()
             except Exception:
                 pass
         dp.drain = drain
