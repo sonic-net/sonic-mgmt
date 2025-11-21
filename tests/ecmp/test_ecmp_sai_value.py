@@ -202,6 +202,9 @@ def check_ecmp_offset_value(duthost, asic_name, topo_type, hwsku):
             # For TD2, 7050qx, the total number of ports are 362
             pytest_assert(offset_count == 362, "the count of 0 OFFSET_ECMP is not correct. \
                           Expected {}, but got {}.".format(362, offset_count))
+        elif asic_name == "th5":
+            pytest_assert(offset_count == 352, "the count of 0 OFFSET_ECMP is not correct. \
+                          Expected {}, but got {}.".format(352, offset_count))
         else:
             pytest_assert(offset_count == 392, "the count of 0 OFFSET_ECMP is not correct. \
                           Expected {}, but got {}.".format(392, offset_count))
