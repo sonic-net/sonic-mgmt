@@ -2512,11 +2512,12 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237 or test is not supported on this platform'
+    reason: 'Skip test_replace_fec on unsupported hwsku/topo due to issues'
     conditions_logical_operator: "OR"
     conditions:
       - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8'] and https://github.com/sonic-net/sonic-mgmt/issues/11237"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/24365"
 
 generic_config_updater/test_eth_interface.py::test_replace_lanes:
   skip:
