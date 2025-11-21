@@ -192,6 +192,12 @@ all:
         bjw2-9-4:
           ansible_host: 10.150.23.136
           ansible_hostv6: 2404:f801:10:2200::a96:1788
+        bjw2-4-3:
+          ansible_host: 10.150.23.140
+          ansible_hostv6: 2404:f801:10:2200::a96:178c
+        bjw2-9-5:
+          ansible_host: 10.150.23.141
+          ansible_hostv6: 2404:f801:10:2200::a96:178d
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -452,18 +458,6 @@ fanout:
     bjw2-can-7260-leaf-24:
       ansible_host: 10.150.22.75
       ansible_hostv6: 2404:f801:10:2200::a96:164a
-    bjw2-can-7260-leaf-26:
-      ansible_host: 10.150.22.79
-      ansible_hostv6: 2404:f801:10:2200::a96:164f
-    bjw2-can-7260-leaf-27:
-      ansible_host: 10.150.22.82
-      ansible_hostv6: 2404:f801:10:2200::a96:1652
-    bjw2-can-7260-leaf-28:
-      ansible_host: 10.150.22.85
-      ansible_hostv6: 2404:f801:10:2200::a96:1655
-    bjw2-can-7260-leaf-29:
-      ansible_host: 10.150.22.88
-      ansible_hostv6: 2404:f801:10:2200::a96:1658
     bjw2-can-7260-leaf-30:
       ansible_host: 10.150.22.91
       ansible_hostv6: 2404:f801:10:2200::a96:165b
@@ -507,6 +501,14 @@ fanout:
     bjw2-can-7260-leaf-38:
       ansible_host: 10.150.22.218
       ansible_hostv6: 2404:f801:10:2200::a96:16da
+    bjw2-can-720dt-leaf-21:
+      ansible_host: 10.150.22.79
+      ansible_hostv6: 2404:f801:10:2200::a96:164f
+      os: sonic
+    bjw2-can-720dt-leaf-22:
+      ansible_host: 10.150.22.81
+      ansible_hostv6: 2404:f801:10:2200::a96:1651
+      os: sonic
 
 
 sonic:
@@ -530,6 +532,7 @@ sonic:
     sonic_arista_7050_C32:
     sonic_arista_7050C_S128:
     sonic_arista_7060cx:
+    sonic_e1031:
 
 
 sonic_arista_720dt:
@@ -2068,6 +2071,32 @@ sonic_arista_7060cx:
       syseeprom_info:
   vars:
     iface_speed: 100000
+
+sonic_e1031:
+  hosts:
+    bjw2-can-e1031-1:
+      ansible_host: 10.150.22.78
+      ansible_hostv6: 2404:f801:10:2200::a96:164e
+      model:
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+    bjw2-can-e1031-2:
+      ansible_host: 10.150.22.80
+      ansible_hostv6: 2404:f801:10:2200::a96:1650
+      model:
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 600
+  vars:
+    hwsku: Celestica-E1031-T48S4
+    iface_speed: 1000
 
 
 server:
