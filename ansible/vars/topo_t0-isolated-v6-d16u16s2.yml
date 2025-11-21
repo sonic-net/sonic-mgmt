@@ -135,7 +135,6 @@ configuration_properties:
   common:
     dut_asn: 4200000000
     dut_type: ToRRouter
-    swrole: leaf
     podset_number: 200
     tor_number: 16
     tor_subnet_number: 2
@@ -149,11 +148,16 @@ configuration_properties:
     ipv6_address_pattern: 2064:100:0::%02X%02X:%02X%02X:0/120
     enable_ipv4_routes_generation: false
     enable_ipv6_routes_generation: true
+  leaf:
+    swrole: leaf
+  tor:
+    swrole: tor
 
 configuration:
   ARISTA01T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.33
       asn: 4200100000
@@ -170,6 +174,7 @@ configuration:
   ARISTA09T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.41
       asn: 4200100000
@@ -186,6 +191,7 @@ configuration:
   ARISTA17T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.49
       asn: 4200100000
@@ -202,6 +208,7 @@ configuration:
   ARISTA25T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.57
       asn: 4200100000
@@ -218,6 +225,7 @@ configuration:
   ARISTA33T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.65
       asn: 4200100000
@@ -234,6 +242,7 @@ configuration:
   ARISTA41T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.73
       asn: 4200100000
@@ -250,6 +259,7 @@ configuration:
   ARISTA49T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.81
       asn: 4200100000
@@ -266,6 +276,7 @@ configuration:
   ARISTA57T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.89
       asn: 4200100000
@@ -282,6 +293,7 @@ configuration:
   ARISTA65T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.161
       asn: 4200100000
@@ -298,6 +310,7 @@ configuration:
   ARISTA73T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.169
       asn: 4200100000
@@ -314,6 +327,7 @@ configuration:
   ARISTA81T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.177
       asn: 4200100000
@@ -330,6 +344,7 @@ configuration:
   ARISTA89T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.185
       asn: 4200100000
@@ -346,6 +361,7 @@ configuration:
   ARISTA97T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.193
       asn: 4200100000
@@ -362,6 +378,7 @@ configuration:
   ARISTA105T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.201
       asn: 4200100000
@@ -378,6 +395,7 @@ configuration:
   ARISTA113T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.209
       asn: 4200100000
@@ -394,6 +412,7 @@ configuration:
   ARISTA121T1:
     properties:
     - common
+    - leaf
     bgp:
       router-id: 100.1.0.217
       asn: 4200100000
@@ -410,6 +429,7 @@ configuration:
   ARISTA01PT0:
     properties:
     - common
+    - tor
     bgp:
       router-id: 100.1.1.1
       asn: 64621
@@ -426,6 +446,7 @@ configuration:
   ARISTA02PT0:
     properties:
     - common
+    - tor
     bgp:
       router-id: 100.1.1.2
       asn: 64622
