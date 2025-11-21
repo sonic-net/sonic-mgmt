@@ -460,24 +460,54 @@ def compress_expected_routes(expected_routes):
     return b64_str
 
 
-def get_RP_start_time(duthost, connection_type, action, LOG_STAMP, syslog = '/var/log/syslog'):
+def get_RP_start_time(duthost, connection_type, action, LOG_STAMP, syslog='/var/log/syslog'):
     """
     Parse syslog for the first route programming event time. Returns the timestamp of the first route change event.
     """
     state = 'down' if action == 'shutdown' else 'up'
     if connection_type == 'ports':
-        pattern = f'sudo awk "/{LOG_STAMP}/ {{found=1; next}} found" {syslog} | grep "swss#portmgrd: :-" | grep "admin status to {state}" | head -n 1'
+        cmd = f'grep "swss#portmgrd: " | grep "admin status to {state}"'
     elif connection_type == 'bgp_sessions':
-        pattern = f'sudo awk "/{LOG_STAMP}/ {{found=1; next}} found" {syslog} | grep "admin state is set to \'{state}\'" | head -n 1'
+        cmd = f'grep "admin state is set to \'{state}\'"'
     else:
         logger.info("[FLAP TEST] No RP analysis for connection_type: %s", connection_type)
         return None
+    log_pattern = f'/{LOG_STAMP}/ {{found=1}} found'
+    pattern = f'sudo awk "{log_pattern}" {syslog} | {cmd} | head -n 1'
     syslog_stamp = duthost.shell(pattern)['stdout'].strip()
     logger.info(f"[FLAP TEST] Syslog stamp for RP analysis: {syslog_stamp}")
     shut_time_str = " ".join(syslog_stamp.split()[:4])
     rp_start_time = datetime.datetime.strptime(shut_time_str, "%Y %b %d %H:%M:%S.%f")
-    logger.info(f"[FLAP TEST] {action} flap started at {rp_start_time}")
     return rp_start_time
+
+
+def route_programming_time(duthost, start_time, sairedislog='/var/log/swss/sairedis.rec'):
+    pattern = "|r|SAI_OBJECT_TYPE_NEXT_HOP_GROUP:"
+    ts_regex = re.compile(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+')
+
+    def read_lines(path):
+        try:
+            return duthost.shell(f"sudo grep '{pattern}' {path}")['stdout'].splitlines()
+        except Exception as e:
+            logger.warning("Failed to read %s: %s", path, e)
+            return []
+    lines = read_lines(sairedislog)
+    if not lines:
+        logger.warning("No RP events in %s, trying fallback", sairedislog)
+        lines = read_lines(sairedislog + ".1")
+    if not lines:
+        return {"RP Error": "No RP events found"}
+    deltas = []
+    for line in lines:
+        m = ts_regex.search(line)
+        if not m:
+            continue
+        ts = datetime.datetime.strptime(m.group(0), "%Y-%m-%d.%H:%M:%S.%f")
+        if ts <= start_time:
+            continue
+        deltas.append((ts - start_time).total_seconds())
+        logger.info("event: REMOVE at %s", ts)
+    return {"RP Start Time": start_time, "RP Duration": deltas[-1] if deltas else None}
 
 
 def _select_targets(bgp_peers_info, all_flap, flapping_count):
@@ -549,6 +579,8 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
         compressed_routes = compress_expected_routes(expected_routes)
     else:
+        if all_flap:
+            time.sleep(10)
         compressed_routes = transient_setup['compressed_startup_routes']
         injection_port = transient_setup['injection_port']
         flapping_connections = transient_setup['flapping_connections']
@@ -567,6 +599,8 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     flush_counters(pdp, exp_mask)
     traffic_thread.start()
     start_time = datetime.datetime.now()
+    LOG_STAMP = "RP_ANALYSIS_STAMP_%s" % start_time.strftime("%Y%m%d_%H%M%S")
+    duthost.shell('sudo logger "%s"' % LOG_STAMP)
     try:
         result = check_bgp_routes_converged(
             duthost=duthost,
