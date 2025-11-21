@@ -807,7 +807,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
                                            everflow_dut,
                                            test_packet, everflow_direction, src_port=EverflowIPv6Tests.rx_port_ptf_id,
                                            dest_ports=EverflowIPv6Tests.tx_port_ids,
-                                           erspan_ip_ver=erspan_ip_ver)    
+                                           erspan_ip_ver=erspan_ip_ver)
 
     def test_ip_type_ip(self, setup_info, setup_mirror_session, ptfadapter, everflow_dut,        # noqa F811
                         setup_standby_ports_on_rand_unselected_tor_unconditionally,              # noqa F811
