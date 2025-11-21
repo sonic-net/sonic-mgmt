@@ -112,3 +112,12 @@ def test_bgp_network_command(
             bgp_network_routes_and_paths, bgp_docker_routes_and_paths
         ),
     )
+
+
+def test_get_FRR_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    logger.info("FRR configuration on {}:".format(duthost.hostname))
+
+    cmd = "vtysh -c 'show running-config'"
+    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("FRR configuration on {}: \n{}".format(cmd, cmd_response.get('stdout_lines', None)))
