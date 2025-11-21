@@ -450,6 +450,29 @@ def compress_expected_routes(expected_routes):
     return b64_str
 
 
+def _select_targets(bgp_peers_info, all_flap, flapping_count):
+    """Selects flapping_neighbors, injection_neighbor, flapping_ports, injection_port."""
+    bgp_neighbors = list(bgp_peers_info.keys())
+    pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
+    if all_flap:
+        flapping_neighbors = bgp_neighbors
+        injection_neighbor = random.choice(bgp_neighbors)
+        logger.info(f"[FLAP TEST] All neighbors are flapping: {len(flapping_neighbors)}")
+    else:
+        flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
+        injection_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]
+        injection_neighbor = random.choice(injection_candidates)
+        logger.info(f"[FLAP TEST] Flapping neighbors count: {len(flapping_neighbors)}, "
+                    f"Flapping neighbors: {flapping_neighbors}")
+    flapping_ports = [bgp_peers_info[n][DUT_PORT] for n in flapping_neighbors]
+    injection_dut_port = bgp_peers_info[injection_neighbor][DUT_PORT]
+    injection_port = [info[PTF_PORT] for info in bgp_peers_info.values() if info[DUT_PORT] == injection_dut_port][0]
+    logger.info(f"Flapping ports: {flapping_ports}")
+    logger.info(f"[FLAP TEST] Injection neighbor: {injection_neighbor}, Injection DUT port: {injection_dut_port}")
+    logger.info("Injection port: %s", injection_port)
+    return flapping_neighbors, injection_neighbor, flapping_ports, injection_port
+
+
 def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, connection_type, action, downtime_threshold):
     """
     Orchestrates interface/BGP session flapping and recovery on the DUT, generating test traffic to assess both
@@ -472,7 +495,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
-    all_flap = flapping_count == 'all'
+    all_flap = (flapping_count == 'all')
 
     # We are currently treating the shutdown action as a setup mechanism for a startup action to follow.
     # So we only do the selection of flapping and injection neighbors when action is shutdown
@@ -482,33 +505,15 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         pytest_assert(len(bgp_neighbors) >= 2, "At least two BGP neighbors required for flap test")
 
         # Choose target neighbors (to flap) and injection (to keep traffic stable)
-        if all_flap is True:
-            flapping_neighbors = bgp_neighbors
-            injection_neighbor = random.choice(bgp_neighbors)
-            logger.info(f"[FLAP TEST] All neighbors are flapping: {len(flapping_neighbors)}")
-        else:
-            flapping_neighbors = random.sample(bgp_neighbors, flapping_count)
-            injection_neighbor_candidates = [n for n in bgp_neighbors if n not in flapping_neighbors]
-            injection_neighbor = random.choice(injection_neighbor_candidates)
-            logger.info(f"[FLAP TEST] Flapping neighbors count: {len(flapping_neighbors)}, "
-                        f"Flapping neighbors: {flapping_neighbors}")
+        flapping_neighbors, injection_neighbor, flapping_ports, injection_port = _select_targets(
+            bgp_peers_info, all_flap, flapping_count
+        )
 
-        flapping_ports = [bgp_peers_info[neighbor][DUT_PORT] for neighbor in flapping_neighbors]
-        logger.info(f"Flapping ports: {flapping_ports}")
-        injection_dut_port = bgp_peers_info[injection_neighbor][DUT_PORT]
-        logger.info(f"[FLAP TEST] Injection neighbor: {injection_neighbor}, "
-                    f"Injection DUT port: {injection_dut_port}")
-
-        injection_port = [info[PTF_PORT] for info in bgp_peers_info.values() if info[DUT_PORT] == injection_dut_port][0]
-        logger.info("Injection port: %s", injection_port)
-
-        if connection_type == 'ports':
-            flapping_connections = flapping_ports
-
-        startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=True)
+        flapping_connections = {'ports': flapping_ports}.get(connection_type, [])
+        # Build expected routes after shutdown
+        startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=False)
         neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
         prefixes = neighbor_ecmp_routes[injection_neighbor]
-
         nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
         expected_routes = deepcopy(startup_routes)
         remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
