@@ -69,7 +69,7 @@ def enable_zmq(duthost):
 def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     ip = duthost.mgmt_ip
     port = 8080
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 --notls '
     cmd += '--notls '
     cmd += '-t %s -p %u ' % (ip, port)

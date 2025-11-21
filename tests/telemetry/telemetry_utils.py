@@ -132,7 +132,8 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     ns = ""
     if namespace is not None:
         ns = "/{}".format(namespace)
-    cmdFormat = 'python ' + gnxi_path + 'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
+    cmdFormat = '/root/env-python3/bin/python ' + gnxi_path + \
+        'gnmi_cli_py/py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
     cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port, method, xpath, target, ns, "ndastreamingservertest")
 
     if subscribe_mode == SUBSCRIBE_MODE_POLL:
