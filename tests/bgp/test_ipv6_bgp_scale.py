@@ -623,6 +623,10 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         terminated.set()
         traffic_thread.join()
 
+    rp_start_time = get_RP_start_time(duthost, connection_type, action, LOG_STAMP)
+    route_programming_metrics = route_programming_time(duthost, rp_start_time) if rp_start_time else {"RP Error": "No RP start time found"}
+    logger.info(f"[FLAP TEST] Route programming metrics after {action}: {route_programming_metrics}")
+
     return {
         "flapping_connections": flapping_connections,
         "injection_port": injection_port,
