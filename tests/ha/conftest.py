@@ -127,21 +127,20 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
             visited_namespaces.add(ns["namespace"])
 
 ###############################################################################
-# VLAN CONFIG GENERATORS
+# VLAN CONFIG (COMMON)
 ###############################################################################
 
 
 def generate_vlan_config(
+    svi_ip,
     vlan_id=55,
     vlan_description="DPU Management VLAN",
-    svi_ip="20.0.200.14/28",
     member_start=224,
     member_count=8,
     member_step=8
 ):
     vlan_name = f"Vlan{vlan_id}"
 
-    # auto-generate members dynamically
     members = [f"Ethernet{member_start + i * member_step}" for i in range(member_count)]
 
     vlan = {
@@ -165,175 +164,99 @@ def generate_vlan_config(
 
 
 ###############################################################################
-# DUT01 CONFIG GENERATORS
+# LOCAL DPU GENERATOR (DUT01 & DUT02)
 ###############################################################################
 
-def generate_dpu_config(
+def generate_local_dpu_config(
+    switch_id: int,
     dpu_count=8,
-    pa_prefix="20.0.200.",
-    vip_prefix="3.2.1.",
-    midplane_prefix="169.254.200.",
-    swbus_start=23606,
+    swbus_start=23606
 ):
+    """
+    switch_id:
+        0 → DUT01 → dpu0_x prefix, pa_ipv4 = 20.0.200.x
+        1 → DUT02 → dpu1_x prefix, pa_ipv4 = 20.0.201.x
+    """
+    prefix = f"dpu{switch_id}_"
+    pa_prefix = f"20.0.20{switch_id}."
+    vip_prefix = "3.2.1."
+    midplane_prefix = "169.254.200."
+
     dpu = {}
     for idx in range(dpu_count):
-        pa_idx = idx + 1
-        dpu[f"dpu0_{idx}"] = {
+        dpu[f"{prefix}{idx}"] = {
             "dpu_id": str(idx),
             "gnmi_port": "50051",
             "local_port": "8080",
             "orchagent_zmq_port": "8100",
-            "pa_ipv4": f"{pa_prefix}{pa_idx}",
+            "pa_ipv4": f"{pa_prefix}{idx + 1}",
             "state": "up",
             "swbus_port": str(swbus_start + idx),
-            "vdpu_id": f"vdpu0_{idx}",
+            "vdpu_id": f"vdpu{switch_id}_{idx}",
             "vip_ipv4": f"{vip_prefix}{idx}",
-            "midplane_ipv4": f"{midplane_prefix}{idx+1}",
-        }
-    return dpu
-
-
-def generate_remote_dpu_config(
-    cluster_id=1,
-    npu_ipv4="10.1.1.32",
-    pa_prefix="20.0.201.",
-    pa_start=1,
-    dpu_count=8,
-    swbus_start=23606,
-):
-    remote = {}
-    for dpu_id in range(dpu_count):
-        remote[f"dpu{cluster_id}_{dpu_id}"] = {
-            "dpu_id": str(dpu_id),
-            "npu_ipv4": npu_ipv4,
-            "pa_ipv4": f"{pa_prefix}{pa_start + dpu_id}",
-            "swbus_port": str(swbus_start + dpu_id),
-            "type": "cluster",
-        }
-    return remote
-
-
-def generate_full_config():
-    # Generate VLAN config
-    vlan, vlan_intf, vlan_member = generate_vlan_config(
-        svi_ip="20.0.200.14/28"
-    )
-
-    return {
-        "DPU": generate_dpu_config(),
-        "REMOTE_DPU": generate_remote_dpu_config(),
-        "VDPU": {
-            "vdpu0_0": {"main_dpu_ids": "dpu0_0"},
-            "vdpu1_0": {"main_dpu_ids": "dpu1_0"}
-        },
-        "DASH_HA_GLOBAL_CONFIG": {
-            "GLOBAL": {
-                "dpu_bfd_probe_interval_in_ms": "1000",
-                "dpu_bfd_probe_multiplier": "3",
-                "cp_data_channel_port": "6000",
-                "dp_channel_dst_port": "7000",
-                "dp_channel_src_port_min": "7001",
-                "dp_channel_src_port_max": "7010",
-                "dp_channel_probe_interval_ms": "500",
-                "vnet_name": "Vnet_55",
-                "dp_channel_probe_fail_threshold": "5"
-            }
-        },
-        "INTERFACE": {
-            "Ethernet216": {},
-            "Ethernet216|192.168.200.2/24": {}
-        },
-        "LOOPBACK_INTERFACE": {
-            "Loopback0": {},
-            "Loopback0|10.1.0.32/32": {},
-            "Loopback0|FC00:1::32/128": {}
-        },
-        "VLAN": vlan,
-        "VLAN_INTERFACE": vlan_intf,
-        "VLAN_MEMBER": vlan_member,
-        "FEATURE": {
-            "dash-ha": {
-                "auto_restart": "disabled",
-                "delayed": "False",
-                "has_global_scope": "False",
-                "has_per_asic_scope": "False",
-                "has_per_dpu_scope": "True",
-                "high_mem_alert": "disabled",
-                "state": "enabled",
-                "support_syslog_rate_limit": "true"
-            }
-        },
-        "VNET": {
-            "Vnet_55": {"scope": "default", "vni": "10000", "vxlan_tunnel": "t4"}
-        },
-        "VXLAN_TUNNEL": {"t4": {"src_ip": "10.1.0.32"}}
-    }
-
-
-###############################################################################
-# DUT02 CONFIG GENERATOR
-###############################################################################
-
-
-def generate_dut2_dpu_config(
-    dpu_count=8,
-    pa_prefix="20.0.201.",
-    vip_prefix="3.2.1.",
-    midplane_prefix="169.254.200.",
-    swbus_start=23606,
-):
-    dpu = {}
-
-    for idx in range(dpu_count):
-        pa_idx = idx + 1
-        dpu[f"dpu1_{idx}"] = {
-            "dpu_id": str(idx),
-            "gnmi_port": "50051",
-            "local_port": "8080",
-            "midplane_ipv4": f"{midplane_prefix}{idx+1}",
-            "orchagent_zmq_port": "8100",
-            "pa_ipv4": f"{pa_prefix}{pa_idx}",
-            "state": "up",
-            "swbus_port": str(swbus_start + idx),
-            "vdpu_id": f"vdpu1_{idx}",
-            "vip_ipv4": f"{vip_prefix}{idx}",
+            "midplane_ipv4": f"{midplane_prefix}{idx + 1}",
         }
 
     return dpu
 
 
-def generate_dut2_remote_dpu_config(
-    cluster_id=0,
-    npu_ipv4="10.1.0.32",
-    pa_prefix="20.0.200.",
-    pa_start=1,
-    dpu_count=8,
-    swbus_start=23606,
-):
-    remote = {}
+###############################################################################
+# REMOTE DPU GENERATOR (UNIFIED)
+###############################################################################
 
-    for dpu_id in range(dpu_count):
-        remote[f"dpu{cluster_id}_{dpu_id}"] = {
-            "dpu_id": str(dpu_id),
-            "npu_ipv4": npu_ipv4,
-            "pa_ipv4": f"{pa_prefix}{pa_start + dpu_id}",
-            "swbus_port": str(swbus_start + dpu_id),
+def generate_remote_dpu_config_for_dut(
+    switch_id: int,
+    dpu_count=8,
+    swbus_start=23606
+):
+    """
+    Both DUT01 and DUT02 belong to the same cluster.
+
+    DUT01 (switch_id=0) sees remote DPUs as dpu1_x
+    DUT02 (switch_id=1) sees remote DPUs as dpu0_x
+    """
+
+    remote_switch_id = 1 - switch_id
+
+    remote_npu_ip = f"10.1.{remote_switch_id}.32"
+    pa_prefix = f"20.0.20{remote_switch_id}."
+
+    remote = {}
+    for idx in range(dpu_count):
+        remote[f"dpu{remote_switch_id}_{idx}"] = {
+            "dpu_id": str(idx),
+            "npu_ipv4": remote_npu_ip,
+            "pa_ipv4": f"{pa_prefix}{idx + 1}",
+            "swbus_port": str(swbus_start + idx),
             "type": "cluster"
         }
-
     return remote
 
 
-def generate_dut2_full_config():
-    # Generate VLAN config
-    vlan, vlan_intf, vlan_member = generate_vlan_config(
-        svi_ip="20.0.201.14/28"
-    )
+###############################################################################
+# UNIFIED FULL CONFIG GENERATOR (DUT01 + DUT02)
+###############################################################################
+
+def generate_ha_config_for_dut(switch_id: int):
+    """
+    switch_id 0 → DUT01
+    switch_id 1 → DUT02
+    """
+
+    # VLAN SVI per DUT
+    svi_ip = "20.0.200.14/28" if switch_id == 0 else "20.0.201.14/28"
+    vlan, vlan_intf, vlan_member = generate_vlan_config(svi_ip)
+
+    # Loopbacks per DUT
+    loopback_ip = "10.1.0.32/32" if switch_id == 0 else "10.1.1.32/32"
+    loopback_v6 = "FC00:1::32/128"
+
+    # VXLAN source IP per DUT
+    vxlan_src_ip = "10.1.0.32" if switch_id == 0 else "10.1.1.32"
 
     return {
-        "DPU": generate_dut2_dpu_config(),
-
-        "REMOTE_DPU": generate_dut2_remote_dpu_config(),
+        "DPU": generate_local_dpu_config(switch_id),
+        "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id),
 
         "VDPU": {
             "vdpu0_0": {"main_dpu_ids": "dpu0_0"},
@@ -356,12 +279,18 @@ def generate_dut2_full_config():
 
         "LOOPBACK_INTERFACE": {
             "Loopback0": {},
-            "Loopback0|10.1.1.32/32": {},
-            "Loopback0|FC00:1::32/128": {}
+            f"Loopback0|{loopback_ip}": {},
+            f"Loopback0|{loopback_v6}": {}
         },
+
+        # VLAN sections included
         "VLAN": vlan,
         "VLAN_INTERFACE": vlan_intf,
         "VLAN_MEMBER": vlan_member,
+
+        # IMPORTANT: INTERFACE REMOVED (Reviewer request)
+        # No INTERFACE section.
+
         "FEATURE": {
             "dash-ha": {
                 "auto_restart": "disabled",
@@ -384,71 +313,48 @@ def generate_dut2_full_config():
         },
 
         "VXLAN_TUNNEL": {
-            "t4": {"src_ip": "10.1.1.32"}
+            "t4": {"src_ip": vxlan_src_ip}
         }
     }
 
 
 ###############################################################################
-# PYTEST FIXTURE (UPDATED WITH config load + config save)
+# PYTEST FIXTURE — APPLY CONFIG ON BOTH DUTS
 ###############################################################################
 
 @pytest.fixture(scope="module")
 def setup_ha_config(duthosts):
     """
-    Load DASH-HA CONFIG_DB.json on BOTH DUT01 and DUT02 using:
-        config load -j <file>
+    Load unified DASH-HA config onto BOTH DUT01 and DUT02 using:
+        config load -y <file>
         config save -y
-
-    No hostname logic.
-    No parameters.
-    Always configures:
-        - duthosts[0] = DUT01
-        - duthosts[1] = DUT02
     """
 
-    # -------------------------------
-    # DUT01: duthosts[0]
-    # -------------------------------
-    dut1 = duthosts[0]
-    cfg1 = generate_full_config()
-    tmp1 = "/tmp/dut1_ha_config.json"
+    final_cfg = {}
 
-    dut1.copy(content=json.dumps(cfg1, indent=4), dest=tmp1)
-    dut1.shell(f"cat {tmp1} | jq .")
-    dut1.shell(f"sudo config load -y {tmp1}")
-    dut1.shell("sudo config save -y")
+    for switch_id in (0, 1):
+        dut = duthosts[switch_id]
+        cfg = generate_ha_config_for_dut(switch_id)
+        tmpfile = f"/tmp/dut{switch_id}_ha_config.json"
 
-    # Wait for processes to stabilize
-    time.sleep(10)
+        # Copy JSON
+        dut.copy(content=json.dumps(cfg, indent=4), dest=tmpfile)
 
-    # Validate DUT01 DPU keys (dpu0_*)
-    out1 = dut1.shell("redis-cli -n 4 KEYS 'DPU|dpu0_*'")["stdout"]
-    assert out1.strip(), "ERROR: DUT01 missing DPU|dpu0_* entries"
+        # Verify syntax
+        dut.shell(f"cat {tmpfile} | jq .")
 
-    # -------------------------------
-    # DUT02: duthosts[1]
-    # -------------------------------
-    dut2 = duthosts[1]
-    cfg2 = generate_dut2_full_config()
-    tmp2 = "/tmp/dut2_ha_config.json"
+        # Load and persist
+        dut.shell(f"sudo config load -y {tmpfile}")
+        dut.shell("sudo config save -y")
 
-    dut2.copy(content=json.dumps(cfg2, indent=4), dest=tmp2)
-    dut2.shell(f"cat {tmp2} | jq .")
-    dut2.shell(f"sudo config load -y {tmp2}")
-    dut2.shell("sudo config save -y")
+        # Allow processes to settle
+        time.sleep(10)
 
-    # Wait for processes to settle
-    time.sleep(10)
+        # Validate DPU entries
+        prefix = f"dpu{switch_id}_"
+        out = dut.shell(f"redis-cli -n 4 KEYS 'DPU|{prefix}*'")["stdout"]
+        assert out.strip(), f"ERROR: DUT{switch_id} missing DPU entries"
 
-    # Validate DUT02 DPU keys (dpu1_*)
-    out2 = dut2.shell("redis-cli -n 4 KEYS 'DPU|dpu1_*'")["stdout"]
-    assert out2.strip(), "ERROR: DUT02 missing DPU|dpu1_* entries"
+        final_cfg[f"DUT{switch_id}"] = cfg
 
-    # -------------------------------
-    # RETURN both configs
-    # -------------------------------
-    return {
-        "dut1_config": cfg1,
-        "dut2_config": cfg2
-    }
+    return final_cfg
