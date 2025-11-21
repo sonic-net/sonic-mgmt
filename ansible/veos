@@ -282,6 +282,7 @@ all:
           - t1-64-lag-clet
           - t1-4-lag
           - t1-backend
+          - t1-f2-d10u8
           - t1-isolated-d128
           - t1-isolated-d28u1
           - t1-isolated-d224u8
@@ -317,6 +318,7 @@ all:
           - t0-118
           - t0-backend
           - fullmesh
+          - t0-f2-d40u8
           - t0-standalone-32
           - t0-standalone-64
           - t0-standalone-128
