@@ -507,7 +507,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
 
-    # We are currently treating the shutdown action as a setup mechanism for a startup action to follow.
+    # Currently treating the shutdown action as a setup mechanism for a startup action to follow.
     # So we only do the selection of flapping and injection neighbors when action is shutdown
     # And we reuse the same selection for startup action
     if action == 'shutdown':
@@ -519,7 +519,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
             bgp_peers_info, all_flap, flapping_count
         )
 
-        flapping_connections = {'ports': flapping_ports}.get(connection_type, [])
+        flapping_connections = {'ports': flapping_ports, 'bgp_sessions': flapping_neighbors}.get(connection_type, [])
         # Build expected routes after shutdown
         startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=False)
         neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
