@@ -27,7 +27,7 @@ DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
 MAX_COOL_OFF_TIME = 300
 
 
-def test_dpu_status_post_switch_reboot(duthosts,
+def test_dpu_status_post_switch_reboot(duthosts, dpuhosts,
                                        enum_rand_one_per_hwsku_hostname,
                                        localhost,
                                        platform_api_conn, num_dpu_modules):  # noqa F811, E501
@@ -52,8 +52,13 @@ def test_dpu_status_post_switch_reboot(duthosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("Executing post switch reboot dpu check")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, None)
 
-def test_dpu_status_post_switch_config_reload(duthosts,
+
+def test_dpu_status_post_switch_config_reload(duthosts, dpuhosts,
                                               enum_rand_one_per_hwsku_hostname,
                                               localhost,
                                               platform_api_conn, num_dpu_modules):   # noqa F811, E501
@@ -79,9 +84,14 @@ def test_dpu_status_post_switch_config_reload(duthosts,
     check_dpu_link_and_status(duthost, dpu_on_list,
                               dpu_off_list, ip_address_list)
 
+    logging.info("Executing post switch config reload dpu check")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, None)
+
 
 @pytest.mark.disable_loganalyzer
-def test_dpu_status_post_switch_mem_exhaustion(duthosts,
+def test_dpu_status_post_switch_mem_exhaustion(duthosts, dpuhosts,
                                                enum_rand_one_per_hwsku_hostname,  # noqa: E501
                                                localhost,
                                                platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -118,9 +128,14 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
 
+    logging.info("Executing post switch mem exhaustion dpu check")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, None)
+
 
 @pytest.mark.disable_loganalyzer
-def test_dpu_status_post_switch_kernel_panic(duthosts,
+def test_dpu_status_post_switch_kernel_panic(duthosts, dpuhosts,
                                              enum_rand_one_per_hwsku_hostname,
                                              localhost,
                                              platform_api_conn, num_dpu_modules):  # noqa: F811, E501
@@ -155,6 +170,11 @@ def test_dpu_status_post_switch_kernel_panic(duthosts,
     post_test_switch_check(duthost, localhost,
                            dpu_on_list, dpu_off_list,
                            ip_address_list)
+
+    logging.info("Executing post switch kernel panic dpu check")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, None)
 
 
 @pytest.mark.disable_loganalyzer
