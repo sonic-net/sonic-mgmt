@@ -14,7 +14,7 @@ devices:
     linux_password: lab
     linux_prompt: root@docker-ptf:~#
     xr_port_redir: [22]
-    extended_pci_bus: True
+    extended_pci_bus: true
     vcpu: 4
     memory: '8G'
     mgmt_intf_name: mgmt
@@ -34,7 +34,7 @@ devices:
     linux_password: "password"
     vcpu: 10
     memory: '20G'
-    linecard_types: ['8223-64EF-MO']
+    linecard_types: ['8223-64E-MO']
     npu_asic_versions: [A0]
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
     onie-install: /auto/vxr1/sonic-images/titan_cicd/202505.1/sonic-cisco-8000.bin
@@ -42,12 +42,12 @@ devices:
        lc0:
           0..63: 2x400
 
-  sonic_mgmt :
+  sonic_mgmt:
     platform: linux
     xr_port_redir: [22]
-    image : /globalnobackup/sonic/ubuntu1804_mgt.qcow2
+    image: /globalnobackup/sonic/ubuntu1804_mgt.qcow2
     linux_username: 'vxr'
-    linux_password : 'cisco123'
+    linux_password: 'cisco123'
     linux_prompt: 'vxr@vxr-vm:~\$'
     vcpu: 10
     memory: '20G'
@@ -55,14 +55,14 @@ devices:
 device_groups:
   veos:
     devices:
-    - "veos[1..32]"
+      - "veos[1..32]"
     platform: veos
     xr_port_redir: [22]
     image: /auto/vxr/images/veos/Aboot-veos-serial-8.0.0.iso
     disks:
-    - hda:
-        file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
-        type: reference
+      - hda:
+          file: /auto/vxr/images/veos/vEOS-lab-4.24.1.1F.qcow2
+          type: reference
 
 connections:
     custom:

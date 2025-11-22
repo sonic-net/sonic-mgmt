@@ -163,8 +163,8 @@ def _create_parser():
                       required=False,default="admin")
     parser.add_argument('-c', '--clean_sim', action='store_true', help='Clean simulation',
                       default=False)
-    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib, mustang',
-                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'lightning','superbolt', 'siren','sfd', 'churchill-mono', 'carib', 'mustang'])
+    parser.add_argument('-d', '--device_type', type=str, help='options are sherman, mth32, crocodile, sfd, churchill-mono, carib, mustang, titan',
+                      required=False,default="mth64", choices=['sherman', 'mth32', 'mth64', 'crocodile', 'lightning','superbolt', 'siren','sfd', 'churchill-mono', 'carib', 'mustang', 'titan'])
     parser.add_argument('-s', '--script_file', type=str, help='Input test script file',
                       required=False,default='sanity-scripts/sanity_scripts.txt')
     parser.add_argument('-v', '--drop_version', type=str, help='specify drop version',
@@ -650,8 +650,6 @@ def upload_tb_files(data,topo_type,base_topo_file,device_type, lc_topo_code='GG'
         ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
     elif device_type == 'superbolt':
         ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
-    elif device_type == 'mustang':
-        ftp_client.put('../sonic-mgmt/ansible/module_utils/port_utils.py','golden-code/sonic-test/sonic-mgmt/ansible/module_utils/port_utils.py')
     elif device_type == 'dualtor_mth64':
         ftp_client.put('lab_connection_graph_dualtor_mth64.xml','golden-code/sonic-test/sonic-mgmt/ansible/files/lab_connection_graph.xml')
     elif device_type == 'churchill-mono':
@@ -916,6 +914,8 @@ def get_dut_platform(device_type):
         return 'carib'
     elif device_type == 'mustang':
         return 'mustang'
+    elif device_type == 'titan':
+        return 'titan'
     else:
         return "mathilda"
 
@@ -948,6 +948,8 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-churchill-mono-t0.yaml'
         elif device_type == 'mustang':
             base_topo_file = 'testbed-mustang-t0.yaml'
+        elif device_type == 'titan':
+            base_topo_file = 'testbed-titan-t0.yaml'
         else:
             base_topo_file = 'testbed-mth32-t0.yaml'
     elif topo_type == 't1':
@@ -963,6 +965,8 @@ def determine_base_topo(topo_type, device_type):
             base_topo_file = 'testbed-siren-t1.yaml'
         elif device_type == 'mustang':
             base_topo_file = 'testbed-mustang-t1.yaml'
+        elif device_type == 'titan':
+            base_topo_file = 'testbed-titan-t1.yaml'
         else:
             base_topo_file = 'testbed-mth32-t1.yaml'
         os.system("cp sonic_t1_topo/* .")
@@ -1186,6 +1190,9 @@ def print_env_info(data, device_type, vEOS_count):
     elif device_type == 'mustang':
         logging.info("Device name is mustang. To execute a pytest script:\n")
         logging.info("./run_tests.sh -n docker-ptf -d mustang-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\n")
+    elif device_type == 'titan':
+        logging.info("Device name is titan. To execute a pytest script:\\n")
+        logging.info("./run_tests.sh -n docker-ptf -d titan-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_facts.py |& tee bgp_fact.log\\n")
     else:
         logging.info("Device name is mth32 or m64. To execute a pytest script:\n")
         logging.info("./run_tests.sh -n docker-ptf -d mathilda-01 -O -u -l debug -e -s -e --disable_loganalyzer -m individual -p /data/tests/logs -c bgp/test_bgp_fact.py |& tee bgp_fact.log\n")

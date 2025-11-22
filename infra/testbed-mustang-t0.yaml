@@ -68,12 +68,12 @@ devices:
     alias: null
     ansible:
       ansible_host: 192.168.122.220
-      ansible_ssh_pass: cisco123
-      ansible_ssh_user: cisco
+      ansible_ssh_pass: password
+      ansible_ssh_user: admin
     credentials:
-      enable_password: cisco123
-      password: cisco123
-      username: cisco
+      enable_password: password
+      password: password
+      username: admin
     device_type: DevSonic
     hwsku: Cisco-8223-64EF-MO
     os: sonic

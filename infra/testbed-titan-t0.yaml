@@ -19,14 +19,14 @@ device_groups:
     - sonic_cisco
   sonic_cisco:
     host:
-    - mustang-01
+    - titan-01
     vars:
-      hwsku: Cisco-8223-64EF-MO
+      hwsku: Cisco-8223-64E-MO
       iface_speed: '400000'
 devices:
   docker-ptf:
     ansible:
-      ansible_host: 192.168.122.183/24
+      ansible_host: 192.168.122.64/24
       ansible_hostv6: fc0b::1/64
       ansible_ssh_pass: root
       ansible_ssh_user: root
@@ -64,10 +64,10 @@ devices:
     device_type: server
     hwsku: TestServ
     mgmt_subnet_mask_length: '24'
-  mustang-01:
+  titan-01:
     alias: null
     ansible:
-      ansible_host: 192.168.122.33
+      ansible_host: 192.168.122.220
       ansible_ssh_pass: password
       ansible_ssh_user: admin
     credentials:
@@ -75,7 +75,7 @@ devices:
       password: password
       username: admin
     device_type: DevSonic
-    hwsku: Cisco-8223-64EF-MO
+    hwsku: Cisco-8223-64E-MO
     os: sonic
 docker_registry:
   docker_registry_host: sonicdev-microsoft.azurecr.io:443
@@ -90,220 +90,412 @@ host_vars:
 testbed:
   docker-ptf:
     ansible:
-      ansible_host: 192.168.122.183/24
+      ansible_host: 192.168.122.64/24
       ansible_hostv6: fc0b::1/64
       ansible_ssh_pass: root
       ansible_ssh_user: root
-    comment: Test ptf mustang
+    comment: Test ptf titan
     credentials:
       password: root
       username: root
-    dut: mustang-01
+    dut: titan-01
     group-name: sonic_cisco
     ptf: docker-ptf
-    ptf_image_name: docker-ptf-mustang
-    ptf_ip: 192.168.122.183/24
+    ptf_image_name: docker-ptf-titan
+    ptf_ip: 192.168.122.64/24
     ptf_ipv6: fc0b::1/64
     server: server_1
-    topo: t1
+    topo: t0
     vm_base: VM0100
 testbed_config:
-  alias: mustangTestbed
-  name: testbed-mustang-t1
+  alias: titantopologyTestbed
+  name: testbed-titan-t0
   type: Physical
 topology:
-  mustang-01:
+  titan-01:
     interfaces:
       Ethernet0:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/0
         VlanID: 2000
         VlanMode: Access
       Ethernet100:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/25
         VlanID: 2025
         VlanMode: Access
       Ethernet104:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/26
         VlanID: 2026
         VlanMode: Access
       Ethernet108:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/27
         VlanID: 2027
         VlanMode: Access
       Ethernet112:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/28
         VlanID: 2028
         VlanMode: Access
       Ethernet116:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/29
         VlanID: 2029
         VlanMode: Access
       Ethernet12:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/3
         VlanID: 2003
         VlanMode: Access
       Ethernet120:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/30
         VlanID: 2030
         VlanMode: Access
       Ethernet124:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/31
         VlanID: 2031
+        VlanMode: Access
+      Ethernet128:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/32
+        VlanID: 2032
+        VlanMode: Access
+      Ethernet132:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/33
+        VlanID: 2033
+        VlanMode: Access
+      Ethernet136:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/34
+        VlanID: 2034
+        VlanMode: Access
+      Ethernet140:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/35
+        VlanID: 2035
+        VlanMode: Access
+      Ethernet144:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/36
+        VlanID: 2036
+        VlanMode: Access
+      Ethernet148:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/37
+        VlanID: 2037
+        VlanMode: Access
+      Ethernet152:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/38
+        VlanID: 2038
+        VlanMode: Access
+      Ethernet156:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/39
+        VlanID: 2039
         VlanMode: Access
       Ethernet16:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/4
         VlanID: 2004
+        VlanMode: Access
+      Ethernet160:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/40
+        VlanID: 2040
+        VlanMode: Access
+      Ethernet164:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/41
+        VlanID: 2041
+        VlanMode: Access
+      Ethernet168:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/42
+        VlanID: 2042
+        VlanMode: Access
+      Ethernet172:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/43
+        VlanID: 2043
+        VlanMode: Access
+      Ethernet176:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/44
+        VlanID: 2044
+        VlanMode: Access
+      Ethernet180:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/45
+        VlanID: 2045
+        VlanMode: Access
+      Ethernet184:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/46
+        VlanID: 2046
+        VlanMode: Access
+      Ethernet188:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/47
+        VlanID: 2047
+        VlanMode: Access
+      Ethernet192:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/48
+        VlanID: 2048
+        VlanMode: Access
+      Ethernet196:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/49
+        VlanID: 2049
         VlanMode: Access
       Ethernet20:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/5
         VlanID: 2005
+        VlanMode: Access
+      Ethernet200:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/50
+        VlanID: 2050
+        VlanMode: Access
+      Ethernet204:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/51
+        VlanID: 2051
+        VlanMode: Access
+      Ethernet208:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/52
+        VlanID: 2052
+        VlanMode: Access
+      Ethernet212:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/53
+        VlanID: 2053
+        VlanMode: Access
+      Ethernet216:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/54
+        VlanID: 2054
+        VlanMode: Access
+      Ethernet220:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/55
+        VlanID: 2055
+        VlanMode: Access
+      Ethernet224:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/56
+        VlanID: 2056
+        VlanMode: Access
+      Ethernet228:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/57
+        VlanID: 2057
+        VlanMode: Access
+      Ethernet232:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/58
+        VlanID: 2058
+        VlanMode: Access
+      Ethernet236:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/59
+        VlanID: 2059
         VlanMode: Access
       Ethernet24:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/6
         VlanID: 2006
+        VlanMode: Access
+      Ethernet240:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/60
+        VlanID: 2060
+        VlanMode: Access
+      Ethernet244:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/61
+        VlanID: 2061
+        VlanMode: Access
+      Ethernet248:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/62
+        VlanID: 2062
+        VlanMode: Access
+      Ethernet252:
+        Bandwidth: 400000
+        EndDevice: nexus-5
+        EndPort: Ethernet1/63
+        VlanID: 2063
         VlanMode: Access
       Ethernet28:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/7
         VlanID: 2007
         VlanMode: Access
       Ethernet32:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/8
         VlanID: 2008
         VlanMode: Access
       Ethernet36:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/9
         VlanID: 2009
         VlanMode: Access
       Ethernet4:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/1
         VlanID: 2001
         VlanMode: Access
       Ethernet40:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/10
         VlanID: 2010
         VlanMode: Access
       Ethernet44:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/11
         VlanID: 2011
         VlanMode: Access
       Ethernet48:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/12
         VlanID: 2012
         VlanMode: Access
       Ethernet52:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/13
         VlanID: 2013
         VlanMode: Access
       Ethernet56:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/14
         VlanID: 2014
         VlanMode: Access
       Ethernet60:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/15
         VlanID: 2015
         VlanMode: Access
       Ethernet64:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/16
         VlanID: 2016
         VlanMode: Access
       Ethernet68:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/17
         VlanID: 2017
         VlanMode: Access
       Ethernet72:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/18
         VlanID: 2018
         VlanMode: Access
       Ethernet76:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/19
         VlanID: 2019
         VlanMode: Access
       Ethernet8:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/2
         VlanID: 2002
         VlanMode: Access
       Ethernet80:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/20
         VlanID: 2020
         VlanMode: Access
       Ethernet84:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/21
         VlanID: 2021
         VlanMode: Access
       Ethernet88:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/22
         VlanID: 2022
         VlanMode: Access
       Ethernet92:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/23
         VlanID: 2023
         VlanMode: Access
       Ethernet96:
         Bandwidth: 400000
         EndDevice: nexus-5
-        EndPort: Ethernet1
+        EndPort: Ethernet1/24
         VlanID: 2024
         VlanMode: Access
 veos:
@@ -325,7 +517,7 @@ veos:
   vm_console_base: 7000
   vm_host_1:
     STR-ACS-SERV-01:
-      ansible_host: 10.89.172.177
+      ansible_host: 10.88.23.66
   vm_host_ansible:
     ansible_password: cisco123
     ansible_sudo_pass: cisco123
@@ -333,69 +525,13 @@ veos:
   vm_images_url: https://acsbe.blob.core.windows.net/vmimages
   vms_1:
     VM0100:
-      ansible_host: 192.168.122.244
+      ansible_host: 192.168.122.38
     VM0101:
-      ansible_host: 192.168.122.178
+      ansible_host: 192.168.122.134
     VM0102:
-      ansible_host: 192.168.122.158
+      ansible_host: 192.168.122.135
     VM0103:
-      ansible_host: 192.168.122.117
-    VM0104:
-      ansible_host: 192.168.122.144
-    VM0105:
-      ansible_host: 192.168.122.47
-    VM0106:
-      ansible_host: 192.168.122.110
-    VM0107:
-      ansible_host: 192.168.122.25
-    VM0108:
-      ansible_host: 192.168.122.44
-    VM0109:
-      ansible_host: 192.168.122.236
-    VM0110:
-      ansible_host: 192.168.122.247
-    VM0111:
-      ansible_host: 192.168.122.148
-    VM0112:
-      ansible_host: 192.168.122.34
-    VM0113:
-      ansible_host: 192.168.122.184
-    VM0114:
-      ansible_host: 192.168.122.241
-    VM0115:
-      ansible_host: 192.168.122.66
-    VM0116:
-      ansible_host: 192.168.122.50
-    VM0117:
-      ansible_host: 192.168.122.6
-    VM0118:
-      ansible_host: 192.168.122.60
-    VM0119:
-      ansible_host: 192.168.122.12
-    VM0120:
-      ansible_host: 192.168.122.161
-    VM0121:
-      ansible_host: 192.168.122.26
-    VM0122:
-      ansible_host: 192.168.122.32
-    VM0123:
-      ansible_host: 192.168.122.61
-    VM0124:
-      ansible_host: 192.168.122.90
-    VM0125:
-      ansible_host: 192.168.122.196
-    VM0126:
-      ansible_host: 192.168.122.46
-    VM0127:
-      ansible_host: 192.168.122.89
-    VM0128:
-      ansible_host: 192.168.122.97
-    VM0129:
-      ansible_host: 192.168.122.173
-    VM0130:
-      ansible_host: 192.168.122.45
-    VM0131:
-      ansible_host: 192.168.122.35
+      ansible_host: 192.168.122.167
 veos_groups:
   eos:
     children:
@@ -435,31 +571,3 @@ veos_groups:
     - VM0101
     - VM0102
     - VM0103
-    - VM0104
-    - VM0105
-    - VM0106
-    - VM0107
-    - VM0108
-    - VM0109
-    - VM0110
-    - VM0111
-    - VM0112
-    - VM0113
-    - VM0114
-    - VM0115
-    - VM0116
-    - VM0117
-    - VM0118
-    - VM0119
-    - VM0120
-    - VM0121
-    - VM0122
-    - VM0123
-    - VM0124
-    - VM0125
-    - VM0126
-    - VM0127
-    - VM0128
-    - VM0129
-    - VM0130
-    - VM0131
