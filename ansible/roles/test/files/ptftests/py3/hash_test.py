@@ -437,7 +437,7 @@ class HashTest(BaseTest):
             pkt=pkt,
             vxlan_pkt=pkt,
             nvgre_pkt=pkt,
-            ipinip_pkt=pkt,
+            ipinip_pkt=inner_pkt,
             inner_pkt=inner_pkt,
             outer_sport=outer_sport,
             sport=sport,
@@ -446,15 +446,26 @@ class HashTest(BaseTest):
             ip_dst=ip_dst,
             ip_proto=ip_proto
         )
+        # For IPinIP tests create_pkt() returns (inner_frame, exp_pkt, ipinip_pkt)
+        # i.e., the outer encapsulated packet is the 3rd return value. For other
+        # encapsulations (VXLAN, NVGRE) create_pkt() returns (outer_pkt, exp_pkt, inner_pkt).
+        # Send outer encapsulated packet in all cases:
+        # - For IPinIP test class the outer encapsulated packet is inner_pkt (3rd value).
+        # - For other test classes the outer encapsulated packet is pkt (1st value).
+        if class_name == 'IPinIPHashTest' and inner_pkt is not None:
+            send_pkt = inner_pkt
+        else:
+            send_pkt = pkt
         if class_name == 'HashTest':
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
-                fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
+                fargs=[src_port, send_pkt, masked_exp_pkt, dst_port_lists, logs],
                 tries=2,
                 delay=2
             )
         else:
-            rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
+            rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, send_pkt,
+                                                               masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
 
     def check_ipv6_route(self, hash_key, src_port, dst_port_lists, outer_src_ip=None, outer_dst_ip=None):
@@ -512,15 +523,26 @@ class HashTest(BaseTest):
             ip_proto=ip_proto,
             version='IPv6'
         )
+        # For IPinIP tests create_pkt() returns (inner_frame, exp_pkt, ipinip_pkt)
+        # i.e., the outer encapsulated packet is the 3rd return value. For other
+        # encapsulations (VXLAN, NVGRE) create_pkt() returns (outer_pkt, exp_pkt, inner_pkt).
+        # Send outer encapsulated packet in all cases:
+        # - For IPinIP test class the outer encapsulated packet is inner_pkt (3rd value).
+        # - For other test classes the outer encapsulated packet is pkt (1st value).
+        if class_name == 'IPinIPHashTest' and inner_pkt is not None:
+            send_pkt = inner_pkt
+        else:
+            send_pkt = pkt
         if class_name == 'HashTest':
             rcvd_port, rcvd_pkt = retry_call(
                 self.send_and_verify_packets,
-                fargs=[src_port, pkt, masked_exp_pkt, dst_port_lists, logs],
+                fargs=[src_port, send_pkt, masked_exp_pkt, dst_port_lists, logs],
                 tries=2,
                 delay=2
             )
         else:
-            rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, logs=logs)
+            rcvd_port, rcvd_pkt = self.send_and_verify_packets(src_port, send_pkt,
+                                                               masked_exp_pkt, dst_port_lists, logs=logs)
         return self.get_validated_packet(rcvd_port, rcvd_pkt, dst_port_lists, ip_src, ip_dst, src_port)
 
     def check_within_expected_range(self, actual, expected, hash_key):
