@@ -1,24 +1,30 @@
 [
         {
-                "DASH_ROUTING_TYPE_TABLE:vnet": {
-                "action_name": "action1",
-                "action_type": "maprouting"
-                },
+                "DASH_ROUTING_TYPE_TABLE:vnet": { "items": [
+                        {
+                                "action_name": "action1",
+                                "action_type": "maprouting"
+                        }
+                ]},
                 "OP": "{{ op }}"
         },
         {
-                "DASH_ROUTING_TYPE_TABLE:vnet_direct": {
-                "action_name": "action1",
-                "action_type": "maprouting"
-                },
+                "DASH_ROUTING_TYPE_TABLE:vnet_direct": { "items": [
+                        {
+                                "action_name": "action1",
+                                "action_type": "maprouting"
+                        }
+                ]},
                 "OP": "{{ op }}"
         },
         {
-                "DASH_ROUTING_TYPE_TABLE:vnet_encap": {
-                "action_name": "action1",
-                "action_type": "staticencap",
-                "encap_type": "vxlan"
-                },
+                "DASH_ROUTING_TYPE_TABLE:vnet_encap": { "items": [
+                        {
+                                "action_name": "action1",
+                                "action_type": "staticencap",
+                                "encap_type": "vxlan"
+                        }
+                ]},
                 "OP": "{{ op }}"
         },
         {

@@ -160,6 +160,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         't0-isolated-d128u128s2',
         't0-isolated-d96u32s2',
         't0-isolated-d32u32s2',
+        't0-isolated-d16u16s1',
         't0-isolated-d16u16s2',
         't1-isolated-d224u8',
         't1-isolated-d128',

@@ -22,7 +22,7 @@ def ptf_telemetry_get(duthost, ptfhost):
     env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '

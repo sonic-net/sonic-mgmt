@@ -928,7 +928,7 @@ def initial_tsa_check_before_and_after_test(duthosts):
             lc.shell('TSB')
             lc.shell('sudo config save -y')
             # Ensure that the DUT is not in maintenance already before start of the test
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in normal state")
 
     # Issue TSB on the line card before proceeding further
