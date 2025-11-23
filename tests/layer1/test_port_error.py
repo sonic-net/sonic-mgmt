@@ -2,6 +2,8 @@ import logging
 import pytest
 import random
 import time
+import os
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
@@ -30,12 +32,12 @@ def collected_ports_num(request):
 
 class TestMACFault(object):
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_disabled(self, duthost, is_sw_control_feature_enabled):
-        return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled
+    def is_supported_nvidia_platform_with_sw_control_disabled(self, duthost):
+        return 'nvidia' in duthost.facts['platform'].lower() and not is_sw_control_feature_enabled(duthost)
 
     @pytest.fixture(scope="class", autouse=True)
-    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost, is_sw_control_feature_enabled):
-        return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled
+    def is_supported_nvidia_platform_with_sw_control_enabled(self, duthost):
+        return 'nvidia' in duthost.facts['platform'].lower() and is_sw_control_feature_enabled(duthost)
 
     @pytest.fixture(scope="class", autouse=True)
     def is_supported_platform(self, duthost, tbinfo, is_supported_nvidia_platform_with_sw_control_disabled):
@@ -63,6 +65,24 @@ class TestMACFault(object):
 
         logging.info("{} count on {}: {}".format(fault_type, interface, fault_count))
         return fault_count
+
+    @staticmethod
+    def is_sw_control_feature_enabled(duthost):
+        """
+        Check if SW control feature is enabled.
+        """
+        try:
+            platform_name = duthost.facts['platform']
+            hwsku = duthost.facts.get('hwsku', '')
+            sai_profile_path = os.path.join('/usr/share/sonic/device', platform_name, hwsku, 'sai.profile')
+            cmd = duthost.shell('cat {}'.format(sai_profile_path), module_ignore_errors=True)
+            if cmd['rc'] == 0 and 'SAI_INDEPENDENT_MODULE_MODE' in cmd['stdout']:
+                sc_enabled = re.search(r"SAI_INDEPENDENT_MODULE_MODE=(\d?)", cmd['stdout'])
+                if sc_enabled and sc_enabled.group(1) == '1':
+                    return True
+        except Exception as e:
+            logging.error("Error checking SW control feature on Nvidia platform: {}".format(e))
+            return False
 
     @staticmethod
     def get_interface_status(dut, interface):
