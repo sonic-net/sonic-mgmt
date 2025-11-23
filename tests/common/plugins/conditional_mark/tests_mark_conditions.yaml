@@ -336,12 +336,6 @@ bgp/test_bgp_operation_in_ro.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
 
-bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
-  xfail:
-    reason: "xfail for IPv6-only topologies, is with it parse everthing as IPv4"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19907 and '-v6-' in topo_name"
-
 bgp/test_bgp_port_disable.py:
   skip:
     reason: "Not supperted on master."
