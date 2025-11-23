@@ -9,6 +9,8 @@ from tests.common.platform.transceiver_utils import parse_sfp_eeprom_infos
 from tests.common.mellanox_data import get_supported_available_optical_interfaces
 from tests.common.utilities import wait_until
 
+pytest_plugins = ('tests.platform_tests',)
+
 pytestmark = [
     pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
