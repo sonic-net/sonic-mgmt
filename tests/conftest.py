@@ -3647,7 +3647,7 @@ def pytest_runtest_setup(item):
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
 
 
-@pytest.fixture(scope="module", autouse=False)
+@pytest.fixture(scope="module", autouse=True)
 def yang_validation_check(request, duthosts):
     """
     YANG validation check that runs before and after each test module
