@@ -83,13 +83,71 @@ def stop_pfcwd(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         duthost (AnsibleHost): DUT instance
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    cmd = "show run all | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "cat /etc/sonic/config_db.json | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
     logger.info("--- Stop Pfcwd --")
     duthost.command("pfcwd stop")
 
+    cmd = "show run all | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "cat /etc/sonic/config_db.json | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+
+
+
     yield
+
+    cmd = "show run all | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "cat /etc/sonic/config_db.json | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+
+
 
     logger.info("--- Start Pfcwd --")
     duthost.command("pfcwd start_default")
+
+    cmd = "show run all | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "cat /etc/sonic/config_db.json | grep -E 'detection_time|POLL_INTERVAL'"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+    cmd = "show pfcwd config"
+    pfcwd_cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+    logger.info("pfcwd_cmd {} response: {}".format(cmd, pfcwd_cmd_response.get('stdout', None)))
+
+
+
 
 
 @pytest.fixture(scope='class', autouse=True)
