@@ -62,7 +62,7 @@ def pytest_addoption(parser):
     )
 
     vxlan_group.addoption(
-        "--num_routes",
+        "--vxlan_num_routes",
         action="store",
         default=16000,
         type=int,
@@ -260,7 +260,7 @@ def scaled_vnet_params(request):
 
     params = {}
     params[NUM_VNET_KEY] = request.config.option.num_vnet
-    params[NUM_ROUTES_KEY] = request.config.option.num_routes
+    params[NUM_ROUTES_KEY] = request.config.option.vxlan_num_routes
     params[NUM_ENDPOINTS_KEY] = request.config.option.num_endpoints
     return params
 
