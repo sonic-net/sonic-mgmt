@@ -1098,7 +1098,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path="/tmp",
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
