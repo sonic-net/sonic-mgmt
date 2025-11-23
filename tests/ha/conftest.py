@@ -174,8 +174,8 @@ def generate_local_dpu_config(
 ):
     """
     switch_id:
-        0 → DUT01 → dpu0_x prefix, pa_ipv4 = 20.0.200.x
-        1 → DUT02 → dpu1_x prefix, pa_ipv4 = 20.0.201.x
+        0 FOR DUT01 FOR dpu0_x prefix, pa_ipv4 = 20.0.200.x
+        1 FOR DUT02 FOR dpu1_x prefix, pa_ipv4 = 20.0.201.x
     """
     prefix = f"dpu{switch_id}_"
     pa_prefix = f"20.0.20{switch_id}."
@@ -198,6 +198,25 @@ def generate_local_dpu_config(
         }
 
     return dpu
+
+
+def generate_vdpu_config(dpu_count=8):
+    """
+    Generate VDPU table for BOTH clusters:
+        vdpu0_0 ... vdpu0_7  --> dpu0_0 ... dpu0_7
+        vdpu1_0 ... vdpu1_7  --> dpu1_0 ... dpu1_7
+    """
+    vdpu = {}
+
+    # cluster0 (switch 0)
+    for idx in range(dpu_count):
+        vdpu[f"vdpu0_{idx}"] = {"main_dpu_ids": f"dpu0_{idx}"}
+
+    # cluster1 (switch 1)
+    for idx in range(dpu_count):
+        vdpu[f"vdpu1_{idx}"] = {"main_dpu_ids": f"dpu1_{idx}"}
+
+    return vdpu
 
 
 ###############################################################################
@@ -239,8 +258,8 @@ def generate_remote_dpu_config_for_dut(
 
 def generate_ha_config_for_dut(switch_id: int):
     """
-    switch_id 0 → DUT01
-    switch_id 1 → DUT02
+    switch_id 0 FOR  DUT01
+    switch_id 1 FOR  DUT02
     """
 
     # VLAN SVI per DUT
@@ -253,16 +272,15 @@ def generate_ha_config_for_dut(switch_id: int):
 
     # VXLAN source IP per DUT
     vxlan_src_ip = "10.1.0.32" if switch_id == 0 else "10.1.1.32"
+    if switch_id == 0:
+        hostname = "swicth1"
+    else:
+        hostname = "switch2"
 
     return {
         "DPU": generate_local_dpu_config(switch_id),
         "REMOTE_DPU": generate_remote_dpu_config_for_dut(switch_id),
-
-        "VDPU": {
-            "vdpu0_0": {"main_dpu_ids": "dpu0_0"},
-            "vdpu1_0": {"main_dpu_ids": "dpu1_0"}
-        },
-
+        "VDPU": generate_vdpu_config(),
         "DASH_HA_GLOBAL_CONFIG": {
             "GLOBAL": {
                 "dpu_bfd_probe_interval_in_ms": "1000",
@@ -303,6 +321,13 @@ def generate_ha_config_for_dut(switch_id: int):
                 "support_syslog_rate_limit": "true"
             }
         },
+        "DEVICE_METADATA": {
+            "localhost": {
+                "region": "west",
+                "cluster": "cluster1",
+                "hostname": f"{hostname}"
+                }
+            },
 
         "VNET": {
             "Vnet_55": {
@@ -316,6 +341,26 @@ def generate_ha_config_for_dut(switch_id: int):
             "t4": {"src_ip": vxlan_src_ip}
         }
     }
+
+
+def remove_loopback_ips(dut):
+    # Remove IPv4 addresses
+    out_v4 = dut.shell("show ip interfaces | grep Loopback0 || true")["stdout"].strip().splitlines()
+    for line in out_v4:
+        parts = line.split()
+        # Expected: ["Loopback0", "10.1.0.33/32", "up", "up"]
+        if len(parts) >= 2:
+            ip = parts[1]
+            dut.shell(f"sudo config interface ip remove Loopback0 {ip} || true")
+
+    # Remove IPv6 addresses
+    out_v6 = dut.shell("show ipv6 interfaces | grep Loopback0 || true")["stdout"].strip().splitlines()
+    for line in out_v6:
+        parts = line.split()
+        # Expected: ["Loopback0", "fc00:1::32/128", "up", "up"]
+        if len(parts) >= 2:
+            ip = parts[1]
+            dut.shell(f"sudo config interface ip remove Loopback0 {ip} || true")
 
 
 ###############################################################################
@@ -342,6 +387,9 @@ def setup_ha_config(duthosts):
 
         # Verify syntax
         dut.shell(f"cat {tmpfile} | jq .")
+
+        # DELETE old Loopback0 IPs
+        remove_loopback_ips(dut)
 
         # Load and persist
         dut.shell(f"sudo config load -y {tmpfile}")
