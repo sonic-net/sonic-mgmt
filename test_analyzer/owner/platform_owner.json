@@ -156,7 +156,7 @@
         "topo": "t0",
         "owner": "Zhaohui Sun",
         "email": "zhaohuisun@microsoft.com",
-        "new_platform": "Yes",
+        "new_platform": "",
         "tag": ""
     },
     {
@@ -828,8 +828,8 @@
         "topo": "t0",
         "owner": "Xiawei Jiang",
         "email": "xiaweijiang@microsoft.com",
-        "new_platform": "Yes",
-        "tag": "Yes"
+        "new_platform": "",
+        "tag": ""
     },
     {
         "hwsku": "Arista-7050CX3-32S-S128",

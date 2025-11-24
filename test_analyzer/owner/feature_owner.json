@@ -341,8 +341,8 @@
     },
     {
         "feature": "dhcp_relay",
-        "owner": "Ying Xie",
-        "email": "yinxi@microsoft.com",
+        "owner": "Xichen Lin",
+        "email": "xichenlin@microsoft.com",
         "scripts": [
             {
                 "scripts": [
@@ -350,23 +350,23 @@
                     "dhcp_relay.test_dhcp_relay",
                     "dhcp_relay.test_dhcpv6_relay"
                 ],
-                "owner": "Ying Xie",
-                "email": "yinxi@microsoft.com"
+                "owner": "Xichen Lin",
+                "email": "xichenlin@microsoft.com"
             }
         ]
     },
     {
         "feature": "dhcp_server",
-        "owner": "Ying Xie",
-        "email": "yinxi@microsoft.com",
+        "owner": "Xichen Lin",
+        "email": "xichenlin@microsoft.com",
         "scripts": [
             {
                 "scripts": [
                     "dhcp_server.test_dhcp_server",
                     "dhcp_server.test_dhcp_server_multi_vlans"
                 ],
-                "owner": "Ying Xie",
-                "email": "yinxi@microsoft.com"
+                "owner": "Xichen Lin",
+                "email": "xichenlin@microsoft.com"
             }
         ]
     },
