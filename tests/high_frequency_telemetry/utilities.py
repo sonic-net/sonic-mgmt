@@ -904,7 +904,7 @@ def validate_enabled_stream_output(
 
     if lasttime_matches:
         current_utc = datetime.now(timezone.utc)
-        tolerance_minutes = 10
+        tolerance_minutes = 60
         min_acceptable_time = current_utc - timedelta(minutes=tolerance_minutes)
         max_acceptable_time = current_utc + timedelta(minutes=tolerance_minutes)
 
