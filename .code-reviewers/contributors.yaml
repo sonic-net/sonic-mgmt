@@ -1,11 +1,11 @@
 - available_to_review: true
-  commit_count: 469
+  commit_count: 470
   emails:
   - wangxin.wang@gmail.com
   - xiwang5@microsoft.com
   github_id: 913946
   github_login: wangxin
-  last_commit_ts: 2025-11-05 16:23:35+08:00
+  last_commit_ts: 2025-11-21 21:47:44+08:00
   name: Xin Wang
   organization: MSFT
 - available_to_review: true
@@ -100,12 +100,12 @@
   name: Jing Zhang
   organization: MSFT
 - available_to_review: true
-  commit_count: 13
+  commit_count: 15
   emails:
   - nikolay.a.mirin@gmail.com
   github_id: 29677895
   github_login: nikamirrr
-  last_commit_ts: 2025-11-19 01:49:40+02:00
+  last_commit_ts: 2025-11-20 01:50:18-08:00
   name: Nikolay Mirin
   organization: NVDA
 - available_to_review: true
@@ -287,12 +287,12 @@
   name: Hua Liu
   organization: OTHER
 - available_to_review: true
-  commit_count: 60
+  commit_count: 61
   emails:
   - 110003254+opcoder0@users.noreply.github.com
   github_id: 110003254
   github_login: opcoder0
-  last_commit_ts: 2025-11-18 18:42:44+11:00
+  last_commit_ts: 2025-11-22 17:41:32+11:00
   name: Sai Kiran
   organization: OTHER
 - available_to_review: true
@@ -1085,12 +1085,12 @@
   name: Perumal Venkatesh
   organization: CSCO
 - available_to_review: true
-  commit_count: 4
+  commit_count: 5
   emails:
   - wrideout@arista.com
   github_id: 175248838
   github_login: wrideout-arista
-  last_commit_ts: 2025-10-23 14:10:57-04:00
+  last_commit_ts: 2025-11-21 00:28:44-05:00
   name: wrideout-arista
   organization: ANET
 - available_to_review: true
