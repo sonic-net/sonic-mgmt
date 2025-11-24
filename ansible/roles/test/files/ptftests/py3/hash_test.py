@@ -657,7 +657,7 @@ class IPinIPHashTest(HashTest):
 
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
-            vxlan_pkt=None,nvgre_pkt=None, inner_pkt=None, outer_sport=None,
+            vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
             ip_src=None, ip_dst=None, ip_proto=None
     ):
         """
