@@ -849,10 +849,7 @@ def test_nexthop_group_member_scale(
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
-        for ptfhost in ptfhosts:
-            ptf_ip = ptfhost.mgmt_ip
-            change_routes_on_peers(localhost, ptf_ip, topo_name, peers_routes_to_change, ACTION_ANNOUNCE,
-                                   servers_dut_interfaces.get(ptf_ip, ''))
+        pass
     # ------------announce routes and test ------------ #
     current_test = request.node.name + "_announce"
     global_icmp_type += 1
