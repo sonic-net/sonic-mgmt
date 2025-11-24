@@ -227,7 +227,7 @@ def cleanup_hft_config(duthost, profile_name, group_names=None):
                 f"for profile '{profile_name}'")
 
 
-def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=10):
+def run_countersyncd_and_capture_output(duthost, timeout=120, stats_interval=60):
     """
     Run countersyncd command and capture output.
 
