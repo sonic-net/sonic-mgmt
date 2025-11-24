@@ -3,16 +3,22 @@ topology:
 {%- for hostif in hostif_list %}
     - {{ hostif.port_id }}
 {%- endfor %}
+  disabled_host_interfaces:
+{%- for hostif in disabled_hostif_list %}
+    - {{ hostif.port_id }}
+{%- endfor %}
 {%- if vm_list | length == 0 %}
   VMs: {}
 {%- else %}
   VMs:
-  {%- for vm in vm_list %}
+{%- for vm in vm_list %}
     {{ vm.name }}:
       vlans:
-        - {{ vm.vlans[0] }}
+      {%- for vlan in vm.vlans %}
+        - {{ vlan }}
+      {%- endfor %}
       vm_offset: {{ vm.vm_offset }}
-  {%- endfor %}
+{%- endfor %}
 {%- endif %}
   DUT:
     vlan_configs:
@@ -33,6 +39,7 @@ configuration_properties:
   common:
     dut_asn: {{ dut.asn }}
     dut_type: ToRRouter
+    swrole: leaf
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -44,21 +51,12 @@ configuration_properties:
     leaf_asn_start: 64600
     tor_asn_start: 65500
     failure_rate: 0
-  tor:
-    swrole: tor
-  leaf:
-    swrole: leaf
 
 configuration:
 {%- for vm in vm_list %}
   {{vm.name}}:
     properties:
     - common
-  {%- if vm.role == 'pt0' %}
-    - tor
-  {%- else %}
-    - leaf
-  {%- endif %}
     bgp:
       asn: {{vm.asn}}
       peers:
@@ -69,10 +67,20 @@ configuration:
       Loopback0:
         ipv4: {{vm.loopback_ipv4}}/32
         ipv6: {{vm.loopback_ipv6}}/128
+      {%- if vm.num_lags > 0 %}
+        {%- for i in range(1, vm.num_lags + 1) %}
+      Ethernet{{i}}:
+        lacp: 1
+        {%- endfor %}
+      Port-Channel1:
+        ipv4: {{vm.pc_intf_ipv4}}/31
+        ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- else %}
       Ethernet1:
         ipv4: {{vm.pc_intf_ipv4}}/31
         ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- endif %}
     bp_interface:
-      ipv4: {{vm.bp_ipv4}}/22
+      ipv4: {{vm.bp_ipv4}}/24
       ipv6: {{vm.bp_ipv6}}/64
 {%- endfor %}

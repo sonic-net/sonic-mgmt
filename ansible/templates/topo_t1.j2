@@ -1,38 +1,18 @@
 topology:
-  host_interfaces:
-{%- for hostif in hostif_list %}
-    - {{ hostif.port_id }}
-{%- endfor %}
-{%- if vm_list | length == 0 %}
-  VMs: {}
-{%- else %}
   VMs:
-  {%- for vm in vm_list %}
+{%- for vm in vm_list %}
     {{ vm.name }}:
       vlans:
-        - {{ vm.vlans[0] }}
+      {%- for vlan_id in vm.vlans %}
+        - {{ vlan_id }}
+      {%- endfor %}
       vm_offset: {{ vm.vm_offset }}
-  {%- endfor %}
-{%- endif %}
-  DUT:
-    vlan_configs:
-      default_vlan_config: {{ vlan_group_list[0].name }}
-{%- for vlan_group in vlan_group_list %}
-      {{ vlan_group.name }}:
-  {%- for vlan in vlan_group.vlans %}
-        Vlan{{ vlan.id }}:
-          id: {{ vlan.id }}
-          intfs: {{ vlan.port_ids }}
-          prefix: {{ vlan.v4_prefix }}
-          prefix_v6: {{ vlan.v6_prefix }}
-          tag: {{ vlan.id }}
-  {%- endfor %}
 {%- endfor %}
 
 configuration_properties:
   common:
     dut_asn: {{ dut.asn }}
-    dut_type: ToRRouter
+    dut_type: LeafRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -40,25 +20,22 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    spine_asn: 65534
-    leaf_asn_start: 64600
-    tor_asn_start: 65500
-    failure_rate: 0
+  spine:
+    swrole: spine
   tor:
     swrole: tor
-  leaf:
-    swrole: leaf
 
 configuration:
 {%- for vm in vm_list %}
   {{vm.name}}:
     properties:
     - common
-  {%- if vm.role == 'pt0' %}
+    {%- if vm.role == 't0' %}
     - tor
-  {%- else %}
-    - leaf
-  {%- endif %}
+    tornum: {{vm.tornum}}
+    {%- elif vm.role == 't2' %}
+    - spine
+    {%- endif %}
     bgp:
       asn: {{vm.asn}}
       peers:
@@ -69,9 +46,19 @@ configuration:
       Loopback0:
         ipv4: {{vm.loopback_ipv4}}/32
         ipv6: {{vm.loopback_ipv6}}/128
+      {%- if vm.num_lags > 0 %}
+      {%- for idx in range(vm.vlans|length) %}
+      Ethernet{{idx+1}}:
+        lacp: 1
+      {%- endfor %}
+      Port-Channel1:
+        ipv4: {{vm.pc_intf_ipv4}}/31
+        ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- else %}
       Ethernet1:
         ipv4: {{vm.pc_intf_ipv4}}/31
         ipv6: {{vm.pc_intf_ipv6}}/126
+      {%- endif %}
     bp_interface:
       ipv4: {{vm.bp_ipv4}}/22
       ipv6: {{vm.bp_ipv6}}/64
