@@ -2494,6 +2494,40 @@ generic_config_updater/test_dynamic_acl.py::test_gcu_acl_dhcp_rule_creation:
     reason: "DHCP is not enabled in isolated topo"
     conditions:
       - "'t0-isolated' in topo_name"
+  xfail:
+    reason: "xfail for IPv6-only topologies"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20920 and '-v6-' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_drop_rule_removal[:
+  xfail:
+    reason: "xfail for IPv6-only topologies"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20920 and '-v6-' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_priority_respected[:
+  xfail:
+    reason: "xfail for IPv6-only topologies"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20920 and '-v6-' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal[:
+  xfail:
+    reason: "xfail for IPv6-only topologies"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20920 and '-v6-' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_replacement[:
+  xfail:
+    reason: "xfail for IPv6-only topologies"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20920 and '-v6-' in topo_name"
+
+generic_config_updater/test_dynamic_acl.py::test_gcu_acl_scale_rules[:
+  xfail:
+    reason: "xfail for IPv6-only topologies"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20920 and '-v6-' in topo_name"
 
 generic_config_updater/test_dynamic_acl.py::test_gcu_acl_forward_rule_removal:
   xfail:
