@@ -1,0 +1,32 @@
+on:
+  pull_request:
+    types: [opened, reopened, edited, synchronize]
+    branches:
+      - master
+
+permissions:
+  issues: write
+  pull-requests: write
+  pull-request-target: write
+
+jobs:
+  pr_tagging:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12' # Specify your desired Python version
+
+      - name: Install dependencies
+        run: pip install PyGithub codeowners # Add any other libraries you need
+
+      - name: Run external Python script
+        run: python .github/scripts/code-reviewer-tagging.py
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }} # Pass the token
+          TOKEN: ${{ secrets.TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }} # Pass the PR number

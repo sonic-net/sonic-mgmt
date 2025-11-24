@@ -1,0 +1,7 @@
+# This is a comment.
+# This file follows the CODEOWNERS syntax
+# The users assigned here will be automatically mentioned in the PR comments
+# for the code review visibility
+
+# rules are explained here
+# https://docs.github.com/en/github/creating-cloning-and-archiving-repositories/about-code-owners

@@ -1,0 +1,15 @@
+--- folder_presets.yaml
++++ folder_presets.yaml
+@@ -1,12 +0,0 @@
+-/.git:
+-  type: IGNORE
+-/.code-owners:
+-  type: IGNORE
+-/.flake8:
+-  type: IGNORE
+-/.github:
+-  type: IGNORE
+-/.hooks:
+-  type: IGNORE
+-/.azure-pipelines:
+-  type: IGNORE
