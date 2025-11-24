@@ -1,7 +1,9 @@
 import ipaddress
 import pytest
 
-from tests.common.config_reload import config_reload
+from tests.common.gcu_utils import apply_patch, expect_op_success
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
+from tests.common.gcu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
@@ -10,32 +12,60 @@ pytestmark = [
 ]
 
 
-@pytest.fixture(scope="module", autouse=True)
-def teardown(duthost):
+def apply_gcu_patch(duthost, json_patch):
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
+@pytest.fixture(scope="function", autouse=True)
+def setup_teardown(duthost):
+    # This testcase will use GCU to modify several entries in running-config.
+    # Restore the config via config_reload may cost too much time.
+    # So we leverage GCU for the config update. Setup checkpoint before the test
+    # and rollback to it after the test.
+    create_checkpoint(duthost)
+
     yield
-    config_reload(duthost, safe_reload=True)
+
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
 
 
-def modify_dut_type(duthost, dut_type):
-    output = duthost.shell(f"sonic-db-cli CONFIG_DB HSET 'DEVICE_METADATA|localhost' 'type' '{dut_type}'",
-                           module_ignore_errors=True)
-    pytest_assert(output['rc'] == 0, "Failed to set DUT type")
+def build_gcu_patch_modify_dut_type(dut_type):
+    return [
+        {
+            "op": "replace",
+            "path": "/DEVICE_METADATA/localhost/type",
+            "value": dut_type
+        }
+    ]
 
 
-def modify_bgp_neigh(duthost, bgp_facts, neigh_ip, neigh_name, neigh_type):
+def build_gcu_patch_modify_bgp_neigh(bgp_facts, neigh_ip, neigh_name, neigh_type):
     origin_neigh_name = bgp_facts[neigh_ip]['description']
-    output = duthost.shell(
-        f"sonic-db-cli CONFIG_DB HSET 'BGP_NEIGHBOR|{neigh_ip}' 'name' '{neigh_name}'",
-        module_ignore_errors=True)
-    pytest_assert(output['rc'] == 0, f"Failed to update BGP neigh name to {neigh_name}")
-    output = duthost.shell(
-        f"sonic-db-cli CONFIG_DB RENAME 'DEVICE_NEIGHBOR_METADATA|{origin_neigh_name}'"
-        f" 'DEVICE_NEIGHBOR_METADATA|{neigh_name}'", module_ignore_errors=True)
-    pytest_assert(output['rc'] == 0, f"Failed to rename {origin_neigh_name} to {neigh_name}")
-    output = duthost.shell(
-        f"sonic-db-cli CONFIG_DB HSET 'DEVICE_NEIGHBOR_METADATA|{neigh_name}' 'type' '{neigh_type}'",
-        module_ignore_errors=True)
-    pytest_assert(output['rc'] == 0, f"Failed to set BGP neigh type to {neigh_type}")
+    return [
+        {
+            "op": "replace",
+            "path": f"/BGP_NEIGHBOR/{neigh_ip}/name",
+            "value": neigh_name
+        },
+        {
+            "op": "move",
+            "from": f"/DEVICE_NEIGHBOR_METADATA/{origin_neigh_name}",
+            "path": f"/DEVICE_NEIGHBOR_METADATA/{neigh_name}"
+        },
+        {
+            "op": "replace",
+            "path": f"/DEVICE_NEIGHBOR_METADATA/{neigh_name}/type",
+            "value": neigh_type
+        }
+    ]
 
 
 def verify_bgp_session_established(duthost, neighbors):
@@ -61,12 +91,14 @@ def test_bgp_establish_combo(duthost, ip_version, combo):
     bgp_neigh_ips = list(bgp_facts.keys())
     mock_bgp_neighbors = []
     # Modify DUT type and BGP neighbor types
-    modify_dut_type(duthost, target_dut_type)
+    gcp_json_patches = build_gcu_patch_modify_dut_type(target_dut_type)
     for i in range(len(target_neigh_types)):
         neigh_ip = bgp_neigh_ips[i]
         neigh_type = target_neigh_types[i]
-        modify_bgp_neigh(duthost, bgp_facts, neigh_ip, f"mock-{target_dut_type}-{neigh_type}-v{ip_version}", neigh_type)
+        gcp_json_patches += build_gcu_patch_modify_bgp_neigh(
+            bgp_facts, neigh_ip, f"mock-{target_dut_type}-{neigh_type}-v{ip_version}", neigh_type)
         mock_bgp_neighbors.append(neigh_ip)
+    apply_gcu_patch(duthost, gcp_json_patches)
     # This testcase restart bgp.service multiple times, reset-failed first to avoid below failure
     # >> Job for bgp.service failed because start of the service was attempted too often.
     output = duthost.shell("systemctl reset-failed bgp", module_ignore_errors=True)
