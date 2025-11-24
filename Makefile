@@ -107,6 +107,20 @@ run_spytest:
 		--tar_ball '$(GOLDENCODE)' \
 	"
 
+run_spytest_hw:
+	echo "run spytest platform hardening..."
+	bash -c " \
+		cd infra; \
+		source pyats/bin/activate; \
+		python3.8 -u run_spytest.py  \
+		-m hw \
+		--test_bed '${TEST_BED}' \
+		--topology '${TOPOLOGY}' \
+		--platform '${PLATFORM}' \
+		--sonic_version '${SONIC_VERSION}' \
+		--script_file '${TESTFILE}' \
+	"
+
 # Files Needed:
 # generate_spytest_html_report - infra/generate_spytest_html_report.py
 # run parallel script - infra/run_spytest_parallel.py

@@ -1,0 +1,38 @@
+version: 2.0
+ 
+services: {default: !include sonic_services.yaml}
+ 
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+ 
+configs:
+    default: !include sonic_configs.yaml
+    empty: {current: [], restore: []}
+ 
+devices:
+    leaf0:
+        device_type: DevSonic
+        build_commit_hash: 150dc5bd5
+        platform_type: lightning
+        access: {protocol: ssh, ip: 172.26.235.56, port: 22}
+        rps: {model: Raritan, ip: 10.28.105.116, outlet: [21,22], username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+    leaf1:
+        device_type: DevSonic
+        build_commit_hash: 150dc5bd5
+        platform_type: lightning
+        access: {protocol: ssh, ip: 172.26.235.57, port: 22}
+        rps: {model: Raritan, ip: 10.28.105.116, outlet: [15,16], username: admin, password: raritan}
+        credentials: {username: admin, password: password, altpassword: YourPaSsWoRd}
+        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+ 
+topology:
+    leaf0:
+        interfaces:
+            Ethernet8: {EndDevice: leaf1, EndPort: Ethernet8, params: def_link}
+            Ethernet12: {EndDevice: leaf0, EndPort: Ethernet12, params: def_link}
+            Ethernet512: {EndDevice: leaf1, EndPort: Ethernet512, params: def_link}

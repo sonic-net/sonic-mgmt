@@ -1,0 +1,11 @@
+# Modules
++file:cisco/test_platform.py
++file:cisco/test_reboot_recovery.py
+
+#Runtime Arguments
++args:--skip-init-config
++args:--skip-load-config=module
++args:--skip-load-config=base
++args:--device-feature-group master
++args:--module-init-max-timeout 9000
++args:--tc-max-timeout 5400

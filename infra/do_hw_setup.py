@@ -280,6 +280,29 @@ def image_install(args):
     log.debug("Image loaded and checked")
     return
 
+def run_onie_pre_install_commands(p, testbed_info_dict, index):
+    if 'onie_pre_install_commands' not in testbed_info_dict:
+        log.debug("No onie_pre_install_commands found in testbed config")
+        return
+    
+    try:
+        pre_install_cmds = testbed_info_dict['onie_pre_install_commands'][index]
+        log.info(f"Executing {len(pre_install_cmds)} onie_pre_install_commands for DUT index {index}")
+        
+        for cmd in pre_install_cmds:
+            log.debug(f"Sending ONIE pre-install command: {cmd}")
+            p.sendline(cmd)
+            time.sleep(5)  # Allow command to execute
+            p.expect(onie_prompt)
+        
+        time.sleep(5)
+        log.info("All onie_pre_install_commands executed successfully")
+    except IndexError:
+        log.warning(f"No onie_pre_install_commands found for DUT index {index}")
+    except Exception as e:
+        log.error(f"Error executing onie_pre_install_commands: {e}")
+        raise
+
 def onie_install(args, index):
     logging.info("Starting onie_install")
     global testbed_info_dict
@@ -336,6 +359,8 @@ def onie_install(args, index):
         elif i == 8:
             #Handle onie aborts
             time.sleep(60)
+            # Execute pre-install commands before onie-nos-install
+            run_onie_pre_install_commands(p, testbed_info_dict, index)
             p.send("onie-nos-install ")
             image_folder = f'{image_id}'
             ip = testbed_info_dict['onie_ip'] if "onie_ip" in testbed_info_dict else image_ucs['ip']
@@ -404,6 +429,8 @@ def onie_install(args, index):
         p.expect("Stopping: discover...")
         p.expect("done.")
         p.expect(onie_prompt)
+        # Execute pre-install commands before onie-nos-install
+        run_onie_pre_install_commands(p, testbed_info_dict, index)
         p.send("onie-nos-install ")
         image_folder = f'{image_id}'
         ip = testbed_info_dict['onie_ip'] if "onie_ip" in testbed_info_dict else image_ucs['ip']
