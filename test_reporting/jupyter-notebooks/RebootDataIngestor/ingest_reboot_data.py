@@ -1,10 +1,10 @@
 import time
+import argparse
 from datetime import datetime, timedelta, timezone
 
 from azure.kusto.data import KustoClient, KustoConnectionStringBuilder
 from jinja2 import Environment, FileSystemLoader
 
-DATABASE = "SonicInsights"
 DEBUG = False
 
 
@@ -19,19 +19,19 @@ def load_query(name, dataset={}):
     return result
 
 
-def get_latest_agg_time(client):
+def get_latest_agg_time(client, ingest_db):
     query = load_query('get_latest_agg_time')
-    result = client.execute(DATABASE, query)
+    result = client.execute(ingest_db, query)
     return result.primary_results[0][0]["ReloadCause_Time"]
 
 
-def ingest_data(client, name, start_time):
+def ingest_data(client, ingest_db, name, start_time):
     query = load_query(name, {'start_time': start_time})
     if DEBUG:
         print(query)
         return
 
-    result = client.execute_mgmt(DATABASE, query)
+    result = client.execute_mgmt(ingest_db, query)
     return result
 
 
@@ -50,16 +50,33 @@ def print_result_as_value_list(response):
 
 
 def main():
-    # Connection information
-    cluster_uri = "https://chinaazure.kusto.windows.net/"
+    # Parse command-line arguments
+    parser = argparse.ArgumentParser(description="Ingest reboot data into Kusto")
+    parser.add_argument("--auth-mode", choices=["interactive", "azcli"],
+                        default="interactive",
+                        help="Authentication mode: interactive (default) or azcli")
+    parser.add_argument("--ingest-cluster-uri", type=str,
+                        default="https://sonicrepodatadev.westus.kusto.windows.net/",
+                        help="Kusto cluster URI for ingestion")
+    parser.add_argument("--ingest-database", type=str,
+                        default="SonicTestData",
+                        help="Kusto database name for ingestion")
+    args = parser.parse_args()
 
-    # Establish connection
-    kcsb = KustoConnectionStringBuilder.with_interactive_login(cluster_uri)
+    # Connection information
+    ingestion_cluster_uri = args.ingest_cluster_uri
+    ingestion_database = args.ingest_database
+
+    # Establish connection based on auth mode
+    if args.auth_mode == 'azcli':
+        kcsb = KustoConnectionStringBuilder.with_az_cli_authentication(ingestion_cluster_uri)
+    else:
+        kcsb = KustoConnectionStringBuilder.with_interactive_login(ingestion_cluster_uri)
 
     with KustoClient(kcsb) as client:
 
         print("=== Step 1 Get latest aggregation timestamp ===")
-        latest_agg_time = get_latest_agg_time(client)
+        latest_agg_time = get_latest_agg_time(client, ingestion_database)
         print("Got {}".format(latest_agg_time))
         print("\n")
 
@@ -69,21 +86,23 @@ def main():
         while timestamp < now:
             print("Start ingestion from {}".format(timestamp))
             print("Ingesting basic data...")
-            result = ingest_data(client, 'ingest_basic_data', timestamp)
+            result = ingest_data(client, ingestion_database, 'ingest_basic_data', timestamp)
             print_result_as_value_list(result)
 
-            print("Ingesting CIS data...")
-            result = ingest_data(client, 'ingest_cis_data', timestamp)
-            print_result_as_value_list(result)
+            # NOTE: The cluster('azcis.kusto.windows.net').database('azcispub').SignaltoLiveTracking Table no longer
+            #       exists, so we are skipping CIS data ingestion until there is a replacement.
+            # print("Ingesting CIS data...")
+            # result = ingest_data(client, ingestion_database, 'ingest_cis_data', timestamp)
+            # print_result_as_value_list(result)
 
             print("Ingesting FUSE data...")
-            result = ingest_data(client, 'ingest_fuse_data', timestamp)
+            result = ingest_data(client, ingestion_database, 'ingest_fuse_data', timestamp)
             print_result_as_value_list(result)
 
             timestamp += timedelta(days=1)
             if (timestamp < now):
-                print("Delay 600s in case throttling...")
-                time.sleep(600)
+                print("Delay 60s in case throttling...")
+                time.sleep(60)
             print("\n")
 
 
