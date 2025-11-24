@@ -464,6 +464,27 @@ def compress_expected_routes(expected_routes):
     return b64_str
 
 
+@pytest.fixture(scope="function")
+def clean_ptf_dataplane(ptfadapter):
+    """
+    Drain queued packets and clear mask counters before and after each test.
+    The idea is that each test should start with clean dataplane state without
+    having to restart ptfadapter fixture for each test.
+
+    Takes in the function scope so that each parametrized test case also gets a clean dataplane.
+    """
+    dp = ptfadapter.dataplane
+    if hasattr(dp, "drain"):
+        dp.drain()
+    if hasattr(dp, "clear_masks"):
+        dp.clear_masks()
+    yield
+    if hasattr(dp, "drain"):
+        dp.drain()
+    if hasattr(dp, "clear_masks"):
+        dp.clear_masks()
+
+
 def get_RP_start_time(duthost, connection_type, action, LOG_STAMP, syslog='/var/log/syslog'):
     """
     Parse syslog for the first route programming event time. Returns the timestamp of the first route change event.
@@ -541,7 +562,8 @@ def _select_targets(bgp_peers_info, all_flap, flapping_count):
     return flapping_neighbors, injection_neighbor, flapping_ports, injection_port
 
 
-def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count, connection_type, action, downtime_threshold):
+def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup,
+            flapping_count, connection_type, action, downtime_threshold):
     """
     Orchestrates interface/BGP session flapping and recovery on the DUT, generating test traffic to assess both
     control and data plane convergence behavior. This function is designed for use in test scenarios
@@ -664,6 +686,7 @@ def test_sessions_flapping(
     duthost,
     ptfadapter,
     bgp_peers_info,
+    clean_ptf_dataplane,
     flapping_port_count,
     setup_routes_before_test
 ):
@@ -692,6 +715,7 @@ def test_bgp_admin_flap(
     duthost,
     ptfadapter,
     bgp_peers_info,
+    clean_ptf_dataplane,
     flapping_neighbor_count
 ):
     """
@@ -710,7 +734,8 @@ def test_bgp_admin_flap(
     transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_neighbor_count,
                               'bgp_sessions', 'shutdown', downtime_threshold)
     # Measure startup convergence
-    flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup', downtime_threshold)
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions',
+            'startup', downtime_threshold)
 
 
 def test_nexthop_group_member_scale(
