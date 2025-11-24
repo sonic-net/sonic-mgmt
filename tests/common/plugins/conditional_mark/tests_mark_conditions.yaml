@@ -4434,7 +4434,7 @@ snappi_tests/ecn/test_bp_fabric_ecn_marking_with_snappi.py:
     reason: "This test is written only for T2-cisco-8000."
     conditions:
       - "asic_type not in ['cisco-8000']"
-      - "'t2' not in topology"
+      - "'t2' not in topo_name"
 
 snappi_tests/ecn/test_ecn_marking_with_pfc_quanta_variance_with_snappi.py:
   skip:
