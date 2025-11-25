@@ -342,8 +342,6 @@ def wait_for_arp(snappi_api, max_attempts=10, poll_interval_sec=1):
             time.sleep(poll_interval_sec)
             attempts += 1
 
-    if attempts >= max_attempts:
-        import pdb; pdb.set_trace()
     pytest_assert(attempts < max_attempts,
                   "ARP is not resolved in {} seconds".format(max_attempts * poll_interval_sec))
 
