@@ -93,6 +93,7 @@ from tests.common.telemetry.fixtures import db_reporter, ts_reporter            
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+_ansible_tqm_lock = threading.Lock()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
