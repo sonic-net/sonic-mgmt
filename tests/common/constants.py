@@ -17,5 +17,5 @@ RESOLV_CONF_NAMESERVERS = {
     "public": []
 }
 KVM_PLATFORM = 'x86_64-kvm_x86_64-r0'
-PORT_SERDES_ATTR = 'port-serdes-attr'
-PORT_SERDES_ATTR_TYPE = 'PORT_SERDES_ATTR'
+PORT_ATTR = 'port-attr'
+PORT_ATTR_TYPE = 'PORT_ATTR'
