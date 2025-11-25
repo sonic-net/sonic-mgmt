@@ -73,7 +73,7 @@ devices:
     memory: '4G'
 
 connections:
-  ovs_hubs:
+  hubs:
     # DC1 Intra-fabric (SD1/SD2 <-> SD5/SD6) - Same for both 6D and 8D
     hub0:
       - SD1.Ethernet[0..1]

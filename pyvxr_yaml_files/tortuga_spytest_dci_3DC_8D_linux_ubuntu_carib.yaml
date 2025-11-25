@@ -55,7 +55,7 @@ devices:
   SD8:
       <<: *sonic_router
 
-  HOST1: &host
+  SD9: &host
     data_ports:
     - eth1
     - eth2
@@ -120,7 +120,7 @@ devices:
       sudo ip link set dev eth1.99 up
       ip addr
       ping -c 1 10.212.10.10
-  HOST2:
+  SD10:
       <<: *host
       cli_commands: |
         echo -e "network:\n  version: 2\n  renderer: networkd\n  ethernets:\n    eth1:\n      dhcp4: no\n    eth2:\n      dhcp4: no\n  bonds:\n    bond0:\n      dhcp4: no\n      interfaces:\n        - eth1\n        - eth2\n      parameters:\n        mode: 802.3ad\n        transmit-hash-policy: layer3+4\n        mii-monitor-interval: 100\n        lacp-rate: fast\n  vlans:\n    bond0.10:\n      id: 10\n      link: bond0\n      addresses:\n        - 10.212.10.2/24\n      macaddress: 00:00:00:00:10:02\n    bond0.20:\n      id: 20\n      link: bond0\n      addresses:\n        - 10.212.20.2/24\n      macaddress: 00:00:00:00:20:02\n    bond0.30:\n      id: 30\n      link: bond0\n      addresses:\n        - 10.212.30.2/24\n      macaddress: 00:00:00:00:30:02\n    bond0.40:\n      id: 40\n      link: bond0\n      addresses:\n        - 10.212.40.2/24\n      macaddress: 00:00:00:00:40:02\n    bond0.50:\n      id: 50\n      link: bond0\n      addresses:\n        - 10.212.50.2/24\n      macaddress: 00:00:00:00:50:02\n    bond0.60:\n      id: 60\n      link: bond0\n      addresses:\n        - 10.212.60.2/24\n      macaddress: 00:00:00:00:60:02\n    bond0.70:\n      id: 70\n      link: bond0\n      addresses:\n        - 10.212.70.2/24\n      macaddress: 00:00:00:00:70:02\n    bond0.80:\n      id: 80\n      link: bond0\n      addresses:\n        - 10.212.80.2/24\n      macaddress: 00:00:00:00:80:02\n    bond0.90:\n      id: 90\n      link: bond0\n      addresses:\n        - 10.212.90.2/24\n      macaddress: 00:00:00:00:90:02\n    bond0.99:\n      id: 99\n      link: bond0\n      addresses:\n        - 10.212.99.2/24\n      macaddress: 00:00:00:00:99:02" | sudo tee /etc/netplan/01-netcfg.yaml > /dev/null
@@ -128,7 +128,7 @@ devices:
         ip addr
         ping -c 1 10.212.10.10
 
-  HOST3:
+  SD11:
       <<: *host
       cli_commands: |
         sudo ifconfig eth1 up
@@ -176,7 +176,7 @@ devices:
         ip addr
         ping -c 1 10.212.10.10
 
-  HOST4:
+  SD12:
       <<: *host
       cli_commands: |
         sudo ifconfig eth1 up
@@ -224,7 +224,7 @@ devices:
         ip addr
         ping -c 1 10.212.10.10
 
-  HOST5:
+  SD13:
       <<: *host
       cli_commands: |
         sudo ifconfig eth1 up
@@ -253,7 +253,7 @@ devices:
     memory: '4G'
 
 connections:
-  ovs_hubs:
+  hubs:
     # DC1 Intra-fabric (SD1/SD2 <-> SD5/SD6) - Same for both 6D and 8D
     hub0:
       - SD1.Ethernet[0..1]

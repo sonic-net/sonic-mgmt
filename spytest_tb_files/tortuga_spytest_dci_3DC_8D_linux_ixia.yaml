@@ -1,0 +1,176 @@
+version: 2.0
+
+services:
+  {default: !include sonic_services.yaml}
+
+params: !include sonic_params.yaml
+builds: !include sonic_builds.yaml
+speeds: !include sonic_speeds.yaml
+errors: !include sonic_errors.yaml
+instrument: !include sonic_instrument.yaml
+
+configs:
+  default: !include sonic_configs.yaml
+  empty: {current: [], restore: []}
+
+devices:
+  DC1GW1:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.101, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 1, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  DC1GW2:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.102, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 2, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  DC2GW1:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.103, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 3, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  DC3GW1:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.104, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 4, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  Leaf1:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.105, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 5, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  Leaf2:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.106, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 6, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  Leaf3:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.107, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 7, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  Leaf4:
+    device_type: DevSonic
+    access: {protocol: ssh, ip: 192.168.122.108, port: 22}
+    rps: {model: Raritan, ip: 2.3.4.5, outlet: 8, username: cisco, password: cisco}
+    credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
+    properties: {config: default, build: default, services: default, params: def_dut, speed: default}
+
+  T1:
+    device_type: TGEN
+    properties: {type: ixia, version: 10.00, ip: 192.168.122.188, ix_server: 192.168.122.138}
+
+topology:
+  # DC1 Gateway 1 (DC1GW1) - Device D1
+  DC1GW1:
+    interfaces:
+      # DC1 Intra-fabric connections to DC1 leaf switches
+      Ethernet1_1: {EndDevice: Leaf1, EndPort: Ethernet1_1, params: def_link}  # DC1GW1:Ethernet1_1 -> Leaf1:Ethernet1_1
+      Ethernet1_2: {EndDevice: Leaf1, EndPort: Ethernet1_2, params: def_link}  # DC1GW1:Ethernet1_2 -> Leaf1:Ethernet1_2
+      Ethernet1_5: {EndDevice: Leaf2, EndPort: Ethernet1_1, params: def_link}  # DC1GW1:Ethernet1_5 -> Leaf2:Ethernet1_1
+      Ethernet1_6: {EndDevice: Leaf2, EndPort: Ethernet1_2, params: def_link}  # DC1GW1:Ethernet1_6 -> Leaf2:Ethernet1_2
+      # Inter-DC WAN connections to remote datacenters
+      Ethernet1_8: {EndDevice: DC2GW1, EndPort: Ethernet1_8, params: def_link}   # DC1GW1:Ethernet1_8 -> DC2GW1:Ethernet1_8
+      Ethernet1_9: {EndDevice: DC2GW1, EndPort: Ethernet1_9, params: def_link}   # DC1GW1:Ethernet1_9 -> DC2GW1:Ethernet1_9
+      Ethernet1_10: {EndDevice: DC3GW1, EndPort: Ethernet1_8, params: def_link}   # DC1GW1:Ethernet1_10 -> DC3GW1:Ethernet1_8
+      Ethernet1_11: {EndDevice: DC3GW1, EndPort: Ethernet1_9, params: def_link}  # DC1GW1:Ethernet1_11 -> DC3GW1:Ethernet1_9
+      # Ixia connection for HOST5 traffic generation
+      Ethernet1_16: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}         # DC1GW1:Ethernet1_16 -> T1:1/6 (HOST5 traffic)
+
+  # DC1 Gateway 2 (DC1GW2) - Device D2
+  DC1GW2:
+    interfaces:
+      # DC1 Intra-fabric connections to DC1 leaf switches
+      Ethernet1_1: {EndDevice: Leaf1, EndPort: Ethernet1_5, params: def_link}  # DC1GW2:Ethernet1_1 -> Leaf1:Ethernet1_5
+      Ethernet1_2: {EndDevice: Leaf1, EndPort: Ethernet1_6, params: def_link}  # DC1GW2:Ethernet1_2 -> Leaf1:Ethernet1_6
+      Ethernet1_5: {EndDevice: Leaf2, EndPort: Ethernet1_5, params: def_link}  # DC1GW2:Ethernet1_5 -> Leaf2:Ethernet1_5
+      Ethernet1_6: {EndDevice: Leaf2, EndPort: Ethernet1_6, params: def_link}  # DC1GW2:Ethernet1_6 -> Leaf2:Ethernet1_6
+      # Inter-DC WAN connections to remote datacenters
+      Ethernet1_8: {EndDevice: DC2GW1, EndPort: Ethernet1_10, params: def_link}   # DC1GW2:Ethernet1_8 -> DC2GW1:Ethernet1_10
+      Ethernet1_9: {EndDevice: DC2GW1, EndPort: Ethernet1_11, params: def_link}  # DC1GW2:Ethernet1_9 -> DC2GW1:Ethernet1_11
+      Ethernet1_10: {EndDevice: DC3GW1, EndPort: Ethernet1_10, params: def_link}   # DC1GW2:Ethernet1_10 -> DC3GW1:Ethernet1_10
+      Ethernet1_11: {EndDevice: DC3GW1, EndPort: Ethernet1_11, params: def_link} # DC1GW2:Ethernet1_11 -> DC3GW1:Ethernet1_11
+
+  # DC2 Gateway 1 (DC2GW1) - Device D3
+  DC2GW1:
+    interfaces:
+      # DC2 Intra-fabric connections to DC2 leaf switch
+      Ethernet1_1: {EndDevice: Leaf3, EndPort: Ethernet1_1, params: def_link}  # DC2GW1:Ethernet1_1 -> Leaf3:Ethernet1_1
+      Ethernet1_2: {EndDevice: Leaf3, EndPort: Ethernet1_2, params: def_link}  # DC2GW1:Ethernet1_2 -> Leaf3:Ethernet1_2
+      # Inter-DC WAN connections to remote datacenters
+      Ethernet1_8: {EndDevice: DC1GW1, EndPort: Ethernet1_8, params: def_link}   # DC2GW1:Ethernet1_8 -> DC1GW1:Ethernet1_8
+      Ethernet1_9: {EndDevice: DC1GW1, EndPort: Ethernet1_9, params: def_link}   # DC2GW1:Ethernet1_9 -> DC1GW1:Ethernet1_9
+      Ethernet1_10: {EndDevice: DC1GW2, EndPort: Ethernet1_8, params: def_link}   # DC2GW1:Ethernet1_10 -> DC1GW2:Ethernet1_8
+      Ethernet1_11: {EndDevice: DC1GW2, EndPort: Ethernet1_9, params: def_link}  # DC2GW1:Ethernet1_11 -> DC1GW2:Ethernet1_9
+      Ethernet1_12: {EndDevice: DC3GW1, EndPort: Ethernet1_12, params: def_link} # DC2GW1:Ethernet1_12 -> DC3GW1:Ethernet1_12
+      Ethernet1_13: {EndDevice: DC3GW1, EndPort: Ethernet1_13, params: def_link} # DC2GW1:Ethernet1_13 -> DC3GW1:Ethernet1_13
+
+  # DC3 Gateway 1 (DC3GW1) - Device D4
+  DC3GW1:
+    interfaces:
+      # DC3 Intra-fabric connections to DC3 leaf switch
+      Ethernet1_1: {EndDevice: Leaf4, EndPort: Ethernet1_1, params: def_link}  # DC3GW1:Ethernet1_1 -> Leaf4:Ethernet1_1
+      Ethernet1_2: {EndDevice: Leaf4, EndPort: Ethernet1_2, params: def_link}  # DC3GW1:Ethernet1_2 -> Leaf4:Ethernet1_2
+      # Inter-DC WAN connections to remote datacenters
+      Ethernet1_8: {EndDevice: DC1GW1, EndPort: Ethernet1_10, params: def_link}   # DC3GW1:Ethernet1_8 -> DC1GW1:Ethernet1_10
+      Ethernet1_9: {EndDevice: DC1GW1, EndPort: Ethernet1_11, params: def_link}  # DC3GW1:Ethernet1_9 -> DC1GW1:Ethernet1_11
+      Ethernet1_10: {EndDevice: DC1GW2, EndPort: Ethernet1_10, params: def_link}   # DC3GW1:Ethernet1_10 -> DC1GW2:Ethernet1_10
+      Ethernet1_11: {EndDevice: DC1GW2, EndPort: Ethernet1_11, params: def_link} # DC3GW1:Ethernet1_11 -> DC1GW2:Ethernet1_11
+      Ethernet1_12: {EndDevice: DC2GW1, EndPort: Ethernet1_12, params: def_link} # DC3GW1:Ethernet1_12 -> DC2GW1:Ethernet1_12
+      Ethernet1_13: {EndDevice: DC2GW1, EndPort: Ethernet1_13, params: def_link} # DC3GW1:Ethernet1_13 -> DC2GW1:Ethernet1_13
+
+  # DC1 Leaf 1 (Leaf1) - Device D5
+  Leaf1:
+    interfaces:
+      # DC1 Intra-fabric connections to DC1 gateway switches
+      Ethernet1_1: {EndDevice: DC1GW1, EndPort: Ethernet1_1, params: def_link}  # Leaf1:Ethernet1_1 -> DC1GW1:Ethernet1_1
+      Ethernet1_2: {EndDevice: DC1GW1, EndPort: Ethernet1_2, params: def_link}  # Leaf1:Ethernet1_2 -> DC1GW1:Ethernet1_2
+      Ethernet1_5: {EndDevice: DC1GW2, EndPort: Ethernet1_1, params: def_link}  # Leaf1:Ethernet1_5 -> DC1GW2:Ethernet1_1
+      Ethernet1_6: {EndDevice: DC1GW2, EndPort: Ethernet1_2, params: def_link}  # Leaf1:Ethernet1_6 -> DC1GW2:Ethernet1_2
+      # Ixia connections for HOST1 and HOST2 traffic generation
+      Ethernet1_13: {EndDevice: T1, EndPort: 1/1, params: def_tg_link}         # Leaf1:Ethernet1_13 -> T1:1/1 (HOST1 traffic)
+      Ethernet1_14: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}         # Leaf1:Ethernet1_14 -> T1:1/2 (HOST2 traffic)
+
+  # DC1 Leaf 2 (Leaf2) - Device D6
+  Leaf2:
+    interfaces:
+      # DC1 Intra-fabric connections to DC1 gateway switches
+      Ethernet1_1: {EndDevice: DC1GW1, EndPort: Ethernet1_5, params: def_link}  # Leaf2:Ethernet1_1 -> DC1GW1:Ethernet1_5
+      Ethernet1_2: {EndDevice: DC1GW1, EndPort: Ethernet1_6, params: def_link}  # Leaf2:Ethernet1_2 -> DC1GW1:Ethernet1_6
+      Ethernet1_5: {EndDevice: DC1GW2, EndPort: Ethernet1_5, params: def_link}  # Leaf2:Ethernet1_5 -> DC1GW2:Ethernet1_5
+      Ethernet1_6: {EndDevice: DC1GW2, EndPort: Ethernet1_6, params: def_link}  # Leaf2:Ethernet1_6 -> DC1GW2:Ethernet1_6
+      # Ixia connection for HOST2 traffic generation (second link for bonding)
+      Ethernet1_13: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}         # Leaf2:Ethernet1_13 -> T1:1/3 (HOST2 traffic)
+
+  # DC2 Leaf 1 (Leaf3) - Device D7
+  Leaf3:
+    interfaces:
+      # DC2 Intra-fabric connections to DC2 gateway switch
+      Ethernet1_1: {EndDevice: DC2GW1, EndPort: Ethernet1_1, params: def_link}  # Leaf3:Ethernet1_1 -> DC2GW1:Ethernet1_1
+      Ethernet1_2: {EndDevice: DC2GW1, EndPort: Ethernet1_2, params: def_link}  # Leaf3:Ethernet1_2 -> DC2GW1:Ethernet1_2
+      # Ixia connection for HOST3 traffic generation
+      Ethernet1_13: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}         # Leaf3:Ethernet1_13 -> T1:1/4 (HOST3 traffic)
+
+  # DC3 Leaf 1 (Leaf4) - Device D8
+  Leaf4:
+    interfaces:
+      # DC3 Intra-fabric connections to DC3 gateway switch
+      Ethernet1_1: {EndDevice: DC3GW1, EndPort: Ethernet1_1, params: def_link}  # Leaf4:Ethernet1_1 -> DC3GW1:Ethernet1_1
+      Ethernet1_2: {EndDevice: DC3GW1, EndPort: Ethernet1_2, params: def_link}  # Leaf4:Ethernet1_2 -> DC3GW1:Ethernet1_2
+      # Ixia connection for HOST4 traffic generation
+      Ethernet1_13: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}         # Leaf4:Ethernet1_13 -> T1:1/5 (HOST4 traffic)
+

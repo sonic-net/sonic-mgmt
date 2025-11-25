@@ -4,6 +4,8 @@ import threading
 from spytest import st
 from retry import retry
 from concurrent.futures import ThreadPoolExecutor
+from dci.ixia.start_stop import start_all_traffic_items
+from dci.ixia.statistics import validate_traffic_stats
 
 
 def create_ssh_connection(wa, host_name):
@@ -315,8 +317,8 @@ def send_ping_and_verify_traffic(wa, host_pairs, **kwargs):
         wa: SPyTest work area object containing testbed device information
         host_pairs: List of dictionaries containing host pair information for traffic testing
         **kwargs: Optional parameters including:
-                 - use_ubuntu_hosts (bool): If True, use Ubuntu hosts for traffic generation
-                                          If False, use Ixia traffic generator (default)
+                 - use_ixia_for_hosts (bool): If True, use Ixia traffic generator for traffic generation
+                                          If False, use Ubuntu hosts (default)
                  - single_direction (bool): If True, ping only from first host to second host
                                           If False, ping in both directions (default)
                  - ignore_validation (bool): If True, skip validation and return True
@@ -328,5 +330,23 @@ def send_ping_and_verify_traffic(wa, host_pairs, **kwargs):
     Returns:
         bool: True if traffic validation succeeds, False otherwise
     """
-    if kwargs.get("use_ubuntu_hosts", False):
+    if not kwargs.get("use_ixia_for_hosts", False):
         return initiate_ping_from_ubuntu_hosts(wa, host_pairs, **kwargs)
+    
+    st.log("Using IXIA for traffic generation and validation")
+    try:
+        st.log("Starting all IXIA traffic items...")
+        if not start_all_traffic_items(kwargs["session_assistant"]):
+            st.error("Failed to start IXIA traffic items")
+            return False
+        st.wait(30, "waiting for all 10 packets to be sent between all VLANs")
+        st.log("Validating IXIA traffic statistics...")
+        result = validate_traffic_stats(kwargs["session_assistant"])
+        if result:
+            st.log("IXIA traffic validation passed")
+        else:
+            st.error("IXIA traffic validation failed")
+        return result
+    except Exception as e:
+        st.error(f"Failed to start traffic items on IXIA: {e}")
+        return False

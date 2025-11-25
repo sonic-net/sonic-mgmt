@@ -10,6 +10,7 @@ from dci.frr_verifiers import (
     verify_type_1_routes_are_not_reoriginated,
 )
 from dci.expected_results_frr import no_reorigination_routes
+from dci.ixia.start_stop import start_all_protocols, stop_all_protocols
 import apis.system.interface as intf_api
 
 
@@ -26,18 +27,23 @@ def test_deconfigure_reconfigure_devices(setup):
         verify_type_4_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
         verify_type_1_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_devices")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_devices")
@@ -51,7 +57,7 @@ def test_deconfigure_reconfigure_dc1gw2(setup):
     if not configure_devices(config_file, dci_node, add=False):
         st.report_fail("test_case_failed", "test_deconfigure_reconfigure_dc1gw2 deconfigure")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     if not configure_devices(config_file, dci_node, add=True):
@@ -62,18 +68,23 @@ def test_deconfigure_reconfigure_dc1gw2(setup):
         verify_type_4_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
         verify_type_1_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_dc1gw2")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_dc1gw2")
@@ -96,18 +107,23 @@ def test_deconfigure_reconfigure_sonic(setup):
         verify_type_4_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
         verify_type_1_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_sonic")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_sonic")
@@ -127,18 +143,23 @@ def test_deconfigure_reconfigure_bgp(setup):
         verify_type_4_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
         verify_type_1_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_bgp")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_bgp")
@@ -181,18 +202,23 @@ def test_deconfigure_reconfigure_dci_config(setup):
         verify_type_1_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
     # Verify VXLAN remote VTEP and MAC configurations after reconfiguration
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_dci_config")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_dci_config")
@@ -218,18 +244,23 @@ def test_deconfigure_reconfigure_dci_nodes(setup):
         verify_type_4_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
         verify_type_1_routes_are_not_reoriginated(nodes[node_name], no_reorigination_routes[node_name])
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_dci_nodes")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_dci_nodes")
@@ -267,18 +298,23 @@ def test_deconfigure_reconfigure_vlan_vni_mapping_at_dci_nodes(setup):
 
     # Verify VXLAN remote VTEP and MAC configurations after reconfiguration
     verify_dci_remotevtep(nodes, "test_deconfigure_reconfigure_vlan_vni_mapping_at_dci_nodes")
-    if setup["use_ubuntu_hosts"]:
-        # Initiate mac learning by sending traffic from hosts to their respective leafs
+    # Initiate mac learning by sending traffic from hosts to their respective leafs
+    if not setup.get("use_ixia_for_hosts", False):
         send_ping_and_verify_traffic(
             st.getwa(),
             setup["ping_anycast"],
-            use_ubuntu_hosts=True,
+            use_ixia_for_hosts=False,
             single_direction=True,
             ignore_validation=True,
             packet_count=2,
         )
+    if setup.get("use_ixia_for_hosts", False):
+        stop_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to stop")
+        start_all_protocols(setup["session_assistant"])
+        st.wait(10, "waiting for IXIA protocols to start")
     if not send_ping_and_verify_traffic(
-        st.getwa(), setup["traffic_pairs"], use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+        st.getwa(), setup.get("traffic_pairs", []), session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
     ):
         st.report_fail("test_case_failed", "Ping test failed after VLAN-VNI mapping reconfiguration")
     verify_dci_remotemac(nodes, "test_deconfigure_reconfigure_vlan_vni_mapping_at_dci_nodes")
@@ -308,14 +344,17 @@ def test_single_link_failures(setup):
 
     # Define traffic pairs from DC2/DC3 hosts to DC1 hosts
     # These specific pairs should continue working even with single link failures
-    traffic_pairs = [
-        ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
-        ({"name": nodes["host3"], "ip": "10.212.20.3"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
-        ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
-        ({"name": nodes["host4"], "ip": "10.212.20.4"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
-        ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
-        ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
-    ]
+    if not setup.get("use_ixia_for_hosts", False):
+        traffic_pairs = [
+            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
+            ({"name": nodes["host3"], "ip": "10.212.20.3"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
+            ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
+            ({"name": nodes["host4"], "ip": "10.212.20.4"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
+            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
+            ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
+        ]
+    else:
+        traffic_pairs = setup.get("traffic_pairs", [])
 
     # Define link failure test cases using DxDyPz notation from conftest
     # Format: (gateway_node, gateway_name, leaf_name, port_name, interface)
@@ -340,7 +379,7 @@ def test_single_link_failures(setup):
         # Verify traffic still works (multi-homing should provide redundancy)
         st.log(f"Verifying traffic with {gateway_name}-{leaf_name} link down ({port_name})")
         if not send_ping_and_verify_traffic(
-            st.getwa(), traffic_pairs, use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+            st.getwa(), traffic_pairs, session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
         ):
             st.report_fail(
                 "test_case_failed", f"Ping test failed with {gateway_name}-{leaf_name} link down ({port_name})"
@@ -356,7 +395,7 @@ def test_single_link_failures(setup):
         # Verify traffic works after link restoration
         st.log(f"Verifying traffic after {gateway_name}-{leaf_name} link restoration ({port_name})")
         if not send_ping_and_verify_traffic(
-            st.getwa(), traffic_pairs, use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+            st.getwa(), traffic_pairs, session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
         ):
             st.report_fail(
                 "test_case_failed", f"Ping test failed after {gateway_name}-{leaf_name} link restoration ({port_name})"
@@ -386,14 +425,17 @@ def test_double_link_failures(setup):
 
     # Define traffic pairs from DC2/DC3 hosts to DC1 hosts
     # These specific pairs should continue working with gateway isolation
-    traffic_pairs = [
-        ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
-        ({"name": nodes["host3"], "ip": "10.212.20.3"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
-        ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
-        ({"name": nodes["host4"], "ip": "10.212.20.4"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
-        ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
-        ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
-    ]
+    if not setup.get("use_ixia_for_hosts", False):
+        traffic_pairs = [
+            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
+            ({"name": nodes["host3"], "ip": "10.212.20.3"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
+            ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host1"], "ip": "10.212.10.1"}),
+            ({"name": nodes["host4"], "ip": "10.212.20.4"}, {"name": nodes["host1"], "ip": "10.212.20.1"}),
+            ({"name": nodes["host3"], "ip": "10.212.10.3"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
+            ({"name": nodes["host4"], "ip": "10.212.10.4"}, {"name": nodes["host2"], "ip": "10.212.10.2"}),
+        ]
+    else:
+        traffic_pairs = setup.get("traffic_pairs", [])
 
     # Double link failure tests - gateway disconnected from both leaf nodes
     st.log("Starting double link failure tests")
@@ -437,7 +479,7 @@ def test_double_link_failures(setup):
         # Verify traffic still works (other gateway should provide redundancy)
         st.log(f"Verifying traffic with {gateway_name} completely isolated from DC1 leaf nodes")
         if not send_ping_and_verify_traffic(
-            st.getwa(), traffic_pairs, use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+            st.getwa(), traffic_pairs, session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
         ):
             st.report_fail("test_case_failed", f"Ping test failed with {gateway_name} isolated (double link failure)")
 
@@ -452,7 +494,7 @@ def test_double_link_failures(setup):
         # Verify traffic works after link restoration
         st.log(f"Verifying traffic after {gateway_name} double link restoration")
         if not send_ping_and_verify_traffic(
-            st.getwa(), traffic_pairs, use_ubuntu_hosts=setup.get("use_ubuntu_hosts", False)
+            st.getwa(), traffic_pairs, session_assistant=setup.get("session_assistant", None), use_ixia_for_hosts=setup.get("use_ixia_for_hosts", False)
         ):
             st.report_fail("test_case_failed", f"Ping test failed after {gateway_name} double link restoration")
 

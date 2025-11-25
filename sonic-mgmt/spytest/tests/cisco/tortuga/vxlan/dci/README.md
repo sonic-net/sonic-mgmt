@@ -29,67 +29,82 @@ The DCI test suite validates VXLAN EVPN-based multi-datacenter connectivity usin
 
 ## Running Tests
 
+### Environment Variables
+
+The test suite uses environment variables for configuration. Set these before running tests:
+
+```bash
+# Required for IXIA-based testing
+export DCI_USE_IXIA_FOR_HOSTS="true"
+export DCI_IXIA_CONFIG_FILE="ixia_dci_hosts.ixncfg"
+export DCI_IXIA_API_KEY="your_api_key_here"
+
+# Optional configuration
+export DCI_CONFIG_FILE="dci/device_configs/config_ixia_8D.yaml"  # Default from const.py
+export DCI_TOPOLOGY="8d_3dc"                                      # Default: 8d_3dc
+export DCI_NO_CONFIG="false"                                      # Default: false
+export DCI_CLEANUP="false"                                        # Default: false
+export DCI_DEPLOY_LEAF_ON_IXIA="false"                           # Default: false (use for 6D topology)
+```
+
 ### Basic Test Execution
 
-#### For Ubuntu Hosts (8D topology):
+#### For IXIA-based Traffic Generation (8D topology):
 ```bash
-./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml \
-              --device-feature-group master \
-              --module-init-max-timeout=7200 \
-              --tc-max-timeout=7200 \
-              --topology-check=skip \
-              --skip-init-checks \
-              --skip-init-config \
-              --port-init-wait=2 \
-              /data/tests/cisco/tortuga/vxlan/dci/test_config.py
+DCI_USE_IXIA_FOR_HOSTS="true" DCI_IXIA_CONFIG_FILE="ixia_dci_hosts.ixncfg" DCI_IXIA_API_KEY="your_api_key" DCI_CONFIG_FILE="dci/device_configs/config_ixia_8D.yaml" ./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ixia.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
 ```
 
-#### For Ixia Emulated Hosts (6D topology with emulated Leaf3/Leaf4):
+#### For IXIA-based Emulated Leaf and Host (6D topology):
 ```bash
-./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_6D_linux_ixia_carib.yaml \
-              --device-feature-group master \
-              --module-init-max-timeout=7200 \
-              --tc-max-timeout=7200 \
-              --topology-check=skip \
-              --skip-init-checks \
-              --skip-init-config \
-              --port-init-wait=2 \
-              /data/tests/cisco/tortuga/vxlan/dci/test_config.py \
-              --deploy-leaf-on-ixia \
-              --ixia-config-file=emulated_leaf_and_host.ixncfg \
-              --ixia-api-key=<your_ixia_api_key>
+DCI_DEPLOY_LEAF_ON_IXIA="true" DCI_IXIA_CONFIG_FILE="emulated_leaf_and_host.ixncfg" DCI_IXIA_API_KEY="your_api_key" ./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_6D_linux_ixia_carib.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
 ```
 
-## Command Line Arguments
+#### For Ubuntu Host-based Traffic Generation:
+```bash
+./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
+```
 
-The following custom command line arguments are available in `conftest.py`:
+## Environment Variables
+
+The following environment variables control test behavior:
 
 ### Topology Configuration
-- `--topology`: Specify topology type (default: "8d_3dc")
-- `--deploy-leaf-on-ixia`: Deploy leaf devices on Ixia (required for 6D topology with emulated Leaf3-Host3 and Leaf4-Host4)
+- `DCI_TOPOLOGY`: Specify topology type (default: "8d_3dc")
+- `DCI_DEPLOY_LEAF_ON_IXIA`: Deploy leaf devices on Ixia (set to "true" for emulated Leaf3/Leaf4)
+- `DCI_USE_IXIA_FOR_HOSTS`: Use IXIA for host devices instead of Ubuntu hosts (set to "true")
 
 ### Configuration Management
-- `--dci-config-file`: Path to DCI configuration file in YAML format (default: from const.py)
-- `--no-config`: Skip configuration of devices and jump directly to tests
-- `--cleanup`: Remove existing configuration from setup before running tests
+- `DCI_CONFIG_FILE`: Path to DCI configuration file in YAML format (default: from const.py)
+- `DCI_NO_CONFIG`: Skip configuration of devices and jump directly to tests (set to "true")
+- `DCI_CLEANUP`: Remove existing configuration from setup before running tests (set to "true")
 
-### Ixia Integration (for emulated hosts)
-- `--ixia-config-file`: Ixia configuration file (.ixncfg) for traffic generation (default: "emulated_leaf_and_host.ixncfg")
-- `--ixia-api-key`: Ixia API key for authentication with Ixia Web API (required when using `--deploy-leaf-on-ixia`)
+### IXIA Integration (required when using IXIA-based testing)
+- `DCI_IXIA_CONFIG_FILE`: IXIA configuration file (.ixncfg) for traffic generation (default: "ixia_dci_hosts.ixncfg")
+- `DCI_IXIA_API_KEY`: IXIA API key for authentication with IXIA Web API (required for IXIA-based deployments)
 
 ## Topology Details
 
-### 8D_3DC Topology (Ubuntu Hosts)
+### 8D_3DC Topology
+
+**IXIA-based Traffic Generation:**
+- **File**: `tortuga_spytest_dci_3DC_8D_linux_ixia.yaml`
+- **Description**: 8 devices, 3 data centers with IXIA traffic generation
+- **Devices**: DC1GW1, DC1GW2, DC2GW1, DC3GW1, Leaf1, Leaf2, Leaf3, Leaf4
+- **Traffic Generation**: IXIA T1 device with 6 ports (HOST1-HOST5 emulation)
+
+**Ubuntu Host-based Traffic Generation:**
 - **File**: `tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml`
 - **Description**: 8 devices, 3 data centers with real Ubuntu hosts
 - **Devices**: DC1GW1, DC1GW2, DC2GW1, DC3GW1, Leaf1, Leaf2, Leaf3, Leaf4
-- **Hosts**: Host1, Host2, Host3, Host4 (Ubuntu systems)
+- **Hosts**: HOST1, HOST2, HOST3, HOST4, HOST5 (Ubuntu systems with VLAN interfaces)
 
-### 6D_3DC Topology (Ixia Emulated Hosts)
+### 6D_3DC Topology (Emulated Leaf and Host)
+
+**IXIA-based Emulated Leaf and Host:**
 - **File**: `tortuga_spytest_dci_3DC_6D_linux_ixia_carib.yaml`
-- **Description**: 6 devices, 3 data centers with emulated Leaf3-Host3 and Leaf4-Host4 via Ixia
+- **Description**: 6 devices, 3 data centers with emulated Leaf3/Host3 and Leaf4/Host4 via IXIA
 - **Devices**: DC1GW1, DC1GW2, DC2GW1, DC3GW1, Leaf1, Leaf2
-- **Emulated**: Leaf3-Host3, Leaf4-Host4 (via Ixia traffic generator)
+- **Emulated**: Leaf3-Host3, Leaf4-Host4 (via IXIA traffic generator)
 - **Required Flag**: `--deploy-leaf-on-ixia`
 
 ## Architecture
@@ -214,61 +229,34 @@ device_name:
 
 ## Usage Examples
 
+**Note**: 
+- For IXIA traffic generation (8D): Use `tortuga_spytest_dci_3DC_8D_linux_ixia.yaml` with `DCI_USE_IXIA_FOR_HOSTS="true"`, `DCI_IXIA_CONFIG_FILE`, and `DCI_IXIA_API_KEY`
+- For IXIA emulated leaf and host (6D): Use `tortuga_spytest_dci_3DC_6D_linux_ixia_carib.yaml` with `DCI_DEPLOY_LEAF_ON_IXIA="true"`, `DCI_IXIA_CONFIG_FILE`, and `DCI_IXIA_API_KEY`
+- For Ubuntu host traffic generation (8D): Use `tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml` (no environment variables needed)
+
+### Standard Test Run (IXIA - 8D Topology)
+```bash
+DCI_USE_IXIA_FOR_HOSTS="true" DCI_IXIA_CONFIG_FILE="ixia_dci_hosts.ixncfg" DCI_IXIA_API_KEY="your_api_key" DCI_CONFIG_FILE="dci/device_configs/config_ixia_8D.yaml" ./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ixia.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
+```
+
+### Standard Test Run (IXIA - 6D Topology with Emulated Leaf)
+```bash
+DCI_DEPLOY_LEAF_ON_IXIA="true" DCI_IXIA_CONFIG_FILE="emulated_leaf_and_host.ixncfg" DCI_IXIA_API_KEY="your_api_key" ./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_6D_linux_ixia_carib.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
+```
+
 ### Standard Test Run (Ubuntu Hosts)
 ```bash
-./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml \
-              --device-feature-group master \
-              --module-init-max-timeout=7200 \
-              --tc-max-timeout=7200 \
-              --topology-check=skip \
-              --skip-init-checks \
-              --skip-init-config \
-              --port-init-wait=2 \
-              /data/tests/cisco/tortuga/vxlan/dci/test_config.py
+./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
 ```
 
 ### Cleanup Run (Remove Configuration)
 ```bash
-./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml \
-              --device-feature-group master \
-              --module-init-max-timeout=7200 \
-              --tc-max-timeout=7200 \
-              --topology-check=skip \
-              --skip-init-checks \
-              --skip-init-config \
-              --port-init-wait=2 \
-              /data/tests/cisco/tortuga/vxlan/dci/test_config.py \
-              --cleanup
+DCI_CLEANUP="true" ./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ixia.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
 ```
 
 ### Skip Configuration (Test Only)
 ```bash
-./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ubuntu_carib.yaml \
-              --device-feature-group master \
-              --module-init-max-timeout=7200 \
-              --tc-max-timeout=7200 \
-              --topology-check=skip \
-              --skip-init-checks \
-              --skip-init-config \
-              --port-init-wait=2 \
-              /data/tests/cisco/tortuga/vxlan/dci/test_config.py \
-              --no-config
-```
-
-### Ixia Emulated Hosts
-```bash
-./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_6D_linux_ixia_carib.yaml \
-              --device-feature-group master \
-              --module-init-max-timeout=7200 \
-              --tc-max-timeout=7200 \
-              --topology-check=skip \
-              --skip-init-checks \
-              --skip-init-config \
-              --port-init-wait=2 \
-              /data/tests/cisco/tortuga/vxlan/dci/test_config.py \
-              --deploy-leaf-on-ixia \
-              --ixia-config-file=emulated_leaf_and_host.ixncfg \
-              --ixia-api-key=<api_key>
+DCI_NO_CONFIG="true" ./bin/spytest --testbed /data/tortuga_spytest_dci_3DC_8D_linux_ixia.yaml --device-feature-group master --module-init-max-timeout=7200 --tc-max-timeout=7200 --topology-check=skip --skip-init-checks --skip-init-config --port-init-wait=2 /data/tests/cisco/tortuga/vxlan/dci/test_config.py
 ```
 
 ### Verification Functions
@@ -350,6 +338,13 @@ show bgp l2vpn evpn summary
 ## Notes
 
 - Tests currently support VXR platform only (simulation environment)
-- Ixia integration requires valid API key and configuration file
+- Three traffic generation options supported:
+  - IXIA T1 device for host emulation in 8D topology (requires `--use-ixia-for-hosts`, `--ixia-config-file`, and `--ixia-api-key`)
+  - IXIA T1 device for emulated Leaf3/Host3 and Leaf4/Host4 in 6D topology (requires `--deploy-leaf-on-ixia`, `--ixia-config-file`, and `--ixia-api-key`)
+  - Ubuntu hosts for real Linux-based traffic validation in 8D topology (no additional parameters required)
+- IXIA-based deployment requires:
+  - Valid IXIA API key for authentication
+  - IXIA configuration file (.ixncfg) with traffic patterns
+  - Both parameters are mandatory when using `--use-ixia-for-hosts` or `--deploy-leaf-on-ixia`
 - TextFSM templates provide structured parsing of SONiC show commands
 - Helper functions eliminate code duplication across test scenarios

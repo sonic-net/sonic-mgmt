@@ -71,7 +71,7 @@ devices:
     memory: '4G'
 
 connections:
-  ovs_hubs:
+  hubs:
     hub0:
       - SD1.Ethernet[0..1]
       - SD5.Ethernet[0..1]

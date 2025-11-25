@@ -1,56 +1,9 @@
-from ixnetwork_restpy import Files, SessionAssistant
+from ixnetwork_restpy import SessionAssistant
 from spytest import st
 import requests
-import socket
 
 
-def test_ixia_connectivity(ixia_vm_ip, api_key):
-    """
-    Test basic network connectivity to Ixia server before attempting full connection.
-    
-    Args:
-        ixia_vm_ip (str): IP address of the Ixia server
-        api_key (str): API key for authentication
-        
-    Returns:
-        bool: True if connectivity tests pass, False otherwise
-    """
-    st.log(f"Testing connectivity to Ixia server {ixia_vm_ip}")
-    
-    # Test 1: Basic TCP connectivity on port 443
-    try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(10)  # 10 second timeout
-        result = sock.connect_ex((ixia_vm_ip, 443))
-        sock.close()
-        
-        if result == 0:
-            st.log(f"✓ TCP connection to {ixia_vm_ip}:443 successful")
-        else:
-            st.log(f"✗ TCP connection to {ixia_vm_ip}:443 failed (error {result})")
-            return False
-    except Exception as e:
-        st.log(f"✗ TCP connection test failed: {str(e)}")
-        return False
-    
-    # Test 2: HTTPS connectivity
-    try:
-        test_url = f"https://{ixia_vm_ip}:443"
-        response = requests.get(test_url, timeout=30, verify=False)
-        st.log(f"✓ HTTPS connectivity to {ixia_vm_ip} successful (status: {response.status_code})")
-    except requests.exceptions.ConnectTimeout:
-        st.log(f"✗ HTTPS connection timeout to {ixia_vm_ip}")
-        return False
-    except requests.exceptions.ConnectionError as e:
-        st.log(f"✗ HTTPS connection error to {ixia_vm_ip}: {str(e)}")
-        return False
-    except Exception as e:
-        st.log(f"⚠ HTTPS test completed with warning: {str(e)}")
-    
-    return True
-
-
-def get_session_id(api_key):
+def get_session_id(ixia_vm_ip, api_key):
     """
     Dynamically retrieve active Ixia session ID from the traffic generator.
     
@@ -59,21 +12,15 @@ def get_session_id(api_key):
     manual session ID specification.
     
     Args:
+        ixia_vm_ip (str): IP address of the Ixia Virtual Machine/Chassis
         api_key (str): API key for authentication with Ixia Web API
         
     Returns:
-        str: Session ID of the first active Ixia session
-        
-    Raises:
-        Exception: If no active sessions are found or API call fails
+        str: Session ID of the first active Ixia session, or None if no sessions found
         
     Note:
-        Uses testbed configuration to determine Ixia VM IP address from "T1" device
+        Returns None if no active sessions exist, allowing SessionAssistant to create new session
     """
-    # Retrieve testbed information and extract Ixia VM IP from T1 device configuration
-    wa = st.getwa()
-    ixia_vm_ip = wa.net.tb.devices["T1"]["properties"]["ix_server"]
-
     # Construct REST API URL for session discovery on Ixia chassis
     session_url = f"https://{ixia_vm_ip}:443/api/v1/sessions"
     # Configure HTTP headers for authenticated API request
@@ -82,47 +29,66 @@ def get_session_id(api_key):
         "x-api-key": f"{api_key}",
     }
 
+    st.log(f"Fetching IXIA sessions from VM IP: {ixia_vm_ip}")
     # Execute GET request to retrieve all active sessions
     # Disable SSL verification and proxy for direct chassis communication
-    response = requests.request(
-        "GET", session_url, headers=headers, verify=False, proxies={}
-    )
+    try:
+        response = requests.request(
+            "GET", session_url, headers=headers, verify=False, proxies={}
+        )
 
-    # Validate API response and handle errors
-    if response.status_code != 200:
-        raise Exception(f"Failed to fetch IXIA sessions: {response.text}")
+        # Validate API response and handle errors
+        if response.status_code != 200:
+            st.log(f"Failed to fetch IXIA sessions: {response.text}")
+            return None
 
-    # Parse JSON response and validate session availability
-    sessions = response.json()
-    if not sessions:
-        raise Exception("No active IXIA sessions found.")
+        # Parse JSON response and validate session availability
+        sessions = response.json()
+        if not sessions:
+            st.log("No active IXIA sessions found, will create new session")
+            return None
 
-    # Return the first available session ID for use in testing
-    return sessions[0]["id"]
+        # Return the first available session ID for use in testing
+        session_id = sessions[0]["id"]
+        st.log(f"Found existing IXIA session: {session_id}")
+        return session_id
+    except Exception as e:
+        st.log(f"Error fetching sessions: {e}, will create new session")
+        return None
 
-def session_assistant(ixia_vm_ip, api_key, session_id):
+
+def session_assistant(ixia_vm_ip, api_key):
     """
     Create and configure an Ixia SessionAssistant for traffic generator operations.
     
-    Initializes a SessionAssistant object with authentication credentials and
-    session parameters for communicating with the Ixia traffic generator.
+    Automatically discovers existing session or creates new one. This prevents
+    "port in use" errors by reusing existing sessions when available.
     
     Args:
         ixia_vm_ip (str): IP address of the Ixia Virtual Machine/Chassis
         api_key (str): API key for authentication with Ixia Web API
-        session_id (str): Unique session identifier to connect to
         
     Returns:
         SessionAssistant: Configured session object for Ixia operations
         
     Note:
-        Uses default admin credentials and INFO log level for debugging
+        Uses default admin credentials and INFO log level for debugging.
+        Automatically discovers and connects to existing session if available.
     """
-    return SessionAssistant(
-        IpAddress=ixia_vm_ip,
-        UserName="admin",  # Default Ixia username
-        Password="admin",  # Default Ixia password
-        ApiKey=api_key,
-        LogLevel=SessionAssistant.LOGLEVEL_INFO,  # Enable detailed logging
-        SessionId=int(session_id),  # Convert string session ID to integer
-    )
+    # Try to get existing session first
+    session_id = get_session_id(ixia_vm_ip, api_key)
+    
+    st.log(f"Creating IXIA SessionAssistant for VM IP: {ixia_vm_ip}, Session ID: {session_id}")
+    params = {
+        "IpAddress": ixia_vm_ip,
+        "UserName": "admin",
+        "Password": "admin",
+        "ApiKey": api_key,
+        "LogLevel": SessionAssistant.LOGLEVEL_INFO,
+        "ClearConfig": True
+    }
+    if session_id is not None:
+        params["SessionId"] = int(session_id)
+    sess = SessionAssistant(**params)
+    st.log(f"Successfully created IXIA SessionAssistant")
+    return sess
