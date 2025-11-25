@@ -116,7 +116,7 @@ def test_dualtor_active_standby_linkmgrd_restart_mux_port_status_heartbeat_off(r
                                                                                active_standby_ports,        # noqa: F811
                                                                                start_icmp_responder,        # noqa: F811
                                                                                shutdown_icmp_responder,     # noqa: F811
-                                                                               loop_times): 
+                                                                               loop_times):
     """
     Test MUX port status on active-standby dual ToR after linkmgrd restart with heartbeat off
 
