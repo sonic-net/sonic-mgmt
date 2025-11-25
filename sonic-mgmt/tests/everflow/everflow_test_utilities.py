@@ -38,10 +38,12 @@ EVERFLOW_RULE_CREATE_TEMPLATE = "acl-erspan.json.j2"
 FILE_DIR = "everflow/files"
 EVERFLOW_V4_RULES = "ipv4_test_rules.yaml"
 EVERFLOW_DSCP_RULES = "dscp_test_rules.yaml"
+IP_TYPE_RULE_V6 = "test_rules_ip_type_v6.json"
 
 DUT_RUN_DIR = "/tmp/everflow"
 EVERFLOW_RULE_CREATE_FILE = "acl-erspan.json"
 EVERFLOW_RULE_DELETE_FILE = "acl-remove.json"
+EVERFLOW_NOT_OPENCONFIG_CREATE_FILE = 'acl_config.json'
 
 STABILITY_BUFFER = 0.05     # 50msec
 
@@ -954,6 +956,63 @@ class BaseEverflowTest(object):
 
         return new_packet
 
+    def check_rule_counters(self, duthost):
+        """
+        Check if Acl rule counters initialized
+
+        Args:
+            duthost: DUT host object
+        Returns:
+            Bool value
+        """
+        res = duthost.shell("aclshow -a")['stdout_lines']
+        if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+            return False
+        else:
+            return True
+
+    def apply_non_openconfig_acl_rle(self, duthost, extra_vars, rule_file):
+        """
+        Not all ACL match groups are valid in openconfig-acl format used in rest of these
+        tests. Instead we must load these uing SONiC-style acl jsons.
+
+        Args:
+            duthost: Device under test
+            extra_vars: Variables needed to fill template in `rule_file`
+            rule_file: File with rule template to stage on `duthost`
+        """
+        dest_path = os.path.join(DUT_RUN_DIR, EVERFLOW_NOT_OPENCONFIG_CREATE_FILE)
+        duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+        duthost.file(path=dest_path, state='absent')
+        duthost.template(src=os.path.join(FILE_DIR, rule_file), dest=dest_path)
+        duthost.shell("config load -y {}".format(dest_path))
+
+        if duthost.facts['asic_type'] != 'vs':
+            pytest_assert(wait_until(60, 2, 0, self.check_rule_counters, duthost), "Acl rule counters are not ready")
+
+    def apply_ip_type_rule(self, duthost, ip_version):
+        """
+        Applies rule to match SAI-defined IP_TYPE. This has to be done separately as the openconfig-acl
+        definition does not cover ip_type. Requires also matching on another attribute as otherwise
+        unwanted traffic is also mirrored.
+
+        Args:
+            duthost: Device under test
+            table_name: Which Everflow table to add this rule to
+            ip_version: 4 for ipv4 and 6 for ipv6
+        """
+        if ip_version == 4:
+            pytest.skip("IP_TYPE Matching test has not been written for IPv4")
+        else:
+            rule_file = IP_TYPE_RULE_V6
+        table_name = "EVERFLOWV6" if self.acl_stage() == "ingress" else "EVERFLOW_EGRESSV6"
+        action = "MIRROR_INGRESS_ACTION" if self.acl_stage() == "ingress" else "MIRROR_EGRESS_ACTION"
+        extra_vars = {
+            'table_name': table_name,
+            'action': action
+        }
+        self.apply_non_openconfig_acl_rle(duthost, extra_vars, rule_file)
+
     def send_and_check_mirror_packets(self,
                                       setup,
                                       mirror_session,
@@ -1049,7 +1108,14 @@ class BaseEverflowTest(object):
                 # but DMAC and checksum are trickier. For now, update the TTL and SMAC, and
                 # mask off the DMAC and IP Checksum to verify the packet contents.
                 if self.mirror_type() == "egress":
-                    mirror_packet_sent[packet.IP].ttl -= 1
+                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
+
+                    if self.acl_ip_version() == 4:
+                        mirror_packet_sent[packet.IP].ttl -= 1
+                        inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
+                    else:
+                        mirror_packet_sent[packet.IPv6].hlim -= 1
+
                     if 't2' in setup['topo']:
                         if duthost.facts['switch_type'] == "voq":
                             mirror_packet_sent[packet.Ether].src = setup[direction]["ingress_router_mac"]
@@ -1058,9 +1124,6 @@ class BaseEverflowTest(object):
                         mirror_packet_sent[packet.Ether].src = setup[direction]["vlan_mac"]
                     else:
                         mirror_packet_sent[packet.Ether].src = setup[direction]["egress_router_mac"]
-
-                    inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
-                    inner_packet.set_do_not_care_scapy(packet.IP, "chksum")
 
                 if multi_binding_acl:
                     inner_packet.set_do_not_care_scapy(packet.Ether, "dst")
@@ -1094,7 +1157,8 @@ class BaseEverflowTest(object):
                     padded = binascii.unhexlify("0" * 44) + bytes(padded)
         if asic_type in ["barefoot", "cisco-8000", "marvell-teralynx"] \
            or platform_asic == "broadcom-dnx" \
-           or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131", "Nokia-7215-A1"]:
+           or hwsku in ["rd98DX35xx", "rd98DX35xx_cn9131"] \
+           or hwsku.startswith("Nokia-7215-A1"):
             if six.PY2:
                 padded = binascii.unhexlify("0" * 24) + str(padded)
             else:

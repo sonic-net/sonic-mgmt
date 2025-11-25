@@ -1177,6 +1177,9 @@ class EverflowIPv4Tests(BaseEverflowTest):
 
         return pkt
 
+    def acl_ip_version(self):
+        return 4
+
 
 class TestEverflowV4IngressAclIngressMirror(EverflowIPv4Tests):
     def acl_stage(self):

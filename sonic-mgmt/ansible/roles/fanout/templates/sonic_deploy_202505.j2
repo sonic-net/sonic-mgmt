@@ -207,7 +207,8 @@
     },
 {% endif %}
 {% set no_buffer_hwsku = (
-    "Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4",
+    "Nokia-7215", "Nokia-7215-A1", "Nokia-7215-A1-G48S4", "Nokia-7215-A1-MGX-G48S4",
+    "Arista-720DT-G48S4",
     "Arista-7050CX3-32S-S128", "Arista-7050CX3-32S-C6S104", "Arista-7050CX3-32S-C28S16"
 ) %}
 {% if 'marvell-teralynx' not in fanout_sonic_version["asic_type"] and not (fanout_hwsku in no_buffer_hwsku or "Arista-7060X6" in fanout_hwsku) %}
@@ -226,7 +227,7 @@
     {% endfor %}
     },
 {% endif %}
-{% if 'marvell-teralynx' in fanout_sonic_version["asic_type"] or fanout_hwsku in ("Nokia-7215", "Nokia-7215-A1", "Arista-720DT-G48S4") %}
+{% if 'marvell-teralynx' in fanout_sonic_version["asic_type"] or fanout_hwsku == "Arista-720DT-G48S4" or "Nokia-7215" in fanout_hwsku %}
 
     "FLEX_COUNTER_TABLE": {
         "ACL": {

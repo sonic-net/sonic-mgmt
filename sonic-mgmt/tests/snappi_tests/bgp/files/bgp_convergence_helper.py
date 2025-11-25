@@ -601,7 +601,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_rx_rate)
             assert abs(sum(tx_frate) - sum(rx_frate)) < 500, \
-                "Traffic has not converged after lroute withdraw TxFrameRate:{},RxFrameRate:{}"\
+                "Traffic has not converged after route withdraw TxFrameRate:{},RxFrameRate:{}"\
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after route withdraw")
 
@@ -662,7 +662,7 @@ def get_rib_in_convergence(snappi_api,
     route_names = NG_LIST
     bgp_config.events.cp_events.enable = True
     bgp_config.events.dp_events.enable = True
-    bgp_config.events.dp_events.rx_rate_threshold = 90/(multipath-1)
+    bgp_config.events.dp_events.rx_rate_threshold = 90/multipath
     snappi_api.set_config(bgp_config)
     table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
     for i in range(0, iteration):
@@ -674,7 +674,7 @@ def get_rib_in_convergence(snappi_api,
         cs.protocol.route.names = route_names
         cs.protocol.route.state = cs.protocol.route.WITHDRAW
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT-25, "For Routes to be withdrawn")
+        wait(TIMEOUT, "For Routes to be withdrawn")
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
         cs = snappi_api.control_state()
@@ -699,7 +699,7 @@ def get_rib_in_convergence(snappi_api,
         cs.protocol.route.names = route_names
         cs.protocol.route.state = cs.protocol.route.ADVERTISE
         snappi_api.set_control_state(cs)
-        wait(TIMEOUT-25, "For all routes to be ADVERTISED")
+        wait(TIMEOUT, "For all routes to be ADVERTISED")
         flows = get_flow_stats(snappi_api)
         for flow in flows:
             tx_frate.append(flow.frames_tx_rate)
