@@ -5052,6 +5052,18 @@ vrf/test_vrf.py::TestVrfAclRedirect:
       - "'switch' in vars() and len([capabilities for capabilities in switch.values() if 'REDIRECT_ACTION' in capabilities]) == 0"
       - "asic_type in ['vs']"
 
+vrf/test_vrf.py::TestVrfDeletion::test_vrf1_fib_after_resotre:
+  xfail:
+    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-mgmt/issues/20210"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20210 and 't0' in topo_name"
+      
+vrf/test_vrf.py::TestVrfDeletion::test_vrf1_neigh_after_restore:
+  xfail:
+    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-mgmt/issues/20210"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20210 and 't0' in topo_name"
+
 vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_swss_warm_reboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -5064,16 +5076,6 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
-vrf/test_vrf.py::TestVrfDeletion::test_vrf1_neigh_after_restore:
-  xfail:
-    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-mgmt/issues/20210"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20210 and 't0' in topo_name"
-vrf/test_vrf.py::TestVrfDeletion::test_vrf1_fib_after_resotre:
-  xfail:
-    reason: "This test case may fail due to a known issue https://github.com/sonic-net/sonic-mgmt/issues/20210"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20210 and 't0' in topo_name"
 vrf/test_vrf_attr.py:
   skip:
     reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
@@ -5276,12 +5278,12 @@ vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_ba
 
 vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_basic_route_advertisement_with_community_change[v4_in_v4]:
   xfail:
+  xfail:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
 
 vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_route_advertisement_without_and_with_community[v4_in_v4]:
-  xfail:
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
