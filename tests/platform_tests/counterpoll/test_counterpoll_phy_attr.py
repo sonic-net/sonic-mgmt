@@ -21,16 +21,16 @@ pytestmark = [
 ENABLE = CounterpollConstants.COUNTERPOLL_ENABLE.split(' ')[-1]
 DISABLE = CounterpollConstants.COUNTERPOLL_DISABLE.split(' ')[-1]
 
-# PORT_SERDES_ATTR specific constants
-PORT_SERDES_ATTR = CounterpollConstants.PORT_SERDES_ATTR
-PORT_SERDES_ATTR_TYPE = CounterpollConstants.PORT_SERDES_ATTR_TYPE
+# PORT_ATTR specific constants
+PORT_ATTR = CounterpollConstants.PORT_ATTR
+PORT_ATTR_TYPE = CounterpollConstants.PORT_ATTR_TYPE
 FLEX_COUNTER_PREFIX = 'FLEX_COUNTER_TABLE:'
-CONFIG_DB_TABLE = 'FLEX_COUNTER_TABLE|PORT_SERDES_ATTR'
-FLEX_COUNTER_GROUP_TABLE = 'FLEX_COUNTER_GROUP_TABLE:PORT_SERDES_ATTR'
-FLEX_COUNTER_TABLE_PREFIX = 'FLEX_COUNTER_TABLE:PORT_SERDES_ATTR:*'
+CONFIG_DB_TABLE = 'FLEX_COUNTER_TABLE|PORT_ATTR'
+FLEX_COUNTER_GROUP_TABLE = 'FLEX_COUNTER_GROUP_TABLE:PORT_ATTR'
+FLEX_COUNTER_TABLE_PREFIX = 'FLEX_COUNTER_TABLE:PORT_ATTR:*'
 
-# SERDES attributes to validate
-SERDES_ATTRIBUTES = [
+# PORT attributes to validate
+PORT_ATTRIBUTES = [
     'SAI_PORT_ATTR_RX_SIGNAL_DETECT',
     'SAI_PORT_ATTR_FEC_ALIGNMENT_LOCK',
     'SAI_PORT_ATTR_RX_SNR'
@@ -111,39 +111,39 @@ def build_port_oid_map(duthost):
     return port_oid_map
 
 
-def verify_port_serdes_attr_in_cli(duthost, expected_status):
+def verify_phy_attr_in_cli(duthost, expected_status):
     """
-    Verify counterpoll show output for port-serdes-attr
+    Verify counterpoll show output for PHY counters
 
     Args:
         duthost: DUT host object
         expected_status: Expected status ('enable' or 'disable')
     """
-    with allure.step("Verifying 'counterpoll show' output for port-serdes-attr"):
+    with allure.step("Verifying 'counterpoll show' output for PHY counters"):
         counterpoll_output = ConterpollHelper.get_counterpoll_show_output(duthost)
         pytest_assert(len(counterpoll_output) > 0, "counterpoll show returns no output")
 
         for entry in counterpoll_output:
-            if PORT_SERDES_ATTR_TYPE == entry.get(CounterpollConstants.TYPE, ''):
+            if PORT_ATTR_TYPE == entry.get(CounterpollConstants.TYPE, ''):
                 actual_status = entry[CounterpollConstants.STATUS]
                 pytest_assert(expected_status == actual_status,
-                             "port-serdes-attr status is '{}', expected '{}'".format(actual_status, expected_status))
-                logging.info("port-serdes-attr status verified: {}".format(actual_status))
+                             "PHY counter status is '{}', expected '{}'".format(actual_status, expected_status))
+                logging.info("PHY counter status verified: {}".format(actual_status))
                 return
 
-        pytest.fail("port-serdes-attr not found in counterpoll show output")
+        pytest.fail("PHY counters not found in counterpoll show output")
 
 
-def verify_port_serdes_attr_in_config_db(duthost, expected_status, expected_interval=None):
+def verify_phy_attr_in_config_db(duthost, expected_status, expected_interval=None):
     """
-    Verify CONFIG_DB FLEX_COUNTER_TABLE for port-serdes-attr
+    Verify CONFIG_DB FLEX_COUNTER_TABLE|PORT_ATTR entry
 
     Args:
         duthost: DUT host object
         expected_status: Expected status ('enable' or 'disable')
         expected_interval: Expected poll interval in ms (optional)
     """
-    with allure.step("Verifying CONFIG_DB FLEX_COUNTER_TABLE for port-serdes-attr"):
+    with allure.step("Verifying CONFIG_DB FLEX_COUNTER_TABLE|PORT_ATTR"):
         for asic in duthost.asics:
             try:
                 config_data = SonicDbCli(asic, 'CONFIG_DB').hget_all(CONFIG_DB_TABLE)
@@ -166,12 +166,12 @@ def verify_port_serdes_attr_in_config_db(duthost, expected_status, expected_inte
                     actual_status, config_data.get('POLL_INTERVAL', 'N/A')))
 
             except SonicDbKeyNotFound:
-                pytest.fail("FLEX_COUNTER_TABLE|PORT_SERDES_ATTR not found in CONFIG_DB")
+                pytest.fail("FLEX_COUNTER_TABLE|PORT_ATTR not found in CONFIG_DB")
 
 
-def verify_port_serdes_attr_in_flex_counter_db(duthost, expected_interval=None):
+def verify_phy_attr_in_flex_counter_db(duthost, expected_interval=None):
     """
-    Verify FLEX_COUNTER_DB group table and OID tables for port-serdes-attr
+    Verify FLEX_COUNTER_DB PORT_ATTR group table and OID tables
 
     Args:
         duthost: DUT host object
@@ -179,7 +179,7 @@ def verify_port_serdes_attr_in_flex_counter_db(duthost, expected_interval=None):
 
     """
 
-    with allure.step("Verifying FLEX_COUNTER_DB for port-serdes-attr"):
+    with allure.step("Verifying FLEX_COUNTER_DB PORT_ATTR tables"):
         for asic in duthost.asics:
             # Verify group table
             try:
@@ -201,7 +201,7 @@ def verify_port_serdes_attr_in_flex_counter_db(duthost, expected_interval=None):
                 logging.info("FLEX_COUNTER_DB group table verified on asic{}".format(asic.asic_index))
 
             except SonicDbKeyNotFound:
-                pytest.fail("FLEX_COUNTER_GROUP_TABLE:PORT_SERDES_ATTR not found in FLEX_COUNTER_DB")
+                pytest.fail("FLEX_COUNTER_GROUP_TABLE:PORT_ATTR not found in FLEX_COUNTER_DB")
 
 
 def get_sample_ports_with_lane_counts(duthost, sample_size=3):
@@ -254,25 +254,25 @@ def get_sample_ports_with_lane_counts(duthost, sample_size=3):
 
 def verify_attribute_list_in_flex_counter_db(duthost, sample_ports):
     """
-    Verify PORT_SERDES_ATTR_ID_LIST contains all 3 SERDES attributes
+    Verify PORT_ATTR_ID_LIST contains all 3 PORT attributes
 
     Args:
         duthost: DUT host object
         sample_ports: Dictionary of sample ports with their metadata
     """
-    with allure.step("Verifying PORT_SERDES_ATTR_ID_LIST in FLEX_COUNTER_DB"):
+    with allure.step("Verifying PORT_ATTR_ID_LIST in FLEX_COUNTER_DB"):
         for port_oid, port_info in sample_ports.items():
             asic = duthost.asics[port_info['asic']]
-            flex_counter_key = 'FLEX_COUNTER_TABLE:PORT_SERDES_ATTR:{}'.format(port_oid)
+            flex_counter_key = 'FLEX_COUNTER_TABLE:PORT_ATTR:{}'.format(port_oid)
 
             try:
                 port_data = SonicDbCli(asic, 'FLEX_COUNTER_DB').hget_all(flex_counter_key)
 
-                pytest_assert('PORT_SERDES_ATTR_ID_LIST' in port_data,
-                             "PORT_SERDES_ATTR_ID_LIST not found for {}".format(port_oid))
+                pytest_assert('PORT_ATTR_ID_LIST' in port_data,
+                             "PORT_ATTR_ID_LIST not found for {}".format(port_oid))
 
-                attr_list = port_data['PORT_SERDES_ATTR_ID_LIST']
-                for expected_attr in SERDES_ATTRIBUTES:
+                attr_list = port_data['PORT_ATTR_ID_LIST']
+                for expected_attr in PORT_ATTRIBUTES:
                     pytest_assert(expected_attr in attr_list,
                                  "{} not found in attribute list for {}".format(expected_attr, port_oid))
 
@@ -284,70 +284,96 @@ def verify_attribute_list_in_flex_counter_db(duthost, sample_ports):
 
 def verify_counters_db_data(duthost, sample_ports):
     """
-    Verify COUNTERS_DB PORT_SERDES_ATTR table has all 3 attributes with correct lane counts
+    Verify COUNTERS_DB PORT_ATTR table has all 3 attributes with correct lane counts
 
     Args:
         duthost: DUT host object
         sample_ports: Dictionary of sample ports with their metadata
     """
-    with allure.step("Verifying COUNTERS_DB PORT_SERDES_ATTR table data for port-serdes-attr"):
+    with allure.step("Verifying COUNTERS_DB PORT_ATTR table data"):
         for port_oid, port_info in sample_ports.items():
             expected_lanes = port_info['lanes']
             interface_name = port_info['interface']
             asic = duthost.asics[port_info['asic']]
 
-            counters_key = 'PORT_SERDES_ATTR:{}'.format(port_oid)
+            counters_key = 'PORT_ATTR:{}'.format(port_oid)
 
             try:
                 counters_data = SonicDbCli(asic, 'COUNTERS_DB').hget_all(counters_key)
 
-                # Verify RX_SNR
-                pytest_assert('SAI_PORT_ATTR_RX_SNR' in counters_data,
-                             "SAI_PORT_ATTR_RX_SNR not found for {} ({})".format(port_oid, interface_name))
+                # Verify rx_snr (new short name)
+                pytest_assert('rx_snr' in counters_data,
+                             "rx_snr not found for {} ({})".format(port_oid, interface_name))
 
-                rx_snr_data = json.loads(counters_data['SAI_PORT_ATTR_RX_SNR'])
-                pytest_assert(rx_snr_data['count'] == expected_lanes,
-                             "RX_SNR count is {}, expected {} for {} ({})".format(
-                                 rx_snr_data['count'], expected_lanes, port_oid, interface_name))
-                pytest_assert(len(rx_snr_data['list']) == expected_lanes,
-                             "RX_SNR list length is {}, expected {}".format(
-                                 len(rx_snr_data['list']), expected_lanes))
-                logging.info("RX_SNR verified for {}: {} lanes".format(interface_name, expected_lanes))
+                # Parse flat dictionary format: {0: 3712, 1: 3840, ...}
+                rx_snr_data = json.loads(counters_data['rx_snr'])
+                pytest_assert(isinstance(rx_snr_data, dict),
+                             "rx_snr data is not a dictionary for {} ({})".format(port_oid, interface_name))
+                pytest_assert(len(rx_snr_data) == expected_lanes,
+                             "rx_snr has {} lanes, expected {} for {} ({})".format(
+                                 len(rx_snr_data), expected_lanes, port_oid, interface_name))
 
-                # Verify FEC_ALIGNMENT_LOCK
-                pytest_assert('SAI_PORT_ATTR_FEC_ALIGNMENT_LOCK' in counters_data,
-                             "SAI_PORT_ATTR_FEC_ALIGNMENT_LOCK not found for {} ({})".format(
+                # Verify all lane numbers are present and values are integers
+                for lane in range(expected_lanes):
+                    lane_key = str(lane)
+                    pytest_assert(lane_key in rx_snr_data,
+                                 "Lane {} missing in rx_snr for {} ({})".format(lane, port_oid, interface_name))
+                    pytest_assert(isinstance(rx_snr_data[lane_key], int),
+                                 "rx_snr lane {} value is not an integer for {}".format(lane, port_oid))
+
+                logging.info("rx_snr verified for {}: {} lanes".format(interface_name, expected_lanes))
+
+                # Verify pcs_fec_lane_alignment_lock (new short name)
+                pytest_assert('pcs_fec_lane_alignment_lock' in counters_data,
+                             "pcs_fec_lane_alignment_lock not found for {} ({})".format(
                                  port_oid, interface_name))
 
-                fec_lock_data = json.loads(counters_data['SAI_PORT_ATTR_FEC_ALIGNMENT_LOCK'])
-                fec_count = fec_lock_data['count']
+                # Parse flat dictionary format: {0: "T*", 1: "F", ...}
+                fec_lock_data = json.loads(counters_data['pcs_fec_lane_alignment_lock'])
+                pytest_assert(isinstance(fec_lock_data, dict),
+                             "pcs_fec_lane_alignment_lock data is not a dictionary for {} ({})".format(
+                                 port_oid, interface_name))
+
+                fec_count = len(fec_lock_data)
                 valid_fec_counts = [expected_lanes, expected_lanes * 4]
                 pytest_assert(fec_count in valid_fec_counts,
-                             "FEC_ALIGNMENT_LOCK count is {}, expected {} or {} for {} ({})".format(
+                             "pcs_fec_lane_alignment_lock has {} entries, expected {} or {} for {} ({})".format(
                                  fec_count, expected_lanes, expected_lanes * 4, port_oid, interface_name))
-                pytest_assert(len(fec_lock_data['list']) == fec_count,
-                             "FEC_ALIGNMENT_LOCK list length is {}, expected {}".format(
-                                 len(fec_lock_data['list']), fec_count))
-                logging.info("FEC_ALIGNMENT_LOCK verified for {}: {} values (lanes={})".format(
+
+                # Verify values are in T/T*/F/F* format
+                for lane, value in fec_lock_data.items():
+                    pytest_assert(value in ["T", "T*", "F", "F*"],
+                                 "pcs_fec_lane_alignment_lock lane {} has invalid value '{}' for {}".format(
+                                     lane, value, port_oid))
+
+                logging.info("pcs_fec_lane_alignment_lock verified for {}: {} values (lanes={})".format(
                     interface_name, fec_count, expected_lanes))
 
-                # Verify RX_SIGNAL_DETECT
-                pytest_assert('SAI_PORT_ATTR_RX_SIGNAL_DETECT' in counters_data,
-                             "SAI_PORT_ATTR_RX_SIGNAL_DETECT not found for {} ({})".format(
+                # Verify phy_rx_signal_detect (new short name)
+                pytest_assert('phy_rx_signal_detect' in counters_data,
+                             "phy_rx_signal_detect not found for {} ({})".format(
                                  port_oid, interface_name))
 
-                rx_signal_data = json.loads(counters_data['SAI_PORT_ATTR_RX_SIGNAL_DETECT'])
-                pytest_assert(rx_signal_data['count'] == expected_lanes,
-                             "RX_SIGNAL_DETECT count is {}, expected {} for {} ({})".format(
-                                 rx_signal_data['count'], expected_lanes, port_oid, interface_name))
-                pytest_assert(len(rx_signal_data['list']) == expected_lanes,
-                             "RX_SIGNAL_DETECT list length is {}, expected {}".format(
-                                 len(rx_signal_data['list']), expected_lanes))
-                logging.info("RX_SIGNAL_DETECT verified for {}: {} lanes".format(
+                # Parse flat dictionary format: {0: "T", 1: "F*", ...}
+                rx_signal_data = json.loads(counters_data['phy_rx_signal_detect'])
+                pytest_assert(isinstance(rx_signal_data, dict),
+                             "phy_rx_signal_detect data is not a dictionary for {} ({})".format(
+                                 port_oid, interface_name))
+                pytest_assert(len(rx_signal_data) == expected_lanes,
+                             "phy_rx_signal_detect has {} lanes, expected {} for {} ({})".format(
+                                 len(rx_signal_data), expected_lanes, port_oid, interface_name))
+
+                # Verify values are in T/T*/F/F* format
+                for lane, value in rx_signal_data.items():
+                    pytest_assert(value in ["T", "T*", "F", "F*"],
+                                 "phy_rx_signal_detect lane {} has invalid value '{}' for {}".format(
+                                     lane, value, port_oid))
+
+                logging.info("phy_rx_signal_detect verified for {}: {} lanes".format(
                     interface_name, expected_lanes))
 
             except SonicDbKeyNotFound:
-                pytest.fail("Port OID {} not found in COUNTERS_DB:PORT_SERDES_ATTR".format(port_oid))
+                pytest.fail("Port OID {} not found in COUNTERS_DB:PORT_ATTR".format(port_oid))
             except json.JSONDecodeError as e:
                 pytest.fail("Failed to parse JSON data for {}: {}".format(port_oid, str(e)))
 
@@ -356,47 +382,40 @@ def verify_counters_db_data(duthost, sample_ports):
 # Test Functions
 # ============================================================================
 
-def test_port_serdes_attr_enable_and_validate(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
+def test_phy_enable_and_validate(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
     """
-    Test 1: Configure port-serdes-attr and validate show output + all DBs
+    Test 1: Configure PHY counters and validate show output + all DBs
 
     Steps:
-    1. Enable port-serdes-attr
+    1. Enable PHY counters (counterpoll phy enable)
     2. Validate CLI, CONFIG_DB, FLEX_COUNTER_DB, and COUNTERS_DB
     3. Verify lane counts match for 3 random ports
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    with allure.step("Enabling port-serdes-attr"):
+    with allure.step("Enabling PHY counters"):
         for asic in duthost.asics:
-            ConterpollHelper.enable_counterpoll(asic, [PORT_SERDES_ATTR])
+            ConterpollHelper.enable_counterpoll(asic, [PORT_ATTR])
 
-    # Validate CLI
-    verify_port_serdes_attr_in_cli(duthost, ENABLE)
+    verify_phy_attr_in_cli(duthost, ENABLE)
 
-    # Validate CONFIG_DB
-    verify_port_serdes_attr_in_config_db(duthost, ENABLE)
+    verify_phy_attr_in_config_db(duthost, ENABLE)
 
-    # Validate FLEX_COUNTER_DB
-    verify_port_serdes_attr_in_flex_counter_db(duthost)
+    verify_phy_attr_in_flex_counter_db(duthost)
 
-    # Get sample ports with lane counts
     sample_ports = get_sample_ports_with_lane_counts(duthost, sample_size=3)
 
-    # Verify attribute list in FLEX_COUNTER_DB
     verify_attribute_list_in_flex_counter_db(duthost, sample_ports)
 
-    # Wait for data collection (default interval is usually 10s, wait 15s to be safe)
     with allure.step("Waiting for data collection cycle"):
         time.sleep(15)
 
-    # Verify COUNTERS_DB data
     verify_counters_db_data(duthost, sample_ports)
 
-    logging.info("Test 1 completed: port-serdes-attr enable and validate - PASSED")
+    logging.info("Test 1 completed: PHY counter enable and validate - PASSED")
 
 
-def test_port_serdes_attr_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_phy_interval_change(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     Test 2: Validate interval modification propagates to all DBs
 
@@ -410,34 +429,32 @@ def test_port_serdes_attr_interval_change(duthosts, enum_rand_one_per_hwsku_fron
 
     with allure.step("Changing interval to 5000ms"):
         for asic in duthost.asics:
-            asic.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(PORT_SERDES_ATTR, 5000))
+            asic.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(PORT_ATTR, 5000))
 
-    # Validate interval 5000
-    verify_port_serdes_attr_in_cli(duthost, ENABLE)
-    verify_port_serdes_attr_in_config_db(duthost, ENABLE, expected_interval=5000)
-    verify_port_serdes_attr_in_flex_counter_db(duthost, expected_interval=5000)
+    verify_phy_attr_in_cli(duthost, ENABLE)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=5000)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_interval=5000)
 
     with allure.step("Changing interval to 10000ms"):
         for asic in duthost.asics:
-            asic.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(PORT_SERDES_ATTR, 10000))
+            asic.command(CounterpollConstants.COUNTERPOLL_INTERVAL_STR.format(PORT_ATTR, 10000))
 
-    # Validate interval 10000
-    verify_port_serdes_attr_in_cli(duthost, ENABLE)
-    verify_port_serdes_attr_in_config_db(duthost, ENABLE, expected_interval=10000)
-    verify_port_serdes_attr_in_flex_counter_db(duthost, expected_interval=10000)
+    verify_phy_attr_in_cli(duthost, ENABLE)
+    verify_phy_attr_in_config_db(duthost, ENABLE, expected_interval=10000)
+    verify_phy_attr_in_flex_counter_db(duthost, expected_interval=10000)
 
     logging.info("Test 2 completed: interval change validation - PASSED")
 
 
-def test_port_serdes_attr_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+def test_phy_config_reload_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
-    Test 3: Verify port-serdes-attr persists after config save + disable + reload
+    Test 3: Verify PHY counters persist after config save + disable + reload
 
     Steps:
     1. Save config
-    2. Disable port-serdes-attr
+    2. Disable PHY counters
     3. Config reload
-    4. Verify port-serdes-attr restored to enabled
+    4. Verify PHY counters restored to enabled
     5. Verify COUNTERS_DB has fresh data
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
@@ -445,74 +462,61 @@ def test_port_serdes_attr_config_reload_persistence(duthosts, enum_rand_one_per_
     with allure.step("Saving config"):
         duthost.command('config save -y')
 
-    with allure.step("Disabling port-serdes-attr"):
+    with allure.step("Disabling PHY counters"):
         for asic in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic, [PORT_SERDES_ATTR])
+            ConterpollHelper.disable_counterpoll(asic, [PORT_ATTR])
 
-    # Verify disabled
-    verify_port_serdes_attr_in_cli(duthost, DISABLE)
+    verify_phy_attr_in_cli(duthost, DISABLE)
 
     with allure.step("Performing config reload"):
-        config_reload(duthost, config_source='config_db', safe_reload=True)
+        config_reload(duthost, config_source='config_db', safe_reload=True, yang_validate=False)
 
-    # Wait for system to be ready
     time.sleep(60)
 
-    # Verify restored to enabled
-    verify_port_serdes_attr_in_cli(duthost, ENABLE)
+    verify_phy_attr_in_cli(duthost, ENABLE)
 
-    # Verify FLEX_COUNTER_DB
-    verify_port_serdes_attr_in_flex_counter_db(duthost)
+    verify_phy_attr_in_flex_counter_db(duthost)
 
-    # Get sample ports
     sample_ports = get_sample_ports_with_lane_counts(duthost, sample_size=3)
 
-    # Wait for data collection
     with allure.step("Waiting for data collection after config reload"):
         time.sleep(15)
 
-    # Verify COUNTERS_DB has fresh data
     verify_counters_db_data(duthost, sample_ports)
 
     logging.info("Test 3 completed: config reload persistence - PASSED")
 
 
-def test_port_serdes_attr_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
+def test_phy_reboot_persistence(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost):
     """
-    Test 4: Verify port-serdes-attr persists after disable + reboot
+    Test 4: Verify PHY counters persist after disable + reboot
 
     Steps:
-    1. Disable port-serdes-attr
+    1. Disable PHY counters
     2. Reboot
-    3. Verify port-serdes-attr restored to enabled
+    3. Verify PHY counters restored to enabled
     4. Verify COUNTERS_DB has fresh data
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
-    with allure.step("Disabling port-serdes-attr"):
+    with allure.step("Disabling PHY counters"):
         for asic in duthost.asics:
-            ConterpollHelper.disable_counterpoll(asic, [PORT_SERDES_ATTR])
+            ConterpollHelper.disable_counterpoll(asic, [PORT_ATTR])
 
-    # Verify disabled
-    verify_port_serdes_attr_in_cli(duthost, DISABLE)
+    verify_phy_attr_in_cli(duthost, DISABLE)
 
     with allure.step("Performing reboot"):
         reboot(duthost, localhost)
 
-    # Verify restored to enabled
-    verify_port_serdes_attr_in_cli(duthost, ENABLE)
+    verify_phy_attr_in_cli(duthost, ENABLE)
 
-    # Verify FLEX_COUNTER_DB
-    verify_port_serdes_attr_in_flex_counter_db(duthost)
+    verify_phy_attr_in_flex_counter_db(duthost)
 
-    # Get sample ports
     sample_ports = get_sample_ports_with_lane_counts(duthost, sample_size=3)
 
-    # Wait for data collection
     with allure.step("Waiting for data collection after reboot"):
         time.sleep(15)
 
-    # Verify COUNTERS_DB has fresh data
     verify_counters_db_data(duthost, sample_ports)
 
     logging.info("Test 4 completed: reboot persistence - PASSED")
