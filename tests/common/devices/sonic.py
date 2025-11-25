@@ -1929,9 +1929,11 @@ Totals               6450                 6449
                     vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
-    def get_interfaces_status(self):
+    def get_interfaces_status(self, namespace=None):
         '''
-        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Get interfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Can be called with namespace for multi-asic devices to get output on specific namespace. If no namespace
+        is provided, the output will be from all namespaces.
 
         Example output:
             {
@@ -1963,7 +1965,11 @@ Totals               6450                 6449
                 }
             }
         '''
-        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        if namespace is None:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        else:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status -n {}'
+                                                                       .format(namespace))}
 
     def show_ipv6_interfaces(self):
         '''
