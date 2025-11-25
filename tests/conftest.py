@@ -89,6 +89,7 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+_ansible_tqm_lock = threading.Lock()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
@@ -878,49 +879,50 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         return devices
 
     def initial_neighbor(neighbor_name, vm_name):
-        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
-        if neighbor_type == "eos":
-            device = NeighborDevice(
-                {
-                    'host': EosHost(
-                        ansible_adhoc,
-                        vm_name,
-                        creds['eos_login'],
-                        creds['eos_password'],
-                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
-                    ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "sonic":
-            device = NeighborDevice(
-                {
-                    'host': SonicHost(
-                        ansible_adhoc,
-                        vm_name,
-                        ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
-                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
-                    ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "cisco":
-            device = NeighborDevice(
-                {
-                    'host': CiscoHost(
-                        ansible_adhoc,
-                        vm_name,
-                        creds['cisco_login'],
-                        creds['cisco_password'],
-                    ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        else:
-            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-        devices[neighbor_name] = device
-        logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
+        with _ansible_tqm_lock:
+            logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
+            if neighbor_type == "eos":
+                device = NeighborDevice(
+                    {
+                        'host': EosHost(
+                            ansible_adhoc,
+                            vm_name,
+                            creds['eos_login'],
+                            creds['eos_password'],
+                            shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                            shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
+            elif neighbor_type == "sonic":
+                device = NeighborDevice(
+                    {
+                        'host': SonicHost(
+                            ansible_adhoc,
+                            vm_name,
+                            ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
+                            ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
+            elif neighbor_type == "cisco":
+                device = NeighborDevice(
+                    {
+                        'host': CiscoHost(
+                            ansible_adhoc,
+                            vm_name,
+                            creds['cisco_login'],
+                            creds['cisco_password'],
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
+            else:
+                raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
+            devices[neighbor_name] = device
+            logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
     futures = []
