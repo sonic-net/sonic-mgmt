@@ -267,20 +267,3 @@
   inv_name: lab
   auto_recover: 'True'
   comment: Multi servers testbed demo
-
-- conf-name: c30-t2-ixia
-  group-name: t2-yy39
-  topo: t2-ixia-2lc-4
-  ptf_image_name: docker-ptf-snappi
-  ptf: yy40-mixed-ptf
-  ptf_ip: 10.195.210.101
-  ptf_ipv6:
-  server: server_1
-  vm_base: VM0100
-  dut:
-    - c30-lc2
-    - c30-lc4
-    - c30-rp
-  inv_name: lab
-  auto_recover: 'False'
-  comment: SFd-at-c30-bld4-lab164
