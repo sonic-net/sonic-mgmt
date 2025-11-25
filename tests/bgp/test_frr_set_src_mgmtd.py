@@ -223,7 +223,6 @@ def test_mgmtd_preserves_default_route_set_src_with_large_config(
     )
 
     interface, nexthop = _find_static_route_anchor(duthost)
-    normalized_level = get_function_completeness_level if get_function_completeness_level else 'debug'
     checkpoint_name = "set_src_bloat_cp"
     prefixes = []
     checkpoint_created = False
