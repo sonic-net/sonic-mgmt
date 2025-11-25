@@ -42,7 +42,7 @@ This document describes the high level details of SONiC management test-cases fo
 
 # Testing Strategy for PVST feature:
 Existing t0 topology will be used for developing the PVST test suite. A simplified version of the topology will be as shown above where the SONIC DUT ports will be connected to PTF.
-Following mechanisms will be used in the test script implementation 
+Following mechanisms will be used in the test script implementation
 
 - SONIC DUT will be configured using the available CLICK CLIs for PVST
 - Verification of operational data will be performed by fetching the data from the redis DB (like spanning tree port states, root port, root bridge etc)
@@ -106,7 +106,7 @@ The test cases here are to validate the basic functionality of PVST feature.
 5)	Verify the ports on SONIC DUT move to forwarding state after 120 seconds
 
 ## TC8: Validate BPDU guard functionality on SONIC DUT
-1)	On SONIC DUT enable BPDU guard with shutdown enabled on Ethernet4 
+1)	On SONIC DUT enable BPDU guard with shutdown enabled on Ethernet4
 2)	From PTF send BPDUs to SONIC DUT on Ethernet4
 3)	Verify BPDU guard kicks in and shuts down port Ethernet4, by verifying the operational state of port from APP DB
 4)	Disable BPDU guard on the port Ethernet4
@@ -130,7 +130,7 @@ The test cases here are to validate the basic functionality of PVST feature.
 
 ## TC11: Validate Mac flush functionality
 1)	Verify SONIC DUT is acting as the root bridge by checking the root bridge id in APP DB.
-2)	On PTF, capture and validate L2 traffic sent from Ethernet4  to Ethernet8  over VLAN 1000. 
+2)	On PTF, capture and validate L2 traffic sent from Ethernet4  to Ethernet8  over VLAN 1000.
 3)	 Ensure that the MAC address is learned on the SONIC DUT for the receiving port Ethernet4.
 4)	From PTF, send a TCN BPDU packet to trigger MAC flush.
 5)	Verify that MAC address entries on SONIC DUT for Ethernet4 are flushed (reduced in count).
