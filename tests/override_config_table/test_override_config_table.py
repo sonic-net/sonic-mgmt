@@ -94,21 +94,19 @@ def load_minigraph_with_golden_empty_input(duthost):
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     current_config = get_running_config(duthost)
+    problem_tables = []
     for table in initial_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
 
         if table == "ACL_TABLE":
-            pytest_assert(
-                compare_dicts_ignore_list_order(initial_config[table], current_config[table]),
-                "empty input ACL_TABLE compare fail!"
-            )
+            if not compare_dicts_ignore_list_order(initial_config[table], current_config[table]):
+                problem_tables.append(table)
         else:
-            pytest_assert(
-                initial_config[table] == current_config[table],
-                "empty input compare fail! {}".format(table)
-            )
+            if not initial_config[table] == current_config[table]:
+                problem_tables.append(table)
 
+    pytest_assert(not problem_tables, "empty input compare fail: {}".format(problem_tables))
 
 def load_minigraph_with_golden_partial_config(duthost):
     """Test Golden Config with partial config.

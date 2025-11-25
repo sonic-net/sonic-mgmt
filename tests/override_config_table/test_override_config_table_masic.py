@@ -6,7 +6,8 @@ from tests.common.utilities import skip_release
 from tests.common.utilities import update_pfcwd_default_state
 from tests.common.config_reload import config_reload
 from tests.common.utilities import backup_config, restore_config, get_running_config,\
-    reload_minigraph_with_golden_config, file_exists_on_dut, NON_USER_CONFIG_TABLES
+    reload_minigraph_with_golden_config, file_exists_on_dut, compare_dicts_ignore_list_order, \
+    NON_USER_CONFIG_TABLES
 
 GOLDEN_CONFIG = "/etc/sonic/golden_config_db.json"
 GOLDEN_CONFIG_BACKUP = "/etc/sonic/golden_config_db.json_before_override"
@@ -89,6 +90,9 @@ def load_minigraph_with_golden_empty_input(duthost):
     initial_asic0_config = get_running_config(duthost, "asic0")
 
     empty_input = {}
+
+    problem_tuples = []
+
     reload_minigraph_with_golden_config(duthost, empty_input)
 
     # Test host running config override
@@ -96,21 +100,30 @@ def load_minigraph_with_golden_empty_input(duthost):
     for table in initial_host_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            initial_host_config[table] == host_current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
+
+        if table == "ACL_TABLE":
+            if not compare_dicts_ignore_list_order(initial_host_config[table],
+                                                   host_current_config[table]):
+                problem_tuples.append((table, None))
+        else:
+            if not initial_host_config[table] == host_current_config[table]:
+                problem_tuples.append((table, None))
 
     # Test asic0 running config override
     asic0_current_config = get_running_config(duthost, "asic0")
     for table in initial_asic0_config:
         if table in NON_USER_CONFIG_TABLES:
             continue
-        pytest_assert(
-            initial_asic0_config[table] == asic0_current_config[table],
-            "empty input compare fail! {}".format(table)
-        )
 
+        if table == "ACL_TABLE":
+            if not compare_dicts_ignore_list_order(initial_asic0_config[table],
+                                                   asic0_current_config[table]):
+                problem_tuples.append((table, "asic0"))
+        else:
+            if not initial_asic0_config[table] == asic0_current_config[table]:
+                problem_tuples.append((table, "asic0"))
+
+    pytest_assert(not problem_tuples, "empty input compare fail: {}".format(problem_tuples))
 
 def load_minigraph_with_golden_partial_config(duthost):
     """Test Golden Config with partial config.
