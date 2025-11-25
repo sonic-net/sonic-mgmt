@@ -261,9 +261,10 @@ class HashTest(BaseTest):
         # ip_proto 2 is IGMP, should not be forwarded by router
         # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
         # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
+        # ip_proto 51 is authentication header, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_protos = [2, 253, 4, 41, 60, 254]
+        skip_protos = [2, 253, 4, 41, 51, 60, 254]
 
         if self.is_active_active_dualtor:
             # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
