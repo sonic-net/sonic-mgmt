@@ -1145,6 +1145,7 @@ platform_tests/test_advanced_reboot.py:
 platform_tests/test_advanced_reboot.py::test_fast_reboot:
   skip:
     reason: "Skip for smartswitch topology"
+    conditions_logical_operator: or
     conditions:
       - "is_smartswitch==True"
       - "'isolated' in topo_name"
