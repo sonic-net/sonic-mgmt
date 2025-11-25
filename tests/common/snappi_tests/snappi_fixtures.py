@@ -1039,7 +1039,7 @@ def create_ip_list(value, count, mask=32, incr=0):
             incr: increment value of the ip
     '''
     if sys.version_info.major == 2:
-        value = unicode(value)          # noqa: F405
+        value = unicode(value)          # noqa: F821
 
     ip_list = [value]
     for i in range(1, count):
@@ -1335,13 +1335,13 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
     pytest_require(
         len(rx_snappi_ports) == rx_port_count,
         f"Rx Ports for {testbed} in MULTIDUT_PORT_INFO doesn't match with "
-        f"ansible/files/*links.csv: rx_snappi_ports:{rx_snappi_ports}, and "
-        f"wanted:{rx_port_count}")
+        f"ansible/files/*links.csv: rx_snappi_ports: {rx_snappi_ports}, and "
+        f"wanted: {rx_port_count}")
     pytest_require(
         len(tx_snappi_ports) == tx_port_count,
         f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn\'t match with "
-        f"ansible/files/*links.csv: tx_snappi_ports:{tx_snappi_ports}, and "
-        f"wanted:{tx_port_count}")
+        f"ansible/files/*links.csv: tx_snappi_ports: {tx_snappi_ports}, and "
+        f"wanted: {tx_port_count}")
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports
@@ -1521,7 +1521,7 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     if intf:
         int_arg = f"-i {intf}"
     if setup:
-        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"
+        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"  # noqa: E231
     else:
         arp_opt = f"-d {addr}"
 
