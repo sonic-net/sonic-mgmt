@@ -100,14 +100,14 @@ A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module.
 1. **Constructor Method**
    - Description: Initializes the PhysicalOIR class.
    - Parameters:
-     - `duthost` : AnsibleHost object of the dut. Following attributes are fetched from the `duthost` object for further processing:
-        - `port_under_test`: List of ports to be tested.
-        - `tbinfo`: Testbed information
-        - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
-        - `oir_method`: The method used for OIR ("manual" or "automated").
-        - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
-    - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
+        - `duthost` : AnsibleHost object of the dut. Following attributes are fetched from the `duthost` object for further processing:
+            - `port_under_test`: List of ports to be tested.
+            - `tbinfo`: Testbed information
+            - `physical_oir_timeout_min`: Timeout value in minutes for the OIR process.
+            - `oir_method`: The method used for OIR ("manual" or "automated").
+            - `simultaneous_oir`: A flag indicating whether to allow simultaneous OIR operations on multiple ports.
 
+        - `ansible-adhoc` : Ansible adhoc fixture to send commands to perform OIR operations.
 2. **is_available**
     - Description: Checks if the testbed supports physical OIR.
     - Parameters: None
@@ -116,12 +116,12 @@ A class named `PhysicalOIR` is defined under `tests.common.physical_oir` module.
 3. **insert_sfps**
     - Description: Inserts SFPs on the ports specified by the port_under_test attribute.
     - Parameters: None
-    - Returns: None
+    - Returns: True if insertion is successful, False otherwise.
 
 4. **remove_sfps**
     - Description: Removes SFPs from the ports specified by the port_under_test attribute.
     - Parameters: None
-    - Returns: None
+    - Returns: True if removal is successful, False otherwise.
 
 5. **cleanup**
     - Description: Cleans up resources used by the PhysicalOIR class.
