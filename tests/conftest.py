@@ -34,7 +34,8 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session        # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session, \
+    stop_route_checker_on_duthost, start_route_checker_on_duthost                           # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
@@ -88,6 +89,7 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
+_ansible_tqm_lock = threading.Lock()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
@@ -857,49 +859,50 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         return devices
 
     def initial_neighbor(neighbor_name, vm_name):
-        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
-        if neighbor_type == "eos":
-            device = NeighborDevice(
-                {
-                    'host': EosHost(
-                        ansible_adhoc,
-                        vm_name,
-                        creds['eos_login'],
-                        creds['eos_password'],
-                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
-                    ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "sonic":
-            device = NeighborDevice(
-                {
-                    'host': SonicHost(
-                        ansible_adhoc,
-                        vm_name,
-                        ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
-                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
-                    ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        elif neighbor_type == "cisco":
-            device = NeighborDevice(
-                {
-                    'host': CiscoHost(
-                        ansible_adhoc,
-                        vm_name,
-                        creds['cisco_login'],
-                        creds['cisco_password'],
-                    ),
-                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                }
-            )
-        else:
-            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-        devices[neighbor_name] = device
-        logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
+        with _ansible_tqm_lock:
+            logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
+            if neighbor_type == "eos":
+                device = NeighborDevice(
+                    {
+                        'host': EosHost(
+                            ansible_adhoc,
+                            vm_name,
+                            creds['eos_login'],
+                            creds['eos_password'],
+                            shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                            shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
+            elif neighbor_type == "sonic":
+                device = NeighborDevice(
+                    {
+                        'host': SonicHost(
+                            ansible_adhoc,
+                            vm_name,
+                            ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
+                            ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
+            elif neighbor_type == "cisco":
+                device = NeighborDevice(
+                    {
+                        'host': CiscoHost(
+                            ansible_adhoc,
+                            vm_name,
+                            creds['cisco_login'],
+                            creds['cisco_password'],
+                        ),
+                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                    }
+                )
+            else:
+                raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
+            devices[neighbor_name] = device
+            logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
     executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
     futures = []
@@ -3019,7 +3022,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+                    executor.submit(stop_route_checker_on_duthost, duthost)
 
             yield
 
@@ -3029,7 +3032,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+                    executor.submit(start_route_checker_on_duthost, duthost)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
@@ -3646,7 +3649,7 @@ def pytest_runtest_setup(item):
             fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=False)
 def yang_validation_check(request, duthosts):
     """
     YANG validation check that runs before and after each test module

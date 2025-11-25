@@ -93,6 +93,14 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
+def stop_route_checker_on_duthost(duthost):
+    duthost.command("sudo monit stop routeCheck", module_ignore_errors=True)
+
+
+def start_route_checker_on_duthost(duthost):
+    duthost.command("sudo monit start routeCheck", module_ignore_errors=True)
+
+
 def _disable_route_checker(duthost):
     """
         Some test cases will add static routes for test, which may trigger route_checker
@@ -102,9 +110,9 @@ def _disable_route_checker(duthost):
         Args:
             duthost: DUT fixture
     """
-    duthost.command('monit stop routeCheck', module_ignore_errors=True)
+    stop_route_checker_on_duthost(duthost)
     yield
-    duthost.command('monit start routeCheck', module_ignore_errors=True)
+    start_route_checker_on_duthost(duthost)
 
 
 @pytest.fixture
