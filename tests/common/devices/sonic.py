@@ -108,6 +108,157 @@ class SonicHost(AnsibleHostBase):
 
     def __repr__(self):
         return self.__str__()
+    
+    def exec_interactive(self, command, expect_pattern=None, response="", timeout=30, read_delay=1):
+        """
+        Execute an interactive command on SONiC device using Paramiko shell.
+        
+        Note: This is primarily used for migration scripts that run from XR but are executed
+        when the device is already running SONiC. It provides the same interface as CiscoHost.
+        
+        Args:
+            command (str): Command to execute
+            expect_pattern (str, optional): Regex pattern to wait for before sending response
+            response (str): Response to send when pattern is matched (default: "" = Enter key)
+            timeout (int): Maximum seconds to wait for pattern or command completion (default: 30)
+            read_delay (float): Delay in seconds between command/response and reading output (default: 1)
+            
+        Returns:
+            dict: Result dictionary with 'failed', 'rc', 'stdout', 'stderr', 'pattern_found'
+        """
+        import time
+        import re
+        import socket
+        from paramiko import SSHClient, AutoAddPolicy
+        
+        ssh_client = None
+        output = ""
+        try:
+            # Get connection details from ansible vars
+            im = self.host.options['inventory_manager']
+            vm = self.host.options['variable_manager']
+            hostvars = vm.get_vars(host=im.get_host(hostname=self.hostname))
+            
+            # Extract SSH credentials
+            ssh_user = hostvars.get('ansible_ssh_user', 'admin')
+            ssh_pass = hostvars.get('ansible_ssh_pass', 'password')
+            ssh_host = hostvars.get('ansible_host', self.hostname)
+            
+            # Create SSH connection
+            ssh_client = SSHClient()
+            ssh_client.set_missing_host_key_policy(AutoAddPolicy())
+            ssh_client.connect(
+                ssh_host,
+                username=ssh_user,
+                password=ssh_pass,
+                look_for_keys=False,
+                allow_agent=False
+            )
+            
+            # Get interactive shell
+            shell = ssh_client.invoke_shell()
+            time.sleep(read_delay)  # Wait for shell to be ready
+            
+            # Clear initial output (banner, prompt, etc.)
+            if shell.recv_ready():
+                shell.recv(65535)
+            
+            # Send command
+            if not command.endswith('\n'):
+                command += '\n'
+            shell.send(command)
+            
+            start_time = time.time()
+            pattern_found = None  # None = no pattern expected, True/False = pattern found/not found
+            
+            if expect_pattern:
+                # Wait for expected pattern
+                pattern_found = False
+                compiled_pattern = re.compile(expect_pattern)
+                
+                while time.time() - start_time < timeout:
+                    time.sleep(0.5)  # Poll every 500ms
+                    
+                    if shell.recv_ready():
+                        chunk = shell.recv(4096).decode('utf-8', errors='ignore')
+                        output += chunk
+                        
+                        # Check if pattern is found in output
+                        if compiled_pattern.search(output):
+                            pattern_found = True
+                            
+                            # Send response
+                            if not response.endswith('\n'):
+                                response += '\n'
+                            shell.send(response)
+                            time.sleep(read_delay)
+                            
+                            # Read remaining output after response
+                            time.sleep(read_delay)
+                            while shell.recv_ready():
+                                output += shell.recv(4096).decode('utf-8', errors='ignore')
+                                time.sleep(0.2)
+                            
+                            break
+            else:
+                # No pattern expected - use adaptive timeout strategy like CiscoHost
+                last_data_time = time.time()
+                idle_timeout = min(max(timeout * 0.2, 30), 120)
+                
+                # Set channel to non-blocking with a timeout
+                shell.settimeout(0.5)
+                
+                while time.time() - start_time < timeout:
+                    try:
+                        chunk = shell.recv(4096)
+                        if chunk:
+                            output += chunk.decode('utf-8', errors='ignore')
+                            last_data_time = time.time()
+                        else:
+                            if shell.exit_status_ready():
+                                break
+                    except socket.timeout:
+                        idle_time = time.time() - last_data_time
+                        if idle_time > idle_timeout:
+                            break
+                        if shell.closed:
+                            break
+                    except Exception:
+                        break
+                
+                # Read any remaining buffered output
+                shell.settimeout(0.2)
+                for _ in range(5):
+                    try:
+                        chunk = shell.recv(4096)
+                        if chunk:
+                            output += chunk.decode('utf-8', errors='ignore')
+                    except (socket.timeout, Exception):
+                        pass
+            
+            shell.close()
+            
+            return {
+                'failed': False,
+                'rc': 0,
+                'stdout': output,
+                'stderr': '',
+                'pattern_found': pattern_found
+            }
+            
+        except Exception as e:
+            return {
+                'failed': True,
+                'rc': 1,
+                'stdout': output,
+                'stderr': f'Interactive command failed: {str(e)}'
+            }
+        finally:
+            if ssh_client:
+                try:
+                    ssh_client.close()
+                except:
+                    pass
 
     @property
     def facts(self):
