@@ -680,6 +680,8 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         # Use different source port for each interface to ensure proper hash distribution
         # This helps ensure packets go to the intended interface in PortChannel scenarios
         src_port = DEFAULT_SRC_PORT + interface_index
+        if duthost.get_asic_name() == 'th5':
+            src_port = DEFAULT_SRC_PORT + 10 * interface_index
 
         # Create packet for this specific interface based on address type
         common_params = {
