@@ -1,15 +1,29 @@
-import pytest
+import json
+import logging
 from pathlib import Path
 from collections import defaultdict
+
+import pytest
+
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
-from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
+
 from common.ha.smartswitch_ha_helper import (
+    PtfTcpTestAdapter,
     add_port_to_namespace,
     remove_namespace,
     add_static_route_to_ptf,
-    add_static_route_to_dut
+    add_static_route_to_dut,
 )
+
+from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
+
+from common.ha.smartswitch_ha_gnmi_utils import (
+    ha_gnmi_apply_config,
+    generate_gnmi_cert,
+    apply_gnmi_cert,
+)
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -122,3 +136,61 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
         if ns["namespace"] not in visited_namespaces:
             remove_namespace(ptfhost, ns["namespace"])
             visited_namespaces.add(ns["namespace"])
+
+
+@pytest.fixture(scope="module")
+def apply_ha_config(duthosts, localhost, ptfhost):
+    """
+    Independent fixture that:
+
+    1. Generates GNMI certs
+    2. Applies them to DUT + PTF
+    3. Restarts GNMI server
+    4. Loads HA-SET and HA-SCOPE JSON files
+    5. Applies HA config (Option 1 GNMI UPDATE)
+    6. Makes HA configuration available before tests start
+
+    Usage:
+        def test_ha_example(apply_ha_config):
+            pass
+    """
+
+    duthost = duthosts[0]
+
+    logger.info("========== HA GNMI CERT GENERATION ==========")
+    generate_gnmi_cert(localhost, duthost)
+
+    logger.info("========== APPLY GNMI CERTS TO DUT + PTF ==========")
+    apply_gnmi_cert(duthost, ptfhost)
+
+    logger.info("========== LOADING HA JSON CONFIG FILES ==========")
+    tests_root = Path(__file__).parents[1]
+    base_path = tests_root / "common" / "ha"
+    ha_set_path = base_path / "dash_ha_set_dpu_config_table.json"
+    ha_scope_path = base_path / "dash_ha_scope_config_table.json"
+
+    if not ha_set_path.exists() or not ha_scope_path.exists():
+        raise FileNotFoundError(f"Missing HA config JSONs under: {base_path}")
+
+    with open(ha_set_path) as f:
+        ha_set_json = json.load(f)
+
+    with open(ha_scope_path) as f:
+        ha_scope_json = json.load(f)
+
+    logger.info("========== APPLYING HA CONFIG VIA GNMI ==========")
+
+    ha_gnmi_apply_config(
+        duthost=duthost,
+        ptfhost=ptfhost,
+        ha_set_json=ha_set_json,
+        ha_scope_json=ha_scope_json,
+    )
+
+    logger.info("========== HA CONFIG APPLIED SUCCESSFULLY ==========")
+
+    # Return something only if needed by future tests
+    return {
+        "ha_set": ha_set_json,
+        "ha_scope": ha_scope_json,
+    }
