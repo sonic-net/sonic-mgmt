@@ -13,14 +13,6 @@ import json
 import os
 import yaml
 
-try:
-    from ansible.module_utils.parse_utils import parse_tabular_output
-except ImportError:
-    # Add parent dir for using outside Ansible
-    import sys
-    sys.path.append('..')
-    from module_utils.parse_utils import parse_tabular_output
-
 from ansible.module_utils.basic import AnsibleModule
 from sonic_py_common import device_info
 from swsscommon.swsscommon import ConfigDBConnector
