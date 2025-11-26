@@ -124,7 +124,7 @@ def generate_client_cli(duthost, gnxi_path, method=METHOD_GET, xpath="COUNTERS/E
     # 2. Changes to the gnmi_cli_py directory, which is required for the protobuf imports to work.
     # 3. Executes the py_gnmicli.py script.
     cmdFormat = '. /root/env-python3/bin/activate && cd {7}gnmi_cli_py' \
-                ' && python py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
+                ' && /root/env-python3/bin/python py_gnmicli.py -g -t {0} -p {1} -m {2} -x {3} -xt {4}{5} -o {6}'
     cmd = cmdFormat.format(duthost.mgmt_ip, env.gnmi_port,
                            method, xpath, target, ns,
                            "ndastreamingservertest", gnxi_path)
