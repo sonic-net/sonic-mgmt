@@ -68,6 +68,18 @@ def selected_random_port_alias(mg_facts, selected_random_port):
     return mg_facts['minigraph_port_name_to_alias_map'].get(selected_random_port, selected_random_port)
 
 
+@pytest.fixture(autouse=True)
+def ignore_port_speed_loganalyzer_exceptions(duthosts, enum_downstream_dut_hostname, loganalyzer):
+    """
+       Ignore expected yang validation failure during port speed change
+    """
+    duthost = duthosts[enum_downstream_dut_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR swss[0-9]*#orchagent.*doPortTask: Unsupported port.*speed",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
 # -----------------------------
 # Helper functions
 # -----------------------------
