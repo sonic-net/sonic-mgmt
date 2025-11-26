@@ -110,6 +110,7 @@ no use-es-l3nhg
 neighbor OVERLAY_DC activate
 neighbor OVERLAY_WAN activate
 advertise-all-vni
+advertise-mac-only
 advertise ipv4 unicast
 advertise ipv6 unicast
 exit-address-family

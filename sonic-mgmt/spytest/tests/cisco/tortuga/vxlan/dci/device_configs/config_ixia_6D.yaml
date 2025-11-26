@@ -141,6 +141,7 @@ dc1gw1:
         neighbor OVERLAY_DC activate
         neighbor OVERLAY_WAN activate
         advertise-all-vni
+        advertise-mac-only
         advertise ipv4 unicast
         advertise ipv6 unicast
         exit-address-family
@@ -294,6 +295,7 @@ dc1gw2:
         neighbor OVERLAY_DC activate
         neighbor OVERLAY_WAN activate
         advertise-all-vni
+        advertise-mac-only
         advertise ipv4 unicast
         advertise ipv6 unicast
         exit-address-family
@@ -447,6 +449,7 @@ dc2gw1:
         neighbor OVERLAY_DC activate
         neighbor OVERLAY_WAN activate
         advertise-all-vni
+        advertise-mac-only
         advertise ipv4 unicast
         advertise ipv6 unicast
         exit-address-family
@@ -600,6 +603,7 @@ dc3gw1:
         neighbor OVERLAY_DC activate
         neighbor OVERLAY_WAN activate
         advertise-all-vni
+        advertise-mac-only
         advertise ipv4 unicast
         advertise ipv6 unicast
         exit-address-family
