@@ -158,8 +158,8 @@ sonic_cisco_lc_400G:
       ansible_host: 10.206.144.120
       ansible_hostv6: 2a01:111:e205:100::ace:9078
       model: '88-LC0-36FH-M'
-      base_mac: C4:4D:84:E0:D6:20
-      serial: FOC2543P5E2
+      base_mac: CC:B6:C8:FF:5D:68
+      serial: FOC2713N3BS
       console_baudrate: 115200
       plt_reboot_dict:
         cold:
@@ -176,16 +176,16 @@ sonic_cisco_lc_400G:
           wait: 600
       syseeprom_info:
         "0x21": "88-LC0-36FH-M"
-        "0x22": "1B0150"
-        "0x23": "FOC2543P5E2"
-        "0x24": "C4:4D:84:E0:D6:20"
-        "0x26": "4"
+        "0x22": "1B5772"
+        "0x23": "FOC2713N3BS"
+        "0x24": "CC:B6:C8:FF:5D:68"
+        "0x26": "6"
         "0x28": "x86_64-88_lc0_36fh_m-r0"
         "0x2A": "296"
         "0x2B": "Cisco"
         "0x2C": "US"
         "0x2D": "Cisco"
-        "0xFE": "0x91966E8F"
+        "0xFE": "0x59DA4F29"
     # to be removed
     svcstr2-8800-lc4-1:
       hwsku: Cisco-88-LC0-36FH-M-O36
