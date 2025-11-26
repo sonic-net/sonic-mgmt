@@ -37,12 +37,8 @@ PTF_PORT = "ptf_port"
 IPV6_KEY = "ipv6"
 MAX_DOWN_BGP_SESSIONS_ALLOWED = 0
 MAX_TIME_CONFIG = {
-    'dataplane': {
-        'downtime': 10,
-    },
-    'controlplane': {
-        'convergence': 300
-    }
+    'dataplane_downtime': 10,
+    'controlplane_convergence': 300
 }
 PKTS_SENDING_TIME_SLOT = 1  # seconds
 PACKETS_PER_TIME_SLOT = 500 // PKTS_SENDING_TIME_SLOT
@@ -80,10 +76,10 @@ def setup_packet_mask_counters(ptf_dataplane, icmp_type):
     return masked_exp_pkt
 
 
-def _get_max_time(plane, time_type, ratio=1):
+def _get_max_time(time_type, ratio=1):
     # Get the max time for dataplane or controlplane with a ratio
     # As of now, not enough strong data to set a baseline and a ratio for convergence time
-    return MAX_TIME_CONFIG[plane][time_type] * ratio
+    return MAX_TIME_CONFIG[time_type] * ratio
 
 
 @pytest.fixture(scope="function")
@@ -99,7 +95,7 @@ def bgp_peers_info(tbinfo, duthost):
             if down_neighbors:
                 logger.warning("There are down_neighbors %s", down_neighbors)
             break
-        if (datetime.datetime.now() - start_time).total_seconds() > _get_max_time('controlplane', 'convergence', 1):
+        if (datetime.datetime.now() - start_time).total_seconds() > _get_max_time('controlplane_convergence', 1):
             pytest.fail("There are too many BGP sessions down: {}".format(down_neighbors))
 
     alias = duthost.show_and_parse("show interfaces alias")
@@ -537,8 +533,9 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
+    # Ratio = 5, from test data
     downtime_ratio = len(flapping_neighbors) / 5
-    downtime_threshold = _get_max_time('dataplane', 'downtime', downtime_ratio)
+    downtime_threshold = _get_max_time('dataplane_downtime', downtime_ratio)
     terminated = Event()
     traffic_thread = Thread(
         target=send_packets, args=(terminated, pdp, pdp.port_to_device(injection_port), injection_port, pkts)
@@ -553,7 +550,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
             shutdown_connections=flapping_connections,
             connection_type=connection_type,
             shutdown_all_connections=all_flap,
-            timeout=_get_max_time('controlplane', 'convergence', 1),
+            timeout=_get_max_time('controlplane_convergence', 1),
             compressed=True,
             action=action
         )
@@ -605,7 +602,7 @@ def test_port_flap_with_syslog(
             shutdown_connections=flapping_ports,
             connection_type='ports',
             shutdown_all_connections=False,
-            timeout=_get_max_time('controlplane', 'convergence', 1),
+            timeout=_get_max_time('controlplane_convergence', 1),
             compressed=True,
             action='shutdown'
         )
@@ -628,7 +625,7 @@ def test_port_flap_with_syslog(
         port_shut_time = datetime.datetime.strptime(port_shut_time_str, "%Y %b %d %H:%M:%S.%f")
 
         time_gap = (last_group_update_time - port_shut_time).total_seconds()
-        if time_gap > _get_max_time('controlplane', 'convergence', 1):
+        if time_gap > _get_max_time('controlplane_convergence', 1):
             pytest.fail("Time is too long, from port shut to last group update is %s seconds" % time_gap)
         logger.info("Time difference between port shut and last nexthop group update is %s seconds", time_gap)
         test_results[current_test] = "Time between port shut and last nexthop group update is %s seconds" % time_gap
@@ -761,14 +758,14 @@ def test_nexthop_group_member_scale(
             shutdown_connections=[],
             connection_type='none',
             shutdown_all_connections=False,
-            timeout=_get_max_time('controlplane', 'convergence', 1),
+            timeout=_get_max_time('controlplane_convergence', 1),
             compressed=True,
             action='no_action'
         )
         terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
-        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane', 'downtime', 1))
+        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1))
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
@@ -814,13 +811,13 @@ def test_nexthop_group_member_scale(
         shutdown_connections=[],
         connection_type='none',
         shutdown_all_connections=False,
-        timeout=_get_max_time('controlplane', 'convergence', 1),
+        timeout=_get_max_time('controlplane_convergence', 1),
         compressed=True,
         action='no_action'
     )
     terminated.set()
     traffic_thread.join()
     end_time = datetime.datetime.now()
-    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane', 'downtime', 1))
+    validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1))
     if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
