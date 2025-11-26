@@ -22,7 +22,7 @@ def get_bgp_ipv6_routes(module):
     return json.loads(out)
 
 
-def perform_action(module, action, connection_type, targets, all_neighbors):
+def _perform_action_on_connections(module, action, connection_type, targets, all_neighbors):
     """
     Perform actions (shutdown/startup) on BGP sessions or interfaces.
     """
@@ -31,13 +31,13 @@ def perform_action(module, action, connection_type, targets, all_neighbors):
     if connection_type == "ports":
         ports_str = ",".join(targets)
         cmd = INTERFACE_COMMAND_TEMPLATE.format(action=action, target=ports_str)
-        execute_command(module, cmd)
+        _execute_command_on_dut(module, cmd)
         logging.info(f"Interfaces {action} completed.")
     else:
         logging.info("No valid connection type provided for %s.", action)
 
 
-def execute_command(module, cmd):
+def _execute_command_on_dut(module, cmd):
     """Helper function to execute shell commands."""
     logging.info("Running command: %s", cmd)
     rc, out, err = module.run_command(cmd, executable="/bin/bash", use_unsafe_shell=True)
@@ -116,7 +116,7 @@ def main():
         logging.info("No connections or action is 'no_action', skipping interface operation.")
     else:
         # interface operation based on action
-        perform_action(module, action, connection_type, shutdown_connections, shutdown_all_connections)
+        _perform_action_on_connections(module, action, connection_type, shutdown_connections, shutdown_all_connections)
 
     # Sleep some time to wait routes to be converged
     time.sleep(4)
