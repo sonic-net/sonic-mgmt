@@ -79,7 +79,7 @@ The test cases here are to validate the basic functionality of PVST feature.
 1)	From PTF send packets with better bridge priority than SONIC DUT from all the ports
 2)	Verify on SONIC DUT the root bridge is selected with root bridge id sent in the BPDU from PTF
 3)	Modify the bridge priority on SONIC DUT so that it has better bridge priority than PTF generated packets
-4)	Verify on SONIC DUT the root bridge is selected as self, and all ports are in forwarding state 
+4)	Verify on SONIC DUT the root bridge is selected as self, and all ports are in forwarding state
 5)	On PTF capture the packets generated on Ethernet interfaces and verify the root bridge id is same as SONIC DUT
 
 ## TC5: Validate port priority change in BPDU
