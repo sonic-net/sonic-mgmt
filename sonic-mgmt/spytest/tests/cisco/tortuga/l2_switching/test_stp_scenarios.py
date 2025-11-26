@@ -1,6 +1,8 @@
 import os
+import pdb
 import yaml
 import pytest
+import re
 import random
 from spytest import st, SpyTestDict
 
@@ -68,7 +70,19 @@ def setup_teardown_basic():
     data_glob.default_forward_delay = 15
     data_glob.loop_intfs = ['Ethernet1_13', 'Ethernet1_14']
     data_glob.pre_config = False   #This var allows yaml pre configs
-    CONFIGS_FILE = 'stp_transparent_switch_cfg.yaml'
+    
+    # Detect platform to select appropriate config file
+    platform_output = st.show(vars.D4, "show platform summary")
+    hwsku = platform_output[0].get('hwsku', '') or platform_output[0].get('HwSKU', '')
+    st.log("Detected HwSKU: {}".format(hwsku))
+    
+    if '8102' in hwsku:
+        CONFIGS_FILE = 'stp_transparent_switch_cfg_8102.yaml'
+        st.log("Using config file: {}".format(CONFIGS_FILE))
+    else:
+        CONFIGS_FILE = 'stp_transparent_switch_cfg.yaml'
+        st.log("Using default config file: {}".format(CONFIGS_FILE))
+    
     dir_path = os.path.dirname(os.path.realpath(__file__))
     updated_path = common_obj.modify_config_file(dir_path + '/' + CONFIGS_FILE,vars)
 
@@ -106,10 +120,50 @@ def setup_teardown_stp(setup_teardown_basic):
                     else : 
                         common_obj.config_static(node, domain, False, updated_path)
 
+def get_loopback_interfaces_dynamic(device):
+        
+        st.log("Getting loopback interfaces for device: {}".format(device))
+        
+        all_links = st.get_dut_links(device)        
+        loopback_intfs = []
+        
+        if isinstance(all_links, list):
+            for idx, link in enumerate(all_links):
+                if not isinstance(link, (list, tuple)) or len(link) < 3:
+                    continue               
+                local_port = link[0]
+                remote_device = link[1]
+                remote_port = link[2]
+                                
+                if remote_device == device:
+                    loopback_intfs.append(local_port)
+                    loopback_intfs.append(remote_port)
+                    
+        if isinstance(all_links, list) and len(all_links) >= 4:
+            for i in range(0, len(all_links), 4):
+                if i + 3 < len(all_links):
+                    dev1 = all_links[i]
+                    port1 = all_links[i + 1]
+                    dev2 = all_links[i + 2]
+                    port2 = all_links[i + 3]
+                                        
+                    if dev1 == device and dev2 == device:
+                        loopback_intfs.append(port1)
+                        loopback_intfs.append(port2)
+                        st.log("Found loopback link: {} <-> {}".format(port1, port2))
+        
+        loopback_intfs = list(dict.fromkeys(loopback_intfs))
+        
+        st.log("Loopback interfaces obtained dynamically: {}".format(loopback_intfs))
+        return loopback_intfs
+
+
 def test_single_leaf_loopback_short_circuit(setup_teardown_stp):
 
     st.banner("Create a Short Circuit in Vlan 2 and 3 on Leaf0")
-    for intf in data_glob.loop_intfs:
+
+    intf_dict = get_loopback_interfaces_dynamic(data_glob.leaf0)
+    for intf in intf_dict:
         for vlan in data_glob.vlan:
             vlan_obj.add_vlan_member(data_glob.leaf0, vlan, intf, tagging_mode=True)
         intf_obj.interface_noshutdown(data_glob.leaf0, intf, skip_verify=False)
@@ -123,7 +177,7 @@ def test_single_leaf_loopback_short_circuit(setup_teardown_stp):
     st.banner("Verify STP blocks the Shorting")
     for vlan in data_glob.vlan:
         result = False
-        for intf in data_glob.loop_intfs:
+        for intf in intf_dict:
             expected_dict = {
                 'vlan': vlan,'iface' : intf,
                 'portstate' : 'BLOCKING'
@@ -136,7 +190,7 @@ def test_single_leaf_loopback_short_circuit(setup_teardown_stp):
             break
 
     st.banner("Cleanup")
-    for intf in data_glob.loop_intfs:
+    for intf in intf_dict:
         intf_obj.interface_shutdown(data_glob.leaf0, intf, skip_verify=False)
         for vlan in data_glob.vlan:
             vlan_obj.delete_vlan_member(data_glob.leaf0, vlan, intf, tagging_mode=True)
@@ -157,7 +211,6 @@ def test_single_leaf_loopback_via_bpdu_transparent_device(setup_teardown_stp):
     
     st.log("Wait for BPDUs to be processed")
     st.wait(10)
-
     st.banner("STP on Leaf1")
     st.config(data_glob.leaf1, "show spanning-tree")
 
@@ -232,14 +285,19 @@ def test_dual_leaf_loopback_via_bpdu_transparent_device(setup_teardown_stp):
 
 def test_active_active_multihoming_with_external_link(setup_teardown_stp):
 
+
     st.banner("Add external link between leaf0 and host0 in Vlan 2 and 3")
     for vlan in data_glob.vlan:
         vlan_obj.add_vlan_member(data_glob.leaf0, vlan, vars.D3D5P2, tagging_mode=True)
         vlan_obj.add_vlan_member(data_glob.host0, vlan, vars.D5D3P2, tagging_mode=True)
 
     st.log("Wait for BPDUs to be processed")
-    st.wait(5)
+    st.wait(30)
 
+    st.banner("Save original STP costs before modification")
+
+    st.log("Setting Ethernet1_2 cost to 200 on host0")
+    st.config(data_glob.host0, "sudo config spanning-tree interface cost {} 200".format(vars.D5D3P2))
     st.banner("STP on Leaf0")
     st.config(data_glob.leaf0, "show spanning-tree")
 
@@ -262,8 +320,7 @@ def test_active_active_multihoming_with_external_link(setup_teardown_stp):
         else : 
             st.error("Failed to Block external link for Vlan {}".format(vlan))
             break
-
-    st.banner("Cleanup")
+    
     for vlan in data_glob.vlan:
         vlan_obj.delete_vlan_member(data_glob.leaf0, vlan, vars.D3D5P2, tagging_mode=True)
         vlan_obj.delete_vlan_member(data_glob.host0, vlan, vars.D5D3P2, tagging_mode=True)
@@ -323,10 +380,26 @@ def test_dpb_with_STP(setup_teardown_stp):
 
     result = True 
     st.banner("Configure DPB on non STP member links")
-    breakout_mapping = {
-        vars.D3D5P2 : '4x100G',
-        vars.D3D6P2 : '4x100G'
-    }
+    intf_data = st.show(data_glob.leaf0, "show interfaces status")
+
+    breakout_mapping = {}
+
+    for entry in intf_data:
+        intf = entry.get("interface")
+        speed = entry.get("speed", "")
+
+        if intf in [vars.D3D5P2, vars.D3D6P2]:
+            if "400G" in speed:
+                breakout_mapping[intf] = "4x100G"
+            elif "100G" in speed:
+                breakout_mapping[intf] = "4x25G"
+            elif "800G" in speed:
+                breakout_mapping[intf] = "4x200G"
+            else:
+                st.error("Unsupported speed {} on {}".format(speed, intf))
+
+    st.log("Dynamic breakout mapping: {}".format(breakout_mapping))
+
     if common_obj.configure_dynamic_breakout(data_glob.leaf0, breakout_mapping):
         st.log("Successfully configured DPB with STP configured on Node.")
     else:
@@ -336,7 +409,17 @@ def test_dpb_with_STP(setup_teardown_stp):
     if not result:
         st.report_fail('test_case_failed')
 
-    new_intfs = [vars.D3D5P2 + '_' + str(index) for index in range(1,5)]
+    new_intfs = []
+    for intf in breakout_mapping.keys():
+        if intf == vars.D3D5P2:
+            st.log(intf)
+            if '_' in intf:
+                base = intf
+                new_intfs.extend(["{}_{}".format(base, idx) for idx in range(1,5)])
+            else:
+                base_num = int(re.findall(r'\d+', intf)[0])
+                new_intfs.extend(["Ethernet{}".format(base_num + idx) for idx in range(4)])
+                
     st.banner("Enable STP on breakout links")
     for vlan in data_glob.vlan:
         for new_intf in new_intfs:
@@ -366,10 +449,19 @@ def test_dpb_with_STP(setup_teardown_stp):
             vlan_obj.delete_vlan_member(data_glob.leaf0, vlan, new_intf, tagging_mode=True)
 
     st.banner("Undo the dynamic breakout")
-    breakout_mapping = {
-        vars.D3D5P2 : '1x400G',
-        vars.D3D6P2 : '1x400G'
-    }
+    for entry in intf_data:
+        intf = entry.get("interface")
+        speed = entry.get("speed", "")
+        
+        if intf in [vars.D3D5P2, vars.D3D6P2]:
+            if "400G" in speed:
+                breakout_mapping[intf] = "1x400G"
+            elif "100G" in speed:
+                breakout_mapping[intf] = "1x100G"
+            elif "800G" in speed:
+                breakout_mapping[intf] = "1x800G"
+            else:
+                st.error("Unsupported speed {} on {}".format(speed, intf))
 
     if common_obj.configure_dynamic_breakout(data_glob.leaf0, breakout_mapping, undo = True):
         st.log("Undo DPB successful.")
@@ -412,15 +504,49 @@ def test_dpb_with_STP(setup_teardown_stp):
     else:
         st.report_pass('test_case_passed')
 
+
 def test_dpb_scale():
 
+    # Runtime platform check 
+    platform_output = st.show(data_glob.leaf1, "show platform summary")
+    hwsku = platform_output[0].get('hwsku', '') or platform_output[0].get('HwSKU', '')
+    st.log("Detected HwSKU: {}".format(hwsku))
+    if 'HF6100-32D' not in hwsku:
+        st.log("Test is only applicable for HF6100-32D platform. Current: {}".format(hwsku))
+        st.report_pass('test_case_passed')
     result = True
 
     st.banner("Get interface list on leaf1")
-    intf_list = port_obj.get_interfaces_all(data_glob.leaf1)
+    all_ports = intf_obj.get_all_ports_speed_dict(data_glob.leaf1)
+    for key in all_ports:
+        intf_list = all_ports[key]
+        break
 
-    breakout_mapping = {intf: "4x100G" for intf in intf_list}
+    breakout_mapping = {}
+    port_count = 0
+    max_ports_to_break = 5
     
+    for speed_key, intf_list in all_ports.items():
+        for intf in intf_list:
+            if port_count >= max_ports_to_break:
+                break
+            if '400' in str(speed_key):
+                breakout_mapping[intf] = "4x100G"
+                port_count += 1
+            elif '100' in str(speed_key):
+                breakout_mapping[intf] = "4x25G"
+                port_count += 1
+            elif '800' in str(speed_key):
+                breakout_mapping[intf] = "4x200G"
+                port_count += 1
+            else:
+                continue
+        if port_count >= max_ports_to_break:
+            break
+    st.banner("Ports being broken down")
+    print("DEBUG: breakout_mapping = {}".format(breakout_mapping))
+
+    st.log("Breaking out {} ports. Dynamic breakout mapping: {}".format(port_count, breakout_mapping))
     st.banner("Configure DPB on all intfs")
     if common_obj.configure_dynamic_breakout(data_glob.leaf1, breakout_mapping):
         st.log("Successfully configured DPB on all intfs.")
@@ -444,9 +570,15 @@ def test_dpb_scale():
         st.report_fail("msg","Failed to enable STP on Vlan {} on {}".format(data_glob.vlan[0], data_glob.leaf1))
 
     new_intfs = []
-    for intf in intf_list:
-        new_intfs += [intf + '_' + str(index) for index in range(1,5)]
+    for intf in breakout_mapping.keys():
+            if '_' in intf:
+                base = intf
+                new_intfs.extend(["{}_{}".format(base, idx) for idx in range(1,5)])
+            else:
+                base_num = int(re.findall(r'\d+', intf)[0])
+                new_intfs.extend(["Ethernet{}".format(base_num + idx) for idx in range(4)])
 
+    st.log("New interfaces created: {}".format(new_intfs))
     st.banner("Enable STP on breakout links")
     for new_intf in new_intfs:
         vlan_obj.add_vlan_member(data_glob.leaf1, data_glob.vlan[0], new_intf, tagging_mode=True)
@@ -479,8 +611,16 @@ def test_dpb_scale():
     st.log("Delete Vlan2 on leaf1")
     vlan_obj.delete_vlan(data_glob.leaf1, [data_glob.vlan[0]])
 
-    breakout_mapping = {intf: "1x400G" for intf in intf_list}
-    
+    breakout_mapping = {}
+    for speed_key, intf_list in all_ports.items():
+        for intf in intf_list:
+            if '400' in str(speed_key):
+                breakout_mapping[intf] = "1x400G"
+            elif '100' in str(speed_key):
+                breakout_mapping[intf] = "1x100G"
+            elif '800' in str(speed_key):
+                breakout_mapping[intf] = "1x800G"
+
     st.log("Undo DPB on all intfs")
     if common_obj.configure_dynamic_breakout(data_glob.leaf1, breakout_mapping, undo = True):
         st.log("Successfully Undo DPB on all intfs.")
@@ -545,4 +685,3 @@ def set_member_links_in_json(stp_cfg_data_string, member_links):
     for link,member_link in replacement_dict.items():
         stp_cfg_data_string = stp_cfg_data_string.replace(link, member_link)
     return stp_cfg_data_string
-

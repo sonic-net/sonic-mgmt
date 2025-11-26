@@ -625,12 +625,24 @@ def configure_dynamic_breakout(node, data, verify="True", undo=False):
         st.config(node, cmd, skip_error_check=False)
         number_of_breakouts = int(mode[0])
         st.log("Startup the {} new interfaces".format(number_of_breakouts))
+
+        if '_' in intf:
+            new_intfs = ["{}_{}".format(intf, i) for i in range(1, number_of_breakouts + 1)]
+        else:
+            m = re.match(r'^([A-Za-z]+)(\d+)$', intf)
+            if m:
+                prefix, base = m.groups()
+                base = int(base)
+                new_intfs = ["{}{}".format(prefix, base + i) for i in range(number_of_breakouts)]
+            else:
+                new_intfs = [intf]
+
         if undo :
             cmd = "config interface startup {}".format(intf)
             st.config(node, cmd, skip_error_check=False)
         else:
-            for new_intf in range(1, number_of_breakouts+1):
-                cmd = "config interface startup {}".format(intf + '_' + str(new_intf))
+            for new_intf in new_intfs:
+                cmd = "config interface startup {}".format(new_intf)
                 st.config(node, cmd, skip_error_check=False)
         if verify:
             cmd = "show interfaces breakout current-mode {}".format(intf)
@@ -645,8 +657,8 @@ def configure_dynamic_breakout(node, data, verify="True", undo=False):
 
 #Apply Json Config
 def apply_json_config(node, file, file_path):
-    utils_obj.copy_files_to_dut(node, [file_path], '/home/cisco')
-    st.config(node, "config load {} -y".format(file))
+	utils_obj.copy_files_to_dut(node, [file_path], '~')
+	st.config(node, "config load {} -y".format(file))
 
 #QOS
 def verify_queue_counters(node, port, queue_name, param_list, val_list, tol_list):
