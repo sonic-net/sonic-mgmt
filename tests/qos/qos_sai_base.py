@@ -42,8 +42,8 @@ class QosBase:
     """
     Common APIs
     """
-    SUPPORTED_T0_TOPOS = ["t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "dualtor-56",
-                          "dualtor-64", "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa",
+    SUPPORTED_T0_TOPOS = ["t0", "t0-56", "t0-56-po2vlan", "t0-64", "t0-116", "t0-118", "t0-35", "t0-d18u8s4",
+                          "dualtor-56", "dualtor-64", "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa",
                           "dualtor-aa-64-breakout", "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag",
                           "t0-standalone-32", "t0-standalone-64", "t0-standalone-128", "t0-standalone-256", "t0-28"]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag"]
@@ -52,6 +52,7 @@ class QosBase:
                            "j2c+", "jr2", "th5"]
 
     BREAKOUT_SKUS = ['Arista-7050-QX-32S']
+    LOW_SPEED_PORT_SKUS = ['Arista-7050CX3-32S-C28S4']
 
     TARGET_QUEUE_WRED = 3
     TARGET_LOSSY_QUEUE_SCHED = 0
@@ -570,7 +571,6 @@ class QosSaiBase(QosBase):
                 if vlan_id is not None:
                     portIpMap['vlan_id'] = vlan_id
                 dutPortIps.update({portIndex: portIpMap})
-
         return dutPortIps
 
     @pytest.fixture(scope='module')
@@ -967,11 +967,12 @@ class QosSaiBase(QosBase):
             config_facts = duthosts.config_facts(host=src_dut.hostname, source="running")
             port_speeds = self.__buildPortSpeeds(config_facts[src_dut.hostname])
             low_speed_portIds = []
-            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS and 'backend' not in topo:
+            if src_dut.facts['hwsku'] in self.BREAKOUT_SKUS + self.LOW_SPEED_PORT_SKUS and 'backend' not in topo:
                 for speed, portlist in port_speeds.items():
                     if int(speed) < 40000:
                         for portname in portlist:
-                            low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
+                            if portname in src_mgFacts["minigraph_ptf_indices"]:
+                                low_speed_portIds.append(src_mgFacts["minigraph_ptf_indices"][portname])
 
             testPortIds[src_dut_index][src_asic_index] = set(src_mgFacts["minigraph_ptf_indices"][port]
                                                              for port in src_mgFacts["minigraph_ports"].keys())
@@ -1031,7 +1032,7 @@ class QosSaiBase(QosBase):
 
             # restore currently assigned IPs
             if len(dutPortIps[src_dut_index][src_asic_index]) != 0:
-                testPortIps.update(dutPortIps)
+                testPortIps[src_dut_index][src_asic_index].update(dutPortIps[src_dut_index][src_asic_index])
 
             if 'backend' in topo:
                 # since backend T0 utilize dot1q encap pkts, testPortIds need to be repopulated with the
