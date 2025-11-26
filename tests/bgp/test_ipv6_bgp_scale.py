@@ -253,51 +253,6 @@ def validate_dut_routes(duthost, tbinfo, expected_routes):
     return identical
 
 
-def compare_routes(running_routes, expected_routes):
-    logger.info(f"compare_routes called at {datetime.datetime.now()}")
-    is_same = True
-    diff_cnt = 0
-    missing_prefixes = []
-    nh_diff_prefixes = []
-
-    expected_set = set(expected_routes.keys())
-    running_set = set(running_routes.keys())
-    missing = expected_set - running_set
-    extra = running_set - expected_set
-
-    # Count missing_prefixes and nh_diff_prefixes
-    for prefix, attr in expected_routes.items():
-        if prefix not in running_routes:
-            is_same = False
-            diff_cnt += 1
-            missing_prefixes.append(prefix)
-            continue
-        except_nhs = [nh['ip'] for nh in attr[0]['nexthops']]
-        running_nhs = [nh['ip'] for nh in running_routes[prefix][0]['nexthops'] if "active" in nh and nh["active"]]
-        if except_nhs != running_nhs:
-            is_same = False
-            diff_cnt += 1
-            nh_diff_prefixes.append((prefix, except_nhs, running_nhs))
-
-    if len(expected_routes) != len(running_routes):
-        is_same = False
-        logger.info("Count unmatch, expected_routes count=%d,  running_routes count=%d",
-                    len(expected_routes), len(running_routes))
-        if missing:
-            logger.info("Missing prefixes in running_routes: %s", list(missing))
-        if extra:
-            logger.info("Extra prefixes in running_routes: %s", list(extra))
-
-    if missing_prefixes:
-        logger.info("Prefixes missing in running_routes: %s", missing_prefixes)
-    if nh_diff_prefixes:
-        for prefix, expected, running in nh_diff_prefixes:
-            logger.info("Prefix %s nexthops not match, expected: %s, running: %s", prefix, expected, running)
-
-    logger.info("%d of %d routes are different", diff_cnt, len(expected_routes))
-    return is_same
-
-
 def calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
     logger.warning("Waiting %d seconds for mask counters to be updated", MASK_COUNTER_WAIT_TIME)
     time.sleep(MASK_COUNTER_WAIT_TIME)
