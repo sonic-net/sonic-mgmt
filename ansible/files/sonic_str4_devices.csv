@@ -11,8 +11,8 @@ str4-acs-serv-77,10.64.246.216/23,TestServ,Server,,
 str4-acs-serv-13,10.64.247.246/23,TestServ,Server,,
 str4-7050cx3-c28s4-1,10.64.247.113/23,Arista-7050CX3-32S-C28S4,DevSonic,,sonic
 str4-7050cx3-fan-1,10.64.247.114/23,Arista-7050CX3-32S-C28S4,FanoutLeafSonic,,sonic
-str4-7060x6-64pe-2,10.64.246.8/23,Arista-7060X6-64PE-O128S2,DevSonic,,sonic
-str4-7060x6-64pe-fan-2,10.64.246.4/23,Arista-7060X6-64PE-O128S2,FanoutLeafSonic,,sonic
+str4-7060x6-64pe-2,10.64.246.8/23,Arista-7060X6-64PE-P64,DevSonic,,sonic
+str4-7060x6-64pe-fan-2,10.64.246.4/23,Arista-7060X6-64PE-P64,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-3,10.3.146.216/24,Arista-7060X6-64PE-C224O8,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-share-1,10.64.247.239/23,Arista-7060X6-64PE-C256S2,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-fan-13,10.64.247.105/23,Arista-7060X6-64PE-P32O64,FanoutLeafSonic,,sonic

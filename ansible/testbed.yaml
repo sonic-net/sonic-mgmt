@@ -1834,7 +1834,7 @@
 
 - conf-name: vms73-t0-7060x6-2
   group-name: vms73-2
-  topo: lt2-o128
+  topo: ft2-64
   ptf_image_name: docker-ptf
   ptf: vms73-2
   ptf_ip: 10.64.247.85/23
