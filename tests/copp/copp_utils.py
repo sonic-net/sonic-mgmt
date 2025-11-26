@@ -492,7 +492,7 @@ def get_copp_trap_capabilities(duthost):
     return trap_ids.split(",")
 
 
-def parse_show_copp_configuration(duthost):
+def parse_show_copp_configuration(duthost, namespace):
     """
     Parses the output of the `show copp configuration` command into a structured dictionary.
     Args:
@@ -500,8 +500,10 @@ def parse_show_copp_configuration(duthost):
     Returns:
         dict: A dictionary mapping trap IDs to their configuration details.
     """
-
-    copp_config_output = duthost.shell("show copp configuration")["stdout"]
+    command = "show copp configuration"
+    if namespace is not None:
+        command = namespace.ns_arg + ' ' + command
+    copp_config_output = duthost.shell(command)["stdout"]
     copp_config_lines = copp_config_output.splitlines()
 
     # Parse the command output into a structured format
@@ -523,7 +525,7 @@ def parse_show_copp_configuration(duthost):
     return copp_config_data
 
 
-def is_trap_installed(duthost, trap_id):
+def is_trap_installed(duthost, trap_id, namespace=None):
     """
     Checks if a specific trap is installed by parsing the output of `show copp configuration`.
     Args:
@@ -533,7 +535,7 @@ def is_trap_installed(duthost, trap_id):
         bool: True if the trap is installed, False otherwise.
     """
 
-    output = parse_show_copp_configuration(duthost)
+    output = parse_show_copp_configuration(duthost, namespace)
     assert trap_id in output, f"Trap {trap_id} not found in the configuration"
     assert "hw_status" in output[trap_id], f"hw_status not found for trap {trap_id}"
 
@@ -552,7 +554,7 @@ def is_trap_uninstalled(duthost, trap_id):
     return not is_trap_installed(duthost, trap_id)
 
 
-def get_trap_hw_status(duthost):
+def get_trap_hw_status(duthost, namespace):
     """
     Retrieves the hw_status for traps from the STATE_DB.
     Args:
@@ -560,14 +562,19 @@ def get_trap_hw_status(duthost):
     Returns:
         dict: A dictionary mapping trap IDs to their hw_status.
     """
-
-    state_db_data = duthost.shell("sonic-db-cli STATE_DB KEYS 'COPP_TRAP_TABLE|*'")["stdout"]
+    if namespace is None:
+        state_db_cmd = "sonic-db-cli STATE_DB KEYS 'COPP_TRAP_TABLE|*'"
+        trap_data_cmd = "sonic-db-cli STATE_DB HGETALL "
+    else:
+        state_db_cmd = "sonic-db-cli -n {} STATE_DB KEYS 'COPP_TRAP_TABLE|*'".format(namespace.namespace)
+        trap_data_cmd = "sonic-db-cli -n {} STATE_DB HGETALL ".format(namespace.namespace)
+    state_db_data = duthost.shell(state_db_cmd)["stdout"]
     state_db_data = state_db_data.splitlines()
     hw_status = {}
 
     for key in state_db_data:
         trap_id = key.split("|")[-1]
-        trap_data = duthost.shell(f"sonic-db-cli STATE_DB HGETALL '{key}'")["stdout"]
+        trap_data = duthost.shell(trap_data_cmd + f"'{key}'")["stdout"]
         trap_data_dict = ast.literal_eval(trap_data)
         hw_status[trap_id] = trap_data_dict.get("hw_status", "not-installed")
 
