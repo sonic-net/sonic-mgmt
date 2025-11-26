@@ -1017,7 +1017,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 counters_after[PACKETS_COUNT] += acl_facts[duthost]['after'][rule][PACKETS_COUNT]
                 counters_after[BYTES_COUNT] += acl_facts[duthost]['after'][rule][BYTES_COUNT]
                 if duthost.facts["platform"] in ["x86_64-8111_32eh_o-r0",
-                                                 "x86_64-8122_64eh_o-r0", "x86_64-8122_64ehf_o-r0"]:
+                                                 "x86_64-8122_64eh_o-r0",
+                                                 "x86_64-8122_64ehf_o-r0",
+                                                 "x86_64-8223_64e_mo-r0",
+                                                 "x86_64-8223_64ef_mo-r0"]:
                     skip_byte_accounting = True
 
             logger.info("Counters for ACL rule \"{}\" after traffic:\n{}"
