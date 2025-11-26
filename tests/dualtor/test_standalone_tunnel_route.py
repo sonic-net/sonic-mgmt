@@ -8,16 +8,16 @@ import scapy.all as scapyall
 
 from ptf import testutils
 
-from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa F401
+from tests.common.dualtor.dual_tor_common import active_active_ports                                # noqa: F401
 from tests.common.dualtor.dual_tor_utils import build_packet_to_server
-from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip                                 # noqa F401
-from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa F401
-from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa F401
+from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip                                 # noqa: F401
+from tests.common.dualtor.dual_tor_utils import upper_tor_host                                      # noqa: F401
+from tests.common.dualtor.dual_tor_utils import lower_tor_host                                      # noqa: F401
 from tests.common.dualtor.dual_tor_utils import get_t1_ptf_ports
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa F401
-from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_upper_tor      # noqa: F401
+from tests.common.dualtor.dual_tor_common import cable_type                                         # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
-from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa F401
+from tests.common.dualtor.tunnel_traffic_utils import tunnel_traffic_monitor                        # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import is_ipv4_address
 from tests.common.utilities import wait_until
@@ -37,7 +37,7 @@ def cleanup_neighbors(duthosts):
 
 
 @pytest.fixture
-def constants(lower_tor_host, tbinfo):  # noqa F811
+def constants(lower_tor_host, tbinfo):  # noqa: F811
     class _C(object):
         """Dummy class to save test constants."""
 
@@ -68,9 +68,9 @@ def constants(lower_tor_host, tbinfo):  # noqa F811
 
 
 def test_standalone_tunnel_route(
-    cable_type, constants, upper_tor_host, lower_tor_host,          # noqa F811
-    ptfadapter, toggle_all_simulator_ports_to_upper_tor, tbinfo,    # noqa F811
-    tunnel_traffic_monitor                                          # noqa F811
+    cable_type, constants, upper_tor_host, lower_tor_host,          # noqa: F811
+    ptfadapter, toggle_all_simulator_ports_to_upper_tor, tbinfo,    # noqa: F811
+    tunnel_traffic_monitor                                          # noqa: F811
 ):
     def _verify_traffic(duthost, target_ip):
         pkt, _ = build_packet_to_server(duthost, ptfadapter, str(target_ip))

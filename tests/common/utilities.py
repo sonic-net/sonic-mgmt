@@ -33,8 +33,10 @@ from ansible.vars.manager import VariableManager
 from tests.common import constants
 from tests.common.cache import cached
 from tests.common.cache import FactsCache
-from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, DOWNSTREAM_NEIGHBOR_MAP
+from tests.common.helpers.constants import UPSTREAM_NEIGHBOR_MAP, UPSTREAM_ALL_NEIGHBOR_MAP
+from tests.common.helpers.constants import DOWNSTREAM_NEIGHBOR_MAP, DOWNSTREAM_ALL_NEIGHBOR_MAP
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.portstat_utilities import parse_column_positions
 from netaddr import valid_ipv6
 
 logger = logging.getLogger(__name__)
@@ -48,7 +50,7 @@ FORCED_MGMT_ROUTE_PRIORITY = 32764
 # interfaces-config service issue track by: https://github.com/sonic-net/sonic-buildimage/issues/19045
 FILE_CHANGE_TIMEOUT = 300
 
-NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS"]
+NON_USER_CONFIG_TABLES = ["FLEX_COUNTER_TABLE", "ASIC_SENSORS", "LOGGER"]
 
 
 def check_skip_release(duthost, release_list):
@@ -544,6 +546,16 @@ def is_ipv4_address(ip_address):
         return False
 
 
+def is_ipv6_address(ip_address):
+    """Check if ip address is ipv6."""
+    ip_address = ip_address.encode().decode()
+    try:
+        ipaddress.IPv6Address(ip_address)
+        return True
+    except ipaddress.AddressValueError:
+        return False
+
+
 def get_mgmt_ipv6(duthost):
     config_facts = duthost.get_running_config_facts()
     mgmt_interfaces = config_facts.get("MGMT_INTERFACE", {})
@@ -919,18 +931,36 @@ def get_neighbor_ptf_port_list(duthost, neighbor_name, tbinfo):
     return ptf_port_list
 
 
-def get_upstream_neigh_type(topo_type, is_upper=True):
+def get_upstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in UPSTREAM_NEIGHBOR_MAP:
-        return UPSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in UPSTREAM_NEIGHBOR_MAP:
+            return UPSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else UPSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
+
+
+def get_all_upstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL upstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["ma", "mb"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
 def get_downstream_neigh_type(topo_type, is_upper=True):
@@ -945,6 +975,32 @@ def get_downstream_neigh_type(topo_type, is_upper=True):
         return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
 
     return None
+
+
+def get_all_downstream_neigh_type(topo_type, is_upper=True):
+    """
+    @summary: Get ALL downstream neighbor type by topo type
+    @param topo_type: topo type
+    @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
+    @return a list
+        Sample output: ["m0", "c0"]
+    """
+    if is_upper:
+        return [neigh.upper() for neigh in DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])]
+    return DOWNSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
+
+
+def is_ipv6_only_topology(tbinfo):
+    """
+    @summary: Check if the current topology is IPv6-only based on testbed info.
+    @param tbinfo: Testbed information dictionary
+    @return: bool - True if topology is IPv6-only, False otherwise
+    """
+    return (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
 
 
 def run_until(interval, delay, retry, condition, function, *args, **kwargs):
@@ -1090,11 +1146,11 @@ def recover_acl_rule(duthost, data_acl):
 
 def get_ipv4_loopback_ip(duthost):
     """
-    Get ipv4 loopback ip address
+    Get the first valid ipv4 loopback ip address
     """
     config_facts = duthost.get_running_config_facts()
     los = config_facts.get("LOOPBACK_INTERFACE", {})
-    loopback_ip = None
+    selected_loopback_ip = None
 
     for key, _ in los.items():
         if "Loopback" in key:
@@ -1102,10 +1158,12 @@ def get_ipv4_loopback_ip(duthost):
             for ip_str, _ in loopback_ips.items():
                 ip = ip_str.split("/")[0]
                 if is_ipv4_address(ip):
-                    loopback_ip = ip
+                    selected_loopback_ip = ip
                     break
+        if selected_loopback_ip is not None:
+            break
 
-    return loopback_ip
+    return selected_loopback_ip
 
 
 def get_dscp_to_queue_value(dscp_value, dscp_to_tc_map, tc_to_queue_map):
@@ -1158,6 +1216,19 @@ def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
     return -1
 
 
+def handle_queue_stats_output(intf_queue_stats):
+    queue_stats = []
+    for prio in range(8):
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
+
+
 def get_egress_queue_pkt_count_all_prio(duthost, port):
     """
     Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
@@ -1171,17 +1242,27 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
     raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
     raw_json = json.loads(raw_out)
     intf_queue_stats = raw_json.get(port)
-    queue_stats = []
 
-    for prio in range(8):
-        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
-            is not None else {"totalpacket": "0"}
-        total_pkts_str = total_pkts_prio_str.get("totalpacket")
-        if total_pkts_str == "N/A" or total_pkts_str is None:
-            total_pkts_str = "0"
-        queue_stats.append(int(total_pkts_str.replace(',', '')))
+    return handle_queue_stats_output(intf_queue_stats)
 
-    return queue_stats
+
+def get_egress_queue_pkt_count_all_port_prio(duthost):
+    """
+    Get the egress queue count in packets for all ports and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+    Returns:
+        array [int]: total count of packets in the queue for all priorities and ports
+    """
+    raw_out = duthost.shell("queuestat -j")['stdout']
+    raw_json = json.loads(raw_out)
+    all_stats = {}
+    for port in raw_json.keys():
+        intf_queue_stats = raw_json.get(port)
+        all_stats[port] = handle_queue_stats_output(intf_queue_stats)
+
+    return all_stats
 
 
 @contextlib.contextmanager
@@ -1192,7 +1273,8 @@ def capture_and_check_packet_on_dut(
     pkts_validator=lambda pkts: pytest_assert(len(pkts) > 0, "No packets captured"),
     pkts_validator_args=[],
     pkts_validator_kwargs={},
-    wait_time=1
+    wait_time=1,
+    tcpdump_buffer_size=102400
 ):
     """
     Capture packets on DUT and check if the packet is expected
@@ -1206,8 +1288,8 @@ def capture_and_check_packet_on_dut(
         wait_time: the time to wait before stopping the packet capture, default is 1 second
     """
     pcap_save_path = "/tmp/func_capture_and_check_packet_on_dut_%s.pcap" % (str(uuid.uuid4()))
-    cmd_capture_pkts = "nohup tcpdump --immediate-mode -U -i %s -w %s >/dev/null 2>&1 %s & echo $!" \
-        % (interface, pcap_save_path, pkts_filter)
+    cmd_capture_pkts = ("nohup tcpdump --buffer-size=%s --immediate-mode -U -i %s -w %s" +
+                        ">/dev/null 2>&1 %s & echo $!") % (tcpdump_buffer_size, interface, pcap_save_path, pkts_filter)
     tcpdump_pid = duthost.shell(cmd_capture_pkts)["stdout"]
     cmd_check_if_process_running = "ps -p %s | grep %s |grep -v grep | wc -l" % (tcpdump_pid, tcpdump_pid)
     pytest_assert(duthost.shell(cmd_check_if_process_running)["stdout"] == "1",
@@ -1466,8 +1548,94 @@ def get_iface_ip(mg_facts, ifacename):
     return None
 
 
+def get_vlan_from_port(duthost, member_port):
+    '''
+    Returns the name of the VLAN that has the given member port.
+    If no VLAN or appropriate member found, returns None.
+    '''
+    mg_facts = duthost.get_extended_minigraph_facts()
+    if 'minigraph_vlans' not in mg_facts:
+        return None
+    vlan_name = None
+    for vlan in mg_facts['minigraph_vlans']:
+        for member in mg_facts['minigraph_vlans'][vlan]['members']:
+            if member == member_port:
+                vlan_name = vlan
+                break
+        if vlan_name is not None:
+            break
+    return vlan_name
+
+
+def configure_packet_aging(duthost, disabled=True):
+    """
+        For Nvidia(Mellanox) platforms, packets in buffer will be aged after a timeout.
+        This function can enable or disable packet aging feature.
+
+        Args:
+            duthost: DUT host object
+            disabled: True to disable packet aging, False to enable packet aging
+    """
+    logger.info("Starting configure packet aging")
+    asic = duthost.get_asic_name()
+    if 'spc' in asic:
+        action = "disable" if disabled else "enable"
+        logger.info(f"{action.capitalize()} Mellanox packet aging")
+        duthost.copy(src="qos/files/mellanox/packets_aging.py", dest="/tmp")
+        duthost.command("docker cp /tmp/packets_aging.py syncd:/")
+        duthost.command(f"docker exec syncd python /packets_aging.py {action}")
+        duthost.command("docker exec syncd rm -rf /packets_aging.py")
+
+
 def cleanup_prev_images(duthost):
     logger.info("Cleaning up previously installed images on DUT")
     current_os_version = duthost.shell('sonic_installer list | grep Current | cut -f2 -d " "')['stdout']
     duthost.shell("sonic_installer set-next-boot {}".format(current_os_version), module_ignore_errors=True)
     duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
+
+
+def parse_rif_counters(output_lines):
+    """Parse the output of "show interfaces counters rif" command
+    Args:
+        output_lines (list): The output lines of "show interfaces counters rif" command
+    Returns:
+        list: A dictionary, key is interface name, value is a dictionary of fields/values
+    """
+
+    header_line = ''
+    separation_line = ''
+    separation_line_number = 0
+    for idx, line in enumerate(output_lines):
+        if line.find('----') >= 0:
+            header_line = output_lines[idx - 1]
+            separation_line = output_lines[idx]
+            separation_line_number = idx
+            break
+
+    try:
+        positions = parse_column_positions(separation_line)
+    except Exception:
+        logger.error('Possibly bad command output')
+        return {}
+
+    headers = []
+    for pos in positions:
+        header = header_line[pos[0]:pos[1]].strip().lower()
+        headers.append(header)
+
+    if not headers:
+        return {}
+
+    results = {}
+    for line in output_lines[separation_line_number + 1:]:
+        portstats = []
+        for pos in positions:
+            portstat = line[pos[0]:pos[1]].strip()
+            portstats.append(portstat)
+
+        intf = portstats[0]
+        results[intf] = {}
+        for idx in range(1, len(portstats)):  # Skip the first column interface name
+            results[intf][headers[idx]] = portstats[idx].replace(',', '')
+
+    return results

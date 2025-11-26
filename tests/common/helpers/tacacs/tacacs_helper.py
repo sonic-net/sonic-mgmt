@@ -171,9 +171,12 @@ def setup_tacacs_server(ptfhost, tacacs_creds, duthost):
     if 'ansible_ssh_user' in dut_options and 'ansible_ssh_pass' in dut_options:
         duthost_ssh_user = dut_options['ansible_ssh_user']
         duthost_ssh_passwd = dut_options['ansible_ssh_pass']
-        logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
-        extra_vars['duthost_ssh_user'] = duthost_ssh_user
-        extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
+        if not duthost_ssh_user == extra_vars['duthost_admin_user']:
+            logger.debug("setup_tacacs_server: update extra_vars with ansible_ssh_user and ansible_ssh_pass.")
+            extra_vars['duthost_ssh_user'] = duthost_ssh_user
+            extra_vars['duthost_ssh_passwd'] = crypt.crypt(duthost_ssh_passwd, 'abc')
+        else:
+            logger.debug("setup_tacacs_server: ansible_ssh_user is the same as duthost_admin_user.")
     else:
         logger.debug("setup_tacacs_server: duthost options does not contains config for ansible_ssh_user.")
 
@@ -341,7 +344,7 @@ def ssh_remote_run(localhost, remote_ip, username, password, cmd):
     return res
 
 
-def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=3):
+def ssh_remote_run_retry(localhost, dutip, ptfhost, user, password, command, retry_count=6):
     while retry_count > 0:
         res = ssh_remote_run(localhost, dutip, user,
                              password, command)
@@ -367,6 +370,11 @@ def check_nss_config(duthost):
 @pytest.fixture(scope="module")
 def check_tacacs(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname, tacacs_creds):    # noqa: F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+    if is_mgmt_ipv6_only:
+        pytest.skip("Skip TACACS test for IPv6-only DUT management interface.")
     tacacs_server_ip = ptfhost.mgmt_ip
     tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 

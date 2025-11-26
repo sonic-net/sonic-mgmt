@@ -1,10 +1,11 @@
-import concurrent.futures
+from functools import lru_cache
+import enum
 import os
 import json
 import logging
-import getpass
 import random
-from concurrent.futures import as_completed
+import re
+import sys
 
 import pytest
 import yaml
@@ -12,6 +13,9 @@ import copy
 import time
 import subprocess
 import threading
+import pathlib
+import importlib
+import inspect
 
 from datetime import datetime
 from ipaddress import ip_interface, IPv4Interface
@@ -28,19 +32,25 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session        # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session, \
+    stop_route_checker_on_duthost, start_route_checker_on_duthost                           # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
+from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
+from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401
+from tests.common.dualtor import mux_simulator_control                                      # noqa: F401
 
 from tests.common.helpers.constants import (
-    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, ASICS_PRESENT, DUT_CHECK_NAMESPACE
+    ASIC_PARAM_TYPE_ALL, ASIC_PARAM_TYPE_FRONTEND, DEFAULT_ASIC_ID, NAMESPACE_PREFIX,
+    ASICS_PRESENT, DUT_CHECK_NAMESPACE
 )
 from tests.common.helpers.custom_msg_utils import add_custom_msg
 from tests.common.helpers.dut_ports import encode_dut_port_name
 from tests.common.helpers.dut_utils import encode_dut_and_container_name
-from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
+from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus, ParallelRunContext
+from tests.common.helpers.pfcwd_helper import TrafficPorts, select_test_ports, set_pfc_timers
 from tests.common.system_utils import docker
 from tests.common.testbed import TestbedInfo
 from tests.common.utilities import get_inventory_files, wait_until
@@ -50,8 +60,9 @@ from tests.common.utilities import get_test_server_host
 from tests.common.utilities import str2bool
 from tests.common.utilities import safe_filename
 from tests.common.utilities import get_duts_from_host_pattern
+from tests.common.utilities import get_upstream_neigh_type, file_exists_on_dut
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
-    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus
+    is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -59,6 +70,8 @@ from tests.common.helpers.inventory_utils import trim_inventory
 from tests.common.utilities import InterruptableThread
 from tests.common.plugins.ptfadapter.dummy_testutils import DummyTestUtils
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+
+import tests.common.gnmi_setup as gnmi_setup
 
 try:
     from tests.common.macsec import MacsecPluginT2, MacsecPluginT0
@@ -71,11 +84,14 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+
 logger = logging.getLogger(__name__)
 cache = FactsCache()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
+GOLDEN_CONFIG_DB_PATH = "/etc/sonic/golden_config_db.json"
+GOLDEN_CONFIG_DB_PATH_ORI = "/etc/sonic/golden_config_db.json.origin.backup"
 
 pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.plugins.ansible_fixtures',
@@ -100,6 +116,11 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
 def pytest_addoption(parser):
     parser.addoption("--testbed", action="store", default=None, help="testbed name")
     parser.addoption("--testbed_file", action="store", default=None, help="testbed file name")
+    parser.addoption("--uhd_config", action="store", help="Enable UHD config mode")
+    parser.addoption("--save_uhd_config", action="store_true", help="Save UHD config mode")
+    parser.addoption("--npu_dpu_startup", action="store_true", help="Startup NPU and DPUs and install configurations")
+    parser.addoption("--l47_trafficgen", action="store_true", help="Enable L47 trafficgen config")
+    parser.addoption("--save_l47_trafficgen", action="store_true", help="Save L47 trafficgen config")
 
     # test_vrf options
     parser.addoption("--vrf_capacity", action="store", default=None, type=int, help="vrf capacity of dut (4-1000)")
@@ -120,8 +141,19 @@ def pytest_addoption(parser):
     parser.addoption("--neighbor_type", action="store", default="eos", type=str, choices=["eos", "sonic", "cisco"],
                      help="Neighbor devices type")
 
+    # ceos neighbor lacp multiplier
+    parser.addoption("--ceos_neighbor_lacp_multiplier", action="store", default=3, type=int,
+                     help="LACP multiplier for ceos neighbors")
+
     # FWUtil options
     parser.addoption('--fw-pkg', action='store', help='Firmware package file')
+
+    #####################################
+    # dash, vxlan, route shared options #
+    #####################################
+    parser.addoption("--skip_cleanup", action="store_true", help="Skip config cleanup after test (tests: dash, vxlan)")
+    parser.addoption("--num_routes", action="store", default=None, type=int,
+                     help="Number of routes (tests: route, vxlan)")
 
     ############################
     # pfc_asym options         #
@@ -178,6 +210,8 @@ def pytest_addoption(parser):
     #  keysight ixanvl options #
     ############################
     parser.addoption("--testnum", action="store", default=None, type=str)
+    parser.addoption("--enable-snappi-dynamic-ports", action="store_true", default=False,
+                     help="Force to use dynamic port allocation for snappi port selections")
 
     ##################################
     # advance-reboot,upgrade options #
@@ -215,6 +249,16 @@ def pytest_addoption(parser):
     ##############################
     parser.addoption("--trim_inv", action="store_true", default=False, help="Trim inventory files")
 
+    ##############################
+    # gnmi connection options      #
+    ##############################
+    # The gNMI target port number to connect to the DUT gNMI server.
+    parser.addoption("--gnmi_port", action="store", default="8080", type=str,
+                     help="gNMI target port number")
+    parser.addoption("--gnmi_insecure", action="store_true", default=True,
+                     help="Use insecure connection to gNMI target")
+    parser.addoption("--disable_sai_validation", action="store_true", default=True,
+                     help="Disable SAI validation")
     ############################
     #   Parallel run options   #
     ############################
@@ -224,6 +268,8 @@ def pytest_addoption(parser):
                      help="File to store the state of the parallel run")
     parser.addoption("--is_parallel_leader", action="store_true", default=False, help="Is the parallel leader")
     parser.addoption("--parallel_followers", action="store", default=0, type=int, help="Number of parallel followers")
+    parser.addoption("--parallel_mode", action="store", default=None, type=str,
+                     help="Parallel mode to run the test. Either FULL_PARALLEL or RP_FIRST if parallel run enabled")
 
     ############################
     #   SmartSwitch options    #
@@ -248,6 +294,18 @@ def pytest_addoption(parser):
     #   Stress test options         #
     #################################
     parser.addoption("--run-stress-tests", action="store_true", default=False, help="Run only tests stress tests")
+
+    #################################
+    #   Container upgrade test options         #
+    #################################
+    parser.addoption("--container_test", action="store", default="",
+                     help="This flag indicates that the test is being run by the container test.")
+
+    #################################
+    #   YANG validation options     #
+    #################################
+    parser.addoption("--skip_yang", action="store_true", default=False,
+                     help="Skip YANG validation")
 
 
 def pytest_configure(config):
@@ -289,32 +347,6 @@ def enhance_inventory(request, tbinfo):
         logger.error("Failed to set enhanced 'ansible_inventory' to request.config.option")
 
 
-def pytest_cmdline_main(config):
-
-    # Filter out unnecessary pytest_ansible plugin log messages
-    pytest_ansible_logger = logging.getLogger("pytest_ansible")
-    if pytest_ansible_logger:
-        pytest_ansible_logger.setLevel(logging.WARNING)
-
-    # Filter out unnecessary ansible log messages (ansible v2.8)
-    # The logger name of ansible v2.8 is nasty
-    mypid = str(os.getpid())
-    user = getpass.getuser()
-    ansible_loggerv28 = logging.getLogger("p=%s u=%s | " % (mypid, user))
-    if ansible_loggerv28:
-        ansible_loggerv28.setLevel(logging.WARNING)
-
-    # Filter out unnecessary ansible log messages (latest ansible)
-    ansible_logger = logging.getLogger("ansible")
-    if ansible_logger:
-        ansible_logger.setLevel(logging.WARNING)
-
-    # Filter out unnecessary logs generated by calling the ptfadapter plugin
-    dataplane_logger = logging.getLogger("dataplane")
-    if dataplane_logger:
-        dataplane_logger.setLevel(logging.ERROR)
-
-
 def pytest_collection(session):
     """Workaround to reduce messy plugin logs generated during collection only
 
@@ -346,6 +378,10 @@ def get_parallel_followers(request):
     return request.config.getoption("--parallel_followers")
 
 
+def get_parallel_mode(request):
+    return request.config.getoption("--parallel_mode")
+
+
 def get_tbinfo(request):
     """
     Helper function to create and return testbed information
@@ -374,12 +410,13 @@ def tbinfo(request):
 
 @pytest.fixture(scope="session")
 def parallel_run_context(request):
-    return (
+    return ParallelRunContext(
         is_parallel_run(request),
         get_target_hostname(request),
         is_parallel_leader(request),
         get_parallel_followers(request),
         get_parallel_state_file(request),
+        get_parallel_mode(request),
     )
 
 
@@ -436,6 +473,35 @@ def pytest_sessionstart(session):
     for key in keys:
         logger.debug("reset existing key: {}".format(key))
         session.config.cache.set(key, None)
+
+    # Invoke the build-gnmi-stubs.sh script
+    script_path = os.path.join(os.path.dirname(__file__), "build-gnmi-stubs.sh")
+    base_dir = os.getcwd()  # Use the current working directory as the base directory
+    logger.info(f"Invoking {script_path} with base directory: {base_dir}")
+
+    try:
+        result = subprocess.run(
+            [script_path, base_dir],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            check=False  # Do not raise an exception automatically on non-zero exit
+        )
+        logger.info(f"Output of {script_path}:\n{result.stdout}")
+        # logger.error(f"Error output of {script_path}:\n{result.stderr}")
+
+        if result.returncode != 0:
+            logger.error(f"{script_path} failed with exit code {result.returncode}")
+            session.exitstatus = 1  # Fail the pytest session
+        else:
+            # Add the generated directory to sys.path for module imports
+            generated_path = os.path.join(base_dir, "common", "sai_validation", "generated")
+            if generated_path not in sys.path:
+                sys.path.insert(0, generated_path)
+                logger.info(f"Added {generated_path} to sys.path")
+    except Exception as e:
+        logger.error(f"Exception occurred while invoking {script_path}: {e}")
+        session.exitstatus = 1  # Fail the pytest session
 
 
 def pytest_sessionfinish(session, exitstatus):
@@ -561,10 +627,20 @@ def macsec_duthost(duthosts, tbinfo):
         for duthost in duthosts:
             if duthost.is_macsec_capable_node():
                 macsec_dut = duthost
-            break
+                break
     else:
         return duthosts[0]
     return macsec_dut
+
+
+@pytest.fixture(scope="session")
+def is_macsec_enabled_for_test(duthosts):
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    macsec_en = False
+    request = duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+    return macsec_en
 
 
 # Make sure in same test module, always use same random DUT
@@ -706,6 +782,8 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
     _hosts = []
     if 'ptp' in tbinfo['topo']['name']:
         return None
+    if tbinfo['topo']['name'].startswith("nut-"):
+        return None
     if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
         return None
     if "ptf" in tbinfo:
@@ -822,8 +900,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         devices[neighbor_name] = device
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    futures = []
     servers = []
     if 'servers' in tbinfo:
         servers.extend(tbinfo['servers'].values())
@@ -831,33 +907,36 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         servers.append(tbinfo)
     else:
         logger.warning("Unknown testbed schema for setup nbrhosts")
-    for server in servers:
-        vm_base = int(server['vm_base'][2:])
-        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.parse_topology_vms(
-                tbinfo['topo']['properties']['topology']['VMs'],
-                server['dut_interfaces']
-            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
-        for neighbor_name, neighbor in vms.items():
-            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
 
-    for future in as_completed(futures):
-        # if exception caught in the sub-thread, .result() will raise it in the main thread
-        _ = future.result()
-    executor.shutdown(wait=True)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for server in servers:
+            vm_base = int(server['vm_base'][2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+            vms = MultiServersUtils.get_vms_by_dut_interfaces(
+                    tbinfo['topo']['properties']['topology']['VMs'],
+                    server['dut_interfaces']
+                ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            for neighbor_name, neighbor in vms.items():
+                vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+                executor.submit(initial_neighbor, neighbor_name, vm_name)
+
     logger.info("Fixture nbrhosts finished")
     return devices
 
 
 @pytest.fixture(scope="module")
-def fanouthosts(enhance_inventory, ansible_adhoc, conn_graph_facts, creds, duthosts):      # noqa: F811
+def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
     """
 
     dev_conn = conn_graph_facts.get('device_conn', {})
     fanout_hosts = {}
+
+    if tbinfo['topo']['name'].startswith('nut-'):
+        # Nut topology has no fanout
+        return fanout_hosts
+
     # WA for virtual testbed which has no fanout
     for dut_host, value in list(dev_conn.items()):
         duthost = duthosts[dut_host]
@@ -996,6 +1075,34 @@ def pdu():
 @pytest.fixture(scope="session")
 def creds(duthost):
     return creds_on_dut(duthost)
+
+
+@pytest.fixture(scope="session")
+def topo_bgp_routes(localhost, ptfhosts, tbinfo):
+    bgp_routes = {}
+    topo_name = tbinfo['topo']['name']
+    servers_dut_interfaces = None
+    if 'servers' in tbinfo:
+        servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
+                                  for value in tbinfo['servers'].values()}
+    for ptfhost in ptfhosts:
+        ptf_ip = ptfhost.mgmt_ip
+        res = localhost.announce_routes(
+            topo_name=topo_name,
+            ptf_ip=ptf_ip,
+            action='generate',
+            path="../ansible/",
+            log_path="logs",
+            dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
+        )
+        if 'topo_routes' not in res:
+            logger.warning("No routes generated.")
+        else:
+            for host in res['topo_routes'].keys():
+                if host in bgp_routes:
+                    pytest.fail("Duplicate vm name={} on multiple servers".format(host))
+                bgp_routes[host] = res['topo_routes'][host]
+    return bgp_routes
 
 
 @pytest.fixture(scope='module')
@@ -1301,24 +1408,41 @@ def get_host_data(request, dut):
     return get_host_vars(inv_files, dut)
 
 
-def generate_params_frontend_hostname(request):
+def generate_params_frontend_hostname(request, macsec_only=False):
     frontend_duts = []
-    tbname, _ = get_tbinfo(request)
+    tbname, tbinfo = get_tbinfo(request)
     duts = get_specified_duts(request)
     inv_files = get_inventory_files(request)
-    for dut in duts:
-        if is_frontend_node(inv_files, dut):
-            frontend_duts.append(dut)
+    host_type = "frontend"
+
+    if macsec_only:
+        host_type = "macsec"
+        if 't2' in tbinfo['topo']['name'] and request.config.option.enable_macsec:
+            # currently in the T2 topo only the uplink linecard will have macsec enabled
+            # Please add "macsec_card = True" param to inventory the inventory file
+            # under Line Card with macsec capability.
+            for dut in duts:
+                if is_frontend_node(inv_files, dut) and is_macsec_capable_node(inv_files, dut):
+                    frontend_duts.append(dut)
+            if not frontend_duts:
+                logging.info("no macsec card found")
+        else:
+            frontend_duts.append(duts[0])
+    else:
+        for dut in duts:
+            if is_frontend_node(inv_files, dut):
+                frontend_duts.append(dut)
+
     assert len(frontend_duts) > 0, \
-        "Test selected require at-least one frontend node, " \
-        "none of the DUTs '{}' in testbed '{}' are a supervisor node".format(duts, tbname)
+        "Test selected require at-least one {} node, " \
+        "none of the DUTs '{}' in testbed '{}' are a {} node".format(host_type, duts, tbname, host_type)
     return frontend_duts
 
 
-def generate_params_hostname_rand_per_hwsku(request, frontend_only=False):
+def generate_params_hostname_rand_per_hwsku(request, frontend_only=False, macsec_only=False):
     hosts = get_specified_duts(request)
     if frontend_only:
-        hosts = generate_params_frontend_hostname(request)
+        hosts = generate_params_frontend_hostname(request, macsec_only=macsec_only)
 
     hosts_per_hwsku = get_hosts_per_hwsku(request, hosts)
     return hosts_per_hwsku
@@ -1437,6 +1561,29 @@ def get_testbed_metadata(request):
         return None
 
     folder = 'metadata'
+    filepath = os.path.join(folder, tbname + '.json')
+    metadata = None
+
+    try:
+        with open(filepath, 'r') as yf:
+            metadata = json.load(yf)
+    except IOError:
+        return None
+
+    return metadata.get(tbname)
+
+
+def get_snappi_testbed_metadata(request):
+    """
+    Get the metadata for the testbed name. Return None if tbname is
+    not provided, or metadata file not found or metadata does not
+    contain tbname
+    """
+    tbname = request.config.getoption("--testbed")
+    if not tbname:
+        return None
+
+    folder = 'metadata/snappi_tests'
     filepath = os.path.join(folder, tbname + '.json')
     metadata = None
 
@@ -1676,11 +1823,16 @@ def pfc_pause_delay_test_params(request):
 
 _frontend_hosts_per_hwsku_per_module = {}
 _hosts_per_hwsku_per_module = {}
+_rand_one_asic_per_module = {}
+_rand_one_frontend_asic_per_module = {}
+_macsec_frontend_hosts_per_hwsku_per_module = {}
 def pytest_generate_tests(metafunc):        # noqa: E302
     # The topology always has atleast 1 dut
     dut_fixture_name = None
     duts_selected = None
     global _frontend_hosts_per_hwsku_per_module, _hosts_per_hwsku_per_module
+    global _macsec_frontend_hosts_per_hwsku_per_module
+    global _rand_one_asic_per_module, _rand_one_frontend_asic_per_module
     # Enumerators for duts are mutually exclusive
     target_hostname = get_target_hostname(metafunc)
     if target_hostname:
@@ -1701,6 +1853,10 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 _frontend_hosts_per_hwsku_per_module[metafunc.module] = duts_selected
 
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+        elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
+            if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
+                _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = duts_selected
+            dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
     else:
         if "enum_dut_hostname" in metafunc.fixturenames:
             duts_selected = generate_params_dut_hostname(metafunc)
@@ -1723,6 +1879,14 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                 _frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
             duts_selected = _frontend_hosts_per_hwsku_per_module[metafunc.module]
             dut_fixture_name = "enum_rand_one_per_hwsku_frontend_hostname"
+        elif "enum_rand_one_per_hwsku_macsec_frontend_hostname" in metafunc.fixturenames:
+            if metafunc.module not in _macsec_frontend_hosts_per_hwsku_per_module:
+                hosts_per_hwsku = generate_params_hostname_rand_per_hwsku(
+                    metafunc, frontend_only=True, macsec_only=True
+                )
+                _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module] = hosts_per_hwsku
+            duts_selected = _macsec_frontend_hosts_per_hwsku_per_module[metafunc.module]
+            dut_fixture_name = "enum_rand_one_per_hwsku_macsec_frontend_hostname"
 
     asics_selected = None
     asic_fixture_name = None
@@ -1749,10 +1913,18 @@ def pytest_generate_tests(metafunc):        # noqa: E302
         asics_selected = generate_dut_backend_asics(metafunc, duts_selected)
     elif "enum_rand_one_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_ALL, random_asic=True)
+        if metafunc.module not in _rand_one_asic_per_module:
+            asics_selected = generate_param_asic_index(metafunc, duts_selected,
+                                                       ASIC_PARAM_TYPE_ALL, random_asic=True)
+            _rand_one_asic_per_module[metafunc.module] = asics_selected
+        asics_selected = _rand_one_asic_per_module[metafunc.module]
     elif "enum_rand_one_frontend_asic_index" in metafunc.fixturenames:
         asic_fixture_name = "enum_rand_one_frontend_asic_index"
-        asics_selected = generate_param_asic_index(metafunc, duts_selected, ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
+        if metafunc.module not in _rand_one_frontend_asic_per_module:
+            asics_selected = generate_param_asic_index(metafunc, duts_selected,
+                                                       ASIC_PARAM_TYPE_FRONTEND, random_asic=True)
+            _rand_one_frontend_asic_per_module[metafunc.module] = asics_selected
+        asics_selected = _rand_one_frontend_asic_per_module[metafunc.module]
 
     # Create parameterization tuple of dut_fixture_name, asic_fixture_name and feature to parameterize
     if dut_fixture_name and asic_fixture_name and ("enum_dut_feature" in metafunc.fixturenames):
@@ -1848,8 +2020,8 @@ def pytest_generate_tests(metafunc):        # noqa: E302
     if 'enum_dut_lossy_prio' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy'))
     if 'enum_one_dut_lossy_prio' in metafunc.fixturenames:
-        metafunc.parametrize("enum_one_dut_lossy_prio", generate_priority_lists(metafunc, 'lossy',
-                                                                                one_dut_only=True))
+        metafunc.parametrize("enum_one_dut_lossy_prio",
+                             generate_priority_lists(metafunc, 'lossy', one_dut_only=True))
     if 'enum_dut_lossy_prio_with_completeness_level' in metafunc.fixturenames:
         metafunc.parametrize("enum_dut_lossy_prio_with_completeness_level",
                              generate_priority_lists(metafunc, 'lossy', with_completeness_level=True))
@@ -1865,6 +2037,9 @@ def pytest_generate_tests(metafunc):        # noqa: E302
             metafunc.parametrize('topo_scenario', ['m0_vlan_scenario', 'm0_l3_scenario'], scope='module')
         else:
             metafunc.parametrize('topo_scenario', ['default'], scope='module')
+
+    if 'tgen_port_info' in metafunc.fixturenames:
+        metafunc.parametrize('tgen_port_info', generate_skeleton_port_info(metafunc), indirect=True)
 
     if 'vlan_name' in metafunc.fixturenames:
         if tbinfo['topo']['type'] == 'm0' and 'topo_scenario' in metafunc.fixturenames:
@@ -1905,6 +2080,90 @@ def pytest_generate_tests(metafunc):        # noqa: E302
                     metafunc.parametrize('vlan_name', ['Vlan1000'], scope='module')
                 else:
                     metafunc.parametrize('vlan_name', ['no_vlan'], scope='module')
+
+
+@lru_cache
+def parse_override(testbed, field):
+    is_dynamic_only = "--enable-snappi-dynamic-ports" in sys.argv
+
+    if is_dynamic_only and field != "pfcQueueGroupSize":
+        # Args "--enable-snappi-dynamic-ports" should not affect field `pfcQueueGroupSize`
+        return False, None
+
+    override_file = "snappi_tests/variables.override.yml"
+
+    with open(override_file, 'r') as f:
+        all_values = yaml.safe_load(f)
+        if testbed not in all_values or field not in all_values[testbed]:
+            return False, None
+
+        return True, all_values[testbed][field]
+
+    return False, None
+
+
+def generate_skeleton_port_info(request):
+    """
+    Return minimal port_info parameters to populate later in the format of <speed>-<category>. i.e
+
+    ["400.0-single_linecard_single_asic", "400.0-multiple_linecard_multiple_asic",...]
+    """
+    is_override, override_data = parse_override(
+        request.config.getoption("--testbed"),
+        'multidut_port_info'
+    )
+
+    if is_override:
+        return override_data
+
+    dut_info = get_snappi_testbed_metadata(request) or []
+    available_interfaces = {}
+    matrix = {}
+    for index, linecard in enumerate(dut_info):
+        interface_to_asic = {}
+        for asic in dut_info[linecard]["asic_to_interface"]:
+            for interface in dut_info[linecard]["asic_to_interface"][asic]:
+                interface_to_asic[interface] = asic
+
+        available_interfaces[linecard] = [dut_info[linecard]['intf_status'][interface]
+                                          for interface in dut_info[linecard]['intf_status']
+                                          if dut_info[linecard]['intf_status'][interface]["admin_state"] == "up"]
+
+        for interface in available_interfaces[linecard]:
+            for key, value in dut_info[linecard]["asic_to_interface"].items():
+                if interface['name'] in value:
+                    interface['asic'] = key
+
+        for interface in available_interfaces[linecard]:
+            speed = float(re.match(r"([\d.]+)", interface['speed']).group(0))
+            asic = interface['asic']
+            if (speed not in matrix):
+                matrix[speed] = {}
+            if (linecard not in matrix[speed]):
+                matrix[speed][linecard] = {}
+            if (asic not in matrix[speed][linecard]):
+                matrix[speed][linecard][asic] = 1
+            else:
+                matrix[speed][linecard][asic] += 1
+
+    def build_params(speed, category):
+        return f"{speed}-{category}"
+
+    flattened_list = set()
+
+    for speed, linecards in matrix.items():
+        if len(linecards) >= 2:
+            flattened_list.add(build_params(speed, 'multiple_linecard_multiple_asic'))
+
+        for linecard, asic_list in linecards.items():
+            if len(asic_list) >= 2:
+                flattened_list.add(build_params(speed, 'single_linecard_multiple_asic'))
+
+            for asics, port_count in asic_list.items():
+                if int(port_count) >= 2:
+                    flattened_list.add(build_params(speed, 'single_linecard_single_asic'))
+
+    return list(flattened_list)
 
 
 def get_autoneg_tests_data():
@@ -1968,6 +2227,11 @@ def enum_rand_one_per_hwsku_frontend_hostname(request):
 
 
 @pytest.fixture(scope="module")
+def enum_rand_one_per_hwsku_macsec_frontend_hostname(request):
+    return request.param
+
+
+@pytest.fixture(scope="module")
 def enum_asic_index(request):
     return request.param
 
@@ -1999,15 +2263,8 @@ def enum_rand_one_frontend_asic_index(request):
 
 @pytest.fixture(scope='module')
 def enum_upstream_dut_hostname(duthosts, tbinfo):
-    if tbinfo["topo"]["type"] == "m0":
-        upstream_nbr_type = "M1"
-    elif tbinfo["topo"]["type"] == "mx":
-        upstream_nbr_type = "M0"
-    elif tbinfo["topo"]["type"] == "t0":
-        upstream_nbr_type = "T1"
-    elif tbinfo["topo"]["type"] == "t1":
-        upstream_nbr_type = "T2"
-    else:
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
+    if upstream_nbr_type is None:
         upstream_nbr_type = "T3"
 
     for a_dut in duthosts.frontend_nodes:
@@ -2048,7 +2305,7 @@ def cleanup_cache_for_session(request):
         cache.cleanup(zone=a_dut)
     inv_data = get_host_visible_vars(inv_files, a_dut)
     if 'num_asics' in inv_data and inv_data['num_asics'] > 1:
-        for asic_id in range(inv_data['num_asics']):
+        for asic_id in range(0, inv_data['num_asics']):
             cache.cleanup(zone="{}-asic{}".format(a_dut, asic_id))
 
 
@@ -2222,7 +2479,7 @@ def dut_test_params_qos(duthosts, tbinfo, ptfhost, get_src_dst_asic_and_duts, lo
     yield rtn_dict
 
 
-@ pytest.fixture(scope='class')
+@pytest.fixture(scope='class')
 def dut_test_params(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo,
                     ptf_portmap_file, lower_tor_host, creds):   # noqa: F811
     """
@@ -2373,7 +2630,7 @@ def collect_db_dump(request, duthosts):
         collect_db_dump_on_duts(request, duthosts)
 
 
-def restore_config_db_and_config_reload(duts_data, duthosts):
+def restore_config_db_and_config_reload(duts_data, duthosts, request):
     # First copy the pre_running_config to the config_db.json files
     for duthost in duthosts:
         logger.info("dut reload called on {}".format(duthost.hostname))
@@ -2389,11 +2646,13 @@ def restore_config_db_and_config_reload(duts_data, duthosts):
                 duthost.copy(src=asic_cfg_file, dest='/etc/sonic/config_db{}.json'.format(asic_index), verbose=False)
                 os.remove(asic_cfg_file)
 
+    wait_for_bgp = False if request.config.getoption("skip_sanity") else True
+
     # Second execute config reload on all duthosts
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts:
             executor.submit(config_reload, duthost, wait_before_force_reload=300, safe_reload=True,
-                            check_intf_up_ports=True, wait_for_bgp=True)
+                            check_intf_up_ports=True, wait_for_bgp=wait_for_bgp)
 
 
 def compare_running_config(pre_running_config, cur_running_config):
@@ -2420,7 +2679,7 @@ def compare_running_config(pre_running_config, cur_running_config):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def core_dump_and_config_check(duthosts, tbinfo, request,
+def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
                                # make sure the tear down of sanity_check happened after core_dump_and_config_check
                                sanity_check):
     '''
@@ -2428,30 +2687,30 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
     If so, we will reload the running config after test case running.
     '''
 
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = (
-        is_parallel_run(request),
-        get_target_hostname(request),
-        is_parallel_leader(request),
-        get_parallel_followers(request),
-        get_parallel_state_file(request),
-    )
-
-    initial_check_state = (InitialCheckState(par_followers, par_state_file) if is_par_run else None)
-    if is_par_run and not is_par_leader:
+    par_ctx = parallel_run_context
+    parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+    if par_ctx.is_par_run and not par_ctx.is_par_leader:
         logger.info(
             "Fixture core_dump_and_config_check setup for non-leader nodes in parallel run is skipped. "
             "Please refer to the leader node log for core dump and config check status."
         )
 
-        initial_check_state.wait_and_acknowledge_status(
-            InitialCheckStatus.SETUP_COMPLETED,
-            is_par_leader,
-            target_hostname,
+        parallel_coordinator.wait_and_ack_status_for_followers(
+            ParallelStatus.SETUP_COMPLETED,
+            par_ctx.is_par_leader,
+            par_ctx.target_hostname,
         )
+
+        parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.SETUP_COMPLETED)
 
         yield {}
 
-        initial_check_state.mark_tests_completed_for_follower(target_hostname)
+        parallel_coordinator.mark_and_wait_for_status(
+            ParallelStatus.TESTS_COMPLETED,
+            par_ctx.target_hostname,
+            par_ctx.is_par_leader,
+        )
+
         logger.info(
             "Fixture core_dump_and_config_check teardown for non-leader nodes in parallel run is skipped. "
             "Please refer to the leader node log for core dump and config check status."
@@ -2514,15 +2773,29 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 for duthost in duthosts:
                     executor.submit(collect_before_test, duthost)
 
-        if is_par_run and is_par_leader:
-            initial_check_state.set_new_status(InitialCheckStatus.SETUP_COMPLETED, is_par_leader, target_hostname)
-            initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.SETUP_COMPLETED)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_COMPLETED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
+
+            parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.SETUP_COMPLETED)
 
         yield duts_data
 
-        if is_par_run and is_par_leader:
-            initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TESTS_COMPLETED)
-            initial_check_state.set_new_status(InitialCheckStatus.TEARDOWN_STARTED, is_par_leader, target_hostname)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.mark_and_wait_for_status(
+                ParallelStatus.TESTS_COMPLETED,
+                par_ctx.target_hostname,
+                par_ctx.is_par_leader,
+            )
+
+            parallel_coordinator.set_new_status(
+                ParallelStatus.TEARDOWN_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
         inconsistent_config = {}
         pre_only_config = {}
@@ -2701,7 +2974,7 @@ def core_dump_and_config_check(duthosts, tbinfo, request,
                 logger.warning("Core dump or config check failed for {}, results: {}"
                                .format(module_name, json.dumps(check_result)))
 
-                restore_config_db_and_config_reload(duts_data, duthosts)
+                restore_config_db_and_config_reload(duts_data, duthosts, request)
             else:
                 logger.info("Core dump and config check passed for {}".format(module_name))
 
@@ -2741,7 +3014,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+                    executor.submit(stop_route_checker_on_duthost, duthost)
 
             yield
 
@@ -2751,7 +3024,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+                    executor.submit(start_route_checker_on_duthost, duthost)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
@@ -2890,6 +3163,47 @@ def gnxi_path(ptfhost):
     return gnxipath
 
 
+@pytest.fixture(scope="module")
+def selected_asic_index(request):
+    asic_index = DEFAULT_ASIC_ID
+    if "enum_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_asic_index")
+    elif "enum_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_frontend_asic_index")
+    elif "enum_backend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_backend_asic_index")
+    elif "enum_rand_one_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_asic_index")
+    elif "enum_rand_one_frontend_asic_index" in request.fixturenames:
+        asic_index = request.getfixturevalue("enum_rand_one_frontend_asic_index")
+    logger.info(f"Selected asic_index {asic_index}")
+    return asic_index
+
+
+@pytest.fixture(scope="module")
+def ip_netns_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for linux commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'sudo ip netns exec {NAMESPACE_PREFIX}{selected_asic_index}'
+
+
+@pytest.fixture(scope="module")
+def cli_namespace_prefix(request, selected_asic_index):
+    """
+    Construct the formatted namespace prefix for executed commands inside the specific
+    network namespace or for CLI commands.
+    """
+    if selected_asic_index == DEFAULT_ASIC_ID:
+        return ''
+    else:
+        return f'-n {NAMESPACE_PREFIX}{selected_asic_index}'
+
+
 def pytest_collection_modifyitems(config, items):
     # Skip all stress_tests if --run-stress-test is not set
     if not config.getoption("--run-stress-tests"):
@@ -2897,3 +3211,501 @@ def pytest_collection_modifyitems(config, items):
         for item in items:
             if "stress_test" in item.keywords:
                 item.add_marker(skip_stress_tests)
+
+
+def update_t1_test_ports(duthost, mg_facts, test_ports, tbinfo):
+    """
+    Find out active IP interfaces and use the list to
+    remove inactive ports from test_ports
+    """
+    ip_ifaces = duthost.get_active_ip_interfaces(tbinfo, asic_index=0)
+    port_list = []
+    for iface in list(ip_ifaces.keys()):
+        if iface.startswith("PortChannel"):
+            port_list.extend(
+                mg_facts["minigraph_portchannels"][iface]["members"]
+            )
+        else:
+            port_list.append(iface)
+    port_list_set = set(port_list)
+    for port in list(test_ports.keys()):
+        if port not in port_list_set:
+            del test_ports[port]
+    return test_ports
+
+
+@pytest.fixture(scope="module", params=['IPv6', 'IPv4'])
+def ip_version(request):
+    return request.param
+
+
+@pytest.fixture(scope="module")
+def setup_pfc_test(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, conn_graph_facts, tbinfo, ip_version,     # noqa F811
+):
+    """
+    Sets up all the parameters needed for the PFC Watchdog tests
+
+    Args:
+        duthost: AnsibleHost instance for DUT
+        ptfhost: AnsibleHost instance for PTF
+        conn_graph_facts: fixture that contains the parsed topology info
+
+    Yields:
+        setup_info: dictionary containing pfc timers, generated test ports and selected test ports
+    """
+    SUPPORTED_T1_TOPOS = {"t1-lag", "t1-64-lag", "t1-56-lag", "t1-28-lag", "t1-32-lag"}
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    port_list = list(mg_facts['minigraph_ports'].keys())
+    neighbors = conn_graph_facts['device_conn'].get(duthost.hostname, {})
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    dut_eth0_ip = duthost.mgmt_ip
+    vlan_nw = None
+
+    if mg_facts['minigraph_vlans']:
+        # Filter VLANs with one interface inside only(PortChannel interface in case of t0-56-po2vlan topo)
+        unexpected_vlans = []
+        for vlan, vlan_data in list(mg_facts['minigraph_vlans'].items()):
+            if len(vlan_data['members']) < 2:
+                unexpected_vlans.append(vlan)
+
+        # Update minigraph_vlan_interfaces with only expected VLAN interfaces
+        expected_vlan_ifaces = []
+        for vlan in unexpected_vlans:
+            for mg_vl_iface in mg_facts['minigraph_vlan_interfaces']:
+                if vlan != mg_vl_iface['attachto']:
+                    expected_vlan_ifaces.append(mg_vl_iface)
+        if expected_vlan_ifaces:
+            mg_facts['minigraph_vlan_interfaces'] = expected_vlan_ifaces
+
+        # gather all vlan specific info
+        ip_index = 0 if ip_version == "IPv4" else 1
+        vlan_addr = mg_facts['minigraph_vlan_interfaces'][ip_index]['addr']
+        vlan_prefix = mg_facts['minigraph_vlan_interfaces'][ip_index]['prefixlen']
+        vlan_dev = mg_facts['minigraph_vlan_interfaces'][ip_index]['attachto']
+        vlan_ips = duthost.get_ip_in_range(
+            num=1, prefix="{}/{}".format(vlan_addr, vlan_prefix),
+            exclude_ips=[vlan_addr])['ansible_facts']['generated_ips']
+        vlan_nw = vlan_ips[0].split('/')[0]
+
+    topo = tbinfo["topo"]["name"]
+    # build the port list for the test
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if ip_version == "IPv4":
+        ip_version_num = 4
+    elif ip_version == "IPv6":
+        ip_version_num = 6
+    else:
+        pytest.fail(f"Invalid IP version: {input}", pytrace=True)
+
+    tp_handle = TrafficPorts(mg_facts, neighbors, vlan_nw, topo, config_facts, ip_version_num)
+    test_ports = tp_handle.build_port_list()
+
+    # In T1 topology update test ports by removing inactive ports
+    if topo in SUPPORTED_T1_TOPOS:
+        test_ports = update_t1_test_ports(
+            duthost, mg_facts, test_ports, tbinfo
+        )
+    # select a subset of ports from the generated port list
+    selected_ports = select_test_ports(test_ports)
+
+    setup_info = {'test_ports': test_ports,
+                  'port_list': port_list,
+                  'selected_test_ports': selected_ports,
+                  'pfc_timers': set_pfc_timers(),
+                  'neighbors': neighbors,
+                  'eth0_ip': dut_eth0_ip,
+                  'ip_version': ip_version
+                  }
+
+    if mg_facts['minigraph_vlans']:
+        setup_info['vlan'] = {'addr': vlan_addr,
+                              'prefix': vlan_prefix,
+                              'dev': vlan_dev
+                              }
+    else:
+        setup_info['vlan'] = None
+
+    # stop pfcwd
+    logger.info("--- Stopping Pfcwd ---")
+    duthost.command("pfcwd stop")
+
+    # set poll interval
+    duthost.command("pfcwd interval {}".format(setup_info['pfc_timers']['pfc_wd_poll_time']))
+
+    # set bulk counter chunk size
+    logger.info("--- Setting bulk counter polling chunk size ---")
+    duthost.command('redis-cli -n 4 hset "FLEX_COUNTER_TABLE|PORT" BULK_CHUNK_SIZE 64'
+                    ' BULK_CHUNK_SIZE_PER_PREFIX "SAI_PORT_STAT_IF_OUT_QLEN:0;SAI_PORT_STAT_IF_IN_FEC:32"')
+
+    logger.info("setup_info : {}".format(setup_info))
+    yield setup_info
+
+
+@pytest.fixture(scope="session")
+def setup_gnmi_server(request, localhost, duthost):
+    """
+    SAI validation library uses gNMI to access sonic-db data
+    objects. This fixture is used by tests to set up gNMI server
+    """
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield duthost, None
+        return
+    gnmi_insecure = request.config.getoption("--gnmi_insecure")
+    if gnmi_insecure:
+        logger.info("gNMI insecure mode is enabled")
+        yield duthost, None
+        return
+    else:
+        checkpoint_name = "before-applying-gnmi-certs"
+        cert_path = pathlib.Path("/tmp/gnmi_certificates")
+        gnmi_setup.create_certificates(localhost, duthost.mgmt_ip, cert_path)
+        gnmi_setup.copy_certificates_to_dut(cert_path, duthost)
+        gnmi_setup.apply_certs(duthost, checkpoint_name)
+        yield duthost, cert_path
+        gnmi_setup.remove_certs(duthost, checkpoint_name)
+
+
+@pytest.fixture(scope="session")
+def setup_connection(request, setup_gnmi_server):
+    duthost, cert_path = setup_gnmi_server
+    disable_sai_validation = request.config.getoption("--disable_sai_validation")
+    if disable_sai_validation:
+        logger.info("SAI validation is disabled")
+        yield None
+        return
+    else:
+        # Dynamically import create_gnmi_stub
+        gnmi_client_module = importlib.import_module("tests.common.sai_validation.gnmi_client")
+        create_gnmi_stub = getattr(gnmi_client_module, "create_gnmi_stub")
+
+        # if cert_path is None then it is insecure mode
+        gnmi_insecure = request.config.getoption("--gnmi_insecure")
+        gnmi_target_port = int(request.config.getoption("--gnmi_port"))
+        duthost_mgmt_ip = duthost.mgmt_ip
+        channel = None
+        gnmi_connection = None
+        if gnmi_insecure:
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=False)
+        else:
+            root_cert = str(cert_path / 'gnmiCA.pem')
+            client_cert = str(cert_path / 'gnmiclient.crt')
+            client_key = str(cert_path / 'gnmiclient.key')
+            channel, gnmi_connection = create_gnmi_stub(ip=duthost_mgmt_ip,
+                                                        port=gnmi_target_port, secure=True,
+                                                        root_cert_path=root_cert,
+                                                        client_cert_path=client_cert,
+                                                        client_key_path=client_key)
+        yield gnmi_connection
+        channel.close()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def restore_golden_config_db(duthost):
+    if file_exists_on_dut(duthost, GOLDEN_CONFIG_DB_PATH_ORI):
+        duthost.shell("cp {} {}".format(GOLDEN_CONFIG_DB_PATH_ORI, GOLDEN_CONFIG_DB_PATH))
+        logger.info("[restore_golden_config_db] Restored {}".format(GOLDEN_CONFIG_DB_PATH))
+    yield
+
+
+@pytest.fixture(scope="session")
+def gnmi_connection(request, setup_connection):
+    connection = setup_connection
+    yield connection
+
+
+class DualtorMuxPortSetupConfig(enum.Flag):
+    """Dualtor mux port setup config."""
+    DUALTOR_SKIP_SETUP_MUX_PORTS = enum.auto()
+    DUALTOR_SETUP_MUX_PORT_MANUAL_MODE = enum.auto()
+
+    # active-standby mux setup configs
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR = enum.auto()
+    DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+
+    # active-active mux setup configs
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR = enum.auto()
+    DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR_MANUAL_MODE = \
+        DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR | DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+
+
+@pytest.fixture(autouse=True)
+def setup_dualtor_mux_ports(active_active_ports, duthost, duthosts, tbinfo, request, mux_server_url):       # noqa:F811
+    """Setup dualtor mux ports."""
+    def _get_enumerated_dut_hostname(request):
+        for k, v in request.node.callspec.params.items():
+            if k in ("enum_dut_hostname",
+                     "enum_frontend_dut_hostname",
+                     "enum_supervisor_dut_hostname",
+                     "enum_rand_one_per_hwsku_hostname",
+                     "enum_rand_one_per_hwsku_frontend_hostname"):
+                return v
+        return None
+
+    def _get_peer_dut_hostname(local_dut_hostname):
+        """Get the peer DUT hostname."""
+        for dut in duthosts:
+            if dut.hostname != local_dut_hostname:
+                return dut.hostname
+        return None
+
+    def _is_dut_hostname_valid(dut_hostname):
+        """Check if the dut hostname is valid/present in the tb."""
+        return dut_hostname in duthosts.duts
+
+    topo_name = tbinfo["topo"]["name"]
+    is_dualtor = "dualtor" in topo_name
+
+    if not is_dualtor:
+        logging.info("skip setup dualtor mux cables on non-dualtor testbed")
+        yield False
+        return
+
+    is_dualtor_aa = "dualtor-aa" in topo_name
+    # read setup configs from pytest markers
+    dualtor_setup_config = DualtorMuxPortSetupConfig(0)
+    for marker in request.node.iter_markers():
+        try:
+            dualtor_setup_config |= DualtorMuxPortSetupConfig[marker.name.upper()]
+        except KeyError:
+            continue
+    logging.debug("dualtor mux port setup config: %s", dualtor_setup_config)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SKIP_SETUP_MUX_PORTS:
+        logging.info("skip setup dualtor mux cables")
+        yield False
+        return
+
+    is_test_func_parametrized = hasattr(request.node, "callspec")
+    is_enum = is_test_func_parametrized and \
+        any(param.startswith("enum_") for param in request.node.callspec.params.keys())
+    rand_one_unselected_dut_hostname = _get_peer_dut_hostname(rand_one_dut_hostname_var)
+
+    if is_dualtor_aa:
+        # NOTE: Skip setup mux ports if the test explicitly calls
+        # an active-active mux toggle fixture.
+        for fixture in request.fixturenames:
+            if fixture == "config_active_active_dualtor_active_standby":
+                logging.info("Skip setup dualtor mux cables as toggle "
+                             "fixture %s is explicitly called",
+                             fixture)
+                yield False
+                return
+
+        active_dut_hostname = None
+        standby_dut_hostname = None
+
+        if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_ENUM_TOR:
+            if is_test_func_parametrized:
+                standby_dut_hostname = _get_enumerated_dut_hostname(request)
+                active_dut_hostname = _get_peer_dut_hostname(standby_dut_hostname)
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_UPPER_TOR:
+            standby_dut_hostname = duthosts[0].hostname
+            active_dut_hostname = duthosts[-1].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_LOWER_TOR:
+            standby_dut_hostname = duthosts[-1].hostname
+            active_dut_hostname = duthosts[0].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_TOR:
+            standby_dut_hostname = rand_one_dut_hostname_var
+            active_dut_hostname = rand_one_unselected_dut_hostname
+        elif dualtor_setup_config & \
+                DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_ACTIVE_SETUP_STANDBY_ON_RANDOM_UNSELECTED_TOR:
+            standby_dut_hostname = rand_one_unselected_dut_hostname
+            active_dut_hostname = rand_one_dut_hostname_var
+        else:
+            # NOTE: If no marker is explicitly specified on active-active dualtor, let's
+            # leave the ToRs pair in active-active by default.
+            pass
+
+        if (_is_dut_hostname_valid(active_dut_hostname) and
+                _is_dut_hostname_valid(standby_dut_hostname)):
+            logging.info("Setup active-active dualtor, DUT %s as active side, "
+                         "DUT %s as standby side",
+                         active_dut_hostname, standby_dut_hostname)
+            config_active_active_dualtor(
+                duthosts[active_dut_hostname],
+                duthosts[standby_dut_hostname],
+                active_active_ports,
+                dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE
+            )
+        else:
+            yield False
+            return
+
+    else:
+        # NOTE: Skip setup mux ports if the test explicitly calls
+        # an active-standby mux toggle fixture.
+        for fixture in request.fixturenames:
+            if fixture.startswith("toggle_") and fixture in dir(mux_simulator_control):
+                logging.info("Skip setup dualtor mux cables as toggle "
+                             "fixture %s is explicitly called",
+                             fixture)
+                yield False
+                return
+
+        if is_enum and not (dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR):
+            logging.info(
+                "skip setup dualtor mux cables on test with enum fixture")
+            yield False
+            return
+
+        target_dut_hostname = None
+        test_func_args = [_ for _ in inspect.signature(request.node.function).parameters.keys()]
+
+        if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_ENUM_TOR:
+            # retrieve the current enumerated dut hostname
+            if is_test_func_parametrized:
+                target_dut_hostname = _get_enumerated_dut_hostname(request)
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_UPPER_TOR:
+            target_dut_hostname = duthosts[0].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_LOWER_TOR:
+            target_dut_hostname = duthosts[-1].hostname
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_TOR:
+            target_dut_hostname = rand_one_dut_hostname_var
+        elif dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_ACTIVE_STANDBY_TOGGLE_TO_RANDOM_UNSELECTED_TOR:
+            target_dut_hostname = rand_one_unselected_dut_hostname
+        else:
+            # if the test function uses `rand_selected_dut`, toggle active side to `rand_selected_dut`
+            rand_dut_fixture = "rand_one_dut_hostname"
+            duthost_fixture = "duthost"
+            if rand_dut_fixture in test_func_args or rand_dut_fixture in request.fixturenames:
+                logging.debug("Select random selected DUT %s as the toggle target",
+                              rand_one_dut_hostname_var)
+                target_dut_hostname = rand_one_dut_hostname_var
+            # if the test function uses `duthost`, toggle active side to `duthost`.
+            elif duthost_fixture in test_func_args or duthost_fixture in request.fixturenames:
+                logging.debug("Select duthost DUT %s as the toggle target",
+                              duthost.hostname)
+                target_dut_hostname = duthost.hostname
+
+        if not _is_dut_hostname_valid(target_dut_hostname):
+            logging.warn("Invalid DUT selected %s as the toggle target, fallback to use the upper ToR %s",
+                         target_dut_hostname, duthosts[0].hostname)
+            target_dut_hostname = duthosts[0].hostname
+        logging.info("Toggle mux ports to the target DUT %s",
+                     target_dut_hostname)
+        mux_simulator_control._toggle_all_simulator_ports_to_target_dut(target_dut_hostname,
+                                                                        duthosts,
+                                                                        mux_server_url,
+                                                                        tbinfo)
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
+        logger.info("Set all mux ports to manual mode on all ToRs")
+        duthosts.shell("config muxcable mode manual all")
+
+    yield True
+
+    if dualtor_setup_config & DualtorMuxPortSetupConfig.DUALTOR_SETUP_MUX_PORT_MANUAL_MODE:
+        logger.info("Set all muxcable to auto mode on all ToRs")
+        duthosts.shell("config muxcable mode auto all")
+        duthosts.shell("config save -y")
+
+
+def pytest_runtest_setup(item):
+    # Let's place `setup_dualtor_mux_ports` at the tail of fixture list
+    # to make it running as last as possible.
+    fixtureinfo = item._fixtureinfo
+    for fixturedef in fixtureinfo.name2fixturedefs.values():
+        fixturedef = fixturedef[0]
+        if fixturedef.argname == "setup_dualtor_mux_ports":
+            fixtureinfo.names_closure.remove("setup_dualtor_mux_ports")
+            fixtureinfo.names_closure.append("setup_dualtor_mux_ports")
+
+
+@pytest.fixture(scope="module", autouse=False)
+def yang_validation_check(request, duthosts):
+    """
+    YANG validation check that runs before and after each test module
+    """
+    skip_yang = request.config.getoption("--skip_yang")
+
+    if skip_yang:
+        logger.info("Skipping YANG validation check due to --skip_yang flag")
+        return
+
+    def run_yang_validation(stage):
+        """Run YANG validation and return results"""
+        validation_results = {}
+
+        for duthost in duthosts:
+            logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
+            try:
+                result = duthost.shell(
+                    'echo "[]" | sudo config apply-patch /dev/stdin',
+                    module_ignore_errors=True
+                )
+
+                if result['rc'] != 0:
+                    validation_results[duthost.hostname] = {
+                        'failed': True,
+                        'error': result.get('stderr', result.get('stdout', 'Unknown error'))
+                    }
+                    logger.error(f"YANG validation failed on {duthost.hostname} ({stage}): "
+                                 f"{validation_results[duthost.hostname]['error']}")
+                else:
+                    validation_results[duthost.hostname] = {'failed': False}
+                    logger.info(f"YANG validation passed on {duthost.hostname} ({stage})")
+
+            except Exception as e:
+                validation_results[duthost.hostname] = {
+                    'failed': True,
+                    'error': str(e)
+                }
+                logger.error(f"Exception during YANG validation on {duthost.hostname} ({stage}): {str(e)}")
+
+        return validation_results
+
+    # pre-test YANG validation
+    pre_results = run_yang_validation("pre-test")
+
+    # Check if any pre-test validation failed
+    pre_failures = {host: result for host, result in pre_results.items() if result['failed']}
+    if pre_failures:
+        error_summary = []
+        for host, result in pre_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "pre-test YANG validation failed:\n" + "\n".join(error_summary))
+
+    yield
+
+    # post-test YANG validation
+    post_results = run_yang_validation("post-test")
+
+    # Check if any post-test validation failed
+    post_failures = {host: result for host, result in post_results.items() if result['failed']}
+    if post_failures:
+        error_summary = []
+        for host, result in post_failures.items():
+            error_summary.append(f"{host}: {result['error']}")
+
+        pt_assert(False, "post-test YANG validation failed:\n" + "\n".join(error_summary))

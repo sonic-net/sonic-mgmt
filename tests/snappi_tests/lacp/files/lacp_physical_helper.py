@@ -1,8 +1,7 @@
 import logging
 from tabulate import tabulate
 from statistics import mean
-from tests.common.utilities import (wait, wait_until)
-from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import wait
 logger = logging.getLogger(__name__)
 
 TGEN_AS_NUM = 65200
@@ -15,24 +14,22 @@ lacpdu_timeout_dict = {0: 'Auto', 3: 'Short', 90: 'Long'}
 aspaths = [65002, 65003]
 
 
-def run_lacp_add_remove_link_physically(cvg_api,
+def run_lacp_add_remove_link_physically(snappi_api,
                                         duthost,
                                         tgen_ports,
                                         iteration,
                                         port_count,
-                                        number_of_routes,
-                                        port_speed,):
+                                        number_of_routes,):
     """
     Run Local link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
     """
 
     """ Create bgp config on dut """
@@ -41,39 +38,34 @@ def run_lacp_add_remove_link_physically(cvg_api,
                        port_count,)
 
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
-                                        number_of_routes,
-                                        port_speed,)
+                                        number_of_routes,)
 
     """
         Run the convergence test by flapping all the rx
         links one by one and calculate the convergence values
     """
-    get_lacp_add_remove_link_physically(cvg_api,
+    get_lacp_add_remove_link_physically(snappi_api,
                                         tgen_bgp_config,
                                         iteration,
                                         port_count,
                                         number_of_routes,)
 
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
-
-def run_lacp_timers_effect(cvg_api,
+def run_lacp_timers_effect(snappi_api,
                            duthost,
                            tgen_ports,
                            iteration,
                            port_count,
                            number_of_routes,
-                           port_speed,
                            lacpdu_interval_period,
                            lacpdu_timeout,):
     """
     Run Local link failover test
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         duthost (pytest fixture): duthost fixture
         tgen_ports (pytest fixture): Ports mapping info of T0 testbed
         iteration: number of iterations for running convergence test on a port
@@ -88,10 +80,9 @@ def run_lacp_timers_effect(cvg_api,
                        port_count,)
 
     """ Create bgp config on TGEN """
-    tgen_bgp_config = __tgen_bgp_config(cvg_api,
+    tgen_bgp_config = __tgen_bgp_config(snappi_api,
                                         port_count,
                                         number_of_routes,
-                                        port_speed,
                                         lacpdu_interval_period,
                                         lacpdu_timeout,)
 
@@ -99,14 +90,11 @@ def run_lacp_timers_effect(cvg_api,
         Run the convergence test by flapping all the rx
         links one by one and calculate the convergence values
     """
-    get_lacp_add_remove_link_physically(cvg_api,
+    get_lacp_add_remove_link_physically(snappi_api,
                                         tgen_bgp_config,
                                         iteration,
                                         port_count,
                                         number_of_routes,)
-
-    """ Cleanup the dut configs after getting the convergence numbers """
-    cleanup_config(duthost)
 
 
 def duthost_bgp_config(duthost,
@@ -143,7 +131,8 @@ def duthost_bgp_config(duthost,
         "sudo config interface ip add PortChannel1 %s/%s\n"
     )
     tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]
-                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
+                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'],
+                              tgen_ports[0]['ipv6_prefix'])
     logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (
         tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
     duthost.shell(tx_portchannel_config)
@@ -159,7 +148,7 @@ def duthost_bgp_config(duthost,
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
                   (tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
-                  (tgen_ports[1]['peer_ipv6'], 64))
+                  (tgen_ports[1]['peer_ipv6'], tgen_ports[1]['ipv6_prefix']))
     bgp_config = (
         "vtysh "
         "-c 'configure terminal' "
@@ -181,25 +170,22 @@ def duthost_bgp_config(duthost,
     duthost.shell(bgp_config)
 
 
-def __tgen_bgp_config(cvg_api,
+def __tgen_bgp_config(snappi_api,
                       port_count,
                       number_of_routes,
-                      port_speed,
                       lacpdu_interval_period=0,
                       lacpdu_timeout=0,):
     """
     Creating  BGP config on TGEN
 
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         port_count: total number of ports used in test
         number_of_routes:  Number of IPv4/IPv6 Routes
-        port_speed: speed of the port used for test
         lacpdu_interval_period: LACP update packet interval ( 0 - Auto, 1- Fast, 30 - Slow )
         lacpdu_timeout: LACP Timeout value (0 - Auto, 3 - Short, 90 - Long)
     """
-    conv_config = cvg_api.convergence_config()
-    config = conv_config.config
+    config = snappi_api.config()
     for i in range(1, port_count+1):
         config.ports.port(name='Test_Port_%d' %
                           i, location=temp_tg_port[i-1]['location'])
@@ -238,15 +224,15 @@ def __tgen_bgp_config(cvg_api,
     layer1.name = 'port settings'
     layer1.port_names = [port.name for port in config.ports]
     layer1.ieee_media_defaults = False
-    layer1.auto_negotiation.rs_fec = True
+    layer1.auto_negotiation.rs_fec = False
     layer1.auto_negotiation.link_training = False
-    layer1.speed = port_speed
+    layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = False
 
     # Source
     config.devices.device(name='Tx')
     eth_1 = config.devices[0].ethernets.add()
-    eth_1.port_name = lag0.name
+    eth_1.connection.port_name = lag0.name
     eth_1.name = 'Ethernet 1'
     eth_1.mac = "00:14:0a:00:00:01"
     ipv4_1 = eth_1.ipv4_addresses.add()
@@ -263,7 +249,7 @@ def __tgen_bgp_config(cvg_api,
     # Destination
     config.devices.device(name="Rx")
     eth_2 = config.devices[1].ethernets.add()
-    eth_2.port_name = lag1.name
+    eth_2.connection.port_name = lag1.name
     eth_2.name = 'Ethernet 2'
     eth_2.mac = "00:14:01:00:00:01"
     ipv4_2 = eth_2.ipv4_addresses.add()
@@ -320,36 +306,38 @@ def __tgen_bgp_config(cvg_api,
         flow1.metrics.loss = True
     createTrafficItem("IPv4_1-IPv4_Routes", ipv4_1.name, route_range1.name)
     # createTrafficItem("IPv6_1-IPv6_Routes", ipv6_1.name, route_range2.name)
-    return conv_config
+    return config
 
 
-def get_flow_stats(cvg_api):
+def get_flow_stats(snappi_api):
     """
     Args:
-        cvg_api (pytest fixture): Snappi API
+        snappi_api (pytest fixture): Snappi API
     """
-    request = cvg_api.convergence_request()
-    request.metrics.flow_names = []
-    return cvg_api.get_results(request).flow_metric
+    req = snappi_api.metrics_request()
+    req.flow.flow_names = []
+    return snappi_api.get_metrics(req).flow_metrics
 
 
-def get_lacp_add_remove_link_physically(cvg_api,
+def get_lacp_add_remove_link_physically(snappi_api,
                                         bgp_config,
                                         iteration,
                                         port_count,
                                         number_of_routes,):
     """
     Args:
-        cvg_api (pytest fixture): snappi API
+        snappi_api (pytest fixture): snappi API
         bgp_config: __tgen_bgp_config
         iteration: number of iterations for running convergence test on a port
         number_of_routes:  Number of Routes
     """
     rx_port_names = []
-    for i in range(1, len(bgp_config.config.ports)):
-        rx_port_names.append(bgp_config.config.ports[i].name)
-    bgp_config.rx_rate_threshold = 90/(port_count-2)
-    cvg_api.set_config(bgp_config)
+    for i in range(1, len(bgp_config.ports)):
+        rx_port_names.append(bgp_config.ports[i].name)
+    bgp_config.events.cp_events.enable = True
+    bgp_config.events.dp_events.enable = True
+    bgp_config.events.dp_events.rx_rate_threshold = 90/(port_count-2)
+    snappi_api.set_config(bgp_config)
 
     def get_avg_cpdp_convergence_time(port_name):
         """
@@ -359,9 +347,9 @@ def get_lacp_add_remove_link_physically(cvg_api,
         table, avg, tx_frate, rx_frate, avg_delta = [], [], [], [], []
         """ Starting Protocols """
         logger.info("Starting all protocols ...")
-        cs = cvg_api.convergence_state()
-        cs.protocol.state = cs.protocol.START
-        cvg_api.set_state(cs)
+        cs = snappi_api.control_state()
+        cs.protocol.all.state = cs.protocol.all.START
+        snappi_api.set_control_state(cs)
         wait(TIMEOUT, "For Protocols To start")
         for i in range(0, iteration):
             logger.info(
@@ -369,22 +357,23 @@ def get_lacp_add_remove_link_physically(cvg_api,
 
             """ Starting Traffic """
             logger.info('Starting Traffic')
-            cs = cvg_api.convergence_state()
-            cs.transmit.state = cs.transmit.START
-            cvg_api.set_state(cs)
+            cs = snappi_api.control_state()
+            cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+            snappi_api.set_control_state(cs)
             wait(TIMEOUT, "For Traffic To start")
-            flow_stats = get_flow_stats(cvg_api)
+            flow_stats = get_flow_stats(snappi_api)
             tx_frame_rate = flow_stats[0].frames_tx_rate
             assert tx_frame_rate != 0, "Traffic has not started"
             logger.info('Traffic has started')
             """ Flapping Link """
             logger.info('Simulating Link Failure on {} link'.format(port_name))
-            cs = cvg_api.convergence_state()
-            cs.link.port_names = [port_name]
-            cs.link.state = cs.link.DOWN
-            cvg_api.set_state(cs)
-            wait(TIMEOUT-20, "For Link to go down")
-            flows = get_flow_stats(cvg_api)
+            cs.choice = cs.PORT
+            cs.port.choice = cs.port.LINK
+            cs.port.link.port_names = [port_name]
+            cs.port.link.state = cs.port.link.DOWN
+            snappi_api.set_control_state(cs)
+            wait(TIMEOUT, "For Link to go down")
+            flows = get_flow_stats(snappi_api)
             for flow in flows:
                 tx_frate.append(flow.frames_tx_rate)
                 rx_frate.append(flow.frames_tx_rate)
@@ -393,9 +382,9 @@ def get_lacp_add_remove_link_physically(cvg_api,
                 .format(sum(tx_frate), sum(rx_frate))
             logger.info("Traffic has converged after link flap")
             """ Get control plane to data plane convergence value """
-            request = cvg_api.convergence_request()
+            request = snappi_api.metrics_request()
             request.convergence.flow_names = []
-            convergence_metrics = cvg_api.get_results(request).flow_convergence
+            convergence_metrics = snappi_api.get_metrics(request).convergence_metrics
             for metrics in convergence_metrics:
                 logger.info('CP/DP Convergence Time (ms): {}'.format(
                     metrics.control_plane_data_plane_convergence_us/1000))
@@ -405,10 +394,11 @@ def get_lacp_add_remove_link_physically(cvg_api,
             """ Performing link up at the end of iteration """
             logger.info(
                 'Simulating Link Up on {} at the end of iteration {}'.format(port_name, i+1))
-            cs = cvg_api.convergence_state()
-            cs.link.port_names = [port_name]
-            cs.link.state = cs.link.UP
-            cvg_api.set_state(cs)
+            cs.choice = cs.PORT
+            cs.port.choice = cs.port.LINK
+            cs.port.link.port_names = [port_name]
+            cs.port.link.state = cs.port.link.UP
+            snappi_api.set_control_state(cs)
         table.append('%s Link Failure' % port_name)
         table.append(number_of_routes)
         table.append(iteration)
@@ -422,19 +412,3 @@ def get_lacp_add_remove_link_physically(cvg_api,
     columns = ['Event Name', 'No. of Routes', 'Iterations',
                'Frames Delta', 'Avg Calculated Data Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-
-
-def cleanup_config(duthost):
-    """
-    Cleaning up dut config at the end of the test
-
-    Args:
-        duthost (pytest fixture): duthost fixture
-    """
-    logger.info('Cleaning up config')
-    duthost.command("sudo cp {} {}".format(
-        "/etc/sonic/config_db_backup.json", "/etc/sonic/config_db.json"))
-    duthost.shell("sudo config reload -y \n")
-    pytest_assert(wait_until(360, 10, 1, duthost.critical_services_fully_started),
-                  "Not all critical services are fully started")
-    logger.info('Convergence Test Completed')

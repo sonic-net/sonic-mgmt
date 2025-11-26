@@ -3,8 +3,11 @@ Tests related to L2 configuration
 """
 
 import logging
+import os
 import pytest
 import tempfile
+
+from pytest_ansible.errors import AnsibleConnectionFailure
 
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -69,6 +72,11 @@ def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     duthost.shell("sudo rm -f {}".format(MINIGRAPH_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
+
+    # Clean up pytest cache so l2 testbed does not carry over to other tests
+    folder = "_cache"
+    if os.path.exists(folder):
+        os.system("rm -rf {}".format(folder))
 
 
 def is_table_empty(duthost, table):
@@ -175,7 +183,12 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Remove minigraph to avoid config coming from minigraph.
     duthost.shell("sudo rm {}".format(MINIGRAPH))
-    config_reload(duthost)
+    try:
+        config_reload(duthost)
+    except AnsibleConnectionFailure as e:
+        # In latest SONiC, config reload command will exit after mgmt interface restart
+        # Then 'duthost' will lost IPV4 connection and throw exception
+        logger.warning(f'Exception after config reload: {e}')
     wait_critical_processes(duthost)
     db_version_after = get_db_version(duthost)
     logger.info(

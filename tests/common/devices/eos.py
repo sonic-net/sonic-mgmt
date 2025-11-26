@@ -5,6 +5,8 @@ import re
 import os
 
 from tests.common.devices.base import AnsibleHostBase
+from tests.common.errors import RunAnsibleModuleFail
+from retry import retry
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +83,7 @@ class EosHost(AnsibleHostBase):
     def __repr__(self):
         return self.__str__()
 
+    @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def shutdown(self, interface_name):
         out = self.eos_config(
             lines=['shutdown'],
@@ -92,6 +95,7 @@ class EosHost(AnsibleHostBase):
         intf_str = ','.join(interfaces)
         return self.shutdown(intf_str)
 
+    @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def no_shutdown(self, interface_name):
         out = self.eos_config(
             lines=['no shutdown'],
@@ -212,14 +216,23 @@ class EosHost(AnsibleHostBase):
             logging.info("Set interface [%s] lacp rate to [%s]" % (interface_name, mode))
         return out
 
+    def is_multiagent(self):
+        out = self.eos_command(commands=["show ip route summary | json"])
+        model = out["stdout"][0]["protoModelStatus"]["operatingProtoModel"]
+        return model == "multi-agent"
+
     def kill_bgpd(self):
-        out = self.eos_config(lines=['agent Rib shutdown'])
+        agent = 'Bgp' if self.is_multiagent() else 'Rib'
+        out = self.eos_config(lines=['agent {} shutdown'.format(agent)])
         return out
 
+    @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def start_bgpd(self):
-        out = self.eos_config(lines=['no agent Rib shutdown'])
+        agent = 'Bgp' if self.is_multiagent() else 'Rib'
+        out = self.eos_config(lines=['no agent {} shutdown'.format(agent)])
         return out
 
+    @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def no_shutdown_bgp(self, asn):
         out = self.eos_config(
             lines=['no shut'],
@@ -227,6 +240,7 @@ class EosHost(AnsibleHostBase):
         logging.info('No shut BGP [%s]' % asn)
         return out
 
+    @retry(RunAnsibleModuleFail, tries=3, delay=5)
     def no_shutdown_bgp_neighbors(self, asn, neighbors=[]):
         if not neighbors:
             return
@@ -414,7 +428,8 @@ class EosHost(AnsibleHostBase):
                     'show interface {} hardware'.format(interface_name)]
         for command in commands:
             output = self.eos_command(commands=[command])
-            found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0])
+            # Ignore case as EOS 4.23 has format of "Speed/Duplex" whereas 4.25 is "Speed/duplex"
+            found_txt = re.search("Speed/Duplex: (.+)", output['stdout'][0], flags=re.IGNORECASE)
             if found_txt is not None:
                 break
 
@@ -423,7 +438,12 @@ class EosHost(AnsibleHostBase):
 
         speed_list = found_txt.groups()[0]
         speed_list = speed_list.split(',')
-        speed_list.remove('auto')
+
+        try:
+            speed_list.remove('auto')
+        except ValueError:
+            # auto may not be in speed options for certain versions
+            pass
 
         def extract_speed_only(v):
             return re.match(r'\d+', v.strip()).group() + '000'
@@ -575,3 +595,6 @@ class EosHost(AnsibleHostBase):
             parents=['interface {}'.format(interface_name)])
         logging.info('Reset lacp timer to default for interface [%s]' % interface_name)
         return out
+
+    def config(self, lines=None, parents=None, module_ignore_errors=False):
+        return self.eos_config(lines=lines, parents=parents)

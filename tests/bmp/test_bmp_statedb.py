@@ -3,7 +3,6 @@ import pytest
 import time
 import re
 from bmp.helper import enable_bmp_neighbor_table, enable_bmp_rib_in_table, enable_bmp_rib_out_table
-from bmp.helper import disable_bmp_neighbor_table, disable_bmp_rib_in_table, disable_bmp_rib_out_table
 
 logger = logging.getLogger(__name__)
 
@@ -28,7 +27,10 @@ def check_dut_bmp_neighbor_status(duthost, neighbor_addr, max_attempts=120, retr
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert entry_num != 0  # If all attempts fail, raise an assertion error
+    assert entry_num != 0, (
+        "BMP STATE_DB entry not found for the specified neighbor. "
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
@@ -45,7 +47,10 @@ def check_dut_bmp_rib_in_status(duthost, neighbor_addr, max_attempts=120, retry_
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert entry_num != 0  # If all attempts fail, raise an assertion error
+    assert entry_num != 0, (
+        "BMP rib_in state entry not found for the specified neighbor. "
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry_interval=3):
@@ -62,7 +67,10 @@ def check_dut_bmp_rib_out_status(duthost, neighbor_addr, max_attempts=120, retry
         if i < max_attempts:
             time.sleep(retry_interval)
 
-    assert entry_num != 0  # If all attempts fail, raise an assertion error
+    assert entry_num != 0, (
+        "BMP rib_out state entry not found for the specified neighbor. "
+        "entry_num: {}. The neighbor address '{}' may be incorrect or not present in the BGP configuration."
+    ).format(entry_num, neighbor_addr if 'neighbor_addr' in locals() else "unknown")
 
 
 def get_neighbors(duthost):
@@ -126,8 +134,3 @@ def test_bmp_population(duthosts, rand_one_dut_hostname, localhost):
     enable_bmp_rib_out_table(duthost)
     for idx, neighbor_v6addr in enumerate(neighbor_v6addrs):
         check_dut_bmp_rib_out_status(duthost, neighbor_v6addr)
-
-    # disable all table to avoid further impact to other test cases
-    disable_bmp_neighbor_table(duthost)
-    disable_bmp_rib_in_table(duthost)
-    disable_bmp_rib_out_table(duthost)

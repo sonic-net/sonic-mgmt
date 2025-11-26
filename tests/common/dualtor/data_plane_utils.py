@@ -1,3 +1,4 @@
+import copy
 import pytest
 import json
 import os.path
@@ -5,6 +6,8 @@ import re
 import time
 import random
 import shutil
+
+from itertools import groupby
 
 from tests.common.dualtor.dual_tor_common import active_active_ports        # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports       # noqa: F401
@@ -42,7 +45,8 @@ def arp_setup(ptfhost):
 
 def validate_traffic_results(tor_IO, allowed_disruption, delay,
                              allow_disruption_before_traffic=False,
-                             allowed_duplication=None):
+                             allowed_duplication=None,
+                             merge_duplications_into_disruptions=False):
     """
     Generates a report (dictionary) of I/O metrics that were calculated as part
     of the dataplane test. This report is to be used by testcases to verify the
@@ -60,6 +64,55 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
     for server_ip, result in natsorted(list(results.items())):
         total_received_packets = result['received_packets']
         received_packet_diff = result['received_packets'] - result['sent_packets']
+
+        # NOTE: merge duplications into disruptions.
+        #  'disruptions': [{'end_id': 68,
+        #                   'start_id': 66},
+        #                  {'end_id': 73,
+        #                   'start_id': 70}],
+        #  'duplications': [{'duplication_count': 11,
+        #                    'end_id': 68,
+        #                    'start_id': 68,
+        #                   {'duplication_count': 8,
+        #                    'end_id': 69,
+        #                    'start_id': 69,
+        #                   {'duplication_count': 4,
+        #                    'end_id': 70,
+        #                    'start_id': 70}]
+        # If merge duplication is enabled, the test will report only one disruption [66, 73].
+        # The reason to do so is for link down failure scenario on MLNX/CISCO platforms, the
+        # downstream traffic is disrupted immediately after link down/fdb flush, but the
+        # packets are flooded in the VLAN and the test might receive several duplicates within
+        # the disruption period (between link down and switchover).
+        # The dualtor I/O flow examine logic will regard those duplications as packet delivery,
+        # so multiple disruptions will be reported. So we need to reassemble the true disruption
+        # with the duplications here.
+        if merge_duplications_into_disruptions and result['disruptions']:
+            logger.debug("Server %s disruptions before merge:\n%s",
+                         server_ip, json.dumps(result['disruptions'], indent=4))
+            logger.debug("Server %s duplications before merge:\n%s",
+                         server_ip, json.dumps(result['duplications'], indent=4))
+            disruptions = []
+            intervals = copy.deepcopy(result['disruptions']) + copy.deepcopy(result['duplications'])
+            intervals.sort(key=lambda interval: interval['start_time'])
+            for interval in intervals:
+                if disruptions and interval['start_id'] <= disruptions[-1]['end_id'] + 1:
+                    if disruptions[-1]['end_id'] < interval['end_id']:
+                        disruptions[-1]['end_id'] = interval['end_id']
+                        disruptions[-1]['end_time'] = interval['end_time']
+                    # "duplication_count" is used to distinguish duplications, so if we merge a
+                    # disruption into a duplication, remove the "duplication_count" key to make the
+                    # last entry as a disruption.
+                    if "duplication_count" in disruptions[-1] and "duplication_count" not in interval:
+                        disruptions[-1].pop("duplication_count")
+                else:
+                    disruptions.append(interval)
+
+            # keep only disruptions
+            result['disruptions'] = [_ for _ in disruptions if "duplication_count" not in _]
+            logger.debug("Server %s disruptions after merge:\n%s",
+                         server_ip, json.dumps(result['disruptions'], indent=4))
+
         total_disruptions = len(result['disruptions'])
 
         longest_disruption = 0
@@ -68,12 +121,18 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
             if disruption_length > longest_disruption:
                 longest_disruption = disruption_length
 
-        total_duplications = len(result['duplications'])
+        total_duplications = len([_ for _ in groupby(enumerate(result['duplications']),
+                                                     lambda t: t[0] - t[1]['start_id'])])
+        largest_duplication_count = 0
+        largest_duplication_count_packet_id = None
         longest_duplication = 0
         for duplication in result['duplications']:
             duplication_length = duplication['end_time'] - duplication['start_time']
             if duplication_length > longest_duplication:
                 longest_duplication = duplication_length
+            if duplication['duplication_count'] > largest_duplication_count:
+                largest_duplication_count = duplication['duplication_count']
+                largest_duplication_count_packet_id = duplication['start_id']
 
         disruption_before_traffic = result['disruption_before_traffic']
         disruption_after_traffic = result['disruption_after_traffic']
@@ -85,6 +144,7 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
             'longest_disruption': longest_disruption,
             'total_duplications': total_duplications,
             'longest_duplication': longest_duplication,
+            'largest_duplication_count': largest_duplication_count,
             'disruption_before_traffic': disruption_before_traffic,
             'disruption_after_traffic': disruption_after_traffic
         }
@@ -108,15 +168,47 @@ def validate_traffic_results(tor_IO, allowed_disruption, delay,
                             "Maximum allowed disruption: {}s"
                             .format(server_ip, longest_disruption, delay))
 
-        # NOTE: Not all testcases set the allowed duplication threshold and the duplication check
-        # uses the allowed disruption threshold here.q So let's set the allowed duplication to
-        # allowed disruption if the allowed duplication is provided here.
+        # NOTE: Add fine-grained duplication check to validate both the duplication sequence
+        # count and max packet duplication count.
+        # The below example has two duplication sequences: 70 ~ 71 and 90, and the mx packet
+        # duplication count is 2 (packet id 90 is duplicated 2 times)
+        # [{'duplication_count': 1,
+        #   'end_id': 70,
+        #   'end_time': 1744253633.499116,
+        #   'start_id': 70,
+        #   'start_time': 1744253633.499116},
+        #  {'duplication_count': 1,
+        #   'end_id': 71,
+        #   'end_time': 1744253633.499151,
+        #   'start_id': 71,
+        #   'start_time': 1744253633.499151},
+        #  {'duplication_count': 2,
+        #   'end_id': 90,
+        #   'end_time': 1744253637.499255,
+        #   'start_id': 90,
+        #   'start_time': 1744253636.499255}]
         if allowed_duplication is None:
-            allowed_duplication = allowed_disruption
-        if total_duplications > allowed_duplication:
+            allowed_duplication_sequence = allowed_disruption
+            allowed_duplication_count_max = 2
+        elif isinstance(allowed_duplication, int):
+            allowed_duplication_sequence = allowed_duplication
+            allowed_duplication_count_max = 2
+        elif isinstance(allowed_duplication, list) or isinstance(allowed_duplication, tuple):
+            allowed_duplication_sequence = allowed_duplication[0]
+            allowed_duplication_count_max = allowed_duplication[1]
+        else:
+            raise ValueError("Invalid allowed duplication %s" % allowed_duplication)
+
+        if total_duplications > allowed_duplication_sequence:
             failures.append("Traffic to server {} was duplicated {} times. "
                             "Allowed number of duplications: {}"
                             .format(server_ip, total_duplications, allowed_disruption))
+
+        if largest_duplication_count > allowed_duplication_count_max:
+            failures.append("Traffic on server {} with packet id {} has {} duplications. "
+                            "Allowed max number of duplication count: {}"
+                            .format(server_ip, largest_duplication_count_packet_id,
+                                    largest_duplication_count, allowed_duplication_count_max))
 
         if longest_duplication > delay and _validate_long_disruption(result['duplications'],
                                                                      allowed_disruption, delay):
@@ -156,12 +248,14 @@ def _validate_long_disruption(disruptions, allowed_disruption, delay):
 
 
 def verify_and_report(tor_IO, verify, delay, allowed_disruption,
-                      allow_disruption_before_traffic=False, allowed_duplication=None):
+                      allow_disruption_before_traffic=False, allowed_duplication=None,
+                      merge_duplications_into_disruptions=False):
     # Wait for the IO to complete before doing checks
     if verify:
         validate_traffic_results(tor_IO, allowed_disruption=allowed_disruption, delay=delay,
                                  allow_disruption_before_traffic=allow_disruption_before_traffic,
-                                 allowed_duplication=allowed_duplication)
+                                 allowed_duplication=allowed_duplication,
+                                 merge_duplications_into_disruptions=merge_duplications_into_disruptions)
     return tor_IO.get_test_results()
 
 
@@ -215,7 +309,7 @@ def run_test(
 
 
 def cleanup(ptfadapter, duthosts_list, ptfhost):
-    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True)
+    print_logs(duthosts_list, ptfhost, print_dual_tor_logs=True, check_ptf_mgmt=False)
     # cleanup torIO
     ptfadapter.dataplane.flush()
     for duthost in duthosts_list:
@@ -275,7 +369,7 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
     def t1_to_server_io_test(activehost, tor_vlan_port=None,
                              delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.1,
                              stop_after=None, allow_disruption_before_traffic=False,
-                             allowed_duplication=None):
+                             allowed_duplication=None, merge_duplications_into_disruptions=False):
         """
         Helper method for `send_t1_to_server_with_action`.
         Starts sender and sniffer before performing the action on the tor host.
@@ -311,7 +405,8 @@ def send_t1_to_server_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
             allowed_disruption = 1
 
         return verify_and_report(tor_IO, verify, delay, allowed_disruption, allow_disruption_before_traffic,
-                                 allowed_duplication=allowed_duplication)
+                                 allowed_duplication=allowed_duplication,
+                                 merge_duplications_into_disruptions=merge_duplications_into_disruptions)
 
     yield t1_to_server_io_test
 
@@ -425,7 +520,8 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
 
     def t1_to_soc_io_test(activehost, tor_vlan_port=None,
                           delay=0, allowed_disruption=0, action=None, verify=False, send_interval=0.01,
-                          stop_after=None, allowed_duplication=None):
+                          stop_after=None, allowed_duplication=None,
+                          merge_duplications_into_disruptions=False):
 
         tor_IO = run_test(duthosts, activehost, ptfhost, ptfadapter, vmhost,
                           action, tbinfo, tor_vlan_port, send_interval,
@@ -442,7 +538,8 @@ def send_t1_to_soc_with_action(duthosts, ptfhost, ptfadapter, tbinfo,
             logging.info("Skipping verify on VS platform")
             return
         return verify_and_report(tor_IO, verify, delay, allowed_disruption,
-                                 allowed_duplication=allowed_duplication)
+                                 allowed_duplication=allowed_duplication,
+                                 merge_duplications_into_disruptions=merge_duplications_into_disruptions)
 
     yield t1_to_soc_io_test
 

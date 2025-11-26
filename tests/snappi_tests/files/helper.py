@@ -6,6 +6,7 @@ from itertools import cycle
 from tests.common.broadcom_data import is_broadcom_device
 from tests.common.helpers.assertions import pytest_require
 from tests.common.cisco_data import is_cisco_device
+from tests.common.nokia_data import is_nokia_device
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.common.config_reload import config_reload
 from tests.common.reboot import reboot
@@ -14,6 +15,10 @@ from tests.common.utilities import wait_until
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.snappi_tests.snappi_fixtures import get_snappi_ports_for_rdma, \
     snappi_dut_base_config, is_snappi_multidut
+from tests.common.snappi_tests.qos_fixtures import reapply_pfcwd, get_pfcwd_config
+from tests.common.snappi_tests.common_helpers import \
+        stop_pfcwd, disable_packet_aging, enable_packet_aging
+from tests.snappi_tests.cisco.helper import modify_voq_watchdog_cisco_8000
 
 logger = logging.getLogger(__name__)
 
@@ -29,10 +34,14 @@ def skip_warm_reboot(duthost, reboot_type):
     Returns:
         None
     """
-    SKIP_LIST = ["td2"]
+    SKIP_LIST = ["td2", "jr2", "j2c+"]
     asic_type = duthost.get_asic_name()
     reboot_case_supported = True
-    if (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+    if (reboot_type == "fast") and asic_type in ["jr2", "j2c+"]:
+        reboot_case_supported = False
+    elif (reboot_type == "warm" or reboot_type == "fast") and is_cisco_device(duthost):
+        reboot_case_supported = False
+    elif (reboot_type == "warm" or reboot_type == "fast") and is_nokia_device(duthost):
         reboot_case_supported = False
     elif is_broadcom_device(duthost) and asic_type in SKIP_LIST and "warm" in reboot_type:
         reboot_case_supported = False
@@ -72,6 +81,42 @@ def skip_pfcwd_test(duthost, trigger_pfcwd):
     """
     pytest_require(trigger_pfcwd is True or is_broadcom_device(duthost) is False,
                    'Skip trigger_pfcwd=False test cases for Broadcom devices')
+
+
+def get_number_of_streams(duthost, tx_ports, rx_ports):
+    """
+    Determines the number of test streams to use based on DUT type and port configurations.
+
+    Args:
+        duthost (obj): Device under test.
+        tx_ports (list|dict): Snappi TX ports list or single port dict.
+        rx_ports (list|dict): Snappi RX ports list or single port dict.
+
+    Returns:
+        int: Number of test streams to use.
+    """
+    def extract_unique_values(ports, key):
+        if isinstance(ports, list):
+            return list({port[key] for port in ports})
+        return [ports[key]]
+
+    no_of_test_streams = 1
+
+    if duthost.facts["platform_asic"] != 'cisco-8000':
+        return no_of_test_streams
+
+    if duthost.get_facts().get("modular_chassis"):
+        tx_duthosts = extract_unique_values(tx_ports, 'duthost')
+        rx_duthosts = extract_unique_values(rx_ports, 'duthost')
+
+        if tx_duthosts != rx_duthosts or (
+            extract_unique_values(tx_ports, 'asic_value') != extract_unique_values(rx_ports, 'asic_value')
+        ):
+            tx_ports = tx_ports if isinstance(tx_ports, list) else [tx_ports]
+            if any(int(port['speed']) >= 200000 for port in tx_ports):
+                no_of_test_streams = 10
+
+    return no_of_test_streams
 
 
 @pytest.fixture(autouse=True, params=MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
@@ -141,6 +186,8 @@ def reboot_duts(setup_ports_and_dut, localhost, request):
         wait_until(180, 20, 0, node.critical_services_fully_started)
         wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
         wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
+        if node.facts.get('asic_type') == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(node, False)
 
     # Convert the list of duthosts into a list of tuples as required for parallel func.
     args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
@@ -187,8 +234,8 @@ def enable_debug_shell(setup_ports_and_dut):  # noqa: F811
             return True
 
         wait_until(360, 5, 0, is_debug_shell_enabled)
-        yield
-        pass
+    yield
+    pass
 
 
 def compute_expected_packets(flow_rate_bps, pkt_size_bytes, duration_s, num_streams=1):
@@ -383,3 +430,74 @@ def get_npu_voq_queue_counters(duthost, interface, priority, clear=False):
         dict_output[entry] = value
 
     return dict_output
+
+
+@pytest.fixture(params=['warm', 'cold', 'fast'])
+def reboot_duts_and_disable_wd(tgen_port_info, localhost, request):
+    '''
+    Purpose of the function is to have reboot_duts and disable watchdogs.
+    '''
+    reboot_type = request.param
+    _, _, snappi_ports = tgen_port_info
+    skip_warm_reboot(snappi_ports[0]['duthost'], reboot_type)
+    skip_warm_reboot(snappi_ports[1]['duthost'], reboot_type)
+
+    def save_config_and_reboot(node, results=None):
+        up_bgp_neighbors = node.get_bgp_neighbors_per_asic("established")
+        logger.info("Issuing a {} reboot on the dut {}".format(reboot_type, node.hostname))
+        node.shell("mkdir /etc/sonic/orig_configs; mv /etc/sonic/config_db* /etc/sonic/orig_configs/")
+        node.shell("sudo config save -y")
+        reboot(node, localhost, reboot_type=reboot_type, safe_reboot=True)
+        logger.info("Wait until the system is stable")
+        wait_until(180, 20, 0, node.critical_services_fully_started)
+        wait_until(180, 20, 0, check_interface_status_of_up_ports, node)
+        wait_until(300, 10, 0, node.check_bgp_session_state_all_asics, up_bgp_neighbors, "established")
+
+    # Convert the list of duthosts into a list of tuples as required for parallel func.
+    args = set((snappi_ports[0]['duthost'], snappi_ports[1]['duthost']))
+    parallel_run(save_config_and_reboot, {}, {}, list(args), timeout=900)
+
+    pfcwd_value = {}
+
+    for duthost in list(args):
+        pfcwd_value[duthost.hostname] = get_pfcwd_config(duthost)
+        stop_pfcwd(duthost)
+        disable_packet_aging(duthost)
+        if duthost.facts['asic_type'] == "cisco-8000":
+            modify_voq_watchdog_cisco_8000(duthost, False)
+
+    yield
+
+    for duthost in list(args):
+        reapply_pfcwd(duthost, pfcwd_value[duthost.hostname])
+        enable_packet_aging(duthost)
+
+    def revert_config_and_reload(node, results=None):
+        node.shell("mv /etc/sonic/orig_configs/* /etc/sonic/ ; rmdir /etc/sonic/orig_configs; ")
+        config_reload(node, safe_reload=True)
+
+    # parallel_run(revert_config_and_reload, {}, {}, list(args), timeout=900)
+    for duthost in args:
+        revert_config_and_reload(node=duthost)
+
+
+def adjust_test_flow_rate(dut, test_def):
+    '''
+    Set the test flow rate for Cisco 8000 series switches.
+    Args:
+        dut (object): Device under test.
+        test_def (dict): Test definition containing the flow rate and background traffic.
+    Returns:
+        None: The function modifies the `test_def` dictionary in place.
+    '''
+    # Cisco devices send continuous XOFF packets this can reduce the effective bandwidth
+    # available for test traffic. To accommodate this limitation and avoid oversubscription, we define
+    # a SAFETY_MARGIN to ensure the aggregated traffic rate remains below 100% line rate.
+    SAFETY_MARGIN = 0.5
+    if dut.facts["platform_asic"] != 'cisco-8000':
+        return
+    test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = 100 - SAFETY_MARGIN
+    if test_def.get('background_traffic'):
+        test_def['TEST_FLOW_AGGR_RATE_PERCENT'] = (
+            test_def['TEST_FLOW_AGGR_RATE_PERCENT'] - test_def.get('BG_FLOW_AGGR_RATE_PERCENT', 0)
+            )

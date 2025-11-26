@@ -2,13 +2,14 @@ import pytest
 import json
 import ipaddress
 import time
+import logging
 import natsort
 import random
-import re
 import six
 from collections import defaultdict
 
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses, copy_arp_responder_py # noqa F811
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses # noqa F811
 from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common.dualtor.mux_simulator_control import mux_server_url # noqa F811
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
@@ -26,6 +27,9 @@ from tests.common import constants
 from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported # noqa F811
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
+
+# packet count for traffic test
+COUNT = 10
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0', 'mx'),
@@ -90,7 +94,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     if ipv6:
         pkt = testutils.simple_tcpv6_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ipv6_src='2001:db8:85a3::8a2e:370:7334',
             ipv6_dst=ip_dst,
             ipv6_hlim=64,
@@ -99,7 +103,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     else:
         pkt = testutils.simple_tcp_packet(
             eth_dst=duthost.facts["router_mac"],
-            eth_src=ptfadapter.dataplane.get_mac(0, 0),
+            eth_src=ptfadapter.dataplane.get_mac(*list(ptfadapter.dataplane.ports.keys())[0]),
             ip_src='1.1.1.1',
             ip_dst=ip_dst,
             ip_ttl=64,
@@ -121,7 +125,7 @@ def generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, expected_po
     upstream_name = UPSTREAM_NEIGHBOR_MAP[topo_type]
     ptf_upstream_intf = random.choice(get_neighbor_ptf_port_list(duthost, upstream_name, tbinfo))
     ptfadapter.dataplane.flush()
-    testutils.send(ptfadapter, ptf_upstream_intf, pkt)
+    testutils.send(ptfadapter, ptf_upstream_intf, pkt, count=COUNT)
     testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=expected_ports)
 
 
@@ -134,33 +138,39 @@ def wait_all_bgp_up(duthost):
 
 def check_route_redistribution(duthost, prefix, ipv6, removed=False):
     if ipv6:
-        bgp_neighbor_addr_regex = re.compile(r"^([0-9a-fA-F]{1,4}:[0-9a-fA-F:]+)")
         SHOW_BGP_SUMMARY_CMD = "show ipv6 bgp summary"
         SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ipv6 bgp neighbor {} advertised-routes"
     else:
-        bgp_neighbor_addr_regex = re.compile(r"^([0-9]{1,3}\.){3}[0-9]{1,3}")
         SHOW_BGP_SUMMARY_CMD = "show ip bgp summary"
         SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE = "show ip bgp neighbor {} advertised-routes"
 
-    bgp_summary = duthost.shell(SHOW_BGP_SUMMARY_CMD, module_ignore_errors=True)["stdout"].split("\n")
+    bgp_summary = duthost.show_and_parse(SHOW_BGP_SUMMARY_CMD)
 
-    bgp_neighbors = []
+    # Collect neighbors, excluding those with 'PT0' in the neighbor name
+    bgp_neighbors = [
+        entry["neighbhor"]
+        for entry in bgp_summary
+        if "PT0" not in entry.get("neighborname", "")
+    ]
 
-    for line in bgp_summary:
-        matched = bgp_neighbor_addr_regex.match(line)
-        if matched:
-            bgp_neighbors.append(str(matched.group(0)))
+    if not bgp_neighbors:
+        pytest.fail("No valid BGP neighbors found (excluding PT0).")
 
     def _check_routes():
         for neighbor in bgp_neighbors:
             adv_routes = duthost.shell(SHOW_BGP_ADV_ROUTES_CMD_TEMPLATE.format(neighbor))["stdout"]
             if removed and prefix in adv_routes:
+                logging.info(f"Route {prefix} is still advertised by {neighbor} (expected removed).")
                 return False
             if not removed and prefix not in adv_routes:
+                logging.info(f"Route {prefix} is NOT advertised by {neighbor} (expected present).")
                 return False
         return True
 
-    assert (wait_until(60, 15, 0, _check_routes))
+    pytest_assert(
+        wait_until(60, 15, 0, _check_routes),
+        f"Route {prefix} advertisement state does not match expected 'removed={removed}' on all neighbors"
+    )
 
 
 # output example of ip [-6] route show
@@ -242,8 +252,14 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         # try to refresh arp entry before traffic testing to improve stability
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
+
+        # show neighbor and check neighbor consistency on dualtor
+        duthost.shell("show arp" if not ipv6 else "show ndp")
+        if is_dual_tor:
+            duthost.shell("dualtor_neighbor_check.py")
+
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
-                                         duthost, [prefix], {prefix: {'packets': '1'}}):
+                                         duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
 
         # Check the route is advertised to the neighbors
@@ -263,16 +279,16 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
                 duthost.shell("config mux mode active all")
                 unselected_duthost.shell("config mux mode standby all")
                 pytest_assert(wait_until(60, 5, 0, check_mux_status, duthost, 'active'),
-                              "Could not config ports to active on {}".format(duthost.hostname))
+                              "Could not config ports to active ")
                 pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
-                              "Could not config ports to standby on {}".format(unselected_duthost.hostname))
+                              "Could not config ports to standby ")
             # FIXME: We saw re-establishing BGP sessions can takes around 7 minutes
             # on some devices (like 4600) after config reload, so we need below patch
             wait_all_bgp_up(duthost)
             for nexthop_addr in nexthop_addrs:
                 duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
             with RouteFlowCounterTestContext(is_route_flow_counter_supported, duthost,
-                                             [prefix], {prefix: {'packets': '1'}}):
+                                             [prefix], {prefix: {'packets': COUNT}}):
                 generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=ipv6)
             check_route_redistribution(duthost, prefix, ipv6)
 
@@ -294,6 +310,8 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
         if config_reload_test:
             duthost.shell('config save -y')
             if is_dual_tor:
+                duthost.shell('config mux mode auto all')
+                unselected_duthost.shell('config mux mode auto all')
                 unselected_duthost.shell('config save -y')
 
         # Clean up arp or ndp

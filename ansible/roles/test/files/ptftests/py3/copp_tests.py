@@ -35,6 +35,7 @@ import ptf
 import signal
 import threading
 import time
+import macsec  # noqa F401
 
 import ptf.packet as scapy
 import ptf.testutils as testutils
@@ -86,6 +87,7 @@ class ControlPlaneBaseTest(BaseTest):
         self.platform = test_params.get('platform', None)
         self.topo_type = test_params.get('topo_type', None)
         self.ip_version = test_params.get('ip_version', None)
+        self.neighbor_miss_trap_supported = test_params.get('neighbor_miss_trap_supported', False)
 
     def log(self, message, debug=False):
         current_time = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -352,7 +354,7 @@ class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -360,7 +362,7 @@ class DHCPTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -401,7 +403,7 @@ class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -409,7 +411,7 @@ class DHCP6Test(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -469,7 +471,7 @@ class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -477,7 +479,7 @@ class LLDPTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -505,7 +507,7 @@ class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -513,7 +515,7 @@ class UDLDTest(PolicyTest):
         elif self.asic_type == "cisco-8000":
             self.PPS_LIMIT = 400
         # M0 devices have CIR of 300 for DHCP
-        elif self.topo_type in {"m0", "mx"}:
+        elif self.topo_type in {"m0", "mx", "m1"}:
             self.PPS_LIMIT = 300
         else:
             self.PPS_LIMIT = 100
@@ -576,7 +578,7 @@ class BGPTest(PolicyTest):
             )
             assert self.PPS_LIMIT_MIN <= rx_pps <= self.PPS_LIMIT_MAX, "Copp policer constraint check failed, " \
                 "Actual PPS: {} Expected PPS range: {} - {}".format(rx_pps, self.PPS_LIMIT_MIN, self.PPS_LIMIT_MAX)
-        elif self.asic_type not in ['broadcom']:
+        elif self.asic_type not in ['broadcom', 'marvell-teralynx']:
             self.log("Checking constraints (NoPolicyApplied):")
             self.log(
                 "rx_pps (%d) <= PPS_LIMIT_MIN (%d): %s" %
@@ -737,6 +739,12 @@ class VlanSubnetTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
 
+        # Verify with different PPS if neighbor miss trap is supported by the platform
+        if self.neighbor_miss_trap_supported:
+            self.PPS_LIMIT = 200
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
+
     def runTest(self):
         self.log("VlanSubnetTest")
         self.run_suite()
@@ -772,6 +780,12 @@ class VlanSubnetTest(PolicyTest):
 class VlanSubnetIPinIPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+
+        # Verify with different PPS if neighbor miss trap is supported by the platform
+        if self.neighbor_miss_trap_supported:
+            self.PPS_LIMIT = 200
+            self.PPS_LIMIT_MIN = self.PPS_LIMIT * 0.9
+            self.PPS_LIMIT_MAX = self.PPS_LIMIT * 1.3
 
     def runTest(self):
         self.log("VlanSubnetIpinIPTest")

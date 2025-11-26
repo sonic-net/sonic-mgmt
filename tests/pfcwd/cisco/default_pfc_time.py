@@ -1,4 +1,7 @@
 # Verified on Q200 @ 100G port speed. e.g. 687 is bit time to pause for 50ms (clock at 900Mhz).
+from common import is_graphene2, tree, is_gr, port_to_sai_lane_map, \
+    sai_lane_to_slice_ifg_pif, dd0, is_pac, is_gb, sdk, get_mac_port, d0
+
 
 def get_ifg_reg_list(slice_idx):
     ''' Gr2 does not have an ifg list, listify '''

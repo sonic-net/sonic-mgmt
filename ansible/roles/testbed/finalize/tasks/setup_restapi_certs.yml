@@ -1,0 +1,34 @@
+---
+- name: init restapi keys
+  set_fact:
+    server_key_t: ""
+    server_crt_t: ""
+    dir_path_t: ""
+    subject_t: ""
+
+- name: read server key
+  set_fact:
+    server_key_t: "{{ restapi_certs['server_key'] }}"
+  when: restapi_certs['server_key'] is defined
+
+- name: read server crt
+  set_fact:
+    server_crt_t: "{{ restapi_certs['server_crt'] }}"
+  when: restapi_certs['server_crt'] is defined
+
+- name: read subject
+  set_fact:
+    subject_t: "{{ restapi_certs['subject'] }}"
+  when: restapi_certs['subject'] is defined
+
+- name: read directory path
+  set_fact:
+    dir_path_t: "{{ restapi_certs['dir_path'] }}"
+  when: restapi_certs['dir_path'] is defined
+
+- include_tasks: deploy_certs.yml
+  vars:
+    dir_path: "{{ dir_path_t }}"
+    server_crt: "{{ server_crt_t }}"
+    server_key: "{{ server_key_t }}"
+    cert_subject: "{{ subject_t }}"

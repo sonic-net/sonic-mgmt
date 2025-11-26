@@ -3,6 +3,7 @@ import logging
 import os
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.parallel_utils import synchronized_config_reload
 from tests.common.plugins.loganalyzer.utils import support_ignore_loganalyzer
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
@@ -113,10 +114,12 @@ def pfcwd_feature_enabled(duthost):
 
 
 @support_ignore_loganalyzer
+@synchronized_config_reload
 def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=True, start_dynamic_buffer=True,
                   safe_reload=False, wait_before_force_reload=0, wait_for_bgp=False, wait_for_ibgp=True,
                   check_intf_up_ports=False, traffic_shift_away=False, override_config=False,
-                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False):
+                  golden_config_path=DEFAULT_GOLDEN_CONFIG_PATH, is_dut=True, exec_tsb=False,
+                  yang_validate=True):
     """
     reload SONiC configuration
     :param sonic_host: SONiC host object
@@ -150,6 +153,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Extend ignore fabric port msgs for T2 chassis with DNX chipset on Linecards
         ignore_t2_syslog_msgs(sonic_host)
 
+    # Retrieve the enable_macsec passed by user for this test run
+    # If macsec is enabled, use the override option to get macsec profile from golden config
+    request = sonic_host.duthosts.request
+    if request:
+        macsec_en = request.config.getoption("--enable_macsec", default=False)
+
     if config_source == 'minigraph':
         if start_dynamic_buffer and sonic_host.facts['asic_type'] == 'mellanox':
             output = sonic_host.shell('redis-cli -n 4 hget "DEVICE_METADATA|localhost" buffer_model',
@@ -157,10 +166,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             is_buffer_model_dynamic = (output and output.get('stdout') == 'dynamic')
         else:
             is_buffer_model_dynamic = False
-        cmd = 'config load_minigraph -y &>/dev/null'
+        cmd = 'config load_minigraph -y'
         if traffic_shift_away:
             cmd += ' -t'
-        if override_config:
+        if override_config or macsec_en:
             cmd += ' -o'
         if golden_config_path:
             cmd += ' -p {} '.format(golden_config_path)
@@ -173,12 +182,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
-        cmd = 'config reload -y &>/dev/null'
+        cmd = 'config reload -y'
         reloading = False
         if config_force_option_supported(sonic_host):
             if wait_before_force_reload:
                 reloading = wait_until(wait_before_force_reload, 10, 0, _config_reload_cmd_wrapper, cmd, "/bin/bash")
-            cmd = 'config reload -y -f &>/dev/null'
+            cmd = 'config reload -y -f'
         if not reloading:
             time.sleep(30)
             sonic_host.shell(cmd, executable="/bin/bash")
@@ -188,9 +197,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         if sonic_host.is_multi_asic:
             for asic in range(sonic_host.num_asics()):
                 golden_path = f'{golden_path},/etc/sonic/running_golden_config{asic}.json'  # noqa: E231
-        cmd = f'config reload -y -l {golden_path} &>/dev/null'
+        cmd = f'config reload -y -l {golden_path}'
         if config_force_option_supported(sonic_host):
-            cmd = f'config reload -y -f -l {golden_path} &>/dev/null'
+            cmd = f'config reload -y -f -l {golden_path}'
         sonic_host.shell(cmd, executable="/bin/bash")
 
     modular_chassis = sonic_host.get_facts().get("modular_chassis")
@@ -201,6 +210,10 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # time it takes for containers to come back up. Therefore, add 5
         # minutes to the maximum wait time. If it's ready sooner, then the
         # function will return sooner.
+        # Update critical service list after rebooting in case critical services changed after rebooting
+        pytest_assert(wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                      "Database not start.")
+        sonic_host.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
         wait_critical_processes(sonic_host)
@@ -239,3 +252,9 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
     if exec_tsb:
         sonic_host.shell("TSB")
+
+    if yang_validate:
+        pytest_assert(
+            wait_until(120, 30, 0, sonic_host.yang_validate),
+            "Yang validation failed after config_reload"
+        )

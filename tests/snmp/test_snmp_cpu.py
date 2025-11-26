@@ -49,7 +49,7 @@ def test_snmp_cpu(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_a
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
 
         # Wait for load to reflect in SNMP
-        time.sleep(20)
+        time.sleep(40)
 
         # Gather facts with SNMP version 2
         snmp_facts = get_snmp_facts(

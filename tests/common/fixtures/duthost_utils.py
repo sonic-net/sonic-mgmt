@@ -8,6 +8,7 @@ import collections
 import ipaddress
 import time
 import json
+import re
 
 from pytest_ansible.errors import AnsibleConnectionFailure
 from paramiko.ssh_exception import AuthenticationException
@@ -18,7 +19,7 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.utilities import wait_until
 from jinja2 import Template
 from netaddr import valid_ipv4, valid_ipv6
-from tests.common.mellanox_data import is_mellanox_device
+from tests.common.mellanox_data import is_mellanox_device, get_platform_data
 from tests.common.platform.processes_utils import wait_critical_processes
 
 
@@ -92,6 +93,14 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
+def stop_route_checker_on_duthost(duthost):
+    duthost.command("sudo monit stop routeCheck", module_ignore_errors=True)
+
+
+def start_route_checker_on_duthost(duthost):
+    duthost.command("sudo monit start routeCheck", module_ignore_errors=True)
+
+
 def _disable_route_checker(duthost):
     """
         Some test cases will add static routes for test, which may trigger route_checker
@@ -101,9 +110,9 @@ def _disable_route_checker(duthost):
         Args:
             duthost: DUT fixture
     """
-    duthost.command('monit stop routeCheck', module_ignore_errors=True)
+    stop_route_checker_on_duthost(duthost)
     yield
-    duthost.command('monit start routeCheck', module_ignore_errors=True)
+    start_route_checker_on_duthost(duthost)
 
 
 @pytest.fixture
@@ -184,8 +193,13 @@ def ports_list(duthosts, rand_one_dut_hostname, rand_selected_dut, tbinfo):
     config_portchannels = cfg_facts.get('PORTCHANNEL_MEMBER', {})
     config_port_channel_members = [list(port_channel.keys()) for port_channel in list(config_portchannels.values())]
     config_port_channel_member_ports = list(itertools.chain.from_iterable(config_port_channel_members))
-    ports = [port for port in config_ports if config_port_indices[port] in ptf_ports_available_in_topo and
-             config_ports[port].get('admin_status', 'down') == 'up' and port not in config_port_channel_member_ports]
+    ports = [
+        port for port in config_ports
+        if port in config_port_indices
+        and config_port_indices[port] in ptf_ports_available_in_topo
+        and config_ports[port].get('admin_status', 'down') == 'up'
+        and port not in config_port_channel_member_ports
+    ]
     return ports
 
 
@@ -231,13 +245,16 @@ def shutdown_ebgp(duthosts, rand_one_dut_hostname):
     # increase timeout for check_orch_cpu_utilization to 120sec for chassis
     # especially uplink cards need >60sec for orchagent cpu usage to come down to 10%
     duthost = duthosts[rand_one_dut_hostname]
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    orch_cpu_timeout = 120 if is_chassis else 60
+    orch_cpu_timeout = 60
     for duthost in duthosts.frontend_nodes:
         # Get the original number of eBGP v4 and v6 routes on the DUT.
         sumv4, sumv6 = duthost.get_ip_route_summary()
         v4ebgps[duthost.hostname] = sumv4.get('ebgp', {'routes': 0})['routes']
         v6ebgps[duthost.hostname] = sumv6.get('ebgp', {'routes': 0})['routes']
+        v4_routes_count = v4ebgps[duthost.hostname]
+        v6_routes_count = v6ebgps[duthost.hostname]
+        if v4_routes_count > 10000 or v6_routes_count > 10000:
+            orch_cpu_timeout = 120
         # Shutdown all eBGP neighbors
         duthost.command("sudo config bgp shutdown all")
         # Verify that the total eBGP routes are 0.
@@ -537,6 +554,32 @@ def is_support_mock_asic(duthosts, rand_one_dut_hostname):
     return not is_mellanox_device(duthost)
 
 
+@pytest.fixture(scope='module')
+def is_support_fan(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has fan
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if is_mellanox_device(duthost):
+        platform_data = get_platform_data(duthost)
+        return platform_data['fans']['number'] > 0
+    else:
+        return True
+
+
+@pytest.fixture(scope='module')
+def is_support_psu(duthosts, rand_one_dut_hostname):
+    """
+    Check if dut has psu
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    if is_mellanox_device(duthost):
+        platform_data = get_platform_data(duthost)
+        return platform_data['psus']['number'] > 0
+    else:
+        return True
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
@@ -604,10 +647,14 @@ def check_bgp_router_id(duthost, mgFacts):
     """
     Check bgp router ID is same as Loopback0
     """
-    check_bgp_router_id_cmd = r'vtysh -c "show ip bgp summary json"'
+    check_bgp_router_id_cmd = r'vtysh -c "show bgp summary json"'
     bgp_summary = duthost.shell(check_bgp_router_id_cmd, module_ignore_errors=True)
     try:
         bgp_summary_json = json.loads(bgp_summary['stdout'])
+        if 'ipv4Unicast' not in bgp_summary_json:
+            logger.info("No ipv4Unicast in BGP summary")
+            # for Ipv6 only device, just check if routerId exists or not.
+            return 'routerId' in bgp_summary_json['ipv6Unicast']
         router_id = str(bgp_summary_json['ipv4Unicast']['routerId'])
         loopback0 = str(mgFacts['minigraph_lo_interfaces'][0]['addr'])
         if router_id == loopback0:
@@ -816,6 +863,30 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
     return duthosts
 
 
+@pytest.fixture(scope="module")
+def duthost_mgmt_ip(duthost):
+    """
+    Gets the management IP address (v4 or v6) on eth0.
+    Defaults to IPv4 on a dual stack configuration.
+    """
+    ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
+    ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
+
+    mgmt_interface = duthost.shell("show ip interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+    if mgmt_interface:
+        match = ipv4_regex.search(mgmt_interface)
+        if match:
+            return {"mgmt_ip": match.group(1), "version": "v4"}
+
+    mgmt_interface = duthost.shell("show ipv6 interface | egrep '^eth0 '", module_ignore_errors=True)["stdout"]
+    if mgmt_interface:
+        match = ipv6_regex.search(mgmt_interface)
+        if match:
+            return {"mgmt_ip": match.group(1), "version": "v6"}
+
+    pt_assert(False, "Failed to find duthost mgmt ip")
+
+
 def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
                           expect_exists: bool, cmd_output: str, cmd_desc: str):
     """
@@ -839,3 +910,42 @@ def assert_addr_in_output(addr_set: Dict[str, List], hostname: str,
             pt_assert(addr not in cmd_output,
                       f"{hostname} {cmd_desc} still with addr {addr}")
             logger.info(f"{addr} not exists in the output of {cmd_desc} which is expected")
+
+
+def is_sai_profile_multi_binding_enabled(duthost):
+    """
+    Check if SAI_ACL_MULTI_BINDING_ENABLED is enabled in syncd docker's sai.profile
+
+    Args:
+        duthost: DUT host object
+
+    Returns:
+        bool: True if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in sai.profile, False otherwise
+    """
+    try:
+        # Check if sai.profile exists in syncd docker
+        result = duthost.shell(
+            "docker exec syncd ls /tmp/sai.profile", module_ignore_errors=True)
+        if result['rc'] != 0:
+            return False
+
+        # Check if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in the file
+        result = duthost.shell(
+            "docker exec syncd grep 'SAI_ACL_MULTI_BINDING_ENABLED=1' /tmp/sai.profile", module_ignore_errors=True)
+        return result['rc'] == 0
+    except Exception as e:
+        logger.error("Failed to check sai.profile: %s", str(e))
+        return False
+
+
+@pytest.fixture(scope="module")
+def is_multi_binding_acl_enabled(duthosts, tbinfo):
+    """
+    Check if multi-binding ACL is enabled on the DUT
+    """
+    for duthost in duthosts:
+        if not is_sai_profile_multi_binding_enabled(duthost):
+            if is_mellanox_device(duthost) and 'dualtor' in tbinfo['topo']['name']:
+                pytest.fail(
+                    "No multi-binding ACL supported on this platform, please check the sai.profile")
+            pytest.skip("No multi-binding ACL supported on this platform")

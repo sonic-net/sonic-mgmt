@@ -854,11 +854,11 @@ class QosParamCisco(object):
                 sq_occupancies_mb = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 4]
                 params_1 = {"packet_size": packet_size,
                             "ecn": 1,
-                            "dscps":  [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
-                            "pgs":    [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
-                            "queues": [3, 4, 3, 4, 3, 4, 3, 4, 3, 3, 3],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 5, 6],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "dscps":      [3, 4, 3, 4, 3,  4,  3,  4,  3,  4,  3],
+                            "pgs":        [3, 4, 3, 4, 3,  4,  3,  4,  3,  4,  3],
+                            "queues":     [3, 4, 3, 4, 3,  4,  3,  4,  3,  4,  3],
+                            "src_port_i": [0, 0, 1, 1, 2,  2,  3,  3,  4,  4,  5],
+                            "dst_port_i": [7, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_1", params_1)
 
@@ -869,8 +869,8 @@ class QosParamCisco(object):
                             "dscps":      [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "pgs":        [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "queues":     [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "src_port_i": [0, 0, 1, 1, 2,  2,  3,  3,  4,  4,  5,  5,  6,  6],
+                            "dst_port_i": [7, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_2", params_2)
 
@@ -885,8 +885,8 @@ class QosParamCisco(object):
                                            self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "pgs":        [3, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "queues":     [3, 1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "src_port_i": [0, 0, 1, 1, 2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  9,  9],
+                            "dst_port_i": [7, 8, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_3", params_3)
 
@@ -900,9 +900,9 @@ class QosParamCisco(object):
                                            self.dscp_queue1, self.dscp_queue0,
                                            self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "pgs":        [3, 0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4],
-                            "queues":     [3, 1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8],
+                            "queues":     [3, 1, 0, 1, 0, 1,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 0, 1, 1, 2,  2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  10, 10, 11, 11],
+                            "dst_port_i": [7, 8, 8, 9, 9, 12, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_4", params_4)
 
@@ -916,9 +916,10 @@ class QosParamCisco(object):
                                            self.dscp_queue1, self.dscp_queue0,
                                            self.dscp_queue1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "pgs":        [0, 0, 0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4,  3,  4],
-                            "queues":     [1, 0, 1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4,  3,  4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11, 12],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8],
+                            "queues":     [1, 0, 1, 0, 1, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4,  3,  4],
+                            "src_port_i": [0, 0, 1, 1, 2, 2, 2, 3, 3,  4,  4,  5,  5,  6,  6,  9,  9,  10, 10, 11, 11],
+                            "dst_port_i": [7, 8, 12, 12, 13, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17,
+                                           18, 18, 19, 19, 20, 20],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_5", params_5)
 
@@ -932,8 +933,8 @@ class QosParamCisco(object):
                                            4, 3, 4, 3, 4],
                             "pgs":        [3, 4, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
                             "queues":     [3, 4, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8],
+                            "src_port_i": [0, 0, 1, 1, 1, 2,  2,  3,  3,  4,  4,  5,  5,  6,  6],
+                            "dst_port_i": [7, 8, 9, 9, 9, 10, 10, 11, 11, 12, 12, 13, 13, 14, 14],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_6", params_6)
 
@@ -945,7 +946,8 @@ class QosParamCisco(object):
                             "pgs":        [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
                             "queues":     [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
                             "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11, 12, 12],
-                            "dst_port_i": [7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8],
+                            "dst_port_i": [7, 7, 8, 8, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18,
+                                           18, 19, 19, 20, 20, 21, 21],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_7", params_7)
 
@@ -957,7 +959,8 @@ class QosParamCisco(object):
                             "pgs":        [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
                             "queues":     [3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4,  3,  4,  3,  4,  3,  4],
                             "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11, 11, 12, 12],
-                            "dst_port_i": [7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8,  8,  8,  8],
+                            "dst_port_i": [7, 8, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18, 19,
+                                           19, 20, 20, 21, 21, 22, 22],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_8", params_8)
 
@@ -972,8 +975,8 @@ class QosParamCisco(object):
                                            3, 4, 3, 4, 3, 4],
                             "pgs":        [0, 0, 0, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4],
                             "queues":     [1, 0, 1, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3, 4, 3,  4,  3,  4],
-                            "src_port_i": [0, 0, 1, 1, 2, 2, 3, 3, 4, 4, 5, 5, 6, 6, 9, 9, 10, 10, 11],
-                            "dst_port_i": [7, 7, 7, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8, 8,  8,  8,  8],
+                            "src_port_i": [0, 0, 1,  1,  1,  2,  2,  3,  3,  4,  4,  5,  5,  6,  6,  9,  9,  10, 10],
+                            "dst_port_i": [7, 8, 11, 11, 11, 12, 12, 13, 13, 14, 14, 15, 15, 16, 16, 17, 17, 18, 18],
                             "pkt_counts": mb_to_pkt_count(sq_occupancies_mb)}
                 self.write_params("xon_hysteresis_9", params_9)
 

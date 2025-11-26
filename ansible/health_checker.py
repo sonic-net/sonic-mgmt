@@ -1,6 +1,4 @@
 #!/usr/bin/env python3
-
-import imp
 import os
 import logging
 import sys
@@ -13,6 +11,7 @@ try:
 except ImportError:
     # ToDo: Support running without Ansible
     has_ansible = False
+from devutil.conn_graph_helper import load_source
 
 ANSIBLE_DIR = os.path.abspath(os.path.dirname(__file__))
 SONIC_MGMT_DIR = os.path.dirname(ANSIBLE_DIR)
@@ -35,7 +34,7 @@ server_host_map = {}
 
 def get_testbeds_dict():
     """Return a dictionary containing mapping from dut hostname to testbed name."""
-    testbed = imp.load_source('testbed', os.path.join(
+    testbed = load_source('testbed', os.path.join(
         SONIC_MGMT_DIR, 'tests/common/testbed.py'))
     testbeds_dict = testbed.TestbedInfo(TESTBED_FILE).testbed_topo
     return testbeds_dict
