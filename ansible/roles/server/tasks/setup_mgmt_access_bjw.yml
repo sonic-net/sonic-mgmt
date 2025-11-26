@@ -8,6 +8,9 @@
 - name: Load host_vars variable
   include_vars: "host_vars/{{ inventory_hostname | upper }}.yml"
 
+- name: Gather facts
+  ansible.builtin.setup:
+
 - name: Create user azure
   user:
     name: "{{ server_user }}"
@@ -169,7 +172,7 @@
   block:
     - name: Create new netplan config
       template:
-        src: 50-testbed-config.yaml.j2
+        src: 50-testbed-config-bjw.yaml.j2
         dest: "{{ netplan_testbed_config_path }}"
 
     - name: Apply new netplan

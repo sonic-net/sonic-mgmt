@@ -10,14 +10,14 @@
 
 # solution for https://askubuntu.com/questions/322514/terminal-command-with-sudo-takes-a-long-time.
 # this issue may be seen when deploying topo with large VMs
-- name: adding hostname into /etc/hosts
+- name: Adding hostname into /etc/hosts
   lineinfile:
     path: /etc/hosts
     regexp: "^127.0.0.1 {{ ansible_facts['hostname'] }}"
     line: "127.0.0.1 {{ ansible_facts['hostname'] }}"
   become: yes
 
-- name: append http proxy settings to .bashrc
+- name: Append http proxy settings to .bashrc
   ansible.builtin.lineinfile:
     path: /home/azure/.bashrc
     regexp: '^export http_proxy={{ proxy_env["http_proxy"] | default({}) }}$'
@@ -27,7 +27,7 @@
     create: yes
   become: yes
 
-- name: append https proxy settings to .bashrc
+- name: Append https proxy settings to .bashrc
   ansible.builtin.lineinfile:
     path: /home/azure/.bashrc
     regexp: "^export https_proxy={{ proxy_env['https_proxy'] | default({}) }}$"
@@ -37,7 +37,7 @@
     create: yes
   become: yes
 
-- name: append proxy settings to apt.conf.d
+- name: Append proxy settings to apt.conf.d
   ansible.builtin.lineinfile:
     path: '/etc/apt/apt.conf.d/30proxies'
     regexp: '^Acquire::http::Proxy'
@@ -47,7 +47,7 @@
 
 # The following block configures ifupdown
 
-- name: copy etc_interface file
+- name: Copy etc_interface file
   copy:
     src: etc_interfaces_file
     dest: /etc/network/interfaces

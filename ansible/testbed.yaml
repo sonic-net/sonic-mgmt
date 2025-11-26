@@ -1640,7 +1640,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:1747/52
   ptf_extra_mgmt_ip: ["172.16.188.71/17"]
   server: server_bjw_13
-  vm_base: VM74004
+  vm_base: VM79004
   dut:
   - bjw-can-a7280cr3-1
   inv_name: bjw
@@ -1894,7 +1894,7 @@
 
 - conf-name: vms71-t0-7060x6-f2-1
   group-name: vms71-1
-  topo: t0
+  topo: t0-f2-d40u8     # 8 VMs
   ptf_image_name: docker-ptf
   ptf: vms71-1
   ptf_ip: 10.64.247.100/23
@@ -1909,7 +1909,7 @@
 
 - conf-name: vms71-t1-7060x6-f2-2
   group-name: vms71-2
-  topo: t1
+  topo: t1-f2-d10u8
   ptf_image_name: docker-ptf
   ptf: vms71-1
   ptf_ip: 10.64.247.118/23
@@ -2875,7 +2875,7 @@
   ptf_ip: 10.212.65.90/24
   ptf_ipv6: 2603:10e2:140:3000::11a/122
   server: server_tk5_7
-  vm_base: VM77000
+  vm_base: VM80000
   dut:
   - strtk5-n3164-03
   inv_name: strtk5
@@ -2890,7 +2890,7 @@
   ptf_ip: 10.212.65.91/24
   ptf_ipv6: 2603:10e2:140:3000::11b/122
   server: server_tk5_7
-  vm_base: VM77024
+  vm_base: VM80024
   dut:
   - strtk5-n3164-01
   inv_name: strtk5
@@ -2905,7 +2905,7 @@
   ptf_ip: 10.212.65.92/24
   ptf_ipv6: 2603:10e2:140:3000::11c/122
   server: server_tk5_7
-  vm_base: VM77048
+  vm_base: VM80048
   dut:
   - strtk5-8101-02
   inv_name: strtk5
@@ -2920,7 +2920,7 @@
   ptf_ip: 10.212.65.93/24
   ptf_ipv6: 2603:10e2:140:3000::11d/122
   server: server_tk5_7
-  vm_base: VM77072
+  vm_base: VM80072
   dut:
   - strtk5-4600c-07
   - strtk5-4600c-08
@@ -2969,7 +2969,7 @@
   ptf_ipv6: 2404:f801:10:2200::a96:174b/52
   netns_mgmt_ip: 10.150.23.49/23
   server: server_bjw_13
-  vm_base: VM74084
+  vm_base: VM79084
   dut:
   - bjw-can-7260-14
   - bjw-can-7260-16
@@ -3673,7 +3673,7 @@
   ptf_ip: 10.212.65.94/24
   ptf_ipv6: 2603:10e2:140:3000::11e/122
   server: server_tk5_7
-  vm_base: VM77096
+  vm_base: VM80096
   dut:
   - strtk5-7050cx3-01
   - strtk5-7050cx3-02
