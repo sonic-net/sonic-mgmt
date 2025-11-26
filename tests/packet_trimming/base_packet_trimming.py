@@ -389,7 +389,8 @@ class BasePacketTrimming:
                         original_schedulers[dut_member] = original_scheduler
 
                 # Trigger trimmed packets on queue6
-                counter_kwargs = self.get_verify_trimmed_counter_packet_kwargs(duthost, ptfadapter, {**trim_counter_params})
+                counter_kwargs = self.get_verify_trimmed_counter_packet_kwargs(duthost, ptfadapter,
+                                                                               {**trim_counter_params})
                 counter_kwargs.update({'expect_packets': False})
                 verify_trimmed_packet(**counter_kwargs)
 
