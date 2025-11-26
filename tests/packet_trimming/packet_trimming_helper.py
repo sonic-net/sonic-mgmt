@@ -391,7 +391,8 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} "meter_type" {SCHEDULER_METER_TYPE}'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR} '
+            f'"meter_type" {SCHEDULER_METER_TYPE}'
         )
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
