@@ -19,7 +19,13 @@ class PacketTrimmingConfig:
     @staticmethod
     def get_trim_queue(duthost):
         if duthost.get_asic_name() == 'th5':
-            return 4
+            th5_queue = {
+                'Arista-7060X6-64PE-B-C448O16': 4,
+                'Arista-7060X6-64PE-B-C512S2': 4,
+            }
+            # th5 trim queue defaults to 9 unless otherwise configured and does
+            # not support being modified
+            return th5_queue.get(duthost.facts['hwsku'], 9)
         else:
             return 6
 
