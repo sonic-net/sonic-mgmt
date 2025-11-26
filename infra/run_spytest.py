@@ -28,14 +28,29 @@ SUMMARY_REPORT_PATH = "../../{}".format(SUMMARY_REPORT_FILENAME)
 NEW_SUMMARY_REPORT_PATH = "../../{}".format(NEW_SUMMARY_REPORT_FILENAME)
 COMMON_REPORT_PATH = "../../{}".format(COMMON_REPORT_FILENAME)
 
-pattern = r'_mh'
-flag = False
+pattern_mh = r'_mh'
+pattern_dci = r'-dci'
+is_mh = False
+is_dci = False
 for item in sys.argv:
-    match = re.search(pattern, item)
-    if match:
-        flag = True
-        break
-if flag:
+    if re.search(pattern_mh, item):
+        is_mh = True
+    if re.search(pattern_dci, item):
+        is_dci = True
+
+if is_dci:
+    # DCI 3DC 8D topology mapping
+    TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
+        "DC1GW1": "SD1",
+        "DC1GW2": "SD2",
+        "DC2GW1": "SD3",
+        "DC3GW1": "SD4",
+        "Leaf1": "SD5",
+        "Leaf2": "SD6",
+        "Leaf3": "SD7",
+        "Leaf4": "SD8"
+    }
+elif is_mh:
     TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
         "spine0": "SD1",
         "leaf0": "SD2",
@@ -460,10 +475,21 @@ def configure_vxr_ixia(topology, platform, tar_ball, script_file):
         exec_command_raise_error(client, f"wget -q {tar_ball}")
         exec_command_raise_error(client, f"tar -xvf {tar_ball_name}")
 
-        #run sonic-mgmt docker
-        exec_command_raise_error(client, "wget -q http://172.29.93.10/sonic-images/spytest/keysight-u18070.tar")
-        exec_command_raise_error(client, "docker load -i keysight-u18070.tar")
-        exec_command_raise_error(client, "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'ixia_sonic_mgmt' -itd spytest/keysight-u18:9.20.2201.70 /bin/bash")
+        # run sonic-mgmt docker - use different image based on DCI flag
+        if is_dci:
+            exec_command_raise_error(
+                client,
+                "wget -q http://10.29.158.43/builds/keysight-u18070-10-0.tar",
+            )
+            exec_command_raise_error(client, "docker load -i keysight-u18070-10-0.tar")
+            exec_command_raise_error(
+                client,
+                "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'ixia_sonic_mgmt' -itd spytest/keysight-u18:10.00 /bin/bash",
+            )
+        else:
+            exec_command_raise_error(client, "wget -q http://172.29.93.10/sonic-images/spytest/keysight-u18070.tar")
+            exec_command_raise_error(client, "docker load -i keysight-u18070.tar")
+            exec_command_raise_error(client, "cd sonic-test/sonic-mgmt/spytest; docker run -v $PWD:/data --name 'ixia_sonic_mgmt' -itd spytest/keysight-u18:9.20.2201.70 /bin/bash")
 
     except paramiko.SSHException as e:
         return -1, e
@@ -573,6 +599,20 @@ def run_sanity(topology, platform, script_file, test_bed=None):
 
             cmd = "cd /data; pip install monotonic\n"
             execute_command_on_chan(chan, cmd, show_output=True)
+
+            # Install additional packages for DCI if DCI topology is detected
+            if is_dci:
+                cmd = "pip install retry\n"
+                execute_command_on_chan(chan, cmd, show_output=True)
+
+                cmd = "pip install pyopenssl --upgrade\n"
+                execute_command_on_chan(chan, cmd, show_output=True)
+
+                cmd = "pip install urllib3 --upgrade\n"
+                execute_command_on_chan(chan, cmd, show_output=True)
+
+                cmd = "pip install --upgrade ixnetwork-restpy==1.5.0\n"
+                execute_command_on_chan(chan, cmd, show_output=True)
 
             cmd = "unset https_proxy http_proxy\n"
             execute_command_on_chan(chan, cmd, show_output=True)
