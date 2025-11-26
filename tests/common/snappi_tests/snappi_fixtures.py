@@ -716,7 +716,7 @@ def snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=True, multi
         config.ports.port(name=f'Port {sp["port_id"]}', location=sp['location'])
 
     if not multi_mode:
-        pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 
+        pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1,
                       'Ports have different link speeds')
 
     # Mixed speed allowed, just log info if speeds differ
@@ -739,7 +739,7 @@ def snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=True, multi
             l1_config.ieee_media_defaults = False
             l1_config.auto_negotiate = False
             l1_config.auto_negotiation.link_training = False
-            l1_config.auto_negotiation.rs_fec = True   
+            l1_config.auto_negotiation.rs_fec = True
             l1_config.auto_negotiate = new_snappi_ports[index].get('autoneg', False)
             l1_config.auto_negotiation.link_training = new_snappi_ports[index].get('link_training', False)
             l1_config.auto_negotiation.rs_fec = new_snappi_ports[index].get('fec', False)
@@ -763,7 +763,7 @@ def snappi_multi_base_config(duthost_list, snappi_ports, snappi_api, setup=True)
 
 
 def snappi_dut_base_config(duthost_list, snappi_ports, snappi_api, setup=True):
-    return snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=setup, multi_mode=False) 
+    return snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=setup, multi_mode=False)
 
 
 def setup_dut_ports(
@@ -1170,7 +1170,7 @@ def get_snappi_ports_multi_dut(duthosts,
 def multidut_snappi_ports_for_bgp(duthosts,
                                   tbinfo,
                                   conn_graph_facts,     # noqa: F811
-                                  fanout_graph_facts_multidut):  # noqa: F811    
+                                  fanout_graph_facts_multidut):  # noqa: F811
     """Backward-compatible wrapper calling unified port logic."""
     multidut_snappi_ports = _get_snappi_ports_unified(
         duthosts=duthosts,
@@ -1236,13 +1236,13 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
     pytest_require(
         len(rx_snappi_ports) == rx_port_count,
         f"Rx Ports for {testbed} in MULTIDUT_PORT_INFO doesn't match with "
-        f"ansible/files/*links.csv: rx_snappi_ports:{rx_snappi_ports}, and "
-        f"wanted:{rx_port_count}")
+        f"ansible/files/*links.csv: rx_snappi_ports: {rx_snappi_ports}, and "
+        f"wanted: {rx_port_count}")
     pytest_require(
         len(tx_snappi_ports) == tx_port_count,
         f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn\'t match with "
-        f"ansible/files/*links.csv: tx_snappi_ports:{tx_snappi_ports}, and "
-        f"wanted:{tx_port_count}")
+        f"ansible/files/*links.csv: tx_snappi_ports: {tx_snappi_ports}, and "
+        f"wanted: {tx_port_count}")
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports
@@ -1422,7 +1422,7 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     if intf:
         int_arg = f"-i {intf}"
     if setup:
-        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"
+        arp_opt = "-s {} aa:bb:cc:dd:ee:ff".format(addr)
     else:
         arp_opt = f"-d {addr}"
 
