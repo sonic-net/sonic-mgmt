@@ -4,6 +4,8 @@ import shutil
 import yaml
 
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
+from tests.common.constants import CounterpollConstants
 
 SETUP_ENV_CP = "test_setup_checkpoint"
 
@@ -98,10 +100,9 @@ def enable_queue_counterpoll_type(duthosts):
         if duthost.facts['platform'] not in ['armhf-nokia_ixs7215_52x-r0']:
             if duthost.is_multi_asic:
                 for asic in duthost.asics:
-                    cmd = "counterpoll queue -n asic{} enable".format(asic.asic_index)
-                    duthost.command(cmd)
+                    ConterpollHelper.enable_counterpoll(duthost, [CounterpollConstants.QUEUE], asic)
             else:
-                duthost.command('counterpoll queue enable')
+                ConterpollHelper.enable_counterpoll(duthost, [CounterpollConstants.QUEUE])
 
 
 def pytest_addoption(parser):
