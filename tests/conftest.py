@@ -1,11 +1,9 @@
-import concurrent.futures
 from functools import lru_cache
 import enum
 import os
 import json
 import logging
 import random
-from concurrent.futures import as_completed
 import re
 import sys
 
@@ -89,7 +87,6 @@ from ptf.mask import Mask
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
-_ansible_tqm_lock = threading.Lock()
 
 DUTHOSTS_FIXTURE_FAILED_RC = 15
 CUSTOM_MSG_PREFIX = "sonic_custom_msg"
@@ -879,53 +876,50 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         return devices
 
     def initial_neighbor(neighbor_name, vm_name):
-        with _ansible_tqm_lock:
-            logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
-            if neighbor_type == "eos":
-                device = NeighborDevice(
-                    {
-                        'host': EosHost(
-                            ansible_adhoc,
-                            vm_name,
-                            creds['eos_login'],
-                            creds['eos_password'],
-                            shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                            shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
-                        ),
-                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                    }
-                )
-            elif neighbor_type == "sonic":
-                device = NeighborDevice(
-                    {
-                        'host': SonicHost(
-                            ansible_adhoc,
-                            vm_name,
-                            ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
-                            ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
-                        ),
-                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                    }
-                )
-            elif neighbor_type == "cisco":
-                device = NeighborDevice(
-                    {
-                        'host': CiscoHost(
-                            ansible_adhoc,
-                            vm_name,
-                            creds['cisco_login'],
-                            creds['cisco_password'],
-                        ),
-                        'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
-                    }
-                )
-            else:
-                raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
-            devices[neighbor_name] = device
-            logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
+        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
+        if neighbor_type == "eos":
+            device = NeighborDevice(
+                {
+                    'host': EosHost(
+                        ansible_adhoc,
+                        vm_name,
+                        creds['eos_login'],
+                        creds['eos_password'],
+                        shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
+                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
+                    ),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
+        elif neighbor_type == "sonic":
+            device = NeighborDevice(
+                {
+                    'host': SonicHost(
+                        ansible_adhoc,
+                        vm_name,
+                        ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
+                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
+                    ),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
+        elif neighbor_type == "cisco":
+            device = NeighborDevice(
+                {
+                    'host': CiscoHost(
+                        ansible_adhoc,
+                        vm_name,
+                        creds['cisco_login'],
+                        creds['cisco_password'],
+                    ),
+                    'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
+                }
+            )
+        else:
+            raise ValueError("Unknown neighbor type %s" % (neighbor_type,))
+        devices[neighbor_name] = device
+        logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    futures = []
     servers = []
     if 'servers' in tbinfo:
         servers.extend(tbinfo['servers'].values())
@@ -933,21 +927,19 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         servers.append(tbinfo)
     else:
         logger.warning("Unknown testbed schema for setup nbrhosts")
-    for server in servers:
-        vm_base = int(server['vm_base'][2:])
-        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.get_vms_by_dut_interfaces(
-                tbinfo['topo']['properties']['topology']['VMs'],
-                server['dut_interfaces']
-            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
-        for neighbor_name, neighbor in vms.items():
-            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
 
-    for future in as_completed(futures):
-        # if exception caught in the sub-thread, .result() will raise it in the main thread
-        _ = future.result()
-    executor.shutdown(wait=True)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for server in servers:
+            vm_base = int(server['vm_base'][2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+            vms = MultiServersUtils.get_vms_by_dut_interfaces(
+                    tbinfo['topo']['properties']['topology']['VMs'],
+                    server['dut_interfaces']
+                ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            for neighbor_name, neighbor in vms.items():
+                vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+                executor.submit(initial_neighbor, neighbor_name, vm_name)
+
     logger.info("Fixture nbrhosts finished")
     return devices
 

@@ -285,12 +285,13 @@ bgp/test_bgp_allow_list_m0_olt.py:
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported. Not needed for isolated topo."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
+      - "'isolated' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
@@ -668,7 +669,7 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
     conditions_logical_operator: or
     conditions:
       - "(asic_type in ['broadcom'] and release in ['202411'])"
-      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2'])"
+      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2'])"
 
 #######################################
 #####            crm              #####
