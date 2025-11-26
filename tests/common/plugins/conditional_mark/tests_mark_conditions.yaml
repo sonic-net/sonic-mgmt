@@ -277,12 +277,13 @@ bgp/test_bgp_allow_list.py:
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported. Not needed for isolated topo."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
+      - "'isolated' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
@@ -654,7 +655,7 @@ copp/test_copp.py::TestCOPP::test_trap_neighbor_miss:
     conditions_logical_operator: or
     conditions:
       - "(asic_type in ['broadcom'] and release in ['202411'])"
-      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't1-isolated-d28u1', 't0-isolated-d32u32s2', 't1-isolated-d56u2'])"
+      - "(topo_name not in ['t0', 't0-64', 't0-52', 't0-116', 't0-118', 't0-88-o8c80', 't0-isolated-d16u16s1', 't0-isolated-d32u32s2'])"
 
 #######################################
 #####            crm              #####
@@ -2506,7 +2507,7 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
     reason: "This test is not run on this asic type, topology, or version currently"
     conditions_logical_operator: "OR"
     conditions:
-      - "asic_type in ['cisco-8000']"
+      - "hwsku in ['Cisco-8800-LC-48H-C48']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "release in ['202211']"
 
@@ -2799,6 +2800,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
     conditions:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "'isolated' in topo_name"
       - "release in ['202412']"
 
 #######################################
@@ -4371,14 +4373,6 @@ scripts:
 #######################################
 #####              sflow          #####
 #######################################
-sflow/test_sflow.py:
-  skip:
-    reason: "Sflow feature is default disabled on vs platform and it is not tested for now"
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vs']"
-      - "True"
-
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -5246,6 +5240,12 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
     reason: "Skip for AI backend, as this feature is not been used"
     conditions:
       - "'t1-isolated' in topo_name"
+
+vxlan/test_vxlan_multi_tunnel.py:
+  skip:
+    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
