@@ -3437,6 +3437,10 @@ def load_tgen_int(tgen_dict):
                     sys.path.append("/opt/ixia/ixnetwork/10.00.2403.42/lib/PythonApi")
                     sys.path.append("/opt/ixia/hlapi/10.00.2403.15/library/common/ixiangpf/python")
                     os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/10.00.2403.15/library/common/ixia_hl_lib-10.00 /opt/ixia/ixnetwork/10.00.2403.42/lib/TclApi /opt/ixia/hlapi/10.00.2403.15/"
+                elif tg_version == 10.25:
+                    sys.path.append("/opt/ixia/ixnetwork/10.25.2405.75/lib/PythonApi")
+                    sys.path.append("/opt/ixia/hlapi/10.25.2405.23/library/common/ixiangpf/python")
+                    os.environ['TCLLIBPATH'] = "/opt/ixia/hlapi/10.25.2405.23/library/common/ixia_hl_lib-10.25 /opt/ixia/ixnetwork/10.25.2405.75/lib/TclApi /opt/ixia/hlapi/10.25.2405.23/"
                 else:
                     sys.path.append("/opt/ixia/ixnetwork/9.20.2201.70/lib/PythonApi")
                     sys.path.append("/opt/ixia/hlapi/9.20.2201.38/library/common/ixiangpf/python")

@@ -248,9 +248,9 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc1():
 
     
     if result:
-	st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
+        st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
     else:
-	st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
+        st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc1')
 
 
 ######################################################################################
@@ -329,9 +329,9 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc2():
    
     
     if result:
-	st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
+        st.report_pass('test_case_passed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
     else:
-	st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
+        st.report_fail('test_case_failed', 'test_l3vni_vtep6_sag_dhcp_relay_tc2')
 
 
 

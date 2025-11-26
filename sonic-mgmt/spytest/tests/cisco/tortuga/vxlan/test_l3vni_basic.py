@@ -117,14 +117,14 @@ def vxlan_config_hooks():
 def l3_traffic_test(data, addr_family='ipv4'):
 
     st.banner("Start to test VxLAN L3  with ping and traffic")
-    
+
     ## Verify Vtep state
     vxlan_obj.verify_vtep_state({"LEAF0_VXLAN_IP":LEAF0_VXLAN_IP,"LEAF1_VXLAN_IP":LEAF1_VXLAN_IP})
     ## Run Traffic: Bi-directional Burst of 100 Packets
     streams_dict = vxlan_obj.traffic_setup(data, 'ipv4')
     st.log(streams_dict)
     result = vxlan_obj.check_traffic(streams_dict)
-    
+
     return result
 
 def unconfigure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars):
@@ -181,33 +181,33 @@ def test_l3vni_basic_config():
     
     try:
 
-    	#Start configuration
-    	vxlan_obj.configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
+        #Start configuration
+        vxlan_obj.configure_nodes(nodes, vrf, leaf0_vlan, leaf0_vlan_ip, leaf1_vlan, leaf1_vlan_ip, dummy_vlan, vni, vars)
 
-    	# Start Verification
-    	leaf0_vrf_prefix = '100.100.100.0'
+        # Start Verification
+        leaf0_vrf_prefix = '100.100.100.0'
         leaf1_vrf_prefix = '100.100.101.0'
-    	
+
         vxlan_obj.verify_bgp(nodes, leaf1_vrf_prefix, 'leaf0')
         vxlan_obj.verify_bgp(nodes, leaf0_vrf_prefix, 'leaf1')
 
         st.wait(40)
 
-    	#Run Traffic test
-    	data.d3t1_ip_addr = "100.100.100.254"
-    	data.t1d3_ip_addr = "100.100.100.1" #Leaf0 Host
-    	data.t1d3_mac_addr = "00:0a:01:00:11:01"
+        #Run Traffic test
+        data.d3t1_ip_addr = "100.100.100.254"
+        data.t1d3_ip_addr = "100.100.100.1" #Leaf0 Host
+        data.t1d3_mac_addr = "00:0a:01:00:11:01"
 
-    	data.d4t1_ip_addr = "100.100.101.254"
-    	data.t1d4_ip_addr = "100.100.101.1" #Leaf1 Host
-    	data.t1d4_mac_addr = "00:0a:01:00:12:02"
-    
-    	result = l3_traffic_test(data, 'ipv4')
-    	if result:
+        data.d4t1_ip_addr = "100.100.101.254"
+        data.t1d4_ip_addr = "100.100.101.1" #Leaf1 Host
+        data.t1d4_mac_addr = "00:0a:01:00:12:02"
+
+        result = l3_traffic_test(data, 'ipv4')
+        if result:
             st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
-    	else:
+        else:
             st.report_fail("test_case_failed", "test_l3vni_basic__with_traffic failed")
-      
+
     except Exception as e:
         report_fail("", msg=e)
     finally:
@@ -274,16 +274,16 @@ def test_l3vni_multiple_vni():
                     report_fail(nodes['leaf1'], msg='Invalid evpn type {} found in leaf1'.format(path['evpntype']))
                 if path['vni'] != value['vni']:
                     report_fail(nodes['leaf1'], msg='Invalid vni found in leaf1')
-    
+
         #Run Traffic test
         data.d3t1_ip_addr = "100.100.102.254"
         data.t1d3_ip_addr = "100.100.102.200"
         data.t1d3_mac_addr = "00:0a:01:00:11:01"
-    
+
         data.d4t1_ip_addr = "100.100.112.254"
         data.t1d4_ip_addr = "100.100.112.200"
         data.t1d4_mac_addr = "00:0a:01:00:12:02"
-    
+
         result = l3_traffic_test(data, 'ipv4')
         if result:
             st.report_pass("test_case_passed", "test_l3vni_basic_with_traffic passed")
@@ -324,7 +324,7 @@ def _l3vni_multiple_vni_load():
         '''
         vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf0', 'leaf1', 'ipv4')
         vxlan_obj.verify_bgp_convergence(nodes, svi_ips, 'leaf1', 'leaf0', 'ipv4')
-    
+
         '''
         Save config to a file before unconfiguring. The same saved file will be used for load operation
         '''

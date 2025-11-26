@@ -507,9 +507,19 @@ def updateGitDir(host, ssh_port, username, password, dir):
             branch = SONIC_TEST_BRANCH
         else:
             branch = "master"
-        checkout_branch = f"git fetch; git checkout {branch}"
 
-        pull_cmd = f'cd {dir}; git remote set-url origin https://{WHITEBOX_TOKEN}@{SONIC_TEST_REPO}.git; {checkout_branch}; git pull'
+        pull_cmd = (
+            f'cd {dir}; '
+            f'git remote set-url origin https://{WHITEBOX_TOKEN}@{SONIC_TEST_REPO}.git; '
+            f'git fetch origin; '
+            f'BRANCH={branch}; '
+            f'git fetch origin "$BRANCH" && '
+            f'(git show-ref --verify --quiet "refs/heads/$BRANCH" && '
+            f'git checkout "$BRANCH" && '
+            f'git reset --hard "origin/$BRANCH" || '
+            f'git checkout -b "$BRANCH" "origin/$BRANCH")'
+        )
+
         exec_command_raise_error(ssh, pull_cmd)
         log.debug(f'Git pull {branch}, update complete')
         ssh.close()

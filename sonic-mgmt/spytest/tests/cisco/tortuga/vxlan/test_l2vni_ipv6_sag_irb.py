@@ -214,9 +214,9 @@ def test_l2vni_ipv6_sym_irb_sag_with_traffic():
     traffic_cleanup(streams, handles)
 
     if result:
-	st.report_pass('test_case_passed', 'test_l2vni_ipv6_sym_irb_sag_with_traffic')
+        st.report_pass('test_case_passed', 'test_l2vni_ipv6_sym_irb_sag_with_traffic')
     else:
-	st.report_fail('test_case_failed', 'test_l2vni_ipv6_sym_irb_sag_with_traffic')
+        st.report_fail('test_case_failed', 'test_l2vni_ipv6_sym_irb_sag_with_traffic')
 
 def test_l2vni_ipv6_sym_irb_sag_change_ip():
     vars = st.get_testbed_vars()

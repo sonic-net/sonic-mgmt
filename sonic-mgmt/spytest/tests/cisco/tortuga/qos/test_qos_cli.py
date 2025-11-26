@@ -112,7 +112,7 @@ def qos_cfg_add_map(cli_dict, cmd_name, key_name, tag_name, user_data):
     user_str = user_dict_to_cli_str(user_data)
     # Add a new map and capture the new output
     rv = st_config_wrapper(dut1, 'config {} add {} --maps {}'.format(cmd_name, tag_name, user_str))
-    if rv is 'OK':
+    if rv == 'OK':
         return check_post_add_dict(cli_dict, cmd_name, key_name, tag_name, user_data)
     return rv, {}
 
@@ -123,7 +123,7 @@ def qos_cfg_update_map(cli_dict, cmd_name, key_name, tag_name, user_data):
         return 'Non-existent profile {}'.format(tag_name), {}
     # Update the specified map
     rv = st_config_wrapper(dut1, 'config {} update {} --maps {}'.format(cmd_name, tag_name, user_str))
-    if rv is 'OK':
+    if rv == 'OK':
         return check_post_update_dict(cli_dict, cmd_name, key_name, tag_name, user_data)
     return rv, {}
 
@@ -131,7 +131,7 @@ def qos_cfg_delete_map(cli_dict, cmd_name, key_name, tag_name):
     if tag_name not in cli_dict:
         return 'Non-existent profile {}'.format(tag_name), {}
     rv = st_config_wrapper(dut1, 'config {} del {}'.format(cmd_name, tag_name))
-    if rv is 'OK':
+    if rv == 'OK':
         return check_post_delete_dict(cli_dict, cmd_name, key_name, tag_name)
     return rv, {}
 
@@ -143,7 +143,7 @@ def qos_cfg_scheduler_handler(cli_dict, op, tag_name, user_data):
                 return 'Bad scheduler option {}'.format(key), {}
             cmd_opts += ' --{} {}'.format(key, user_data[key])
         rv = st_config_wrapper(dut1, 'config scheduler' + cmd_opts)
-        if rv is not 'OK':
+        if rv != 'OK':
             return rv, {}
 
         if op == 'add':
@@ -154,7 +154,7 @@ def qos_cfg_scheduler_handler(cli_dict, op, tag_name, user_data):
 
     if op == 'delete':
         rv = st_config_wrapper(dut1, 'config scheduler delete {}'.format(tag_name))
-        if rv is not 'OK':
+        if rv != 'OK':
             return rv, {}
 
         return check_post_delete_dict(cli_dict, 'scheduler', 'SCHEDULER',\
@@ -201,7 +201,7 @@ def test_single_map_add_update_del():
                                     key_name, tag_name)
             else:
                 rv, new_dict = 'Unknown op {}'.format(op), {}
-            if rv is not 'OK': 
+            if rv != 'OK':
                 new_dict = common_util.show_cmd_to_dict(dut1, cmd_name)
                 new_dict = new_dict[key_name]
                 if curr_dict != new_dict:

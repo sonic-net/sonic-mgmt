@@ -120,7 +120,8 @@ def tg_ixia_load(version, logger, logs_path=None):
                        '9.28': 'HLTSET257',
                        '9.30': 'HLTSET259',
                        '9.31': 'HLTSET261',
-                       '10.00': 'HLTSET273'
+                       '10.00': 'HLTSET273',
+                       '10.25': 'HLTSET281'
                        }
 
     ix_path = '' if os.path.exists(os.path.join(tgen_path, version_string)) else "ixia"

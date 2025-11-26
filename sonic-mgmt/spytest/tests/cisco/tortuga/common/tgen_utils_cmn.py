@@ -12,14 +12,14 @@ def verify_interface_ping(src_obj, dev_handle, dst_ip, ping_count=5, exp_count=5
         for _ in range(ping_count):
             result = src_obj.tg_interface_config(protocol_handle=dev_handle, send_ping='1', ping_dst=dst_ip)
             st.log("ping output: {}".format(result))
-            if "ping_details" not in result.values()[1]:
+            if "ping_details" not in list(result.values())[1]:
                 st.warn("ping_details details not found in o/p")
-            elif 'No sessions were started' in result.values()[1]:
+            elif 'No sessions were started' in list(result.values())[1]:
                 src_obj.get_session_errors()
-                st.report_tgen_fail('tgen_failed_api', result.values()[1]['ping_details'])
+                st.report_tgen_fail('tgen_failed_api', list(result.values())[1]['ping_details'])
             else:
                 try:
-                    result = result.values()[1]['ping_details']
+                    result = list(result.values())[1]['ping_details']
                     if src_obj.tg_type == 'scapy':
                         ping_out = re.search(r'([0-9]+)\s+packets transmitted,\s+([0-9]+)\s+received', result)
                     else:

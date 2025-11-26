@@ -39,7 +39,7 @@ devices:
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
        device_type: TGEN
-       properties: {type: ixia, version: 9.20, ip: 10.29.158.155, ix_server: 10.29.158.65}
+       properties: {type: ixia, version: 10.25, ip: 10.29.158.155, ix_server: 10.29.158.196}
 
 topology:
     spine0:
