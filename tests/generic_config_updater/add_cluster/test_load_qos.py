@@ -44,7 +44,7 @@ def apply_patch_remove_qos_for_namespace(duthost,
             "path": "/{}/{}".format(namespace, path)
         })
 
-        tmpfile = generate_tmpfile(duthost)
+    tmpfile = generate_tmpfile(duthost)
 
     if apply:
 
@@ -83,7 +83,7 @@ def apply_patch_add_qos_for_namespace(duthost,
     from function 'apply_patch_remove_qos_for_namespace'.
 
     This function adds QoS configuration for the specified namespace by applying a patch on the DUT host.
-    It utilizesn the qos_config dictionary that includes all the requried information to add.
+    It utilizes the qos_config dictionary that includes all the required information to add.
     Optionally, it can verify the applied changes to ensure they meet the expected parameters.
 
     Args:
