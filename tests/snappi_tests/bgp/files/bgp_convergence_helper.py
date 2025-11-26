@@ -319,7 +319,6 @@ def __tgen_bgp_config(snappi_api,
     layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = temp_tg_port[0].get('autoneg', False)
 
-
     def create_v4_topo():
         eth = config.devices[0].ethernets.add()
         eth.connection.port_name = config.lags[0].name
