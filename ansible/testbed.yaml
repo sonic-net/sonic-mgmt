@@ -1894,7 +1894,7 @@
 
 - conf-name: vms71-t0-7060x6-f2-1
   group-name: vms71-1
-  topo: t0
+  topo: t0-f2-d40u8     # 8 VMs
   ptf_image_name: docker-ptf
   ptf: vms71-1
   ptf_ip: 10.64.247.100/23
@@ -1909,7 +1909,7 @@
 
 - conf-name: vms71-t1-7060x6-f2-2
   group-name: vms71-2
-  topo: t1
+  topo: t1-f2-d10u8
   ptf_image_name: docker-ptf
   ptf: vms71-1
   ptf_ip: 10.64.247.118/23
