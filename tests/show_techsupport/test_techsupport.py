@@ -665,14 +665,14 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
             with allure.step('Validate DSC_TechSupport is not empty folder'):
                 cmd = f"tar -ztvf {dsc_techsupport_tar_gz} | awk -F'/' '{{if ($NF != \"\") print $NF}}'"
-                dsc_tech_support_files = duthost.shell(cmd)["stdout_lines"]             
+                dsc_tech_support_files = duthost.shell(cmd)["stdout_lines"]
                 assert len(dsc_tech_support_files), \
                     "Folder {} is empty. Expected not an empty folder".format(dsc_techsupport_tar_gz)
         except AssertionError as err:
             raise AssertionError(err)
         finally:
             duthost.command("rm -rf {}".format(tar_file))
-            duthost.command("rm -rf {}".format(extracted_dump_folder_path))        
+            duthost.command("rm -rf {}".format(extracted_dump_folder_path))
     else:
         since = str(randint(1, 5)) + " minute ago"
         platform_dump_name = "platform-dump.tar.gz"
@@ -709,4 +709,3 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
         finally:
             duthost.command("rm -rf {}".format(tar_file))
             duthost.command("rm -rf {}".format(extracted_dump_folder_path))
-
