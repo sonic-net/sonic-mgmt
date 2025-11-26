@@ -7,6 +7,7 @@ import logging
 
 AMD_ELBA_PLATFORM = 'arm64-elba-asic-flash128-r0'
 
+
 def check_pmon_daemon_status(dut):
     """
     @summary: check daemon running status inside pmon docker.
@@ -14,7 +15,7 @@ def check_pmon_daemon_status(dut):
     This function use command "supervisorctl status" inside the container and check the status from the command output.
     If the daemon status is "RUNNING" then return True, if daemon not exist or status is not "RUNNING", return false.
     """
-    unsupported_daemon_values_per_platform  = {AMD_ELBA_PLATFORM : ['pcied']}
+    unsupported_daemon_values_per_platform = {AMD_ELBA_PLATFORM: ['pcied']}
     platform = dut.facts['platform']
     daemons = dut.get_pmon_daemon_states()
     ret = True
