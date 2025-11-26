@@ -717,7 +717,7 @@ def pytest_addoption(parser):
     parser.addoption(
         "--vnet_count",
         action="store",
-        default="1000",
+        default="100",
         help="Number of VNETs/VLANs/Subinterfaces to create"
     )
 

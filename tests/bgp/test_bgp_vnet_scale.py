@@ -1,19 +1,24 @@
 import json
 import time
 import logging
+import sys
+import traceback
 import pytest
+from tests.common.helpers.assertions import pytest_assert
+from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
 
 BASE_VLAN_ID = 1100
-DUT_INTERFACE = "Po101"
-DUT_IFACES = ["Po101", "Po102"]
-NEIGH_INTERFACE = "Po1"
+PTF_EXABGP_BASE_PORT = 5100
 VXLAN_TUNNEL_NAME = "vtep_v4"
-VXLAN_SRC_IP = "10.1.0.32"
 
 pytestmark = [
-    pytest.mark.topology('smartswitch')
+    pytest.mark.topology('t0'),
+    pytest.mark.disable_loganalyzer,
+    pytest.mark.device_type('physical'),
+    pytest.mark.asic('cisco-8000'),
+    pytest.mark.disable_memory_utilization,
 ]
 
 
@@ -25,45 +30,101 @@ def get_cfg_facts(duthost):
     return tmp_facts
 
 
+def calculate_wait_time(vnet_count):
+    return min(300, max(30, int(vnet_count * 0.25)))
+
+
+def get_loopback_ip(cfg_facts):
+    for key in cfg_facts.get("LOOPBACK_INTERFACE", {}):
+        if key.startswith("Loopback0|") and "." in key:
+            return key.split("|")[1].split("/")[0]
+    pytest.fail("Cannot find IPv4 Loopback0 address in LOOPBACK_INTERFACE")
+
+
+def get_one_ptf_port(config_facts, tbinfo, dut_index):
+    port_index_map = config_facts["port_index_map"]
+    ptf_map = tbinfo["topo"]["ptf_map"][str(dut_index)]
+    dut_to_ptf = {}
+    for dut_port, idx in port_index_map.items():
+        if str(idx) in ptf_map:
+            dut_to_ptf[dut_port] = f"eth{ptf_map[str(idx)]}"
+
+    for vlan_name, members in config_facts.get("VLAN_MEMBER", {}).items():
+        for dut_port in members:
+            # Must be admin-up
+            if config_facts["PORT"][dut_port].get("admin_status").lower() == "up":
+                if dut_port in dut_to_ptf:
+                    return dut_port, dut_to_ptf[dut_port]
+
+    pytest_assert(False, "No usable DUT/PTF port found in VLAN_MEMBER")
+
+
 def apply_config_to_dut(duthost, config, cfg_type):
     config_path = f"/tmp/dut_config_{cfg_type}.json"
-    with open(config_path, "w") as f:
-        json.dump(config, f, indent=4)
-
-    duthost.copy(src=config_path, dest=config_path)
+    duthost.copy(content=json.dumps(config, indent=4), dest=config_path)
     result = duthost.shell(f"sonic-cfggen -j {config_path} --write-to-db")
-    assert result["rc"] == 0, f"Failed to apply config {config_path}: {result['stderr']}"
+    pytest_assert(result["rc"] == 0, f"Failed to apply config {config_path}: {result['stderr']}")
 
 
-def generate_ip_pair(vnet_id, iface_index):
-    # Each iface_index (0 or 1) gets a /30 block within the /29 range per VNET
-    block_size = 4  # /30 block size
-    base_offset = (vnet_id - 1) * 8  # each VNET gets 8 IPs (two /30s)
-    subnet_offset = base_offset + (iface_index * block_size)
+def generate_vnet_ip_plan(vnet_id):
+    block_size = 8
+    base_offset = (vnet_id - 1) * block_size
+    third_octet = base_offset // 256
+    fourth_octet = base_offset % 256
 
-    third_octet = subnet_offset // 256
-    fourth_octet = subnet_offset % 256
-
-    if fourth_octet + 3 > 255:
-        raise ValueError("IP range exceeds .255 in fourth octet")
+    if fourth_octet + 7 > 255:
+        raise ValueError(f"IP range too large for vnet_id {vnet_id}")
 
     dut_ip = f"10.1.{third_octet}.{fourth_octet + 1}"
-    nbr_ip = f"10.1.{third_octet}.{fourth_octet + 2}"
-    network_str = f"10.1.{third_octet}.{fourth_octet}/30"
+    ptf_ip1 = f"10.1.{third_octet}.{fourth_octet + 2}"
+    ptf_ip2 = f"10.1.{third_octet}.{fourth_octet + 3}"
+    network = f"10.1.{third_octet}.{fourth_octet}/29"
 
-    return dut_ip, nbr_ip, network_str
+    return dut_ip, ptf_ip1, ptf_ip2, network
 
 
-def generate_dut_config(vnet_count, peer_asn):
+def cleanup_ptf_config(ptfhost, base_iface, cfg_path="/etc/exabgp/all_vnets.conf"):
+    kill_exabgp = f"""
+MAIN_PID=$(pgrep -f "exabgp {cfg_path}")
+if [ -n "$MAIN_PID" ]; then
+    echo "Killing test ExaBGP instance PID=$MAIN_PID"
+    kill -9 $MAIN_PID 2>/dev/null
+fi
+"""
+    ptfhost.shell(kill_exabgp, module_ignore_errors=True)
+
+    kill_http_api = f"""
+API_PID=$(pgrep -f "/usr/share/exabgp/http_api.py {PTF_EXABGP_BASE_PORT}")
+if [ -n "$API_PID" ]; then
+    echo "Killing test http_api.py PID=$API_PID"
+    kill -9 $API_PID 2>/dev/null
+fi
+"""
+    ptfhost.shell(kill_http_api, module_ignore_errors=True)
+
+    delete_subifs = f"""
+for subif in $(ip -o link show | grep -o "{base_iface}\\.[0-9]\\+"); do
+    echo "Deleting $subif"
+    ip link delete $subif 2>/dev/null
+done
+
+rm -f {cfg_path}
+"""
+    ptfhost.shell(delete_subifs, module_ignore_errors=True)
+
+
+def generate_dut_config_ptf(vnet_count, peer_asn, dut_port, cfg_facts):
+    dut_vtep = get_loopback_ip(cfg_facts)
     config_db = {
         "VXLAN_TUNNEL": {
             VXLAN_TUNNEL_NAME: {
-                "src_ip": VXLAN_SRC_IP
+                "src_ip": dut_vtep
             }
         },
-        "VLAN": {},
         "VNET": {},
-        "VLAN_SUB_INTERFACE": {}
+        "VLAN": {},
+        "VLAN_MEMBER": {},
+        "VLAN_INTERFACE": {}
     }
 
     bgp_config_db = {
@@ -73,184 +134,211 @@ def generate_dut_config(vnet_count, peer_asn):
     for vnet_id in range(1, vnet_count + 1):
         vnet_name = f"Vnet{vnet_id}"
         vlan_id = BASE_VLAN_ID + vnet_id
-
-        config_db["VLAN"][str(vlan_id)] = {}
-
-        subinterfaces = []
-        for idx, iface in enumerate(DUT_IFACES):
-            subintf = f"{iface}.{vlan_id}"
-            dut_ip, _, ip_range = generate_ip_pair(vnet_id, idx)
-
-            config_db["VLAN_SUB_INTERFACE"][subintf] = {
-                "admin_status": "up",
-                "vlan": str(vlan_id),
-                "vnet_name": vnet_name
-            }
-            config_db["VLAN_SUB_INTERFACE"][f"{subintf}|{dut_ip}/30"] = {}
-
-            subinterfaces.append((subintf, dut_ip, ip_range))
-
+        vlan_name = f"Vlan{vlan_id}"
+        dut_ip, ptf_ip1, ptf_ip2, network_str = generate_vnet_ip_plan(vnet_id)
+        config_db["VLAN"][vlan_name] = {
+            "vlanid": str(vlan_id)
+        }
+        config_db["VLAN_MEMBER"][f"{vlan_name}|{dut_port}"] = {
+            "tagging_mode": "tagged"
+        }
+        config_db["VLAN_INTERFACE"][vlan_name] = {
+            "vnet_name": vnet_name
+        }
+        config_db["VLAN_INTERFACE"][f"{vlan_name}|{dut_ip}/29"] = {}
         config_db["VNET"][vnet_name] = {
             "vni": str(vnet_id),
             "vxlan_tunnel": VXLAN_TUNNEL_NAME
         }
-
-        # Combined /29 block covering both /30 subnets per VNET
-        first_subnet_base = subinterfaces[0][2].split('/')[0]
-        third_octet, fourth_octet = map(int, first_subnet_base.split('.')[2:4])
-        combined_network = f"10.1.{third_octet}.{fourth_octet // 8 * 8}/29"
-
         bgp_config_db["BGP_PEER_RANGE"][f"{vnet_name}|dynpeer{vnet_name}"] = {
-            "ip_range": [combined_network],
+            "ip_range": [network_str],
             "peer_asn": peer_asn,
-            "src_address": subinterfaces[0][1],  # first subinterface IP
+            "src_address": dut_ip,
             "name": f"dynpeer{vnet_name}"
         }
 
     return config_db, bgp_config_db
 
 
-def configure_neighbor(nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn, count, base_vlan, iface_list):
-    assert len(iface_list) == len(nbrhosts), "iface_list length must match nbrhosts"
+def create_ptf_vlans(ptfhost, vnet_count, ptf_port):
+    logger.info(f"Creating {vnet_count} VLAN subinterfaces on PTF port {ptf_port}")
+    script = "#!/bin/bash\n"
+    script += f"BASE_VLAN_ID={BASE_VLAN_ID}\n"
+    script += f"PTF_L2_IFACE={ptf_port}\n\n"
 
-    if neighbor_type == "sonic":
-        nbr_subintf_configs = {nbr: {"VLAN": {}, "VLAN_SUB_INTERFACE": {}} for nbr in nbrhosts}
-        nbr_bgp_configs = {nbr: {"BGP_NEIGHBOR": {}} for nbr in nbrhosts}
-    else:
-        for nbr in nbrhosts:
-            nbrhosts[nbr].shell(
-                "(iptables-save | grep -q ':EOS_BGP' && "
-                "(iptables -C EOS_BGP -s 10.1.0.0/16 -j EOS_BGPSACL || "
-                "iptables -I EOS_BGP 1 -s 10.1.0.0/16 -j EOS_BGPSACL)) || "
-                "(iptables-save | grep -q ':BGP' && "
-                "(iptables -C BGP -s 10.1.0.0/16 -j BGPSACL || "
-                "iptables -I BGP 1 -s 10.1.0.0/16 -j BGPSACL))"
-            )
+    script += r"""
+generate_vnet_ip_plan() {
+    vnet_id=$1
+    block_size=8
+    base_offset=$(( (vnet_id - 1) * block_size ))
+    third_octet=$(( base_offset / 256 ))
+    fourth_octet=$(( base_offset % 256 ))
 
-    for vnet_id in range(1, count + 1):
-        vlan_id = base_vlan + vnet_id
+    dut_ip="10.1.${third_octet}.$((fourth_octet + 1))"
+    ptf_ip1="10.1.${third_octet}.$((fourth_octet + 2))"
+    ptf_ip2="10.1.${third_octet}.$((fourth_octet + 3))"
 
-        for idx, (nbr_name, nbrhost) in enumerate(nbrhosts.items()):
-            iface = iface_list[idx]
-            subintf = f"{iface}.{vlan_id}"
-            dut_ip, nbr_ip, _ = generate_ip_pair(vnet_id, idx)
-            nbr_ip_with_mask = f"{nbr_ip}/30"
+    echo "$dut_ip $ptf_ip1 $ptf_ip2"
+}
+"""
 
-            if neighbor_type == "sonic":
-                subintf_cfg = nbr_subintf_configs[nbr_name]
-                subintf_cfg["VLAN"][str(vlan_id)] = {}
+    script += "\nfor vnet_id in $(seq 1 %d); do\n" % vnet_count
+    script += """
+    vlan_id=$(( BASE_VLAN_ID + vnet_id ))
+    subif="${PTF_L2_IFACE}.${vlan_id}"
 
-                subintf_cfg["VLAN_SUB_INTERFACE"][subintf] = {
-                    "admin_status": "up",
-                    "vlan": str(vlan_id)
-                }
-                subintf_cfg["VLAN_SUB_INTERFACE"][f"{subintf}|{nbr_ip_with_mask}"] = {}
+    read dut_ip ptf_ip1 ptf_ip2 <<< "$(generate_vnet_ip_plan $vnet_id)"
 
-                bgp_cfg = nbr_bgp_configs[nbr_name]
-                bgp_cfg["BGP_NEIGHBOR"][dut_ip] = {
-                    "admin_status": "up",
-                    "asn": dut_asn,
-                    "holdtime": "10",
-                    "keepalive": "3",
-                    "local_addr": nbr_ip,
-                    "name": dut_name,
-                    "nhopself": "0",
-                    "rrclient": "0"
-                }
-            else:
-                intf_cmds = [
-                    f"interface {iface}.{vlan_id}",
-                    f"encapsulation dot1q vlan {vlan_id}",
-                    f"ip address {nbr_ip_with_mask}",
-                    f"interface {iface}",
-                    f"switchport trunk allowed vlan add {vlan_id}"
-                ]
-                nbrhosts[nbr_name].config(intf_cmds, module_ignore_errors=True)
-                dut_ip, _, _ = generate_ip_pair(vnet_id, idx)
-                bgp_cmds = [
-                    f"neighbor {dut_ip} remote-as {dut_asn}"
-                ]
-                nbrhosts[nbr_name].config(bgp_cmds, parents=f"router bgp {peer_asn}", module_ignore_errors=True)
+    ip link add link ${PTF_L2_IFACE} name ${subif} type vlan id ${vlan_id} 2>/dev/null
+    ip addr add ${ptf_ip1}/29 dev ${subif} 2>/dev/null
+    ip addr add ${ptf_ip2}/29 dev ${subif} 2>/dev/null
+    ip link set ${subif} up 2>/dev/null
+done
+"""
 
-    if neighbor_type == "sonic":
-        for nbr_name, cfg in nbr_subintf_configs.items():
-            subintf_path = f"/tmp/{nbr_name}_subintf.json"
-            with open(subintf_path, "w") as f:
-                json.dump(cfg, f, indent=4)
+    tmp = "/tmp/ptf_create_vlans.sh"
+    with open(tmp, "w") as f:
+        f.write(script)
 
-            nbrhosts[nbr_name].copy(src=subintf_path, dest=subintf_path)
-            nbrhosts[nbr_name].shell(f"sonic-cfggen -j {subintf_path} --write-to-db")
+    # Copy to PTF and run once
+    ptfhost.copy(src=tmp, dest=tmp)
+    ptfhost.shell(f"chmod +x {tmp}")
+    ptfhost.shell(f"bash {tmp}")
 
-        # Give time for interfaces to come up before BGP config
-        time.sleep(2)
 
-        for nbr_name, cfg in nbr_bgp_configs.items():
-            bgp_path = f"/tmp/{nbr_name}_bgp.json"
-            with open(bgp_path, "w") as f:
-                json.dump(cfg, f, indent=4)
+def generate_single_exabgp_config(vnet_count, dut_asn, ptf_asn, cfg_path="/etc/exabgp/all_vnets.conf"):
+    logger.info(f"Generating single ExaBGP config for {vnet_count} VNETs")
+    config = f"""
+process api-vnets {{
+    run /usr/bin/python /usr/share/exabgp/http_api.py {PTF_EXABGP_BASE_PORT};
+    encoder json;
+}}
+"""
 
-            nbrhosts[nbr_name].copy(src=bgp_path, dest=bgp_path)
-            nbrhosts[nbr_name].shell(f"sonic-cfggen -j {bgp_path} --write-to-db")
+    for vnet_id in range(1, vnet_count + 1):
+        dut_ip, ptf_ip1, ptf_ip2, network = generate_vnet_ip_plan(vnet_id)
+
+        for local_ip in (ptf_ip1, ptf_ip2):
+            config += f"""
+neighbor {dut_ip} {{
+    router-id {local_ip};
+    local-address {local_ip};
+
+    local-as {ptf_asn};
+    peer-as {dut_asn};
+
+    hold-time 10;
+
+    api {{
+        processes [ api-vnets ];
+    }}
+
+    family {{
+        ipv4 unicast;
+    }}
+}}
+"""
+
+    tmp = "/tmp/all_vnets.conf"
+    with open(tmp, "w") as f:
+        f.write(config)
+
+    return tmp, cfg_path
+
+
+def apply_single_exabgp(ptfhost, vnet_count, dut_asn, ptf_asn, ptf_port):
+    create_ptf_vlans(ptfhost, vnet_count, ptf_port)
+    time.sleep(20)
+    tmp, cfg_path = generate_single_exabgp_config(vnet_count, dut_asn, ptf_asn)
+    ptfhost.copy(src=tmp, dest=cfg_path)
+    ptfhost.shell(
+        f"nohup exabgp {cfg_path} > /var/log/exabgp_all_vnets.log 2>&1 &"
+    )
+
+
+@pytest.fixture(scope="module", autouse=True)
+def vnet_bgp_setup(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, vnet_count):
+    try:
+        ptf_port = None
+        duthost = duthosts[rand_one_dut_hostname]
+        dut_index = tbinfo["duts"].index(rand_one_dut_hostname)
+        cfg_facts = get_cfg_facts(duthost)
+        wait_time = calculate_wait_time(vnet_count)
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+
+        dut_port, ptf_port = get_one_ptf_port(config_facts, tbinfo, dut_index)
+
+        logger.info("DUT_L2_IFACE: %s", dut_port)
+        logger.info("PTF_L2_IFACE: %s", ptf_port)
+
+        dut_asn = cfg_facts['DEVICE_METADATA']['localhost']['bgp_asn']
+        neighbors = cfg_facts['BGP_NEIGHBOR']
+        peer_asn = list(neighbors.values())[0]["asn"]
+
+        logger.info("Generate config DB for DUT")
+        logger.info("vnet_count: %d", vnet_count)
+        vnet_config, bgp_config = generate_dut_config_ptf(vnet_count, peer_asn, dut_port, cfg_facts)
+
+        logger.info("Apply interface, vlan and vnet config on DUT")
+        apply_config_to_dut(duthost, vnet_config, "vnet")
+        time.sleep(wait_time)  # Allow time for interfaces to come up
+        logger.info("Apply BGP config on DUT")
+        apply_config_to_dut(duthost, bgp_config, "bgp")
+
+        logger.info("Configuring PTF for VNET dynamic BGP peers")
+        apply_single_exabgp(ptfhost, vnet_count, dut_asn, peer_asn, ptf_port)
+        time.sleep(wait_time)
+    except Exception as e:
+        logger.error("vnet_bgp_setup failed: %s", str(e))
+        logger.error(json.dumps(
+            traceback.format_exception(*sys.exc_info()), indent=2))
+        if ptf_port is not None:
+            cleanup_ptf_config(ptfhost, ptf_port)
+        config_reload(duthost, safe_reload=True, yang_validate=False)
+        pytest.fail("Vnet testing setup failed")
+
+    yield duthost, vnet_count, wait_time
+    # Teardown
+    logger.info("Tearing down VNET BGP config")
+    cleanup_ptf_config(ptfhost, ptf_port)
+    config_reload(duthost, safe_reload=True, yang_validate=False)
 
 
 def validate_bgp_summary(duthost, count):
+    cmd = "vtysh -c 'show bgp vrf all summary json'"
+    all_vrfs = json.loads(duthost.shell(cmd)["stdout"])
+
+    failures = []
+
     for vnet_id in range(1, count + 1):
-        # Validate BGP summary for each VNET
-        command = f"vtysh -c 'show bgp vrf Vnet{vnet_id} summary json'"
-        bgp_summary_string = duthost.shell(command)["stdout"]
-        bgp_summary = json.loads(bgp_summary_string)
-        total_peers = bgp_summary['ipv4Unicast']['dynamicPeers']
-        assert int(total_peers) == 2, "There should be 2 dynamic peers. Found {}".format(total_peers)
+        vrf = f"Vnet{vnet_id}"
+        try:
+            peers = int(all_vrfs[vrf]["ipv4Unicast"]["dynamicPeers"])
+            if peers != 2:
+                logger.warning(f"[DEBUG] {vrf}: dynamicPeers={peers} (expected 2)")
+                failures.append(f"{vrf}: expected 2 peers, got {peers}")
+        except Exception as e:
+            logger.warning(f"[DEBUG] {vrf}: missing keys or invalid data ({type(e).__name__})")
+            failures.append(f"{vrf}: unable to read dynamicPeers")
+
+    if failures:
+        logger.error("BGP validation failures:\n" + "\n".join(failures))
+        pytest.fail("BGP validation failed. See logs for details.")
 
 
-def test_vnet_bulk_configure(duthost, nbrhosts, localhost, vnet_count, request):
-    cfg_facts = get_cfg_facts(duthost)
-    dut_asn = cfg_facts['DEVICE_METADATA']['localhost']['bgp_asn']
-    dut_name = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
-    neighbors = cfg_facts['BGP_NEIGHBOR']
-    peer_asn = list(neighbors.values())[0]["asn"]
-
-    logger.info("Generate config DB for DUT")
-    vnet_config, bgp_config = generate_dut_config(vnet_count, peer_asn)
-
-    logger.info("Apply interface, vlan and vnet config on DUT")
-    apply_config_to_dut(duthost, vnet_config, "vnet")
-    time.sleep(5)  # Allow time for interfaces to come up
-    logger.info("Apply BGP config on DUT")
-    apply_config_to_dut(duthost, bgp_config, "bgp")
-
-    logger.info("Step 3: Configure neighbor device")
-    logger.info("nbrhosts: %s", nbrhosts)
-    neighbor_type = request.config.getoption("--neighbor_type")
-    logger.info("Neighbor type: %s", neighbor_type)
-
-    selected_nbrhosts = {
-        'ARISTA01T1': nbrhosts['ARISTA01T1']['host'],
-        'ARISTA02T1': nbrhosts['ARISTA02T1']['host'],
-    }
-
-    # Corresponding interfaces on DUT for these neighbors
-    interfaces = ["Po1", "Po1"]
-
-    configure_neighbor(
-        selected_nbrhosts, neighbor_type, dut_asn, dut_name, peer_asn,
-        count=vnet_count, base_vlan=BASE_VLAN_ID, iface_list=interfaces
-    )
-
-    time.sleep(60)
-
+def test_vnet_bgp_scale_summary(vnet_bgp_setup):
+    duthost, vnet_count = vnet_bgp_setup
+    logger.info(f"Testing vnet bgp scale for {vnet_count} vnets")
     validate_bgp_summary(duthost, vnet_count)
 
-    duthost.shell("cp /etc/sonic/config_db.json /home/admin/config_db_backup.json")
 
-    # Validate config persistence after config reload.
-    duthost.shell("config save -y", module_ignore_errors=True)
-    time.sleep(5)
-
-    duthost.shell("config reload -y", module_ignore_errors=True)
-    time.sleep(60)
+def test_vnet_bgp_scale_config_reload(vnet_bgp_setup):
+    duthost, vnet_count, wait_time = vnet_bgp_setup
+    logger.info(f"Testing vnet bgp scale config reload for {vnet_count} vnets")
+    duthost.shell("cp /etc/sonic/config_db.json /etc/sonic/config_db.json.bak")
+    duthost.shell("config save -y")
+    time.sleep(10)
+    config_reload(duthost, safe_reload=True, yang_validate=False)
+    time.sleep(wait_time)
     validate_bgp_summary(duthost, vnet_count)
-
-    # cleanup
-    duthost.shell("cp /home/admin/config_db_backup.json /etc/sonic/config_db.json")
-    duthost.shell("config reload -y", module_ignore_errors=True)
+    duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
