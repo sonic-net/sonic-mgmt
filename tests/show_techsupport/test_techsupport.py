@@ -643,7 +643,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
-    #amd elba dpu specific check; if not, default will be executed in else
+    # amd elba dpu specific check; if not, default will be executed in else
     if duthost.facts['platform'] in ('arm64-elba-asic-flash128-r0'):
         cmd_output = duthost.shell('redis-dump -d 6 -k "EEPROM_INFO|0x24" -y | grep Value')['stdout_lines'][0]
         router_mac = cmd_output.split('"')[3]
@@ -691,7 +691,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
 
             with allure.step('validate that {} includes the expected files'.format(platform_dump_name)):
                 validate_platform_dump_files(duthost, extracted_dump_folder_path, platform_dump_folder_name,
-                                            platform_dump_name)
+                                             platform_dump_name)
 
             with allure.step('Validate that the dump file contains sai_sdk_dump folder'):
                 is_existing_sai_sdk_dump_folder = duthost.shell(
