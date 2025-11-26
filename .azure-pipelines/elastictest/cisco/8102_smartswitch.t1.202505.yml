@@ -1,0 +1,132 @@
+name: NightlyTest_$(Build.DefinitionName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 4 * * 5"
+    displayName: Nightly Scheduler
+    branches:
+      include:
+        - internal
+    always: true
+
+resources:
+  repositories:
+    - repository: sonic-mgmt
+      type: github
+      name: sonic-net/sonic-mgmt
+      ref: master
+      endpoint: sonic-net
+
+variables:
+  - group: SONIC_IMAGE_URLS
+  - group: SAITHRIFT_URLS
+
+parameters:
+  - name: TESTBED_NAME
+    type: string
+    default: "vms12-t1-smartswitch-8102-02"
+    displayName: "Testbed Name"
+
+  - name: MIN_WORKER
+    type: string
+    default: "1"
+
+  - name: MAX_WORKER
+    type: string
+    default: "3"
+
+  - name: IMAGE_URL
+    type: string
+    default: $(IMAGE_CISCO_202505)
+    displayName: "Image URL"
+
+  - name: MGMT_BRANCH
+    type: string
+    default: internal-202505
+
+  # Custom run scripts, if both SCRIPTS and FEATURES are empty, all the test will be executed
+  - name: SCRIPTS
+    type: string
+    default: " "
+    displayName: "Scripts to be executed"
+
+  - name: FEATURES
+    type: string
+    default: " "
+    displayName: "Features to be executed"
+
+  # Custom skip scripts
+  - name: SCRIPTS_EXCLUDE
+    type: string
+    default: "ntp/test_ntp.py,ip/test_mgmt_ipv6_only.py,platform_tests/api/test_module.py"
+    displayName: "Scripts to be excluded"
+
+  - name: SPECIFIC_PARAM
+    type: string
+    default: '[
+      {"name": "tacacs/test_ro_user.py", "param": "--deselect=tacacs/test_ro_user.py::test_ro_user_ipv6"},
+      {"name": "tacacs/test_rw_user.py", "param": "--deselect=tacacs/test_rw_user.py::test_rw_user_ipv6"}
+    ]'
+    displayName: "Specific param, support feature(e.g. 'bgp') or test module(e.g. 'bgp/test_bgp_fact.py')"
+
+  - name: FEATURES_EXCLUDE
+    type: string
+    default: " "
+    displayName: "Features to be excluded"
+
+  - name: COMMON_EXTRA_PARAMS
+    type: string
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202505)"
+    displayName: "Common test parameters"
+
+  # Test timeout
+  - name: MAX_RUN_TEST_MINUTES
+    type: number
+    default: 4800
+
+  - name: RETRY_TIMES
+    type: string
+    default: 1
+
+  # Retry cases to include, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_INCLUDE
+    type: string
+    default: " "
+
+  # Retry cases to exclude, works when retry_times>0, support both feature and script level, such as "bgp,test_features.py"
+  - name: RETRY_CASES_EXCLUDE
+    type: string
+    default: " "
+
+stages:
+- stage: Test
+
+  variables:
+    - group: SONiC-Elastictest
+
+  jobs:
+  - job:
+    displayName: 8102.t1-smartswitch.202505.NightlyTest_by_Elastictest
+    timeoutInMinutes: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+    continueOnError: false
+    pool: sonic-ubuntu-1c
+    steps:
+    - template: ../../run-test-nightly-elastictest-template.yml
+      parameters:
+        TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
+        SCRIPTS: ${{ parameters.SCRIPTS }}
+        FEATURES: ${{ parameters.FEATURES }}
+        SCRIPTS_EXCLUDE: ${{ parameters.SCRIPTS_EXCLUDE }}
+        SPECIFIC_PARAM: ${{ parameters.SPECIFIC_PARAM }}
+        FEATURES_EXCLUDE: ${{ parameters.FEATURES_EXCLUDE }}
+        COMMON_EXTRA_PARAMS: ${{ parameters.COMMON_EXTRA_PARAMS }}
+        MGMT_BRANCH: ${{ parameters.MGMT_BRANCH }}
+        MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
+        IMAGE_URL: ${{ parameters.IMAGE_URL }}
+        MIN_WORKER: ${{ parameters.MIN_WORKER }}
+        MAX_WORKER: ${{ parameters.MAX_WORKER }}
+        RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
+        RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
+        RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
