@@ -241,6 +241,9 @@ server:
     bjw3-can-serv-8:
       ansible_host: 10.150.238.23
       ansible_hostv6: 2404:f801:10:16::a96:ee17
+    bjw3-can-serv-9:
+      ansible_host: 10.150.238.24
+      ansible_hostv6: 2404:f801:10:16::a96:ee18
 
 
 sonic_arista_7050C_S128:
