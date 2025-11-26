@@ -533,7 +533,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         duthost.facts['router_mac'],
         pdp.get_mac(pdp.port_to_device(injection_port), injection_port)
     )
-    # Ratio = 5, from test data
+    # Downtime ratio is calculated by dividing the number of flapping neighbors by 5, from test data
     downtime_ratio = len(flapping_neighbors) / 5
     downtime_threshold = _get_max_time('dataplane_downtime', downtime_ratio)
     terminated = Event()
