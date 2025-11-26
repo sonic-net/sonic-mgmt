@@ -1256,13 +1256,13 @@ def get_hw_management_version(duthost):
     return full_version[len('1.mlnx.'):]
 
 
-def is_innolight_cable(port_info):
-    """ Check if the given port info indicates an Innolight cable and handle known issues """
+def is_pinewave_module(port_info):
+    """ Check if the given port info indicates an pinewave module and handle known issues """
     return 'PINEWAVE' in port_info.get('manufacturer', '')
 
 
 def is_unsupported_module(port_info, port_number):
-    if is_innolight_cable(port_info):
+    if is_pinewave_module(port_info):
         logger.info(f"Port {port_number} has an unsupported module, skipping it and continue to check other ports")
         return True
     return False
