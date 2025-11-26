@@ -22,7 +22,8 @@ from tests.common.snappi_tests.port import SnappiPortConfig, SnappiPortType
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict, dut_ip_start, snappi_ip_start, \
     prefix_length, dut_ipv6_start, snappi_ipv6_start, v6_prefix_length
-from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
+from tests.common.snappi_tests.uhd.uhd_helpers import NetworkConfigSettings, create_front_panel_ports, \
+    create_connections, create_uhdIp_list, create_arp_bypass, create_profiles
 from tests.common.helpers.assertions import pytest_require
 logger = logging.getLogger(__name__)
 
@@ -1386,17 +1387,10 @@ def check_fabric_counters(duthost):
                               format(fec_uncor_err, duthost.hostname, val_list[0], val_list[1]))
 
 
-@pytest.fixture(scope="module")
-def config_uhd_connect(request, duthost, tbinfo):
+def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
     """
-    Fixture configures UHD connect
-
-    Args:
-        request (object): pytest request object, duthost, tbinfo
-
-    Yields:
+    Standalone function for UHD connect configuration that can be called in threads
     """
-
     def read_links_from_csv(file_path):
         with open(file_path, 'r') as f:
             return list(csv.DictReader(f))
@@ -1406,12 +1400,14 @@ def config_uhd_connect(request, duthost, tbinfo):
 
     if uhd_enabled:
         # Load UHD-specific config file
-        logger.info("Loading UHD-specific config file")
+        logger.info(f"Loading UHD-specific config file for test case: {ha_test_case}")
 
         logger.info("Configuring UHD connect")
         csv_data = read_links_from_csv(uhd_enabled)
         dpu_ports = [row for row in csv_data if row['OutPort'] == 'True']
         l47_ports = [row for row in csv_data if row['OutPort'] == 'False']
+        ethpass_ports = [row for row in csv_data if row['EthernetPass'] == 'True']
+        has_switchover = any(dpu.get('SwitchOverPort') == 'True' for dpu in dpu_ports)
 
         uhdConnect_ip = tbinfo['uhd_ip']
         num_cps_cards = tbinfo['num_cps_cards']
@@ -1425,7 +1421,9 @@ def config_uhd_connect(request, duthost, tbinfo):
             'num_udpbg_cards': num_udpbg_cards,
             'num_dpus_ports': num_dpu_ports,
             'l47_ports': l47_ports,
-            'dpu_ports': dpu_ports
+            'dpu_ports': dpu_ports,
+            'ethpass_ports': ethpass_ports,
+            'switchover_port': has_switchover
         }
 
         uhdSettings = NetworkConfigSettings()  # noqa: F405
@@ -1433,6 +1431,7 @@ def config_uhd_connect(request, duthost, tbinfo):
         total_cards = num_cps_cards + num_tcpbg_cards + num_udpbg_cards
         subnet_mask = uhdSettings.subnet_mask
 
+        logger.info(f"Configuring UHD connect for {uhdSettings.ENI_COUNT} ENIs")
         ip_list = create_uhdIp_list(subnet_mask, uhdSettings, cards_dict)  # noqa: F405
         fp_ports_list = create_front_panel_ports(int(total_cards * 2), uhdSettings, cards_dict)  # noqa: F405
         arp_bypass_list = create_arp_bypass(fp_ports_list, ip_list, uhdSettings, cards_dict, subnet_mask)  # noqa: F405
@@ -1471,6 +1470,14 @@ def config_uhd_connect(request, duthost, tbinfo):
         logger.info("UHD config not enabled, skipping config")
 
     return
+
+
+@pytest.fixture(scope="module")
+def config_uhd_connect(request, tbinfo):
+    """
+    Fixture configures UHD connect
+    """
+    return setup_config_uhd_connect(request, tbinfo)
 
 
 DEST_TO_GATEWAY_MAP = {}  # noqa: F824
