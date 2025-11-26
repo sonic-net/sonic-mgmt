@@ -1390,15 +1390,6 @@ def check_fabric_counters(duthost):
 def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
     """
     Standalone function for UHD connect configuration that can be called in threads
-
-    Args:
-        request (object): pytest request object
-        duthost: DUT host fixture
-        tbinfo: testbed info
-        ha_test_case: HA test case name
-
-    Returns:
-        None
     """
     def read_links_from_csv(file_path):
         with open(file_path, 'r') as f:
@@ -1485,11 +1476,6 @@ def setup_config_uhd_connect(request, tbinfo, ha_test_case=None):
 def config_uhd_connect(request, tbinfo):
     """
     Fixture configures UHD connect
-
-    Args:
-        request (object): pytest request object, duthost, tbinfo
-
-    Yields:
     """
     return setup_config_uhd_connect(request, tbinfo)
 
