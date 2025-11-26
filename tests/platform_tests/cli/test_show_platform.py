@@ -38,6 +38,7 @@ THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 VPD_DATA_FILE = "/var/run/hw-management/eeprom/vpd_data"
 
 BF_3_PLATFORM = 'arm64-nvda_bf-bf3comdpu'
+AMD_ELBA_PLATFORM = 'arm64-elba-asic-flash128-r0'
 
 
 @pytest.fixture(scope='module')
@@ -317,6 +318,9 @@ def test_show_platform_psustatus(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
 
+    if duthost.facts["platform"] == AMD_ELBA_PLATFORM:
+        pytest.skip(f"Skip the test, as it is not supported on AMD ELBA DPU : {AMD_ELBA_PLATFORM}.")
+
     logging.info("Check pmon daemon status on dut '{}'".format(duthost.hostname))
     pytest_assert(
         wait_until(60, 5, 0, check_pmon_daemon_status, duthost),
@@ -350,6 +354,9 @@ def test_show_platform_psustatus_json(duthosts, enum_supervisor_dut_hostname):
     @summary: Verify output of `show platform psustatus --json`
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
+
+    if duthost.facts["platform"] == AMD_ELBA_PLATFORM:
+        pytest.skip(f"Skip the test, as it is not supported on AMD ELBA DPU : {AMD_ELBA_PLATFORM}.")
 
     if "201811" in duthost.os_version or "201911" in duthost.os_version:
         pytest.skip("JSON output not available in this version")
@@ -498,10 +505,10 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     """
     duthost = duthosts[enum_supervisor_dut_hostname]
     cmds_list = [CMD_SHOW_PLATFORM, "ssdhealth"]
-    supported_disks = ["SATA", "NVME"]
+    supported_disks = ["SATA", "NVME", "EMMC"]
 
     platform_ssd_device_path_dict = {BF_3_PLATFORM: "/dev/nvme0"}
-    unsupported_ssd_values_per_platform = {}
+    unsupported_ssd_values_per_platform = {AMD_ELBA_PLATFORM: ["Temperature"]}
 
     # Build specific path to SSD device based on platform/ssd path mapping dict
     platform = duthost.facts['platform']
@@ -592,6 +599,9 @@ def test_show_platform_pcieinfo(duthosts, enum_rand_one_per_hwsku_hostname):
     @summary: Verify output of `show platform pcieinfo`
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    if duthost.facts["platform"] == AMD_ELBA_PLATFORM:
+        pytest.skip(f"Skip the test, as it is not supported on AMD ELBA DPU : {AMD_ELBA_PLATFORM}.")
 
     cmd = "show platform pcieinfo -c"
 
