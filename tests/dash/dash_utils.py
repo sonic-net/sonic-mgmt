@@ -2,6 +2,10 @@ import logging
 from os import path
 from time import sleep
 
+import ptf.packet as scapy
+import ptf.testutils as testutils
+import pytest
+
 from jinja2 import Template
 
 from constants import TEMPLATE_DIR
@@ -96,3 +100,32 @@ def apply_swssconfig_file(duthost, file_path):
     duthost.shell("docker cp {}  swss:/{}".format(file_path, file_name))
     duthost.shell("docker exec swss sh -c \"swssconfig /{}\"".format(file_name))
     sleep(5)
+
+
+def verify_tunnel_packets(ptfadapter, ports, exp_dpu_to_vm_pkt, tunnel_endpoint_counts):
+    timeout = 1
+    if isinstance(ports, list):
+        target_ports = ports
+    else:
+        target_ports = [ports]
+
+    result = testutils.dp_poll(ptfadapter, timeout=timeout, exp_pkt=exp_dpu_to_vm_pkt)
+    if isinstance(result, ptfadapter.dataplane.PollSuccess):
+        pkt_repr = scapy.Ether(result.packet)
+        if result.port in target_ports:
+            if pkt_repr["IP"].dst in tunnel_endpoint_counts:
+                tunnel_endpoint_counts[pkt_repr["IP"].dst] += 1
+                logging.debug(
+                    f"Packet sent to tunnel endpoint {pkt_repr['IP'].dst} matches:\
+                        \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
+                )
+                return
+            else:
+                pytest.fail(
+                    f"Received packet has unexpected dst IP {pkt_repr['IP'].dst}, \
+                        expected one of {tunnel_endpoint_counts.keys()} \
+                        \n{result.format()} \nExpected:\n{exp_dpu_to_vm_pkt}"
+                )
+        else:
+            pytest.fail(f"Got expected packet on unexpected port {result.port}: {pkt_repr}")
+    pytest.fail(f"DP poll failed:\n{result.format()}")

@@ -16,7 +16,7 @@ from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLL
      EXPECT_CLEAR, THR_VERIFY_CMDS
 from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
 from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
-from tests.common.utilities import wait_until, get_data_acl
+from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
@@ -324,12 +324,15 @@ def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size)
     # Template used to speedup execution many similar commands on DUT
     del_template = """
     %s
+    for s in {{neigh_ip_list}}
+    do
+        ip -4 {{ns_prefix}} route del ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
+    done
     ip -4 {{ns_prefix}} route del 2.0.0.0/8 dev {{iface}}
     ip {{ns_prefix}} neigh del 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}
     for s in {{neigh_ip_list}}
     do
         ip {{ns_prefix}} neigh del ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
-        ip -4 {{ns_prefix}} route del ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
     done""" % (NS_PREFIX_TEMPLATE)
 
     add_template = """
@@ -501,14 +504,6 @@ def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_fro
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
-
-    # will be changed to use is_ipv6_only_topology from tests.common.utilities
-    # once PR #19639 is merged
-    is_ipv6_only_topology = (
-        "-v6-" in tbinfo["topo"]["name"]
-        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
-        else False
-    )
     if is_ipv6_only_topology and ip_ver == "4":
         pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
@@ -677,8 +672,13 @@ def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
 
 
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
-def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index, crm_interface,
-                     ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo, nbrhosts):
+def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo,
+                     nbrhosts):
+
+    if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
@@ -776,7 +776,11 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_f
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
 def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host):
+                      enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host, tbinfo):
+
+    if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
@@ -856,7 +860,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 @pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
 def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           enum_frontend_asic_index, crm_interface, group_member, network):
+                           enum_frontend_asic_index, crm_interface, group_member, tbinfo, network):
+
+    if is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
