@@ -26,6 +26,15 @@ from tests.common.dualtor.dual_tor_utils import mux_cable_server_ip
 from tests.common import constants
 from tests.common.devices.eos import EosHost
 from tests.common.devices.sonic import SonicHost
+# Import BGP Sentinel fixtures from BGP directory
+from bgp_sentinel_fixtures import (  # noqa: F401
+    enable_bgp_sentinel,
+    bgp_sentinel_with_exabgp,
+    is_bgp_sentinel_supported,
+    is_bgp_monv6_supported,
+    get_sentinel_community,
+    is_bgp_sentinel_session_established
+)
 
 logger = logging.getLogger(__name__)
 
