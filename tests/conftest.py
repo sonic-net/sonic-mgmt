@@ -84,6 +84,8 @@ from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
 
+from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 cache = FactsCache()
