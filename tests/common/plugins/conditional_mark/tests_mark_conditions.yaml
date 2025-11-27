@@ -345,9 +345,11 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
 
 bgp/test_bgp_port_disable.py:
   skip:
-    reason: "Not supperted on master."
+    reason: "Not supperted on master. Skip test_bgp_port_disable in PR tests."
+    conditions_logical_operator: or
     conditions:
       - "release in ['master', '202505']"
+      - "asic_type in ['vs']"
 
 bgp/test_bgp_queue.py:
   skip:
