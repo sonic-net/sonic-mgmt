@@ -5015,6 +5015,13 @@ telemetry/test_telemetry_poll.py::test_poll_mode_present_table_delayed_key:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
 
+telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
+  skip:
+    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    conditions:
+      - "release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom']"
+
 #######################################
 #####           nbr               #####
 #######################################
