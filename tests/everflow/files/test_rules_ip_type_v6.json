@@ -1,0 +1,22 @@
+{
+    "ACL_RULE": {
+        "{{ table_name }}|rule_999": {
+            "PRIORITY": "999",
+            "IP_TYPE": "ANY",
+            "{{ action }}": "test_session_1",
+            "DST_IPV6": "2002:0225:7c6b:a982:d48b:230e:f271:0011"
+        },
+        "{{ table_name }}|rule_998": {
+            "PRIORITY": "998",
+            "IP_TYPE": "IP",
+            "{{ action }}": "test_session_1",
+            "DST_IPV6": "2002:0225:7c6b:a982:d48b:230e:f271:0012"
+        },
+        "{{ table_name }}|rule_997": {
+            "PRIORITY": "997",
+            "IP_TYPE": "IPV6ANY",
+            "{{ action }}": "test_session_1",
+            "DST_IPV6": "2002:0225:7c6b:a982:d48b:230e:f271:0013"
+        }
+    }
+}

@@ -7,7 +7,7 @@ from tests.common.fixtures.conn_graph_facts import (        # noqa: F401
 import pytest
 
 
-pytestmark = [pytest.mark.topology('snappi')]
+pytestmark = [pytest.mark.topology('tgen')]
 
 
 @pytest.mark.disable_loganalyzer

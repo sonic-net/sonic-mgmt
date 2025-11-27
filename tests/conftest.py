@@ -1,11 +1,9 @@
-import concurrent.futures
 from functools import lru_cache
 import enum
 import os
 import json
 import logging
 import random
-from concurrent.futures import as_completed
 import re
 import sys
 
@@ -34,7 +32,8 @@ from tests.common.devices.duthosts import DutHosts
 from tests.common.devices.vmhost import VMHost
 from tests.common.devices.base import NeighborDevice
 from tests.common.devices.cisco import CiscoHost
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session        # noqa: F401
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_session, \
+    stop_route_checker_on_duthost, start_route_checker_on_duthost                           # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
@@ -84,6 +83,8 @@ from tests.common.platform.args.cont_warm_reboot_args import add_cont_warm_reboo
 from tests.common.platform.args.normal_reboot_args import add_normal_reboot_args
 from ptf import testutils
 from ptf.mask import Mask
+
+from tests.common.telemetry.fixtures import db_reporter, ts_reporter                        # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -901,8 +902,6 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         devices[neighbor_name] = device
         logger.info(f"nbrhosts finished: {neighbor_name}_{vm_name}")
 
-    executor = concurrent.futures.ThreadPoolExecutor(max_workers=8)
-    futures = []
     servers = []
     if 'servers' in tbinfo:
         servers.extend(tbinfo['servers'].values())
@@ -910,21 +909,19 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         servers.append(tbinfo)
     else:
         logger.warning("Unknown testbed schema for setup nbrhosts")
-    for server in servers:
-        vm_base = int(server['vm_base'][2:])
-        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
-        vms = MultiServersUtils.get_vms_by_dut_interfaces(
-                tbinfo['topo']['properties']['topology']['VMs'],
-                server['dut_interfaces']
-            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
-        for neighbor_name, neighbor in vms.items():
-            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
-            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name))
 
-    for future in as_completed(futures):
-        # if exception caught in the sub-thread, .result() will raise it in the main thread
-        _ = future.result()
-    executor.shutdown(wait=True)
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for server in servers:
+            vm_base = int(server['vm_base'][2:])
+            vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+            vms = MultiServersUtils.get_vms_by_dut_interfaces(
+                    tbinfo['topo']['properties']['topology']['VMs'],
+                    server['dut_interfaces']
+                ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+            for neighbor_name, neighbor in vms.items():
+                vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+                executor.submit(initial_neighbor, neighbor_name, vm_name)
+
     logger.info("Fixture nbrhosts finished")
     return devices
 
@@ -3019,7 +3016,7 @@ def temporarily_disable_route_check(request, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit stop routeCheck")
+                    executor.submit(stop_route_checker_on_duthost, duthost)
 
             yield
 
@@ -3029,7 +3026,7 @@ def temporarily_disable_route_check(request, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(duthost.shell, "sudo monit start routeCheck")
+                    executor.submit(start_route_checker_on_duthost, duthost)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
