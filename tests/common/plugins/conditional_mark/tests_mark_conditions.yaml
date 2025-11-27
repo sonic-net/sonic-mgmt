@@ -403,10 +403,8 @@ bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv4:
 
 bgp/test_bgp_sentinel.py::test_bgp_sentinel[IPv6:
   xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style or due to GH issue 23938"
-    conditions_logical_operator: or
+    reason: "xfail for GH issue 23938"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20193 and '-v6-' in topo_name"
       - "https://github.com/sonic-net/sonic-buildimage/issues/23938"
 
 bgp/test_bgp_session.py::test_bgp_session_interface_down:
