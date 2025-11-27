@@ -277,12 +277,13 @@ bgp/test_bgp_allow_list.py:
 
 bgp/test_bgp_bbr.py:
   skip:
-    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
+    reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported. Not needed for isolated topo."
     conditions_logical_operator: or
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17598"
+      - "'isolated' in topo_name"
   xfail:
     reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
     conditions:
@@ -344,9 +345,11 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
 
 bgp/test_bgp_port_disable.py:
   skip:
-    reason: "Not supperted on master."
+    reason: "Not supperted on master. Skip test_bgp_port_disable in PR tests."
+    conditions_logical_operator: or
     conditions:
       - "release in ['master', '202505']"
+      - "asic_type in ['vs']"
 
 bgp/test_bgp_queue.py:
   skip:
@@ -3141,6 +3144,16 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####             hft             #####
+#######################################
+high_frequency_telemetry:
+  skip:
+    reason: "High frequency telemetry isn't supported in this platform"
+    conditions_logical_operator: or
+    conditions:
+      - "'nvidia_sn5600' not in platform"
+      - "'nvidia_sn5640' not in platform"
+
 #####          http              #####
 #######################################
 http:
@@ -4886,6 +4899,13 @@ telemetry/test_telemetry_poll.py::test_poll_mode_present_table_delayed_key:
     conditions:
       - "is_mgmt_ipv6_only==True"
       - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
+
+telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
+  skip:
+    reason: "Skip E2E telemetry SRv6 test for non-supported branches and HW"
+    conditions:
+      - "release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom']"
 
 #######################################
 #####           nbr               #####
