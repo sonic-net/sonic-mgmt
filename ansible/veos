@@ -92,6 +92,7 @@ all:
         vm_bjw3_host_6:
         vm_bjw3_host_7:
         vm_bjw3_host_8:
+        vm_bjw3_host_9:
     eos:
       children:
         vms_1:
@@ -181,6 +182,7 @@ all:
         vms_bjw3_6:
         vms_bjw3_7:
         vms_bjw3_8:
+        vms_bjw3_9:
     servers:
       children:
         server_1:
@@ -262,6 +264,7 @@ all:
         server_bjw3_6:
         server_bjw3_7:
         server_bjw3_8:
+        server_bjw3_9:
         server_tk5_3:
         server_tk5_4:
         server_tk5_5:
@@ -740,6 +743,10 @@ vm_bjw3_host_8:
   hosts:
     BJW3-CAN-SERV-8:
       ansible_host: 10.150.238.23
+vm_bjw3_host_9:
+  hosts:
+    BJW3-CAN-SERV-9:
+      ansible_host: 10.150.238.24
 
 vms_1:
   hosts:
@@ -24494,6 +24501,70 @@ vms_bjw3_5:
       ansible_host: 172.16.217.98
     VM32087:
       ansible_host: 172.16.217.99
+    VM32088:
+      ansible_host: 172.16.217.100
+    VM32089:
+      ansible_host: 172.16.217.101
+    VM32090:
+      ansible_host: 172.16.217.102
+    VM32091:
+      ansible_host: 172.16.217.103
+    VM32092:
+      ansible_host: 172.16.217.104
+    VM32093:
+      ansible_host: 172.16.217.105
+    VM32094:
+      ansible_host: 172.16.217.106
+    VM32095:
+      ansible_host: 172.16.217.107
+    VM32096:
+      ansible_host: 172.16.217.108
+    VM32097:
+      ansible_host: 172.16.217.109
+    VM32098:
+      ansible_host: 172.16.217.110
+    VM32099:
+      ansible_host: 172.16.217.111
+    VM32100:
+      ansible_host: 172.16.217.112
+    VM32101:
+      ansible_host: 172.16.217.113
+    VM32102:
+      ansible_host: 172.16.217.114
+    VM32103:
+      ansible_host: 172.16.217.115
+    VM32104:
+      ansible_host: 172.16.217.116
+    VM32105:
+      ansible_host: 172.16.217.117
+    VM32106:
+      ansible_host: 172.16.217.118
+    VM32107:
+      ansible_host: 172.16.217.119
+    VM32108:
+      ansible_host: 172.16.217.120
+    VM32109:
+      ansible_host: 172.16.217.121
+    VM32110:
+      ansible_host: 172.16.217.122
+    VM32111:
+      ansible_host: 172.16.217.123
+    VM32112:
+      ansible_host: 172.16.217.124
+    VM32113:
+      ansible_host: 172.16.217.125
+    VM32114:
+      ansible_host: 172.16.217.126
+    VM32115:
+      ansible_host: 172.16.217.127
+    VM32116:
+      ansible_host: 172.16.217.128
+    VM32117:
+      ansible_host: 172.16.217.129
+    VM32118:
+      ansible_host: 172.16.217.130
+    VM32119:
+      ansible_host: 172.16.217.131
 
 vms_bjw3_8:
   hosts:
@@ -24769,6 +24840,73 @@ vms_bjw3_8:
       ansible_host: 172.16.173.146
     VM00135:
       ansible_host: 172.16.173.147
+
+vms_bjw3_9:
+  hosts:
+    VM04000:
+      ansible_host: 172.16.222.12
+    VM04001:
+      ansible_host: 172.16.222.13
+    VM04002:
+      ansible_host: 172.16.222.14
+    VM04003:
+      ansible_host: 172.16.222.15
+    VM04004:
+      ansible_host: 172.16.222.16
+    VM04005:
+      ansible_host: 172.16.222.17
+    VM04006:
+      ansible_host: 172.16.222.18
+    VM04007:
+      ansible_host: 172.16.222.19
+    VM04008:
+      ansible_host: 172.16.222.20
+    VM04009:
+      ansible_host: 172.16.222.21
+    VM04010:
+      ansible_host: 172.16.222.22
+    VM04011:
+      ansible_host: 172.16.222.23
+    VM04012:
+      ansible_host: 172.16.222.24
+    VM04013:
+      ansible_host: 172.16.222.25
+    VM04014:
+      ansible_host: 172.16.222.26
+    VM04015:
+      ansible_host: 172.16.222.27
+    VM04016:
+      ansible_host: 172.16.222.28
+    VM04017:
+      ansible_host: 172.16.222.29
+    VM04018:
+      ansible_host: 172.16.222.30
+    VM04019:
+      ansible_host: 172.16.222.31
+    VM04020:
+      ansible_host: 172.16.222.32
+    VM04021:
+      ansible_host: 172.16.222.33
+    VM04022:
+      ansible_host: 172.16.222.34
+    VM04023:
+      ansible_host: 172.16.222.35
+    VM04024:
+      ansible_host: 172.16.222.36
+    VM04025:
+      ansible_host: 172.16.222.37
+    VM04026:
+      ansible_host: 172.16.222.38
+    VM04027:
+      ansible_host: 172.16.222.39
+    VM04028:
+      ansible_host: 172.16.222.40
+    VM04029:
+      ansible_host: 172.16.222.41
+    VM04030:
+      ansible_host: 172.16.222.42
+    VM04031:
+      ansible_host: 172.16.222.43
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:
@@ -25298,3 +25436,9 @@ server_bjw3_8:
   children:
     vm_bjw3_host_8:
     vms_bjw3_8:
+server_bjw3_9:
+  vars:
+    host_var_file: host_vars/BJW3-CAN-SERV-9.yml
+  children:
+    vm_bjw3_host_9:
+    vms_bjw3_9:
