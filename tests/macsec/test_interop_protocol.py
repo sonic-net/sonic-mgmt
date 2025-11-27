@@ -216,6 +216,4 @@ class TestInteropProtocol():
             sysDescr = ".1.3.6.1.2.1.1.1.0"
             result = get_snmp_output(dut_loip, duthost, nbr,
                                      creds_all_duts, sysDescr)
-            assert not result["failed"], (
-                "Operation failed. Reason: '{}'.".format(result["failed_reason"])
-            )
+            assert not result["failed"], "Operation failed. Result: {}".format(result)
