@@ -35,6 +35,7 @@ from tests.common.reboot import reboot
 from tests.common.utilities import skip_release
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import find_duthost_on_role
 from tests.common.utilities import get_upstream_neigh_type
 
@@ -43,7 +44,7 @@ from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa: F401
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1")
+    pytest.mark.topology("t0", "t1", "t2", "m0", "mx", "m1", "lt2", "ft2")
 ]
 
 _COPPTestParameters = namedtuple("_COPPTestParameters",
@@ -104,25 +105,35 @@ class TestCOPP(object):
                                           "UDLD",
                                           "Default"])
     def test_policer(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     ptfhost, copp_testbed, dut_type):
+                     ptfhost, copp_testbed, dut_type, fanouthosts):
         """
             Validates that rate-limited COPP groups work as expected.
 
             Checks that the policer enforces the rate limit for protocols
             that have a set rate limit.
         """
+        # If fanout is running 7060x6 and running SONiC, the only supported action for UDLD is trap, which means
+        # UDLD packet will not be forwarded to DUT
+        if 'UDLD' == protocol:
+            for fanouthost in list(fanouthosts.values()):
+                if fanouthost.get_fanout_os() == 'sonic' and "arista_7060x6_64pe_b" in fanouthost.facts["platform"]:
+                    pytest.skip("Skip UDLD test for Arista-7060x6 fanout without UDLD forward support")
+
         duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        namespace = DEFAULT_NAMESPACE
+        if duthost.is_multi_asic:
+            namespace = random.choice(duthost.asics)
 
         # Skip the check if the protocol is "Default"
         if protocol != "Default":
             trap_ids = PROTOCOL_TO_TRAP_ID.get(protocol)
             is_always_enabled, feature_name = copp_utils.get_feature_name_from_trap_id(duthost, trap_ids[0])
             if is_always_enabled:
-                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0]),
+                pytest_assert(copp_utils.is_trap_installed(duthost, trap_ids[0], namespace),
                               f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
             else:
                 feature_list, _ = duthost.get_feature_status()
-                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0])
+                trap_installed = copp_utils.is_trap_installed(duthost, trap_ids[0], namespace)
                 if feature_name in feature_list and feature_list[feature_name] == "enabled":
                     pytest_assert(trap_installed,
                                   f"Trap {trap_ids[0]} for protocol {protocol} is not installed")
@@ -240,9 +251,8 @@ class TestCOPP(object):
             copp_utils.disable_feature_entry(duthost, self.feature_name)
 
         logging.info("Verify {} trap is uninstalled through CLI".format(self.trap_id))
-        pytest_assert(not copp_utils.is_trap_installed(duthost, self.trap_id),
+        pytest_assert(wait_until(30, 2, 0, copp_utils.is_trap_uninstalled, duthost, self.trap_id),
                       "Trap {} is not uninstalled".format(self.trap_id))
-
         logger.info("Verify {} trap status is uninstalled by sending traffic".format(self.trap_id))
         pytest_assert(
             wait_until(100, 20, 0, _copp_runner, duthost, ptfhost, self.trap_id.upper(),
@@ -297,10 +307,13 @@ def test_verify_copp_configuration_cli(duthosts, enum_rand_one_per_hwsku_fronten
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    namespace = DEFAULT_NAMESPACE
+    if duthost.is_multi_asic:
+        namespace = random.choice(duthost.asics)
 
     trap, trap_group, copp_group_cfg = copp_utils.get_random_copp_trap_config(duthost)
-    hw_status = copp_utils.get_trap_hw_status(duthost)
-    show_copp_config = copp_utils.parse_show_copp_configuration(duthost)
+    hw_status = copp_utils.get_trap_hw_status(duthost, namespace)
+    show_copp_config = copp_utils.parse_show_copp_configuration(duthost, namespace)
 
     pytest_assert(trap in show_copp_config,
                   f"Trap {trap} not found in show copp configuration output")
@@ -361,7 +374,7 @@ def copp_testbed(
     if not is_backend_topology:
         # There is no upstream neighbor in T1 backend topology. Test is skipped on T0 backend.
         # For Non T2 topologies, setting upStreamDuthost as duthost to cover dualTOR and MLAG scenarios.
-        if 't2' in tbinfo["topo"]["name"]:
+        if 't2' in tbinfo["topo"]["type"]:
             upStreamDuthost = find_duthost_on_role(duthosts, get_upstream_neigh_type(tbinfo), tbinfo)
         else:
             upStreamDuthost = duthost
@@ -533,6 +546,14 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
     logging.info("Update the rate limit for the COPP policer")
     copp_utils.limit_policer(dut, rate_limit, test_params.nn_target_namespace, test_params.neighbor_miss_trap_supported)
 
+    if not is_backend_topology:
+        # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
+        upStreamDuthost.command("sudo config bgp shutdown all")
+        # save BGP shutdown into config, so backup_restore_config_db won't bring it back up
+        # without shutting down, background BGP traffic can consume significant COPP bandwidth on large topos
+        if dut == upStreamDuthost:
+            dut.command("sudo config save -y")
+
     # Multi-asic will not support this mode as of now.
     if test_params.swap_syncd:
         logging.info("Swap out syncd to use RPC image...")
@@ -548,11 +569,6 @@ def _setup_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_bac
         # SWSS for the COPP changes to take effect.
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
-
-    if not is_backend_topology:
-        # make sure traffic goes over management port by shutdown bgp toward upstream neigh that gives default route
-        upStreamDuthost.command("sudo config bgp shutdown all")
-        time.sleep(30)
 
     logging.info("Configure syncd RPC for testing")
     copp_utils.configure_syncd(dut, test_params.nn_target_port, test_params.nn_target_interface,
@@ -570,6 +586,12 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
     logging.info("Restore COPP policer to default settings")
     copp_utils.restore_policer(dut, test_params.nn_target_namespace)
 
+    if not is_backend_topology:
+        # Testbed is not a T1 backend device, so bring up bgp session to upstream device
+        upStreamDuthost.command("sudo config bgp startup all")
+        if dut == upStreamDuthost:
+            dut.command("sudo config save -y")
+
     if test_params.swap_syncd:
         logging.info("Restore default syncd docker...")
         docker.restore_default_syncd(dut, creds, test_params.nn_target_namespace)
@@ -577,10 +599,6 @@ def _teardown_testbed(dut, creds, ptf, test_params, tbinfo, upStreamDuthost, is_
         copp_utils.restore_syncd(dut, test_params.nn_target_namespace)
         logging.info("Reloading config and restarting swss...")
         config_reload(dut, safe_reload=True, check_intf_up_ports=True)
-
-    if not is_backend_topology:
-        # Testbed is not a T1 backend device, so bring up bgp session to upstream device
-        upStreamDuthost.command("sudo config bgp startup all")
 
 
 def _setup_multi_asic_proxy(dut, creds, test_params, tbinfo):

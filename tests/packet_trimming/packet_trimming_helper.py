@@ -8,11 +8,12 @@ import tempfile
 import scapy.all as scapy
 import ptf.testutils as testutils
 import random
+import re
 
 from ptf.mask import Mask
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_dscp_to_queue_value
 from tests.common.helpers.srv6_helper import dump_packet_detail, validate_srv6_in_appl_db, validate_srv6_in_asic_db
 from tests.common.reboot import reboot
 from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT, DEFAULT_TTL, DUMMY_MAC, DUMMY_IPV6,
@@ -22,7 +23,8 @@ from tests.packet_trimming.constants import (DEFAULT_SRC_PORT, DEFAULT_DST_PORT,
                                              ACL_RULE_PRIORITY, ACL_TABLE_TYPE_NAME, ACL_RULE_NAME, SRV6_MY_SID_LIST,
                                              SRV6_INNER_SRC_IP, SRV6_INNER_DST_IP, DEFAULT_QUEUE_SCHEDULER_CONFIG,
                                              SRV6_UNIFORM_MODE, SRV6_OUTER_SRC_IPV6, SRV6_INNER_SRC_IPV6, ECN,
-                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_TC, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP)
+                                             SRV6_INNER_DST_IPV6, SRV6_UN, ASYM_TC, ASYM_PORT_1_DSCP, ASYM_PORT_2_DSCP,
+                                             SCHEDULER_TYPE, SCHEDULER_WEIGHT, SCHEDULER_PIR)
 
 logger = logging.getLogger(__name__)
 
@@ -275,6 +277,101 @@ def generate_packet(duthost, packet_type, dst_addr, send_pkt_size, send_pkt_dscp
     return pkt, masked_exp_packet
 
 
+def get_scheduler_oid_by_attributes(duthost, **kwargs):
+    """
+    Find scheduler OID in ASIC_DB by matching its attributes.
+
+    Args:
+        duthost: DUT host object
+        **kwargs: Scheduler attributes to match
+            - type: Scheduler type (e.g., "DWRR", "STRICT")
+            - weight: Scheduling weight (e.g., 15)
+            - pir: Peak Information Rate (e.g., 1)
+
+    Returns:
+        str: OID of the matched scheduler, or None if not found
+    """
+    # Mapping from CONFIG_DB parameters to ASIC_DB SAI attributes
+    param_to_sai_attr = {
+        'type': 'SAI_SCHEDULER_ATTR_SCHEDULING_TYPE',
+        'weight': 'SAI_SCHEDULER_ATTR_SCHEDULING_WEIGHT',
+        'pir': 'SAI_SCHEDULER_ATTR_MAX_BANDWIDTH_RATE'
+    }
+
+    # Mapping for type values
+    type_value_mapping = {
+        'DWRR': 'SAI_SCHEDULING_TYPE_DWRR',
+        'STRICT': 'SAI_SCHEDULING_TYPE_STRICT'
+    }
+
+    # Build expected attributes dictionary
+    expected_attrs = {}
+    for param, value in kwargs.items():
+        if param not in param_to_sai_attr:
+            logger.warning(f"Unknown scheduler parameter: {param}")
+            continue
+
+        sai_attr = param_to_sai_attr[param]
+
+        # Convert type value to SAI format
+        if param == 'type':
+            if value in type_value_mapping:
+                expected_attrs[sai_attr] = type_value_mapping[value]
+            else:
+                logger.warning(f"Unknown scheduler type: {value}")
+                continue
+        else:
+            # For numeric values, convert to string for comparison
+            expected_attrs[sai_attr] = str(value)
+
+    logger.info(f"Looking for scheduler with attributes: {expected_attrs}")
+
+    # Get all scheduler OIDs from ASIC_DB
+    cmd_get_oids = 'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_SCHEDULER:oid*"'
+    result = duthost.shell(cmd_get_oids)
+
+    if not result["stdout"].strip():
+        logger.warning("No schedulers found in ASIC_DB")
+        return None
+
+    oid_keys = result["stdout"].strip().split('\n')
+    logger.info(f"Found {len(oid_keys)} schedulers in ASIC_DB")
+
+    # Check each scheduler to find a match
+    for oid_key in oid_keys:
+        # Get all attributes of this scheduler
+        cmd_get_attrs = f'redis-cli -n 1 hgetall "{oid_key}"'
+        result = duthost.shell(cmd_get_attrs)
+
+        if not result["stdout"].strip():
+            continue
+
+        # Parse the attributes
+        lines = result["stdout"].strip().split('\n')
+        scheduler_attrs = {}
+        for i in range(0, len(lines), 2):
+            if i + 1 < len(lines):
+                scheduler_attrs[lines[i]] = lines[i + 1]
+
+        # Check if all expected attributes match
+        is_match = True
+        for attr_name, expected_value in expected_attrs.items():
+            actual_value = scheduler_attrs.get(attr_name)
+            if actual_value != expected_value:
+                is_match = False
+                break
+
+        if is_match:
+            # Extract the OID value (e.g., "0x160000000059aa")
+            oid_value = oid_key.split(':')[-1]
+            logger.info(f"Found matching scheduler OID: {oid_value}")
+            logger.debug(f"Scheduler attributes: {scheduler_attrs}")
+            return oid_value
+
+    logger.warning(f"No scheduler found matching attributes: {expected_attrs}")
+    return None
+
+
 def create_blocking_scheduler(duthost):
     """
     Create a blocking scheduler for limiting egress traffic
@@ -294,7 +391,7 @@ def create_blocking_scheduler(duthost):
         # Create blocking scheduler
         cmd_create = (
             f'sonic-db-cli CONFIG_DB hset "SCHEDULER|{BLOCK_DATA_PLANE_SCHEDULER_NAME}" '
-            f'"type" DWRR "weight" 15 "pir" 1'
+            f'"type" {SCHEDULER_TYPE} "weight" {SCHEDULER_WEIGHT} "pir" {SCHEDULER_PIR}'
         )
         duthost.shell(cmd_create)
         logger.info(f"Successfully created blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
@@ -324,6 +421,68 @@ def delete_blocking_scheduler(duthost):
         logger.info(f"Successfully deleted blocking scheduler: {BLOCK_DATA_PLANE_SCHEDULER_NAME}")
 
 
+def validate_scheduler_configuration(duthost, dut_port, queue, expected_scheduler):
+    """
+    Validate that the scheduler configuration is applied correctly for a specific queue.
+
+    Args:
+        duthost: DUT host object
+        dut_port (str): DUT port name
+        queue (str): Queue index
+        expected_scheduler (str): Expected scheduler name
+
+    Returns:
+        bool: True if scheduler matches expected value, False otherwise
+    """
+    cmd_verify_scheduler = f"sonic-db-cli CONFIG_DB hget 'QUEUE|{dut_port}|{queue}' scheduler"
+    verify_result = duthost.shell(cmd_verify_scheduler)
+    current_scheduler = verify_result["stdout"].strip()
+
+    if current_scheduler == expected_scheduler:
+        logger.debug(f"Scheduler validation successful for port {dut_port} queue {queue}: {current_scheduler}")
+        return True
+    else:
+        logger.debug(f"Scheduler validation failed for port {dut_port} queue {queue}. "
+                     f"Expected: {expected_scheduler}, Got: {current_scheduler}")
+        return False
+
+
+def validate_scheduler_apply_to_queue_in_asic_db(duthost, scheduler_oid):
+    """
+    Validate that the scheduler is applied to queue in ASIC_DB.
+
+    Args:
+        duthost: DUT host object
+        scheduler_oid (str): Scheduler OID to validate (e.g., "0x160000000059aa")
+
+    Returns:
+        bool: True if applied to queue in ASIC_DB, False otherwise
+    """
+    logger.debug(f"Validating scheduler OID {scheduler_oid} in ASIC_DB")
+
+    # Dump ASIC_DB to a temporary file for faster searching
+    tmp_file = "/tmp/asic_db_scheduler_check.json"
+    dump_cmd = f"sonic-db-dump -n ASIC_DB -y > {tmp_file}"
+    duthost.shell(dump_cmd)
+
+    # Search for the scheduler OID in SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID
+    cmd_grep_oid = f'grep "SAI_SCHEDULER_GROUP_ATTR_SCHEDULER_PROFILE_ID" {tmp_file} | grep -c "{scheduler_oid}"'
+    result = duthost.shell(cmd_grep_oid)
+
+    # Clean up temporary file
+    duthost.shell(f"rm -f {tmp_file}")
+
+    # Check if scheduler OID is found in ASIC_DB
+    count = int(result["stdout"].strip()) if result["stdout"].strip() else 0
+
+    if count > 0:
+        logger.debug(f"ASIC_DB scheduler validation successful: OID {scheduler_oid} found in {count} scheduler groups")
+        return True
+    else:
+        logger.debug(f"ASIC_DB scheduler validation failed: OID {scheduler_oid} not found in any scheduler group")
+        return False
+
+
 def disable_egress_data_plane(duthost, dut_port, queue):
     """
     Disable egress data plane for a specific queue on a specific port.
@@ -350,6 +509,20 @@ def disable_egress_data_plane(duthost, dut_port, queue):
     # Apply blocking scheduler to the specified queue
     cmd_block_q = f"sonic-db-cli CONFIG_DB hset 'QUEUE|{dut_port}|{queue}' scheduler {BLOCK_DATA_PLANE_SCHEDULER_NAME}"
     duthost.shell(cmd_block_q)
+
+    # Wait for the blocking scheduler configuration to take effect in CONFIG_DB
+    pytest_assert(wait_until(60, 5, 0, validate_scheduler_configuration,
+                             duthost, dut_port, queue, BLOCK_DATA_PLANE_SCHEDULER_NAME),
+                  f"Blocking scheduler configuration failed for port {dut_port} queue {queue}")
+
+    # Get the blocking scheduler OID from ASIC_DB
+    scheduler_oid = get_scheduler_oid_by_attributes(duthost, type=SCHEDULER_TYPE,
+                                                    weight=SCHEDULER_WEIGHT, pir=SCHEDULER_PIR)
+    pytest_assert(scheduler_oid, "Failed to find blocking scheduler OID in ASIC_DB")
+
+    # Wait for the blocking scheduler configuration to take effect in ASIC_DB
+    pytest_assert(wait_until(60, 5, 0, validate_scheduler_apply_to_queue_in_asic_db, duthost, scheduler_oid),
+                  f"Scheduler OID {scheduler_oid} validation in ASIC_DB failed for port {dut_port} queue {queue}")
 
     logger.info(f"Successfully applied blocking scheduler to port {dut_port} queue {queue}")
 
@@ -456,7 +629,7 @@ def get_buffer_profile_trimming_status(duthost, buffer_profile_name):
     return action
 
 
-def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, dst_ipv4_addr, dscp_value, interfaces):
+def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, dst_addr, dscp_value, interfaces):
     """
     Fill the specified port queue's buffer to trigger packet trimming.
     If multiple interfaces are provided, fill with the buffers of all interfaces.
@@ -467,7 +640,7 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
         port_id: Source port ID for sending packets
         buffer_size: Buffer size to fill (in bytes)
         target_queue: Target queue number
-        dst_ipv4_addr: Destination IPv4 address
+        dst_addr: Destination address (IPv4 or IPv6)
         dscp_value: DSCP value used for classification to target queue
         interfaces: Single interface or list of interfaces to fill
 
@@ -493,25 +666,49 @@ def fill_egress_buffer(duthost, ptfadapter, port_id, buffer_size, target_queue, 
     logger.info(f"Buffer size for queue {target_queue} is approximately {buffer_size} bytes")
     logger.info(f"Sending {fill_packet_count} packets of size {fill_packet_size} bytes to fill the buffer")
 
+    # Validate destination address
+    if not dst_addr:
+        raise ValueError("Destination address cannot be None")
+
+    # Determine if destination address is IPv6
+    ip_obj = ipaddress.ip_address(dst_addr)
+    is_ipv6 = ip_obj.version == 6
+
     interface_packets = {}
     for interface_index, interface in enumerate(interfaces):
         # Use different source port for each interface to ensure proper hash distribution
         # This helps ensure packets go to the intended interface in PortChannel scenarios
         src_port = DEFAULT_SRC_PORT + interface_index
 
-        # Create packet for this specific interface
-        fill_packet = testutils.simple_udp_packet(
-            eth_dst=duthost.facts["router_mac"],
-            eth_src=DUMMY_MAC,
-            ip_src=DUMMY_IP,
-            ip_dst=dst_ipv4_addr,
-            udp_sport=src_port,
-            udp_dport=DEFAULT_DST_PORT,
-            ip_ttl=DEFAULT_TTL,
-            ip_dscp=dscp_value,
-            ip_ecn=ECN,
-            pktlen=fill_packet_size
-        )
+        # Create packet for this specific interface based on address type
+        common_params = {
+            'eth_dst': duthost.facts["router_mac"],
+            'eth_src': DUMMY_MAC,
+            'udp_sport': src_port,
+            'udp_dport': DEFAULT_DST_PORT,
+            'pktlen': fill_packet_size
+        }
+
+        if is_ipv6:
+            # Create IPv6 UDP packet
+            ipv6_params = {
+                'ipv6_src': DUMMY_IPV6,
+                'ipv6_dst': dst_addr,
+                'ipv6_hlim': DEFAULT_TTL,
+                'ipv6_tc': dscp_value << 2,  # Convert DSCP to Traffic Class
+                'ipv6_ecn': ECN
+            }
+            fill_packet = testutils.simple_udpv6_packet(**common_params, **ipv6_params)
+        else:
+            # Create IPv4 UDP packet
+            ipv4_params = {
+                'ip_src': DUMMY_IP,
+                'ip_dst': dst_addr,
+                'ip_ttl': DEFAULT_TTL,
+                'ip_dscp': dscp_value,
+                'ip_ecn': ECN
+            }
+            fill_packet = testutils.simple_udp_packet(**common_params, **ipv4_params)
         interface_packets[interface] = fill_packet
         logger.info(f"Created packet for interface {interface} with src_port={src_port}")
 
@@ -640,13 +837,16 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
                 )
 
                 # Fill buffer
+                dst_addr = egress_port['ipv4'] or egress_port['ipv6']
+                if not dst_addr:
+                    raise ValueError(f"Both IPv4 and IPv6 addresses are None for egress port {egress_port['name']}")
                 fill_egress_buffer(
                     duthost,
                     ptfadapter,
                     ingress_port['ptf_id'],
                     buffer_size,
                     block_queue,
-                    egress_port['ipv4'],
+                    dst_addr,
                     send_pkt_dscp,
                     trimmed_ports
                 )
@@ -657,6 +857,9 @@ def verify_packet_trimming(duthost, ptfadapter, ingress_port, egress_port, block
 
                 # Get dst address
                 dst_addr = (egress_port['ipv4'] if packet_type.startswith('ipv4') else egress_port['ipv6'])
+                if not dst_addr:
+                    logger.info(f"Skipping {packet_type} test: IPv4 or IPv6 address is None")
+                    continue
 
                 # Generate packet
                 pkt, exp_pkt = generate_packet(
@@ -766,13 +969,16 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
                 )
 
                 # Fill buffer
+                dst_addr = egress_port['ipv4'] or egress_port['ipv6']
+                if not dst_addr:
+                    raise ValueError(f"Both IPv4 and IPv6 addresses are None for egress port {egress_port['name']}")
                 fill_egress_buffer(
                     duthost,
                     ptfadapter,
                     ingress_port['ptf_id'],
                     buffer_size,
                     block_queue,
-                    egress_port['ipv4'],
+                    dst_addr,
                     send_pkt_dscp,
                     trimmed_ports
                 )
@@ -783,6 +989,62 @@ def verify_srv6_packet_with_trimming(duthost, ptfadapter, config_setup, ingress_
     except Exception as e:
         logger.error(f"Packet trimming verification failed: {str(e)}")
         raise
+
+
+def get_buffer_profile_name_for_queue(duthost, interface: str, queue_id: int):
+    """
+    Return (profile_name, redis_key) for BUFFER_QUEUE on <interface> covering queue_id,
+    preferring range keys; among overlapping ranges choose the largest span first.
+    Falls back to exact key if no matching range exists. Looks in CONFIG_DB (db 4).
+    """
+    list_cmd = f"redis-cli -n 4 KEYS 'BUFFER_QUEUE|{interface}|*'"
+    res = duthost.shell(list_cmd)
+    raw = (res.get("stdout") or "").strip()
+    if not raw:
+        return (None, None)
+
+    keys = []
+    for line in raw.splitlines():
+        line = line.strip()
+        line = re.sub(r'^\d+\)\s*', '', line).strip().strip('"').strip("'")
+        if line.startswith("BUFFER_QUEUE|"):
+            keys.append(line)
+
+    if not keys:
+        return (None, None)
+
+    exact_match = None
+    range_matches = []  # (span, lo, hi, key)
+
+    for k in keys:
+        suffix = k.split("|")[-1]
+
+        if suffix.isdigit():
+            if int(suffix) == queue_id:
+                exact_match = k
+            continue
+
+        m = re.fullmatch(r'(\d+)\s*-\s*(\d+)', suffix)
+        if m:
+            a, b = int(m.group(1)), int(m.group(2))
+            lo, hi = (a, b) if a <= b else (b, a)
+            if lo <= queue_id <= hi:
+                span = hi - lo
+                range_matches.append((span, lo, hi, k))
+
+    # Prefer the largest span; tie-break by lowest lo, then lowest hi for determinism
+    if range_matches:
+        range_matches.sort(key=lambda t: (-t[0], t[1], t[2]))
+        chosen = range_matches[0][3]
+    elif exact_match:
+        chosen = exact_match
+    else:
+        return (None, None)
+
+    hget_cmd = f"redis-cli -n 4 HGET '{chosen}' profile"
+    res = duthost.shell(hget_cmd)
+    profile_name = (res.get("stdout") or "").strip() or None
+    return (profile_name, chosen)
 
 
 def get_buffer_profile_for_queue(duthost, interface, queue_id):
@@ -800,10 +1062,7 @@ def get_buffer_profile_for_queue(duthost, interface, queue_id):
     """
     try:
         # Get buffer profile name for the queue
-        cmd = f"redis-cli -n 4 HGET 'BUFFER_QUEUE|{interface}|{queue_id}' profile"
-        result = duthost.shell(cmd)
-        profile_name = result["stdout"].strip()
-
+        profile_name, _ = get_buffer_profile_name_for_queue(duthost, interface, queue_id)
         if not profile_name:
             logger.warning(f"No buffer profile found for queue {queue_id} on {interface}")
             return None
@@ -2059,20 +2318,50 @@ def send_verify_srv6_packet_for_trimming(
         raise detail
 
 
-def check_connected_route_ready(duthost, interface_name):
+def check_connected_route_ready(duthost, egress_port):
     """
     Check if the route for the specified interface is ready.
 
     Args:
         duthost: DUT host object
-        interface_name (str): Interface name, e.g., "Ethernet64"
+        egress_port (dict): Egress port info
+            - 'name' (str): Interface or PortChannel name (e.g., 'Ethernet96' or 'PortChannel102')
+            - 'ipv4' (str, optional): IPv4 address of the interface
+            - 'ipv6' (str, optional): IPv6 address of the interface
+            - 'ptf_id' (int or list): PTF port ID(s)
+            - 'dut_members' (list): List of DUT member interfaces
 
     Returns:
         bool: True if the route is ready, False otherwise
     """
-    output = duthost.shell(f"show ip route connected | grep {interface_name}")['stdout']
-    logger.info(f"Connected route output: {output}")
-    return bool(output and output.strip())
+    interface_name = egress_port['name']
+
+    # Determine which address types to check based on configured addresses
+    check_ipv4 = egress_port.get('ipv4') is not None
+    check_ipv6 = egress_port.get('ipv6') is not None
+
+    routes_ready = []
+
+    if check_ipv4:
+        # Check IPv4 connected routes
+        ipv4_output = duthost.shell(f"show ip route connected | grep {interface_name}")['stdout']
+        logger.info(f"IPv4 connected route output: {ipv4_output}")
+        ipv4_ready = bool(ipv4_output and ipv4_output.strip())
+        routes_ready.append(ipv4_ready)
+        logger.info(f"IPv4 route ready for {interface_name}: {ipv4_ready}")
+
+    if check_ipv6:
+        # Check IPv6 connected routes
+        ipv6_output = duthost.shell(f"show ipv6 route connected | grep {interface_name}")['stdout']
+        logger.info(f"IPv6 connected route output: {ipv6_output}")
+        ipv6_ready = bool(ipv6_output and ipv6_output.strip())
+        routes_ready.append(ipv6_ready)
+        logger.info(f"IPv6 route ready for {interface_name}: {ipv6_ready}")
+
+    # All checked route types must be ready
+    all_ready = all(routes_ready)
+    logger.info(f"All configured routes ready for {interface_name}: {all_ready}")
+    return all_ready
 
 
 def reboot_dut(duthost, localhost, reboot_type):
@@ -2266,6 +2555,9 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
 
         # Get destination address
         dst_addr = egress_port['ipv4'] if packet_type.startswith('ipv4') else egress_port['ipv6']
+        if not dst_addr:
+            logger.info(f"Skipping {packet_type} test: IPv4 or IPv6 address is None")
+            continue
 
         # Generate packet
         pkt, exp_pkt = generate_packet(
@@ -2322,3 +2614,273 @@ def verify_normal_packet(duthost, ptfadapter, ingress_port, egress_port, send_pk
             logger.info(f"Successfully verified NO {packet_type} packets were received as expected")
 
     return True
+
+
+def get_queue_id_by_dscp(dscp, ingress_port_name, dut_qos_maps_module):
+    """
+    Calculate the queue ID based on the DSCP value and ingress port name
+    """
+    # Get port QoS map for the downlink port
+    port_qos_map = dut_qos_maps_module['port_qos_map']
+    logger.info(f"Retrieving QoS maps for port: {ingress_port_name}")
+
+    # Extract the DSCP to TC map name from the port QoS configuration
+    dscp_to_tc_map_name = port_qos_map[ingress_port_name]['dscp_to_tc_map'].split('|')[-1].strip(']')
+    logger.info(f"DSCP to TC map name: {dscp_to_tc_map_name}")
+
+    # Extract the TC to Queue map name from the port QoS configuration
+    tc_to_queue_map_name = port_qos_map[ingress_port_name]['tc_to_queue_map'].split('|')[-1].strip(']')
+    logger.info(f"TC to Queue map name: {tc_to_queue_map_name}")
+
+    # Get the actual DSCP to TC mapping from the QoS maps
+    dscp_to_tc_map = dut_qos_maps_module['dscp_to_tc_map'][dscp_to_tc_map_name]
+    logger.debug(f"DSCP to TC mapping details: {dscp_to_tc_map}")
+
+    # Get the actual TC to Queue mapping from the QoS maps
+    tc_to_queue_map = dut_qos_maps_module['tc_to_queue_map'][tc_to_queue_map_name]
+    logger.debug(f"TC to Queue mapping details: {tc_to_queue_map}")
+
+    # Calculate the queue ID, this queue will be blocked during testing
+    queue_id = get_dscp_to_queue_value(dscp, dscp_to_tc_map, tc_to_queue_map)
+
+    return queue_id
+
+
+def convert_all_counter_values(data):
+    """
+    Convert all counter values in a dictionary, handle 'N/A' and comma-separated numbers.
+
+    Args:
+        data (dict): Dictionary containing counter values
+
+    Returns:
+        dict: Dictionary with all string values converted to integers.
+              'N/A' values are converted to 0, comma-separated numbers are handled.
+    """
+    for field, value in data.items():
+        if isinstance(value, str):
+            if value == 'N/A':
+                data[field] = 0
+            else:
+                data[field] = int(value.replace(',', ''))
+    return data
+
+
+def get_switch_trim_counters_json(duthost):
+    """
+    Get switch level trim counter using JSON format.
+
+    Args:
+        duthost: DUT host object
+
+    Example:
+        admin@r-bison-04:~$ show switch counters all --json
+        {
+            "trim_drop": "N/A",
+            "trim_sent": "N/A"
+        }
+
+    Returns:
+        dict: Switch trim counters with all values converted to integers.
+              'N/A' values are converted to 0, comma-separated numbers are handled.
+              Example: {"trim_drop": 0, "trim_sent": 0}
+    """
+    result = duthost.shell("show switch counters all --json")
+    stdout = result['stdout'].strip()
+    pytest_assert(stdout, "Command returned empty output.")
+
+    json_data = json.loads(stdout)
+    pytest_assert(json_data, "Parsed JSON data is empty for switch counters")
+
+    # Convert all counter values, handle 'N/A' and comma-separated numbers
+    convert_all_counter_values(json_data)
+
+    logger.info(f"Switch trim counters (JSON): {json_data}")
+    return json_data
+
+
+def get_port_trim_counters_json(duthost, port):
+    """
+    Get specified port trim counters using JSON format.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        admin@r-bison-04:~$ show interfaces counters trim Ethernet0 --json
+        {
+            "Ethernet0": {
+                "STATE": "U",
+                "TRIM_DRP_PKTS": "N/A",
+                "TRIM_PKTS": "0",
+                "TRIM_TX_PKTS": "N/A"
+            }
+        }
+
+    Return:
+        {'TRIM_DRP_PKTS': '0', 'TRIM_PKTS': '100', 'TRIM_TX_PKTS': '100'}
+    """
+    result = duthost.shell(f"show interfaces counters trim {port} --json")
+
+    # Extract JSON part from output (skip timestamp line if present)
+    stdout = result['stdout'].strip()
+    pytest_assert(stdout, "Command returned empty output.")
+    lines = stdout.split('\n')
+
+    # If first line starts with "Last cached time", skip it
+    if lines and lines[0].startswith('Last cached time'):
+        json_str = '\n'.join(lines[1:])
+    else:
+        json_str = stdout
+
+    json_data = json.loads(json_str)
+    port_data = json_data.get(port, {})
+    pytest_assert(port_data, f"No data found for port {port} in JSON output")
+
+    # Remove the STATE field from the returned data
+    if "STATE" in port_data:
+        del port_data["STATE"]
+
+    # Convert all counter values, handle 'N/A' and comma-separated numbers
+    convert_all_counter_values(port_data)
+
+    logger.info(f"Trim counters for port {port}: {port_data}")
+    return port_data
+
+
+def get_queue_trim_counters_json(duthost, port):
+    """
+    Get specified port queue level trim counter using JSON format.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. Ethernet96
+
+    Example:
+        admin@r-bison-04:~$ show queue counters Ethernet0 --all --json
+        {
+          "Ethernet0": {
+            "UC0": {
+              "dropbytes": "N/A",
+              "droppacket": "0",
+              "totalbytes": "0",
+              "totalpacket": "0",
+              "trimdroppacket": "N/A",
+              "trimpacket": "0",
+              "trimsentpacket": "N/A"
+            },
+            ...
+          }
+        }
+
+    Returns:
+        dict: Queue trim counters with all values converted to integers.
+              'N/A' values are converted to 0, comma-separated numbers are handled.
+              'time' field is excluded from the returned data.
+              Example: {
+                  "UC0": {
+                      "dropbytes": 0,
+                      "droppacket": 0,
+                      "totalbytes": 0,
+                      "totalpacket": 0,
+                      "trimdroppacket": 0,
+                      "trimpacket": 0,
+                      "trimsentpacket": 0
+                  },
+                  ...
+              }
+    """
+    result = duthost.shell(f"show queue counters {port} --all --json")
+    stdout = result['stdout'].strip()
+    pytest_assert(stdout, "Command returned empty output.")
+
+    json_data = json.loads(stdout)
+    port_data = json_data.get(port, {})
+    pytest_assert(port_data, f"No queue data found for port {port} in JSON output")
+
+    # Remove the time field from the returned data
+    if "time" in port_data:
+        del port_data["time"]
+
+    # Convert all counter values from string to int for all fields
+    for queue_id, queue_data in port_data.items():
+        if isinstance(queue_data, dict):
+            # Convert all counter values, handle 'N/A' and comma-separated numbers
+            convert_all_counter_values(queue_data)
+
+    logger.info(f"Queue trim counters for port {port} (JSON): {port_data}")
+    return port_data
+
+
+def compare_counters(counter1, counter2, keys_to_compare):
+    """
+    Compare specified keys between two counter dictionaries.
+
+    Args:
+        counter1 (dict): First counter dictionary
+        counter2 (dict): Second counter dictionary
+        keys_to_compare (list): List of keys to compare between the two counters
+
+    Raises:
+        AssertionError: If any specified key values don't match between the counters
+
+    Example:
+        counter1 = {'TRIM_DRP_PKTS': 167190, 'TRIM_PKTS': 166052, 'TRIM_TX_PKTS': 0}
+        counter2 = {'TRIM_DRP_PKTS': 167190, 'TRIM_PKTS': 166052, 'TRIM_TX_PKTS': 5}
+        compare_counters(counter1, counter2, ['TRIM_DRP_PKTS', 'TRIM_PKTS'])
+    """
+    logger.info(f"Comparing counters for keys: {keys_to_compare}")
+
+    for key in keys_to_compare:
+        if key not in counter1:
+            raise KeyError(f"Key '{key}' not found in counter1")
+        if key not in counter2:
+            raise KeyError(f"Key '{key}' not found in counter2")
+
+        value1 = counter1[key]
+        value2 = counter2[key]
+
+        logger.debug(f"Comparing {key}: counter1={value1}, counter2={value2}")
+
+        pytest_assert(value1 == value2,
+                      f"{key} counter is different between counter1 and counter2\n"
+                      f"counter1 {key}: {value1}\n"
+                      f"counter2 {key}: {value2}\n")
+
+    logger.info("All specified counters match")
+
+
+def verify_queue_and_port_trim_counter_consistency(duthost, port):
+    """
+    Verify the consistency of the trim counter on the queue and the port level.
+
+    Args:
+        duthost: DUT host object
+        port (str): port name, e.g. "Ethernet96"
+
+    Raises:
+        AssertionError: If the trim counter on the queue is not equal to the trim counter on the port level
+    """
+    logger.info(f"Verify the consistency of the trim counter on the queue and the port level for port {port}")
+
+    # Get the trim counter information on the queue level
+    queue_counters = get_queue_trim_counters_json(duthost, port)
+
+    # Calculate the total trimpacket on all queues
+    queue_trim_details = {}
+    for queue_id, queue_data in queue_counters.items():
+        trim_packets = queue_data['trimpacket']
+        queue_trim_details[queue_id] = trim_packets
+        logger.debug(f"Queue {queue_id} trim packets: {trim_packets}")
+    total_queue_trim_packets = sum(queue_trim_details.values())
+    logger.info(f"Queue trim details: {queue_trim_details}")
+    logger.info(f"Total trim packets on all queues for port {port}: {total_queue_trim_packets}")
+
+    # Get the trim counter information on the port level
+    port_trim_packets = get_port_trim_counters_json(duthost, port)['TRIM_PKTS']
+    logger.info(f"Port {port} port level trim packets: {port_trim_packets}")
+
+    # Verify the consistency
+    pytest_assert(total_queue_trim_packets == port_trim_packets and total_queue_trim_packets > 0,
+                  f"Total trim packets on all queues for port {port} is not equal to the port level")
