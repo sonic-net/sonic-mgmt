@@ -4,7 +4,7 @@ str4-7060x6-pe64-root,Ethernet21/1,str4-sn5640-fan-2,Ethernet496,100000,"3660-37
 str4-7060x6-pe64-root,Ethernet22/1,str4-sn5640-fan-3,Ethernet496,100000,"3730-3799,3801",Trunk,on
 str4-7060x6-pe64-root,Ethernet27/5,str4-sn5640-fan-7,Ethernet496,100000,"4007-4068,4070-4072",Trunk,on
 str4-7060x6-pe64-root,Ethernet4/1,str4-8122-fanout-03,etp63a,400000,"357-486",Trunk,off
-str4-7060x6-pe64-root,Ethernet2/1,str4-7060x6-64pe-fan-2,Ethernet504,400000,"3400-3526,3656-3657",Trunk,off
+str4-7060x6-pe64-root,Ethernet2/1,str4-7060x6-64pe-fan-2,Ethernet504,800000,"3400-3526,3656-3657",Trunk,off
 str4-7060x6-pe64-root,Ethernet3/1,str4-7060x6-64pe-fan-3,Ethernet496,100000,"",Trunk,off
 str4-7060x6-pe64-root,Ethernet15/1,str4-7060x6-512-fan-10,Ethernet496,800000,"2-99,487-499,595-734,743-800,1467-1596,2000-2056,2065-2074",Trunk,off
 str4-7060x6-pe64-root,Ethernet9/1,str4-7060x6-512-fan-11,Ethernet496,800000,"801-1233,3005-3075",Trunk,off
