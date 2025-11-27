@@ -1689,6 +1689,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
     conditions:
       - "topo_type not in ['t0']"
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
+      - "'isolated' in topo_name"
 
 #######################################
 #####           hash              #####
