@@ -24,7 +24,7 @@ class ActionModule(ActionBase):
         _nretry = int(self._task.args.get('retry', 1))
 
         if _timeout is None:
-            _timeout = 300
+            _timeout = 300  # min timeout
 
         if _template is not None:
             if self._task._role is not None:
