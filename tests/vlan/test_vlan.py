@@ -5,7 +5,7 @@ from ptf.mask import Mask
 
 import logging
 
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m   # noqa: F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig          # noqa: F401
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_add           # noqa: F401
 from tests.common.fixtures.duthost_utils import ports_list            # noqa: F401
