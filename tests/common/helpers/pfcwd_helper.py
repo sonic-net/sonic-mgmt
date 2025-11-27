@@ -595,6 +595,12 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
     pfcwd_stat = parser_show_pfcwd_stat(dut, port, queue)
     if dut.facts['asic_type'] == 'vs':
         return True
+
+    # Check if pfcwd_stat is empty (port/queue not found or not configured)
+    if not pfcwd_stat:
+        logger.debug(f"No PFC watchdog stats found for port {port} queue {queue}")
+        return False
+
     if expected_state == "storm":
         if ("storm" in pfcwd_stat[0]['status']) and \
                 int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
@@ -604,6 +610,26 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
                 int(pfcwd_stat[0]['storm_detect_count']) == int(pfcwd_stat[0]['restored_count']):
             return True
     return False
+
+
+def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state):
+    """
+    Helper function to verify if PFC storm on all ports in a multi-port storm test is in expected state
+    """
+    if dut.facts['asic_type'] == 'vs':
+        return True
+
+    for peer in storm_hndle.peer_params.keys():
+        fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
+        device_conn = storm_hndle.fanout_graph[peer]['device_conn']
+        queue_idx = storm_hndle.storm_handle[peer].pfc_queue_idx
+
+        for intf in fanout_intfs:
+            test_port = device_conn[intf]['peerport']
+            if not verify_pfc_storm_in_expected_state(dut, test_port, queue_idx, expected_state):
+                logger.debug(f"Port {test_port} queue {queue_idx} not in expected state {expected_state}")
+                return False
+    return True
 
 
 def parser_show_pfcwd_stat(dut, select_port, select_queue):
