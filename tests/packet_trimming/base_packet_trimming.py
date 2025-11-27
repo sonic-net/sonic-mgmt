@@ -7,7 +7,7 @@ from tests.common.utilities import wait_until, configure_packet_aging
 from tests.common.mellanox_data import is_mellanox_device
 from tests.packet_trimming.constants import (
     DEFAULT_PACKET_SIZE, DEFAULT_DSCP, MIN_PACKET_SIZE, CONFIG_TOGGLE_COUNT,
-    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT, COUNTER_DSCP)
+    JUMBO_PACKET_SIZE, PORT_TOGGLE_COUNT)
 from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     configure_trimming_action, configure_trimming_acl, verify_srv6_packet_with_trimming, cleanup_trimming_acl,
@@ -55,7 +55,7 @@ class BasePacketTrimming:
             egress_ports=trim_counter_params['egress_ports'],
             block_queue=trim_counter_params['block_queue'],
             send_pkt_size=DEFAULT_PACKET_SIZE,
-            send_pkt_dscp=COUNTER_DSCP,
+            send_pkt_dscp=PacketTrimmingConfig.get_counter_dscp(duthost),
             recv_pkt_size=PacketTrimmingConfig.get_trim_size(duthost),
             expect_packets=True
         )

@@ -89,3 +89,14 @@ class PacketTrimmingConfig:
     @staticmethod
     def get_asym_tc(duthost):
         return PacketTrimmingConfig.get_trim_queue(duthost)
+
+    @staticmethod
+    def get_counter_dscp(duthost):
+        if duthost.get_asic_name() == 'th5':
+            th5_queue = {
+                'Arista-7060X6-64PE-B-C448O16': 3,
+                'Arista-7060X6-64PE-B-C512S2': 3,
+            }
+            return th5_queue.get(duthost.facts['hwsku'], 0)
+
+        return 0
