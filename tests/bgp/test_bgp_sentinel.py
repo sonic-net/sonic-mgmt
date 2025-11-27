@@ -623,5 +623,3 @@ def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type
                 "Route {} is not advertised to bgp peers".format(route),
             )
     return
-
-
