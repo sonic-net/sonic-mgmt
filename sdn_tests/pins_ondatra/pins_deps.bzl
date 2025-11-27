@@ -30,9 +30,9 @@ def pins_deps():
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            urls = ["https://github.com/google/googletest/archive/release-1.11.0.tar.gz"],
-            strip_prefix = "googletest-release-1.11.0",
-            sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
+            urls = ["https://github.com/google/googletest/archive/refs/tags/v1.14.0.tar.gz"],
+            strip_prefix = "googletest-1.14.0",
+            sha256 = "8ad598c73ad796e0d8280b082cebd82a630d73e73cd3c70057938a6501bba5d7",
         )
     if not native.existing_rule("com_google_benchmark"):
         http_archive(
