@@ -1,4 +1,3 @@
-import logging
 import pytest
 import re
 import json
@@ -74,21 +73,15 @@ def restore_reboot_config_file(duthost):
 
 def execute_command(duthost, cmd):
     result = duthost.shell(cmd)
-    result_txt = json.dumps(result, indent=4, ensure_ascii=False)
-    logging.info(f"COMMAND RESULT ({cmd}): {result_txt}")
     pytest_assert(result["rc"] == 0, "Unexpected rc: {}".format(result["rc"]))
 
 
 def execute_command_ignore_error(duthost, cmd):
     result = duthost.shell(cmd, module_ignore_errors=True)
-    result_txt = json.dumps(result, indent=4, ensure_ascii=False)
-    logging.info(f"COMMAND RESULT ({cmd}): {result_txt}")
 
 
 def get_command_result(duthost, cmd):
     result = duthost.shell(cmd, module_ignore_errors=True)
-    result_txt = json.dumps(result, indent=4, ensure_ascii=False)
-    logging.info(f"COMMAND RESULT ({cmd}): {result_txt}")
     return result["stdout"]
 
 
