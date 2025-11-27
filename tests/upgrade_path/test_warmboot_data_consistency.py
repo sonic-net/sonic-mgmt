@@ -8,7 +8,7 @@ from tests.common.snapshot_comparison.warm_vs_cold import AFTER_COLDBOOT, AFTER_
 from tests.upgrade_path.utilities import boot_into_base_image, cleanup_prev_images
 from tests.common.db_comparison import SonicRedisDBSnapshotter, DBType
 from tests.common import reboot
-from tests.common.helpers.upgrade_helpers import install_sonic
+from tests.common.helpers.upgrade_helpers import install_sonic, restore_image  # noqa F401
 from tests.common.platform.device_utils import get_current_sonic_version, verify_dut_health  # noqa F401
 
 pytestmark = [
@@ -55,7 +55,7 @@ def _resolve_test_params(request):
 
 
 def test_warmboot_data_consistency(localhost, duthosts, rand_one_dut_hostname, tbinfo, request,
-                                    verify_dut_health):  # noqa F811
+                                    verify_dut_health, restore_image):  # noqa F811
     """
     Test comparing Redis database snapshots between warm boot and cold boot scenarios.
 
