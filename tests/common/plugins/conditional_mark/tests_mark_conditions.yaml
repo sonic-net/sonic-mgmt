@@ -3142,6 +3142,16 @@ hash/test_generic_hash.py::test_reboot[CRC_CCITT-IP_PROTOCOL-ipv4:
       - "asic_type in ['cisco-8000']"
 
 #######################################
+#####             hft             #####
+#######################################
+high_frequency_telemetry:
+  skip:
+    reason: "High frequency telemetry isn't supported in this platform"
+    conditions_logical_operator: or
+    conditions:
+      - "'nvidia_sn5600' not in platform"
+      - "'nvidia_sn5640' not in platform"
+
 #####          http              #####
 #######################################
 http:

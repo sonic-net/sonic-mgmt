@@ -589,6 +589,19 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({"PORT": port_config}, indent=4)
 
+    def generate_dummy_hft_config_db(self, config):
+        json_config = json.loads(config)
+        json_config["HIGH_FREQUENCY_TELEMETRY_PROFILE"] = {
+            "default": {
+                "stream_state": "disabled",
+                "poll_interval": "10000"
+            }
+        }
+        json_config["HIGH_FREQUENCY_TELEMETRY_GROUP"] = {
+            "default|PORT": {}
+        }
+        return json.dumps(json_config, indent=4)
+
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -641,6 +654,10 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
+
+        # Generate dummy table for HFT
+        if not multi_asic.is_multi_asic():
+            config = self.generate_dummy_hft_config_db(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
