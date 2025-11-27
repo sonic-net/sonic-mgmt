@@ -1,6 +1,5 @@
 import pytest
 import re
-import json
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -77,7 +76,7 @@ def execute_command(duthost, cmd):
 
 
 def execute_command_ignore_error(duthost, cmd):
-    result = duthost.shell(cmd, module_ignore_errors=True)
+    duthost.shell(cmd, module_ignore_errors=True)
 
 
 def get_command_result(duthost, cmd):
