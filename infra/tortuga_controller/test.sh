@@ -51,9 +51,9 @@ TIMEOUT="15m"
 BULK_MODE=true   # Enable bulk config load.
 BULK_PATCH=false # Enable bulk config patch.
 LLDP_CHECK=true  # Check and assert for LLDP system description.
-IPSLA=true       # Enable IpSla tests.
-SB_PEER=false    # Add southbound peers.
-SB_SPINE=false   # Use spine as southbound peer.
+IPSLA=false      # Enable IpSla tests.
+SB_PEER=true     # Add southbound peers.
+SB_SPINE=true    # Use spine as southbound peer.
 DSCP="no-dscp"   # Enable DSCP/QoS tests.
 SCALE_VLANS=10   # Number of host Vlans to be added.
 SCALE_VNIS=10    # Number of VNIs to be added for scale testing.
@@ -105,8 +105,8 @@ do
   -prod)
     TEST_TAGS="${TEST_TAGS},no-ssh"
     shift;;
-  -arp-ping)
-    TEST_TAGS="${TEST_TAGS},arp-ping"
+  -no-arp-ping)
+    TEST_TAGS="${TEST_TAGS},no-arp-ping"
     shift;;
   -dup-ok)
     TEST_TAGS="${TEST_TAGS},dup-ok"
@@ -141,18 +141,11 @@ do
   -pcs)
     SCALE_PCS="${2}"
     shift; shift;;
-  -sb-peer)
-    SB_PEER=true
-    shift;;
-  -sb-spine)
-    SB_PEER=true
-    SB_SPINE=true
-    shift;;
   -no-breakout)
     BREAKOUT="no-breakout"
     shift;;
-  -no-ipsla)
-    IPSLA=false
+  -ipsla)
+    IPSLA=true
     shift;;
   -no-bulk-mode)
     BULK_MODE=false
@@ -182,6 +175,9 @@ done
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 LENGTH=$((LENGTH + 1))
 LENGTH=$((LENGTH / FABRIC_COUNT))
+if [[ ${LENGTH} -eq 1 ]]; then
+  SB_SPINE=false
+fi
 
 # Enable bulk-mode config.
 if [[ "${BULK_MODE}" == true ]]; then
@@ -411,9 +407,12 @@ if [[ "${CGEN_TEST}" != "ping" ]]; then
   if [[ ${FABRIC_COUNT} -eq 1 ]]; then
     "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}" --orgName "${ORG_NAME}" --timeout "3m"
   else
-    for ((i = 1; i <= FABRIC_COUNT; i++)); do
-      "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}${i}" --orgName "${ORG_NAME}" --timeout "3m"
+    for ((i = 2; i <= FABRIC_COUNT; i++)); do
+      "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}${i}" --orgName "${ORG_NAME}" --timeout "1s"
     done
+
+    # Delete the first DC.
+    "${CONFIG_GEN}" --cloud "${CLOUD_URL}" --reset --fabric "${FABRIC_NAME}1" --orgName "${ORG_NAME}" --timeout "3m"
   fi
   echo
 fi

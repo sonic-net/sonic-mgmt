@@ -42,6 +42,7 @@ cp "${WS_ROOT}/cloud/tests/pyvxr/g200-1x3-ref-sim.yaml" "${DIR}/g200-1x3-ref-sim
 cp "${WS_ROOT}/cloud/tests/pyvxr/g200-16-1x3-ref-sim.yaml" "${DIR}/g200-16-1x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/g200-mesh2-ref-sim.yaml" "${DIR}/g200-mesh2-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/switch-ref-sim.yaml" "${DIR}/switch-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/dci1x2-ref-sim.yaml" "${DIR}/dci1x2-ref-sim.yaml"
 cp "${WS_ROOT}/sandbox/certs/cloud.crt" "${DIR}/sandbox/certs/cloud.crt"
 cp "${WS_ROOT}/sandbox/certs/service.key" "${DIR}/sandbox/certs/service.key"
 
