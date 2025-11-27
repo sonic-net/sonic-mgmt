@@ -413,7 +413,7 @@ def test_v6_vtep_acl():
         file.write(acl_rules_data_string)
 
     st.log("Copy the Json file to Leaf1")
-    utils_obj.copy_files_to_dut(nodes['leaf1'], [ACL_JSON_DST_FILE_PATH], '/home/cisco')
+    utils_obj.copy_files_to_dut(nodes['leaf1'], [ACL_JSON_DST_FILE_PATH], '~')
     st.config(nodes['leaf1'], "config acl update full {}".format(ACL_JSON_DST_FILE))
     st.config(nodes['leaf1'], "counterpoll acl enable")
 
