@@ -309,7 +309,7 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
-    cleanup_leftovers_exbgp_instances(ptfhost, not is_ipv6_only)
+    cleanup_leftovers_exbgp_instances(ptfhost, is_ipv6_only)
 
     if not is_ipv6_only:
         ptfhost.exabgp(name=BGP_SENTINEL_NAME_V4,
