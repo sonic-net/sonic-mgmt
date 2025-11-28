@@ -17,7 +17,7 @@
   last_commit_ts: 2025-11-14 14:43:00+11:00
   name: Javier Tan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 146
   emails:
   - 103085864+echuawu@users.noreply.github.com
@@ -44,7 +44,7 @@
   last_commit_ts: 2025-11-26 12:32:57+11:00
   name: Dashuai Zhang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - rolin@arista.com
@@ -71,7 +71,7 @@
   last_commit_ts: 2025-08-01 08:44:46+08:00
   name: StormLiangMS
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 54
   emails:
   - 154216071+weiguo-nvidia@users.noreply.github.com
@@ -80,7 +80,7 @@
   last_commit_ts: 2025-11-25 21:56:15+08:00
   name: weguo-NV
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 9
   emails:
   - xixuej@nvidia.com
@@ -100,12 +100,12 @@
   name: Jing Zhang
   organization: MSFT
 - available_to_review: true
-  commit_count: 17
+  commit_count: 19
   emails:
   - nikolay.a.mirin@gmail.com
   github_id: 29677895
   github_login: nikamirrr
-  last_commit_ts: 2025-11-27 18:35:24-08:00
+  last_commit_ts: 2025-11-28 08:00:17+02:00
   name: Nikolay Mirin
   organization: NVDA
 - available_to_review: true
@@ -119,7 +119,7 @@
   last_commit_ts: 2025-11-18 03:51:47+11:00
   name: Austin (Thang Pham)
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 57
   emails:
   - romanx.savchuk@intel.com
@@ -139,7 +139,7 @@
   last_commit_ts: 2025-11-07 00:49:11+08:00
   name: Nana@Nvidia
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 34
   emails:
   - 37450862+illia-kotvitskyi@users.noreply.github.com
@@ -148,7 +148,7 @@
   last_commit_ts: 2025-11-05 21:21:53+02:00
   name: Illia
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 139
   emails:
   - jbao@nvidia.com
@@ -157,7 +157,7 @@
   last_commit_ts: 2025-11-25 21:57:03+08:00
   name: Jibin Bao
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 144
   emails:
   - 97947969+congh-nvidia@users.noreply.github.com
@@ -177,12 +177,12 @@
   name: zitingguo-ms
   organization: MSFT
 - available_to_review: true
-  commit_count: 101
+  commit_count: 102
   emails:
   - 58446052+rraghav-cisco@users.noreply.github.com
   github_id: 58446052
   github_login: rraghav-cisco
-  last_commit_ts: 2025-11-24 15:45:09-08:00
+  last_commit_ts: 2025-11-27 19:57:34-08:00
   name: rraghav-cisco
   organization: CSCO
 - available_to_review: true
@@ -213,7 +213,7 @@
   last_commit_ts: 2025-07-31 06:28:37+05:30
   name: vkjammala-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 21
   emails:
   - nnelluri@cisco.com
@@ -222,7 +222,7 @@
   last_commit_ts: 2025-09-30 10:45:32-07:00
   name: nnelluri-cisco
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - smekalak@cisco.com
@@ -295,7 +295,7 @@
   last_commit_ts: 2025-11-22 17:41:32+11:00
   name: Sai Kiran
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 15
   emails:
   - shwnaik@cisco.com
@@ -304,7 +304,7 @@
   last_commit_ts: 2025-07-29 17:17:23-07:00
   name: shwnaik
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - kanasani.sravani@hcltech.com
@@ -359,7 +359,7 @@
   last_commit_ts: 2025-09-24 16:24:03+08:00
   name: Yanpeng Zhang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 10
   emails:
   - pragnya@arista.com
@@ -368,7 +368,7 @@
   last_commit_ts: 2025-08-07 07:35:32+05:30
   name: pragnya-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 15
   emails:
   - patrick@patrickmacarthur.net
@@ -396,7 +396,7 @@
   last_commit_ts: 2025-11-13 09:23:01-08:00
   name: mramezani95
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 5427064+az-pz@users.noreply.github.com
@@ -405,7 +405,7 @@
   last_commit_ts: 2025-09-03 23:31:57-04:00
   name: Ariz Zubair
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - dhanasekar@arista.com
@@ -414,7 +414,7 @@
   last_commit_ts: 2025-09-02 14:08:56+05:30
   name: Dhanasekar Rathinavel
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - rgarofano@arista.com
@@ -423,7 +423,7 @@
   last_commit_ts: 2025-11-13 04:53:50-08:00
   name: Ryan Garofano
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - suwinkumar@arista.com
@@ -441,7 +441,7 @@
   last_commit_ts: 2025-11-04 14:23:21-08:00
   name: Nikola Dancejic
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 12
   emails:
   - 57159499+kamalsahu0001@users.noreply.github.com
@@ -450,7 +450,7 @@
   last_commit_ts: 2025-07-24 21:43:44-07:00
   name: kamalsahu0001
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - peterbailey@arista.com
@@ -533,7 +533,7 @@
   last_commit_ts: 2025-10-30 15:20:48-07:00
   name: mihirpat1
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - sivakumarnuka@arista.com
@@ -542,7 +542,7 @@
   last_commit_ts: 2025-07-22 07:30:55+05:30
   name: sivanuka-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 25
   emails:
   - 150791552+okaravasi@users.noreply.github.com
@@ -560,7 +560,7 @@
   last_commit_ts: 2025-11-27 18:26:08+11:00
   name: Yawen
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - dypeters@cisco.com
@@ -569,7 +569,7 @@
   last_commit_ts: 2025-09-16 15:55:50-06:00
   name: dypet
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 86148881+gauravnagesh@users.noreply.github.com
@@ -596,7 +596,7 @@
   last_commit_ts: 2025-08-07 17:34:37-07:00
   name: ryanzhu706
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 23
   emails:
   - 156943338+ccroy-arista@users.noreply.github.com
@@ -605,7 +605,7 @@
   last_commit_ts: 2025-09-15 21:25:41-07:00
   name: Chris
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 36
   emails:
   - 113053330+dayouliu1@users.noreply.github.com
@@ -614,7 +614,7 @@
   last_commit_ts: 2025-11-26 19:20:33-08:00
   name: Dayou Liu
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - rajkumar1@arista.com
@@ -623,7 +623,7 @@
   last_commit_ts: 2025-11-13 08:38:09+05:30
   name: rajkumar1-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 44
   emails:
   - 137406113+vivekverma-arista@users.noreply.github.com
@@ -632,7 +632,7 @@
   last_commit_ts: 2025-08-12 07:11:25+05:30
   name: Vivek Verma
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - ytzur@nvidia.com
@@ -650,7 +650,7 @@
   last_commit_ts: 2025-07-16 09:11:57+10:00
   name: liamkearney-msft
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 9
   emails:
   - hpandya@arista.com
@@ -688,7 +688,7 @@
   last_commit_ts: 2025-10-27 08:46:40+08:00
   name: Yuqing Zhao(Alibaba Inc)
   organization: BABA
-- available_to_review: true
+- available_to_review: false
   commit_count: 26
   emails:
   - 158334735+amitpawar12@users.noreply.github.com
@@ -742,7 +742,7 @@
   last_commit_ts: 2025-07-10 19:19:45+05:30
   name: Garima6688
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 129349536+nobutomonakano@users.noreply.github.com
@@ -805,7 +805,7 @@
   last_commit_ts: 2025-11-06 16:43:21+08:00
   name: Zhaohui Sun
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - rminnikanti@marvell.com
@@ -814,7 +814,7 @@
   last_commit_ts: 2025-10-18 01:23:44+05:30
   name: Ravi Minnikanti(Marvell)
   organization: MRVL
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - otrabelsi@nvidia.com
@@ -823,7 +823,7 @@
   last_commit_ts: 2025-11-04 23:32:50+02:00
   name: OriTrabelsi
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - gupurush@gmail.com
@@ -832,7 +832,7 @@
   last_commit_ts: 2025-11-04 18:14:05-08:00
   name: Nanma Purushotam
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 164565470+honllum@users.noreply.github.com
@@ -868,7 +868,7 @@
   last_commit_ts: 2025-11-05 09:15:29+08:00
   name: ShiyanWangMS
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 37
   emails:
   - 113939367+ansrajpu-git@users.noreply.github.com
@@ -877,7 +877,7 @@
   last_commit_ts: 2025-07-02 13:10:20-04:00
   name: ansrajpu-git
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 32
   emails:
   - 51811017+justin-wong-ce@users.noreply.github.com
@@ -886,7 +886,7 @@
   last_commit_ts: 2025-11-13 00:23:11-08:00
   name: Justin Wong
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - 815683079@qq.com
@@ -916,7 +916,7 @@
   last_commit_ts: 2025-10-22 16:46:49+11:00
   name: Xichen96
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - v-goshikab@microsoft.com
@@ -944,7 +944,7 @@
   last_commit_ts: 2025-09-18 14:33:15+08:00
   name: ganglv
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 156189121+gnanapriya27@users.noreply.github.com
@@ -954,7 +954,7 @@
   last_commit_ts: 2025-06-25 21:30:07+05:30
   name: Gnanapriya [Marvell]
   organization: MRVL
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - manoharan@nexthop.ai
@@ -1010,7 +1010,7 @@
   last_commit_ts: 2025-06-20 02:37:34+05:30
   name: Keshav Gupta
   organization: MRVL
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - venu@nexthop.ai
@@ -1019,7 +1019,7 @@
   last_commit_ts: 2025-06-18 18:56:43-07:00
   name: Venu
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 10
   emails:
   - 99767762+nissampa@users.noreply.github.com
@@ -1037,7 +1037,7 @@
   last_commit_ts: 2025-11-02 23:43:54-08:00
   name: Xincun Li
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 43
   emails:
   - randallbpittman@gmail.com
@@ -1056,7 +1056,7 @@
   last_commit_ts: 2025-06-15 17:47:15+05:30
   name: shanmukhakambala
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 45
   emails:
   - 40899231+selldinesh@users.noreply.github.com
@@ -1065,7 +1065,7 @@
   last_commit_ts: 2025-11-19 14:22:25-08:00
   name: Dinesh Kumar Sellappan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - adhanabalan@marvell.com
@@ -1084,7 +1084,7 @@
   last_commit_ts: 2025-06-10 04:07:22-07:00
   name: Perumal Venkatesh
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - wrideout@arista.com
@@ -1102,7 +1102,7 @@
   last_commit_ts: 2025-06-03 13:33:06-07:00
   name: Tejaswini Chadaga
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 10
   emails:
   - anders@nexthop.ai
@@ -1111,7 +1111,7 @@
   last_commit_ts: 2025-11-18 15:19:38-07:00
   name: Anders Linn
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 122826329+akosturarista@users.noreply.github.com
@@ -1129,7 +1129,7 @@
   last_commit_ts: 2025-05-30 21:38:59-07:00
   name: Praveen-Brcm
   organization: AVGO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - muthuvel.pasupathy@hcltech.com
@@ -1138,7 +1138,7 @@
   last_commit_ts: 2025-05-30 22:17:46+05:30
   name: pmuthu-hcl
   organization: HCLTECH
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 169114916+fountzou@users.noreply.github.com
@@ -1147,7 +1147,7 @@
   last_commit_ts: 2025-05-28 18:54:28+03:00
   name: fountzou
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - dt@nexthop.ai
@@ -1165,7 +1165,7 @@
   last_commit_ts: 2025-05-28 03:55:01+10:00
   name: Feng-msft
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 29
   emails:
   - 100332470+kbabujp@users.noreply.github.com
@@ -1174,7 +1174,7 @@
   last_commit_ts: 2025-05-27 06:17:47+05:30
   name: Kumaresh Babu JP
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 130706646+sm-xu@users.noreply.github.com
@@ -1183,7 +1183,7 @@
   last_commit_ts: 2025-05-25 23:09:02-04:00
   name: Mei Xu
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - ymd@arista.com
@@ -1201,7 +1201,7 @@
   last_commit_ts: 2025-05-21 10:56:05-07:00
   name: Song Yuan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 14
   emails:
   - 127479400+anantkishorsharma@users.noreply.github.com
@@ -1210,7 +1210,7 @@
   last_commit_ts: 2025-05-21 10:16:56+05:30
   name: Anant
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - sudarshan.kumar4893@gmail.com
@@ -1219,7 +1219,7 @@
   last_commit_ts: 2025-11-26 00:45:48-08:00
   name: sudarshankumar4893
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 24
   emails:
   - 78833093+andywongarista@users.noreply.github.com
@@ -1237,7 +1237,7 @@
   last_commit_ts: 2025-05-15 09:35:26-07:00
   name: judyjoseph
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - selva@nexthop.ai
@@ -1246,7 +1246,7 @@
   last_commit_ts: 2025-05-14 20:29:00-07:00
   name: Selva
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - sainath@nexthop.ai
@@ -1255,7 +1255,7 @@
   last_commit_ts: 2025-05-14 23:27:54-04:00
   name: sainath-nexthop
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 12
   emails:
   - wu.miao@nokia.com
@@ -1264,7 +1264,7 @@
   last_commit_ts: 2025-05-14 13:49:28-04:00
   name: wumiao_nokia
   organization: NOK
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - kalash@nexthop.ai
@@ -1273,7 +1273,7 @@
   last_commit_ts: 2025-05-14 00:36:34-07:00
   name: Kalash Nainwal
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - vishal.prakash@nokia.com
@@ -1291,7 +1291,7 @@
   last_commit_ts: 2025-05-12 19:47:53-07:00
   name: Prince George
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - 166534786+aronovic@users.noreply.github.com
@@ -1300,7 +1300,7 @@
   last_commit_ts: 2025-11-10 12:30:25-05:00
   name: aronovic
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 701916+akeelali@users.noreply.github.com
@@ -1309,7 +1309,7 @@
   last_commit_ts: 2025-05-09 16:30:03-04:00
   name: AkeelAli
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 16
   emails:
   - byu@arista.com
@@ -1318,7 +1318,7 @@
   last_commit_ts: 2025-11-12 19:16:35-08:00
   name: byu343
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 163091262+verma-anukul@users.noreply.github.com
@@ -1327,7 +1327,7 @@
   last_commit_ts: 2025-05-07 11:44:12+05:30
   name: Anukul Verma
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 12
   emails:
   - 156464693+jongorel@users.noreply.github.com
@@ -1336,7 +1336,7 @@
   last_commit_ts: 2025-05-06 12:26:41-04:00
   name: jongorel
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - mukesh.moopathvelayudhan@amd.com
@@ -1346,7 +1346,7 @@
   last_commit_ts: 2025-05-05 12:47:50-07:00
   name: Mukesh Moopath Velayudhan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - eyakubch@cisco.com
@@ -1355,7 +1355,7 @@
   last_commit_ts: 2025-05-05 21:25:04+02:00
   name: eyakubch
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 19
   emails:
   - 117375955+veronica-arista@users.noreply.github.com
@@ -1364,7 +1364,7 @@
   last_commit_ts: 2025-04-29 12:06:55-07:00
   name: veronica-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 45526465+gregoryboudreau@users.noreply.github.com
@@ -1374,7 +1374,7 @@
   last_commit_ts: 2025-04-29 10:58:28-07:00
   name: Gregory Boudreau
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - v-cshekar@microsoft.com
@@ -1383,7 +1383,7 @@
   last_commit_ts: 2025-04-24 20:44:11-07:00
   name: v-cshekar
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - vhlushko@cisco.com
@@ -1401,7 +1401,7 @@
   last_commit_ts: 2025-11-09 20:09:17-06:00
   name: yue-fred-gao
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 10
   emails:
   - 135994174+vikshaw-nokia@users.noreply.github.com
@@ -1410,7 +1410,7 @@
   last_commit_ts: 2025-04-15 00:53:52-04:00
   name: vikshaw-Nokia
   organization: NOK
-- available_to_review: true
+- available_to_review: false
   commit_count: 52
   emails:
   - 76687950+antonhryshchuk@users.noreply.github.com
@@ -1446,7 +1446,7 @@
   last_commit_ts: 2025-04-07 01:43:33-07:00
   name: Rajendra Kumar Thirumurthi
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 17
   emails:
   - 60534136+sreejithsreekumaran@users.noreply.github.com
@@ -1483,7 +1483,7 @@
   last_commit_ts: 2025-08-20 13:57:56-07:00
   name: Deepak Singhal
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - mdubrovs@cisco.com
@@ -1492,7 +1492,7 @@
   last_commit_ts: 2025-03-26 19:05:50-07:00
   name: Mike Dubrovsky
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - baorliu@cisco.com
@@ -1501,7 +1501,7 @@
   last_commit_ts: 2025-03-25 14:30:30-07:00
   name: Baorong Liu
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - gpunathilell@nvidia.com
@@ -1510,7 +1510,7 @@
   last_commit_ts: 2025-03-24 10:00:28-07:00
   name: Gagan Punathil Ellath
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 12
   emails:
   - 92752170+harish-kalyanaraman@users.noreply.github.com
@@ -1519,7 +1519,7 @@
   last_commit_ts: 2025-03-21 03:32:23-04:00
   name: Harish Kalyanaraman
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 145825430+santoss3@users.noreply.github.com
@@ -1528,7 +1528,7 @@
   last_commit_ts: 2025-08-28 20:19:07-07:00
   name: santoss3
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - 148895369+rick-arista@users.noreply.github.com
@@ -1546,7 +1546,7 @@
   last_commit_ts: 2025-03-19 09:27:53-07:00
   name: Kumaresh Perumal
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - harjosin@cisco.com
@@ -1556,7 +1556,7 @@
   last_commit_ts: 2025-03-18 19:18:08-07:00
   name: harjotsinghpawra
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 17
   emails:
   - cchitale@cisco.com
@@ -1574,7 +1574,7 @@
   last_commit_ts: 2025-03-06 21:33:15-08:00
   name: Liu Shilong
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - apoorv@arista.com
@@ -1583,7 +1583,7 @@
   last_commit_ts: 2025-11-10 11:52:37+05:30
   name: Apoorv Sachan
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - divyaraj@arista.com
@@ -1592,7 +1592,7 @@
   last_commit_ts: 2025-03-05 12:37:00+05:30
   name: Divyarajsinh Jhala
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - cisco.aayush@gmail.com
@@ -1620,7 +1620,7 @@
   last_commit_ts: 2025-03-01 14:45:35-08:00
   name: gechiang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - 86369558+albertovillarreal-keys@users.noreply.github.com
@@ -1638,7 +1638,7 @@
   last_commit_ts: 2025-02-25 15:23:05-08:00
   name: Ashwin Srinivasan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - w@chariri.moe
@@ -1647,7 +1647,7 @@
   last_commit_ts: 2025-02-25 14:29:07+08:00
   name: chariri
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - ejiaoq@gmail.com
@@ -1666,7 +1666,7 @@
   last_commit_ts: 2025-02-21 13:24:42-08:00
   name: abdosi
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - raaghavendra.kra@arista.com
@@ -1675,7 +1675,7 @@
   last_commit_ts: 2025-02-17 14:02:00+05:30
   name: raaghavendrakra-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - isiddeeq@cisco.com
@@ -1684,7 +1684,7 @@
   last_commit_ts: 2025-09-04 20:30:57-07:00
   name: isiddeeq-cisco
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 60
   emails:
   - 159443973+vsuryaprasad-hcl@users.noreply.github.com
@@ -1711,7 +1711,7 @@
   last_commit_ts: 2025-01-27 20:55:43+02:00
   name: Aryeh Feigin
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 11
   emails:
   - 98421150+jfeng-arista@users.noreply.github.com
@@ -1720,7 +1720,7 @@
   last_commit_ts: 2025-01-03 17:17:10-08:00
   name: jfeng-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 45
   emails:
   - 86314901+mannytaheri@users.noreply.github.com
@@ -1749,7 +1749,7 @@
   last_commit_ts: 2025-08-14 07:46:20-04:00
   name: rawal01
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - sridhar.talari@gmail.com
@@ -1758,7 +1758,7 @@
   last_commit_ts: 2024-12-22 19:45:43-08:00
   name: sridhartalari
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 110940806+spilkey-cisco@users.noreply.github.com
@@ -1777,7 +1777,7 @@
   last_commit_ts: 2024-12-19 04:51:10-08:00
   name: siqbal1986
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 9
   emails:
   - mhen@nvidia.com
@@ -1786,7 +1786,7 @@
   last_commit_ts: 2024-12-18 19:36:32+02:00
   name: mhen1
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - adubela@marvell.com
@@ -1815,7 +1815,7 @@
   last_commit_ts: 2024-11-24 16:39:59-08:00
   name: Aaron Payment
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 64033340+kishorekunal01@users.noreply.github.com
@@ -1824,7 +1824,7 @@
   last_commit_ts: 2024-11-22 10:28:21-08:00
   name: KISHORE KUNAL
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - bhagrane@cisco.com
@@ -1842,7 +1842,7 @@
   last_commit_ts: 2024-11-20 18:36:52-05:00
   name: Abdel Baig
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 129542523+vincentpcng@users.noreply.github.com
@@ -1852,7 +1852,7 @@
   last_commit_ts: 2024-11-17 19:13:09-08:00
   name: vincentpcng
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 165318278+saiilla@users.noreply.github.com
@@ -1861,7 +1861,7 @@
   last_commit_ts: 2024-11-13 09:47:24-08:00
   name: Sai
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - 84595962+longhuan-cisco@users.noreply.github.com
@@ -1879,7 +1879,7 @@
   last_commit_ts: 2024-11-11 11:33:23-08:00
   name: wenyiz2021
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 160662020+smagarwal-arista@users.noreply.github.com
@@ -1888,7 +1888,7 @@
   last_commit_ts: 2024-11-07 16:18:04-05:00
   name: smagarwal-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - alpesh@cisco.com
@@ -1897,7 +1897,7 @@
   last_commit_ts: 2024-11-06 00:38:19-05:00
   name: Alpesh Patel
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 36380820+yatishkoul@users.noreply.github.com
@@ -1906,7 +1906,7 @@
   last_commit_ts: 2024-10-31 08:52:49-07:00
   name: Yatish Koul
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 48650700+parmarkj@users.noreply.github.com
@@ -1915,7 +1915,7 @@
   last_commit_ts: 2024-10-09 14:19:01-04:00
   name: parmarkj
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - alawing@gmail.com
@@ -1924,7 +1924,7 @@
   last_commit_ts: 2024-10-01 11:00:39-07:00
   name: alawing
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 142842429+maunnikr-cisco@users.noreply.github.com
@@ -1933,7 +1933,7 @@
   last_commit_ts: 2025-08-17 19:01:19-07:00
   name: Malavika Unnikrishnan
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - jethro888222@yahoo.com
@@ -1942,7 +1942,7 @@
   last_commit_ts: 2024-09-01 13:35:14-04:00
   name: Azarack
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 16
   emails:
   - 143127557+tudupa@users.noreply.github.com
@@ -1978,7 +1978,7 @@
   last_commit_ts: 2024-08-11 19:05:10-07:00
   name: SuvarnaMeenakshi
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - bobbymcgonigle@arista.com
@@ -2005,7 +2005,7 @@
   last_commit_ts: 2024-06-24 00:26:24-07:00
   name: Mridul Bajpai
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 35
   emails:
   - 159437886+divyagayathri-hcl@users.noreply.github.com
@@ -2014,7 +2014,7 @@
   last_commit_ts: 2024-06-13 19:26:45-07:00
   name: divyagayathri-hcl
   organization: HCLTECH
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - 32043794+dks0692@users.noreply.github.com
@@ -2023,7 +2023,7 @@
   last_commit_ts: 2024-06-12 16:48:05-07:00
   name: dks0692
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 146671063+asraza07@users.noreply.github.com
@@ -2043,7 +2043,7 @@
   last_commit_ts: 2024-06-07 07:14:02+02:00
   name: Samuel Angebault
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 152616496+anishb-arista@users.noreply.github.com
@@ -2062,7 +2062,7 @@
   last_commit_ts: 2024-06-05 16:56:06-07:00
   name: Vaibhav Hemant Dixit
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 127497394+ghulam-bahoo@users.noreply.github.com
@@ -2073,7 +2073,7 @@
   last_commit_ts: 2024-05-29 22:57:14+05:00
   name: Ghulam Bahoo
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 16
   emails:
   - 87676006+svelamal@users.noreply.github.com
@@ -2092,7 +2092,7 @@
   last_commit_ts: 2024-05-10 16:04:26-07:00
   name: Neetha John
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 11
   emails:
   - 119973184+vikumarks@users.noreply.github.com
@@ -2101,7 +2101,7 @@
   last_commit_ts: 2025-11-24 15:44:52-08:00
   name: Vinod Kumar
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 161772681+rdjeric-arista@users.noreply.github.com
@@ -2110,7 +2110,7 @@
   last_commit_ts: 2024-04-25 09:22:25-07:00
   name: rdjeric-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 115137866+vesuresh537@users.noreply.github.com
@@ -2119,7 +2119,7 @@
   last_commit_ts: 2024-04-19 03:04:44+05:30
   name: SureshAviz
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 17
   emails:
   - 69785882+slutati1536@users.noreply.github.com
@@ -2128,7 +2128,7 @@
   last_commit_ts: 2024-04-17 10:12:43+03:00
   name: slutati1536
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 48329728+isgmano@users.noreply.github.com
@@ -2137,7 +2137,7 @@
   last_commit_ts: 2024-04-16 01:58:50-07:00
   name: Manodipto Ghose
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - cjiabi1994@gmail.com
@@ -2146,7 +2146,7 @@
   last_commit_ts: 2024-03-24 02:03:23+02:00
   name: Svyatoslav Demnyak
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - 95772436+yanjundeng@users.noreply.github.com
@@ -2155,7 +2155,7 @@
   last_commit_ts: 2024-03-19 23:18:27-07:00
   name: yanjundeng
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 23
   emails:
   - 87666880+jsanghra@users.noreply.github.com
@@ -2164,7 +2164,7 @@
   last_commit_ts: 2024-03-19 19:32:05-07:00
   name: jsanghra
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 98349131+amulyan7@users.noreply.github.com
@@ -2173,7 +2173,7 @@
   last_commit_ts: 2025-08-01 21:11:27-07:00
   name: amulyan7
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 66815389+dlakshminarayana@users.noreply.github.com
@@ -2182,7 +2182,7 @@
   last_commit_ts: 2024-03-13 03:41:46+05:30
   name: dlakshminarayana
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 144830673+bktsim-arista@users.noreply.github.com
@@ -2200,7 +2200,7 @@
   last_commit_ts: 2024-03-05 10:17:35-08:00
   name: vamsipunati
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 135858627+shbalaku-microsoft@users.noreply.github.com
@@ -2218,7 +2218,7 @@
   last_commit_ts: 2024-02-28 10:26:08-08:00
   name: kellyyeh
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 142837061+harsgoll@users.noreply.github.com
@@ -2236,7 +2236,7 @@
   last_commit_ts: 2024-02-12 23:00:16+08:00
   name: Junchao-Mellanox
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 39
   emails:
   - 66816195+julius-bcm@users.noreply.github.com
@@ -2265,7 +2265,7 @@
   last_commit_ts: 2024-01-12 13:28:29-08:00
   name: Ying Xie
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 152057803+bshpigel@users.noreply.github.com
@@ -2274,7 +2274,7 @@
   last_commit_ts: 2024-01-05 01:00:45+02:00
   name: bshpigel
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 127834195+amnsinghal@users.noreply.github.com
@@ -2283,7 +2283,7 @@
   last_commit_ts: 2023-12-29 12:34:33-08:00
   name: Aman Singhal
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 94208309+aruna98765@users.noreply.github.com
@@ -2292,7 +2292,7 @@
   last_commit_ts: 2023-12-28 18:45:40-08:00
   name: aruna98765
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 118886740+yanaport@users.noreply.github.com
@@ -2301,7 +2301,7 @@
   last_commit_ts: 2023-12-12 21:26:25+02:00
   name: yanaport
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 91657985+davidpil2002@users.noreply.github.com
@@ -2339,7 +2339,7 @@
   last_commit_ts: 2023-11-21 15:49:30+02:00
   name: Yevhen Fastiuk
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 93933872+mthatty@users.noreply.github.com
@@ -2348,7 +2348,7 @@
   last_commit_ts: 2023-11-14 02:50:11-05:00
   name: mthatty
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 142551099+suypraka@users.noreply.github.com
@@ -2366,7 +2366,7 @@
   last_commit_ts: 2023-10-31 01:30:05+08:00
   name: Stephen Sun
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - cedric.ollivier@orange.com
@@ -2385,7 +2385,7 @@
   last_commit_ts: 2023-10-14 08:45:58+05:30
   name: Rama Sasthri, Kristipati
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - mircea-dan.gheorghe@keysight.com
@@ -2405,7 +2405,7 @@
   last_commit_ts: 2023-10-13 17:08:33+08:00
   name: Jing Kan
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 32
   emails:
   - 13481901+chandra-bs@users.noreply.github.com
@@ -2414,7 +2414,7 @@
   last_commit_ts: 2023-10-12 08:34:34+05:30
   name: Chandra BS
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - 52521751+arunsaravananbalachandran@users.noreply.github.com
@@ -2432,7 +2432,7 @@
   last_commit_ts: 2025-09-08 11:52:31+10:00
   name: guangyao6
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 87805083+gokulnath-raja@users.noreply.github.com
@@ -2450,7 +2450,7 @@
   last_commit_ts: 2023-09-12 17:00:03+08:00
   name: jcaiMR
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 71
   emails:
   - 70200079+ppikh@users.noreply.github.com
@@ -2459,7 +2459,7 @@
   last_commit_ts: 2023-09-03 09:51:01+03:00
   name: ppikh
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 33894564+alonn6@users.noreply.github.com
@@ -2468,7 +2468,7 @@
   last_commit_ts: 2023-08-14 19:51:34+03:00
   name: Alon N
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 136006025+tigrmeli@users.noreply.github.com
@@ -2477,7 +2477,7 @@
   last_commit_ts: 2023-08-02 19:47:45-07:00
   name: Tigran Meliksetyants
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - dileep@cisco.com
@@ -2487,7 +2487,7 @@
   last_commit_ts: 2023-08-02 02:31:20-07:00
   name: Dileepbk
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - kelly_chen@edge-core.com
@@ -2496,7 +2496,7 @@
   last_commit_ts: 2023-08-02 16:18:09+08:00
   name: Kelly Chen
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 136517217+bjavvaji1331@users.noreply.github.com
@@ -2514,7 +2514,7 @@
   last_commit_ts: 2023-07-25 18:58:36-07:00
   name: Vineet  Mittal
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 93410383+jhli-cisco@users.noreply.github.com
@@ -2523,7 +2523,7 @@
   last_commit_ts: 2023-07-20 20:20:22-07:00
   name: jhli-cisco
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 137961457+pindi-cisco@users.noreply.github.com
@@ -2532,7 +2532,7 @@
   last_commit_ts: 2023-07-05 03:15:57-07:00
   name: pindi-cisco
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - flyseed426@gmail.com
@@ -2541,7 +2541,7 @@
   last_commit_ts: 2023-06-15 10:07:18+08:00
   name: Jimi Chen
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 50105171+azmyali98@users.noreply.github.com
@@ -2550,7 +2550,7 @@
   last_commit_ts: 2023-06-15 05:02:35+03:00
   name: azmyali98
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 110371259+packiasundar@users.noreply.github.com
@@ -2559,7 +2559,7 @@
   last_commit_ts: 2023-05-27 04:40:07+05:30
   name: packiasundar
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 15
   emails:
   - 87841726+rraguraj@users.noreply.github.com
@@ -2577,7 +2577,7 @@
   last_commit_ts: 2023-05-18 17:14:25-07:00
   name: kartik-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - rajan_n@yahoo.com
@@ -2587,7 +2587,7 @@
   last_commit_ts: 2023-05-14 18:31:08-07:00
   name: rajann
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 105526392+abohanyang@users.noreply.github.com
@@ -2596,7 +2596,7 @@
   last_commit_ts: 2023-05-01 18:42:26-07:00
   name: Bohan Yang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 54966909+devpatha@users.noreply.github.com
@@ -2614,7 +2614,7 @@
   last_commit_ts: 2023-04-24 16:22:31-04:00
   name: sanmalho-git
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 127400303+akolamarvell@users.noreply.github.com
@@ -2623,7 +2623,7 @@
   last_commit_ts: 2023-04-20 20:28:49+05:30
   name: akolamarvell
   organization: MRVL
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - giovanni.rosa@urjc.es
@@ -2633,7 +2633,7 @@
   last_commit_ts: 2023-04-20 14:06:21+02:00
   name: Giovanni Rosa
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - ezio_chen@edge-core.com
@@ -2642,7 +2642,7 @@
   last_commit_ts: 2023-04-18 17:19:23+08:00
   name: ezio_chen
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 54458415+yenlu-keith@users.noreply.github.com
@@ -2661,7 +2661,7 @@
   last_commit_ts: 2025-09-02 09:29:21+03:00
   name: Stepan Blyshchak
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 95731623+yucgu@users.noreply.github.com
@@ -2679,7 +2679,7 @@
   last_commit_ts: 2023-04-04 01:36:35-07:00
   name: Daniel Lin
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - link_chiang@edge-core.com
@@ -2699,7 +2699,7 @@
   last_commit_ts: 2023-03-20 11:23:59+01:00
   name: Oleksandr Ivantsiv
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 106718431+ms-junyi@users.noreply.github.com
@@ -2709,7 +2709,7 @@
   last_commit_ts: 2023-03-17 09:43:30+08:00
   name: x-junyi
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 32
   emails:
   - 68429300+oleksandrkozodoi@users.noreply.github.com
@@ -2720,7 +2720,7 @@
   last_commit_ts: 2023-03-16 11:47:14+02:00
   name: Oleksandr Kozodoi
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 12
   emails:
   - 87261920+stephengao-ragilenetworks@users.noreply.github.com
@@ -2747,7 +2747,7 @@
   last_commit_ts: 2023-03-09 13:24:30+08:00
   name: cgangx
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - umarasad20@gmail.com
@@ -2766,7 +2766,7 @@
   last_commit_ts: 2023-03-03 08:03:25+08:00
   name: Richard.Yu
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 11
   emails:
   - 39913941+zhiyuan0112@users.noreply.github.com
@@ -2775,7 +2775,7 @@
   last_commit_ts: 2023-03-02 09:01:57+08:00
   name: Zhiyuan Liang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - gollarharsha@gmail.com
@@ -2793,7 +2793,7 @@
   last_commit_ts: 2023-02-17 07:51:37+08:00
   name: zhoudongxu
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - guillaume.lambert@orange.com
@@ -2802,7 +2802,7 @@
   last_commit_ts: 2023-02-09 09:26:16+01:00
   name: Guilt
   organization: ORANY
-- available_to_review: true
+- available_to_review: false
   commit_count: 16
   emails:
   - 84025678+vmorokhx@users.noreply.github.com
@@ -2812,7 +2812,7 @@
   last_commit_ts: 2023-02-08 03:29:24+02:00
   name: Vladyslav Morokhovych
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - rogerx87@gmail.com
@@ -2821,7 +2821,7 @@
   last_commit_ts: 2023-02-08 09:04:51+08:00
   name: RogerX87
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 51
   emails:
   - 73100001+andriilozovyi@users.noreply.github.com
@@ -2831,7 +2831,7 @@
   last_commit_ts: 2023-02-06 09:15:05+02:00
   name: Andrii-Yosafat Lozovyi
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - kostiantynx.yarovyi@intel.com
@@ -2841,7 +2841,7 @@
   last_commit_ts: 2023-01-27 15:17:22+01:00
   name: Kostiantyn Yarovyi
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 68950226+bratashx@users.noreply.github.com
@@ -2852,7 +2852,7 @@
   last_commit_ts: 2023-01-11 10:52:42+02:00
   name: Petro Bratash
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 49
   emails:
   - 79265382+antonptashnik@users.noreply.github.com
@@ -2862,7 +2862,7 @@
   last_commit_ts: 2023-01-10 17:47:00+02:00
   name: Anton Ptashnik
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 79439153+qnos@users.noreply.github.com
@@ -2871,7 +2871,7 @@
   last_commit_ts: 2023-01-09 18:53:33+08:00
   name: Daris Chu
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 20
   emails:
   - 74666177+vcheketx@users.noreply.github.com
@@ -2881,7 +2881,7 @@
   last_commit_ts: 2023-01-04 16:21:18+02:00
   name: Viktor Cheketa
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 105214075+dbarashinvd@users.noreply.github.com
@@ -2890,7 +2890,7 @@
   last_commit_ts: 2022-12-26 09:09:58+02:00
   name: dbarashinvd
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - sureshsekar@marvell.com
@@ -2918,7 +2918,7 @@
   last_commit_ts: 2025-09-15 19:00:02-07:00
   name: davidm-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 117801503+lokeshmarvell@users.noreply.github.com
@@ -2936,7 +2936,7 @@
   last_commit_ts: 2022-11-10 00:49:20+02:00
   name: Vadym Hlushko
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - maulikp@marvell.com
@@ -2945,7 +2945,7 @@
   last_commit_ts: 2022-11-06 15:54:43-08:00
   name: Maulik Patel
   organization: MRVL
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 103988735+tiejunzhang@users.noreply.github.com
@@ -2954,7 +2954,7 @@
   last_commit_ts: 2022-10-27 14:47:00+08:00
   name: tiejunzhang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 73036155+liorghub@users.noreply.github.com
@@ -2963,7 +2963,7 @@
   last_commit_ts: 2022-10-24 04:42:31+03:00
   name: Lior Avramov
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 88161975+mdanish-kh@users.noreply.github.com
@@ -2973,7 +2973,7 @@
   last_commit_ts: 2022-10-18 02:37:25+05:00
   name: Muhammad Danish
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - 75999085+tcusto@users.noreply.github.com
@@ -2982,7 +2982,7 @@
   last_commit_ts: 2022-10-12 12:06:05-04:00
   name: Tom Custodio
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 79961212+roberthong-qct@users.noreply.github.com
@@ -2991,7 +2991,7 @@
   last_commit_ts: 2022-09-30 15:37:31+08:00
   name: roberthong-qct
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - romanx.vasylyshyn@intel.com
@@ -3000,7 +3000,7 @@
   last_commit_ts: 2022-09-27 08:25:53+03:00
   name: Roman Vasylyshyn
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - andriidovhan@users.noreply.github.com
@@ -3010,7 +3010,7 @@
   last_commit_ts: 2022-09-26 09:11:11+03:00
   name: AndriiDovhan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 75040703+dawoodmehmood@users.noreply.github.com
@@ -3019,7 +3019,7 @@
   last_commit_ts: 2022-09-20 08:05:53+05:00
   name: 'Dawood Mehmood '
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 33
   emails:
   - sujkang@microsoft.com
@@ -3037,7 +3037,7 @@
   last_commit_ts: 2022-08-27 10:03:46+00:00
   name: Junhua Zhai
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 106370135+wistronnetwork@users.noreply.github.com
@@ -3046,7 +3046,7 @@
   last_commit_ts: 2022-08-16 12:43:49+08:00
   name: WistronNetwork
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - sh_wang@edge-core.com
@@ -3055,7 +3055,7 @@
   last_commit_ts: 2022-07-27 16:36:51+08:00
   name: Nick Wang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 80551811+rskorka@users.noreply.github.com
@@ -3064,7 +3064,7 @@
   last_commit_ts: 2022-07-26 03:08:44-07:00
   name: rskorka
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 104843237+oleksandrkovtunenko@users.noreply.github.com
@@ -3073,7 +3073,7 @@
   last_commit_ts: 2022-07-26 13:02:40+03:00
   name: oleksandrKovtunenko
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - yangwang1@microsoft.com
@@ -3101,7 +3101,7 @@
   last_commit_ts: 2022-06-17 07:51:32-07:00
   name: Sumukha Tumkur Vani
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - kuanyu_chen@edge-core.com
@@ -3110,7 +3110,7 @@
   last_commit_ts: 2022-06-17 17:10:48+08:00
   name: Kuanyu Chen
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 77245923+microsoft-github-policy-service[bot]@users.noreply.github.com
@@ -3129,7 +3129,7 @@
   last_commit_ts: 2022-05-23 12:32:03+03:00
   name: Volodymyr Boiko
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - jsiji@juniper.net
@@ -3138,7 +3138,7 @@
   last_commit_ts: 2022-05-06 05:19:09+05:30
   name: Siji Joseph
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 40
   emails:
   - 10645050+smaheshm@users.noreply.github.com
@@ -3147,7 +3147,7 @@
   last_commit_ts: 2022-04-28 09:47:00-07:00
   name: Mahesh Maddikayala
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 103172271+siddegowda1@users.noreply.github.com
@@ -3156,7 +3156,7 @@
   last_commit_ts: 2022-04-20 12:03:29+05:30
   name: siddegowda1
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - suvendu.mozumdar@keysight.com
@@ -3165,7 +3165,7 @@
   last_commit_ts: 2022-04-15 03:42:55+05:30
   name: Suvendu@Keysight
   organization: KEYS
-- available_to_review: true
+- available_to_review: false
   commit_count: 9
   emails:
   - admin@altechcode.com
@@ -3175,7 +3175,7 @@
   last_commit_ts: 2022-04-14 12:27:36-04:00
   name: Alexander Allen
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 89829192+saikrishnagajula@users.noreply.github.com
@@ -3184,7 +3184,7 @@
   last_commit_ts: 2022-04-06 10:57:30+05:30
   name: saikrishnagajula
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 66022536+nathcohe@users.noreply.github.com
@@ -3193,7 +3193,7 @@
   last_commit_ts: 2022-04-01 00:37:19-07:00
   name: Nathan Cohen
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 102300525+avinish-marvell@users.noreply.github.com
@@ -3202,7 +3202,7 @@
   last_commit_ts: 2022-03-31 06:47:07+05:30
   name: avinish-marvell
   organization: MRVL
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 97075516+sampad1996@users.noreply.github.com
@@ -3211,7 +3211,7 @@
   last_commit_ts: 2022-03-28 22:49:45+05:30
   name: sampad1996
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - byreal@users.noreply.github.com
@@ -3229,7 +3229,7 @@
   last_commit_ts: 2022-03-02 18:29:17-08:00
   name: Prince Sunny
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 89829873+v-kvaruni@users.noreply.github.com
@@ -3238,7 +3238,7 @@
   last_commit_ts: 2022-02-24 07:40:24+05:30
   name: v-kvaruni
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 16
   emails:
   - 73910672+oxygen980@users.noreply.github.com
@@ -3266,7 +3266,7 @@
   last_commit_ts: 2022-02-01 02:13:06+02:00
   name: Volodymyr Samotiy
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 26
   emails:
   - 67605788+shi-su@users.noreply.github.com
@@ -3284,7 +3284,7 @@
   last_commit_ts: 2022-01-19 18:48:09+08:00
   name: xumia
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 47546216+vincentchiang-ec@users.noreply.github.com
@@ -3293,7 +3293,7 @@
   last_commit_ts: 2022-01-13 03:38:41+08:00
   name: Vincent Chiang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - 48308607+anish-gottapu@users.noreply.github.com
@@ -3302,7 +3302,7 @@
   last_commit_ts: 2022-01-07 23:19:12+05:30
   name: ANISH-GOTTAPU
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 11
   emails:
   - gord_chen@edge-core.com
@@ -3311,7 +3311,7 @@
   last_commit_ts: 2021-12-24 15:38:03+08:00
   name: Gord Chen
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 53524901+aravindmani-1@users.noreply.github.com
@@ -3320,7 +3320,7 @@
   last_commit_ts: 2021-12-23 19:59:56+05:30
   name: Aravind Mani
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - 44050505+diaryevil@users.noreply.github.com
@@ -3329,7 +3329,7 @@
   last_commit_ts: 2021-12-14 21:52:33+08:00
   name: Yuxuan Ye
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 8
   emails:
   - 44376847+anish-n@users.noreply.github.com
@@ -3338,7 +3338,7 @@
   last_commit_ts: 2021-12-06 16:55:44-08:00
   name: Anish Narsian
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 80095786+andriyz-nv@users.noreply.github.com
@@ -3347,7 +3347,7 @@
   last_commit_ts: 2021-12-05 08:25:25+02:00
   name: andriyz-nv
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - stu90702003@gmail.com
@@ -3375,7 +3375,7 @@
   last_commit_ts: 2021-11-16 17:22:37-08:00
   name: bparise
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - millenary.soul@gmail.com
@@ -3385,7 +3385,7 @@
   last_commit_ts: 2021-11-15 16:39:21+08:00
   name: MuLin
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - aurghob@gmail.com
@@ -3394,7 +3394,7 @@
   last_commit_ts: 2021-11-11 17:33:01-08:00
   name: Aurgho Bhattacharjee
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - yizhouwang418@gmail.com
@@ -3403,7 +3403,7 @@
   last_commit_ts: 2021-10-28 17:40:55+08:00
   name: Yizhou Wang
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 60479697+dflynn-nokia@users.noreply.github.com
@@ -3412,7 +3412,7 @@
   last_commit_ts: 2021-10-25 22:02:46-04:00
   name: dflynn-Nokia
   organization: NOK
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - xjasonlyu@gmail.com
@@ -3421,7 +3421,7 @@
   last_commit_ts: 2021-10-26 01:53:41+08:00
   name: Jason Lyu
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - thomas.cappleman@metaswitch.com
@@ -3430,7 +3430,7 @@
   last_commit_ts: 2021-10-09 08:11:02+01:00
   name: thomas.cappleman@metaswitch.com
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - 48510427+chaoskao@users.noreply.github.com
@@ -3457,7 +3457,7 @@
   last_commit_ts: 2021-09-29 11:54:55+03:00
   name: DavidZagury
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - ashok_daparthi@dell.com
@@ -3466,7 +3466,7 @@
   last_commit_ts: 2021-09-27 11:45:22-07:00
   name: Ashok Daparthi-Dell
   organization: DELL
-- available_to_review: true
+- available_to_review: false
   commit_count: 9
   emails:
   - 31708881+andonisanguesa@users.noreply.github.com
@@ -3486,7 +3486,7 @@
   last_commit_ts: 2021-09-14 14:31:53-07:00
   name: Guohan Lu
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - rajpratik71@gmail.com
@@ -3495,7 +3495,7 @@
   last_commit_ts: 2021-09-11 15:47:48+05:30
   name: Pratik Raj
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 24
   emails:
   - 60430976+shlomibitton@users.noreply.github.com
@@ -3504,7 +3504,7 @@
   last_commit_ts: 2021-08-24 14:10:38+03:00
   name: Shlomi Bitton
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 17
   emails:
   - 32665166+chitra-raghavan@users.noreply.github.com
@@ -3513,7 +3513,7 @@
   last_commit_ts: 2021-07-31 12:52:55+05:30
   name: Chitra Raghavan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - skytreat2004@gmail.com
@@ -3522,7 +3522,7 @@
   last_commit_ts: 2021-07-22 20:33:52+08:00
   name: skytreat
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 98
   emails:
   - daall@microsoft.com
@@ -3531,7 +3531,7 @@
   last_commit_ts: 2021-07-14 11:53:26-07:00
   name: Danny Allen
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 60276887+saravanansv@users.noreply.github.com
@@ -3540,7 +3540,7 @@
   last_commit_ts: 2021-06-21 04:42:29-07:00
   name: Saravanan Sellappa
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 81
   emails:
   - jleveque@users.noreply.github.com
@@ -3549,7 +3549,7 @@
   last_commit_ts: 2021-06-17 08:50:06-07:00
   name: Joe LeVeque
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 60775876+mpiechocinski@users.noreply.github.com
@@ -3559,7 +3559,7 @@
   last_commit_ts: 2021-05-17 12:15:29+02:00
   name: Mateusz Piechocinski
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 79203814+aganguly-keysight@users.noreply.github.com
@@ -3577,7 +3577,7 @@
   last_commit_ts: 2023-02-10 05:01:14+02:00
   name: Ihor Chekh
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 58
   emails:
   - andriis@mellanox.com
@@ -3599,7 +3599,7 @@
   last_commit_ts: 2022-03-09 17:08:37+08:00
   name: Non-found emails bundle
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - sonic_rd@ruijie.com.cn
@@ -3608,7 +3608,7 @@
   last_commit_ts: 2021-05-03 05:41:38+08:00
   name: ruijie.com.cn
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 35
   emails:
   - 50697593+yvolynets-mlnx@users.noreply.github.com
@@ -3617,7 +3617,7 @@
   last_commit_ts: 2021-04-23 19:21:14+03:00
   name: yvolynets-mlnx
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 67008155+abdul-raheem10@users.noreply.github.com
@@ -3626,7 +3626,7 @@
   last_commit_ts: 2021-04-23 04:25:51+05:30
   name: Mohammed Abdul Raheem Ali
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 69796026+nirmalya-keysight@users.noreply.github.com
@@ -3635,7 +3635,7 @@
   last_commit_ts: 2021-04-12 22:45:39+05:30
   name: nirmalya-keysight
   organization: KEYS
-- available_to_review: true
+- available_to_review: false
   commit_count: 11
   emails:
   - 43479243+vsenchyshyn@users.noreply.github.com
@@ -3645,7 +3645,7 @@
   last_commit_ts: 2021-03-15 21:04:23+02:00
   name: Vitaliy Senchyshyn
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 75294883+vpsubramaniam@users.noreply.github.com
@@ -3654,7 +3654,7 @@
   last_commit_ts: 2021-03-11 00:16:59+05:30
   name: vpsubramaniam
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 42399057+shubav@users.noreply.github.com
@@ -3663,7 +3663,7 @@
   last_commit_ts: 2021-03-01 17:32:20-08:00
   name: Shuba Viswanathan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - carl.zy.zhao@gmail.com
@@ -3672,7 +3672,7 @@
   last_commit_ts: 2021-02-25 16:47:35-08:00
   name: zzhiyuan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 74662630+antoninamelnyk@users.noreply.github.com
@@ -3681,7 +3681,7 @@
   last_commit_ts: 2021-02-25 20:14:20+02:00
   name: Antonina Melnyk
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - myron.sosyak@gmail.com
@@ -3690,7 +3690,7 @@
   last_commit_ts: 2021-02-23 19:00:16+02:00
   name: Myron
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 68949102+dmytroxshevchuk@users.noreply.github.com
@@ -3700,7 +3700,7 @@
   last_commit_ts: 2021-02-17 23:51:30+02:00
   name: Dmytro Shevchuk
   organization: INTC
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - stephengzh@outlook.com
@@ -3718,7 +3718,7 @@
   last_commit_ts: 2021-01-21 19:43:24+02:00
   name: Noa Or
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - kavinkamaraj@gmail.com
@@ -3727,7 +3727,7 @@
   last_commit_ts: 2021-01-18 23:18:35-08:00
   name: kktheballer
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 74217992+macikgozwa@users.noreply.github.com
@@ -3736,7 +3736,7 @@
   last_commit_ts: 2021-01-14 16:08:20-08:00
   name: macikgozwa
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 48435122+fredyu190011@users.noreply.github.com
@@ -3755,7 +3755,7 @@
   last_commit_ts: 2021-01-12 17:53:35+02:00
   name: Myron Sosyak
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 57
   emails:
   - pavelsh@microsoft.com
@@ -3764,7 +3764,7 @@
   last_commit_ts: 2021-01-08 13:48:22-08:00
   name: pavel-shirshov
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 69946792+steven-guo-ec@users.noreply.github.com
@@ -3773,7 +3773,7 @@
   last_commit_ts: 2021-01-08 21:52:38+08:00
   name: Steven Guo
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 49477291+pjhsieh@users.noreply.github.com
@@ -3782,7 +3782,7 @@
   last_commit_ts: 2021-01-08 11:17:25+08:00
   name: PJHsieh
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 56315416+monipko@users.noreply.github.com
@@ -3801,7 +3801,7 @@
   last_commit_ts: 2020-12-09 00:28:13+02:00
   name: Andriy Kokhan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - kumarvinod82@yahoo.com
@@ -3810,7 +3810,7 @@
   last_commit_ts: 2020-11-24 23:35:00-08:00
   name: Vinod Kumar
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 62621870+dipalipatel25@users.noreply.github.com
@@ -3819,7 +3819,7 @@
   last_commit_ts: 2020-11-15 00:15:26-05:00
   name: dipalipatel25
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 61512620+irene-pan1202@users.noreply.github.com
@@ -3828,7 +3828,7 @@
   last_commit_ts: 2020-11-09 11:20:55+08:00
   name: irene-pan1202
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 58835052+minkang-tsai@users.noreply.github.com
@@ -3837,7 +3837,7 @@
   last_commit_ts: 2020-10-20 19:12:47+08:00
   name: Minkang-Tsai
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - subhajit.pal@keysight.com
@@ -3846,7 +3846,7 @@
   last_commit_ts: 2020-10-02 01:25:13+05:30
   name: Subhajit Pal
   organization: KEYS
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - emma_lin@edge-core.com
@@ -3855,7 +3855,7 @@
   last_commit_ts: 2020-09-30 14:39:47+08:00
   name: Emma Lin
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 68429198+olaoliynyk@users.noreply.github.com
@@ -3864,7 +3864,7 @@
   last_commit_ts: 2020-09-17 23:25:47+03:00
   name: Olha Oliynyk
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 69640904+thomas-am@users.noreply.github.com
@@ -3873,7 +3873,7 @@
   last_commit_ts: 2020-09-08 21:01:51-07:00
   name: thomas-am
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 41
   emails:
   - tamer.ahmed@gmail.com
@@ -3883,7 +3883,7 @@
   last_commit_ts: 2020-08-26 17:08:11-07:00
   name: Tamer Ahmed
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - 67135817+abhijit-dhar@users.noreply.github.com
@@ -3892,7 +3892,7 @@
   last_commit_ts: 2020-08-27 05:09:12+05:30
   name: abhijit-dhar
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - slogan621@gmail.com
@@ -3901,7 +3901,7 @@
   last_commit_ts: 2020-08-23 19:41:10-07:00
   name: Syd Logan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 9
   emails:
   - 49077256+pra-moh@users.noreply.github.com
@@ -3910,7 +3910,7 @@
   last_commit_ts: 2020-08-07 09:29:34-07:00
   name: pra-moh
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 31
   emails:
   - 37578614+mykolaf@users.noreply.github.com
@@ -3920,7 +3920,7 @@
   last_commit_ts: 2020-07-14 06:31:08+03:00
   name: Mykola Faryma
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - crzas@users.noreply.github.com
@@ -3938,7 +3938,7 @@
   last_commit_ts: 2020-05-01 16:58:27-07:00
   name: Xin Liu
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 7
   emails:
   - iris_hsu@edge-core.com
@@ -3947,7 +3947,7 @@
   last_commit_ts: 2020-04-30 02:54:02+08:00
   name: Iris Hsu
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 47626856+william-zx@users.noreply.github.com
@@ -3956,7 +3956,7 @@
   last_commit_ts: 2020-04-22 18:03:03+08:00
   name: William-zx
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - kh_shi@edge-core.com
@@ -3965,7 +3965,7 @@
   last_commit_ts: 2020-04-01 13:07:37+08:00
   name: shikenghua
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - kenie7@gmail.com
@@ -3974,7 +3974,7 @@
   last_commit_ts: 2020-03-20 17:35:01+08:00
   name: okanchou9
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - hadiga@linkedin.com
@@ -3983,7 +3983,7 @@
   last_commit_ts: 2020-03-20 09:32:00+05:30
   name: Harsha S Adiga
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 27
   emails:
   - hansihuisjtu@gmail.com
@@ -3993,7 +3993,7 @@
   last_commit_ts: 2020-03-19 20:58:02-07:00
   name: sihuihan88
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - ray_wang@edge-core.com
@@ -4002,7 +4002,7 @@
   last_commit_ts: 2020-03-18 04:30:02+08:00
   name: RayWang910012
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 59221293+twtseng-tim@users.noreply.github.com
@@ -4011,7 +4011,7 @@
   last_commit_ts: 2020-01-29 10:59:17+08:00
   name: twtseng-tim
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 53076238+ciju-juniper@users.noreply.github.com
@@ -4020,7 +4020,7 @@
   last_commit_ts: 2020-01-17 12:31:35+05:30
   name: Ciju Rajan K
   organization: JNPR
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - manju_v1@dell.com
@@ -4029,7 +4029,7 @@
   last_commit_ts: 2019-12-05 22:50:17+05:30
   name: Manju V
   organization: DELL
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - 18810562248@163.com
@@ -4038,7 +4038,7 @@
   last_commit_ts: 2019-12-04 14:13:42-06:00
   name: dawnbeauty
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 129
   emails:
   - wenda.ni@microsoft.com
@@ -4049,7 +4049,7 @@
   last_commit_ts: 2019-11-11 11:30:07-08:00
   name: Wenda Ni
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - haiyang.z@alibaba-inc.com
@@ -4059,7 +4059,7 @@
   last_commit_ts: 2019-11-07 11:07:11-08:00
   name: Haiyang Zheng
   organization: BABA
-- available_to_review: true
+- available_to_review: false
   commit_count: 4
   emails:
   - binxie@celestica.com
@@ -4068,7 +4068,7 @@
   last_commit_ts: 2019-10-10 08:51:07+08:00
   name: bbinxie
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 87
   emails:
   - shuche@microsoft.com
@@ -4078,7 +4078,7 @@
   last_commit_ts: 2019-09-27 01:36:50-07:00
   name: Shuotian Cheng
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - joej164@gmail.com
@@ -4087,7 +4087,7 @@
   last_commit_ts: 2019-09-27 01:34:13-07:00
   name: Joseph Jacobs
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 17
   emails:
   - c_andriym@mellanox.com
@@ -4096,7 +4096,7 @@
   last_commit_ts: 2019-09-16 14:50:07+03:00
   name: Andriy Moroz
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 35986964+harrison-hu@users.noreply.github.com
@@ -4105,7 +4105,7 @@
   last_commit_ts: 2019-08-03 03:48:28+08:00
   name: Harrison-SH
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - river_hong@accton.com
@@ -4124,7 +4124,7 @@
   last_commit_ts: 2019-03-31 12:20:00+03:00
   name: Liat Grozovik
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - 42243355+romankachur-mlnx@users.noreply.github.com
@@ -4133,7 +4133,7 @@
   last_commit_ts: 2019-03-31 12:19:11+03:00
   name: Roman Kachur
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - kevinw@mellanox.com
@@ -4142,7 +4142,7 @@
   last_commit_ts: 2018-10-17 23:20:33+08:00
   name: Kevin(Shengkai) Wang
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 41297495+chiuhsiapeng@users.noreply.github.com
@@ -4151,7 +4151,7 @@
   last_commit_ts: 2018-09-11 03:59:51+08:00
   name: Quanta-Switch
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 40868300+delta46101@users.noreply.github.com
@@ -4160,7 +4160,7 @@
   last_commit_ts: 2018-08-29 11:57:32-07:00
   name: delta46101
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 36049136+simone-dell@users.noreply.github.com
@@ -4169,7 +4169,7 @@
   last_commit_ts: 2018-08-22 17:15:43-07:00
   name: simone-dell
   organization: DELL
-- available_to_review: true
+- available_to_review: false
   commit_count: 76
   emails:
   - masun@microsoft.com
@@ -4178,7 +4178,7 @@
   last_commit_ts: 2018-08-20 09:17:11-07:00
   name: maggiemsft
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 33357566+anandaraj-maharajan@users.noreply.github.com
@@ -4187,7 +4187,7 @@
   last_commit_ts: 2018-05-11 18:01:07-07:00
   name: Anandaraj-Maharajan
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 32632751+amitabhja@users.noreply.github.com
@@ -4196,7 +4196,7 @@
   last_commit_ts: 2018-03-10 03:31:22+05:30
   name: amitabhja
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - rick.yhchen1013@gmail.com
@@ -4205,7 +4205,7 @@
   last_commit_ts: 2018-03-10 03:07:41+08:00
   name: rick-yhchen1013
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - evan.tyf@alibaba-inc.com
@@ -4214,7 +4214,7 @@
   last_commit_ts: 2018-02-08 00:20:10+08:00
   name: Judong
   organization: BABA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - polly_hsu@accton.com
@@ -4224,7 +4224,7 @@
   last_commit_ts: 2018-01-13 21:06:49+08:00
   name: Polly Hsu
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - yurypm@arista.com
@@ -4233,7 +4233,7 @@
   last_commit_ts: 2017-12-21 22:29:35+00:00
   name: yurypm-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - rodny.molina@docker.com
@@ -4252,7 +4252,7 @@
   last_commit_ts: 2017-11-29 12:41:49+02:00
   name: Marian Pritsak
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 16
   emails:
   - taoyl@microsoft.com
@@ -4261,7 +4261,7 @@
   last_commit_ts: 2017-04-19 15:27:26-07:00
   name: Taoyu Li
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 6
   emails:
   - c_antonp@mellanox.com
@@ -4270,7 +4270,7 @@
   last_commit_ts: 2017-04-05 02:23:57+03:00
   name: antonpatenko
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - engdorm@users.noreply.github.com
@@ -4279,7 +4279,7 @@
   last_commit_ts: 2017-03-20 13:43:52+02:00
   name: Dor Marcous
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - pavlo.kandrin@cavium.com
@@ -4288,7 +4288,7 @@
   last_commit_ts: 2017-02-24 23:47:29+02:00
   name: pkandrin
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 11
   emails:
   - johnar@microsoft.com
@@ -4298,7 +4298,7 @@
   last_commit_ts: 2016-10-03 10:13:26-07:00
   name: John Arnold
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - orapaport@nvidia.com
@@ -4316,7 +4316,7 @@
   last_commit_ts: 2025-08-26 20:26:27-07:00
   name: eswaran-nexthop
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 73100906+yairraviv@users.noreply.github.com
@@ -4325,7 +4325,7 @@
   last_commit_ts: 2025-08-25 20:09:06+03:00
   name: Yair Raviv
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - v-ryeluri@microsoft.com
@@ -4334,7 +4334,7 @@
   last_commit_ts: 2025-09-03 20:20:12-07:00
   name: ravaliyel
   organization: MSFT
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - markxiao@arista.com
@@ -4343,7 +4343,7 @@
   last_commit_ts: 2025-10-21 23:03:07-07:00
   name: Mark Xiao
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 56138111+leyza@users.noreply.github.com
@@ -4352,7 +4352,7 @@
   last_commit_ts: 2025-11-14 09:47:57-08:00
   name: Leyza
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 3
   emails:
   - dcaugher@cisco.com
@@ -4361,7 +4361,7 @@
   last_commit_ts: 2025-11-13 19:50:18-05:00
   name: Dan Caugherty
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - manish1@arista.com
@@ -4370,7 +4370,7 @@
   last_commit_ts: 2025-11-13 23:22:30+05:30
   name: manish1-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - ashu@cisco.com
@@ -4379,7 +4379,7 @@
   last_commit_ts: 2025-11-05 02:44:47-08:00
   name: Ashutosh Agrawal
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 5
   emails:
   - gshemesh@nvidia.com
@@ -4388,7 +4388,7 @@
   last_commit_ts: 2025-11-04 23:50:19+02:00
   name: gshemesh2
   organization: NVDA
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - prajjwal@arista.com
@@ -4397,7 +4397,7 @@
   last_commit_ts: 2025-11-13 08:42:18+05:30
   name: prajjwal-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - dakotac@arista.com
@@ -4406,7 +4406,7 @@
   last_commit_ts: 2025-10-31 09:04:48-07:00
   name: dakotac-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - wahababdul7297@gmail.com
@@ -4415,7 +4415,7 @@
   last_commit_ts: 2025-10-24 03:18:54+05:00
   name: Abdul Wahab
   organization: OTHER
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - rrewadka@cisco.com
@@ -4424,7 +4424,7 @@
   last_commit_ts: 2025-09-27 20:31:31-07:00
   name: RishiRewadkarCisco
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - domingo@nexthop.ai
@@ -4433,7 +4433,7 @@
   last_commit_ts: 2025-09-17 08:21:33-07:00
   name: domingo-nexthop
   organization: NXHP
-- available_to_review: true
+- available_to_review: false
   commit_count: 2
   emails:
   - 146126091+kewei-arista@users.noreply.github.com
@@ -4442,7 +4442,7 @@
   last_commit_ts: 2025-09-11 23:41:42-07:00
   name: kewei-arista
   organization: ANET
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - xiaohuh@cisco.com
@@ -4451,7 +4451,7 @@
   last_commit_ts: 2025-09-10 18:18:20-07:00
   name: xiaohu1234578
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - 58802632+cshivashgit@users.noreply.github.com
@@ -4460,7 +4460,7 @@
   last_commit_ts: 2025-09-18 22:25:13+05:30
   name: Shivashankar C R
   organization: CSCO
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - nikolaos.michos@nokia.com
@@ -4469,7 +4469,7 @@
   last_commit_ts: 2025-09-17 22:41:42+03:00
   name: nimicho
   organization: NOK
-- available_to_review: true
+- available_to_review: false
   commit_count: 1
   emails:
   - ajaykumar.eedara@nokia.com
