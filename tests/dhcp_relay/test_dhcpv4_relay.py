@@ -126,7 +126,8 @@ def test_dhcpv4_relay_disabled_validation(ptfhost, dut_dhcp_relay_data, validate
         logger.error("Unable to find expected log in syslog")
         raise err
 
-    sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
+    finally:
+        sonic_dhcp_relay_unconfig(duthost, dut_dhcp_relay_data)
 
 
 @pytest.mark.parametrize("testcase", ["source_intf", "server_id_override"])
@@ -426,14 +427,16 @@ def test_dhcp_relay_with_non_default_vrf(
         logger.error("Unable to find expected log in syslog")
         raise err
 
-    # VRF config cleanup
-    duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
-                  f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
-    duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
-    for pc, params in portchannels.items():
-        duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
+    finally:
+        duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
+        # VRF config cleanup
+        duthost.shell(f"sudo config route del prefix vrf {CLIENT_VRF_NAME} 0.0.0.0/0 nexthop"
+                      f" vrf {CLIENT_VRF_NAME} {first_params['nexthop']}")
+        duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
+        for pc, params in portchannels.items():
+            duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
 
-    duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
+        duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
 
 
 def test_dhcp_relay_with_different_non_default_vrf(
@@ -548,17 +551,18 @@ def test_dhcp_relay_with_different_non_default_vrf(
         logger.error("Unable to find expected log in syslog")
         raise err
 
-    duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
-    # VRF config cleanup
-    duthost.shell(f"sudo config route del prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
-                  f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
+    finally:
+        duthost.shell(f"config dhcpv4_relay del {vlan_iface}", module_ignore_errors=True)
+        # VRF config cleanup
+        duthost.shell(f"sudo config route del prefix vrf {SERVER_VRF_NAME} 0.0.0.0/0 nexthop"
+                      f" vrf {SERVER_VRF_NAME} {first_params['nexthop']}")
 
-    duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
-    duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}")
-    for pc, params in portchannels.items():
-        duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
+        duthost.shell(f"sudo config vrf del {CLIENT_VRF_NAME}")
+        duthost.shell(f"sudo config vrf del {SERVER_VRF_NAME}")
+        for pc, params in portchannels.items():
+            duthost.shell(f"sudo config interface ip add {pc} {params['ip']}")
 
-    duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
+        duthost.shell(f"sudo config interface ip add {vlan_iface} {vlan_ip}")
 
 
 @pytest.mark.parametrize("max_hop_count", [CONFIG_HOP_COUNT, MAX_HOP_COUNT])
