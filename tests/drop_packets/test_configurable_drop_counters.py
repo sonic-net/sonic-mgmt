@@ -149,7 +149,7 @@ def verifyFdbArp(duthost, dst_ip, dst_mac, dst_intf):
 
 @pytest.mark.parametrize("drop_reason", ["L3_EGRESS_LINK_DOWN"])
 def test_neighbor_link_down(testbed_params, setup_counters, duthosts, rand_one_dut_hostname,
-                            setup_standby_ports_on_rand_unselected_tor,                             # noqa F811
+                            setup_standby_ports_on_rand_unselected_tor_unconditionally,             # noqa F811
                             toggle_all_simulator_ports_to_rand_selected_tor_m, mock_server,         # noqa F811
                             send_dropped_traffic, drop_reason, generate_dropped_packet, tbinfo):
     """
