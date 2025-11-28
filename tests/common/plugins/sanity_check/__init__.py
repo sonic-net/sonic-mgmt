@@ -96,11 +96,11 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True
             # check PTF device reachability
             if ptf.mgmt_ip:
                 cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
-                cmds.append("traceroute {}".format(ptf.mgmt_ip))
+                cmds.append("traceroute -n {}".format(ptf.mgmt_ip))
 
             if ptf.mgmt_ipv6:
                 cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
-                cmds.append("traceroute6 {}".format(ptf.mgmt_ipv6))
+                cmds.append("traceroute6 -n {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
