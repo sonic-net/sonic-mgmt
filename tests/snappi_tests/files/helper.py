@@ -264,9 +264,10 @@ def get_fabric_mapping(duthost, asic=""):
         dict: Dictionary mapping backplane interfaces to fabric interfaces.
     """
 
-    asic_namespace = ""
-    if asic:
+    if asic and asic.namespace:
         asic_namespace = " --namespace {}".format(asic.namespace)
+    else:
+        pytest.skip("This test is only for multiAsic Platforms.")
 
     cmd = "show platform npu bp-interface-map" + asic_namespace
     result = duthost.shell(cmd)['stdout']
