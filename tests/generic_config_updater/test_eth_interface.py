@@ -127,21 +127,23 @@ def get_ethernet_port_not_in_portchannel(duthost, namespace=None):
     port_name = ""
     ports = list(config_facts['PORT'].keys())
     port_channel_members = []
-    if 'PORTCHANNEL_MEMBER' not in config_facts:
-        if len(ports) > 0:
-            port_name = ports[0]
-        return port_name
-    port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
-    for port_channel in list(port_channel_member_facts.keys()):
-        for member in list(port_channel_member_facts[port_channel].keys()):
-            port_channel_members.append(member)
+
+    def _is_front_panel(port_name: str) -> bool:
+        role = config_facts["PORT"].get(port_name, {}).get("role")
+        return role is None or role == "Ext"
+
+    if 'PORTCHANNEL_MEMBER' in config_facts:
+        port_channel_member_facts = config_facts['PORTCHANNEL_MEMBER']
+        for port_channel in list(port_channel_member_facts.keys()):
+            for member in list(port_channel_member_facts[port_channel].keys()):
+                port_channel_members.append(member)
+
     for port in ports:
         if port not in port_channel_members:
-            port_role = config_facts['PORT'][port].get('role')
-            if port_role and port_role != 'Ext':    # ensure port is front-panel port
-                continue
-            port_name = port
-            break
+            if _is_front_panel(port):
+                port_name = port
+                break
+    logger.info("Selected port for test: {}".format(port_name))
     return port_name
 
 
