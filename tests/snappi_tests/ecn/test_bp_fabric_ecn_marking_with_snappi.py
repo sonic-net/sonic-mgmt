@@ -82,7 +82,7 @@ def test_fabric_ecn_marking_lossless_prio(
     # find the supervisor DUT as the fabric ports are available in it.
     supervisor_dut = next((duthost for duthost in duthosts if duthost.is_supervisor_node()), None)
 
-    pytest_assert(supervisor_dut, "Supervisor DUT not found")
+    pytest_require(supervisor_dut, "Supervisor DUT not found")
 
     pytest_require(is_cisco_device(supervisor_dut), "Test supported on Cisco Supervisor DUT only")
 
