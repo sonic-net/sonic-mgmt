@@ -595,9 +595,17 @@ class VMTopology(object):
             VMTopology._generate_fingerprint(ext_if, MAX_INTF_LEN - len(int_if))
         logging.info('=== For veth pair, add %s to bridge %s, set %s to netns, tmp intf %s' % (
             ext_if, bridge, int_if, tmp_int_if))
-        if VMTopology.intf_not_exists(ext_if):
-            VMTopology.cmd("ip link add %s type veth peer name %s" %
-                           (ext_if, tmp_int_if))
+
+        # Delete existing interfaces to avoid inconsistent veth pair state
+        if VMTopology.intf_exists(ext_if):
+            logging.info("=== Deleting existing interface %s to ensure clean state" % ext_if)
+            VMTopology.cmd("ip link delete %s" % ext_if)
+        if VMTopology.intf_exists(tmp_int_if):
+            logging.info("=== Deleting existing interface %s to ensure clean state" % tmp_int_if)
+            VMTopology.cmd("ip link delete %s" % tmp_int_if)
+
+        VMTopology.cmd("ip link add %s type veth peer name %s" %
+                       (ext_if, tmp_int_if))
 
         _, if_to_br = VMTopology.brctl_show(bridge)
         if ext_if not in if_to_br:
@@ -803,12 +811,16 @@ class VMTopology(object):
 
         t_int_if = adaptive_temporary_interface(self.vm_set_name, int_if)
 
+        # Delete existing interfaces to avoid inconsistent veth pair state
+        if VMTopology.intf_exists(ext_if):
+            logging.info("=== Deleting existing interface %s to ensure clean state" % ext_if)
+            VMTopology.cmd("ip link delete %s" % ext_if)
         if VMTopology.intf_exists(t_int_if):
-            VMTopology.cmd("ip link del dev %s" % t_int_if)
+            logging.info("=== Deleting existing interface %s to ensure clean state" % t_int_if)
+            VMTopology.cmd("ip link delete %s" % t_int_if)
 
-        if VMTopology.intf_not_exists(ext_if):
-            VMTopology.cmd("ip link add %s type veth peer name %s" %
-                           (ext_if, t_int_if))
+        VMTopology.cmd("ip link add %s type veth peer name %s" %
+                       (ext_if, t_int_if))
 
         if self.fp_mtu != DEFAULT_MTU:
             VMTopology.cmd("ip link set dev %s mtu %d" % (ext_if, self.fp_mtu))
