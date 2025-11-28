@@ -1419,7 +1419,8 @@ def configure_trimming_acl(duthost, test_ports):
         "ACL_TABLE_TYPE": {
             ACL_TABLE_TYPE_NAME: {
                 "ACTIONS": [
-                    "DISABLE_TRIM_ACTION"
+                    "DISABLE_TRIM_ACTION",
+                    "COUNTER"
                 ],
                 "BIND_POINTS": [
                     "PORT"
