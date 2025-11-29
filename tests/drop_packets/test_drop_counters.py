@@ -83,7 +83,7 @@ def enable_counters(duthosts):
     def enable_rif_l2_counters(dut):
         # Separating comands based on whether they need to be done per namespace or globally.
         cmd_list = ["intfstat -D", "sonic-clear counters"]
-        cmd_list_per_ns = ["counterpoll port enable", "counterpoll rif enable", "sonic-clear rifcounters"]
+        cmd_list_per_ns = ["counterpoll port {} enable", "counterpoll rif {} enable", "sonic-clear rifcounters"]
 
         dut.shell_cmds(cmds=cmd_list)
         namespace_list = dut.get_asic_namespace_list() if dut.is_multi_asic else ['']
@@ -98,8 +98,12 @@ def enable_counters(duthosts):
 
             ns_cmd_list = []
             CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if dut.is_multi_asic else ''
+            CMD_SUFFIX = NAMESPACE_SUFFIX.format(namespace) if dut.is_multi_asic else ''
             for cmd in cmd_list_per_ns:
-                ns_cmd_list.append(CMD_PREFIX + cmd)
+                if 'counterpoll' in cmd:
+                    ns_cmd_list.append(cmd.format(CMD_SUFFIX))
+                else:
+                    ns_cmd_list.append(CMD_PREFIX + cmd)
             dut.shell_cmds(cmds=ns_cmd_list)
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
@@ -114,8 +118,8 @@ def enable_counters(duthosts):
             for port, status in list(previous_cnt_status[dut][namespace].items()):
                 if status == "disable":
                     logger.info("Restoring counter '{}' state to disable".format(port))
-                    CMD_PREFIX = NAMESPACE_PREFIX.format(namespace) if dut.is_multi_asic else ''
-                    dut.command(CMD_PREFIX + "counterpoll {} disable".format(port))
+                    CMD_SUFFIX = NAMESPACE_SUFFIX.format(namespace) if dut.is_multi_asic else ''
+                    dut.command("counterpoll {} {} disable".format(port, CMD_SUFFIX))
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for duthost in duthosts.frontend_nodes:
