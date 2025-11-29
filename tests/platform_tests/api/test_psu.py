@@ -157,6 +157,7 @@ class TestPsuApi(PlatformApiTestBase):
             status = psu.get_status(platform_api_conn, i)
             if self.expect(status is not None, "Unable to retrieve PSU {} status".format(i)):
                 self.expect(isinstance(status, bool), "PSU {} status appears incorrect".format(i))
+                self.expect(status is True, "PSU {} status is not True (Power Not Good)".format(i))
         self.assert_expectations()
 
     def test_get_position_in_parent(self, platform_api_conn):     # noqa: F811
