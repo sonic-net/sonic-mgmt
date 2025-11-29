@@ -75,7 +75,7 @@ acl/test_acl.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 acl/test_acl_outer_vlan.py:
   #Outer VLAN id match support is planned for future release with SONIC on Cisco 8000
@@ -85,7 +85,7 @@ acl/test_acl_outer_vlan.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['cisco-8000']"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
   skip:
     reason: "Skip running on dualtor testbed"
     conditions:
@@ -94,19 +94,19 @@ acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_dropped[ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_tagged_forwarded[ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 acl/test_acl_outer_vlan.py::TestAclVlanOuter_Egress::test_untagged_forwarded[ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 acl/test_stress_acl.py:
   skip:
@@ -118,7 +118,7 @@ acl/test_stress_acl.py::test_acl_add_del_stress:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####          acstests              #####
@@ -170,7 +170,7 @@ arp/test_neighbor_mac_noptf.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 arp/test_stress_arp.py::test_ipv4_arp:
   xfail:
@@ -320,7 +320,7 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
     conditions_logical_operator: or
     conditions:
       - "'-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 bgp/test_bgp_multipath_relax.py:
   skip:
@@ -372,7 +372,7 @@ bgp/test_bgp_router_id.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_default:
   xfail:
@@ -386,7 +386,7 @@ bgp/test_bgp_router_id.py::test_bgp_router_id_set:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 bgp/test_bgp_router_id.py::test_bgp_router_id_set_without_loopback:
   xfail:
@@ -460,7 +460,7 @@ bgp/test_bgp_stress_link_flap.py::test_bgp_stress_link_flap[all]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 bgp/test_bgp_suppress_fib.py:
   skip:
@@ -788,7 +788,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=disable]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
   skip:
@@ -800,7 +800,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=pipe, vxlan=set_unset]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   skip:
@@ -813,7 +813,7 @@ decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=disable]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 decap/test_decap.py::test_decap[ttl=pipe, dscp=uniform, vxlan=set_unset]:
   skip:
@@ -1056,13 +1056,13 @@ drop_packets/test_drop_counters.py::test_broken_ip_header:
    xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 drop_packets/test_drop_counters.py::test_ip_is_zero_addr:
    xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 drop_packets/test_drop_counters.py::test_no_egress_drop_on_down_link:
   xfail:
@@ -1074,7 +1074,7 @@ drop_packets/test_drop_counters.py::test_src_ip_is_multicast_addr:
    xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####           dualtor           #####
@@ -1438,7 +1438,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspa
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_protocol[erspan_ipv4-cli-default]:
   skip:
@@ -1456,7 +1456,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_transport_prot
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_both_subnets[erspan_ipv4-cli-default]:
   skip:
@@ -1550,7 +1550,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirror
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_mirroring[erspan_ipv6-cli-default]:
   skip:
@@ -1576,7 +1576,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_dst_port_range_
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_l4_range_mirroring[erspan_ipv4-cli-default]:
   skip:
@@ -1656,7 +1656,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring[erspan_ipv6-cli-default]:
   skip:
@@ -1668,7 +1668,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_src_ipv6_mirroring
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_tcp_application_mirroring[erspan_ipv4-cli-default]:
   skip:
@@ -1720,7 +1720,7 @@ everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mi
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_udp_application_mirroring[erspan_ipv6-cli-default]:
   skip:
@@ -1822,7 +1822,7 @@ everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-erspan
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19096 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_per_interface.py::test_everflow_per_interface[ipv6-m0_l3_scenario]:
   skip:
@@ -1879,7 +1879,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   xfail:
@@ -1887,7 +1887,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -1905,7 +1905,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-upstream-default]:
   skip:
@@ -1915,7 +1915,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_dscp_with_policer[erspan_ipv6-cli-downstream-default]:
   xfail:
@@ -1957,7 +1957,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-downstream-default]:
   xfail:
@@ -1965,7 +1965,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   xfail:
@@ -1973,7 +1973,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -1989,7 +1989,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
@@ -1997,7 +1997,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
@@ -2005,7 +2005,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2021,7 +2021,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-downstream-default]:
   xfail:
@@ -2029,7 +2029,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   xfail:
@@ -2037,7 +2037,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4EgressAclEgressMirror::test_eve
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19922 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4EgressAclIngressMirror::test_everflow_fwd_recircle_port_queue_check:
   skip:
@@ -2077,7 +2077,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_basic_forwarding[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -2089,7 +2089,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer:
   skip:
@@ -2107,7 +2107,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_dscp_with_policer[erspan_ipv4-cli-upstream-default]:
   skip:
@@ -2117,7 +2117,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_frwd_with_bkg_trf:
   skip:
@@ -2155,7 +2155,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_neighbor_mac_change[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -2167,7 +2167,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2191,7 +2191,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_unused_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -2203,7 +2203,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv4-cli-downstream-default]:
   skip:
@@ -2227,7 +2227,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_everflow_remove_used_ecmp_next_hop[erspan_ipv6-cli-upstream-default]:
   skip:
@@ -2239,7 +2239,7 @@ everflow/test_everflow_testbed.py::TestEverflowV4IngressAclIngressMirror::test_e
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####            fdb              #####
@@ -2267,7 +2267,7 @@ fib/test_fib.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_basic_fib[True-True-1514]:
   skip:
@@ -2277,7 +2277,7 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_hash[ipv4]:
   skip:
@@ -2287,13 +2287,13 @@ fib/test_fib.py::test_hash[ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_hash[ipv6]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_ipinip_hash:
   skip:
@@ -2338,7 +2338,7 @@ fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_nvgre_hash[ipv4-ipv6]:
   skip:
@@ -2351,7 +2351,7 @@ fib/test_fib.py::test_nvgre_hash[ipv4-ipv6]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
   skip:
@@ -2366,7 +2366,7 @@ fib/test_fib.py::test_nvgre_hash[ipv6-ipv4]:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
   skip:
@@ -2381,7 +2381,7 @@ fib/test_fib.py::test_nvgre_hash[ipv6-ipv6]:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/19923 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_vxlan_hash:
   skip:
@@ -2399,7 +2399,7 @@ fib/test_fib.py::test_vxlan_hash[ipv4-ipv4]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_vxlan_hash[ipv4-ipv6]:
   skip:
@@ -2409,7 +2409,7 @@ fib/test_fib.py::test_vxlan_hash[ipv4-ipv6]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
   skip:
@@ -2423,7 +2423,7 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv4]:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
   skip:
@@ -2436,7 +2436,7 @@ fib/test_fib.py::test_vxlan_hash[ipv6-ipv6]:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/18304 and 't0-isolated-d32u32s2' in topo_name and hwsku in ['Mellanox-SN5640-C512S2']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/19923 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####   generic_config_updater    #####
@@ -2818,7 +2818,7 @@ hash/test_generic_hash.py:
     conditions_logical_operator: or
     conditions:
       - "topo_type in ['t0', 't1']"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_algorithm_config:
   xfail:
@@ -2850,7 +2850,7 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC-INNER_IP_PROTOCOL:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
   skip:
@@ -2860,7 +2860,7 @@ hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-INNER_IP_PROTOCOL:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_ecmp_and_lag_hash[CRC_CCITT-IN_PORT:
   skip:
@@ -3113,7 +3113,7 @@ hash/test_generic_hash.py::test_reboot[CRC-INNER_L4_SRC_PORT:
    xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 hash/test_generic_hash.py::test_reboot[CRC-IP_PROTOCOL-ipv4:
   skip:
@@ -3292,7 +3292,7 @@ ipfwd/test_dir_bcast.py::test_dir_bcast:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 ipfwd/test_mtu.py:
   skip:
@@ -3384,13 +3384,13 @@ lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####           macsec            #####
@@ -3547,7 +3547,7 @@ packet_trimming:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####           pc               #####
@@ -3750,7 +3750,7 @@ platform_tests/test_reload_config.py::test_reload_configuration:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/test_reload_config.py::test_reload_configuration_checks:
   skip:
@@ -3760,7 +3760,7 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####     process_monitoring      #####
@@ -3884,7 +3884,7 @@ qos/test_qos_dscp_mapping.py::TestQoSSaiDSCPQueueMapping_IPIP_Base::test_dscp_to
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 qos/test_qos_masic.py:
   skip:
@@ -4133,7 +4133,7 @@ radv/test_radv_ipv6_ra.py::test_radv_router_advertisement:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
   xfail:
@@ -4141,7 +4141,7 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
   skip:
@@ -4153,7 +4153,7 @@ radv/test_radv_ipv6_ra.py::test_solicited_router_advertisement_with_m_flag:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
   skip:
@@ -4165,7 +4165,7 @@ radv/test_radv_ipv6_ra.py::test_unsolicited_router_advertisement_with_m_flag:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19924 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####          read_mac           #####
@@ -4235,7 +4235,7 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
@@ -4253,13 +4253,13 @@ route/test_route_bgp_ecmp.py::test_route_bgp_ecmp:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 route/test_route_consistency.py::TestRouteConsistency::test_route_withdraw_advertise:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 route/test_route_flap.py:
   skip:
@@ -4293,7 +4293,7 @@ route/test_route_perf.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/18893"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 route/test_static_route.py:
   skip:
@@ -4331,7 +4331,7 @@ route/test_static_route.py::test_static_route_ipv6:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####           sai_qualify       #####
@@ -4358,7 +4358,7 @@ scp/test_scp_copy.py::test_scp_copy:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####            scripts         #####
@@ -4562,7 +4562,7 @@ snmp/test_snmp_queue_counters.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####            span             #####
@@ -4602,7 +4602,7 @@ srv6/test_srv6_dataplane.py:
       - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 srv6/test_srv6_static_config.py:
   skip:
@@ -4632,7 +4632,7 @@ srv6/test_srv6_vlan_forwarding.py::test_srv6_uN_no_vlan_flooding[False]:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####             ssh             #####
@@ -4655,7 +4655,7 @@ stress/test_stress_routes.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####     sub_port_interfaces     #####
@@ -4709,7 +4709,7 @@ syslog/test_logrotate.py::test_orchagent_logrotate:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 syslog/test_syslog.py:
   xfail:
@@ -4894,7 +4894,7 @@ test_nbr_health.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####         pktgen              #####
