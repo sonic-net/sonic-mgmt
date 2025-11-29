@@ -89,7 +89,7 @@ class BGPNeighbor(object):
     def __init__(self, duthost, ptfhost, name,
                  neighbor_ip, neighbor_asn,
                  dut_ip, dut_asn, port, neigh_type=None,
-                 namespace=None, is_multihop=False, is_passive=False, debug=False):
+                 namespace=None, is_multihop=False, is_passive=False, debug=False, router_id=None):
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.ptfip = ptfhost.mgmt_ip
@@ -104,6 +104,7 @@ class BGPNeighbor(object):
         self.is_passive = is_passive
         self.is_multihop = not is_passive and is_multihop
         self.debug = debug
+        self.router_id = router_id or neighbor_ip
 
     def start_session(self):
         """Start the BGP session."""
@@ -138,7 +139,7 @@ class BGPNeighbor(object):
             name=self.name,
             state="started",
             local_ip=self.ip,
-            router_id=self.ip,
+            router_id=self.router_id,
             peer_ip=self.peer_ip,
             local_asn=self.asn,
             peer_asn=self.peer_asn,
