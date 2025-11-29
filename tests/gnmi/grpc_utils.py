@@ -36,7 +36,10 @@ def create_grpc_channel(duthost):
         grpc.Channel: Configured gRPC channel
     """
     # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
+    if ":" in duthost.mgmt_ip and not duthost.mgmt_ip.startswith('['):
+        ip = f"[{duthost.mgmt_ip}]"
+    else:
+        ip = duthost.mgmt_ip
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
     target = f"{ip}:{port}"
