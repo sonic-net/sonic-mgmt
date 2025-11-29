@@ -12,7 +12,7 @@ import re
 import os
 
 from ansible.module_utils.basic import AnsibleModule
-from sonic_py_common import device_info
+from sonic_py_common import device_info, multi_asic
 from ansible.module_utils.smartswitch_utils import smartswitch_hwsku_config
 
 DOCUMENTATION = '''
@@ -339,7 +339,8 @@ class GenerateGoldenConfigDBModule(object):
             config = "{}"
 
         # Generate dummy table for HFT
-        config = self.generate_dummy_hft_config_db(config)
+        if not multi_asic.is_multi_asic():
+            config = self.generate_dummy_hft_config_db(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
