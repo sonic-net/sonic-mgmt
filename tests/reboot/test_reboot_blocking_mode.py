@@ -39,7 +39,13 @@ def restore_systemctl_reboot_and_reboot(duthost):
         duthost,
         "sudo sed -i 's#/usr/local/bin/disabled_watchdogutil#/usr/local/bin/watchdogutil#g' /usr/local/bin/reboot")
     execute_command(duthost, "sudo reboot")
-    wait_critical_processes(duthost)
+
+    timeout = None
+    if duthost.is_supervisor_node():
+        timeout = 900
+    elif duthost.is_multi_asic:
+        timeout = 420
+    wait_critical_processes(duthost, timeout=timeout)
 
 
 def mock_reboot_config_file(duthost):
