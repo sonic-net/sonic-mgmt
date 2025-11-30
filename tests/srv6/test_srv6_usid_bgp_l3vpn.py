@@ -166,7 +166,7 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
 
     # check SRV6_SID_LIST_TABLE
     Logger.info("checking  DUT for SID list %s", V6_PREFIX_NBR)
-    cmd = "sonic-db-cli APPL_DB hgetall \"SRV6_SID_LIST_TABLE:fcbb:bbbb:1:1::\"".format(V6_PREFIX_NBR, V6_MASK_NBR)
+    cmd = "sonic-db-cli APPL_DB hgetall \"SRV6_SID_LIST_TABLE:fcbb:bbbb:1:1::\""
     result = duthost.shell(cmd)
     result = result['stdout']
     Logger.info("SID Lists found: %s", result)
