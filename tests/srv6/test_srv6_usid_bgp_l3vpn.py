@@ -32,17 +32,6 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
 
     yield (nbr, duthost)
 
-    Logger.info("Performing cleanup")
-
-    # cleanup neighbor
-    cmd = "config vrf del Vrf10"
-    nbr['host'].shell(cmd)
-
-    # cleanup dut
-    duthost = duthosts[enum_frontend_dut_hostname]
-    cmd = "config vrf del Vrf10"
-    duthost.shell(cmd)
-
 
 def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     """ Route added on All neighbor should be learned by the DUT"""
@@ -183,6 +172,101 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     py_assert(result != "", "The DUT did not program SRv6 MySid entry")
     py_assert("'action': 'udt6'" in result, "The DUT did not program SRv6 MySid entry, missing 'action' field")
     py_assert("'vrf': 'Vrf10'" in result, "The DUT did not program SRv6 MySid entry correcly, missing 'vrf' field")
+
+    Logger.info("Performing cleanup")
+
+    # cleanup bgp on neighbor
+    cmd = (
+        "vtysh"
+        " -c 'configure'"
+        " -c 'ipv6 protocol bgp route-map RM_SET_SRC6'"
+        " -c 'segment-routing'"
+        " -c 'srv6'"
+        " -c 'locators'"
+        " -c 'no locator MAIN'"
+        " -c 'exit'"
+        " -c 'exit'"
+        " -c 'exit'"
+        " -c 'router bgp {}'"
+        " -c 'no bgp disable-ebgp-connected-route-check'"
+        " -c 'address-family ipv6 unicast'"
+        " -c 'no network fcbb:bbbb:1::/48'"
+        " -c 'exit-address-family'"
+        " -c 'address-family ipv6 vpn'"
+        " -c 'no neighbor {} activate'"
+        " -c 'exit-address-family'"
+        " -c 'segment-routing srv6'"
+        " -c 'no locator MAIN'"
+        " -c 'exit'"
+        " -c 'router bgp {} vrf Vrf10'"
+        " -c 'bgp network import-check'"
+        " -c 'address-family ipv6 unicast'"
+        " -c 'no network {}/{}'"
+        " -c 'no sid vpn export auto'"
+        " -c 'no rd vpn export 1:10'"
+        " -c 'no rt vpn both 99:99'"
+        " -c 'no import vpn'"
+        " -c 'no export vpn'"
+        " -c 'exit'"
+        " -c 'exit'").format(
+            nbr['conf']['bgp']['asn'],
+            nbr['conf']['bgp']['peers'][next(iter(nbr['conf']['bgp']['peers']))][1],
+            nbr['conf']['bgp']['asn'],
+            V6_PREFIX_NBR,
+            V6_MASK_NBR
+        )
+    nbr['host'].shell(cmd)
+    cmd = "config interface ip remove Loopback0 fcbb:bbbb:1::1/48"
+    nbr['host'].shell(cmd)
+    cmd = "config vrf del Vrf10"
+    nbr['host'].shell(cmd)
+
+    # cleanup bgp on dut
+    cmd = (
+        "vtysh"
+        " -c 'configure'"
+        " -c 'ipv6 protocol bgp route-map RM_SET_SRC6'"
+        " -c 'segment-routing'"
+        " -c 'srv6'"
+        " -c 'locators'"
+        " -c 'no locator MAIN'"
+        " -c 'exit'"
+        " -c 'exit'"
+        " -c 'exit'"
+        " -c 'router bgp {}'"
+        " -c 'no bgp disable-ebgp-connected-route-check'"
+        " -c 'address-family ipv6 unicast'"
+        " -c 'no network fcbb:bbbb:2::/48'"
+        " -c 'exit-address-family'"
+        " -c 'address-family ipv6 vpn'"
+        " -c 'no neighbor {} activate'"
+        " -c 'exit-address-family'"
+        " -c 'segment-routing srv6'"
+        " -c 'no locator MAIN'"
+        " -c 'exit'"
+        " -c 'router bgp {} vrf Vrf10'"
+        " -c 'no bgp network import-check'"
+        " -c 'address-family ipv6 unicast'"
+        " -c 'no network {}/{}'"
+        " -c 'address-family ipv6 unicast'"
+        " -c 'no sid vpn export auto'"
+        " -c 'no rd vpn export 2:10'"
+        " -c 'no rt vpn both 99:99'"
+        " -c 'no import vpn'"
+        " -c 'no export vpn'"
+        " -c 'exit'"
+        " -c 'exit'").format(
+            list(nbr['conf']['bgp']['peers'].keys())[0],
+            nbr['conf']['interfaces']['Port-Channel1']['ipv6'].split('/')[0],
+            list(nbr['conf']['bgp']['peers'].keys())[0],
+            V6_PREFIX_DUT,
+            V6_MASK_DUT
+        )
+    duthost.shell(cmd)
+    cmd = "config interface ip remove Loopback0 fcbb:bbbb:2::1/48"
+    duthost.shell(cmd)
+    cmd = "config vrf del Vrf10"
+    duthost.shell(cmd)
 
 
 def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setUp):
