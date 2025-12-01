@@ -465,7 +465,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             topo in ["t0", "m0_vlan", "m0_l3"]
             or tbinfo["topo"]["name"] in (
                 "t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag",
+                "t1-f2-d10u8"
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
