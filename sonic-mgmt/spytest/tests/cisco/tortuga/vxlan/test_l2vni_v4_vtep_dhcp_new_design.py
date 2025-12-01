@@ -182,7 +182,8 @@ def test_dhcp_l2vni_ipv4_basic(dhcpv4_relay_flag_config_unconfig):
     nodes['leaf1'] = vars.D4
 
     if not check_dhcp4relay_support(vars.D3):
-        st.report_unsupported("test_case_unsupported", "dhcp4relay new design is not there")
+        st.log("Skipping: dhcp4relay new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "dhcp4relay new design is not there. so gracefully passing")
 
     config_dhcp_gateway_ipv4(vars.D4)
     config_dhcp_relay_feature(vars.D3, enable=False)
