@@ -73,6 +73,12 @@ all:
         bjw3-5-3:
           ansible_host: 10.150.239.20
           ansible_hostv6: 2404:f801:10:16::a96:ef13
+        bjw3-5-4:
+          ansible_host: 10.150.239.21
+          ansible_hostv6: 2404:f801:10:16::a96:ef14
+        bjw3-5-5:
+          ansible_host: 10.150.239.22
+          ansible_hostv6: 2404:f801:10:16::a96:ef15
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -169,11 +175,11 @@ fanout:
     bjw3-can-7260-leaf-37:
       ansible_host: 10.150.238.77
       ansible_hostv6: 2404:f801:10:16::a96:ee4d
-    bjw3-can-7215a1d-leaf-1:
+    bjw3-can-720dt-leaf-23:
       ansible_host: 10.150.238.79
       ansible_hostv6: 2404:f801:10:16::a96:ee4f
       os: sonic
-    bjw3-can-7215a1d-leaf-2:
+    bjw3-can-720dt-leaf-24:
       ansible_host: 10.150.238.81
       ansible_hostv6: 2404:f801:10:16::a96:ee51
       os: sonic
@@ -213,6 +219,14 @@ fanout:
     bjw3-can-7260-leaf-29:
       ansible_host: 10.150.238.106
       ansible_hostv6: 2404:f801:10:16::a96:ee6a
+    bjw3-can-720dt-leaf-25:
+      ansible_host: 10.150.238.109
+      ansible_hostv6: 2404:f801:10:16::a96:ee6d
+      os: sonic
+    bjw3-can-720dt-leaf-26:
+      ansible_host: 10.150.238.111
+      ansible_hostv6: 2404:f801:10:16::a96:ee6f
+      os: sonic
 
 sonic:
   vars:
@@ -564,6 +578,20 @@ sonic_nokia_7215a1d:
       base_mac:
       syseeprom_info:
         "0x21": "7215 IXS-A1"
+    bjw3-can-7215a1d-3:
+      ansible_host: 10.150.238.108
+      ansible_hostv6: 2404:f801:10:16::a96:ee6c
+      model:
+      serial:
+      base_mac:
+      syseeprom_info:
+    bjw3-can-7215a1d-4:
+      ansible_host: 10.150.238.110
+      ansible_hostv6: 2404:f801:10:16::a96:ee6e
+      model:
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 sonic_arista_7060cx:

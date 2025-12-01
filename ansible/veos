@@ -24565,6 +24565,30 @@ vms_bjw3_5:
       ansible_host: 172.16.217.130
     VM32119:
       ansible_host: 172.16.217.131
+    VM32120:
+      ansible_host: 172.16.217.132
+    VM32121:
+      ansible_host: 172.16.217.133
+    VM32122:
+      ansible_host: 172.16.217.134
+    VM32123:
+      ansible_host: 172.16.217.135
+    VM32124:
+      ansible_host: 172.16.217.136
+    VM32125:
+      ansible_host: 172.16.217.137
+    VM32126:
+      ansible_host: 172.16.217.138
+    VM32127:
+      ansible_host: 172.16.217.139
+    VM32128:
+      ansible_host: 172.16.217.140
+    VM32129:
+      ansible_host: 172.16.217.141
+    VM32130:
+      ansible_host: 172.16.217.142
+    VM32131:
+      ansible_host: 172.16.217.143
 
 vms_bjw3_8:
   hosts:
