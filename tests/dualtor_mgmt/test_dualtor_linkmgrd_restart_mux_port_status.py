@@ -71,62 +71,37 @@ def check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_
                       "MUX port status is not correct after linkmgrd restart")
 
 
-def test_dualtor_active_active_linkmgrd_restart_mux_port_status(rand_selected_dut, active_active_ports,   # noqa: F811
-                                                                loop_times):
+@pytest.mark.parametrize("cable_type", ["active-active", "active-standby"])
+@pytest.mark.parametrize("heartbeat", ["on", "off"])
+def test_dualtor_linkmgrd_restart_mux_port_status(cable_type, heartbeat, rand_selected_dut,           # noqa: F811
+                                                  active_active_ports, active_standby_ports,          # noqa: F811
+                                                  start_icmp_responder, shutdown_icmp_responder,      # noqa: F811
+                                                  loop_times):
     """
-    Test MUX port status on active-active dual ToR after linkmgrd restart
-    """
-    if not active_active_ports:
-        pytest.skip('Skipping toggle on active-standby dualtor.')
-    check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, active_active_ports, loop_times, 'active')
-
-
-def test_dualtor_active_active_linkmgrd_restart_mux_port_status_heartbeat_off(rand_selected_dut,           # noqa: F811
-                                                                              active_active_ports,         # noqa: F811
-                                                                              start_icmp_responder,        # noqa: F811
-                                                                              shutdown_icmp_responder,     # noqa: F811
-                                                                              loop_times):
-    """
-    Test MUX port status on active-active dual ToR after linkmgrd restart with heartbeat off
-    """
-    if not active_active_ports:
-        pytest.skip('Skipping toggle on active-standby dualtor.')
-
-    shutdown_icmp_responder()
-    check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, active_active_ports, loop_times, 'standby')
-    start_icmp_responder()
-
-
-def test_dualtor_active_standby_linkmgrd_restart_mux_port_status(rand_selected_dut, active_standby_ports,   # noqa: F811
-                                                                 loop_times):
-    """
-    Test MUX port status on active-standby dual ToR after linkmgrd restart
+    Test MUX port status on dual ToR after linkmgrd restart with heartbeat on/off
 
     Note: Skip mux status checking for active-standby case due to initialization timing issue.
           Only health and hwstatus are checked in this scenario.
     """
-    if not active_standby_ports:
-        pytest.skip('Skipping toggle on active-active dualtor.')
+    ports = active_active_ports if cable_type == "active-active" else active_standby_ports
 
-    check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, active_standby_ports, loop_times,
-                                                 status=None, health='healthy')
+    # skip test if topology mismatch
+    if not ports:
+        pytest.skip(f'Skipping toggle on dualtor for cable_type={cable_type}.')
 
+    # Set heartbeat off
+    if heartbeat == "off":
+        shutdown_icmp_responder()
 
-def test_dualtor_active_standby_linkmgrd_restart_mux_port_status_heartbeat_off(rand_selected_dut,           # noqa: F811
-                                                                               active_standby_ports,        # noqa: F811
-                                                                               start_icmp_responder,        # noqa: F811
-                                                                               shutdown_icmp_responder,     # noqa: F811
-                                                                               loop_times):
-    """
-    Test MUX port status on active-standby dual ToR after linkmgrd restart with heartbeat off
+    # Check MUX port status after linkmgrd restart
+    if cable_type == "active-active":
+        expected_status = 'active' if heartbeat == "on" else 'standby'
+        check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_times, expected_status)
+    else:  # active-standby
+        health = 'healthy' if heartbeat == "on" else 'unhealthy'
+        check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_times,
+                                                     status=None, health=health)
 
-    Note: Skip mux status checking for active-standby case due to initialization timing issue.
-          Only health and hwstatus are checked in this scenario.
-    """
-    if not active_standby_ports:
-        pytest.skip('Skipping toggle on active-active dualtor.')
-
-    shutdown_icmp_responder()
-    check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, active_standby_ports, loop_times,
-                                                 status=None, health='unhealthy')
-    start_icmp_responder()
+    # Restore heartbeat on
+    if heartbeat == "off":
+        start_icmp_responder()
