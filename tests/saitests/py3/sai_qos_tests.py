@@ -463,22 +463,64 @@ def get_multiple_flows(dp, dst_mac, dst_id, dst_ip, src_vlan, dscp, ecn, ttl,
 
 def dynamically_compensate_leakout(
         thrift_client, asic_type, counter_checker, check_port, check_field,
-        base, ptf_test, compensate_port, compensate_pkt, max_retry):
+        base, ptf_test, compensate_port, compensate_pkt, max_retry,
+        stable_zero_count=3):
+    """
+    Dynamically compensate for packet leakout by monitoring counter changes.
+    
+    Args:
+        max_retry: Maximum compensation retry attempts (when leakout > 0)
+        stable_zero_count: Number of consecutive zero-leakout observations required
+                          to confirm compensation is complete (default: 3)
+                          This is independent of max_retry, allowing sufficient
+                          confirmation checks after compensation attempts finish
+    """
     prev = base
     time.sleep(1.5)
     curr, _ = counter_checker(thrift_client, asic_type, check_port)
     leakout_num = curr[check_field] - prev[check_field]
-    retry = 0
+    compensate_retry = 0  # Track compensation attempts (when leakout > 0)
     num = 0
-    while leakout_num > 0 and retry < max_retry:
-        send_packet(ptf_test, compensate_port, compensate_pkt, leakout_num)
-        num += leakout_num
+    zero_streak = 0  # Track consecutive observations of zero leakout
+    zero_check_count = 0  # Track zero confirmation attempts (independent of max_retry)
+    
+    # Phase 1: Compensation phase (limited by max_retry)
+    # Phase 2: Confirmation phase (limited by stable_zero_count, independent)
+    while True:
+        if leakout_num > 0:
+            # Active leakout detected - compensate
+            if compensate_retry >= max_retry:
+                # Exceeded max compensation attempts
+                sys.stderr.write('Warning: Reached max_retry={}, but leakout still detected ({})\n'.format(
+                    max_retry, leakout_num))
+                break
+            send_packet(ptf_test, compensate_port, compensate_pkt, leakout_num)
+            num += leakout_num
+            compensate_retry += 1
+            zero_streak = 0  # Reset streak counter when leakout is detected
+        else:
+            # Zero leakout observed - enter/continue confirmation phase
+            zero_streak += 1
+            zero_check_count += 1
+            if zero_streak >= stable_zero_count:
+                # Confirmed that leakout has stopped after multiple stable checks
+                sys.stderr.write('Info: Leakout confirmed stable after {} consecutive zero observations (total {} zero checks)\n'.format(
+                    zero_streak, zero_check_count))
+                break
+            # Only log on first zero detection to avoid log flooding
+            if zero_streak == 1:
+                sys.stderr.write('Info: Observed zero leakout (compensate_retry={}), confirming stability (need {} consecutive zeros)...\n'.format(
+                    compensate_retry, stable_zero_count))
+            # Add delay only during zero confirmation to allow counter stabilization
+            time.sleep(1.5)
+        
         prev = curr
         curr, _ = counter_checker(thrift_client, asic_type, check_port)
         leakout_num = curr[check_field] - prev[check_field]
-        retry += 1
-    sys.stderr.write('Compensate {} packets to port {}, and retry {} times\n'.format(
-        num, compensate_port, retry))
+    
+    total_checks = compensate_retry + zero_check_count
+    sys.stderr.write('Compensate {} packets to port {}, {} compensations + {} zero checks = {} total (final zero_streak: {})\n'.format(
+        num, compensate_port, compensate_retry, zero_check_count, total_checks, zero_streak))
     return num
 
 
