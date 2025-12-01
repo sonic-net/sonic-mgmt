@@ -26,6 +26,17 @@ from tests.common.snappi_tests.uhd.uhd_helpers import *  # noqa: F403, F401
 from tests.common.helpers.assertions import pytest_require
 logger = logging.getLogger(__name__)
 
+speed_type = {
+    '10000': 'speed_10_gbps',
+    '25000': 'speed_25_gbps',
+    '40000': 'speed_40_gbps',
+    '50000': 'speed_50_gbps',
+    '100000': 'speed_100_gbps',
+    '200000': 'speed_200_gbps',
+    '400000': 'speed_400_gbps',
+    '800000': 'speed_800_gbps',
+}
+
 
 @pytest.fixture(scope="module")
 def snappi_api_serv_ip(tbinfo):
@@ -506,18 +517,19 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         port_table = {}
 
     def _is_enabled(val):
-        return str(val).lower() in ['on', 'true', 'yes', '1']
+        return str(val).strip().lower() in {'on', 'true', 'yes', '1'}
 
-    lt_values = []
-    rs_fec_values = []
-    for sp in snappi_ports:
-        p = sp.get('peer_port')
-        attrs = port_table.get(p, {})
-        if 'link_training' in attrs:
-            lt_values.append(_is_enabled(attrs.get('link_training')))
-        if 'fec' in attrs:
-            fec_val = str(attrs.get('fec', '')).lower()
-            rs_fec_values.append(fec_val.startswith('rs'))
+    lt_values = [
+        _is_enabled(port_table.get(sp.get('peer_port'), {}).get('link_training'))
+        for sp in snappi_ports
+        if 'link_training' in port_table.get(sp.get('peer_port'), {})
+    ]
+
+    rs_fec_values = [
+        str(port_table.get(sp.get('peer_port'), {}).get('fec', '')).lower().startswith('rs')
+        for sp in snappi_ports
+        if 'fec' in port_table.get(sp.get('peer_port'), {})
+    ]
 
     # Enable only if ALL ports have it enabled
     lt_enable = all(lt_values) if lt_values else False
@@ -532,25 +544,15 @@ def snappi_testbed_config(conn_graph_facts, fanout_graph_facts,     # noqa: F811
         pfc = l1_config.flow_control.ieee_802_1qbb
         pfc.pfc_delay = 0
         if pfcQueueGroupSize == 8:
-            pfc.pfc_class_0 = 0
-            pfc.pfc_class_1 = 1
-            pfc.pfc_class_2 = 2
-            pfc.pfc_class_3 = 3
-            pfc.pfc_class_4 = 4
-            pfc.pfc_class_5 = 5
-            pfc.pfc_class_6 = 6
-            pfc.pfc_class_7 = 7
+            mapping = {i: i for i in range(8)}
         elif pfcQueueGroupSize == 4:
-            pfc.pfc_class_0 = pfcQueueValueDict[0]
-            pfc.pfc_class_1 = pfcQueueValueDict[1]
-            pfc.pfc_class_2 = pfcQueueValueDict[2]
-            pfc.pfc_class_3 = pfcQueueValueDict[3]
-            pfc.pfc_class_4 = pfcQueueValueDict[4]
-            pfc.pfc_class_5 = pfcQueueValueDict[5]
-            pfc.pfc_class_6 = pfcQueueValueDict[6]
-            pfc.pfc_class_7 = pfcQueueValueDict[7]
+            mapping = {i: pfcQueueValueDict[i] for i in range(8)}
         else:
-            pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+            pytest_assert(False, "pfcQueueGroupSize value is not 4 or 8")
+
+        for i, value in mapping.items():
+            setattr(pfc, f"pfc_class_{i}", value)
+
     else:
         logger.info('PFC is not enabled on the DUT, skipping PFC configuration on TGEN')
 
@@ -611,20 +613,14 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         'prefix': u'24',
         'speed': 'speed_400_gbps'}]
     """
-    speed_type = {
-                  '10000': 'speed_10_gbps',
-                  '25000': 'speed_25_gbps',
-                  '40000': 'speed_40_gbps',
-                  '50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps',
-                  '800000': 'speed_800_gbps'}
     config_facts = duthost.config_facts(host=duthost.hostname,
                                         source="running")['ansible_facts']
     snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
                                              dut_hostname=duthost.hostname)
     pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
+
+    dut_port_table = config_facts.get('PORT', {})
+
     snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     for snappi_fanout in snappi_fanouts:
         snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
@@ -640,6 +636,11 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
         dutv6Ips = create_ip_list(dut_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
         tgenv6Ips = create_ip_list(snappi_ipv6_start, len(snappi_ports), mask=v6_prefix_length)
         for port_id, port in enumerate(snappi_ports):
+            port['port_id'] = str(port_id + 1)
+            dut_port_info = dut_port_table.get(port['peer_port'], {})
+            port['autoneg'] = dut_port_info.get('autoneg') == 'on'
+            port['fec'] = dut_port_info.get('fec') == 'rs'
+            port['link_training'] = dut_port_info.get('link_training', '').lower() in ['on', 'true', 'yes', '1']
             port['speed'] = speed_type.get(str(port_speed), port['speed'])
             peer_port = port['peer_port']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
@@ -676,154 +677,93 @@ def tgen_ports(duthost, conn_graph_facts, fanout_graph_facts):      # noqa: F811
     return snappi_ports
 
 
-def snappi_multi_base_config(duthost_list,
-                             snappi_ports,
-                             snappi_api,
-                             setup=True):
+def snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=True, multi_mode=False):
     """
-    Generate snappi API config and port config information for the testbed
-    This function takes care of mixed-speed interfaces by removing assert and printing info log.
-    l1_config is added to both the snappi_ports instead of just one.
+    Unified Snappi API config and port config generator for testbed.
 
     Args:
-        duthost_list (pytest fixture): list of DUTs
-        snappi_ports: list of snappi ports
-        snappi_api(pytest fixture): Snappi API fixture
+        duthost_list: List of DUT hosts.
+        snappi_ports: List of snappi port dictionaries.
+        snappi_api: Snappi API fixture.
         setup (bool): Indicates if functionality is called to create or clear the setup.
+        multi_mode: True to use multi-base behavior (mixed speeds, per-port L1 config).
+                    False to use DUT-base behavior (single speed check, single L1 config).
+
     Returns:
-        - config (obj): Snappi API config of the testbed
-        - port_config_list (list): list of port configuration information
-        - snappi_ports (list): list of snappi_ports selected for the test.
+        Result of setup_dut_ports call (config, port_config_list, etc.)
     """
 
-    """ Generate L1 config """
+    def setup_pfc(pfc):
+        pfc.pfc_delay = 0
+        if pfcQueueGroupSize == 8:
+            for i in range(8):
+                setattr(pfc, f'pfc_class_{i}', i)
+        elif pfcQueueGroupSize == 4:
+            for i in range(8):
+                setattr(pfc, f'pfc_class_{i}', pfcQueueValueDict[i])
+        else:
+            pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
 
     config = snappi_api.config()
     tgen_ports = [port['location'] for port in snappi_ports]
+    new_snappi_ports = [
+        dict(list(sp.items()) + [('port_id', i)])
+        for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports
+    ]
 
-    new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
-                        for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
+    # Add ports to config
+    for sp in new_snappi_ports:
+        config.ports.port(name=f'Port {sp["port_id"]}', location=sp['location'])
 
-    # Printing info level if ingress and egress interfaces are of different speeds.
-    if (len(set([sp['speed'] for sp in new_snappi_ports])) > 1):
-        logger.info('Rx and  Tx ports have different link speeds')
-    [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
+    if not multi_mode:
+        pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1,
+                      'Ports have different link speeds')
 
-    # Generating L1 config for both the snappi_ports.
+    # Mixed speed allowed, just log info if speeds differ
+    if len(set([sp['speed'] for sp in new_snappi_ports])) > 1:
+        logger.info('Rx and Tx ports have different link speeds')
+
+    if not multi_mode:
+        config.options.port_options.location_preemption = True
+
+    location_to_port_index = {sp['location']: i for i, sp in enumerate(new_snappi_ports)}
+
+    # Per-port L1 config
     for port in config.ports:
-        for index, snappi_port in enumerate(new_snappi_ports):
-            if snappi_port['location'] == port.location:
-                l1_config = config.layer1.layer1()[-1]
-                l1_config.name = 'L1 config {}'.format(index)
-                l1_config.port_names = [port.name]
-                l1_config.speed = 'speed_'+str(int(int(snappi_port['speed'])/1000))+'_gbps'
-                l1_config.ieee_media_defaults = False
-                l1_config.auto_negotiate = False
-                l1_config.auto_negotiation.link_training = False
-                l1_config.auto_negotiation.rs_fec = True
-                pfc = l1_config.flow_control.ieee_802_1qbb
-                pfc.pfc_delay = 0
-            if pfcQueueGroupSize == 8:
-                pfc.pfc_class_0 = 0
-                pfc.pfc_class_1 = 1
-                pfc.pfc_class_2 = 2
-                pfc.pfc_class_3 = 3
-                pfc.pfc_class_4 = 4
-                pfc.pfc_class_5 = 5
-                pfc.pfc_class_6 = 6
-                pfc.pfc_class_7 = 7
-            elif pfcQueueGroupSize == 4:
-                pfc.pfc_class_0 = pfcQueueValueDict[0]
-                pfc.pfc_class_1 = pfcQueueValueDict[1]
-                pfc.pfc_class_2 = pfcQueueValueDict[2]
-                pfc.pfc_class_3 = pfcQueueValueDict[3]
-                pfc.pfc_class_4 = pfcQueueValueDict[4]
-                pfc.pfc_class_5 = pfcQueueValueDict[5]
-                pfc.pfc_class_6 = pfcQueueValueDict[6]
-                pfc.pfc_class_7 = pfcQueueValueDict[7]
-            else:
-                pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
+        index = location_to_port_index.get(port.location)
+        if index is not None:
+            l1_config = config.layer1.layer1()[-1]
+            l1_config.name = f'L1 config {index}'
+            l1_config.port_names = [port.name]
+            l1_config.speed = f'speed_{int(int(new_snappi_ports[index]["speed"]) / 1000)}_gbps'
+            l1_config.ieee_media_defaults = False
+            l1_config.auto_negotiate = False
+            l1_config.auto_negotiation.link_training = False
+            l1_config.auto_negotiation.rs_fec = True
+            l1_config.auto_negotiate = new_snappi_ports[index].get('autoneg', False)
+            l1_config.auto_negotiation.link_training = new_snappi_ports[index].get('link_training', False)
+            l1_config.auto_negotiation.rs_fec = new_snappi_ports[index].get('fec', False)
+            setup_pfc(l1_config.flow_control.ieee_802_1qbb)
 
     port_config_list = []
 
-    return (setup_dut_ports(
+    # Call existing setup function unchanged
+    return setup_dut_ports(
         setup=setup,
         duthost_list=duthost_list,
         config=config,
         port_config_list=port_config_list,
-        snappi_ports=new_snappi_ports))
+        snappi_ports=new_snappi_ports,
+    )
 
 
-def snappi_dut_base_config(duthost_list,
-                           snappi_ports,
-                           snappi_api,
-                           setup=True):
-    """
-    Generate snappi API config and port config information for the testbed
-    Args:
-        duthost_list (pytest fixture): list of DUTs
-        snappi_ports: list of snappi ports
-        snappi_api(pytest fixture): Snappi API fixture
-    Returns:
-        - config (obj): Snappi API config of the testbed
-        - port_config_list (list): list of port configuration information
-    """
+# Preserve old functions by calling merged with mode flag
+def snappi_multi_base_config(duthost_list, snappi_ports, snappi_api, setup=True):
+    return snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=setup, multi_mode=True)
 
-    """ Generate L1 config """
 
-    config = snappi_api.config()
-    tgen_ports = [port['location'] for port in snappi_ports]
-
-    new_snappi_ports = [dict(list(sp.items()) + [('port_id', i)])
-                        for i, sp in enumerate(snappi_ports) if sp['location'] in tgen_ports]
-    pytest_assert(len(set([sp['speed'] for sp in new_snappi_ports])) == 1, 'Ports have different link speeds')
-    [config.ports.port(name='Port {}'.format(sp['port_id']), location=sp['location']) for sp in new_snappi_ports]
-    speed_gbps = int(int(new_snappi_ports[0]['speed'])/1000)
-
-    config.options.port_options.location_preemption = True
-    l1_config = config.layer1.layer1()[-1]
-    l1_config.name = 'L1 config'
-    l1_config.port_names = [port.name for port in config.ports]
-    l1_config.speed = 'speed_{}_gbps'.format(speed_gbps)
-    l1_config.ieee_media_defaults = False
-    l1_config.auto_negotiate = False
-    if is_snappi_multidut(duthost_list):
-        l1_config.auto_negotiation.link_training = False
-    else:
-        l1_config.auto_negotiation.link_training = True
-    l1_config.auto_negotiation.rs_fec = True
-
-    pfc = l1_config.flow_control.ieee_802_1qbb
-    pfc.pfc_delay = 0
-    if pfcQueueGroupSize == 8:
-        pfc.pfc_class_0 = 0
-        pfc.pfc_class_1 = 1
-        pfc.pfc_class_2 = 2
-        pfc.pfc_class_3 = 3
-        pfc.pfc_class_4 = 4
-        pfc.pfc_class_5 = 5
-        pfc.pfc_class_6 = 6
-        pfc.pfc_class_7 = 7
-    elif pfcQueueGroupSize == 4:
-        pfc.pfc_class_0 = pfcQueueValueDict[0]
-        pfc.pfc_class_1 = pfcQueueValueDict[1]
-        pfc.pfc_class_2 = pfcQueueValueDict[2]
-        pfc.pfc_class_3 = pfcQueueValueDict[3]
-        pfc.pfc_class_4 = pfcQueueValueDict[4]
-        pfc.pfc_class_5 = pfcQueueValueDict[5]
-        pfc.pfc_class_6 = pfcQueueValueDict[6]
-        pfc.pfc_class_7 = pfcQueueValueDict[7]
-    else:
-        pytest_assert(False, 'pfcQueueGroupSize value is not 4 or 8')
-
-    port_config_list = []
-
-    return (setup_dut_ports(
-        setup=setup,
-        duthost_list=duthost_list,
-        config=config,
-        port_config_list=port_config_list,
-        snappi_ports=new_snappi_ports))
+def snappi_dut_base_config(duthost_list, snappi_ports, snappi_api, setup=True):
+    return snappi_base_config(duthost_list, snappi_ports, snappi_api, setup=setup, multi_mode=False)
 
 
 def setup_dut_ports(
@@ -1098,198 +1038,158 @@ def cleanup_config(duthost_list, snappi_ports):
                 port['intf_config_changed'] = False
 
 
-@pytest.fixture(scope="module")
-def multidut_snappi_ports_for_bgp(duthosts,                                # noqa: F811
-                                  tbinfo,                                  # noqa: F811
-                                  conn_graph_facts,                        # noqa: F811
-                                  fanout_graph_facts_multidut):            # noqa: F811
+def is_snappi_multidut(duthosts):
+    if not duthosts:
+        return False
+    if len(duthosts) > 1:
+        return True
+    return bool(duthosts[0].get_facts().get("modular_chassis"))
+
+
+def _get_snappi_ports_unified(duthosts,
+                              conn_graph_facts,             # noqa: F811
+                              fanout_graph_facts,           # noqa: F811
+                              fanout_graph_facts_multidut,  # noqa: F811
+                              tbinfo,
+                              rand_one_dut_hostname,
+                              rand_one_dut_portname_oper_up,  # noqa: F811
+                              snappi_api_serv_ip):
     """
-    Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
-    Args:
-        duthost (pytest fixture): duthost fixture
-        tbinfo (pytest fixture): fixture provides information about testbed
-        conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts_multidut (pytest fixture): fanout graph
-    Return:
-        return tuple of duts and snappi ports
+    Unified fixture:
+    Returns Snappi port information for both
+        • single-DUT topology
+        • multi-DUT topology
+
+    The function:
+      • Detects topology (multi-DUT or not)
+      • Gathers peer Snappi chassis ports per DUT
+      • Reads FEC / link-training / autoneg settings from DUT PORT table
+      • Attaches ASIC, API server, speed type, port_id, etc.
     """
-    speed_type = {'50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps'}
-    multidut_snappi_ports = []
 
-    for duthost in duthosts:
-        snappi_fanout = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                                dut_hostname=duthost.hostname)
-        if snappi_fanout is None:
-            continue
-        snappi_fanout = snappi_fanout[0]
-        snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
-        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
-        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-        port_speed = None
-        for i in range(len(snappi_ports)):
-            if port_speed is None:
-                port_speed = int(snappi_ports[i]['speed'])
+    # Select DUT list based on topology
+    multi_dut = is_snappi_multidut(duthosts)
+    # Pick correct fanout graph per topology
+    fanout_graph = fanout_graph_facts_multidut if multi_dut else fanout_graph_facts
+    # Single-DUT → Only one DUT is used
+    dut_list = duthosts if multi_dut else [duthosts[rand_one_dut_hostname]]
 
-            elif port_speed != int(snappi_ports[i]['speed']):
-                """ All the ports should have the same bandwidth """
-                return None
-
-        for port in snappi_ports:
-            port['location'] = get_snappi_port_location(port)
-            port['speed'] = speed_type[port['speed']]
-            port['api_server_ip'] = tbinfo['ptf_ip']
-        multidut_snappi_ports = multidut_snappi_ports + snappi_ports
-    return multidut_snappi_ports
-
-
-@pytest.fixture(scope="module")
-def get_snappi_ports_single_dut(duthosts,  # noqa: F811
-                                conn_graph_facts,  # noqa: F811
-                                fanout_graph_facts,  # noqa: F811
-                                tbinfo,
-                                snappi_api_serv_ip,
-                                rand_one_dut_hostname,
-                                rand_one_dut_portname_oper_up
-                                ):  # noqa: F811
-    speed_type = {
-                  '10000': 'speed_10_gbps',
-                  '25000': 'speed_25_gbps',
-                  '40000': 'speed_40_gbps',
-                  '50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps',
-                  '800000': 'speed_800_gbps'}
-
-    if is_snappi_multidut(duthosts):
-        return []
-
-    duthost = duthosts[rand_one_dut_hostname]
-
-    """ Generate L1 config """
-    snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                             dut_hostname=duthost.hostname)
-
-    pytest_assert(snappi_fanouts is not None, 'Fail to get snappi_fanout')
-    snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts)
     snappi_ports_all = []
-    for snappi_fanout in snappi_fanouts:
-        snappi_fanout_id = list(fanout_graph_facts.keys()).index(snappi_fanout)
-        snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-        snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-        # Add snappi ports for each chassis connetion
-        for sp in snappi_ports:
-            snappi_ports_all.append(sp)
+    for duthost in dut_list:
+        # Pull current PORT table from DUT
+        try:
+            run_facts = duthost.config_facts(host=duthost.hostname,
+                                             source="running")['ansible_facts']
+            port_table = run_facts.get('PORT', {})
+        except Exception as e:
+            logger.warning(f"Failed to read PORT table on {duthost.hostname}: {e}")
+            port_table = {}
 
-        for port in snappi_ports_all:
-            port['intf_config_changed'] = False
-            port['api_server_ip'] = tbinfo['ptf_ip']
-            port['asic_type'] = duthost.facts["asic_type"]
-            port['duthost'] = duthost
-            port['snappi_speed_type'] = speed_type[port['speed']]
-            if duthost.facts["num_asic"] > 1:
-                port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
-            else:
-                port['asic_value'] = None
-    for index, port in enumerate(snappi_ports_all):
-        port['port_id'] = str(index + 1)
+        # Find Snappi chassis connected to this DUT
+        snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
+                                                 dut_hostname=duthost.hostname)
+        if not snappi_fanouts:
+            continue
+
+        fanout_mgr = SnappiFanoutManager(fanout_graph)
+        # Process all fanouts for this DUT
+        for snappi_fanout in snappi_fanouts:
+            fanout_id = list(fanout_graph.keys()).index(snappi_fanout)
+            # Load fanout info into manager
+            fanout_mgr.get_fanout_device_details(device_number=fanout_id)
+            # Get Snappi ports that connect to this DUT
+            tgen_ports = fanout_mgr.get_ports(peer_device=duthost.hostname)
+            # For each port connected to this DUT, enrich attributes
+            for port in tgen_ports:
+                dut_port_info = port_table.get(port.get('peer_port'), {})
+                # Populate DUT-related interface attributes
+                port.update({
+                    'autoneg': dut_port_info.get('autoneg') == 'on',
+                    'fec': dut_port_info.get('fec') == 'rs',
+                    'link_training': str(dut_port_info.get('link_training', '')).lower() in ['on', 'true', 'yes', '1'],
+                    'intf_config_changed': False,
+                    'api_server_ip': tbinfo['ptf_ip'],
+                    'asic_type': duthost.facts["asic_type"],
+                    'duthost': duthost,
+                    'snappi_speed_type': speed_type[port['speed']],
+                })
+
+                # For multi-ASIC devices, assign ASIC namespace
+                if duthost.facts["num_asic"] > 1:
+                    port['asic_value'] = duthost.get_port_asic_instance(
+                        port['peer_port']
+                    ).namespace
+                else:
+                    port['asic_value'] = None
+
+            snappi_ports_all.extend(tgen_ports)
+
+    # Assign stable port IDs
+    for idx, port in enumerate(snappi_ports_all, 1):
+        port['port_id'] = str(idx)
+
     return snappi_ports_all
 
 
 @pytest.fixture(scope="module")
-def get_snappi_ports_multi_dut(duthosts,  # noqa: F811
-                               tbinfo,  # noqa: F811
-                               conn_graph_facts,  # noqa: F811
-                               fanout_graph_facts_multidut,
-                               ):  # noqa: F811
-    """
-    Populate snappi ports and connected DUT ports info of T1 and T2 testbed and returns as a list
-    Args:
-        duthost (pytest fixture): duthost fixture
-        tbinfo (pytest fixture): fixture provides information about testbed
-        conn_graph_facts (pytest fixture): connection graph
-        fanout_graph_facts_multidut (pytest fixture): fanout graph
-    Return: (list)
-        [{  'api_server_ip': '10.36.78.59',
-            'asic_type': 'broadcom',
-            'asic_value': None,
-            'card_id': '4',
-            'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
-            'ip': '10.36.78.53',
-            'location': '10.36.78.53;4;7',
-            'peer_device': 'sonic-s6100-dut1',
-            'peer_port': 'Ethernet72',
-            'port_id': '7',
-            'snappi_speed_type': 'speed_100_gbps',
-            'speed': '100000'
-        },
-        {   'api_server_ip': '10.36.78.59',
-            'asic_type': 'broadcom',
-            'asic_value': 'asic0',
-            'card_id': '4',
-            'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
-            'ip': '10.36.78.53',
-            'location': '10.36.78.53;4;8',
-            'peer_device': 'sonic-s6100-dut2',
-            'peer_port': 'Ethernet76',
-            'port_id': '8',
-            'snappi_speed_type': 'speed_100_gbps',
-            'speed': '100000'
-        }]
-    """
-    speed_type = {
-                  '10000': 'speed_10_gbps',
-                  '25000': 'speed_25_gbps',
-                  '40000': 'speed_40_gbps',
-                  '50000': 'speed_50_gbps',
-                  '100000': 'speed_100_gbps',
-                  '200000': 'speed_200_gbps',
-                  '400000': 'speed_400_gbps',
-                  '800000': 'speed_800_gbps'}
-    multidut_snappi_ports = []
-
-    if not is_snappi_multidut(duthosts):
-        return []
-
-    for duthost in duthosts:
-        snappi_fanouts = get_peer_snappi_chassis(conn_data=conn_graph_facts,
-                                                 dut_hostname=duthost.hostname)
-        if snappi_fanouts is None:
-            continue
-        snappi_fanout_list = SnappiFanoutManager(fanout_graph_facts_multidut)
-        for snappi_fanout in snappi_fanouts:
-            snappi_fanout_id = list(fanout_graph_facts_multidut.keys()).index(snappi_fanout)
-            snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)
-            snappi_ports = snappi_fanout_list.get_ports(peer_device=duthost.hostname)
-
-            for port in snappi_ports:
-                port['intf_config_changed'] = False
-                port['api_server_ip'] = tbinfo['ptf_ip']
-                port['asic_type'] = duthost.facts["asic_type"]
-                port['duthost'] = duthost
-                port['snappi_speed_type'] = speed_type[port['speed']]
-                if duthost.facts["num_asic"] > 1:
-                    port['asic_value'] = duthost.get_port_asic_instance(port['peer_port']).namespace
-                else:
-                    port['asic_value'] = None
-            multidut_snappi_ports = multidut_snappi_ports + snappi_ports
-    for index, port in enumerate(multidut_snappi_ports):
-        port['port_id'] = str(index + 1)
-    return multidut_snappi_ports
+def get_snappi_ports_single_dut(duthosts,
+                                conn_graph_facts,                       # noqa: F811
+                                fanout_graph_facts,                     # noqa: F811
+                                tbinfo,
+                                rand_one_dut_hostname,
+                                rand_one_dut_portname_oper_up,
+                                snappi_api_serv_ip):
+    """Backward-compatible wrapper calling unified port logic."""
+    return _get_snappi_ports_unified(
+        duthosts=duthosts,
+        conn_graph_facts=conn_graph_facts,
+        fanout_graph_facts=fanout_graph_facts,
+        fanout_graph_facts_multidut=None,
+        tbinfo=tbinfo,
+        rand_one_dut_hostname=rand_one_dut_hostname,
+    )
 
 
-def is_snappi_multidut(duthosts):
-    if duthosts is None or len(duthosts) == 0:
-        return False
-    if len(duthosts) == 1:
-        return False
-    if len(duthosts) > 1:
-        return True
-    return duthosts[0].get_facts().get("modular_chassis")
+@pytest.fixture(scope="module")
+def get_snappi_ports_multi_dut(duthosts,
+                               conn_graph_facts,                # noqa: F811
+                               fanout_graph_facts_multidut,     # noqa: F811
+                               tbinfo):
+    """Backward-compatible wrapper calling unified port logic."""
+    return _get_snappi_ports_unified(
+        duthosts=duthosts,
+        conn_graph_facts=conn_graph_facts,
+        fanout_graph_facts=None,
+        fanout_graph_facts_multidut=fanout_graph_facts_multidut,
+        tbinfo=tbinfo,
+        rand_one_dut_hostname=None,
+    )
+
+
+@pytest.fixture(scope="module")
+def multidut_snappi_ports_for_bgp(duthosts,
+                                  tbinfo,
+                                  conn_graph_facts,     # noqa: F811
+                                  fanout_graph_facts_multidut):  # noqa: F811
+    """Backward-compatible wrapper calling unified port logic."""
+    multidut_snappi_ports = _get_snappi_ports_unified(
+        duthosts=duthosts,
+        conn_graph_facts=conn_graph_facts,
+        fanout_graph_facts=None,
+        fanout_graph_facts_multidut=fanout_graph_facts_multidut,
+        tbinfo=tbinfo,
+        rand_one_dut_hostname=None,
+    )
+    speeds = {int(p["speed"]) for p in multidut_snappi_ports}
+    if len(speeds) != 1:
+        logger.error(f"Port speeds not uniform: {speeds}")
+        return None
+    else:
+        port_speed = speeds.pop()
+        for port in multidut_snappi_ports:
+            port['speed'] = speed_type[port['speed']]
+        logger.info(f"Using uniform port speed: {port_speed}")
+        return multidut_snappi_ports
 
 
 @pytest.fixture(scope="module")
@@ -1299,15 +1199,16 @@ def get_snappi_ports(duthosts, request):
     Args:
         duthosts (pytest fixture): list of DUTs
         request (pytest fixture): request fixture
-    Return: (list)
+    Returns:
+        list: (list)
     """
-    # call the fixture based on the testbed type for minimize the impact
-    # use the same fixture for different testbeds in the future if possible?
-    if is_snappi_multidut(duthosts):
-        snappi_ports = request.getfixturevalue("get_snappi_ports_multi_dut")
-    else:
-        snappi_ports = request.getfixturevalue("get_snappi_ports_single_dut")
-    return snappi_ports
+    fixture_name = (
+        "get_snappi_ports_multi_dut"
+        if is_snappi_multidut(duthosts)
+        else "get_snappi_ports_single_dut"
+    )
+    logger.info(f"Selecting snappi port fixture: {fixture_name}")
+    return request.getfixturevalue(fixture_name)
 
 
 def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_port_count, testbed):
@@ -1335,13 +1236,13 @@ def get_snappi_ports_for_rdma(snappi_port_list, rdma_ports, tx_port_count, rx_po
     pytest_require(
         len(rx_snappi_ports) == rx_port_count,
         f"Rx Ports for {testbed} in MULTIDUT_PORT_INFO doesn't match with "
-        f"ansible/files/*links.csv: rx_snappi_ports:{rx_snappi_ports}, and "
-        f"wanted:{rx_port_count}")
+        f"ansible/files/*links.csv: rx_snappi_ports: {rx_snappi_ports}, and "
+        f"wanted: {rx_port_count}")
     pytest_require(
         len(tx_snappi_ports) == tx_port_count,
         f"Tx Ports for {testbed} in MULTIDUT_PORT_INFO doesn\'t match with "
-        f"ansible/files/*links.csv: tx_snappi_ports:{tx_snappi_ports}, and "
-        f"wanted:{tx_port_count}")
+        f"ansible/files/*links.csv: tx_snappi_ports: {tx_snappi_ports}, and "
+        f"wanted: {tx_port_count}")
 
     multidut_snappi_ports = rx_snappi_ports + tx_snappi_ports
     return multidut_snappi_ports
@@ -1521,7 +1422,7 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     if intf:
         int_arg = f"-i {intf}"
     if setup:
-        arp_opt = f"-s {addr} aa:bb:cc:dd:ee:ff"
+        arp_opt = "-s {} aa:bb:cc:dd:ee:ff".format(addr)
     else:
         arp_opt = f"-d {addr}"
 
