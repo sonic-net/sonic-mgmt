@@ -513,7 +513,7 @@ If you want to clear your testing environment, you can log into your mgmt docker
 
 Then run command:
 ```
-./testbed-cli.sh -t vtestbed.yaml -m veos_vtb remove-topo vms-kvm-t0 password.txt
+./testbed-cli.sh -t vtestbed.yaml -m veos_vtb -k ceos remove-topo vms-kvm-t0 password.txt
 ```
 
 This will cleanup the ptf container, cEOS container and kvm dut. The `-k` option defaults to ceos, but you can provide veos or vsonic.
