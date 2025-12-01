@@ -129,16 +129,16 @@ acl/test_acl.py:
 ```
 
 #### Advantages
-**Centralized management**: Easy to see all expiries
-**Bulk operations**: Update multiple tests at once via patterns
-**Metadata**: Can add owner, tracking info
-**Non-intrusive**: Existing skip definitions unchanged
+- **Centralized management**: Easy to see all expiries
+- **Bulk operations**: Update multiple tests at once via patterns
+- **Metadata**: Can add owner, tracking info
+- **Non-intrusive**: Existing skip definitions unchanged
 
 #### Disadvantages
-**Complexity**: Additional mapping layer
-**Indirection**: Need to cross-reference to find expiry
-**Pattern matching**: Risk of ambiguity or conflicts
-**Maintenance**: Two places to update
+- **Complexity**: Additional mapping layer
+- **Indirection**: Need to cross-reference to find expiry
+- **Pattern matching**: Risk of ambiguity or conflicts
+- **Maintenance**: Two places to update
 
 ---
 
