@@ -81,14 +81,14 @@ acstests:
 ```
 
 #### Advantages
-**Simplicity**: Direct association between skip and expiry
-**Readability**: Easy to understand at a glance
-**Granularity**: Different expiry dates for skip vs xfail on same test
+- **Simplicity**: Direct association between skip and expiry
+- **Readability**: Easy to understand at a glance
+- **Granularity**: Different expiry dates for skip vs xfail on same test
 
 #### Disadvantages
-**Verbosity**: Adds line to every skip entry
-**Scattered dates**: Harder to get overview of all upcoming expiries
-**Manual updates**: Each entry needs individual attention
+- **Verbosity**: Adds line to every skip entry
+- **Scattered dates**: Harder to get overview of all upcoming expiries
+- **Manual updates**: Each entry needs individual attention
 
 ---
 
