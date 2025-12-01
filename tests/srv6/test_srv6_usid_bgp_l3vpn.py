@@ -16,7 +16,11 @@ V6_MASK_DUT = "64"
 
 
 @pytest.fixture(name="setUp", scope="module")
-def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
+def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname, request):
+    # verify neighbors are type sonic
+    neighbor_type = request.config.getoption("neighbor_type")
+    if neighbor_type != "sonic":
+        pytest.skip("Unsupported neighbor type: {}. This test is supported only for neighbors of type 'sonic'.".format(neighbor_type))
 
     # pick dut
     duthost = duthosts[enum_frontend_dut_hostname]
