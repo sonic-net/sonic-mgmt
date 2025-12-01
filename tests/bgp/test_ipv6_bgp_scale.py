@@ -486,12 +486,13 @@ def get_RP_start_time(duthost, connection_type, action, LOG_STAMP, syslog='/var/
 
 
 def route_programming_time(duthost, start_time, sairedislog='/var/log/swss/sairedis.rec'):
-    pattern = "|r|SAI_OBJECT_TYPE_NEXT_HOP_GROUP:"
+    nhg_pattern = "|r|SAI_OBJECT_TYPE_NEXT_HOP_GROUP:"
+    route_pattern = "[|][rR]|SAI_OBJECT_TYPE_ROUTE_ENTRY"
     ts_regex = re.compile(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+')
 
     def read_lines(path):
         try:
-            return duthost.shell(f"sudo grep '{pattern}' {path}")['stdout'].splitlines()
+            return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
         except Exception as e:
             logger.warning("Failed to read %s: %s", path, e)
             return []
@@ -506,6 +507,7 @@ def route_programming_time(duthost, start_time, sairedislog='/var/log/swss/saire
             "RP Error": "No RP events found"
         }
     deltas = []
+    route_events_count = 0
     for line in lines:
         m = ts_regex.search(line)
         if not m:
@@ -513,9 +515,13 @@ def route_programming_time(duthost, start_time, sairedislog='/var/log/swss/saire
         ts = datetime.datetime.strptime(m.group(0), "%Y-%m-%d.%H:%M:%S.%f")
         if ts <= start_time:
             continue
-        deltas.append((ts - start_time).total_seconds())
+        if nhg_pattern in line:
+            deltas.append((ts - start_time).total_seconds())
+        elif route_pattern in line:
+            route_events_count += 1
         logger.info("event: REMOVE at %s", ts)
-    return {"RP Start Time": start_time, "RP Duration": deltas[-1] if deltas else None}
+    return {"RP Start Time": start_time, "Route Programming Duration": deltas[-1] if deltas else None, 
+            "Route Events Count": route_events_count, "NextHopGroup Events Count": len(deltas)}
 
 
 def _select_targets(bgp_peers_info, all_flap, flapping_count):
