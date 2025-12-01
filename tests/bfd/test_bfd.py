@@ -12,7 +12,6 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 from tests.common.sai_validation.sonic_db import start_db_monitor, stop_db_monitor, wait_until_condition, check_key
 from tests.common.utilities import wait_until
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
-from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
@@ -429,6 +428,7 @@ def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
             )
         )
 
+
 def check_ptf_neighbours(ptfhost, neighbor_addrs, local_addrs):
 
     for idx, neighbor_addr in enumerate(neighbor_addrs):
@@ -475,7 +475,8 @@ def test_bfd_basic(request, gnmi_connection,
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         pytest_assert(
             wait_until(120, 5, 0, check_ptf_neighbours, ptfhost, neighbor_addrs, local_addrs),
-            "IPv6:{} dut_init_first:{} PTF BFD sessions did not reach 'Up' state as expected.".format(ipv6, dut_init_first)
+            "IPv6:{} dut_init_first:{} PTF BFD sessions did not reach 'Up' state as expected."
+            .format(ipv6, dut_init_first)
         )
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
@@ -531,9 +532,10 @@ def test_bfd_basic(request, gnmi_connection,
                      f' to be Up completed with {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         pytest_assert(
-            wait_until(120, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"),
+            wait_until(120, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"), # noqa: E501
             "BFD session status is not Up for neighbor address {}, "
-            "local address {}, on PTF host {}.".format(neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname)
+            "local address {}, on PTF host {}."
+            .format(neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname)
         )
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
