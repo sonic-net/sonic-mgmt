@@ -69,7 +69,7 @@ class MultiAsicSonicHost(object):
         active_asics = self.asics
         if self.sonichost.is_supervisor_node():
             service_list.append("lldp")
-            if self.get_facts()['asic_type'] != 'vs':
+            if self.facts['asic_type'] != 'vs':
                 active_asics = []
                 sonic_db_cli_out = \
                     self.command("sonic-db-cli CHASSIS_STATE_DB keys \"CHASSIS_FABRIC_ASIC_TABLE|asic*\"")
@@ -81,40 +81,38 @@ class MultiAsicSonicHost(object):
                 active_asics = []
         service_list += self._DEFAULT_SERVICES
 
-        config_facts = self.config_facts(host=self.hostname, source="running")['ansible_facts']
         # NOTE: Add mux to critical services for dualtor
         if (
-            "DEVICE_METADATA" in config_facts and
-            "localhost" in config_facts["DEVICE_METADATA"] and
-            "subtype" in config_facts["DEVICE_METADATA"]["localhost"] and
-                config_facts["DEVICE_METADATA"]["localhost"]["subtype"] == "DualToR" and
-            "mux" in config_facts["FEATURE"] and config_facts["FEATURE"]["mux"]["state"] == "enabled"
+            self.facts['router_subtype'] == 'DualToR' and
+            self.facts.get('features', {}).get('mux', {}).get('state', '') == 'enabled'
         ):
             service_list.append("mux")
 
-        if "dhcp_relay" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_relay"]["state"] == "enabled":
+        _features = self.facts.get('features', {})
+
+        if _features.get('dhcp_relay', {}).get('state', '') == 'enabled':
             service_list.append("dhcp_relay")
 
-        if "dhcp_server" in config_facts["FEATURE"] and config_facts["FEATURE"]["dhcp_server"]["state"] == "enabled":
+        if _features.get('dhcp_server', {}).get('state', '') == 'enabled':
             service_list.append("dhcp_server")
 
-        if config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu' and 'snmp' in service_list:
+        if self.facts.get('switch_type', '') == 'dpu' and 'snmp' in service_list:
             service_list.remove('snmp')
 
         # Update the asic service based on feature table state and asic flag
         for service in list(self.sonichost.DEFAULT_ASIC_SERVICES):
-            if service == 'teamd' and config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu':
+            if service == 'teamd' and self.facts.get('switch_type', '') == 'dpu':
                 logger.info("Removing teamd from default services for switch_type DPU")
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
-            if service not in config_facts['FEATURE']:
+            if service not in _features:
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
                 continue
-            if config_facts['FEATURE'][service]['has_per_asic_scope'] == "False":
+            if _features.get(service, {}).get('has_per_asic_scope', '') == "False":
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-            if config_facts['FEATURE'][service]['state'] == "disabled":
+            if _features.get(service, {}).get('state', '') == "disabled":
                 self.sonichost.DEFAULT_ASIC_SERVICES.remove(service)
-        if not self.get_facts().get("modular_chassis"):
+        if not self.facts.get("modular_chassis"):
             service_list.append("lldp")
 
         for asic in active_asics:

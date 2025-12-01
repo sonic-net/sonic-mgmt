@@ -17,12 +17,10 @@ from ansible.plugins.loader import connection_loader
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.devices.constants import ACL_COUNTERS_UPDATE_INTERVAL_IN_SEC
 from tests.common.helpers.dut_utils import is_supervisor_node, is_macsec_capable_node
-from tests.common.str_utils import str2bool
 from tests.common.utilities import get_host_visible_vars
 from tests.common.cache import cached
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, DEFAULT_NAMESPACE
 from tests.common.helpers.platform_api.chassis import is_inband_port
-from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
@@ -84,24 +82,29 @@ class SonicHost(AnsibleHostBase):
             }
             self.host.options['variable_manager'].extra_vars.update(evars)
 
-        self._facts = self._gather_facts()
-        self._os_version = self._get_os_version()
+        _gathered_facts = self._gather_facts()
 
-        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
-        device_type = device_metadata.get('type')
-        device_subtype = device_metadata.get('subtype')
-        if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
+        self._facts = _gathered_facts.get('basic_facts', {})
+        self._facts['features'] = _gathered_facts.get('features', {})
+
+        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
+
+        self._os_version = _gathered_facts.get('versions', {}).get('build_version', '')
+        _sonic_release = _gathered_facts.get('versions', {}).get('release', '')
+        if not _sonic_release:
+            _sonic_release = self._os_version.split('.')[0][0:6]
+        self._sonic_release = _sonic_release
+        self._kernel_version = _gathered_facts.get('versions', {}).get('kernel_version', '').split('-')[0]
+
+        router_type = self._facts.get('router_type', '')
+        router_subtype = self._facts.get('router_subtype', '')
+        if (router_type == 'UpperSpineRouter') or (router_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
-
-        feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
-        gbsyncd_enabled = 'gbsyncd' in feature_status[0].keys() and feature_status[0]['gbsyncd'] == 'enabled'
+        gbsyncd_enabled = self._facts.get('features', {}).get('gbsyncd', {}).get('state', 'disabled') == 'enabled'
         if gbsyncd_enabled and self.facts["asic_type"] != "vs":
             self.DEFAULT_ASIC_SERVICES.append("gbsyncd")
-        self._sonic_release = self._get_sonic_release()
-        self.is_multi_asic = True if self.facts["num_asic"] > 1 else False
-        self._kernel_version = self._get_kernel_version()
 
     def __str__(self):
         return '<SonicHost {}>'.format(self.hostname)
@@ -117,14 +120,8 @@ class SonicHost(AnsibleHostBase):
         Returns:
             dict: A dictionary containing the device platform information.
 
-            For example:
-            {
-                "platform": "x86_64-arista_7050_qx32s",
-                "hwsku": "Arista-7050-QX-32S",
-                "asic_type": "broadcom",
-                "num_asic": 1,
-                "router_mac": "52:54:00:f0:ac:9d",
-            }
+            Refer to docstring of ansible/library/sonic_basic_facts.py.
+            The self._facts has the value of res['ansible_facts']['basic_facts']
         """
 
         return self._facts
@@ -201,187 +198,17 @@ class SonicHost(AnsibleHostBase):
     def _gather_facts(self):
         """
         Gather facts about the platform for this SONiC device.
+
+        Refer to docstring of ansible/library/sonic_basic_facts.py for example output of the sonic_basic_facts module.
         """
-        facts = self._get_platform_info()
-
-        results = parallel_run_threaded(
-            [
-                lambda: self._get_asic_count(facts["platform"]),
-                self._get_router_mac,
-                lambda: self._get_modular_chassis(facts["asic_type"]),
-                self._get_mgmt_interface,
-                self._get_switch_type,
-                self._get_router_type,
-                self.get_asics_present_from_inventory,
-                lambda: self._get_platform_asic(facts["platform"])
-            ],
-            timeout=180,
-            thread_count=5
-        )
-
-        facts["num_asic"] = results[0]
-        facts["router_mac"] = results[1]
-        facts["modular_chassis"] = str2bool(results[2])
-        facts["mgmt_interface"] = results[3]
-        facts["switch_type"] = results[4]
-        facts["router_type"] = results[5]
-
-        facts["asics_present"] = results[6] if len(results[6]) != 0 else list(range(facts["num_asic"]))
-
-        if results[7]:
-            facts["platform_asic"] = results[7]
+        facts = self.sonic_basic_facts().get('ansible_facts', {})
+        asics_present = self.get_asics_present_from_inventory()
+        facts['basic_facts']['asics_present'] = asics_present \
+            if len(asics_present) != 0 \
+            else list(range(facts['basic_facts']['num_asic']))
 
         logging.debug("Gathered SonicHost facts: %s" % json.dumps(facts))
         return facts
-
-    def _get_mgmt_interface(self):
-        """
-        Gets the IPs of management interface
-        Output example
-
-            admin@ARISTA04T1:~$ show management_interface address
-            Management IP address = 10.250.0.54/24
-            Management Network Default Gateway = 10.250.0.1
-            Management IP address = 10.250.0.59/24
-            Management Network Default Gateway = 10.250.0.1
-
-        """
-        show_cmd_output = self.shell("show management_interface address", module_ignore_errors=True)
-        mgmt_addrs = []
-        for line in show_cmd_output["stdout_lines"]:
-            addr = re.match(r"Management IP address = (\d{0,3}\.\d{0,3}\.\d{0,3}\.\d{0,3})\/\d+", line)
-            if addr:
-                mgmt_addrs.append(addr.group(1))
-        return mgmt_addrs
-
-    def _get_modular_chassis(self, asic_type):
-        if asic_type == 'vs':
-            out = self.shell(
-                "python3 -c \"import sonic_py_common.device_info as P; \
-                             print(P.is_chassis()); exit()\"",
-                module_ignore_errors=True)
-            res = "False" if out["failed"] else out["stdout"]
-            return res
-
-        py_res = self.shell("python -c \"import sonic_platform\"", module_ignore_errors=True)
-        if py_res["failed"]:
-            out = self.shell(
-                "python3 -c \"import sonic_platform.platform as P; \
-                             print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                module_ignore_errors=True)
-        else:
-            out = self.shell(
-                "python -c \"import sonic_platform.platform as P; \
-                print(P.Platform().get_chassis().is_modular_chassis()); exit()\"",
-                module_ignore_errors=True)
-        res = "False" if out["failed"] else out["stdout"]
-        return res
-
-    def _get_asic_count(self, platform):
-        """
-        Gets the number of asics for this device.
-        """
-        num_asic = 1
-        asic_conf_file_path = os.path.join("/usr/share/sonic/device", platform, "asic.conf")
-        try:
-            output = self.shell("cat {}".format(asic_conf_file_path))["stdout_lines"]
-            logging.debug(output)
-
-            for line in output:
-                key, value = line.split("=")
-                if key.strip().upper() == "NUM_ASIC":
-                    num_asic = value.strip()
-                    break
-
-            logging.debug("num_asic = %s" % num_asic)
-
-            return int(num_asic)
-        except Exception:
-            return int(num_asic)
-
-    def _get_router_mac(self):
-        return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.mac'")["stdout_lines"][0].encode().decode(
-            "utf-8").lower()
-
-    def _get_switch_type(self):
-        try:
-            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.switch_type'")["stdout_lines"][0]\
-                .encode().decode("utf-8").lower()
-        except Exception:
-            return ''
-
-    def _get_router_type(self):
-        try:
-            return self.command("sonic-cfggen -d -v 'DEVICE_METADATA.localhost.type'")["stdout_lines"][0] \
-                .encode().decode("utf-8").lower()
-        except Exception:
-            return ''
-
-    def _get_platform_info(self):
-        """
-        Gets platform information about this SONiC device.
-        """
-
-        platform_info = self.command("show platform summary")["stdout_lines"]
-        result = {}
-        for line in platform_info:
-            if line.startswith("Platform:"):
-                result["platform"] = line.split(":")[1].strip()
-            elif line.startswith("HwSKU:"):
-                result["hwsku"] = line.split(":")[1].strip()
-            elif line.startswith("ASIC:"):
-                result["asic_type"] = line.split(":")[1].strip()
-
-        if result["platform"]:
-            platform_file_path = os.path.join("/usr/share/sonic/device", result["platform"], "platform.json")
-
-            try:
-                out = self.command("cat {}".format(platform_file_path))
-                platform_info = json.loads(out["stdout"])
-                for key, value in list(platform_info.items()):
-                    result[key] = value
-
-            except Exception:
-                # if platform.json does not exist, then it's not added currently for certain platforms
-                # eventually all the platforms should have the platform.json
-                logging.debug("platform.json is not available for this platform, " +
-                              "DUT facts will not contain complete platform information.")
-
-        return result
-
-    @cached(name='os_version')
-    def _get_os_version(self):
-        """
-        Gets the SONiC OS version that is running on this device.
-        """
-
-        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v build_version")
-        return output["stdout_lines"][0].strip()
-
-    @cached(name='sonic_release')
-    def _get_sonic_release(self):
-        """
-        Gets the SONiC Release that is running on this device.
-        E.g. 202106, 202012, ...
-             if the release is master, then return none
-        """
-
-        output = self.command("sonic-cfggen -y /etc/sonic/sonic_version.yml -v release")
-        if len(output['stdout_lines']) == 0:
-            # get release from OS version
-            if self.os_version:
-                return self.os_version.split('.')[0][0:6]
-            return 'none'
-        return output["stdout_lines"][0].strip()
-
-    @cached(name='kernel_version')
-    def _get_kernel_version(self):
-        """
-        Gets the SONiC kernel version
-        :return:
-        """
-        output = self.command('uname -r')
-        return output["stdout"].split('-')[0]
 
     def get_service_props(self, service, props=["ActiveState", "SubState"]):
         """
