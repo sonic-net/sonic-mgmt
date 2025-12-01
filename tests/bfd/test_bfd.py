@@ -12,6 +12,8 @@ from tests.common.snappi_tests.common_helpers import get_egress_queue_count
 from tests.common.sai_validation.sonic_db import start_db_monitor, stop_db_monitor, wait_until_condition, check_key
 from tests.common.utilities import wait_until
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.utilities import wait_until
+from tests.common.helpers.assertions import pytest_assert
 
 pytestmark = [
     pytest.mark.topology('t1'),
@@ -427,6 +429,13 @@ def warm_up_ipv6_neighbors(duthost, neighbor_addrs):
             )
         )
 
+def check_ptf_neighbours(ptfhost, neighbor_addrs, local_addrs):
+
+    for idx, neighbor_addr in enumerate(neighbor_addrs):
+        if check_ptf_bfd_status(ptfhost, neighbor_addr, local_addrs[idx], "Up") is False:
+            return False
+    return True
+
 
 @pytest.mark.parametrize('dut_init_first', [True, False], ids=['dut_init_first', 'ptf_init_first'])
 @pytest.mark.parametrize('ipv6', [False, True], ids=['ipv4', 'ipv6'])
@@ -464,15 +473,11 @@ def test_bfd_basic(request, gnmi_connection,
         logger.debug(f'All up; Wait for {neighbor_addrs} to be Up completed with'
                      f' {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
-        for idx, neighbor_addr in enumerate(neighbor_addrs):
-            assert check_ptf_bfd_status(
-                ptfhost, neighbor_addr, local_addrs[idx], "Up"
-            ) is True, (
-                "Assertion failed: BFD session status is not 'Up'. "
-                "Details: Neighbor address '{}', Local address '{}', PTF host '{}'.".format(
-                    neighbor_addr, local_addrs[idx], ptfhost.hostname
-                )
-            )
+        pytest_assert(
+            wait_until(120, 5, 0, check_ptf_neighbours, ptfhost, neighbor_addrs, local_addrs),
+            "IPv6:{} dut_init_first:{} PTF BFD sessions did not reach 'Up' state as expected.".format(ipv6, dut_init_first)
+        )
+
         update_idx = random.choice(list(range(bfd_session_cnt)))
         update_bfd_session_state(ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "admin")
         # check all STATE_DB BFD_SESSION_TABLE neighbors' state is Up except
@@ -525,13 +530,10 @@ def test_bfd_basic(request, gnmi_connection,
         logger.debug(f'Reset to Up check; Wait for {neighbor_addrs[update_idx]}'
                      f' to be Up completed with {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
-        assert check_ptf_bfd_status(
-            ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"
-        ) is True, (
-            "Assertion failed: BFD session status is not 'Up' for neighbor address '{}', "
-            "local address '{}', on PTF host '{}'.".format(
-                neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname
-            )
+        pytest_assert(
+            wait_until(120, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"),
+            "BFD session status is not Up for neighbor address {}, "
+            "local address {}, on PTF host {}.".format(neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname)
         )
 
         update_idx = random.choice(list(range(bfd_session_cnt)))
