@@ -36,6 +36,12 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname, request):
 
     yield (nbr, duthost)
 
+    Logger.info("Performing cleanup")
+
+    # restore original config
+    config_reload(nbr['host'], is_dut=False)
+    config_reload(duthost, wait_for_bgp=True)
+
 
 def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     """ Route added on All neighbor should be learned by the DUT"""
