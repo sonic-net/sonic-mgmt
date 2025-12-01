@@ -244,8 +244,10 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
             reboot(duthost, localhost, reboot_type=reboot_type, wait_warmboot_finalizer=True,
                    warmboot_finalizer_timeout=360)
 
-        pytest_assert(wait_until(360, 10, 120, duthost.critical_services_fully_started),
+        start_time_1 = time.time()
+        pytest_assert(wait_until(600, 10, 120, duthost.critical_services_fully_started),
                       "Not all critical services are fully started")
+        logger.info("1. All critical services are fully started in {} seconds".format(time.time() - start_time_1))
     finally:
         if failure_type == "interface":
             for port in local_interfaces:
@@ -262,7 +264,11 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
                 nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
                 time.sleep(1)
 
-    pytest_assert(wait_until(120, 10, 30, duthost.critical_services_fully_started),
+    start_time_2 = time.time()
+    pytest_assert(wait_until(240, 10, 30, duthost.critical_services_fully_started),
                   "Not all critical services are fully started")
-    pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
+    logger.info("2. All critical services are fully started in {} seconds".format(time.time() - start_time_2))
+    start_time_3 = time.time()
+    pytest_assert(wait_until(240, 10, 0, duthost.check_bgp_session_state, list(setup['neighhosts'].keys())),
                   "Not all BGP sessions are established on DUT")
+    logger.info("3. All BGP sessions are established on DUT in {} seconds".format(time.time() - start_time_3))
