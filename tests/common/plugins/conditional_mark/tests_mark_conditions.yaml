@@ -904,6 +904,12 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_counter:
     conditions:
       - "release in ['201811', '201911', '202012']"
 
+dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
+  skip:
+    reason: "Current isc-dhcp-relay do not support dropping packets with unexpected checksum"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24660"
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_on_dualtor_standby:
   skip:
     reason: "The test case only tests DHCP relay on the dualtor standby dut"
