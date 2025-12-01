@@ -112,6 +112,12 @@ all:
         bjw3-pdu-126-69:  # R405S
           ansible_host: 10.150.126.69
           protocol: snmp
+        bjw3-pdu-126-72:  # R407M
+          ansible_host: 10.150.126.72
+          protocol: snmp
+        bjw3-pdu-126-73:  # R407S
+          ansible_host: 10.150.126.73
+          protocol: snmp
         bjw3-pdu-126-74:  # R408M
           ansible_host: 10.150.126.74
           protocol: snmp
