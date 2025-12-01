@@ -101,7 +101,7 @@ def setup(duthosts, rand_selected_dut, tbinfo):
         vlan_mac if vlan_mac is not None else rand_selected_dut.facts["router_mac"]
     )
 
-    upstream_neigh_type = get_upstream_neigh_type(topo)
+    upstream_neigh_type = get_upstream_neigh_type(tbinfo)
     downstream_neigh_type = get_downstream_neigh_type(topo)
     pytest_require(
         upstream_neigh_type is not None and downstream_neigh_type is not None,
