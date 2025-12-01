@@ -28,7 +28,7 @@ npu_cli_dict_general = {
         "l3-interface": " ",
         "l3-table" : " ",
         "lag": ["entries", "members"],
-        "lpts": " ",
+        #"lpts": " ", # commented out due to known issue with lpts cli in 25.11 SDK
         "multipath": " ",
         "next-hop": ["entries", "usage"],
         "packet-debug": ["capture", "status"],
