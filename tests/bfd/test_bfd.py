@@ -532,7 +532,7 @@ def test_bfd_basic(request, gnmi_connection,
                      f' to be Up completed with {status} and time taken {actual_wait} seconds')
         assert status is True, "Assertion failed: Expected 'status' to be True, but got {}.".format(status)
         pytest_assert(
-            wait_until(120, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"), # noqa: E501
+            wait_until(120, 5, 0, check_ptf_bfd_status, ptfhost, neighbor_addrs[update_idx], local_addrs[update_idx], "Up"),  # noqa: E501
             "BFD session status is not Up for neighbor address {}, "
             "local address {}, on PTF host {}."
             .format(neighbor_addrs[update_idx], local_addrs[update_idx], ptfhost.hostname)
