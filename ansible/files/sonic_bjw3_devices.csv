@@ -54,7 +54,7 @@ bjw3-can-7060-7,10.150.238.105/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw3-can-7060-8,10.150.238.107/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw3-can-8102-7,10.150.238.112/23,Cisco-8102-C64,DevSonic,,sonic
 bjw3-can-8102-8,10.150.238.114/23,Cisco-8102-C64,DevSonic,,sonic
-bjw2-can-720dt-9,10.150.238.116/23,Arista-720DT-G48S4,DevSonic,,sonic
+bjw3-can-720dt-9,10.150.238.116/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw3-pdu-126-62,10.150.126.62,Vertiv,Pdu,snmp,
 bjw3-pdu-126-63,10.150.126.63,Vertiv,Pdu,snmp,
 bjw3-pdu-126-64,10.150.126.64,Vertiv,Pdu,snmp,
