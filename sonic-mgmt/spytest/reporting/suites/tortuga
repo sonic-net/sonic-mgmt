@@ -40,6 +40,7 @@
 +file:cisco/tortuga/vxlan/test_l2vni_v4_vtep_dhcp_new_design.py
 +file:cisco/tortuga/vxlan/test_l3vni_v6_vtep_dhcp_relay_v4_dpb_new_design.py
 +file:cisco/tortuga/vxlan/test_l3vni_v6_vtep_dhcp_relay_v4_new_design.py
++file:cisco/tortuga/l2_switching/test_lldp_tlv.py
 
 # DO NOT add more test case files in this; instead add in 'tortuga_parallel'
 # Follow the instructions and insert the test suite in the appropriate location
