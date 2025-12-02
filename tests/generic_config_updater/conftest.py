@@ -81,8 +81,10 @@ def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loga
 
             # Valid test_dhcp_relay for Bookworm and newer
             ".*ERR.*Failed to start dhcp_relay.service - dhcp_relay container.*",
-            ".*ERR GenericConfigUpdater:.*Command failed: 'nsenter --target 1 .*systemctl restart dhcp_relay', returncode: 1",
-            ".*ERR GenericConfigUpdater:.*stderr: Job for dhcp_relay.service failed because start of the service was attempted too often.",
+            ".*ERR GenericConfigUpdater:.*Command failed: 'nsenter --target 1"
+            ".*systemctl restart dhcp_relay', returncode: 1",
+            ".*ERR GenericConfigUpdater:.*stderr: Job for dhcp_relay.service "
+            "failed because start of the service was attempted too often.",
 
             ".*ERR.*Failed to start dhcp_relay container.*",  # Valid test_dhcp_relay
             # Valid test_dhcp_relay test_syslog
