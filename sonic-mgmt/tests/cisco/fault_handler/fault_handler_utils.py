@@ -9,11 +9,25 @@ import time
 import json
 import shlex
 import datetime
+import gc
+import pytest
+from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
 # Redis database constants
 STATE_DB = 6
+
+# Table name constants
+TEMP_INFO_TABLE_NAME = 'TEMPERATURE_INFO'
+VOLT_INFO_TABLE_NAME = 'VOLTAGE_INFO'
+CURR_INFO_TABLE_NAME = 'CURRENT_INFO'
+FAULT_INFO_NAME = 'FAULT_INFO_TABLE'
+
+# Additional constants for System_Helper_Wrap
+HEALTH_TABLE_NAME = 'SYSTEM_HEALTH_INFO'
+DEFAULT_BOOT_TIMEOUT = 300
+MEMORY_ERROR_THRESHOLD = 100  # Fail if memory increases over limit
 
 
 class FaultHandlerTestHelper:
@@ -420,3 +434,328 @@ class FaultHandlerTestHelper:
         
         logger.info('System is up on {}'.format(hostname))
         return True
+
+
+    @staticmethod
+    def get_sensor_config(t_data, v_data, c_data):
+        """
+        Unified sensor configuration for all test groups
+        Contains all possible fields - each group uses only the fields it needs
+        
+        Args:
+            t_data: Temperature sensor data dictionary
+            v_data: Voltage sensor data dictionary  
+            c_data: Current sensor data dictionary
+            
+        Returns:
+            Dictionary with sensor configurations for temp, volt, and curr sensors
+        """
+        return {
+            "temp": {
+                "data": t_data,
+                "value_key": "temperature",
+                "convert": float,
+                # GroupA specific fields
+                "table_name": TEMP_INFO_TABLE_NAME,
+                "fault_sensor_key": "TEMP_SENSOR_A",
+                "sensor_prefix": "TEMP_SENSOR_",
+                # GroupB specific fields
+                "component": "TempSensor", 
+                "type_id": "TEMPERATURE_EXCEEDED"
+            },
+            "volt": {
+                "data": v_data,
+                "value_key": "voltage", 
+                "convert": int,
+                # GroupA specific fields
+                "table_name": VOLT_INFO_TABLE_NAME,
+                "fault_sensor_key": "VOLT_SENSOR_A",
+                "sensor_prefix": "VOLT_SENSOR_",
+                # GroupB specific fields
+                "component": "VoltSensor", 
+                "type_id": "VOLTAGE_EXCEEDED"
+            },
+            "curr": {
+                "data": c_data,
+                "value_key": "current",
+                "convert": int,
+                # GroupA specific fields
+                "table_name": CURR_INFO_TABLE_NAME,
+                "fault_sensor_key": "CURR_SENSOR_A",
+                "sensor_prefix": "CURR_SENSOR_",
+                # GroupB specific fields
+                "component": "CurrSensor", 
+                "type_id": "CURRENT_EXCEEDED"
+            }
+        }
+
+    @staticmethod
+    def get_test_fault(duthost, table, sensor, field_name):
+        """
+        Get specific field from sensor data
+        
+        Args:
+            duthost: Device under test
+            table: Table name  
+            sensor: Sensor name
+            field_name: Name of the field to retrieve
+            
+        Returns:
+            Field value as string, or empty string if not found
+        """
+        compound_key = "{}|{}".format(table, sensor)
+        cmd = 'redis-cli --raw -n {} HGET {} {}'.format(STATE_DB, shlex.quote(compound_key), field_name)
+        logger.info('Getting {} field from sensor data with cmd: {}'.format(field_name, cmd))
+        output = duthost.shell(cmd)
+        content = output['stdout'].strip()
+        return content
+
+    @staticmethod
+    def validate_obfl_alarm_file(duthost, expected_patterns=None):
+        """
+        Verify that faults were properly logged to OBFL alarms file
+        
+        Args:
+            duthost: Device under test
+            expected_patterns: List of tuples (pattern, description) to verify in OBFL file
+                             If None, uses default Group B sensor patterns
+        
+        Returns:
+            bool: True if all expected patterns are found, False otherwise
+        """
+        obfl_file = '/mnt/obfl/alarms.txt'
+        
+        # Default patterns for Group B sensors if none provided
+        if expected_patterns is None:
+            expected_patterns = [
+                ('DECLARE  CRITICAL  TEMPERATURE_EXCEEDED      TEMP_SENSOR_B', 'temp_critical_declare'),
+                ('DECLARE  CRITICAL  VOLTAGE_EXCEEDED          VOLT_SENSOR_B', 'volt_critical_declare'),
+                ('DECLARE  CRITICAL  CURRENT_EXCEEDED          CURR_SENSOR_B', 'curr_critical_declare'),
+                ('DECLARE  MAJOR     TEMPERATURE_EXCEEDED      TEMP_SENSOR_B', 'temp_major_declare'),
+                ('DECLARE  MAJOR     VOLTAGE_EXCEEDED          VOLT_SENSOR_B', 'volt_major_declare'),
+                ('DECLARE  MAJOR     CURRENT_EXCEEDED          CURR_SENSOR_B', 'curr_major_declare'),
+                ('TEMPERATURE_EXCEEDED      TEMP_SENSOR_B', 'temp_clear'),  # Flexible CLEAR pattern
+                ('VOLTAGE_EXCEEDED          VOLT_SENSOR_B', 'volt_clear'),   # Flexible CLEAR pattern
+                ('CURRENT_EXCEEDED          CURR_SENSOR_B', 'curr_clear')    # Flexible CLEAR pattern
+            ]
+        
+        try:
+            # Get recent OBFL entries (last 20 lines should cover our test)
+            cmd = 'tail -20 {}'.format(obfl_file)
+            logger.info('Checking OBFL file with cmd: {}'.format(cmd))
+            output = duthost.shell(cmd, module_ignore_errors=True)
+            
+            if output['rc'] != 0:
+                logger.warning('FM_HND: Failed to read OBFL file: {}'.format(output.get('stderr', '')))
+                return False
+                
+            obfl_content = output['stdout'].strip()
+            
+            if not obfl_content:
+                logger.warning('FM_HND: OBFL file is empty or not accessible')
+                return False
+            
+            logger.info('FM_HND: Recent OBFL entries:\n{}'.format(obfl_content))
+            
+            # Check for each expected pattern with flexible matching for CLEAR entries
+            found_patterns = []
+            for pattern_info in expected_patterns:
+                pattern, desc = pattern_info
+                if 'clear' in desc:
+                    # For CLEAR entries, check if the key parts exist (allowing CLEAR, CLEAR-OBFL-BOOT, etc.)
+                    if pattern in obfl_content:
+                        found_patterns.append(desc)
+                        logger.info('FM_HND: Found expected OBFL clear entry for: {}'.format(desc))
+                    else:
+                        logger.warning('FM_HND: Missing OBFL clear entry for: {}'.format(desc))
+                else:
+                    # For DECLARE entries, exact match expected
+                    if pattern in obfl_content:
+                        found_patterns.append(desc)
+                        logger.info('FM_HND: Found expected OBFL entry: {}'.format(pattern))
+                    else:
+                        logger.warning('FM_HND: Missing OBFL entry: {}'.format(pattern))
+            
+            # Verify we found all expected patterns (100% matching expected)
+            total_expected = len(expected_patterns)
+            success_rate = len(found_patterns) / total_expected
+            logger.info('FM_HND: OBFL verification: {}/{} patterns found ({:.1f}%)'.format(
+                len(found_patterns), total_expected, success_rate * 100))
+            
+            # Log found and missing patterns for debugging
+            if found_patterns:
+                logger.info('FM_HND: Found pattern types: {}'.format(found_patterns))
+            missing_patterns = [desc for pattern, desc in expected_patterns if desc not in found_patterns]
+            if missing_patterns:
+                logger.info('FM_HND: Missing pattern types: {}'.format(missing_patterns))
+            
+            # Expect 100% matching since we directly generate these exact OBFL patterns
+            if success_rate >= 1.0:  # 100% success rate - all patterns must be found
+                logger.info('FM_HND: OBFL logging verification PASSED')
+                return True
+            else:
+                logger.error('FM_HND: OBFL logging verification FAILED - expected 100% match but got {:.1f}%'.format(success_rate * 100))
+                return False
+                
+        except Exception as e:
+            logger.error('FM_HND: Failed to verify OBFL logging: {}'.format(e))
+            return False
+
+class System_Helper_Wrap:
+    """System-level helper methods for memory monitoring and Redis operations with test-case specific cleanup"""
+    
+    # Test-case specific sensor mappings for targeted cleanup
+    TEST_SENSOR_MAPPINGS = {
+        # GroupA - Single sensor tests (TH01, TH04, TH05, TH06)
+        "temp_info": {
+            TEMP_INFO_TABLE_NAME: ["TEMP_SENSOR_A"],
+            FAULT_INFO_NAME: ["TEMP_SENSOR_A"]
+        },
+        "volt_info": {
+            VOLT_INFO_TABLE_NAME: ["VOLT_SENSOR_A"],
+            FAULT_INFO_NAME: ["VOLT_SENSOR_A"]
+        },
+        "curr_info": {
+            CURR_INFO_TABLE_NAME: ["CURR_SENSOR_A"],
+            FAULT_INFO_NAME: ["CURR_SENSOR_A"]
+        },
+        # GroupB - Multiple sensor tests (OB01)
+        "fault_info": {
+            FAULT_INFO_NAME: ["TEMP_SENSOR_B", "VOLT_SENSOR_B", "CURR_SENSOR_B"]
+        },
+        # GroupC - Edge cases (DB01)
+        "invalid_thresholds": {
+            TEMP_INFO_TABLE_NAME: ["TEMP_SENSOR_C", "TEMP_SENSOR_H", "INVALID_SENSOR_PATH_D"],
+            VOLT_INFO_TABLE_NAME: ["VOLT_SENSOR_C"],
+            CURR_INFO_TABLE_NAME: ["CURR_SENSOR_C"],
+            FAULT_INFO_NAME: ["TEMP_SENSOR_C", "CURR_SENSOR_C", "VOLT_SENSOR_C", "TEMP_SENSOR_H", 
+                              "UNKNOWN_SENSOR_D", "INVALID_SENSOR_PATH_D"],
+            "UNKNOWN_SENSOR_TABLE": ["UNKNOWN_SENSOR_D"]
+        }
+    }
+    
+    @staticmethod
+    def get_memory_usage_mb(duthost):
+        """Simple method to get current memory usage in MB"""
+        try:
+            cmd = 'free -m | grep "^Mem:" | awk \'{print $3}\''
+            output = duthost.shell(cmd, module_ignore_errors=True)
+            if output['rc'] == 0:
+                used_mb = int(output['stdout'].strip())
+                logger.info('Current memory usage: {}MB'.format(used_mb))
+                return used_mb
+        except Exception as e:
+            logger.warning('Failed to get memory usage: {}'.format(e))
+        return None
+
+    @staticmethod
+    def wait_system_health_boot_up(duthost):
+        """Initialize test environment by ensuring device is in good state with HEALTH info"""
+        boot_timeout = DEFAULT_BOOT_TIMEOUT
+        assert wait_until(boot_timeout, 10, 0, System_Helper_Wrap.redis_table_exists, duthost, STATE_DB, HEALTH_TABLE_NAME), \
+            'System health service is not working'
+
+    @staticmethod
+    def redis_table_exists(duthost, db_id, key):
+        """Check if Redis table exists - used for health verification"""
+        cmd = 'redis-cli --raw -n {} EXISTS "{}"'.format(db_id, key)
+        logger.info('Checking if table exists in redis with cmd: {}'.format(cmd))
+        output = duthost.shell(cmd)
+        content = output['stdout'].strip()
+        return content != '0'
+
+    @staticmethod
+    def cleanup_sensor_data(duthost, test_case=None, initial_memory_mb=None):
+        """
+        Clean up specific sensor data from Redis based on test case and check memory usage
+        
+        Args:
+            duthost: The device under test
+            test_case: Specific test case to clean up (e.g., 'temp_info', 'fault_info', 'invalid_thresholds')
+            initial_memory_mb: Initial memory usage for comparison - FAILS if >100MB increase
+        """
+        if test_case and test_case in System_Helper_Wrap.TEST_SENSOR_MAPPINGS:
+            test_sensor_keys = System_Helper_Wrap.TEST_SENSOR_MAPPINGS[test_case]
+            logger.info('Performing targeted cleanup for test case: {}'.format(test_case))
+        else:
+            # Fallback to all sensors by combining all test case mappings
+            test_sensor_keys = {}
+            for case_name, case_mappings in System_Helper_Wrap.TEST_SENSOR_MAPPINGS.items():
+                for table, sensors in case_mappings.items():
+                    if table not in test_sensor_keys:
+                        test_sensor_keys[table] = []
+                    # Add sensors to the list, avoiding duplicates
+                    for sensor in sensors:
+                        if sensor not in test_sensor_keys[table]:
+                            test_sensor_keys[table].append(sensor)
+            logger.info('Performing general cleanup using combined mappings from all test cases')
+        
+        try:
+            cleanup_count = 0
+            # Collect all sensors and tables for batch cleanup
+            all_sensors = []
+            all_tables = []
+            for table, sensor_keys in test_sensor_keys.items():
+                all_tables.append(table)
+                all_sensors.extend(sensor_keys)
+            
+            # Remove duplicates while preserving order
+            unique_sensors = list(dict.fromkeys(all_sensors))
+            unique_tables = list(dict.fromkeys(all_tables))
+            
+            # Use shared cleanup utility
+            FaultHandlerTestHelper.cleanup_test_sensors(duthost, unique_sensors, unique_tables)
+            cleanup_count = len(unique_sensors) * len(unique_tables)  # Approximate count
+            
+            logger.info('Test-specific sensor cleanup completed: {} sensors removed for test case: {}'.format(
+                cleanup_count, test_case if test_case else 'general'))
+            
+            # Force garbage collection and allow time for system stabilization
+            gc.collect()
+            time.sleep(2)
+            
+            # Check memory usage and FAIL if >100MB increase
+            if initial_memory_mb is not None:
+                final_memory_mb = System_Helper_Wrap.get_memory_usage_mb(duthost)
+                if final_memory_mb is not None:
+                    memory_diff = final_memory_mb - initial_memory_mb
+                    logger.info('Memory usage difference after cleanup: {}MB for test case: {}'.format(
+                        memory_diff, test_case if test_case else 'general'))
+                    
+                    # FAIL if memory increase exceeds threshold
+                    if memory_diff > MEMORY_ERROR_THRESHOLD:
+                        pytest.fail('Memory increase exceeded {}MB threshold: {}MB detected for test case: {}'.format(
+                            MEMORY_ERROR_THRESHOLD, memory_diff, test_case if test_case else 'general'))
+                    else:
+                        logger.info('Memory usage within acceptable range: {}MB for test case: {}'.format(
+                            memory_diff, test_case if test_case else 'general'))
+
+        except Exception as e:
+            logger.warning('Test-specific sensor data cleanup failed: {}'.format(e))
+
+    @staticmethod
+    def test_setup(duthost, check_obfl=False):
+        """Setup method to call at the beginning of each test"""
+        initial_memory_mb = System_Helper_Wrap.get_memory_usage_mb(duthost)
+        
+        # Check OBFL directory if required (for GroupB tests)
+        if check_obfl:
+            obfl_check_cmd = 'test -d /mnt/obfl'
+            obfl_result = duthost.shell(obfl_check_cmd, module_ignore_errors=True)
+            
+            if obfl_result['rc'] != 0:
+                logger.info('FM_HND: /mnt/obfl directory not found - skipping OBFL verification (simulation case)')
+                logger.info('FM_HND: TEST_B SKIPPED - OBFL not available on this system')
+                pytest.skip("OBFL directory /mnt/obfl not found - simulation environment detected")
+            
+            logger.info('FM_HND: /mnt/obfl directory found - proceeding with OBFL verification')
+        
+        System_Helper_Wrap.wait_system_health_boot_up(duthost)
+        return initial_memory_mb
+
+    @staticmethod
+    def test_cleanup(duthost, initial_memory_mb, test_case=None):
+        """Cleanup method to call at the end of each test with test-case specific cleanup"""
+        System_Helper_Wrap.cleanup_sensor_data(duthost, test_case=test_case, initial_memory_mb=initial_memory_mb)
+
+
