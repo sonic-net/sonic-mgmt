@@ -61,22 +61,22 @@ VERIFICATION_INTERVAL = 2  # seconds
 def setup_and_teardown_topology(nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     """
     Fixture to set up the test environment for SRv6 uSID BGP L3VPN testing.
-    
+
     This fixture:
     - Validates the neighbor type is 'sonic'
     - Selects the DUT and a T1 neighbor for testing
     - Provides the neighbor and DUT hosts to test functions
     - Restores original configuration after test completion
-    
+
     Args:
         nbrhosts: Dictionary of neighbor hosts
         duthosts: Dictionary of DUT hosts
         enum_frontend_dut_hostname: Hostname of the frontend DUT
         request: Pytest request object
-        
+
     Yields:
         tuple: (neighbor_host, duthost) pair for test execution
-        
+
     Raises:
         pytest.skip: If neighbor_type is not 'sonic'
         AssertionError: If no T1 neighbor is found
@@ -106,7 +106,7 @@ def setup_and_teardown_topology(nbrhosts, duthosts, enum_frontend_dut_hostname, 
             logger.info(f"Selected T1 neighbor: {name}")
             nbr = nbrhosts[name]
             break
-    
+
     py_assert(nbr is not None, f"No T1 neighbors found in: {nbrnames}")
 
     logger.info("Fixture setup completed successfully")
@@ -133,7 +133,7 @@ def setup_and_teardown_topology(nbrhosts, duthosts, enum_frontend_dut_hostname, 
 def setup_bgp_srv6_usid_l3vpn(duthost, nbr):
     """
     Configure BGP SRv6 uSID L3VPN between DUT and neighbor device.
-    
+
     This function performs comprehensive configuration including:
     - VRF creation on both devices
     - Loopback interface configuration
@@ -141,11 +141,11 @@ def setup_bgp_srv6_usid_l3vpn(duthost, nbr):
     - BGP address families (IPv6 unicast and VPNv6)
     - Route targets and route distinguishers
     - VPN import/export policies
-    
+
     Args:
         duthost: DUT host object with shell command capabilities
         nbr: Neighbor host dictionary with 'host' and 'conf' keys
-        
+
     Raises:
         Exception: If any configuration command fails
     """
@@ -156,11 +156,11 @@ def setup_bgp_srv6_usid_l3vpn(duthost, nbr):
 
     # ========== NEIGHBOR CONFIGURATION ==========
     logger.info(f"Step 1/2: Configuring neighbor device - {nbr['host'].hostname}")
-    
+
     # Create VRF on neighbor
     logger.info(f"  -> Creating VRF '{VRF_NAME}' on neighbor")
     nbr['host'].shell(f"config vrf add {VRF_NAME}")
-    
+
     # Configure loopback interface on neighbor
     logger.info(f"  -> Configuring Loopback0 interface: {NBR_LOOPBACK_IP}")
     nbr['host'].shell(f"config interface ip add Loopback0 {NBR_LOOPBACK_IP}")
@@ -221,11 +221,11 @@ def setup_bgp_srv6_usid_l3vpn(duthost, nbr):
 
     # ========== DUT CONFIGURATION ==========
     logger.info(f"Step 2/2: Configuring DUT device - {duthost.hostname}")
-    
+
     # Create VRF on DUT
     logger.info(f"  -> Creating VRF '{VRF_NAME}' on DUT")
     duthost.shell(f"config vrf add {VRF_NAME}")
-    
+
     # Configure loopback interface on DUT
     logger.info(f"  -> Configuring Loopback0 interface: {DUT_LOOPBACK_IP}")
     duthost.shell(f"config interface ip add Loopback0 {DUT_LOOPBACK_IP}")
@@ -282,7 +282,7 @@ def setup_bgp_srv6_usid_l3vpn(duthost, nbr):
     logger.debug(f"  -> Executing vtysh command ({len(cmd)} bytes)")
     duthost.shell(cmd)
     logger.info("  -> DUT BGP/SRv6 configuration completed successfully")
-    
+
     elapsed_time = time.time() - start_time
     logger.info("=" * 80)
     logger.info(f"SETUP COMPLETED in {elapsed_time:.2f} seconds")
@@ -292,18 +292,18 @@ def setup_bgp_srv6_usid_l3vpn(duthost, nbr):
 def cleanup_bgp_srv6_usid_l3vpn(duthost, nbr):
     """
     Remove BGP SRv6 uSID L3VPN configuration from DUT and neighbor.
-    
+
     This function reverses all configuration changes made by setup_bgp_srv6_usid_l3vpn,
     including:
     - BGP VPNv6 and SRv6 configuration removal
     - SRv6 locator deletion
     - Loopback interface removal
     - VRF deletion
-    
+
     Args:
         duthost: DUT host object with shell command capabilities
         nbr: Neighbor host dictionary with 'host' and 'conf' keys
-        
+
     Raises:
         Exception: If any cleanup command fails
     """
@@ -314,7 +314,7 @@ def cleanup_bgp_srv6_usid_l3vpn(duthost, nbr):
 
     # ========== NEIGHBOR CLEANUP ==========
     logger.info(f"Step 1/2: Cleaning up neighbor device - {nbr['host'].hostname}")
-    
+
     # Remove BGP and SRv6 configuration via vtysh
     logger.info("  -> Removing BGP and SRv6 configuration via vtysh")
     peer_ip = nbr['conf']['bgp']['peers'][next(iter(nbr['conf']['bgp']['peers']))][1]
@@ -356,11 +356,11 @@ def cleanup_bgp_srv6_usid_l3vpn(duthost, nbr):
     )
     logger.debug(f"  -> Executing vtysh cleanup command ({len(cmd)} bytes)")
     nbr['host'].shell(cmd)
-    
+
     # Remove loopback interface
     logger.info(f"  -> Removing Loopback0 interface: {NBR_LOOPBACK_IP}")
     nbr['host'].shell(f"config interface ip remove Loopback0 {NBR_LOOPBACK_IP}")
-    
+
     # Remove VRF
     logger.info(f"  -> Removing VRF '{VRF_NAME}'")
     nbr['host'].shell(f"config vrf del {VRF_NAME}")
@@ -368,7 +368,7 @@ def cleanup_bgp_srv6_usid_l3vpn(duthost, nbr):
 
     # ========== DUT CLEANUP ==========
     logger.info(f"Step 2/2: Cleaning up DUT device - {duthost.hostname}")
-    
+
     # Remove BGP and SRv6 configuration via vtysh
     logger.info("  -> Removing BGP and SRv6 configuration via vtysh")
     dut_asn = list(nbr['conf']['bgp']['peers'].keys())[0]
@@ -411,16 +411,16 @@ def cleanup_bgp_srv6_usid_l3vpn(duthost, nbr):
 
     logger.debug(f"  -> Executing vtysh cleanup command ({len(cmd)} bytes)")
     duthost.shell(cmd)
-    
+
     # Remove loopback interface
     logger.info(f"  -> Removing Loopback0 interface: {DUT_LOOPBACK_IP}")
     duthost.shell(f"config interface ip remove Loopback0 {DUT_LOOPBACK_IP}")
-    
+
     # Remove VRF
     logger.info(f"  -> Removing VRF '{VRF_NAME}'")
     duthost.shell(f"config vrf del {VRF_NAME}")
     logger.info("  -> DUT cleanup completed successfully")
-    
+
     elapsed_time = time.time() - start_time
     logger.info("=" * 80)
     logger.info(f"CLEANUP COMPLETED in {elapsed_time:.2f} seconds")
@@ -430,23 +430,23 @@ def cleanup_bgp_srv6_usid_l3vpn(duthost, nbr):
 def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     """
     Execute the main test logic for SRv6 uSID BGP L3VPN functionality.
-    
+
     This function orchestrates the complete test workflow:
     1. Setup: Configure BGP SRv6 uSID L3VPN on both DUT and neighbor
     2. Verification: Validate route propagation and SRv6 table entries
     3. Cleanup: Remove all configuration
     4. Cleanup Verification: Ensure all entries are properly removed
-    
+
     The test validates:
     - ROUTE_TABLE entries with correct segment information
     - SRV6_SID_LIST_TABLE entries with proper path configuration
     - SRV6_MY_SID_TABLE entries with udt6 action and VRF binding
     - Complete cleanup of all SRv6-related entries
-    
+
     Args:
         enum_frontend_dut_hostname: Hostname of the frontend DUT
         hosts: Tuple containing (neighbor_host, duthost)
-        
+
     Raises:
         AssertionError: If any verification step fails
     """
@@ -472,17 +472,17 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     # Test 1: Verify ROUTE_TABLE entry
     route_key = f"ROUTE_TABLE:{VRF_NAME}:{V6_PREFIX_NBR}/{V6_MASK_NBR}"
     expected_segment = "fcbb:bbbb:1:e000::"
-    
+
     logger.info("Test 1: Verifying ROUTE_TABLE entry")
     logger.info(f"  Route key: {route_key}")
     logger.info(f"  Expected segment: {expected_segment}")
-    
+
     assert wait_until(
         VERIFICATION_TIMEOUT, VERIFICATION_INTERVAL, 0,
         verify_appl_db_route_entry_exist, duthost, "sonic-db-cli", route_key, True
     ), f"Route entry '{route_key}' is missing in APPL_DB after {VERIFICATION_TIMEOUT}s"
     logger.info("  ✓ Route entry exists in ROUTE_TABLE")
-    
+
     actual_segment = duthost.command(
         f"sonic-db-cli APPL_DB hget {route_key} segment"
     )["stdout"]
@@ -493,17 +493,17 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
 
     # Test 2: Verify SRV6_SID_LIST_TABLE entry
     sid_list_key = f"SRV6_SID_LIST_TABLE:{expected_segment}"
-    
+
     logger.info("")
     logger.info("Test 2: Verifying SRV6_SID_LIST_TABLE entry")
     logger.info(f"  SID list key: {sid_list_key}")
-    
+
     assert wait_until(
         VERIFICATION_TIMEOUT, VERIFICATION_INTERVAL, 0,
         verify_appl_db_sid_list_entry_exist, duthost, "sonic-db-cli", sid_list_key, True
     ), f"SID list entry '{sid_list_key}' is missing in APPL_DB after {VERIFICATION_TIMEOUT}s"
     logger.info("  ✓ SID list entry exists in SRV6_SID_LIST_TABLE")
-    
+
     actual_path = duthost.command(
         f"sonic-db-cli APPL_DB hget {sid_list_key} path"
     )["stdout"]
@@ -516,26 +516,26 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     my_sid_key = "SRV6_MY_SID_TABLE:32:16:16:0:fcbb:bbbb:2:e000::"
     expected_action = "udt6"
     expected_vrf = VRF_NAME
-    
+
     logger.info("")
     logger.info("Test 3: Verifying SRV6_MY_SID_TABLE entry")
     logger.info(f"  MY_SID key: {my_sid_key}")
     logger.info(f"  Expected action: {expected_action}")
     logger.info(f"  Expected VRF: {expected_vrf}")
-    
+
     assert wait_until(
         VERIFICATION_TIMEOUT, VERIFICATION_INTERVAL, 0,
         verify_appl_db_sid_entry_exist, duthost, "sonic-db-cli", my_sid_key, True
     ), f"MY_SID entry '{my_sid_key}' is missing in APPL_DB after {VERIFICATION_TIMEOUT}s"
     logger.info("  ✓ MY_SID entry exists in SRV6_MY_SID_TABLE")
-    
+
     actual_action = duthost.command(
         f"sonic-db-cli APPL_DB hget {my_sid_key} action"
     )["stdout"]
     assert actual_action == expected_action, \
         f"MY_SID action mismatch: expected '{expected_action}', got '{actual_action}'"
     logger.info(f"  ✓ MY_SID action verified: {actual_action}")
-    
+
     actual_vrf = duthost.command(
         f"sonic-db-cli APPL_DB hget {my_sid_key} vrf"
     )["stdout"]
@@ -558,7 +558,7 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     # Test 4: Verify ROUTE_TABLE cleanup
     logger.info("Test 4: Verifying ROUTE_TABLE cleanup")
     logger.info(f"  Checking removal of: {route_key}")
-    
+
     assert wait_until(
         VERIFICATION_TIMEOUT, VERIFICATION_INTERVAL, 0,
         verify_appl_db_sid_entry_exist, duthost, "sonic-db-cli", route_key, False
@@ -570,7 +570,7 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     logger.info("")
     logger.info("Test 5: Verifying SRV6_SID_LIST_TABLE cleanup")
     logger.info(f"  Checking removal of: {sid_list_key}")
-    
+
     assert wait_until(
         VERIFICATION_TIMEOUT, VERIFICATION_INTERVAL, 0,
         verify_appl_db_sid_entry_exist, duthost, "sonic-db-cli", sid_list_key, False
@@ -582,14 +582,14 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     logger.info("")
     logger.info("Test 6: Verifying SRV6_MY_SID_TABLE cleanup")
     logger.info(f"  Checking removal of: {my_sid_key}")
-    
+
     assert wait_until(
         VERIFICATION_TIMEOUT, VERIFICATION_INTERVAL, 0,
         verify_appl_db_sid_entry_exist, duthost, "sonic-db-cli", my_sid_key, False
     ), f"MY_SID entry '{my_sid_key}' was not properly cleaned up from APPL_DB"
     logger.info("  ✓ MY_SID successfully removed from SRV6_MY_SID_TABLE")
     logger.info("Test 6: PASSED ✓")
-    
+
     # ========== TEST SUMMARY ==========
     logger.info("")
     logger.info("#" * 80)
@@ -604,14 +604,14 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
 def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_and_teardown_topology):
     """
     Pytest entry point for SRv6 uSID BGP L3VPN test.
-    
+
     This is the main test function invoked by pytest. It delegates to
     run_srv6_usid_bgp_l3vpn() for the actual test execution.
-    
+
     Args:
         enum_frontend_dut_hostname: Hostname of the frontend DUT (from pytest fixture)
         setup_and_teardown_topology: Test environment fixture providing (neighbor, duthost) tuple
-        
+
     Raises:
         AssertionError: If any test verification fails
     """
@@ -619,7 +619,7 @@ def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_and_teardown_topo
     logger.info("Starting test: test_srv6_usid_bgp_l3vpn")
     logger.info(f"DUT: {enum_frontend_dut_hostname}")
     logger.info("=" * 80)
-    
+
     try:
         run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_and_teardown_topology)
     except Exception as e:
