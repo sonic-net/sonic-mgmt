@@ -38,12 +38,28 @@ def setup_env(duthost):
     Args:
         duthost: DUT.
     """
-    global TRIM_SIZE, TRIM_QUEUE, TRIM_SIZE_UPDATE, TRIM_QUEUE_UPDATE
-    if duthost.facts["asic_type"] == "broadcom":
+
+    if 'th5' == duthost.get_asic_name():
+
+        global TRIM_SIZE
+        global TRIM_SIZE_UPDATE
+        global TRIM_QUEUE
+        global TRIM_QUEUE_UPDATE
+
+        th5_queue = {
+            'Arista-7060X6-64PE-B-C448O16': 4,
+            'Arista-7060X6-64PE-B-C512S2': 4,
+        }
+
+        # TH5 trim queue defaults to 9 unless otherwise configured
+        # and does not support being modified at runtime
+        TRIM_QUEUE = th5_queue.get(duthost.facts['hwsku'], 9)
+        TRIM_QUEUE_UPDATE = TRIM_QUEUE
+
+        # TH5 supports only fixed size of 206
         TRIM_SIZE = 206
-        TRIM_QUEUE = 7
-        TRIM_SIZE_UPDATE = 206
-        TRIM_QUEUE_UPDATE = 7
+        TRIM_SIZE_UPDATE = TRIM_SIZE
+
     create_checkpoint(duthost)
 
     yield
