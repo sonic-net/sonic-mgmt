@@ -79,6 +79,15 @@ all:
         bjw3-5-5:
           ansible_host: 10.150.239.22
           ansible_hostv6: 2404:f801:10:16::a96:ef15
+        bjw3-9-2:
+          ansible_host: 10.150.239.23
+          ansible_hostv6: 2404:f801:10:16::a96:ef16
+        bjw3-9-3:
+          ansible_host: 10.150.239.24
+          ansible_hostv6: 2404:f801:10:16::a96:ef17
+        bjw3-9-4:
+          ansible_host: 10.150.239.25
+          ansible_hostv6: 2404:f801:10:16::a96:ef18
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -227,6 +236,18 @@ fanout:
       ansible_host: 10.150.238.111
       ansible_hostv6: 2404:f801:10:16::a96:ee6f
       os: sonic
+    bjw3-can-8102-leaf-1:
+      ansible_host: 10.150.238.113
+      ansible_hostv6: 2404:f801:10:16::a96:ee71
+      os: sonic
+    bjw3-can-8102-leaf-2:
+      ansible_host: 10.150.238.115
+      ansible_hostv6: 2404:f801:10:16::a96:ee73
+      os: sonic
+    bjw3-can-720dt-leaf-27:
+      ansible_host: 10.150.238.117
+      ansible_hostv6: 2404:f801:10:16::a96:ee75
+      os: sonic
 
 sonic:
   vars:
@@ -239,6 +260,8 @@ sonic:
     sonic_arista_7260cx3:
     sonic_nokia_7215a1d:
     sonic_arista_7060cx:
+    sonic_cisco_8102:
+    sonic_arista_720dt:
 
 
 server:
@@ -662,6 +685,67 @@ sonic_arista_7060cx:
       syseeprom_info:
   vars:
     iface_speed: 100000
+
+
+sonic_cisco_8102:
+  vars:
+    hwsku: Cisco-8102-C64
+    iface_speed: 100000
+  hosts:
+    bjw3-can-8102-7:
+      ansible_host: 10.150.238.112
+      ansible_hostv6: 2404:f801:10:16::a96:ee70
+      model: 8102-64H-O
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+    bjw3-can-8102-8:
+      ansible_host: 10.150.238.114
+      ansible_hostv6: 2404:f801:10:16::a96:ee72
+      model: 8102-64H-O
+      serial:
+      base_mac:
+      syseeprom_info:
+      plt_reboot_dict:
+        cold:
+          timeout: 300
+          wait: 360
+        watchdog:
+          timeout: 300
+          wait: 360
+        acl/test_acl.py::TestAclWithReboot:
+          timeout: 300
+          wait: 600
+        platform_tests/test_reload_config.py::test_reload_configuration_checks:
+          timeout: 300
+          wait: 600
+
+
+sonic_arista_720dt:
+  vars:
+    hwsku: Arista-720DT-G48S4
+    iface_speed: 1000
+  hosts:
+    bjw3-can-720dt-9:
+      ansible_host: 10.150.238.116
+      ansible_hostv6: 2404:f801:10:16::a96:ee74
+      model: CCS-720DT-48S-2F
+      serial:
+      base_mac:
+      syseeprom_info:
 
 
 mgmt:

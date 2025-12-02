@@ -24,6 +24,9 @@ bjw3-can-7060x64-leaf-1,10.150.238.83/23,Arista-7060X6-64PE,FanoutLeafSonic,,son
 bjw3-can-7050-leaf-4,10.150.238.86/23,Arista-7050CX3-32S-S128,FanoutLeafSonic,,sonic
 bjw3-can-7050-leaf-5,10.150.238.88/23,Arista-7050CX3-32S-C28S16,FanoutLeafSonic,,sonic
 bjw3-can-7050-leaf-6,10.150.238.90/23,Arista-7050CX3-32S-C28S16,FanoutLeafSonic,,sonic
+bjw3-can-8102-leaf-1,10.150.238.113/23,Cisco-8102-C64,FanoutLeafSonic,,sonic
+bjw3-can-8102-leaf-2,10.150.238.115/23,Cisco-8102-C64,FanoutLeafSonic,,sonic
+bjw3-can-720dt-leaf-27,10.150.238.117/23,Arista-720DT-G48S4,FanoutLeafSonic,,sonic
 bjw3-can-7050c-5,10.150.238.64/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw3-can-7050c-6,10.150.238.66/23,Arista-7050CX3-32C-S128,devsonic,,sonic
 bjw3-can-7050c-7,10.150.238.68/23,Arista-7050CX3-32C-S128,devsonic,,sonic
@@ -49,6 +52,9 @@ bjw3-can-7060-5,10.150.238.102/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw3-can-7060-6,10.150.238.104/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw3-can-7060-7,10.150.238.105/23,Arista-7060CX-32S-C32,DevSonic,,sonic
 bjw3-can-7060-8,10.150.238.107/23,Arista-7060CX-32S-C32,DevSonic,,sonic
+bjw3-can-8102-7,10.150.238.112/23,Cisco-8102-C64,DevSonic,,sonic
+bjw3-can-8102-8,10.150.238.114/23,Cisco-8102-C64,DevSonic,,sonic
+bjw2-can-720dt-9,10.150.238.116/23,Arista-720DT-G48S4,DevSonic,,sonic
 bjw3-pdu-126-62,10.150.126.62,Vertiv,Pdu,snmp,
 bjw3-pdu-126-63,10.150.126.63,Vertiv,Pdu,snmp,
 bjw3-pdu-126-64,10.150.126.64,Vertiv,Pdu,snmp,
