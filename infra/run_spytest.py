@@ -525,10 +525,13 @@ def execute_command_on_chan(chan, command='', show_output=False):
     termination_command = "\necho \"Command Completed, exit code is: $?\"\n"
     termination_str = "Command Completed, exit code is:"
     chan.send(command+termination_command)
+    start_time = time.time()
+    chan_timeout = 60 * 60 * 10  # 10 hours timeout for command execution
     while True:
         resp = chan.recv(9999).decode('utf-8')
-        if show_output:
-            print("resp: ", resp)
+        if show_output and resp:
+            print(f"resp: '{resp}'")
+
         if termination_str in resp:
             #the termination command command will show up initially in resp, ignore
             if resp.count(termination_str) == 1 and "$?" in resp.split(termination_str)[1]:
@@ -536,6 +539,11 @@ def execute_command_on_chan(chan, command='', show_output=False):
             exit_code = resp.split(termination_str)[1]
             print(f"Exit code for command {command} is: {exit_code}")
             break
+        
+        if time.time() - start_time > chan_timeout:
+            raise Exception(f"Timeout of {chan_timeout} seconds while waiting for command '{command}' to complete")
+
+        time.sleep(2)
 
 def run_sanity(topology, platform, script_file, test_bed=None): 
     print("Starting step: run_sanity")
