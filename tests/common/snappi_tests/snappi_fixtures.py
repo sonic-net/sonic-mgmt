@@ -1515,6 +1515,7 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
     if setup:
         cmd = "add"
     asic_arg = ""
+
     if namespace is not None:
         asic_arg = f"ip netns exec {namespace}"
     int_arg = ""
@@ -1526,11 +1527,18 @@ def gen_data_flow_dest_ip(addr, dut=None, intf=None, namespace=None, setup=True)
         arp_opt = f"-d {addr}"
 
     try:
-        dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
-        dut.shell(
-            "{} config route {} prefix {}/32 nexthop {} {}".format(
-                asic_arg, cmd, DEST_TO_GATEWAY_MAP[addr]['dest'], addr,
-                DEST_TO_GATEWAY_MAP[addr]['intf']))
+        if setup:
+            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
+            dut.shell(
+                f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
+                f"{addr} {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+            )
+        else:
+            dut.shell(
+                f"{asic_arg} config route {cmd} prefix {DEST_TO_GATEWAY_MAP[addr]['dest']}/32 nexthop "
+                f"{addr} {DEST_TO_GATEWAY_MAP[addr]['intf']}"
+            )
+            dut.shell(f"sudo {asic_arg} arp {int_arg} {arp_opt}")
     except RunAnsibleModuleFail:
         if setup:
             raise
