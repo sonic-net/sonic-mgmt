@@ -23485,14 +23485,6 @@ vms_bjw3_1:
       ansible_host: 172.16.213.143
     VM19144:
       ansible_host: 172.16.213.144
-    VM19145:
-      ansible_host: 172.16.213.145
-    VM19146:
-      ansible_host: 172.16.213.146
-    VM19147:
-      ansible_host: 172.16.213.147
-    VM19148:
-      ansible_host: 172.16.213.148
 
 vms_bjw3_2:
   hosts:
@@ -24039,14 +24031,6 @@ vms_bjw3_3:
       ansible_host: 172.16.215.139
     VM23140:
       ansible_host: 172.16.215.140
-    VM23141:
-      ansible_host: 172.16.215.141
-    VM23142:
-      ansible_host: 172.16.215.142
-    VM23143:
-      ansible_host: 172.16.215.143
-    VM23144:
-      ansible_host: 172.16.215.144
 
 vms_bjw3_4:
   hosts:
@@ -24569,26 +24553,10 @@ vms_bjw3_5:
       ansible_host: 172.16.217.132
     VM32121:
       ansible_host: 172.16.217.133
-    VM32122:
-      ansible_host: 172.16.217.134
-    VM32123:
-      ansible_host: 172.16.217.135
-    VM32124:
-      ansible_host: 172.16.217.136
-    VM32125:
-      ansible_host: 172.16.217.137
     VM32126:
       ansible_host: 172.16.217.138
     VM32127:
       ansible_host: 172.16.217.139
-    VM32128:
-      ansible_host: 172.16.217.140
-    VM32129:
-      ansible_host: 172.16.217.141
-    VM32130:
-      ansible_host: 172.16.217.142
-    VM32131:
-      ansible_host: 172.16.217.143
 
 vms_bjw3_8:
   hosts:
@@ -24931,6 +24899,114 @@ vms_bjw3_9:
       ansible_host: 172.16.222.42
     VM04031:
       ansible_host: 172.16.222.43
+    VM04032:
+      ansible_host: 172.16.222.44
+    VM04033:
+      ansible_host: 172.16.222.45
+    VM04034:
+      ansible_host: 172.16.222.46
+    VM04035:
+      ansible_host: 172.16.222.47
+    VM04036:
+      ansible_host: 172.16.222.48
+    VM04037:
+      ansible_host: 172.16.222.49
+    VM04038:
+      ansible_host: 172.16.222.50
+    VM04039:
+      ansible_host: 172.16.222.51
+    VM04040:
+      ansible_host: 172.16.222.52
+    VM04041:
+      ansible_host: 172.16.222.53
+    VM04042:
+      ansible_host: 172.16.222.54
+    VM04043:
+      ansible_host: 172.16.222.55
+    VM04044:
+      ansible_host: 172.16.222.56
+    VM04045:
+      ansible_host: 172.16.222.57
+    VM04046:
+      ansible_host: 172.16.222.58
+    VM04047:
+      ansible_host: 172.16.222.59
+    VM04048:
+      ansible_host: 172.16.222.60
+    VM04049:
+      ansible_host: 172.16.222.61
+    VM04050:
+      ansible_host: 172.16.222.62
+    VM04051:
+      ansible_host: 172.16.222.63
+    VM04052:
+      ansible_host: 172.16.222.64
+    VM04053:
+      ansible_host: 172.16.222.65
+    VM04054:
+      ansible_host: 172.16.222.66
+    VM04055:
+      ansible_host: 172.16.222.67
+    VM04056:
+      ansible_host: 172.16.222.68
+    VM04057:
+      ansible_host: 172.16.222.69
+    VM04058:
+      ansible_host: 172.16.222.70
+    VM04059:
+      ansible_host: 172.16.222.71
+    VM04060:
+      ansible_host: 172.16.222.72
+    VM04061:
+      ansible_host: 172.16.222.73
+    VM04062:
+      ansible_host: 172.16.222.74
+    VM04063:
+      ansible_host: 172.16.222.75
+    VM04064:
+      ansible_host: 172.16.222.76
+    VM04065:
+      ansible_host: 172.16.222.77
+    VM04066:
+      ansible_host: 172.16.222.78
+    VM04067:
+      ansible_host: 172.16.222.79
+    VM04068:
+      ansible_host: 172.16.222.80
+    VM04069:
+      ansible_host: 172.16.222.81
+    VM04070:
+      ansible_host: 172.16.222.82
+    VM04071:
+      ansible_host: 172.16.222.83
+    VM04072:
+      ansible_host: 172.16.222.84
+    VM04073:
+      ansible_host: 172.16.222.85
+    VM04074:
+      ansible_host: 172.16.222.86
+    VM04075:
+      ansible_host: 172.16.222.87
+    VM04076:
+      ansible_host: 172.16.222.88
+    VM04077:
+      ansible_host: 172.16.222.89
+    VM04078:
+      ansible_host: 172.16.222.90
+    VM04079:
+      ansible_host: 172.16.222.91
+    VM04080:
+      ansible_host: 172.16.222.92
+    VM04081:
+      ansible_host: 172.16.222.93
+    VM04082:
+      ansible_host: 172.16.222.94
+    VM04083:
+      ansible_host: 172.16.222.95
+    VM04084:
+      ansible_host: 172.16.222.96
+    VM04085:
+      ansible_host: 172.16.222.97
 
 # The groups below are helpers to limit running playbooks to a specific server only
 server_1:

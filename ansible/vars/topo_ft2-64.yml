@@ -257,7 +257,9 @@ topology:
 
 configuration_properties:
   common:
-    dut_asn: 4200100000
+    dut_asn: 4200300000
+    dut_confed_asn: 4200100000
+    dut_confed_peers: "4200200000 4200400000"
     dut_type: FabricSpineRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
@@ -266,8 +268,8 @@ configuration_properties:
     tor_subnet_number: 2
     max_tor_subnet_number: 16
     tor_subnet_size: 128
-    leaf_asn_start: 4200300000
-    tor_asn_start: 4200400000
+    leaf_asn_start: 4000000000
+    tor_asn_start: 410000000
     swrole: lowerspine
 
 configuration:
@@ -275,9 +277,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.0
           - fc00::1
     interfaces:
@@ -294,9 +298,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.2
           - fc00::5
     interfaces:
@@ -313,9 +319,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.4
           - fc00::9
     interfaces:
@@ -332,9 +340,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.6
           - fc00::d
     interfaces:
@@ -351,9 +361,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.8
           - fc00::11
     interfaces:
@@ -370,9 +382,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.10
           - fc00::15
     interfaces:
@@ -389,9 +403,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.12
           - fc00::19
     interfaces:
@@ -408,9 +424,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.14
           - fc00::1d
     interfaces:
@@ -427,9 +445,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.16
           - fc00::21
     interfaces:
@@ -446,9 +466,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.18
           - fc00::25
     interfaces:
@@ -465,9 +487,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.20
           - fc00::29
     interfaces:
@@ -484,9 +508,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.22
           - fc00::2d
     interfaces:
@@ -503,9 +529,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.24
           - fc00::31
     interfaces:
@@ -522,9 +550,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.26
           - fc00::35
     interfaces:
@@ -541,9 +571,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.28
           - fc00::39
     interfaces:
@@ -560,9 +592,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.30
           - fc00::3d
     interfaces:
@@ -579,9 +613,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.32
           - fc00::41
     interfaces:
@@ -598,9 +634,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.34
           - fc00::45
     interfaces:
@@ -617,9 +655,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.36
           - fc00::49
     interfaces:
@@ -636,9 +676,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.38
           - fc00::4d
     interfaces:
@@ -655,9 +697,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.40
           - fc00::51
     interfaces:
@@ -674,9 +718,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.42
           - fc00::55
     interfaces:
@@ -693,9 +739,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.44
           - fc00::59
     interfaces:
@@ -712,9 +760,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.46
           - fc00::5d
     interfaces:
@@ -731,9 +781,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.48
           - fc00::61
     interfaces:
@@ -750,9 +802,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.50
           - fc00::65
     interfaces:
@@ -769,9 +823,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.52
           - fc00::69
     interfaces:
@@ -788,9 +844,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.54
           - fc00::6d
     interfaces:
@@ -807,9 +865,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.56
           - fc00::71
     interfaces:
@@ -826,9 +886,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.58
           - fc00::75
     interfaces:
@@ -845,9 +907,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.60
           - fc00::79
     interfaces:
@@ -864,9 +928,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.62
           - fc00::7d
     interfaces:
@@ -883,9 +949,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.64
           - fc00::81
     interfaces:
@@ -902,9 +970,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.66
           - fc00::85
     interfaces:
@@ -921,9 +991,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.68
           - fc00::89
     interfaces:
@@ -940,9 +1012,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.70
           - fc00::8d
     interfaces:
@@ -959,9 +1033,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.72
           - fc00::91
     interfaces:
@@ -978,9 +1054,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.74
           - fc00::95
     interfaces:
@@ -997,9 +1075,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.76
           - fc00::99
     interfaces:
@@ -1016,9 +1096,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.78
           - fc00::9d
     interfaces:
@@ -1035,9 +1117,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.80
           - fc00::a1
     interfaces:
@@ -1054,9 +1138,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.82
           - fc00::a5
     interfaces:
@@ -1073,9 +1159,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.84
           - fc00::a9
     interfaces:
@@ -1092,9 +1180,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.86
           - fc00::ad
     interfaces:
@@ -1111,9 +1201,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.88
           - fc00::b1
     interfaces:
@@ -1130,9 +1222,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.90
           - fc00::b5
     interfaces:
@@ -1149,9 +1243,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.92
           - fc00::b9
     interfaces:
@@ -1168,9 +1264,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.94
           - fc00::bd
     interfaces:
@@ -1187,9 +1285,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.96
           - fc00::c1
     interfaces:
@@ -1206,9 +1306,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.98
           - fc00::c5
     interfaces:
@@ -1225,9 +1327,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.100
           - fc00::c9
     interfaces:
@@ -1244,9 +1348,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.102
           - fc00::cd
     interfaces:
@@ -1263,9 +1369,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.104
           - fc00::d1
     interfaces:
@@ -1282,9 +1390,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.106
           - fc00::d5
     interfaces:
@@ -1301,9 +1411,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.108
           - fc00::d9
     interfaces:
@@ -1320,9 +1432,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.110
           - fc00::dd
     interfaces:
@@ -1339,9 +1453,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.112
           - fc00::e1
     interfaces:
@@ -1358,9 +1474,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.114
           - fc00::e5
     interfaces:
@@ -1377,9 +1495,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.116
           - fc00::e9
     interfaces:
@@ -1396,9 +1516,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.118
           - fc00::ed
     interfaces:
@@ -1415,9 +1537,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.120
           - fc00::f1
     interfaces:
@@ -1434,9 +1558,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.122
           - fc00::f5
     interfaces:
@@ -1453,9 +1579,11 @@ configuration:
     properties:
     - common
     bgp:
-      asn: 4200100000
+      asn: 4200200000
+      confed_asn: 4200100000
+      confed_peers: "4200300000,4200400000"
       peers:
-        4200100000:
+        4200300000:
           - 10.0.0.124
           - fc00::f9
     interfaces:
