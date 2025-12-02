@@ -63,16 +63,18 @@ def check_critical_processes(dut, watch_secs=0):
         watch_secs = watch_secs - 5
 
 
-def wait_critical_processes(dut):
+def wait_critical_processes(dut, timeout=None):
     """
     @summary: wait until all critical processes are healthy.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
+    @param timeout: customized timeout value in seconds. If specified, it overwrites the value from inventory file.
     """
-    timeout = reset_timeout(dut)
-    # No matter what we set in inventory file, we always set sup timeout to 900
-    # because most SUPs have 10+ dockers that need to come up
-    if dut.is_supervisor_node():
-        timeout = 900
+    if timeout is None:
+        timeout = reset_timeout(dut)
+        # No matter what we set in inventory file, we always set sup timeout to 900
+        # because most SUPs have 10+ dockers that need to come up
+        if dut.is_supervisor_node():
+            timeout = 900
     logging.info("Wait until all critical processes are healthy in {} sec"
                  .format(timeout))
     pytest_assert(wait_until(timeout, 20, 0, _all_critical_processes_healthy, dut),
