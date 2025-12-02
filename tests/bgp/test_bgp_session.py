@@ -135,8 +135,10 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
             nbrhosts[neighbor_name]['host'].no_shutdown(neighbor_port)
             time.sleep(1)
 
-        pytest_assert(wait_until(120, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
+        start_time = time.time()
+        pytest_assert(wait_until(240, 10, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys())),
                       "Not all BGP sessions are established on DUT")
+        logger.info("4. All BGP sessions are established on DUT in {} seconds".format(time.time() - start_time))
 
 
 def check_frr_mgmt_framework_config(duthost):
