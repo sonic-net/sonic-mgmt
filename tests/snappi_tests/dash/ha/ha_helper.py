@@ -56,6 +56,22 @@ def run_ha_test(duthosts, localhost, tbinfo, ha_test_case, config_npu_dpu, confi
     return
 
 
+def is_smartswitch(duthost):
+
+    pattern = r'"subtype"\s*:\s*"SmartSwitch"'
+    result = duthost.shell('sonic-cfggen -d --var-json DEVICE_METADATA')
+    match = re.search(pattern, result['stdout'])
+
+    logger.info(f"Checking if SONiC device {duthost.hostname} is a SmartSwitch")
+    if match:
+        # Found subtype is a SmartSwitch
+        logger.info(f"SONiC device {duthost.hostname} is a SmartSwitch")
+        return True
+    else:
+        logger.info(f"SONiC device {duthost.hostname} is not a SmartSwitch")
+        return False
+
+
 def duthost_ha_config(duthost, tbinfo, static_ipmacs_dict, ha_test_case):
 
     static_ips = static_ipmacs_dict['static_ips']

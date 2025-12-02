@@ -147,31 +147,37 @@ def _get_dpu0_lf(local_dir):
 
 def set_ha_roles(duthosts, duthost):
     if duthost == duthosts[0]:
-        # Active side
-        active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
-        active_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
+        try:
+            # Active side
+            active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
+            active_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "true" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
 
-        logger.info("Setting up HA creation Active side cmd1")
-        output_cmd1 = duthost.shell(active_cmd1)
-        logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
+            logger.info("Setting up HA creation Active side cmd1")
+            output_cmd1 = duthost.shell(active_cmd1)
+            logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
 
-        time.sleep(2)
-        logger.info("Setting up HA creation Active side cmd2")
-        output_cmd2 = duthost.shell(active_cmd2)
-        logger.info(f"Active side cmd2 output: {output_cmd2['stdout']}")
+            time.sleep(2)
+            logger.info("Setting up HA creation Active side cmd2")
+            output_cmd2 = duthost.shell(active_cmd2)
+            logger.info(f"Active side cmd2 output: {output_cmd2['stdout']}")
+        except Exception as e:
+            logger.error(f"{duthost.hostname} Error setting HA roles active side: {str(e)}")
     else:
-        # Standby side
-        standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
-        standby_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
+        try:
+            # Standby side
+            standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SET_CONFIG_TABLE:haset0_0 version \"1\" vip_v4 "221.0.0.1" scope "dpu" preferred_vdpu_id "vdpu0_0" preferred_standalone_vdpu_index 0 vdpu_ids '["vdpu0_0","vdpu1_0"]' '''  # noqa E501
+            standby_cmd2 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "true" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" '''  # noqa E501
 
-        logger.info("Setting up HA creation Standby side cmd1")
-        output_cmd1 = duthost.shell(standby_cmd1)
-        logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
+            logger.info("Setting up HA creation Standby side cmd1")
+            output_cmd1 = duthost.shell(standby_cmd1)
+            logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
 
-        time.sleep(2)
-        logger.info("Setting up HA creation Standby side cmd2")
-        output_cmd2 = duthost.shell(standby_cmd2)
-        logger.info(f"Standby side cmd2 output: {output_cmd2['stdout']}")
+            time.sleep(2)
+            logger.info("Setting up HA creation Standby side cmd2")
+            output_cmd2 = duthost.shell(standby_cmd2)
+            logger.info(f"Standby side cmd2 output: {output_cmd2['stdout']}")
+        except Exception as e:
+            logger.error(f"{duthost.hostname} Error setting HA roles standby side: {str(e)}")
 
     return
 
@@ -180,30 +186,36 @@ def set_ha_admin_up(duthosts, duthost, tbinfo):
 
     if duthost == duthosts[0]:
         # Active side
-        standby_ethpass_ip = tbinfo['standby_ethpass_ip']
-        standby_mac = tbinfo['standby_mac']
+        try:
+            standby_ethpass_ip = tbinfo['standby_ethpass_ip']
+            standby_mac = tbinfo['standby_mac']
 
-        active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
-        logger.info("Setting up HA admin up Active side cmd1")
-        output_cmd1 = duthost.shell(active_cmd1)
-        logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
+            active_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"1\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
+            logger.info("Setting up HA admin up Active side cmd1")
+            output_cmd1 = duthost.shell(active_cmd1)
+            logger.info(f"Active side cmd1 output: {output_cmd1['stdout']}")
 
-        time.sleep(2)
-        output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
-        output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+            time.sleep(2)
+            output = duthost.shell(f'sudo arp -s {standby_ethpass_ip} {standby_mac}')
+            output_ping = duthost.command(f"ping -c 3 {standby_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+        except Exception as e:
+            logger.error(f"{duthost.hostname} Error setting HA admin up active side: {str(e)}")
     else:
         # Standby side
-        active_ethpass_ip = tbinfo['active_ethpass_ip']
-        active_mac = tbinfo['active_mac']
+        try:
+            active_ethpass_ip = tbinfo['active_ethpass_ip']
+            active_mac = tbinfo['active_mac']
 
-        standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
-        logger.info("Setting up HA admin up Standby side cmd1")
-        output_cmd1 = duthost.shell(standby_cmd1)
-        logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
+            standby_cmd1 = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"1\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu"'''  # noqa E501
+            logger.info("Setting up HA admin up Standby side cmd1")
+            output_cmd1 = duthost.shell(standby_cmd1)
+            logger.info(f"Standby side cmd1 output: {output_cmd1['stdout']}")
 
-        time.sleep(2)
-        output = duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')  # noqa: F841
-        output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+            time.sleep(2)
+            output = duthost.shell(f'sudo arp -s {active_ethpass_ip} {active_mac}')  # noqa: F841
+            output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)  # noqa: F841
+        except Exception as e:
+            logger.error(f"{duthost.hostname} Error setting HA admin up standby side: {str(e)}")
 
     return
 
@@ -227,43 +239,56 @@ def set_ha_activate_role(duthosts, duthost):
     # Extract the pending_operation_ids UUID using regex
     uuid_pattern = r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}'
 
-    # Execute command and grep for pending_operation_ids
-    while True:
-        result = duthost.shell(f"{cmd} | grep pending_operation_ids")
-        stdout = result['stdout']
+    # Execute command (without grep) and parse in Python
+    while retries > 0:
+        # Run the command, tolerating errors (module_ignore_errors=True)
+        result = duthost.shell(cmd, module_ignore_errors=True)
+        rc = result.get('rc', 1)  # Default to 1 if no rc
+        stdout = result.get('stdout', '')
+        stderr = result.get('stderr', '')
 
-        match = re.search(uuid_pattern, stdout)
-
-        if match:
-            pending_operation_id = match.group(0)
-            logger.info(f"Found pending_operation_id on {duthost.hostname}: {pending_operation_id}")
-            logger.info(f"Applying pending_operation_id on {duthost.hostname}")
-            if duthost == duthosts[0]:
-                # Active side
-                cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
-                    pending_operation_id)
-                logger.info("Setting up HA activation role Active side")
-                output = duthost.shell(cmd)
-                logger.info(f"Active side output after cmd output: {output['stdout']}")
-            else:
-                cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
-                    pending_operation_id)
-                logger.info("Setting up HA activation role Standby side")
-                output = duthost.shell(cmd)
-                logger.info(f"Standby side output after cmd output: {output['stdout']}")
-            break
+        if rc != 0:
+            # Command failed (e.g., docker error) - log and retry
+            logger.warning(f"Command failed on {duthost.hostname} (rc={rc}): {cmd}")
+            logger.info(f"STDERR: {stderr}")
+            logger.info(f"STDOUT (partial): {stdout[:200]}...")  # Partial for brevity
         else:
-            retries -= 1
-            pending_operation_id = None
-            logger.warning(f"Could not extract pending_operation_id from {duthost.hostname}")
-            logger.info(f"Raw output: {stdout}")
-            logger.info(f"Sleeping for 10 seconds then trying again, retries left: {retries} ")
+            # Command succeeded - check for the field and extract UUID
+            if 'pending_operation_ids' in stdout:
+                match = re.search(uuid_pattern, stdout)
+                if match:
+                    pending_operation_id = match.group(0)
+                    logger.info(f"Found pending_operation_id on {duthost.hostname}: {pending_operation_id}")
+                    logger.info(f"Applying pending_operation_id on {duthost.hostname}")
+                    if duthost == duthosts[0]:
+                        # Active side
+                        cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu0_0:haset0_0 version \"3\" disabled "false" desired_ha_state "active" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
+                            pending_operation_id)
+                        logger.info("Setting up HA activation role Active side")
+                        output = duthost.shell(cmd)
+                        logger.info(f"Active side output after cmd output: {output['stdout']}")
+                    else:
+                        cmd = r'''docker exec swss python /etc/sonic/proto_utils.py hset DASH_HA_SCOPE_CONFIG_TABLE:vdpu1_0:haset0_0 version \"3\" disabled "false" desired_ha_state "unspecified" ha_set_id "haset0_0" owner "dpu" approved_pending_operation_ids [\"{}\"]'''.format(  # noqa E501
+                            pending_operation_id)
+                        logger.info("Setting up HA activation role Standby side")
+                        output = duthost.shell(cmd)
+                        logger.info(f"Standby side output after cmd output: {output['stdout']}")
+                    return pending_operation_id  # Success - return the ID
+            else:
+                logger.info(f"pending_operation_ids not found yet in output on {duthost.hostname}")
+
+        # No match or error - retry
+        retries -= 1
+        logger.warning(f"Could not extract pending_operation_id from {duthost.hostname} (retries left: {retries})")
+        logger.info(f"Raw output: {stdout}")
+        if retries > 0:
+            logger.info("Sleeping for 10 seconds then trying again")
             time.sleep(10)
+        else:
+            logger.error(f"Exhausted retries on {duthost.hostname}")
+            return False
 
-            if retries == 0:
-                return False
-
-    return pending_operation_id
+    return False
 
 
 def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_index, ha_test_case):

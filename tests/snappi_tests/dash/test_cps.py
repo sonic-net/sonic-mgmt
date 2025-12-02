@@ -1,5 +1,5 @@
 from tests.common.helpers.assertions import pytest_assert, pytest_require  # noqa F401
-from tests.snappi_tests.dash.ha.ha_helper import *  # noqa F401,F403
+from tests.snappi_tests.dash.ha.ha_helper import is_smartswitch, run_ha_test
 from tests.common.snappi_tests.snappi_fixtures import config_uhd_connect  # noqa F401
 from tests.common.snappi_tests.ixload.snappi_fixtures import config_snappi_l47  # noqa F401
 from tests.common.snappi_tests.ixload.snappi_fixtures import config_npu_dpu  # noqa F401
@@ -35,6 +35,10 @@ def test_cps_baby_hero(
 
     results = {}
     errors = {}
+
+    sw1 = is_smartswitch(duthost)
+    if sw1 is False:
+        pytest.skip("Skipping test since is not a smartswitch")
 
     def _resolve_fixture(name):
         # Resolve the fixture value on-demand
