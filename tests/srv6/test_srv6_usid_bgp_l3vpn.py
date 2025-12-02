@@ -58,7 +58,7 @@ VERIFICATION_INTERVAL = 2  # seconds
 
 
 @pytest.fixture(scope="module")
-def setup_teardown(nbrhosts, duthosts, enum_frontend_dut_hostname, request):
+def setup_and_teardown_topology(nbrhosts, duthosts, enum_frontend_dut_hostname, request):
     """
     Fixture to set up the test environment for SRv6 uSID BGP L3VPN testing.
     
@@ -601,7 +601,7 @@ def run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, hosts):
     logger.info("")
 
 
-def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_teardown):
+def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_and_teardown_topology):
     """
     Pytest entry point for SRv6 uSID BGP L3VPN test.
     
@@ -610,7 +610,7 @@ def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_teardown):
     
     Args:
         enum_frontend_dut_hostname: Hostname of the frontend DUT (from pytest fixture)
-        setup_teardown: Test environment fixture providing (neighbor, duthost) tuple
+        setup_and_teardown_topology: Test environment fixture providing (neighbor, duthost) tuple
         
     Raises:
         AssertionError: If any test verification fails
@@ -621,7 +621,7 @@ def test_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_teardown):
     logger.info("=" * 80)
     
     try:
-        run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_teardown)
+        run_srv6_usid_bgp_l3vpn(enum_frontend_dut_hostname, setup_and_teardown_topology)
     except Exception as e:
         logger.error(f"Test failed with error: {str(e)}")
         raise
