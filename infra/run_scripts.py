@@ -1,19 +1,15 @@
 #!/usr/bin/python
 
 import argparse
-import json
 import logging
 import os
 import subprocess
 import time
 import datetime
 import sys
-import requests
-import base64
-import subprocess
 import paramiko
 import yaml
-
+from utils import log
 
 # Load config file
 ALLURE_CONFIG_FILE_NAME = "config/allure-config.yaml"
@@ -26,6 +22,23 @@ with open(ALLURE_CONFIG_FILE_NAME, "r") as config_file:
 ALLURE_DIR = allure_config['allure']['local-report-dir']
 ALLURE_REPORT_URL_FILE = allure_config['allure']['report-url-file-path']
 
+# Map device types to actual device names
+# KEY: Device Type
+# VALUE: Actual DUT name
+DEVICE_TYPE_TO_DUT_NAME_MAP = {
+    'sherman':          'sherman-01',
+    'churchill-mono':   'churchill-mono-01',
+    'm64-zz-2':         'm64-zz-2',
+    'mth-t0-64':        'mth-t0-64',
+    'sfd':              'sfd',
+    'aaa14-t2':         'aaa14-t2',
+    'lightning':        'lightning-01',
+    'superbolt':        'superbolt-01',
+    'siren':            'siren-01',
+    'crocodile':        'crocodile-01',
+    'mustang':          'mustang-01',
+    'mth64':            'mathilda-01'
+}
 
 def _create_parser():
     parser = argparse.ArgumentParser(description='Execute scripts and parse result.')
@@ -42,10 +55,6 @@ def _create_parser():
     parser.add_argument('-tt', '--topo_type', type=str, help='topo type',
                       required=True,default='t1-64-lag')
     parser.add_argument('-t', '--tstamp', type=str, help='Time stamp',
-                      required=False,default=None)
-    parser.add_argument('-c', '--collect_logs', action='store_true', help='Just Parse results',
-                      default=False)
-    parser.add_argument('-a', '--dut_address', type=str, help='specify dut address',
                       required=False,default=None)
     parser.add_argument('-n', '--dut_name', type=str, help='DUT name specified to run tests',
                       required=False,default='mathilda-01')
@@ -71,7 +80,7 @@ def _create_parser():
 def run_exec_cmds(host,port,user,passwd,cmd_list):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-    print(host, port, user, passwd)
+    log.info(f"Connecting to {host}:{port} as {user}")
     ssh.connect(host, port, user, passwd)
     for cmd in cmd_list:
         stdin, stdout, stderr = ssh.exec_command(cmd)
@@ -79,52 +88,52 @@ def run_exec_cmds(host,port,user,passwd,cmd_list):
         try:
             out = stdout.read().decode("ascii").strip()
             error = stderr.read()
-            print(out)
+            log.info(out)
             if error:
-                print('There was an error pulling the runtime: {}'.format(error))
-        except:
-            print("Problem decoding output of ssh command")
+                log.error(f'There was an error pulling the runtime: {error}')
+        except Exception as e:
+            log.error(f"Problem decoding output of ssh command: {e}")
     ssh.close()
 
 # Generate allure report using data in ALLURE_DIR
 def generate_allure_report(build_id, current_result_file):
-    report_folder_name = "allure-report-{}".format(build_id)
-    report_dir_path = "/tmp/{}".format(report_folder_name)
-    report_tar_path = "{}.tar.gz".format(report_dir_path)
+    report_folder_name = f"allure-report-{build_id}"
+    report_dir_path = f"/tmp/{report_folder_name}"
+    report_tar_path = f"{report_dir_path}.tar.gz"
 
     result = subprocess.run(["allure", "generate", "--name", build_id, "-o", report_dir_path, ALLURE_DIR])
     if result.returncode != 0:
-        print("Error while generating allure report! Error: {} {}".format(result.stderr, result.stdout))
-        current_result_file.write("Error while generating allure report! Error: {} {}\n".format(result.stderr, result.stdout))
+        log.error(f"Error while generating allure report! Error: {result.stderr} {result.stdout}")
+        current_result_file.write(f"Error while generating allure report! Error: {result.stderr} {result.stdout}\n")
         current_result_file.flush()
         return
 
     result = subprocess.run(["ls", report_dir_path])
     if result.returncode != 0:
-        print("Error while verifying allure report! Error: {} {}".format(result.stderr, result.stdout))
-        current_result_file.write("Error while verifying allure report! Error: {} {}".format(result.stderr, result.stdout))
+        log.error(f"Error while verifying allure report! Error: {result.stderr} {result.stdout}")
+        current_result_file.write(f"Error while verifying allure report! Error: {result.stderr} {result.stdout}")
         current_result_file.flush()
         return
 
-    print("Allure report generated successfully at /tmp/{}".format(report_folder_name))
-    current_result_file.write("Allure report generated successfully at /tmp/{}\n".format(report_folder_name))
+    log.info(f"Allure report generated successfully at /tmp/{report_folder_name}")
+    current_result_file.write(f"Allure report generated successfully at /tmp/{report_folder_name}\n")
     current_result_file.flush()
 
     result = subprocess.run(["tar", "-cvzf", report_tar_path, "-C", "/tmp/", report_folder_name])
     if result.returncode != 0:
-        print("Error while generating allure report tarball! Error: {} {}".format(result.stderr, result.stdout))
-        current_result_file.write("Error while generating allure report tarball! Error: {} {}\n".format(result.stderr, result.stdout))
+        log.error(f"Error while generating allure report tarball! Error: {result.stderr} {result.stdout}")
+        current_result_file.write(f"Error while generating allure report tarball! Error: {result.stderr} {result.stdout}\n")
         current_result_file.flush()
         return
 
     result = subprocess.run(["ls", report_tar_path])
     if result.returncode != 0:
-        print("Error while verifying allure report tarball! Error: {} {}".format(result.stderr, result.stdout))
-        current_result_file.write("Error while verifying allure report tarball! Error: {} {}".format(result.stderr, result.stdout))
+        log.error(f"Error while verifying allure report tarball! Error: {result.stderr} {result.stdout}")
+        current_result_file.write(f"Error while verifying allure report tarball! Error: {result.stderr} {result.stdout}")
         current_result_file.flush()
         return
 
-    print("Allure report tarball created successfully!")
+    log.info("Allure report tarball created successfully!")
     current_result_file.write("Allure report tarball created successfully!\n")
     current_result_file.flush()
 
@@ -174,7 +183,7 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_typ
     # 2. If we have categories, add all_topo/<category> if it exists
     for category in category_list:
         if category not in data:
-            logging.error(f"Could not find category '{category}' in yaml file '{yaml_file}'! Skipping...")
+            log.error(f"Could not find category '{category}' in yaml file '{yaml_file}'! Skipping...")
             continue
 
         if 'all_topo' in data[category]:
@@ -233,179 +242,14 @@ def get_testcases(script_file, test_tag, topo_type, additional_tests='', device_
                 tcs_dict[tc] = ""
 
 
-    print("script files are '{}', additional testscases are: '{}'".format(script_file, additional_tests))
-    print("\nTestcases are:")
+    log.info(f"script files are '{script_file}', additional testscases are: '{additional_tests}'")
+    log.info("Testcases are:")
     if script_file.endswith(('.yaml', '.yml')):
         for tc in tcs:
-            print(tc)
+            log.info(tc)
     else:
-        print("".join(tcs))
+        log.info("".join(tcs))
     return tcs
-
-def run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None, additional_tests='', run_options='',mark_conditions_files='',test_tag=None, device_type=None):
-    if drop_version is not None:
-        filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
-    else:
-        filename = 'ongoing_result_{}.csv'.format(tstamp)
-    if log_dir is not None:
-        log_dir = '/data/tests/{}'.format(log_dir)
-    else:
-        log_dir = '/data/tests/run_logs'
-    if build_id is None:
-        build_id = 99999
-    print("BUILD ID IS {}".format(build_id))
-    mark_conditions_file_opt = process_conditions_files(mark_conditions_files)
-    current_result_file = open(filename, 'w')
-    report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests, device_type)
-    total_passed = 0
-    total_failed = 0
-    total_skipped = 0
-    total_error = 0
-    final_total = 0
-    ssh_port = 22
-    dut_uname = 'admin'
-    dut_passwd = 'password'
-    if collect_logs and dut_address is not None:
-        cmd_list = list()
-        cmd_list.append('mkdir swss_logs_{}\n'.format(drop_version))
-        # cmd_list.append('sudo rm /var/log/swss/*.gz\n')
-        # cmd_list.append('sudo rm /var/log/syslog*.gz\n')
-        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}\n'.format(drop_version))
-        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
-        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
-    delta1 = datetime.datetime.now()
-
-    tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
-    os.system("bash -c '{}'".format(cmd))
-    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
-    if not int(passed):
-        print("Iteration1: Rerunning the script, making sure that DUT is up\n")
-        current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
-        current_result_file.flush()
-        time.sleep(60)
-        cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
-        os.system("bash -c '{}'".format(cmd))
-        passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
-        if not int(passed):
-            print("Iteration2: Rerunning the script, making sure that DUT is up\n")
-            current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
-            current_result_file.flush()
-            time.sleep(60)
-            cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
-            os.system("bash -c '{}'".format(cmd))
-
-    total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
-    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
-    failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
-    skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l", shell=True).strip()
-    errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
-    time.sleep(10)
-    final_total += int(total_tests)
-    total_passed += int(passed)
-    total_failed += int(failed)
-    total_skipped += int(skipped)
-    total_error += int(errored)
-
-    print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
-
-    current_result_file.write("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
-    current_result_file.flush()
-    report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
-    report_file.flush()
-
-    if collect_logs and dut_address is not None:
-        cmd_list = list()
-        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
-    if not int(passed):
-        current_result_file.write("{}, {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
-        current_result_file.flush()
-        report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
-        report_file.flush()
-        current_result_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
-        current_result_file.flush()
-        report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
-        report_file.flush()
-        # Use previous test results to generate Allure report
-        if create_allure_report:
-            generate_allure_report(build_id, current_result_file)
-        sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
-
-    current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
-    current_result_file.flush()
-    for tc in tcs:
-        if '#' in tc:
-            continue
-        tc = tc.strip()
-        tc_name = tc.split('/')
-        tc_name = tc_name[len(tc_name)-1].split('.')[0]
-        if drop_version is not None:
-            tc_name = tc_name + "_" + drop_version
-
-        print("Executing: {}".format(tc))
-
-        if collect_logs and dut_address is not None:
-            cmd_list = list()
-            # cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
-            # cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
-            # cmd_list.append('sudo rm /var/log/syslog*.gz\n')
-            # cmd_list.append('sudo rm /var/log/syslog.*\n')
-            # cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
-            # cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
-            # cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
-            cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
-            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
-        cmd = "./run_tests.sh -n {} {} -e --alluredir={} -e -rapP -O -u -e --recover_method=config_reload -m individual -p {} {} -c {} |& tee {}.log".format(topo_name, run_options, ALLURE_DIR, log_dir, mark_conditions_file_opt, tc, tc_name)
-        os.system("bash -c '{}'".format(cmd))
-
-        total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(tc_name), shell=True).strip()
-        passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(tc_name), shell=True).strip()
-        failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l".format(tc_name), shell=True).strip()
-        skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(tc_name), shell=True).strip()
-        errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(tc_name), shell=True).strip()
-        time.sleep(10)
-        final_total += int(total_tests)
-        total_passed += int(passed)
-        total_failed += int(failed)
-        total_skipped += int(skipped)
-        total_error += int(errored)
-
-        print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
-
-        current_result_file.write("{}:           {} total, {} Pass, {} Fail, {} Skip, {} Error \n".format(tc_name,total_tests,passed,failed,skipped,errored))
-        current_result_file.flush()
-        report_file.write("{}     , {} total, {} Pass, {} Fail, {} Skip, {} Error\n".format(tc_name,total_tests,passed,failed,skipped,errored))
-        report_file.flush()
-
-        if collect_logs and dut_address is not None:
-            cmd_list = list()
-            cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-            cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
-    if create_allure_report:
-        generate_allure_report(build_id, current_result_file)
-
-    current_result_file.write("Total TCs: {},          {} Pass, {} Fail, {} Skipped, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
-    current_result_file.close()
-    report_file.write("Total     , {} Total, {} Passed, {} Failed, {} Skip, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
-    report_file.close()
-
-    delta2 = datetime.datetime.now()
-    print(delta2)
-    time_delta = (delta2 - delta1)
-    print(time_delta)
-    total_seconds = time_delta.total_seconds()
-    minutes = total_seconds/60
-
-    print("Total time : {} mins".format(minutes))
-
 def get_techsupport(dut_address, tc_name, dut_name, log_dir):
     ssh_port = 22
     dut_uname = 'admin'
@@ -425,13 +269,13 @@ def get_techsupport(dut_address, tc_name, dut_name, log_dir):
         files = sftp.listdir_attr(ts_dir)
 
         if not files:
-            print("No files found in the directory.")
+            log.warning("No files found in the directory.")
             return None
 
         # Find the latest file by modification time
         latest_file = max(files, key=lambda x: x.st_mtime)
         latest_file_path = os.path.join(ts_dir, latest_file.filename)
-        print(latest_file_path)
+        log.info(latest_file_path)
         sftp.get(latest_file_path, f'{log_dir}/{dut_name}_{tc_name}_{latest_file.filename}')
 
         # Close the SFTP session and SSH connection
@@ -441,52 +285,81 @@ def get_techsupport(dut_address, tc_name, dut_name, log_dir):
         return latest_file_path
 
     except Exception as e:
-        print(f"An error occurred: {e}")
+        log.error(f"An error occurred: {e}")
         return None
 
 def process_conditions_files(mark_conditions_files):
     mark_conditions_file_opt = ""
     for file in mark_conditions_files.split(","):
-        mark_conditions_file_opt+=' -e "--mark-conditions-files {}" '.format(file)
+        mark_conditions_file_opt+=f' -e "--mark-conditions-files {file}" '
 
     return mark_conditions_file_opt
 
-def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs=False,dut_address=None,additional_tests='', run_options='',dut_data_file=None, mark_conditions_files='',test_tag=None, device_type=None):
-    print("running new_run_scripts")
-    print("params: ",
-          "\nscript_file: " + str(script_file),
-          "\ndrop_version: " + str(drop_version),
-          "\nlog_dir: " + str(log_dir),
-          "\ndut_name: " + str(dut_name),
-          "\ntopo_type: " + str(topo_type),
-          "\ntopo_name: " + str(topo_name),
-          "\ntstamp: " + str(tstamp),
-          "\nbuild_id: " + str(build_id),
-          "\ncreate_allure_report: " + str(create_allure_report),
-          "\ncollect_logs: " + str(collect_logs),
-          "\ndut_address: " + str(dut_address),
-          "\nadditional_tests: " + str(additional_tests),
-          "\nrun_options: " + str(run_options),
-          "\ndut_data_file: " + str(dut_data_file),
-          "\nmark_conditions_files: " + str(mark_conditions_files),
-          "\ntest_tag: " + str(test_tag),
-          "\ndevice_type: " + str(device_type)
-          )
+def parse_log_file_for_results(log_file_name):
+    total = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {log_file_name} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
+    passed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {log_file_name} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
+    failed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {log_file_name} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
+    skipped = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {log_file_name} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l", shell=True).strip()
+    errored = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {log_file_name} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
+
+    return int(total), int(passed), int(failed), int(skipped), int(errored)
+
+def run_scripts(
+        script_file,
+        drop_version,
+        log_dir,
+        dut_name,
+        topo_type,
+        topo_name,
+        tstamp,
+        build_id,
+        create_allure_report,
+        additional_tests='',
+        run_options='',
+        dut_data_file=None,
+        mark_conditions_files='',
+        test_tag=None,
+        device_type=None
+    ):
+    log.info("running run_scripts")
+    log.info(f"""
+                 params:
+                 script_file: {script_file}
+                 drop_version: {drop_version}
+                 log_dir: {log_dir}
+                 dut_name: {dut_name}
+                 topo_type: {topo_type}
+                 topo_name: {topo_name}
+                 tstamp: {tstamp}
+                 build_id: {build_id}
+                 create_allure_report: {create_allure_report}
+                 additional_tests: {additional_tests}
+                 run_options: {run_options}
+                 dut_data_file: {dut_data_file}
+                 mark_conditions_files: {mark_conditions_files}
+                 test_tag: {test_tag}
+                 device_type: {device_type}
+    """)
+    
     if drop_version is not None:
-        filename = "ongoing_result_{}_{}.csv".format(drop_version,tstamp)
+        filename = f"ongoing_result_{drop_version}_{tstamp}.csv"
     else:
-        filename = 'ongoing_result_{}.csv'.format(tstamp)
+        filename = f'ongoing_result_{tstamp}.csv'
+
     if log_dir is not None:
-        log_dir = '/data/tests/{}'.format(log_dir)
+        log_dir = f"/data/tests/{log_dir}"
     else:
         log_dir = '/data/tests/run_logs'
+
     if build_id is None:
         build_id = 99999
-    print("BUILD ID IS {}".format(build_id))
+
+    log.info(f"BUILD ID IS {build_id}")
+
     mark_conditions_file_opt=process_conditions_files(mark_conditions_files)
     current_result_file = open(filename, 'w')
     report_file = open('full_report.txt', 'w')
-    tcs = get_testcases(script_file,test_tag,topo_type,additional_tests, device_type)
+    test_cases_list = get_testcases(script_file,test_tag,topo_type,additional_tests, device_type)
     total_passed = 0
     total_failed = 0
     total_skipped = 0
@@ -495,68 +368,54 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     ssh_port = 22
     dut_uname = 'admin'
     dut_passwd = 'password'
-    if collect_logs and dut_address is not None:
-        cmd_list = list()
-        cmd_list.append('mkdir swss_logs_{}\n'.format(drop_version))
-        # cmd_list.append('sudo rm /var/log/swss/*.gz\n')
-        # cmd_list.append('sudo rm /var/log/syslog*.gz\n')
-        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}\n'.format(drop_version))
-        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}\n'.format(drop_version))
-        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
+    
     delta1 = datetime.datetime.now()
 
+
+    # First run bgp_facts.py to ensure DUT is up and BGP is established
+    # This will be somewhat of a pre-check before running rest of the tests
+    passed = 0
+    iteration = 0
+    max_iterations = 3
+    
     tc_name = "bgp_fact"
-    cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
-    os.system("bash -c '{}'".format(cmd))
-    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
-    if not int(passed):
-        print("Iteration1: Rerunning the script, making sure that DUT is up\n")
-        current_result_file.write("Iteration1: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
+    log.info("-------------- START: Running bgp_facts.py to check DUT Health -------------")
+    while iteration < max_iterations and int(passed) == 0:
+        iteration += 1
+        msg = f"Iteration {iteration}: Reunning bgp_facts.py, making sure that DUT is up\n"
+        log.info(msg)
+        current_result_file.write(msg)
         current_result_file.flush()
         time.sleep(60)
-        cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
-        os.system("bash -c '{}'".format(cmd))
-        passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
-        if not int(passed):
-            print("Iteration2: Rerunning the script, making sure that DUT is up\n")
-            current_result_file.write("Iteration2: Sleeping for a minute and then rerunning the script, making sure that DUT is up\n")
-            current_result_file.flush()
-            time.sleep(60)
-            cmd = "./run_tests.sh -n {} {} -O -u -e --recover_method=config_reload -e --alluredir={} -e -rapP -m individual -p {} -c bgp/test_bgp_fact.py |& tee bgp_fact.log".format(topo_name, run_options, ALLURE_DIR, log_dir)
-            os.system("bash -c '{}'".format(cmd))
+        cmd = f"./run_tests.sh -n {topo_name} {run_options} -O -u -e --recover_method=config_reload -e --alluredir={ALLURE_DIR} -e -rapP -m individual -p {log_dir} -c bgp/test_bgp_fact.py |& tee bgp_fact.log"
+        os.system(f"bash -c '{cmd}'")
+        total, passed, failed, skipped, errored = parse_log_file_for_results("bgp_fact.log")
 
-    total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l", shell=True).strip()
-    passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l", shell=True).strip()
-    failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
-    skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l", shell=True).strip()
-    errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' bgp_fact.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
     time.sleep(10)
-    final_total += int(total_tests)
+    final_total += int(total)
     total_passed += int(passed)
     total_failed += int(failed)
     total_skipped += int(skipped)
     total_error += int(errored)
 
-    print("{}     : {} : {} : {} : {} : {}".format(tc_name,total_tests,passed,failed,skipped,errored))
-
-    if collect_logs and dut_address is not None:
-        cmd_list = list()
-        cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-        cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-        run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
+    log.info(f"{tc_name}     : {total} : {passed} : {failed} : {skipped} : {errored}")
 
     if not int(passed):
-        current_result_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
+        msg = "Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now"
+        current_result_file.write(msg+"\n")
         current_result_file.flush()
-        report_file.write("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now\n")
+        report_file.write(msg+"\n")
         report_file.flush()
         # Use previous test results to generate Allure report
         if create_allure_report:
             generate_allure_report(build_id, current_result_file)
-        sys.exit("Tried 3 times and BGP Fact testcase is still failing. No point continuing with the tests. Check BGP neighbors on DUT. Exiting now")
+        sys.exit(msg)
 
-    current_result_file.write(" -------------- Running Sanity File(s) {}, additional tests: {} ------------- \n".format(script_file, additional_tests))
+    log.info("-------------- END: Running bgp_facts.py to check DUT Health -------------")
+
+
+    # Proceeding with rest of the tests
+    current_result_file.write(f" -------------- Running Sanity File(s) {script_file}, additional tests: {additional_tests} ------------- \n")
     current_result_file.flush()
     def get_dut_names(data):
         return [key for key in data if key.startswith('sonic_dut')]
@@ -564,7 +423,7 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     with open(dut_data_file) as f:
         dut_data = yaml.load(f, Loader=yaml.FullLoader)
 
-    for tc in tcs:
+    for tc in test_cases_list:
         if '#' in tc:
             continue
         tc = tc.strip()
@@ -573,53 +432,20 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
         if drop_version is not None:
             tc_name = tc_name + "_" + drop_version
 
-        print("Executing: {}\n".format(tc))
-        current_result_file.write("Executing: {}\n".format(tc));current_result_file.flush()
+        log.info(f"Executing: {tc}")
+        current_result_file.write(f"Executing: {tc}\n");current_result_file.flush()
 
-        # for dname in get_dut_names(dut_data):
-        #     device = dut_data[dname]
-        #     cmd_list = list()
-        #     cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
-        #     cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
-        #     cmd_list.append('sudo rm /var/log/syslog*.gz\n')
-        #     cmd_list.append('sudo rm /var/log/syslog.*\n')
-        #     cmd_list.append('sudo rm /var/dump/*\n')
-        #     cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
-        #     cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
-        #     cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
-        #     run_exec_cmds(device['xr_mgmt_ip'], ssh_port, dut_uname, dut_passwd, cmd_list)
+        cmd = f"./run_tests.sh -n {topo_name} {run_options} -e --alluredir={ALLURE_DIR} -e -rapP -O -u -e --recover_method=config_reload -m individual -p {log_dir} {mark_conditions_file_opt} -c {tc} |& tee {tc_name}.log"
+        os.system(f"bash -c '{cmd}'")
+        total, passed, failed, skipped, errored = parse_log_file_for_results(f"{tc_name}.log")
 
-        if collect_logs and dut_address is not None:
-            cmd_list = list()
-            # cmd_list.append('sudo rm /var/log/swss/sairedis.rec.*\n')
-            # cmd_list.append('sudo rm /var/log/swss/swss.rec.*\n')
-            # cmd_list.append('sudo rm /var/log/syslog*.gz\n')
-            # cmd_list.append('sudo rm /var/log/syslog.*\n')
-            # cmd_list.append('sudo rm /var/dump/*\n')
-            # cmd_list.append("sudo sh -c '> /var/log/swss/sairedis.rec'\n")
-            # cmd_list.append("sudo sh -c '> /var/log/swss/swss.rec'\n")
-            # cmd_list.append("sudo sh -c '> /var/log/syslog'\n")
-            cmd_list.append('mkdir swss_logs_{}/{}\n'.format(drop_version,tc_name))
-            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
-
-        cmd = "./run_tests.sh -n {} {} -e --alluredir={} -e -rapP -O -u -e --recover_method=config_reload -m individual -p {} {} -c {} |& tee {}.log".format(topo_name, run_options, ALLURE_DIR, log_dir, mark_conditions_file_opt, tc, tc_name)
-        os.system("bash -c '{}'".format(cmd))
-        failed = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l", shell=True).strip()
-        error = subprocess.check_output(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {tc_name}.log | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l", shell=True).strip()
-
-        if int(failed) or int(error):
+        if int(failed) or int(errored):
             for dname in get_dut_names(dut_data):
                 device = dut_data[dname]
                 cmd_list = list()
                 cmd_list.append("show techsupport")
                 run_exec_cmds(device['xr_mgmt_ip'], ssh_port, dut_uname, dut_passwd, cmd_list)
                 get_techsupport(device['xr_mgmt_ip'], tc_name, dut_name, log_dir)
-
-        if collect_logs and dut_address is not None:
-            cmd_list = list()
-            cmd_list.append('sudo cp /var/log/swss/* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-            cmd_list.append('sudo cp /var/log/syslog* swss_logs_{}/{}/.\n'.format(drop_version,tc_name))
-            run_exec_cmds(dut_address, ssh_port, dut_uname, dut_passwd, cmd_list)
 
     if create_allure_report:
         generate_allure_report(build_id, current_result_file)
@@ -628,13 +454,12 @@ def new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_nam
     report_file.close()
 
     delta2 = datetime.datetime.now()
-    print(delta2)
+    log.info(f"End time: {delta2}")
     time_delta = (delta2 - delta1)
-    print(time_delta)
+    log.info(f"Time delta: {time_delta}")
     total_seconds = time_delta.total_seconds()
     minutes = total_seconds/60
-
-    print("Total time : {} mins".format(minutes))
+    log.info(f"Total time : {minutes} mins")
 
 def parse_results():
     total_passed = 0
@@ -653,24 +478,19 @@ def parse_results():
     result_file = open('final_result.csv', 'w')
     if len(log_list) > 0:
         for log_file in log_list:
-            os.system("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g'  >> all_result.txt".format(log_file))
+            os.system(f"egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {log_file} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g'  >> all_result.txt")
 
-            total_tests = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | wc -l".format(log_file), shell=True).strip()
-            passed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i passed | wc -l".format(log_file), shell=True).strip()
-            failed = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i failed | wc -l".format(log_file), shell=True).strip()
-            skipped = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i skipped | wc -l".format(log_file), shell=True).strip()
-            errored = subprocess.check_output("egrep '^FAILED|^PASSED|^SKIPPED|^ERROR' {} | sed 's/INFO:SectionStartLogger:====================/ /g' | sed 's/ teardown ====================/ /g' | grep -i error | wc -l".format(log_file), shell=True).strip()
-
-            final_total += int(total_tests)
+            total, passed, failed, skipped, errored = parse_log_file_for_results(log_file)
+            final_total += int(total)
             total_passed += int(passed)
             total_failed += int(failed)
             total_skipped += int(skipped)
             total_error += int(errored)
-            print("{}     : {} : {} : {} : {} : {} \n".format(log_file,total_tests,passed,failed,skipped,errored))
+            log.info(f"{log_file}     : {total} : {passed} : {failed} : {skipped} : {errored}")
 
-            result_file.write("{}, {} Total , {} Pass, {} Failed, {} Skipped, {} Error\n".format(log_file,total_tests,passed,failed,skipped,errored))
+            result_file.write(f"{log_file}, {total} Total , {passed} Pass, {failed} Failed, {skipped} Skipped, {errored} Error\n")
 
-    result_file.write("Total     , {} Total, {} Passed, {} Failed, {} Skip, {} Error\n".format(final_total,total_passed,total_failed,total_skipped,total_error))
+    result_file.write(f"Total     , {final_total} Total, {total_passed} Passed, {total_failed} Failed, {total_skipped} Skip, {total_error} Error\n")
     result_file.close()
 
 
@@ -684,8 +504,6 @@ def main():
     device_type = args['device_type']
     topo_type = args['topo_type']
     tstamp = args['tstamp']
-    collect_logs = args['collect_logs']
-    dut_address = args.get('dut_address')
     dut_name = args['dut_name']
     topo_name = args['topo_name']
     build_id = args['build_id']
@@ -695,37 +513,19 @@ def main():
     dut_data_file = args['dut_data_file']
     mark_conditions_files = args['mark_conditions_files']
     test_tag = args['test_tag']
-    run_options = ''
-    if device_type == 'sherman':
-        dut_name = 'sherman-01'
-    elif device_type == 'churchill-mono':
-        dut_name = 'churchill-mono-01'
-    elif device_type == 'm64-zz-2':
-        dut_name = 'm64-zz-2'
-    elif device_type == 'mth-t0-64':
-        dut_name = 'mth-t0-64'
-    elif device_type == 'sfd':
-        dut_name = 'sfd'
-    elif device_type == 'aaa14-t2':
-        dut_name = 'aaa14-t2'
-    elif device_type == 'lightning':
-        dut_name = 'lightning-01'
-    elif device_type == 'superbolt':
-        dut_name = 'superbolt-01'
-    elif device_type == 'siren':
-        dut_name = 'siren-01'
-    elif device_type == 'crocodile':
-        dut_name = 'crocodile-01'
-    elif device_type == 'mustang':
-        dut_name = 'mustang-01'
-    else:
-        dut_name = 'mathilda-01'
 
+    if not dut_name and device_type not in DEVICE_TYPE_TO_DUT_NAME_MAP:
+        print(f"ERROR: dut_name not specified and could not determine from device_type '{device_type}'.")
+        sys.exit(1)
+
+    dut_name = DEVICE_TYPE_TO_DUT_NAME_MAP[device_type]
+
+    run_options = ''
     if dut_name != 'sfd' and dut_name != 'aaa14-t2':
-        run_options += '-d {} '.format(dut_name)
+        run_options += f'-d {dut_name} '
 
     if dut_name == 'aaa14-t2':
-        run_options += '-t t2,any'.format(dut_name)
+        run_options += f'-t t2,any'
 
     if skip_sanity:
         run_options += '-e --skip_sanity '
@@ -735,19 +535,25 @@ def main():
 
     if only_parse:
         parse_results()
-    else:
-        if not collect_logs:
-            if dut_address is None:
-                print('Missing DUT Address, specify DUT address for collecting logs')
-                exit
-            new_run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,dut_data_file=dut_data_file,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag, device_type=device_type)
-        else:
-            if dut_address is None:
-                print('Missing DUT Address, specify DUT address for collecting logs')
-                exit
-            run_scripts(script_file,drop_version,log_dir,dut_name,topo_type,topo_name,tstamp,build_id,create_allure_report,collect_logs,dut_address,run_options=run_options,additional_tests=additional_tests,mark_conditions_files=mark_conditions_files,test_tag=test_tag, device_type=device_type)
+        sys.exit(0)
 
-        #run_scripts(dut_name,script_file,drop_version,log_dir,tstamp)
+    run_scripts(
+        script_file,
+        drop_version,
+        log_dir,
+        dut_name,
+        topo_type,
+        topo_name,
+        tstamp,
+        build_id,
+        create_allure_report,
+        additional_tests=additional_tests,
+        run_options=run_options,
+        dut_data_file=dut_data_file,
+        mark_conditions_files=mark_conditions_files,
+        test_tag=test_tag,
+        device_type=device_type
+    )
 
 if __name__ == '__main__':
   main()
