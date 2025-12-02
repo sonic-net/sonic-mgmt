@@ -259,3 +259,171 @@ def test_incremental_qos_config_updates(duthost, tbinfo, ensure_dut_readiness, c
                 expect_op_failure(output)
     finally:
         delete_tmpfile(duthost, tmpfile)
+
+
+def test_buffer_profile_add_remove_rollback(
+        duthost, ensure_dut_readiness,
+        enum_rand_one_frontend_asic_index,
+        cli_namespace_prefix):
+    """
+    Test buffer profile removal via rollback using GCU
+
+    Verifies fix for https://github.com/sonic-net/sonic-utilities/pull/4128
+    which allows removing entire BUFFER_PROFILE objects during rollback
+
+    Steps:
+    1. Create checkpoint
+    2. Shutdown an interface
+    3. Change interface cable length and speed
+    4. Startup the interface
+    5. Check new buffer profile is generated
+    6. Rollback (should succeed without errors)
+    7. Check the new buffer profile is removed
+
+    Args:
+        duthost: DUT host object
+        ensure_dut_readiness: Fixture for setup/teardown
+        enum_rand_one_frontend_asic_index: Random frontend ASIC index
+        cli_namespace_prefix: CLI namespace prefix for multi-asic
+    """
+    namespace = duthost.get_namespace_from_asic_id(
+        enum_rand_one_frontend_asic_index)
+    tmpfile = generate_tmpfile(duthost)
+
+    # Get first available interface
+    config_facts = duthost.config_facts(
+        host=duthost.hostname, source="running")['ansible_facts']
+    ports = config_facts.get('PORT', {})
+    if not ports:
+        pytest.skip("No ports available for testing")
+
+    test_interface = list(ports.keys())[0]
+    original_speed = ports[test_interface].get('speed')
+    original_cable_length = duthost.shell(
+        'sonic-db-cli {} CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'.format(
+            cli_namespace_prefix, test_interface))['stdout']
+
+    if not original_speed or not original_cable_length:
+        pytest.skip("Interface {} missing speed or cable length".format(
+            test_interface))
+
+    # Determine new cable length (different from original)
+    new_cable_length = '300m' if original_cable_length == '5m' else '5m'
+
+    new_profile_name = 'pg_lossless_{}_{}_profile'.format(
+        original_speed, new_cable_length)
+
+    logger.info("Test interface: {}, speed: {}, "
+                "original cable length: {}".format(
+                    test_interface, original_speed, original_cable_length))
+    logger.info("New cable length: {}, expected profile: {}".format(
+        new_cable_length, new_profile_name))
+
+    def check_profile_exists(profile_name, should_exist):
+        """Check if profile exists in APPL_DB"""
+        app_key = "BUFFER_PROFILE_TABLE:{}".format(profile_name)
+        result = duthost.shell(
+            'sonic-db-cli {} APPL_DB exists "{}"'.format(
+                cli_namespace_prefix, app_key),
+            module_ignore_errors=True)
+        exists = int(result["stdout"]) == 1 if result["rc"] == 0 else False
+        return exists == should_exist
+
+    try:
+        # Step 1: Create checkpoint
+        checkpoint_name = "before_interface_change"
+        duthost.shell("config checkpoint {}".format(checkpoint_name))
+        logger.info("Step 1: Created checkpoint {}".format(checkpoint_name))
+
+        # Step 2: Shutdown interface
+        logger.info("Step 2: Shutting down interface {}".format(
+            test_interface))
+        json_patch = [{
+            "op": "add",
+            "path": "/PORT/{}/admin_status".format(test_interface),
+            "value": "down"
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch,
+            is_asic_specific=True, asic_namespaces=[namespace])
+        output = apply_patch(duthost, json_data=json_patch,
+                           dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Step 3: Change cable length
+        logger.info("Step 3: Changing interface cable length to {}".format(
+            new_cable_length))
+        json_patch = [{
+            "op": "replace",
+            "path": "/CABLE_LENGTH/AZURE/{}".format(test_interface),
+            "value": new_cable_length
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch,
+            is_asic_specific=True, asic_namespaces=[namespace])
+        output = apply_patch(duthost, json_data=json_patch,
+                           dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        # Step 4: Startup interface
+        logger.info("Step 4: Starting up interface {}".format(
+            test_interface))
+        json_patch = [{
+            "op": "replace",
+            "path": "/PORT/{}/admin_status".format(test_interface),
+            "value": "up"
+        }]
+        json_patch = format_json_patch_for_multiasic(
+            duthost=duthost, json_data=json_patch,
+            is_asic_specific=True, asic_namespaces=[namespace])
+        output = apply_patch(duthost, json_data=json_patch,
+                           dest_file=tmpfile)
+        expect_op_success(duthost, output)
+
+        import time
+        time.sleep(10)
+
+        # Step 5: Check new buffer profile is generated
+        logger.info("Step 5: Checking if profile {} exists".format(
+            new_profile_name))
+        pytest_assert(
+            wait_until(30, 5, 0,
+                      lambda: check_profile_exists(new_profile_name, True)),
+            "New buffer profile {} was not generated".format(
+                new_profile_name)
+        )
+        logger.info("New buffer profile {} successfully generated".format(
+            new_profile_name))
+
+        # Step 6: Rollback (this tests object-level remove support)
+        logger.info("Step 6: Rolling back to checkpoint {}".format(
+            checkpoint_name))
+        rollback_output = duthost.shell(
+            "config rollback {}".format(checkpoint_name))
+        pytest_assert(
+            rollback_output["rc"] == 0,
+            "Rollback failed: {}".format(
+                rollback_output.get("stderr", ""))
+        )
+        logger.info("Rollback completed without errors")
+
+        time.sleep(10)
+
+        # Step 7: Check buffer profile is removed
+        logger.info("Step 7: Verifying profile {} is removed".format(
+            new_profile_name))
+        pytest_assert(
+            wait_until(30, 5, 0,
+                      lambda: check_profile_exists(new_profile_name, False)),
+            "Buffer profile {} was not removed after rollback".format(
+                new_profile_name)
+        )
+        logger.info("Buffer profile {} successfully removed".format(
+            new_profile_name))
+
+        # Clean up checkpoint
+        duthost.shell("config checkpoint delete {}".format(
+            checkpoint_name), module_ignore_errors=True)
+
+    finally:
+        delete_tmpfile(duthost, tmpfile)
