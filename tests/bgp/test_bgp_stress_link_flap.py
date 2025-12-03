@@ -2,9 +2,13 @@ import asyncio
 import logging
 import pytest
 import time
+import json
+from jinja2 import Template
 from tests.common.platform.device_utils import fanout_switch_port_lookup
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, get_upstream_neigh_type
+from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
+from bgp_helpers import BGPSENTINEL_CONFIG_FILE
 
 logger = logging.getLogger(__name__)
 
@@ -27,6 +31,38 @@ LOOP_TIMES_LEVEL_MAP = {
     'confident': 21600,
     'thorough': 432000
 }
+
+BGP_SENTINEL_TMPL = '''{
+    "BGP_SENTINELS": {
+        "BGPSentinel": {
+            "ip_range": {{ v4_listen_range }},
+            "name": "BGPSentinel",
+            "src_address": "{{ v4_src_address }}"
+        },
+        "BGPSentinelV6": {
+            "ip_range": {{ v6_listen_range }},
+            "name": "BGPSentinelV6",
+            "src_address": "{{ v6_src_address }}"
+        }
+    }
+}'''
+
+
+def get_dut_listen_range(tbinfo):
+    """Get the DUT listen range for BGP configuration"""
+    import ipaddress
+    ipv4_subnet, ipv6_subnet = None, None
+    spine_bp_addr = {}
+    upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
+    for k, v in tbinfo['topo']['properties']['configuration'].items():
+        if ((upstream_nbr_type == 'T0' and 'tor' in v['properties']) or
+                (upstream_nbr_type == 'T2' and 'spine' in v['properties'])):
+            ipv4_addr = ipaddress.ip_interface(v['bp_interface']['ipv4'].encode().decode())
+            ipv6_addr = ipaddress.ip_interface(v['bp_interface']['ipv6'].encode().decode())
+            ipv4_subnet = str(ipv4_addr.network)
+            ipv6_subnet = str(ipv6_addr.network)
+            spine_bp_addr[k] = {'ipv4': str(ipv4_addr.ip), 'ipv6': str(ipv6_addr.ip)}
+    return ipv4_subnet, ipv6_subnet, spine_bp_addr
 
 
 @pytest.fixture(scope='module')
@@ -88,6 +124,9 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     logger.debug('Setup_info: {}'.format(setup_info))
 
     yield setup_info
+
+    # verify sessions are established
+    wait_until(120, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys()))
 
     # verify sessions are established after test
     if not duthost.check_bgp_session_state(bgp_neighbors):
@@ -227,13 +266,64 @@ async def monitor_system_resources(duthost, test_run_duration, interval=60):
 
 @pytest.mark.parametrize("test_type", ["dut", "fanout", "neighbor", "all"])
 def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, fanouthosts, test_type,
-                              get_function_completeness_level):
+                              get_function_completeness_level, tbinfo):
     global stop_tasks
     global dut_flap_count
     global fanout_flap_count
     global neighbor_flap_count
 
     duthost = duthosts[rand_one_dut_hostname]
+
+    # Get DUT ASN and PTF backplane addresses
+    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+    ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    ptf_bp_v6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'].lower()
+    ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
+
+    logger.info("Applying BGPSentinel configuration (IPv4 + IPv6)")
+    sentinel_args = {
+        'v4_listen_range': json.dumps([ipv4_subnet]),
+        'v6_listen_range': json.dumps([ipv6_subnet]),
+        'v4_src_address': list(spine_bp_addr.values())[0]['ipv4'],
+        'v6_src_address': list(spine_bp_addr.values())[0]['ipv6']
+    }
+    sentinel_template = Template(BGP_SENTINEL_TMPL)
+    sentinel_config = sentinel_template.render(**sentinel_args)
+    duthost.copy(content=sentinel_config, dest=BGPSENTINEL_CONFIG_FILE)
+    duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
+    time.sleep(5)
+    logger.info("BGPSentinel configuration applied")
+
+    logger.info("Applying BGPMonV4 configuration")
+    bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
+    bgpmon_v4_args = {
+        'db_table_name': 'BGP_MONITORS',
+        'peer_addr': ptf_bp_v4,
+        'asn': dut_asn,
+        'local_addr': list(spine_bp_addr.values())[0]['ipv4'],
+        'peer_name': BGP_MONITOR_NAME + '_V4'
+    }
+    bgpmon_v4_config = bgpmon_template.render(**bgpmon_v4_args)
+    bgpmon_v4_file = '/tmp/bgpmon_v4.json'
+    duthost.copy(content=bgpmon_v4_config, dest=bgpmon_v4_file)
+    duthost.shell("sonic-cfggen -j {} -w".format(bgpmon_v4_file))
+    time.sleep(5)
+    logger.info("BGPMonV4 configuration applied")
+
+    logger.info("Applying BGPMonV6 configuration")
+    bgpmon_v6_args = {
+        'db_table_name': 'BGP_MONITORS',
+        'peer_addr': ptf_bp_v6,
+        'asn': dut_asn,
+        'local_addr': list(spine_bp_addr.values())[0]['ipv6'],
+        'peer_name': BGP_MONITOR_NAME + '_V6'
+    }
+    bgpmon_v6_config = bgpmon_template.render(**bgpmon_v6_args)
+    bgpmon_v6_file = '/tmp/bgpmon_v6.json'
+    duthost.copy(content=bgpmon_v6_config, dest=bgpmon_v6_file)
+    duthost.shell("sonic-cfggen -j {} -w".format(bgpmon_v6_file))
+    time.sleep(5)
+    logger.info("BGPMonV6 configuration applied")
 
     normalized_level = get_function_completeness_level
     if normalized_level is None:
@@ -324,5 +414,20 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
         sleep_time = 60
     logger.info("Test Completed, waiting for {} seconds to stabilize the system".format(sleep_time))
     time.sleep(sleep_time)
+
+    # Cleanup BGP configurations
+    logger.info("Cleaning up BGPSentinel and BGPMonitor configurations")
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+    duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
+
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v4), asic_index='all')
+    duthost.file(path='/tmp/bgpmon_v4.json', state='absent')
+
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all')
+    duthost.file(path='/tmp/bgpmon_v6.json', state='absent')
+
+    time.sleep(5)
+    logger.info("BGP configurations cleanup completed")
 
     return
