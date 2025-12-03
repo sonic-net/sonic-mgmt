@@ -619,11 +619,11 @@ def wait_for(func, condition_str, interval_seconds=None, timeout_seconds=None):
         timeout_seconds = settings.timeout_seconds
     start_seconds = int(time.time())
 
-    print("\n\nWaiting for %s ..." % condition_str)
+    logger.info("Waiting for %s ..." % condition_str)
     while True:
         res = func()
         if res:
-            print("Done waiting for %s" % condition_str)
+            logger.info("Done waiting for %s" % condition_str)
             break
         if res is None:
             raise Exception("Wait aborted for %s" % condition_str)
@@ -632,6 +632,40 @@ def wait_for(func, condition_str, interval_seconds=None, timeout_seconds=None):
             raise Exception(msg)
 
         time.sleep(interval_seconds)
+
+
+def get_all_port_names(duthost):
+    """
+    Get all port names on the DUT as a list
+    """
+    result = duthost.command("show interfaces status")
+    output = result["stdout"]
+    interfaces = []
+    for line in output.splitlines():
+        if line.lstrip().startswith("Ethernet"):
+            iface = line.split()[0]
+            interfaces.append(iface)
+    return interfaces
+
+
+def all_ports_startup(duthost):
+    """
+    Startup all interfaces on the DUT
+    """
+    interfaces = get_all_port_names(duthost)
+    logger.info("Starting up all interfaces on DUT {} ".format(duthost.hostname))
+    duthost.command("sudo config interface startup {} \n".format(','.join(interfaces)))
+    wait(60, "For links to come up")
+
+
+def all_ports_shutdown(duthost):
+    """
+    Shutdown all interfaces on the DUT
+    """
+    interfaces = get_all_port_names(duthost)
+    logger.info("Shutting down all interfaces on DUT {} ".format(duthost.hostname))
+    duthost.command("sudo config interface shutdown {} \n".format(','.join(interfaces)))
+    wait(60, "For links to come up")
 
 
 def is_traffic_running(snappi_api, flow_names=[]):
@@ -652,6 +686,24 @@ def is_traffic_stopped(snappi_api, flow_names=[]):
     fq.flow.flow_names = flow_names
     metrics = snappi_api.get_metrics(fq).flow_metrics
     return all([m.transmit == "stopped" for m in metrics])
+
+
+def is_traffic_converged(snappi_api, flow_names=[], threshold=0.1):
+    """
+    Returns true if traffic has converged within the threshold
+    """
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    for fs in flow_stats:
+        tx_rate = float(fs.frames_tx_rate)
+        rx_rate = float(fs.frames_rx_rate)
+        if tx_rate == 0:
+            return False
+        loss_percentage = ((tx_rate - rx_rate) / tx_rate) * 100
+        if loss_percentage > threshold:
+            return False
+    return True
 
 
 def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
