@@ -503,7 +503,7 @@ def route_programming_time(duthost, start_time, sairedislog='/var/log/swss/saire
     if not lines:
         return {
             "RP Start Time": start_time,
-            "RP Duration": None,
+            "Route Programming Duration": None,
             "RP Error": "No RP events found"
         }
     deltas = []
@@ -520,7 +520,7 @@ def route_programming_time(duthost, start_time, sairedislog='/var/log/swss/saire
         elif route_pattern in line:
             route_events_count += 1
         logger.info("event: REMOVE at %s", ts)
-    return {"RP Start Time": start_time, "Route Programming Duration": deltas[-1] if deltas else None, 
+    return {"RP Start Time": start_time, "Route Programming Duration": deltas[-1] if deltas else None,
             "Route Events Count": route_events_count, "NextHopGroup Events Count": len(deltas)}
 
 
@@ -644,7 +644,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         RP_metrics = route_programming_time(duthost, rp_start_time)
         logger.info(f"[FLAP TEST] Route programming metrics after {action}: {RP_metrics}")
         test_results[f"{current_test}_RP"] = RP_metrics
-        RP_duration = RP_metrics.get('RP Duration')
+        RP_duration = RP_metrics.get('Route Programming Duration')
         if RP_duration is not None and RP_duration > MAX_CONVERGENCE_WAIT_TIME:
             restore(duthost, connection_type, flapping_connections, all_flap)
             pytest.fail(f"RP Time during {current_test} is too long: {RP_duration} seconds")
