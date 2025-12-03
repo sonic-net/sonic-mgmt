@@ -69,39 +69,7 @@ arp/test_neighbor_mac_noptf.py::TestNeighborMacNoPtf::testNeighborMacNoPtf:
 #######################################
 #####           BFD               #####
 #######################################
-bfd/test_bfd.py:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_basic:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_echo_mode:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
 bfd/test_bfd.py::test_bfd_multihop:
-  skip:
-    reason: >
-            Failed/Errored: To be included
-    conditions_logical_operator: or
-    conditions:
-      - "asic_type in ['vpp']"
-
-bfd/test_bfd.py::test_bfd_scale:
   skip:
     reason: >
             Failed/Errored: To be included
