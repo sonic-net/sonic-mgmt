@@ -7,7 +7,7 @@
 - Used for RoCEv2 functional and congestion-control scenarios.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_1.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
 </p>
 
 ## Test Topology 2 – Functional and performance test with Clos fabric
@@ -17,7 +17,7 @@
 - Used for test cases that require multiple DUTs, such as hashing and load balancing.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_2.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_2.png" width="350"  hspace="200"/>
 </p>
 
 ---
@@ -37,7 +37,7 @@
 - Uses Test Topology 1 (single DUT with four connected test ports).
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_1.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
 </p>
 
 ### Test Steps
@@ -79,7 +79,7 @@
 - Uses Test Topology 1.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_1.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
 </p>
 
 ### Test Steps
@@ -114,7 +114,7 @@
 - Uses Test Topology 1.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_1.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
 </p>
 
 ### Status
@@ -137,7 +137,7 @@
 - Uses Test Topology 2 (leaf–spine Clos).
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_2.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_2.png" width="350"  hspace="200"/>
 </p>
 
 ### Test Steps
@@ -183,7 +183,7 @@
 - Uses Test Topology 2.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_2.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_2.png" width="350"  hspace="200"/>
 </p>
 
 ### Test Steps
