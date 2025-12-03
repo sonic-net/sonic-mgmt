@@ -874,6 +874,40 @@
                 "vms_count": 4
             }
         },
+        "t1-m5-11-hbm": {
+            "ucs_host_name":"sonic-ucs-m5-11",
+            "ucs_host": "172.27.145.105",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "ucs_key": "ssh-keygen -f \"/users/sonicci/.ssh/known_hosts\" -R \"172.27.145.105\"",
+            "mth_tb": "C-HBM-dut",
+            "scp_ip": "1.71.53.71",
+            "installer_mode":"sonic",
+            "ucs_tb": "chbm-t1",
+            "telnet_host": ["172.27.145.53"],
+            "telnet_port": ["2008"],
+            "telnet_details": ["172.27.145.53 2008"],
+            "dut_ssh": ["1.71.53.72"],
+            "topology": "t1",
+            "telnet_flag": "False",
+            "docker_count": "14",
+            "docker_prompt":"@sonic-ucs-m5-11",
+            "run_type_check": "run_tests",
+            "skip_tests": "",
+            "skip_folder": "dualtor pfc_asym ixia cisco vrf mvrf",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "sonic_mgmt_container_202505": "cicd_prod_202505",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo chbm-t1 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo chbm-t1 ./lab"
+        },
         "b2b-m3-2-cmono" : {
             "ucs_host_name":"sonic-ucs-m3-2",
             "ucs_host": "172.27.146.35",
@@ -1904,6 +1938,7 @@
         "ixia-m5-14-lighting": "None",
         "ixia-m5-14-churchill": "None",
         "t0-m6-13-cmono": "None",
+        "t1-m5-11-hbm": "None",
         "t1-m5-2-m64": [
             "cisco.202405.signed",
             "cisco.202405.unsigned",
@@ -1991,7 +2026,7 @@
     },
     "testbeds": {
         "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2"],
-        "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning"],
+        "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm"],
         "t2" : ["aaa14-t2"],
         "dualtor" : ["dualtor-m6-30-tornado", "mathilda-dualtor-t0-1"],
         "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat"]
@@ -2018,6 +2053,7 @@
         "ixia-m5-14-lighting": "ucs_m5_14",
         "ixia-m5-14-churchill": "ucs_m5_14",
         "t0-m6-13-cmono":"ucs_m6_13",
+        "t1-m5-11-hbm":"ucs_m5_11",
         "t0-m6-8-croc": "ucs_m6_8",
         "t1-m4-3-croc": "ucs_m4_3",
         "t1-m5-2-m64": "ucs_m5_2",
@@ -2127,6 +2163,15 @@
             "password" : "roZes@123",
             "ip" : "1.71.53.193",
             "scp_prompt" : "sonic@1.71.53.193:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "wget"
+        },
+        "ucs_m5_11": {
+            "host" : "sonic-ucs-m5-11",
+            "username" : "sonic",
+            "password" : "roZes@123",
+            "ip" : "1.71.53.71",
+            "scp_prompt" : "sonic@1.71.53.71:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "wget"
         },
