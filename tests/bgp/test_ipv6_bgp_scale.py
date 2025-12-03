@@ -367,6 +367,14 @@ def _restore(duthost, connection_type, shutdown_connections, shutdown_all_connec
     if connection_type == 'ports':
         logger.info(f"Recover interfaces {shutdown_connections} after failure")
         duthost.no_shutdown_multiple(shutdown_connections)
+    elif connection_type == 'bgp_sessions':
+        if shutdown_all_connections:
+            logger.info("Recover all BGP sessions after failure")
+            duthost.shell("sudo config bgp startup all")
+        else:
+            for session in shutdown_connections:
+                logger.info(f"Recover BGP session {session} after failure")
+                duthost.shell(f"sudo config bgp startup neighbor {session}")
 
 
 def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=None, connection_type='none',
@@ -461,7 +469,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
 
-    # We are currently treating the shutdown action as a setup mechanism for a startup action to follow.
+    # Currently treating the shutdown action as a setup mechanism for a startup action to follow.
     # So we only do the selection of flapping and injection neighbors when action is shutdown
     # And we reuse the same selection for startup action
     if action == 'shutdown':
@@ -473,7 +481,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
             bgp_peers_info, all_flap, flapping_count
         )
 
-        flapping_connections = {'ports': flapping_ports}.get(connection_type, [])
+        flapping_connections = {'ports': flapping_ports, 'bgp_sessions': flapping_neighbors}.get(connection_type, [])
         # Build expected routes after shutdown
         startup_routes = get_all_bgp_ipv6_routes(duthost, save_snapshot=False)
         neighbor_ecmp_routes = get_ecmp_routes(startup_routes, bgp_peers_info)
@@ -607,12 +615,12 @@ def test_sessions_flapping(
     setup_routes_before_test
 ):
     '''
-    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    Validates that both control plane and data plane remain functional with acceptable downtime when ports are
     flapped (brought down and back up), simulating various failure or maintenance scenarios.
 
-    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+    Uses the flapper function to orchestrate the flapping of ports and measure convergence times.
 
-    Parameters range from flapping a single session to all sessions.
+    Parameters range from flapping a single port to all ports.
 
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
@@ -624,6 +632,33 @@ def test_sessions_flapping(
     transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
     # Measure startup convergence
     flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup')
+
+
+@pytest.mark.parametrize("flapping_neighbor_count", [1, 10])
+def test_bgp_admin_flap(
+    request,
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    flapping_neighbor_count
+):
+    """
+    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    flapped (brought down and back up), simulating various failure or maintenance scenarios.
+
+    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+
+    Parameters range from flapping a single session to all sessions.
+
+    Expected result:
+        Dataplane downtime is less than MAX_BGP_SESSION_DOWNTIME or MAX_DOWNTIME_UNISOLATION for all ports.
+    """
+    pdp = ptfadapter.dataplane
+    pdp.set_qlen(PACKET_QUEUE_LENGTH)
+    # Measure shutdown convergence
+    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_neighbor_count, 'bgp_sessions', 'shutdown')
+    # Measure startup convergence
+    flapper(duthost, pdp, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
 
 
 def test_nexthop_group_member_scale(
