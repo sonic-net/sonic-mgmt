@@ -30,7 +30,7 @@ DEFAULT_SRC_IP = {"ipv4": "20.0.0.1", "ipv6": "60c0:a800::5"}
 
 DOWNSTREAM_IP_PORT_MAP = {}
 
-UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "2064:100::11"}
+UPSTREAM_DST_IP = {"ipv4": "194.50.16.1", "ipv6": "2194:100::11"}
 
 PACKET_COUNT = 100
 PACKET_COUNT_MAX_DIFF = 5
@@ -185,6 +185,29 @@ def get_src_port(setup):
     src_port = random.choice(src_ports)
     logger.info("Selected source port {}".format(src_port))
     return src_port
+
+
+@pytest.fixture(scope="function", autouse=True)
+def manage_ptf_dataplane_logging(ptfadapter):
+    """
+    Temporarily reduce PTF dataplane logging to avoid spam from background traffic.
+    This prevents continuous "Pkt len XX in on device 0, port YY" messages after test completion.
+    """
+    import logging as py_logging
+
+    # Get the PTF dataplane logger
+    ptf_dataplane_logger = py_logging.getLogger("dataplane")
+    original_level = ptf_dataplane_logger.level
+
+    # Set to WARNING to suppress DEBUG messages about every packet
+    ptf_dataplane_logger.setLevel(py_logging.WARNING)
+    logger.info(f"PTF dataplane logging level set to WARNING (was {original_level})")
+
+    yield
+
+    # Restore original logging level
+    ptf_dataplane_logger.setLevel(original_level)
+    logger.info(f"PTF dataplane logging level restored to {original_level}")
 
 
 def get_dst_ports(setup):
@@ -484,6 +507,7 @@ def match_expected_packet(test, exp_packet, ports=[], device_number=0, timeout=1
     matched_port = None
     while True:
         if (time.time() - last_matched_packet_time) > timeout:
+            logger.error("Timeout reached while polling for packets.")
             break
 
         result = dp_poll(test, device_number=device_number, timeout=timeout, exp_pkt=exp_packet)
@@ -491,12 +515,22 @@ def match_expected_packet(test, exp_packet, ports=[], device_number=0, timeout=1
             if result.port in ports:
                 matched_port = result.port
                 total_rcv_pkt_cnt += 1
+                last_matched_packet_time = time.time()
                 if total_rcv_pkt_cnt >= exp_count:
                     break
-                last_matched_packet_time = time.time()
+            else:
+                logger.error("Received packet on unexpected port: {}".format(result.port))
         else:
+            logger.error("Not PollSuccess, exiting poll loop.")
             break
     match_counts[matched_port] = total_rcv_pkt_cnt
+
+    # Flush any remaining packets after verification completes
+    test.dataplane.flush()
+
+    # Give the dataplane a moment to settle
+    time.sleep(0.1)
+
     return match_counts
 
 
@@ -515,6 +549,9 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
         "pattern_4": {},  # varying destination IPs
     }
     dst_ports = get_dst_ports(setup)
+
+    # Flush any residual packets before starting the test
+    ptfadapter.dataplane.flush()
     # Pattern 1: Varying source ports
     logger.info("Testing pattern 1: Varying source ports")
 
@@ -679,6 +716,11 @@ def send_and_verify_packets(setup, ptfadapter, ip_version, get_src_port):
             f"Pattern 4 case {i+1}: {base_sip} {dst_ip} {base_sport} {base_dport} {proto} "
             f"Matched {match_cnt} packets on {out_interface}"
         )
+
+    # Flush dataplane to clear any residual packets after test completion
+    ptfadapter.dataplane.flush()
+    logger.info("Test completed - dataplane flushed")
+
     return test_results
 
 
