@@ -415,6 +415,26 @@ def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=No
         pytest.fail(f"BGP routes aren't stable in {timeout} seconds")
 
 
+@pytest.fixture(scope="function")
+def clean_ptf_dataplane(ptfadapter):
+    """
+    Drain queued packets and clear mask counters before and after each test.
+    The idea is that each test should start with clean dataplane state without
+    having to restart ptfadapter fixture for each test.
+    Takes in the function scope so that each parametrized test case also gets a clean dataplane.
+    """
+    dp = ptfadapter.dataplane
+    if hasattr(dp, "drain"):
+        dp.drain()
+    if hasattr(dp, "clear_masks"):
+        dp.clear_masks()
+    yield
+    if hasattr(dp, "drain"):
+        dp.drain()
+    if hasattr(dp, "clear_masks"):
+        dp.clear_masks()
+
+
 def compress_expected_routes(expected_routes):
     json_str = json.dumps(expected_routes)
     compressed = gzip.compress(json_str.encode('utf-8'))
@@ -503,7 +523,7 @@ def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     return flapping_neighbors, injection_neighbor, flapping_ports, injection_port
 
 
-def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, connection_type, action):
+def flapper(duthost, ptfadapter, bgp_peers_info, transient_setup, flapping_count, connection_type, action):
     """
     Orchestrates interface/BGP session flapping and recovery on the DUT, generating test traffic to assess both
     control and data plane convergence behavior. This function is designed for use in test scenarios
@@ -525,6 +545,10 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     global global_icmp_type, current_test, test_results
     current_test = f"flapper_{action}_{connection_type}_count_{flapping_count}"
     global_icmp_type += 1
+    pdp = ptfadapter.dataplane
+    if hasattr(pdp, "clear_masks"):
+        pdp.clear_masks()
+    pdp.set_qlen(PACKET_QUEUE_LENGTH)
     exp_mask = setup_packet_mask_counters(pdp, global_icmp_type)
     all_flap = (flapping_count == 'all')
 
