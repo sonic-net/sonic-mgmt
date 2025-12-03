@@ -414,6 +414,27 @@ def compress_expected_routes(expected_routes):
     return b64_str
 
 
+def get_RP_start_time(duthost, connection_type, action, LOG_STAMP, syslog='/var/log/syslog'):
+    """
+    Parse syslog for the first route programming event time. Returns the timestamp of the first route change event.
+    """
+    state = 'down' if action == 'shutdown' else 'up'
+    if connection_type == 'ports':
+        cmd = f'grep "swss#portmgrd: " | grep "admin status to {state}"'
+    elif connection_type == 'bgp_sessions':
+        cmd = f'grep "admin state is set to \'{state}\'"'
+    else:
+        logger.info("[FLAP TEST] No RP analysis for connection_type: %s", connection_type)
+        return None
+    log_pattern = f'/{LOG_STAMP}/ {{found=1}} found'
+    pattern = f'sudo awk "{log_pattern}" {syslog} | {cmd} | head -n 1'
+    syslog_stamp = duthost.shell(pattern)['stdout'].strip()
+    logger.info(f"[FLAP TEST] Syslog stamp for RP analysis: {syslog_stamp}")
+    shut_time_str = " ".join(syslog_stamp.split()[:4])
+    rp_start_time = datetime.datetime.strptime(shut_time_str, "%Y %b %d %H:%M:%S.%f")
+    return rp_start_time
+
+
 def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     """Selects flapping_neighbors, injection_neighbor, flapping_ports, injection_port"""
     bgp_neighbors = list(bgp_peers_info.keys())
