@@ -429,10 +429,47 @@ def get_RP_start_time(duthost, connection_type, action, LOG_STAMP, syslog='/var/
     log_pattern = f'/{LOG_STAMP}/ {{found=1}} found'
     pattern = f'sudo awk "{log_pattern}" {syslog} | {cmd} | head -n 1'
     syslog_stamp = duthost.shell(pattern)['stdout'].strip()
-    logger.info(f"[FLAP TEST] Syslog stamp for RP analysis: {syslog_stamp}")
     shut_time_str = " ".join(syslog_stamp.split()[:4])
     rp_start_time = datetime.datetime.strptime(shut_time_str, "%Y %b %d %H:%M:%S.%f")
     return rp_start_time
+
+
+def route_programming_data(duthost, start_time, sairedislog='/var/log/swss/sairedis.rec'):
+    nhg_pattern = "|r|SAI_OBJECT_TYPE_NEXT_HOP_GROUP:"
+    route_pattern = "|[rR]|SAI_OBJECT_TYPE_ROUTE_ENTRY"
+    ts_regex = re.compile(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+')
+
+    def read_lines(path):
+        try:
+            return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
+        except Exception as e:
+            logger.warning("Failed to read %s: %s", path, e)
+            return []
+    lines = read_lines(sairedislog)
+    if not lines:
+        logger.warning("No RP events in %s, trying fallback", sairedislog)
+        lines = read_lines(sairedislog + ".1")
+    if not lines:
+        return {
+            "RP Start Time": start_time,
+            "Route Programming Duration": None,
+            "RP Error": "No RP events found"
+        }
+    deltas = []
+    route_events_count = 0
+    for line in lines:
+        m = ts_regex.search(line)
+        if not m:
+            continue
+        ts = datetime.datetime.strptime(m.group(0), "%Y-%m-%d.%H:%M:%S.%f")
+        if ts <= start_time:
+            continue
+        if nhg_pattern in line:
+            deltas.append((ts - start_time).total_seconds())
+        elif route_pattern in line:
+            route_events_count += 1
+    return {"RP Start Time": start_time, "Route Programming Duration": deltas[-1] if deltas else None,
+            "Route Events Count": route_events_count, "NextHopGroup Events Count": len(deltas)}
 
 
 def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
