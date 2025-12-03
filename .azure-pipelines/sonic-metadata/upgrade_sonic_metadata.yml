@@ -405,7 +405,7 @@ steps:
 
         report_upload_files="$(find $reboot_path -type f -regex '.*test.*_\(reboot\|sad.*\|upgrade_path\)_\(summary\|report\).json')"
         python3 report_uploader.py -c "test_result" -e "$(Build.DefinitionName)#$(Build.BuildId):${{ iter }}" --json tr.json $report_upload_files SonicTestData
-    condition: and(eq(variables['COLLECT_ARTIFACT'], 'true'), ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }})
+    condition: and(succeeded(), eq(variables['COLLECT_ARTIFACT'], 'true'), ${{ parameters.SKIP_TEST_RESULTS_UPLOADING }})
     env:
       TEST_REPORT_INGEST_KUSTO_CLUSTER: $(TEST_REPORT_INGEST_KUSTO_CLUSTER)
       TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
