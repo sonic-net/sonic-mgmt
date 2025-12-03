@@ -863,7 +863,7 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
     return duthosts
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def duthost_mgmt_ip(duthost):
     """
     Gets the management IP address (v4 or v6) on eth0.
