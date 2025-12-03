@@ -7,6 +7,8 @@ import re
 import sys
 import time
 
+from tests.common.db_comparison import dut_dump
+
 if sys.version_info.major > 2:
     from pathlib import Path
     sys.path.insert(0, str(Path(__file__).parent))
@@ -214,24 +216,6 @@ def chk_for_pfc_wd(duthost):
         # pfc is not enabled; return True, as there will not be any pfc to check
         ret = True
     return ret
-
-
-def dut_dump(redis_cmd, duthost, data_dir, fname):
-    db_read = {}
-
-    dump_file = "/tmp/{}.json".format(fname)
-    ret = duthost.shell("{} -o {}".format(redis_cmd, dump_file))
-    assert ret["rc"] == 0, "Failed to run cmd:{}".format(redis_cmd)
-
-    ret = duthost.fetch(src=dump_file, dest=data_dir)
-    dest_file = ret.get("dest", None)
-
-    assert dest_file is not None, "Failed to fetch src={} dest:{}".format(dump_file, data_dir)
-    assert os.path.exists(dest_file), "Fetched file not exist: {}".format(dest_file)
-
-    with open(dest_file, "r") as s:
-        db_read = json.load(s)
-    return db_read
 
 
 def get_dump(duthost, db_name, db_info, dir_name, data_dir):
