@@ -3151,7 +3151,7 @@ high_frequency_telemetry:
     reason: "High frequency telemetry isn't supported in this platform"
     conditions_logical_operator: or
     conditions:
-      - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0']"
+      - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
 
 #####          http              #####
 #######################################
