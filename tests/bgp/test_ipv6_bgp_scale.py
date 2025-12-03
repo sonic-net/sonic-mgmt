@@ -507,6 +507,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
       - On startup action: Reuses the previously determined injection/flapping selections to restore connectivity and
         again validates route convergence and traffic recovery.
       - Measures and validates data plane downtime across the operations, helping to detect issues in convergence times.
+      - Reports and validates route programming data from syslog/sairedis logs for control plane convergence.
       - Returns details about the selected connections and test traffic for subsequent phases.
 
     Returns:
@@ -541,6 +542,9 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
         compressed_routes = compress_expected_routes(expected_routes)
     else:
+        if all_flap:
+            # When all neighbors/ports are flapped, adding some buffer for DUT to recover functionality
+            time.sleep(10)
         compressed_routes = transient_setup['compressed_startup_routes']
         injection_port = transient_setup['injection_port']
         flapping_connections = transient_setup['flapping_connections']
@@ -561,6 +565,8 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     flush_counters(pdp, exp_mask)
     traffic_thread.start()
     start_time = datetime.datetime.now()
+    LOG_STAMP = "RP_ANALYSIS_STAMP_%s" % start_time.strftime("%Y%m%d_%H%M%S")
+    duthost.shell('sudo logger "%s"' % LOG_STAMP)
     try:
         result = check_bgp_routes_converged(
             duthost=duthost,
@@ -586,6 +592,18 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         # Ensure traffic is stopped
         terminated.set()
         traffic_thread.join()
+    rp_start_time = get_RP_start_time(duthost, connection_type, action, LOG_STAMP)
+    if rp_start_time:
+        RP_metrics = route_programming_data(duthost, rp_start_time)
+        logger.info(f"[FLAP TEST] Route programming metrics after {action}: {RP_metrics}")
+        test_results[f"{current_test}_RP"] = RP_metrics
+        RP_duration = RP_metrics.get('Route Programming Duration')
+        if RP_duration is not None and RP_duration > _get_max_time('controlplane_convergence'):
+            _restore(duthost, connection_type, flapping_connections, all_flap)
+            pytest.fail(f"RP Time during {current_test} is too long: {RP_duration} seconds")
+    else:
+        logger.info(f"[FLAP TEST] No Route Programming metrics found after {action}")
+        test_results[f"{current_test}_RP"] = "No RP metrics found"
 
     return {
         "flapping_connections": flapping_connections,
