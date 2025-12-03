@@ -1,5 +1,8 @@
+import json
+import re
 import logging
 from tests.common.helpers.assertions import pytest_assert
+from sonic_py_common import device_info
 
 logger = logging.getLogger(__name__)
 
@@ -26,11 +29,49 @@ def list_checkpoints(duthost):
     return output
 
 
+def list_checkpoints_with_date(duthost):
+    """List checkpoint on target duthost
+
+    Args:
+        duthost: Device Under Test (DUT)
+        cp: checkpoint filename
+    """
+    cmds = 'config list-checkpoints -t'
+
+    logger.info("Commands: {}".format(cmds))
+    output = duthost.shell(cmds, module_ignore_errors=True)
+
+    pytest_assert(
+        not output['rc'],
+        "Failed to list all checkpoint file"
+    )
+
+    return output
+
+
 def verify_checkpoints_exist(duthost, cp):
     """Check if checkpoint file exist in duthost
     """
     output = list_checkpoints(duthost)
-    return '"{}"'.format(cp) in output['stdout']
+    res1 = '"{}"'.format(cp) in output['stdout']
+
+    output_version = device_info.get_sonic_version_info()
+    build_version = output_version['build_version']
+
+    if re.match(r'^(\d{6})', build_version):
+        version_number = int(re.findall(r'\d{6}', build_version)[0])
+        if version_number < 202505:
+            return res1
+        else:
+            output2 = list_checkpoints_with_date(duthost)
+            try:
+                checkpoints = json.loads(output2['stdout'])
+            except Exception:
+                checkpoints = []
+            res2 = any(item.get("name") == cp for item in checkpoints)
+            return res1 and res2
+    else:
+        return res1
 
 
 def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
