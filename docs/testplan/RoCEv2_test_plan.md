@@ -216,7 +216,7 @@
 - Uses Test Topology 2, with one egress link intentionally brought down per leaf to create contention.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_2.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_2_link_failover.png" width="500"  hspace="100"/>
 </p>
 
 ### Test Steps
@@ -283,7 +283,7 @@
 - Uses Test Topology 2.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_2.png" width="500"  hspace="100"/>
+  <img src="Img/RoCEv2_Topology_2_single_link_failover.png" width="500"  hspace="100"/>
 </p>
 
 ### Test Steps
