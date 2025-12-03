@@ -249,6 +249,7 @@ def verify_all_counterpoll_status(duthost, expected):
     else:
         verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, expected)
 
+
 def verify_counterpoll_status(duthost, counterpoll_list, expected, asic=None):
     with allure.step("verifying {} for {} in output of {} on {}..."
                      .format(expected, counterpoll_list, CounterpollConstants.COUNTERPOLL_SHOW, duthost.hostname)):
