@@ -292,7 +292,7 @@ def calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt):
 
 def validate_rx_tx_counters(ptf_dp, end_time, start_time, masked_exp_pkt, downtime_threshold=10):
     downtime = calculate_downtime(ptf_dp, end_time, start_time, masked_exp_pkt)
-    pytest_assert(downtime < downtime_threshold, "Downtime is too long")
+    return downtime < downtime_threshold
 
 
 def flush_counters(ptf_dp, masked_exp_pkt):
@@ -363,6 +363,12 @@ def remove_routes_with_nexthops(candidate_routes, nexthop_to_remove, result_rout
             result_routes[prefix] = value
 
 
+def _restore(duthost, connection_type, shutdown_connections, shutdown_all_connections):
+    if connection_type == 'ports':
+        logger.info(f"Recover interfaces {shutdown_connections} after failure")
+        duthost.no_shutdown_multiple(shutdown_connections)
+
+
 def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=None, connection_type='none',
                                shutdown_all_connections=False, timeout=300, interval=1,
                                log_path="/tmp", compressed=False, action='no_action'):
@@ -397,8 +403,7 @@ def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=No
         # When routes convergence fail, if the action is shutdown and shutdown_connections is not empty
         # restore interfaces
         if action == 'shutdown' and shutdown_connections:
-            logger.info(f"Recover interfaces {shutdown_connections} after failure")
-            duthost.no_shutdown_multiple(shutdown_connections)
+            _restore(duthost, connection_type, shutdown_connections, shutdown_all_connections)
         pytest.fail(f"BGP routes aren't stable in {timeout} seconds")
 
 
@@ -512,7 +517,11 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         terminated.set()
         traffic_thread.join()
         end_time = datetime.datetime.now()
-        validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, downtime_threshold)
+        acceptable_downtime = validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, downtime_threshold)
+        if not acceptable_downtime:
+            if action == 'shutdown':
+                _restore(duthost, connection_type, flapping_connections, all_flap)
+            pytest.fail(f"Dataplane downtime is too high, threshold is {downtime_threshold} seconds")
         if not result.get("converged"):
             pytest.fail("BGP routes are not stable in long time")
     finally:
