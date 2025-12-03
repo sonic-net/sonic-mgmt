@@ -37,6 +37,9 @@
   with_items: "{{ properties_list }}"
   when: hostname in configuration and configuration_properties[item] is defined
 
+- set_fact:
+    base_topo: "{{ topo.split('_') | first }}"
+
 - include_tasks: veos.yml
   when: vm_type == "veos"
 

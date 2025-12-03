@@ -8,3 +8,5 @@
   type: IGNORE
 /.hooks:
   type: IGNORE
+/.azure-pipelines:
+  type: IGNORE

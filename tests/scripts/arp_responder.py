@@ -147,8 +147,14 @@ def main():
                 #
                 # icmp_filter_entries.append(f'icmp6[20:4] = 0x{ipv6_address_integer & 0xffffffff:0x}')  # noqa: E231
                 icmp_filter_entries.append(f'ip6[60:4] = 0x{ipv6_address_integer & 0xffffffff:0x}')  # noqa: E231
-        pcap_filter = f"(arp and ({' or '.join(arp_filter_entries)})) or " + \
-            f"(icmp6 and ({' or '.join(icmp_filter_entries)}))"
+        if len(arp_filter_entries) > 0 and len(icmp_filter_entries) > 0:
+            pcap_filter = f"(arp and ({' or '.join(arp_filter_entries)})) or " + \
+                f"(icmp6 and ({' or '.join(icmp_filter_entries)}))"
+        elif len(arp_filter_entries) > 0:
+            pcap_filter = f"arp and ({' or '.join(arp_filter_entries)})"
+        elif len(icmp_filter_entries) > 0:
+            pcap_filter = f"icmp6 and ({' or '.join(icmp_filter_entries)})"
+
         sockets[iface] = scapy.conf.L2socket(iface=iface, filter=pcap_filter)
         inverse_sockets[sockets[iface]] = iface
 

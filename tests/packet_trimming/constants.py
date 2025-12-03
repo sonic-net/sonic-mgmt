@@ -1,33 +1,4 @@
-# Default values for trimming configuration
-TRIM_SIZE = 256
-TRIM_DSCP = 48
-TRIM_QUEUE = 6
-TRIM_SIZE_MAX = 4084
-
-VALID_TRIMMING_CONFIGS_SYM = [
-    (300, 32, 5),    # Valid values
-    (256, 0, 0),     # Min Boundary values
-    (4084, 63, 7)    # Max Boundary values
-]
-
-INVALID_TRIMMING_CONFIGS_SYM = [
-    (1.1, 32, 5),    # Invalid size value
-    (256, -1, 5),    # Invalid dscp value
-    (256, 63, -3.0)  # Invalid queue value
-]
-
-VALID_TRIMMING_CONFIGS_ASYM = [
-    (300, 'from-tc', 3, 5),     # Valid values
-    (256, 'from-tc', 0, 0),     # Min Boundary values
-    (4084, 'from-tc', 6, 14)    # Max Boundary values
-]
-
-INVALID_TRIMMING_CONFIGS_ASYM = [
-    (1.1, 'from-tc', 3, 5),     # Invalid size value
-    (256, 'test', 3, 5),        # Invalid dscp value
-    (256, 'from-tc', -3.0, 5),  # Invalid queue value
-    (300, 'from-tc', 3, 256)    # Invalid tc value
-]
+from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 
 # ACL configuration constants
 ACL_TABLE_TYPE_NAME = "TRIMMING_L3"
@@ -52,7 +23,7 @@ MIN_PACKET_SIZE = 100
 DUMMY_IP = "8.8.8.8"
 DUMMY_IPV6 = "8000::2"
 DUMMY_MAC = "00:11:22:33:44:55"
-PACKET_COUNT = 10
+PACKET_COUNT = 100
 BATCH_PACKET_COUNT = 10000
 ECN = 2   # ECN Capable Transport(0), ECT(0)
 
@@ -63,7 +34,6 @@ TRIMMING_CAPABILITY = "SAI_ADAPTIVE_ROUTING_CIRCULATION_PORT=257"
 STATIC_THRESHOLD_MULTIPLIER = 1.5   # Multiplier to ensure the buffer can be fully exhausted
 
 # Asymmetric DSCP constants
-ASYM_TC = TRIM_QUEUE
 ASYM_PORT_1_DSCP = 10
 ASYM_PORT_2_DSCP = 20
 
@@ -115,7 +85,7 @@ SRV6_PACKETS = [
         'dst_ipv6': '2001:1000:0100:0200::',
         'exp_dst_ipv6': '2001:1000:0200::',
         'exp_inner_dscp_pipe': None,
-        'exp_outer_dscp_uniform': TRIM_DSCP << 2,
+        'exp_outer_dscp_uniform': PacketTrimmingConfig.DSCP << 2,
         'exp_srh_seg_left': None,
         'inner_pkt_ver': '4',
         'exp_process_result': 'forward',
@@ -133,7 +103,7 @@ SRV6_PACKETS = [
         'dst_ipv6': '2001:3000:0500::',
         'exp_dst_ipv6': '2001:3000:0500:0600::',
         'exp_inner_dscp_pipe': None,
-        'exp_outer_dscp_uniform': TRIM_DSCP << 2,
+        'exp_outer_dscp_uniform': PacketTrimmingConfig.DSCP << 2,
         'exp_srh_seg_left': 0,
         'inner_pkt_ver': '4',
         'exp_process_result': 'forward'
@@ -173,7 +143,6 @@ SWITCH_INTERVAL = 1000
 PORT_INTERVAL = 100
 QUEUE_INTERVAL = 100
 
-COUNTER_DSCP = 0
 COUNTER_TYPE = [
     ("switch", "SWITCH_STAT", SWITCH_INTERVAL),
     ("port", "PORT_STAT", PORT_INTERVAL),
