@@ -227,6 +227,7 @@ def _install_nano(dut, creds,  syncd_docker_name):
             cmd = '''docker exec -e http_proxy={} -e https_proxy={} {} bash -c " \
                     chmod 777 /tmp \
                     && rm -rf /var/lib/apt/lists/* \
+                    && sed -i '/bullseye-backports/ {{ /^[[:space:]]*#/! s/^/#/ }}' /etc/apt/sources.list \
                     && apt-get update \
                     && apt-get install -y python3-pip build-essential libssl-dev libffi-dev \
                     python3-dev python-setuptools wget cmake python-is-python3 \
