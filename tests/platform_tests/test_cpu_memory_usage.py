@@ -281,4 +281,8 @@ def check_memory(i, memory_threshold, monit_result, outstanding_mem_polls):
 def disable_all_counterpoll_type_except_tested(duthost, counterpoll_type):      # noqa: F811
     available_types = ConterpollHelper.get_available_counterpoll_types(duthost)
     available_types.remove(counterpoll_type)
-    ConterpollHelper.disable_counterpoll(duthost, available_types)
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            ConterpollHelper.disable_counterpoll(duthost, available_types, asic)
+    else:
+        ConterpollHelper.disable_counterpoll(duthost, available_types)

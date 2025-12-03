@@ -249,11 +249,10 @@ def verify_all_counterpoll_status(duthost, expected):
     else:
         verify_counterpoll_status(duthost, RELEVANT_COUNTERPOLLS, expected)
 
-
-def verify_counterpoll_status(duthost, counterpoll_list, expected, asic_id=None):
+def verify_counterpoll_status(duthost, counterpoll_list, expected, asic=None):
     with allure.step("verifying {} for {} in output of {} on {}..."
                      .format(expected, counterpoll_list, CounterpollConstants.COUNTERPOLL_SHOW, duthost.hostname)):
-        counterpoll_output = ConterpollHelper.get_counterpoll_show_output(duthost, asic_id)
+        counterpoll_output = ConterpollHelper.get_counterpoll_show_output(duthost, asic)
         pytest_assert(len(counterpoll_output) > 0, "cmd {} returns no output"
                       .format(CounterpollConstants.COUNTERPOLL_SHOW))
 
