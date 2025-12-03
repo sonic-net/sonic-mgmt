@@ -14,13 +14,23 @@ METRIC_LABEL_TEST_PARAMS_ROUTE_SCALE: Final[str] = "test.params.route_scale"
 METRIC_LABEL_TEST_PARAMS_PREFIX_LENGTH: Final[str] = "test.params.prefix_length"
 METRIC_LABEL_TG_IP_VERSION: Final[str] = "tg.ip_version"
 METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS: Final[str] = "bgp.convergence.dataplane.update.time.ms"
-pytestmark = [pytest.mark.topology("tgen")]
+pytestmark = [pytest.mark.topology("nut")]
 logger = logging.getLogger(__name__)
 TIMEOUT = 20
 # Mention the details of the port that needs to be flapped and the corresponding BT0 device
 ROUTE_RANGES = {
-    "IPv6": [["777:777:777::1", 64, 10000], ["666:666:666::1", 64, 10000]],
-    "IPv4": [['100.1.1.1', 24, 5000]]
+    "IPv6": [
+                (
+                    ("777:777:777::1", 64, 5000),
+                    ("666:666:666::1", 64, 5000)
+                )
+            ],
+    "IPv4": [
+                (
+                    ('100.1.1.1', 24, 5000),
+                    ('200.1.1.1', 24, 5000)
+                )
+    ],
 }
 
 
@@ -68,7 +78,7 @@ def test_bgp_sessions(
             "is_rdma": False,
         },
         "Rx": {
-            "route_ranges": ROUTE_RANGES[subnet_type],
+            "route_ranges": ROUTE_RANGES[subnet_type]*len(rx_ports),
             "protocol_type": "bgp",
             "ports": rx_ports,
             "subnet_type": subnet_type,
