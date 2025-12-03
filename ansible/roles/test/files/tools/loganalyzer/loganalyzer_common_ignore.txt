@@ -410,6 +410,9 @@ r, ".* ERR dockerd: nss_tacplus: failed to connect TACACS\+ server.* Transport e
 r, ".* ERR dhcp_relay#supervisor-proc-exit-listener: Exception.*len.*trace: Traceback \(most recent call last\).*File .*\/usr\/bin\/supervisor-proc-exit-listener.*line.*in \<module\>.*main\(sys.argv.*File .*\/usr\/bin\/supe.*"
 r, ".* ERR dhcp_relay\#supervisor-proc-exit-listener: Exception:.*len.*trace: Traceback \(most recent call last.*File .*\/usr\/bin\/supervisor-proc-exit-listener.* line.*in .*main\(sys.* File.*\/usr\/bin\/supervisor-proc-exit-listener.* line.* in main.*payload.* sys.stdin.read.*KeyError:.*len.*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/22855
+r, ".* ERR chronyd\[\d+\]: Could not add source.*"
+
 # https://github.com/sonic-net/sonic-buildimage/issues/23426
 r, ".*ERR pmon.*Failed to confirm VDM freeze status for port.*"
 r, ".*ERR pmon.*Failed to freeze VDM stats in contextmanager for port.*"
@@ -419,3 +422,9 @@ r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
 
 # https://github.com/sonic-net/sonic-buildimage/issues/21186
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
+
+# Ignore systemd-networkd.socket not being able to be started. This is expected on non-DPU platforms.
+r, ".*ERR systemd[1]: Failed to listen on systemd-networkd.socket - Network Service Netlink Socket.*"
+
+# Ignore syncd error when switching global packet trimming mode
+r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"

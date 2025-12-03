@@ -59,7 +59,7 @@ def test_static_route_add(duthosts, enum_rand_one_per_hwsku_frontend_hostname, e
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -96,7 +96,7 @@ def test_static_route_update(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -139,7 +139,7 @@ def test_static_route_remove(duthosts, enum_rand_one_per_hwsku_frontend_hostname
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 
@@ -182,7 +182,7 @@ def test_static_route_add_invalid(duthosts, enum_rand_one_per_hwsku_frontend_hos
         }
     ]
     json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
-                                                 is_asic_specific=True, asic_namespaces=asic_namespace)
+                                                 is_asic_specific=True, asic_namespaces=[asic_namespace])
 
     logger.info("json patch {}".format(json_patch))
 

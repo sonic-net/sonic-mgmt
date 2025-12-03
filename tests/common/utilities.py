@@ -963,16 +963,21 @@ def get_all_upstream_neigh_type(topo_type, is_upper=True):
     return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
-def get_downstream_neigh_type(topo_type, is_upper=True):
+def get_downstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
-        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in DOWNSTREAM_NEIGHBOR_MAP:
+            return DOWNSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
@@ -1216,6 +1221,19 @@ def find_egress_queue(all_queue_pkts, exp_queue_pkts, tolerance=0.05):
     return -1
 
 
+def handle_queue_stats_output(intf_queue_stats):
+    queue_stats = []
+    for prio in range(8):
+        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
+            is not None else {"totalpacket": "0"}
+        total_pkts_str = total_pkts_prio_str.get("totalpacket")
+        if total_pkts_str == "N/A" or total_pkts_str is None:
+            total_pkts_str = "0"
+        queue_stats.append(int(total_pkts_str.replace(',', '')))
+
+    return queue_stats
+
+
 def get_egress_queue_pkt_count_all_prio(duthost, port):
     """
     Get the egress queue count in packets for a given port and all priorities from SONiC CLI.
@@ -1229,17 +1247,27 @@ def get_egress_queue_pkt_count_all_prio(duthost, port):
     raw_out = duthost.shell("queuestat -jp {}".format(port))['stdout']
     raw_json = json.loads(raw_out)
     intf_queue_stats = raw_json.get(port)
-    queue_stats = []
 
-    for prio in range(8):
-        total_pkts_prio_str = intf_queue_stats.get("UC{}".format(prio)) if intf_queue_stats.get("UC{}".format(prio)) \
-            is not None else {"totalpacket": "0"}
-        total_pkts_str = total_pkts_prio_str.get("totalpacket")
-        if total_pkts_str == "N/A" or total_pkts_str is None:
-            total_pkts_str = "0"
-        queue_stats.append(int(total_pkts_str.replace(',', '')))
+    return handle_queue_stats_output(intf_queue_stats)
 
-    return queue_stats
+
+def get_egress_queue_pkt_count_all_port_prio(duthost):
+    """
+    Get the egress queue count in packets for all ports and all priorities from SONiC CLI.
+    This is the equivalent of the "queuestat -j" command.
+    Args:
+        duthost (Ansible host instance): device under test
+    Returns:
+        array [int]: total count of packets in the queue for all priorities and ports
+    """
+    raw_out = duthost.shell("queuestat -j")['stdout']
+    raw_json = json.loads(raw_out)
+    all_stats = {}
+    for port in raw_json.keys():
+        intf_queue_stats = raw_json.get(port)
+        all_stats[port] = handle_queue_stats_output(intf_queue_stats)
+
+    return all_stats
 
 
 @contextlib.contextmanager

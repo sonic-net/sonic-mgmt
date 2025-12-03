@@ -238,7 +238,7 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -300,7 +300,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -400,9 +400,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 update_cnt += 1
                 filename = "update%u" % update_cnt
                 if proto_utils.ENABLE_PROTO:
-                    message = proto_utils.json_to_proto(k, v)
+                    message = proto_utils.parse_dash_proto(k, v)
                     with open(env.work_dir+filename, "wb") as file:
-                        file.write(message)
+                        file.write(message.SerializeToString())
                 else:
                     text = json.dumps(v)
                     with open(env.work_dir+filename, "w") as file:
