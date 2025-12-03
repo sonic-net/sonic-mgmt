@@ -15,7 +15,8 @@ def list_checkpoints(duthost, with_date=False):
 
     Args:
         duthost: Device Under Test (DUT)
-        with_date (bool): If True, include checkpoint creation date/time in the output (requires SONiC version >= 202505 or master).
+        with_date (bool): If True, include checkpoint creation date/time in the output
+        (requires SONiC version >= 202505 or master).
 
     Returns:
         dict: Output from duthost.shell command.
