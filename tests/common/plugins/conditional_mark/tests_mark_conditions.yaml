@@ -687,9 +687,9 @@ crm/test_crm_available.py:
 #######################################
 dash:
   skip:
-    reason: "Not supported on this DUT topology."
+    reason: "It is skipped for '202412' for now"
     conditions:
-      - "'dpu' not in topo_name"
+      - "release in ['202412']"
 
 dash/crm/test_dash_crm.py:
   skip:
