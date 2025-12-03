@@ -40,28 +40,34 @@ def verify_checkpoints_exist(duthost, cp):
     """Check if checkpoint file exist in duthost
     """
     checkpoints_output = list_checkpoints(duthost)
-    checkpoint_exists = '"{}"'.format(cp) in checkpoints_output['stdout']
+    checkpoint_exists = f'"{cp}"' in checkpoints_output['stdout']
 
     output_version = device_info.get_sonic_version_info()
     build_version = output_version['build_version']
 
-    if re.match(r'^(\d{6})', build_version) or build_version.contains('master'):
-        if build_version.contains('master'):
-            version_number = 999999
-        else:
-            version_number = int(re.findall(r'\d{6}', build_version)[0])
-        if version_number < 202505:
-            return checkpoint_exists
-        else:
-            checkpoints_output = list_checkpoints(duthost, with_date=True)
-            try:
-                checkpoints = json.loads(checkpoints_output['stdout'])
-            except Exception:
-                checkpoints = []
-            checkpoint_exists_with_date = any(item.get("name") == cp for item in checkpoints)
-            return checkpoint_exists and checkpoint_exists_with_date
-    else:
+    # Detect version_number or bail out early
+    if not (re.match(r'^(\d{6})', build_version) or "master" in build_version):
         return checkpoint_exists
+
+    # Resolve version_number
+    if "master" in build_version:
+        version_number = 999999
+    else:
+        version_number = int(re.findall(r'\d{6}', build_version)[0])
+
+    # Old versions: simple check
+    if version_number < 202505:
+        return checkpoint_exists
+
+    # Newer versions: need date-aware check
+    checkpoints_output = list_checkpoints(duthost, with_date=True)
+    try:
+        checkpoints = json.loads(checkpoints_output['stdout'])
+    except Exception:
+        checkpoints = []
+
+    checkpoint_exists_with_date = any(item.get("name") == cp for item in checkpoints)
+    return checkpoint_exists and checkpoint_exists_with_date
 
 
 def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
