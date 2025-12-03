@@ -1,4 +1,4 @@
-# SONiC RoCEv2 Test Proposal
+# SONiC RoCEv2 Test Plan
 
 ## Test Topology 1 – Functional test with single DUT
 
