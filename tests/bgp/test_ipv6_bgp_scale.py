@@ -367,6 +367,14 @@ def _restore(duthost, connection_type, shutdown_connections, shutdown_all_connec
     if connection_type == 'ports':
         logger.info(f"Recover interfaces {shutdown_connections} after failure")
         duthost.no_shutdown_multiple(shutdown_connections)
+    elif connection_type == 'bgp_sessions':
+        if shutdown_all_connections:
+            logger.info("Recover all BGP sessions after failure")
+            duthost.shell("sudo config bgp startup all")
+        else:
+            for session in shutdown_connections:
+                logger.info(f"Recover BGP session {session} after failure")
+                duthost.shell(f"sudo config bgp startup neighbor {session}")
 
 
 def check_bgp_routes_converged(duthost, expected_routes, shutdown_connections=None, connection_type='none',
