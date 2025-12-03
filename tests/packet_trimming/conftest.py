@@ -9,7 +9,8 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.srv6_helper import create_srv6_locator, del_srv6_locator, create_srv6_sid, del_srv6_sid
 from tests.packet_trimming.constants import (
     SERVICE_PORT, DEFAULT_DSCP, SRV6_TUNNEL_MODE, SRV6_MY_LOCATOR_LIST, SRV6_MY_SID_LIST,
-    COUNTER_DSCP, COUNTER_TYPE)
+    COUNTER_TYPE)
+from tests.packet_trimming.packet_trimming_config import PacketTrimmingConfig
 from tests.packet_trimming.packet_trimming_helper import (
     delete_blocking_scheduler, check_trimming_capability, prepare_service_port, get_interface_peer_addresses,
     configure_tc_to_dscp_map, set_buffer_profiles_for_block_and_trim_queues, create_blocking_scheduler,
@@ -135,7 +136,8 @@ def test_params(duthost, mg_facts, dut_qos_maps_module, downstream_links, upstre
 
 @pytest.fixture(scope="module")
 def trim_counter_params(duthost, test_params, dut_qos_maps_module):
-    counter_queue = get_queue_id_by_dscp(COUNTER_DSCP, test_params['ingress_port']['name'], dut_qos_maps_module)
+    counter_dscp = PacketTrimmingConfig.get_counter_dscp(duthost)
+    counter_queue = get_queue_id_by_dscp(counter_dscp, test_params['ingress_port']['name'], dut_qos_maps_module)
     counter_param = copy.deepcopy(test_params)
     counter_param['block_queue'] = counter_queue
     counter_param['trim_buffer_profiles'] = {
