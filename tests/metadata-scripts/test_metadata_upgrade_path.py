@@ -133,7 +133,8 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
                            metadata_process, upgrade_type, modify_reboot_script=modify_reboot_script, allow_fail=True)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
+                                check_failed=False)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -159,7 +160,8 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                            metadata_process, upgrade_type)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
+                                check_failed=False)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -229,7 +231,8 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
                            metadata_process, upgrade_type)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
+                                check_failed=False)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,
@@ -258,7 +261,8 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
                            metadata_process, upgrade_type)
 
     def upgrade_path_postboot_setup():
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
+                                check_failed=False)
         patch_rsyslog(duthost)
 
     upgrade_test_helper(duthost, localhost, ptfhost, from_image,

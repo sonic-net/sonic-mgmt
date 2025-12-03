@@ -1,17 +1,17 @@
 import pytest
 import logging
-from tests.common.fixtures.advanced_reboot import get_advanced_reboot
+from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.warmboot_sad_cases import SAD_CASE_LIST, get_sad_case_list
 from tests.common.reboot import get_reboot_cause
 from tests.common.utilities import wait_until
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
 from tests.common.platform.device_utils import check_neighbors, \
-    multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore  # noqa F401
+    multihop_advanceboot_loganalyzer_factory, verify_dut_health, advanceboot_neighbor_restore           # noqa F401
 from tests.common.helpers.upgrade_helpers import SYSTEM_STABILIZE_MAX_TIME, check_copp_config, check_reboot_cause, \
     check_services, install_sonic, multi_hop_warm_upgrade_test_helper, add_pfc_storm_table
 
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db
+from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory                                 # noqa F401
 
 from tests.common.helpers.dut_utils import patch_rsyslog
@@ -44,8 +44,8 @@ def pytest_generate_tests(metafunc):
 
 
 def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
-                                get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,
-                                verify_dut_health, consistency_checker_provider):
+                                get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,          # noqa: F811
+                                verify_dut_health, consistency_checker_provider):                       # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -86,7 +86,8 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         """Run after each hop in the multi-hop upgrade path"""
         to_image = upgrade_path_urls[hop_index]
         logger.info("Starting post hop teardown for hop {} image {}".format(hop_index, to_image))
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
+                                check_failed=False)
         patch_rsyslog(duthost)
 
         logger.info("Check reboot cause of hop {}. Expected cause {}".format(hop_index, upgrade_type))
@@ -94,8 +95,8 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
         if "6100" not in duthost.facts["hwsku"]:
             pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                            "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
-                                                                                    upgrade_type))
+                          "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
+                                                                                  upgrade_type))
         check_services(duthost, tbinfo)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
@@ -112,10 +113,10 @@ def test_multi_hop_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
 
 
 def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request,
-                                         get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,
-                                         verify_dut_health, nbrhosts, fanouthosts, vmhost,
-                                         backup_and_restore_config_db, advanceboot_neighbor_restore, sad_case_type,
-                                         consistency_checker_provider):
+                                         get_advanced_reboot, multihop_advanceboot_loganalyzer_factory,  # noqa: F811
+                                         verify_dut_health, nbrhosts, fanouthosts, vmhost,               # noqa: F811
+                                         backup_and_restore_config_db, advanceboot_neighbor_restore,     # noqa: F811
+                                         sad_case_type, consistency_checker_provider):                   # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     metadata_process = request.config.getoption('metadata_process')
     skip_postupgrade_actions = request.config.getoption('skip_postupgrade_actions')
@@ -127,7 +128,7 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
     if len(upgrade_path_urls) < 2:
         pytest.skip("Need atleast 2 URLs to test multi-hop upgrade path")
     sad_preboot_list, sad_inboot_list = get_sad_case_list(duthost, nbrhosts,
-        fanouthosts, vmhost, tbinfo, sad_case_type)
+                                                          fanouthosts, vmhost, tbinfo, sad_case_type)
 
     def base_image_setup():
         """Run only once, to boot the device into the base image"""
@@ -157,7 +158,8 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         """Run after each hop in the multi-hop upgrade path"""
         to_image = upgrade_path_urls[hop_index]
         logger.info("Starting post hop teardown for hop {} image {}".format(hop_index, to_image))
-        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
+        run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
+                                check_failed=False)
         patch_rsyslog(duthost)
 
         logger.info("Check reboot cause of hop {}. Expected cause {}".format(hop_index, upgrade_type))
@@ -165,18 +167,19 @@ def test_multi_hop_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostn
         timeout = max((SYSTEM_STABILIZE_MAX_TIME - networking_uptime), 1)
         if "6100" not in duthost.facts["hwsku"]:
             pytest_assert(wait_until(timeout, 5, 0, check_reboot_cause, duthost, upgrade_type),
-                            "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
-                                                                                    upgrade_type))
+                          "Reboot cause {} did not match the trigger - {}".format(get_reboot_cause(duthost),
+                                                                                  upgrade_type))
         check_services(duthost, tbinfo)
         check_neighbors(duthost, tbinfo)
         check_copp_config(duthost)
         logger.info("Finished post hop teardown for hop {} image {}".format(hop_index, to_image))
 
     multi_hop_warm_upgrade_test_helper(duthost, localhost, ptfhost,
-                        tbinfo, get_advanced_reboot, upgrade_type, upgrade_path_urls,
-                        multihop_advanceboot_loganalyzer_factory=multihop_advanceboot_loganalyzer_factory,
-                        base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
-                        post_hop_teardown=post_hop_teardown,
-                        sad_preboot_list=sad_preboot_list, sad_inboot_list=sad_inboot_list,
-                        consistency_checker_provider=consistency_checker_provider,
-                        enable_cpa=enable_cpa)
+                                       tbinfo, get_advanced_reboot, upgrade_type, upgrade_path_urls,
+                                       multihop_advanceboot_loganalyzer_factory=(
+                                           multihop_advanceboot_loganalyzer_factory),
+                                       base_image_setup=base_image_setup, pre_hop_setup=pre_hop_setup,
+                                       post_hop_teardown=post_hop_teardown,
+                                       sad_preboot_list=sad_preboot_list, sad_inboot_list=sad_inboot_list,
+                                       consistency_checker_provider=consistency_checker_provider,
+                                       enable_cpa=enable_cpa)

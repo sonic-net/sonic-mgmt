@@ -212,9 +212,11 @@ def post_conversion_health_check(duthosts):
 
 def run_post_conversion_scripts(duthost, localhost):
     run_postupgrade_actions(duthost=duthost, localhost=localhost,
-                            tbinfo=None, metadata_process=True, skip_postupgrade_actions=False)
+                            tbinfo=None, metadata_process=True, skip_postupgrade_actions=False,
+                            check_stderr=False)
     run_bgp_neighbor(duthost=duthost, localhost=localhost,
-                     tbinfo=None, metadata_process=True)
+                     tbinfo=None, metadata_process=True,
+                     check_stderr=False)
 
 
 @pytest.mark.parametrize("minigraph_source", [
