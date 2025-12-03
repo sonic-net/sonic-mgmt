@@ -21,12 +21,12 @@ pytestmark = [
 ]
 
 
+EOS2SONIC_LOG_FILE = "test_eos2sonic.log"
 LOCAL_MG_BACKUP_DIR = "/tmp/conversion-minigraphs/"
 SONIC_PROVISION_ARTIFACTS_DIR = "/host/test_eos2sonic/"
 EOS_PROVISION_ARTIFACTS_DIR = "/mnt/flash/test_eos2sonic/"
 TMP_PROVISION_ARTIFACTS_DIR = "/tmp/provision-artifacts/"
 SONIC_IMAGE_NAME = "sonic-aboot-broadcom-dnx.swi"
-SONIC_IMAGE_URL = f"http://10.201.148.43/pipelines/Networking-acs-buildimage-Official/broadcom/internal-202405-chassis/{SONIC_IMAGE_NAME}"      # noqa E501
 CONVERSION_SCRIPT_NAME = "chassis_eos2sonic.py"
 MINIGRAPH = "/etc/sonic/minigraph.xml"
 NGS_BASE_URL = "https://ngstest.trafficmanager.net/netgraph/ReadDeviceMinigraph?hostname="
@@ -37,6 +37,22 @@ MINIGRAPH_NGS_DOWNLOAD = 2  # Don't use until proxy authentication updated
 TSB_TIMER = 900  # TSB timer in seconds
 CONVERSION_WAIT_SONIC = 600  # Wait time after SONiC conversion in seconds
 CONVERSION_WAIT_EOS = 420  # Wait time after EOS conversion in seconds
+
+
+@pytest.fixture(scope="session")
+def sonic_image_url(request):
+    """
+    Get the conversion target image URL from command line option
+    """
+    sonic_image_url = request.config.getoption("--conversion_target_image")
+
+    if not sonic_image_url:
+        pytest.skip("Conversion target SONiC image URL not provided via --conversion_target_image, skipping...")
+
+    pytest_assert("sonic-aboot-broadcom-dnx" in sonic_image_url and ".swi" in sonic_image_url,
+                  "Conversion target SONiC image URL must point to a valid Arista broadcom-dnx .swi image")
+
+    return sonic_image_url
 
 
 def check_conversion_is_applicable(sup_duthost):
@@ -118,7 +134,7 @@ def cleanup_old_sonic_image(eos_host, image_version):
     ])
 
 
-def download_artifacts(sonic_host_linecards, sonic_host_sup, minigraph_source, creds):
+def download_artifacts(sonic_host_linecards, sonic_host_sup, minigraph_source, creds, sonic_image_url):
 
     # Setup provisioning folder
     sonic_host_sup.file(path=SONIC_PROVISION_ARTIFACTS_DIR, state="absent")
@@ -162,12 +178,17 @@ def download_artifacts(sonic_host_linecards, sonic_host_sup, minigraph_source, c
                         dest=f"{SONIC_PROVISION_ARTIFACTS_DIR}/Arista_7808_fw.tar.gz")
 
     # Download SONiC image file to provisioning folder on supervisor host
-    logger.info(f"Downloading SONiC image from {SONIC_IMAGE_URL} to provisioning folder")
+
+    # First, cleanup images to make sure we don't have an existing fs as target image:
+    for duthost in sonic_host_linecards + [sonic_host_sup]:
+        duthost.shell("sonic-installer cleanup -y")
+
+    logger.info(f"Downloading SONiC image from {sonic_image_url} to provisioning folder")
     https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
     result = sonic_host_sup.shell(f'curl -k -x {https_proxy} -o {SONIC_PROVISION_ARTIFACTS_DIR}/{SONIC_IMAGE_NAME} \
-                                  "{SONIC_IMAGE_URL}"')
+                                  "{sonic_image_url}"')
     pytest_assert(result['failed'] is False,
-                  f"Failed to download SONiC image from {SONIC_IMAGE_URL} to {sonic_host_sup.hostname}")
+                  f"Failed to download SONiC image from {sonic_image_url} to {sonic_host_sup.hostname}")
 
 
 def prepare_eos_for_conversion(eos_duthost, linecard_duthosts):
@@ -187,7 +208,7 @@ def perform_conversion(eos_duthost):
     rc, _ = eos_duthost.run_bash_command(f"chmod +x {script_path}")
     pytest_assert(rc == 0, f"Failed to make {script_path} executable")
 
-    rc, _ = eos_duthost.run_bash_command(f"sudo {script_path} install-local &> /mnt/flash/test_eos2sonic.log")
+    rc, _ = eos_duthost.run_bash_command(f"sudo {script_path} install-local &> /mnt/flash/{EOS2SONIC_LOG_FILE}")
     pytest_assert(rc == 0, f"Conversion script exited with rc {rc}")
 
     eos_duthost.run_command_list(["bash", "sudo reboot"])
@@ -222,7 +243,8 @@ def run_post_conversion_scripts(duthost, localhost):
 @pytest.mark.parametrize("minigraph_source", [
     pytest.param(MINIGRAPH_LOCATION_DEVICE_EXISTING, id="existing_minigraph")
 ])
-def test_eos2sonic(ansible_adhoc, duthosts, enum_supervisor_dut_hostname, localhost, creds, minigraph_source):
+def test_eos2sonic(ansible_adhoc, duthosts, enum_supervisor_dut_hostname, localhost, creds,
+                   minigraph_source, sonic_image_url):
     sup_duthost = duthosts[enum_supervisor_dut_hostname]
     linecard_duthosts = [d for d in duthosts if d is not sup_duthost]
 
@@ -234,7 +256,7 @@ def test_eos2sonic(ansible_adhoc, duthosts, enum_supervisor_dut_hostname, localh
         pytest_assert("SONiC" in current_ver, f"Expected SONiC in version string, got {current_ver}")
         logger.info(f"Pre-test {duthost.hostname} version is {current_ver}")
 
-    download_artifacts(linecard_duthosts, sup_duthost, minigraph_source, creds)
+    download_artifacts(linecard_duthosts, sup_duthost, minigraph_source, creds, sonic_image_url)
 
     logger.info("Converting DUT to EOS")
     eos_duthost = convert_dut_to_eos(ansible_adhoc, duthosts, enum_supervisor_dut_hostname, localhost, creds)
@@ -245,6 +267,10 @@ def test_eos2sonic(ansible_adhoc, duthosts, enum_supervisor_dut_hostname, localh
 
     logger.info("Performing EOS to SONiC Conversion")
     perform_conversion(eos_duthost)
+
+    # Collect eos2sonic log to localhost/test artifacts
+    sonic_log_path = f"/host/{EOS2SONIC_LOG_FILE}"
+    sup_duthost.fetch(src=sonic_log_path, dest="./logs/test_eos2sonic/", flat=True)
 
     # Check & log post-test versions
     for duthost in duthosts:

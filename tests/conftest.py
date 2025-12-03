@@ -249,6 +249,13 @@ def pytest_addoption(parser):
         "--tcam_hole", action="store_true", default=False, help="Upgrade using metadata procedure"
     )
 
+    ##################################
+    # SONiC Metadata conversion test #
+    ##################################
+    parser.addoption(
+        "--conversion_target_image", action="store", default=None, help="Target SONiC image for conversion test"
+    )
+
     ############################
     #   macsec options         #
     ############################
