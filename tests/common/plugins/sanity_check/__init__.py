@@ -372,7 +372,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
 
             logger.info("Done post-test sanity check")
         else:
-            logger.info('No post-test sanity check item, skip post-test sanity check.')
+            logger.info('No post-test sanity check item failed, post-test sanity check passed.')
 
 
 def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
