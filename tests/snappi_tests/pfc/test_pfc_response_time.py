@@ -1,13 +1,13 @@
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_require
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts,\
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
     fanout_graph_facts_multidut, fanout_graph_facts                      # noqa F401
-from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port,\
+from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, get_snappi_ports, is_snappi_multidut, \
     get_snappi_ports_single_dut, snappi_testbed_config, \
     get_snappi_ports_multi_dut, snappi_dut_base_config, cleanup_config, get_snappi_ports_for_rdma  # noqa: F401
-from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list,\
+from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, all_prio_list, lossless_prio_list, \
     lossy_prio_list                         # noqa F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.helper import run_pfc_response_time_test
@@ -22,11 +22,10 @@ def test_response_time(snappi_api,                   # noqa F811
                        conn_graph_facts,                             # noqa: F811
                        fanout_graph_facts_multidut,                # noqa: F811
                        get_snappi_ports,                           # noqa: F811
-                       enum_one_dut_lossless_prio,
                        duthosts,
                        lossless_prio_list,           # noqa F811
                        lossy_prio_list,              # noqa F811
-                       prio_dscp_map,
+                       prio_dscp_map,       # noqa F811
                        multidut_port_info,
                        tbinfo,
                        intf_type):               # noqa F811
@@ -77,11 +76,8 @@ def test_response_time(snappi_api,                   # noqa F811
                                                                                 snappi_ports,
                                                                                 snappi_api)
 
-    _, lossless_prio = enum_one_dut_lossless_prio.split('|')
-    lossless_prio = int(lossless_prio)
-    test_prio_list = [lossless_prio]
-    bg_prio_list = [p for p in all_prio_list]
-    bg_prio_list.remove(lossless_prio)
+    test_prio_list = [lossless_prio_list[0]]
+    bg_prio_list = [lossless_prio_list[1]]
 
     run_pfc_response_time_test(api=snappi_api,
                                testbed_config=testbed_config,
