@@ -1521,10 +1521,10 @@ leaf4:
         sudo config static-anycast-gateway mac_address add 00:11:22:33:44:11
         sudo config vlan static-anycast-gateway enable 10
         sudo config interface breakout Ethernet1_32 4x100G -yfl
-        sudo config interface startup Ethernet1_32_1 -yfl
-        sudo config interface startup Ethernet1_32_2 -yfl
-        sudo config interface startup Ethernet1_32_3 -yfl
-        sudo config interface startup Ethernet1_32_4 -yfl
+        sudo config interface startup Ethernet1_32_1
+        sudo config interface startup Ethernet1_32_2
+        sudo config interface startup Ethernet1_32_3
+        sudo config interface startup Ethernet1_32_4
 
       deconfig: |
         sudo config vlan static-anycast-gateway disable 10
@@ -1576,7 +1576,7 @@ leaf4:
         sudo config interface ipv6 disable use-link-local-only D8D4P2
         sudo config interface ipv6 disable use-link-local-only D8D4P1
         sudo config interface breakout Ethernet1_32 1x400G -yfl
-        sudo config interface startup Ethernet1_32 -yfl
+        sudo config interface startup Ethernet1_32
 
     bgp:
       config: |
