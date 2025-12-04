@@ -161,7 +161,11 @@
     docker_container:
       name: ptf_{{ vm_set_name }}
       image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-      pull: yes
+      # Set pull to 'missing' to avoid pulling and overwriting the local image
+      # if there is a preloaded image present. This is used for testing PR built
+      # image which is preloaded in elastic test when PTF_MODIFIED is True. This
+      # mechanism is used to test PR built docker-ptf image.
+      pull: missing
       state: started
       restart: no
       network_mode: none
