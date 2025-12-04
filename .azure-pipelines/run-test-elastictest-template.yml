@@ -75,7 +75,7 @@ parameters:
 
   - name: PTF_IMAGE_TAG
     type: string
-    default: "latest"
+    default: ""
 
   - name: PTF_MODIFIED
     type: string
