@@ -200,6 +200,7 @@ arp/test_wr_arp.py:
       - "is_mgmt_ipv6_only==True" # Does not support ipv6 mgmt ip on dut, specially the ferret server
       - "'isolated' in topo_name"
       - "topo_type not in ['t0']"
+      - "'f2' in topo_name"
 
 #######################################
 #####            bfd              #####
@@ -431,6 +432,7 @@ bgp/test_bgp_slb.py::test_bgp_slb_neighbor_persistence_across_advanced_reboot:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56'] and https://github.com/sonic-net/sonic-mgmt/issues/9201"
       - "'backend' in topo_name or 'mgmttor' in topo_name or 'isolated' in topo_name"
       - "hwsku in ['Arista-7050CX3-32S-C28S4']"
+      - "'f2' in topo_name"
 
 bgp/test_bgp_speaker.py:
   skip:
@@ -2801,6 +2803,7 @@ gnmi/test_gnoi_system_reboot.py::test_gnoi_system_reboot_warm:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
       - "'isolated' in topo_name"
       - "release in ['202412']"
+      - "'f2' in topo_name"
 
 #######################################
 #####           hash              #####
@@ -3703,6 +3706,7 @@ pfcwd/test_pfcwd_warm_reboot.py:
      conditions:
         - "'t2' in topo_name"
         - "'standalone' in topo_name"
+        - "'f2' in topo_name"
         - "topo_type in ['m0', 'mx', 'm1']"
         - *lossyTopos
         - "asic_type in ['cisco-8000']"
@@ -3736,6 +3740,7 @@ pfcwd/test_pfcwd_warm_reboot.py::TestPfcwdWb::test_pfcwd_wb[IPv6-async_storm:
         - *lossyTopos
         - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/17803"
         - "release in ['202412']"
+        - "'f2' in topo_name"
 
 #######################################
 #####     platform_tests          #####
