@@ -687,9 +687,9 @@ crm/test_crm_available.py:
 #######################################
 dash:
   skip:
-    reason: "It is skipped for '202412' for now"
+    reason: "Not supported on this DUT topology."
     conditions:
-      - "release in ['202412']"
+      - "'dpu' not in topo_name"
 
 dash/crm/test_dash_crm.py:
   skip:
@@ -699,67 +699,89 @@ dash/crm/test_dash_crm.py:
 
 dash/test_dash_acl.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    reason: "Currently dash tests are not supported on KVM / It is not supported on this DUT topology and skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "release in ['202412']"
+      - "'dpu' not in topo_name"
 
 dash/test_dash_disable_enable_eni.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    reason: "Currently dash tests are not supported on KVM / It is not supported on this DUT topology and skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "release in ['202412']"
+      - "'dpu' not in topo_name"
 
 dash/test_dash_eni_counter.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    reason: "Currently dash tests are not supported on KVM / It is not supported on this DUT topology and skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "release in ['202412']"
+      - "'t1' not in topo_name"
 
 dash/test_dash_privatelink.py:
   skip:
     conditions_logical_operator: or
-    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "release in ['202412']"
+      - "'smartswitch' not in topo_name"
 
 dash/test_dash_smartswitch_vnet.py:
   skip:
     conditions_logical_operator: or
-    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s  / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "release in ['202412']"
+      - "'smartswitch' not in topo_name"
 
 dash/test_dash_vnet.py:
   skip:
     conditions_logical_operator: or
-    reason: "Currently dash tests are not supported on KVM"
+    reason: "Currently dash tests are not supported on KVM / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "platform in ['x86_64-nvidia_sn4280-r0']"
+      - "release in ['202412']"
+      - "'dpu' not in topo_name"
 
 dash/test_fnic.py:
   skip:
     conditions_logical_operator: or
-    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "release in ['202412']"
+      - "'smartswitch' not in topo_name"
 
 dash/test_plnsg.py:
   skip:
     conditions_logical_operator: or
-    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s"
+    reason: "Currently dash tests are not supported on KVM or non-smartswitch T1s / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
       - "hwsku not in ['Cisco-8102-28FH-DPU-O-T1', 'Mellanox-SN4280-O8C40', 'Mellanox-SN4280-O28', 'Cisco-8102-28FH-DPU-O']"
+      - "release in ['202412']"
+      - "'smartswitch' not in topo_name"
 
 dash/test_relaxed_match_negative.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    conditions_logical_operator: or
+    reason: "Currently dash tests are not supported on KVM / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "release in ['202412']"
+      - "'dpu' not in topo_name"
 
 #######################################
 #####       db_migrator           #####
