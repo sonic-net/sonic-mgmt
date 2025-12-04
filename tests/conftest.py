@@ -7,6 +7,8 @@ import random
 import re
 import sys
 
+import jinja2
+
 import pytest
 import yaml
 import copy
@@ -848,7 +850,7 @@ def k8scluster(k8smasters):
 
 
 @pytest.fixture(scope="session")
-def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
+def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request, localhost, vmhosts):
     """
     Shortcut fixture for getting VM host
     """
@@ -865,8 +867,16 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
         logger.info("No VMs exist for this topology: {}".format(tbinfo['topo']['properties']['topology']))
         return devices
 
-    def initial_neighbor(neighbor_name, vm_name):
-        logger.info(f"nbrhosts started: {neighbor_name}_{vm_name}")
+    # If use vmhosts as SSH proxy for nbrhosts, need to enable ssh key authentication with the server.
+    # Get the public SSH key from the localhost
+    # There are 2 places can generate the SSH key:
+    # 1. setup-container.sh tool. It always ensures that the SSH keys exists under ~/.ssh
+    # 2. The testbed-cli.sh tool also generates the SSH keys if not exist.
+    # The keys are ensured for the default user of the sonic-mgmt docker.
+    # If switch to a different user to run pytest, there could be a problem that the local SSH keys cannot be found.
+    public_key = localhost.shell("cat ~/.ssh/id_rsa.pub")['stdout'].strip()
+
+    def initial_neighbor(neighbor_name, vm_name, ssh_proxy={}):
         if neighbor_type == "eos":
             device = NeighborDevice(
                 {
@@ -876,7 +886,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         creds['eos_login'],
                         creds['eos_password'],
                         shell_user=creds['eos_root_user'] if 'eos_root_user' in creds else None,
-                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None
+                        shell_passwd=creds['eos_root_password'] if 'eos_root_password' in creds else None,
+                        ssh_proxy=ssh_proxy
                     ),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
@@ -888,7 +899,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         ansible_adhoc,
                         vm_name,
                         ssh_user=creds['sonic_login'] if 'sonic_login' in creds else None,
-                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None
+                        ssh_passwd=creds['sonic_password'] if 'sonic_password' in creds else None,
+                        ssh_proxy=ssh_proxy
                     ),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
@@ -901,6 +913,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                         vm_name,
                         creds['cisco_login'],
                         creds['cisco_password'],
+                        ssh_proxy=ssh_proxy
                     ),
                     'conf': tbinfo['topo']['properties']['configuration'][neighbor_name]
                 }
@@ -912,11 +925,63 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
 
     servers = []
     if 'servers' in tbinfo:
-        servers.extend(tbinfo['servers'].values())
+        for server_name, server_value in tbinfo['servers'].items():
+            server_value['server_name'] = server_name
+            servers.append(server_value)
     elif 'server' in tbinfo:
+        tbinfo['server_name'] = tbinfo['server']
         servers.append(tbinfo)
     else:
         logger.warning("Unknown testbed schema for setup nbrhosts")
+    inv_files = get_inventory_files(request)
+    for server in servers:
+        vm_base = int(server['vm_base'][2:])
+        vm_name_fmt = 'VM%0{}d'.format(len(server['vm_base']) - 2)
+        vms = MultiServersUtils.get_vms_by_dut_interfaces(
+                tbinfo['topo']['properties']['topology']['VMs'],
+                server['dut_interfaces']
+            ) if 'dut_interfaces' in server else tbinfo['topo']['properties']['topology']['VMs']
+        server_name = server['server_name']
+        vmhost = get_test_server_host(inv_files, server_name)
+
+        # Get vmhost connection details from inventory
+        vmhost_name = vmhost.get_name()
+        vmhost_var_ansible_host = ''
+        vmhost_var_ansible_ssh_proxy_host = ''
+        vmhost_var_vm_host_user = ''
+        for vh in vmhosts:
+            if vh.hostname == vmhost_name:
+                vmhost_host = vh.host.options['inventory_manager'].get_host(vmhost_name)
+                vmhost_visible_vars = vh.host.options['variable_manager'].get_vars(host=vmhost_host)
+                vmhost_var_ansible_host = vmhost_visible_vars.get('ansible_host', '')
+                vmhost_var_ansible_ssh_proxy_host = vmhost_visible_vars.get('ansible_ssh_proxy_host', '')
+                vmhost_var_vm_host_user = vmhost_visible_vars.get('vm_host_user', '')
+                vmhost_var_vm_host_user = jinja2.Template(vmhost_var_vm_host_user).render(**vmhost_visible_vars)
+
+                # Enable SSH key authentication on vmhost using authorized_key module
+                vh.authorized_key(
+                    user=vmhost_var_vm_host_user,
+                    key=public_key,
+                    state='present'
+                )
+                logger.info(f"Added SSH public key to {vmhost_name} using authorized_key module")
+
+                break
+        if not vmhost_var_vm_host_user or (not vmhost_var_ansible_host and not vmhost_var_ansible_ssh_proxy_host):
+            raise Exception(f"Missing required vmhost inventory variables for vmhost {vmhost_name}")
+        ssh_proxy = {
+            'proxy_user': vmhost_var_vm_host_user,
+            # When variable `ansible_ssh_proxy_host` is defined, use it as the proxy host. Else use `ansible_host`.
+            # Variable `ansible_ssh_proxy_host` can use value of `ansible_host` or `ansibl_hostv6`.
+            # Some vmhosts may only be accessible from IPv4, while others may only be accessible from IPv6.
+            # There is no standard way to know which one to use, so we let user to define it in inventory.
+            'proxy_host': vmhost_var_ansible_ssh_proxy_host \
+            if vmhost_var_ansible_ssh_proxy_host else vmhost_var_ansible_host,
+        }
+
+        for neighbor_name, neighbor in vms.items():
+            vm_name = vm_name_fmt % (vm_base + neighbor['vm_offset'])
+            futures.append(executor.submit(initial_neighbor, neighbor_name, vm_name, ssh_proxy=ssh_proxy))
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:
         for server in servers:
