@@ -59,10 +59,10 @@ The design respects sonic-mgmt's process architecture:
 | Issue | Current State | Impact |
 |-------|---------------|---------|
 | Mixed abstractions | Some tests use CLI tools, others direct gRPC | Inconsistent interfaces |
-| No access to native gRPC objects | Helper functions hide proto stubs and request objects | Users can't access full gRPC flexibility |
+| Complex setup | Protocol buffer compilation, Python dependencies | High maintenance burden |
 | Authentication chaos | Certificates in multiple locations | Unreliable connections |
-| Manual proto management | Hand-rolled compilation in conftest.py | Fragile setup |
-| No PTF integration | gRPC clients run in wrong container | Fork safety issues |
+| Limited reusability | gNMI-specific implementations | Cannot reuse for gNOI, gNSI |
+| Process boundary issues | gRPC clients in sonic-mgmt container | Fork safety concerns |
 
 ## Proposed Architecture
 
