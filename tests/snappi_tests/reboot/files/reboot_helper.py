@@ -569,7 +569,7 @@ def get_convergence_for_reboot_test(duthost,
         if reboot_type == "warm":
             request.flow.flow_names = [i]
             flow = snappi_api.get_metrics(request).flow_metrics
-            if flow[0].frames_tx_rate != flow[0].frames_tx_rate:
+            if flow[0].frames_tx_rate != flow[0].frames_rx_rate:
                 logger.info("Some Loss Observed in Traffic Item {}".format(i))
                 dp.append(metrics.data_plane_convergence_us / 1000)
                 logger.info(
@@ -584,7 +584,7 @@ def get_convergence_for_reboot_test(duthost,
             flow = snappi_api.get_metrics(request).flow_metrics
             assert int(flow[0].frames_tx_rate) != 0, \
                 "No Frames sent for traffic item: {}".format(i)
-            assert flow[0].frames_tx_rate == flow[0].frames_tx_rate, \
+            assert flow[0].frames_tx_rate == flow[0].frames_rx_rate, \
                 "Loss observed for Traffic Item: {}".format(i)
             logger.info("No Loss Observed in Traffic Item {}".format(i))
             dp.append(metrics.data_plane_convergence_us / 1000)
