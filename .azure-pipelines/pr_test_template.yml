@@ -45,6 +45,10 @@ parameters:
   type: object
   default: {}
 
+- name: PTF_MODIFIED
+  type: boolean
+  default: false
+
 
 jobs:
   - job: get_impacted_area
@@ -97,6 +101,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
@@ -134,6 +139,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   - job: impacted_area_t1_lag_elastictest
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
@@ -170,6 +176,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
@@ -206,6 +213,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   - job: impacted_area_t0_sonic_elastictest
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
@@ -247,6 +255,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
@@ -286,6 +295,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest
@@ -324,6 +334,7 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
 
   - job: impacted_area_t2_elastictest
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
@@ -361,3 +372,4 @@ jobs:
           TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
+          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
