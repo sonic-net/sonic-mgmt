@@ -685,12 +685,6 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
-dash:
-  skip:
-    reason: "Not supported on this DUT topology."
-    conditions:
-      - "'dpu' not in topo_name"
-
 dash/crm/test_dash_crm.py:
   skip:
     reason: "Currently dash tests are not supported on KVM"
