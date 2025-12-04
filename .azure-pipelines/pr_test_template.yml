@@ -46,8 +46,8 @@ parameters:
   default: {}
 
 - name: PTF_MODIFIED
-  type: boolean
-  default: false
+  type: string
+  default: "False"
 
 
 jobs:
