@@ -586,7 +586,7 @@ def get_convergence_for_reboot_test(duthost,
             assert int(flow[0].frames_tx_rate) != 0, \
                 "No Frames sent for traffic item: {}".format(i)
             assert is_traffic_converged(snappi_api), \
-                "Loss observed for Traffic Item: {}".format(i)
+                "Loss observed for Traffic Item"
             logger.info("No Loss Observed in Traffic Item {}".format(i))
             dp.append(metrics.data_plane_convergence_us / 1000)
             logger.info('DP/DP Convergence Time (ms) of {} : {}'.
