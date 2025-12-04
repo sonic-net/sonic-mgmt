@@ -397,8 +397,12 @@ def setup_interfaces(duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhos
             ipv4_interfaces = []
             used_subnets = set()
             asic_idx = 0
-            if mg_facts["minigraph_interfaces"]:
-                for intf in mg_facts["minigraph_interfaces"]:
+            mg_interfaces = mg_facts["minigraph_interfaces"]
+            if mg_interfaces:
+                if tbinfo["topo"]["name"] == "t2_single_node_min":
+                    mg_interfaces = sorted(mg_facts["minigraph_interfaces"],
+                                           key=lambda x: int(x['attachto'].replace("Ethernet", "")))
+                for intf in mg_interfaces:
                     if _is_ipv4_address(intf["addr"]):
                         intf_asic_idx = duthost.get_port_asic_instance(intf["attachto"]).asic_index
                         if not ipv4_interfaces:
