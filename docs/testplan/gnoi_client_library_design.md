@@ -498,41 +498,89 @@ def test_direct_grpc_access(deploy_gnoi_to_ptf, ptfhost, duthosts, rand_one_dut_
 
 ## Implementation Plan
 
-### Phase 1: Core Infrastructure (Week 1)
-1. Create directory structure
-2. Implement proto compilation utility
-3. Create basic gNOI client with System operations
-4. Implement PTF operations script
-5. Basic pytest fixture
+### Phase 1: Initial Implementation (Week 1)
+**Goal**: Minimal working implementation with extension example
+
+**Core Infrastructure + System Time**:
+1. Create minimal directory structure
+2. Implement basic proto compilation for System and File services
+3. Create gNOI client with System.Time and File.Put operations only
+4. Implement PTF operations script with 'time' and 'file_put' handlers
+5. Basic pytest fixtures for PTF deployment
+
+**Deliverables**:
+```
+tests/common/grpc_clients/
+├── __init__.py
+├── gnoi_client.py          # System + File operations only
+└── exceptions.py           # Basic exceptions
+
+tests/common/grpc_protos/
+├── gnoi/
+│   ├── system/system.proto # System service only
+│   └── file/file.proto     # File service only  
+└── compile_protos.py       # Simple compilation
+
+tests/common/fixtures/
+└── gnoi_fixtures.py        # Basic fixtures
+
+tests/ptftests/
+└── gnoi_operations.py      # 'time' and 'file_put' operations
+
+tests/common/
+└── ptf_gnoi.py            # PtfGnoiHelper with 2 methods
+```
+
+**Test Examples**:
+```python
+def test_system_time_basic(gnoi_ptf):
+    """Basic system time test - proves infrastructure works"""
+    result = gnoi_ptf.system_time()
+    assert 'timestamp' in result
+    assert result['timestamp'] > 0
+
+def test_file_put_example(gnoi_ptf):
+    """Example showing file operations - demonstrates extension pattern"""
+    content = "test config data"
+    result = gnoi_ptf.file_put("/tmp/test_file", content)
+    assert result['status'] == 'success'
+```
 
 ### Phase 2: Integration and Testing (Week 2)  
-1. Implement PtfGnoiHelper class
-2. Create comprehensive fixtures
-3. Write example test cases
-4. Test deployment to PTF container
-5. Documentation and examples
+1. Test deployment to PTF container with real testbed
+2. Add error handling and retry logic
+3. Create comprehensive test cases
+4. Documentation and usage examples
+5. Performance validation
 
-### Phase 3: Extension and Hardening (Week 3)
+### Phase 3: Extension Framework (Week 3)
 1. Add certificate management for secure connections
-2. Implement error handling and retry logic
-3. Add support for additional gNOI services
-4. Performance testing and optimization
-5. Integration with existing test suites
+2. Document extension patterns for new gNOI services
+3. Add more File operations (Get, Remove) as examples
+4. Implement logging and debugging utilities
+5. Integration with existing test patterns
 
-### Phase 4: Migration and Documentation (Week 4)
-1. Migrate existing gNOI tests to new library
-2. Create comprehensive documentation
-3. Add monitoring and logging
-4. Code review and testing
-5. Deployment to CI/CD pipeline
+### Phase 4: Production Ready (Week 4)
+1. Code review and hardening
+2. Add monitoring and observability
+3. Migration guide for existing tests
+4. CI/CD integration
+5. Final documentation and training materials
+
+**Phase 1 Success Criteria**:
+- ✅ System.Time operation working end-to-end
+- ✅ File.Put operation working as extension example  
+- ✅ PTF deployment functioning correctly
+- ✅ Clear path for adding new gNOI services
+- ✅ Basic test cases passing
 
 ## Benefits
 
 ### For Test Authors
-- **Native gRPC Access**: Direct access to gRPC stubs and proto request/response objects
-- **Transparency**: Can see exactly what gRPC calls are being made
+- **Simple JSON Interface**: Clean function calls like `gnoi_ptf.system_time()` and `gnoi_ptf.file_put()`
+- **Easy Extension**: Clear pattern for adding new gNOI services following File.Put example
 - **Familiar Patterns**: Uses standard pytest fixtures and sonic-mgmt patterns
-- **Maximum Flexibility**: Full access to all proto fields and gRPC features
+- **No gRPC Complexity**: Infrastructure handles proto compilation and connection management
 
 ### For Test Maintenance
 - **Centralized**: Single location for gNOI client logic
@@ -572,8 +620,8 @@ def test_direct_grpc_access(deploy_gnoi_to_ptf, ptfhost, duthosts, rand_one_dut_
 
 ## Conclusion
 
-This design provides a clean foundation for gNOI testing in sonic-mgmt by exposing native gRPC Python objects while managing infrastructure setup. Test authors get direct access to gRPC stubs and protocol buffer request/response objects, providing maximum flexibility to use all gRPC features and proto fields.
+This design provides a clean foundation for gNOI testing in sonic-mgmt through a simple JSON interface while managing all gRPC infrastructure concerns. The initial implementation focuses on System.Time operations with File.Put as an extension example, proving the concept while keeping complexity minimal.
 
-The infrastructure-as-utilities approach handles the complex setup (proto compilation, certificates, PTF deployment) while keeping the native gRPC interface fully accessible. The PTF container deployment strategy ensures fork safety while maintaining familiar sonic-mgmt test patterns.
+The infrastructure-as-utilities approach handles complex setup (proto compilation, certificates, PTF deployment) while exposing a clean, testable interface. The PTF container deployment strategy ensures fork safety while maintaining familiar sonic-mgmt test patterns.
 
-This approach makes it easy to adopt incrementally, extend with new gNOI services, and maintain over time while giving developers the full power of the native gRPC Python library.
+Phase 1 delivers a working foundation with clear extension patterns, making it easy to add new gNOI services incrementally. The JSON interface abstracts gRPC complexity while the underlying implementation uses native protocol buffers for type safety and correctness.
