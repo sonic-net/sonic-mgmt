@@ -75,15 +75,15 @@ The design respects sonic-mgmt's process architecture:
 ```mermaid
 graph TB
     subgraph SM ["sonic-mgmt container"]
-        TC["Test Cases<br/>duthost.shell config save<br/>result = gnoi_ptf.system_reboot"]
-        PF["Pytest Fixtures<br/>deploy_gnoi_to_ptf<br/>gnoi_ptf"]
+        TC["Test Cases"]
+        PF["Pytest Fixtures"]
         TC --> PF
     end
     
-    subgraph PTF ["PTF container"] 
-        OS["gNOI Operations Script<br/>/root/ptftests/gnoi_operations.py"]
-        GCL["gNOI Client Library<br/>/root/grpc_clients/gnoi_client.py<br/>Direct gRPC stub usage"]
-        CPS["Compiled Proto Stubs<br/>/root/grpc_protos/gnoi/system/<br/>system_pb2.py, system_pb2_grpc.py"]
+    subgraph PTF ["PTF container"]
+        OS["gNOI Operations Script"]
+        GCL["gNOI Client Library"]
+        CPS["Compiled Proto Stubs"]
         
         OS --> GCL
         GCL --> CPS
