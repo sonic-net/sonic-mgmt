@@ -93,66 +93,66 @@ graph TB
 
 ### Directory Structure
 
+Following sonic-mgmt's automatic PTF deployment pattern:
+
 ```
-tests/common/grpc_clients/
-├── __init__.py
-├── gnoi_client.py          # Main gNOI client implementation
-├── credentials.py          # Certificate management
-└── exceptions.py          # Custom exceptions
-
-tests/common/grpc_protos/
-├── gnoi/
-│   ├── __init__.py
-│   ├── common/
-│   │   ├── __init__.py
-│   │   └── common.proto
-│   ├── system/
-│   │   ├── __init__.py
-│   │   └── system.proto
-│   └── types/
-│       ├── __init__.py
-│       └── types.proto
-├── __init__.py
-└── compile_protos.py
-
-tests/common/fixtures/
-├── gnoi_fixtures.py        # Pytest fixtures for gNOI
-└── __init__.py
-
 tests/ptftests/
-└── gnoi_operations.py      # PTF-side gNOI operations
+├── py3/                    # Python 3 PTF tests (modern)
+│   ├── gnoi_operations.py  # Main gNOI operations script  
+│   ├── gnoi_client.py      # gNOI client implementation
+│   └── gnoi/               # Compiled proto stubs (local)
+│       ├── system/
+│       │   ├── system_pb2.py
+│       │   └── system_pb2_grpc.py
+│       └── file/
+│           ├── file_pb2.py
+│           └── file_pb2_grpc.py
+└── gnoi_operations.py      # Python 2 fallback (legacy)
 
 tests/common/
-└── ptf_gnoi.py            # Helper class for test integration
+├── fixtures/
+│   └── gnoi_fixtures.py    # Simple fixtures (no deployment)
+└── ptf_gnoi.py            # Helper class for sonic-mgmt integration
+
+tests/common/grpc_protos/   # Source proto files
+├── gnoi/
+│   ├── system/system.proto
+│   └── file/file.proto
+└── compile_protos.py       # Proto compilation utility
 ```
+
+**Key Insight**: sonic-mgmt automatically copies `tests/ptftests/` to `/root/ptftests/` in PTF container via the `copy_ptftests_directory` fixture. This means no custom deployment code needed!
 
 ## Detailed Design
 
 ### 1. Protocol Buffer Management
 
-#### Simple Proto Compilation
+#### Automatic PTF Deployment Pattern
 
 ```python
-# tests/common/grpc_protos/compile_protos.py
+# tests/common/grpc_protos/compile_protos.py  
 import subprocess
 from pathlib import Path
 
-def compile_gnoi_protos():
-    """Compile gNOI proto files - simple and reliable"""
+def compile_gnoi_protos_for_ptf():
+    """Compile gNOI proto files directly into PTF directory"""
     proto_root = Path(__file__).parent
+    ptf_output = Path(__file__).parent.parent.parent / "ptftests" / "py3"
     
     proto_files = [
-        "gnoi/types/types.proto",
-        "gnoi/common/common.proto", 
-        "gnoi/system/system.proto"
+        "gnoi/system/system.proto",
+        "gnoi/file/file.proto"
     ]
+    
+    # Create output directory
+    ptf_output.mkdir(parents=True, exist_ok=True)
     
     for proto_file in proto_files:
         cmd = [
             "python", "-m", "grpc_tools.protoc",
             f"--proto_path={proto_root}",
-            f"--python_out={proto_root}",
-            f"--grpc_python_out={proto_root}",
+            f"--python_out={ptf_output}",      # Output to PTF directory
+            f"--grpc_python_out={ptf_output}",  # Output to PTF directory
             str(proto_root / proto_file)
         ]
         
@@ -161,25 +161,28 @@ def compile_gnoi_protos():
             raise Exception(f"Failed to compile {proto_file}: {result.stderr}")
 
 if __name__ == "__main__":
-    compile_gnoi_protos()
+    compile_gnoi_protos_for_ptf()
 ```
 
-### 2. PTF-Side gNOI Client
+**Key Change**: Compile protos directly into `tests/ptftests/py3/` so they're automatically deployed by sonic-mgmt's PTF deployment system.
 
-#### Expose Native gRPC Stubs and Proto Objects
+### 2. PTF-Side gNOI Client (Self-Contained)
+
+#### Local Client Implementation in PTF
 
 ```python
-# tests/common/grpc_clients/gnoi_client.py
+# tests/ptftests/py3/gnoi_client.py  
 import grpc
 import sys
-from pathlib import Path
+import os
 
-# Add proto path
-sys.path.insert(0, str(Path(__file__).parent.parent / "grpc_protos"))
-
+# Local imports - proto stubs are in same directory
 from gnoi.system import system_pb2, system_pb2_grpc
-from .credentials import create_credentials
-from .exceptions import GnoiError
+from gnoi.file import file_pb2, file_pb2_grpc
+
+class GnoiError(Exception):
+    """gNOI operation errors"""
+    pass
 
 class GnoiClient:
     """Lightweight gNOI client - exposes native gRPC stubs and proto objects"""
@@ -240,14 +243,14 @@ class GnoiClient:
 
 ### 3. PTF Operations Script
 
-#### Clean Interface Between Containers
+#### Self-Contained PTF Script
 
 ```python
-# tests/ptftests/gnoi_operations.py
+# tests/ptftests/py3/gnoi_operations.py
 import sys
 import json
-sys.path.insert(0, '/root/grpc_clients')
 
+# Local import - client is in same directory
 from gnoi_client import GnoiClient
 
 def main():
@@ -300,7 +303,7 @@ class PtfGnoiHelper:
     def _call_operation(self, operation, *args):
         """Call gNOI operation and parse JSON response"""
         args_str = " ".join(str(arg) for arg in args)
-        cmd = f"python3 /root/ptftests/gnoi_operations.py {operation} {self.target} {args_str}"
+        cmd = f"python3 /root/ptftests/py3/gnoi_operations.py {operation} {self.target} {args_str}"
         
         result = self.ptfhost.shell(cmd, module_ignore_errors=True)
         
@@ -328,42 +331,25 @@ class PtfGnoiHelper:
 
 ### 5. Pytest Fixtures
 
-#### Session-Level Setup and Deployment
+#### Simplified Fixtures (No Custom Deployment)
 
 ```python
 # tests/common/fixtures/gnoi_fixtures.py
 import pytest
-from pathlib import Path
 from ..ptf_gnoi import PtfGnoiHelper
 
+# No deployment fixture needed! PTF files are auto-deployed by sonic-mgmt
+
 @pytest.fixture(scope="session")
-def deploy_gnoi_to_ptf(ptfhost):
-    """Deploy gNOI library and scripts to PTF container"""
-    
-    # Compile protos first
-    from ..grpc_protos.compile_protos import compile_gnoi_protos
-    compile_gnoi_protos()
-    
-    # Copy library files to PTF
-    grpc_clients_path = Path(__file__).parent.parent / "grpc_clients"
-    grpc_protos_path = Path(__file__).parent.parent / "grpc_protos"
-    gnoi_ops_path = Path(__file__).parent.parent.parent / "ptftests" / "gnoi_operations.py"
-    
-    # Deploy to PTF container
-    ptfhost.shell("mkdir -p /root/grpc_clients /root/grpc_protos /root/ptftests")
-    ptfhost.copy(src=str(grpc_clients_path), dest="/root/", is_directory=True)
-    ptfhost.copy(src=str(grpc_protos_path), dest="/root/", is_directory=True) 
-    ptfhost.copy(src=str(gnoi_ops_path), dest="/root/ptftests/")
-    
-    # Install dependencies if needed
+def ensure_gnoi_dependencies(ptfhost):
+    """Ensure gRPC dependencies are available in PTF container"""
     result = ptfhost.shell("python3 -c 'import grpc'", module_ignore_errors=True)
     if result['rc'] != 0:
         ptfhost.shell("pip3 install grpcio grpcio-tools protobuf")
-    
     return True
 
-@pytest.fixture
-def gnoi_ptf(deploy_gnoi_to_ptf, ptfhost, duthosts, rand_one_dut_hostname):
+@pytest.fixture 
+def gnoi_ptf(ensure_gnoi_dependencies, ptfhost, duthosts, rand_one_dut_hostname):
     """Provide gNOI helper for tests"""
     duthost = duthosts[rand_one_dut_hostname]
     target = f"{duthost.mgmt_ip}:50052"
@@ -500,25 +486,30 @@ def test_direct_grpc_access(deploy_gnoi_to_ptf, ptfhost, duthosts, rand_one_dut_
 
 **Deliverables**:
 ```
-tests/common/grpc_clients/
-├── __init__.py
-├── gnoi_client.py          # System + File operations only
-└── exceptions.py           # Basic exceptions
+tests/ptftests/
+├── py3/                         # Modern Python 3 implementation
+│   ├── gnoi_operations.py       # Main operations script
+│   ├── gnoi_client.py          # gNOI client (self-contained)
+│   └── gnoi/                   # Compiled proto stubs (auto-deployed)
+│       ├── system/
+│       │   ├── system_pb2.py
+│       │   └── system_pb2_grpc.py
+│       └── file/
+│           ├── file_pb2.py  
+│           └── file_pb2_grpc.py
+└── gnoi_operations.py           # Python 2 fallback
 
-tests/common/grpc_protos/
+tests/common/grpc_protos/        # Source proto files
 ├── gnoi/
-│   ├── system/system.proto # System service only
-│   └── file/file.proto     # File service only  
-└── compile_protos.py       # Simple compilation
+│   ├── system/system.proto      # System service
+│   └── file/file.proto          # File service
+└── compile_protos.py            # Compilation to PTF directory
 
 tests/common/fixtures/
-└── gnoi_fixtures.py        # Basic fixtures
-
-tests/ptftests/
-└── gnoi_operations.py      # 'time' and 'file_put' operations
+└── gnoi_fixtures.py             # Simple fixtures (no deployment)
 
 tests/common/
-└── ptf_gnoi.py            # PtfGnoiHelper with 2 methods
+└── ptf_gnoi.py                  # PtfGnoiHelper integration class
 ```
 
 **Test Examples**:
