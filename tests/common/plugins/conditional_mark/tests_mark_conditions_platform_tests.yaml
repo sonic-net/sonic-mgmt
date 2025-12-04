@@ -525,7 +525,7 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_fans_target_speed:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_model:
   skip:
@@ -539,7 +539,7 @@ platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_presence:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_psu_fans.py::TestPsuFans::test_get_serial:
   skip:
@@ -585,7 +585,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_error_description:
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-cel_e1031-r0'] and https://github.com/sonic-net/sonic-buildimage/issues/18229"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_model:
   skip:
@@ -615,7 +615,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_presence:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_reset_status:
   skip:
@@ -669,13 +669,13 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_dom_real_value:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_info:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   skip:
@@ -688,7 +688,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_get_transceiver_threshold_info:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_get_tx_bias:
   skip:
@@ -726,7 +726,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_is_replaceable:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
   skip:
@@ -738,7 +738,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_lpmode:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_power_override:
   skip:
@@ -760,7 +760,7 @@ platform_tests/api/test_sfp.py::TestSfpApi::test_reset:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/api/test_sfp.py::TestSfpApi::test_thermals:
   skip:
@@ -995,7 +995,7 @@ platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
     conditions_logical_operator: or
     conditions:
       - "hwsku in ['Celestica-DX010-C32'] and https://github.com/sonic-net/sonic-mgmt/issues/6518"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 ###############################################
 ## counterpoll/test_counterpoll_watermark.py ##
@@ -1055,13 +1055,13 @@ platform_tests/link_flap/test_cont_link_flap.py::TestContLinkFlap::test_cont_lin
     conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23121 and 't1-lag' in topo_name and 'SN2' in hwsku"
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/link_flap/test_link_flap.py::test_link_flap:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####           mellanox          #####
@@ -1084,7 +1084,7 @@ platform_tests/mellanox/test_check_sfp_eeprom.py::test_check_sfp_eeprom_with_opt
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/mellanox/test_check_sfp_using_ethtool.py:
   skip:
@@ -1110,7 +1110,7 @@ platform_tests/sfp/test_sfputil.py:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/sfp/test_sfputil.py::test_check_sfputil_low_power_mode:
   skip:
@@ -1212,7 +1212,7 @@ platform_tests/test_intf_fec.py::test_verify_fec_histogram:
    xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 ####        test_kdump.py         #####
@@ -1311,7 +1311,7 @@ platform_tests/test_reboot.py::test_continuous_reboot:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 platform_tests/test_reboot.py::test_fast_reboot:
   skip:
@@ -1363,7 +1363,7 @@ platform_tests/test_reboot.py::test_watchdog_reboot:
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
-      - "'t0-isolated-d256u256s2' in topo_name"
+      - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 #######################################
 #####   test_reload_config.py     #####
