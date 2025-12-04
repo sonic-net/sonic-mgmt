@@ -109,7 +109,7 @@ def apply_config_db(duthost, dpu_num, mock_pa_ipv4, loopback_ips,
 
 @pytest.fixture(scope="module")
 def vdpus_info(dpu_num):
-    dpu_index = random.randint(0, dpu_num - 1)
+    dpu_index = random.randrange(dpu_num)
     vdpus = [f"vdpu0_{dpu_index}", f"vdpu1_{dpu_index}"]
     logger.info(f"Randomly selected vDPUs to test {vdpus}")
     vdpus_all_remote = [f"vdpu1_{(dpu_index + 1) % dpu_num}", f"vdpu1_{(dpu_index + 2) % dpu_num}"]
@@ -235,7 +235,7 @@ def check_acl_rules(duthost, mock_pa_ipv4, peer_loopback0_ip,
         }
     }
     logger.info(
-        f"3 ENIs are configured in this test, expected {len(expected_rules.keys())} ACL rules: \n{expected_rules}")
+        f"3 ENIs are configured in this test, expected {len(expected_rules)} ACL rules: \n{expected_rules}")
     actual_rule_num = int(duthost.shell("redis-cli -n 0 keys 'ACL_RULE_TABLE:ENI*' | grep 'ACL' | wc -l")['stdout'])
     if not actual_rule_num == len(expected_rules):
         logger.error(f"Expected {len(expected_rules)} ENI forwarding ACL rules, but got {actual_rule_num}")
