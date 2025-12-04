@@ -97,16 +97,19 @@ def common_v6_setup_teardown(duthosts, tbinfo, enum_rand_one_per_hwsku_frontend_
     else:
         cfg_facts = duthost.config_facts(source='persistent', asic_index='all')[0]['ansible_facts']
 
+    lbs = []
     if 'Loopback4096' in cfg_facts['LOOPBACK_INTERFACE']:
-        lbs4096 = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
-        for lb4096 in lbs4096:
-            lb4096intf = ipaddress.ip_interface(lb4096)
-            if lb4096intf.ip.version == 6:
-                if "/" in lb4096:
-                    local_addr = lb4096.split("/")[0]
-                    break
-                else:
-                    local_addr = lb4096
+        lbs = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback4096'].keys())
+    elif 'Loopback0' in cfg_facts['LOOPBACK_INTERFACE']:
+        lbs = list(cfg_facts['LOOPBACK_INTERFACE']['Loopback0'].keys())
+    for lb in lbs:
+        lbintf = ipaddress.ip_interface(lb)
+        if lbintf.ip.version == 6:
+            if "/" in lb:
+                local_addr = lb.split("/")[0]
+                break
+            else:
+                local_addr = lb
 
     mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
     # Assign peer addr to an interface on ptf

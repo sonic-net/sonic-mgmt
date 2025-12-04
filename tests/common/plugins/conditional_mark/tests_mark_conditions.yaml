@@ -264,6 +264,18 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####            bgp              #####
 #######################################
+bgp/reliable_tsa/test_reliable_tsa_flaky.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
+bgp/reliable_tsa/test_reliable_tsa_stable.py:
+  skip:
+    reason: "reliable TSA is not supported on non-chassis"
+    conditions:
+      - "is_chassis==False"
+
 bgp/test_bgp_allow_list.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
@@ -2288,7 +2300,7 @@ fib/test_fib.py::test_basic_fib[True-True-1514]:
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
-fib/test_fib.py::test_hash[ipv4]:
+fib/test_fib.py::test_hash[ipv4:
   skip:
     reason: "Skip for IPv6-only topologies"
     conditions:
@@ -2336,7 +2348,7 @@ fib/test_fib.py::test_nvgre_hash:
     conditions:
       - "asic_gen == 'spc1' and 't1-lag' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/17526"
 
-fib/test_fib.py::test_nvgre_hash[ipv4-ipv4]:
+fib/test_fib.py::test_nvgre_hash[ipv4-ipv4:
   skip:
     reason: "Skip for IPv6-only topologies and Nvgre hash test is not fully supported on VS and Broadcom platform; Not supported on M*. Skip on t1-isolated-d32/128 topos"
     conditions_logical_operator: or
