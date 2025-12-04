@@ -23,32 +23,28 @@ The gNOI protocol defines various service modules including System, File, Certif
 
 ## Design Philosophy
 
-### Expose Native gRPC Objects
-This design exposes native gRPC Python library objects (stubs and request/response messages) to give users maximum flexibility:
+### Simple JSON Interface
+This design provides a clean JSON interface while handling all gRPC complexity internally:
 
 ```python
 def test_system_time(gnoi_ptf):
-    """Users get direct access to gRPC stubs and proto objects"""
-    # Access to native gRPC stub
-    stub = gnoi_ptf.get_system_stub()
+    """Simple JSON interface - no gRPC complexity exposed"""
+    # Clean function call returns JSON data
+    result = gnoi_ptf.system_time()
     
-    # Access to native proto request objects
-    from gnoi.system import system_pb2
-    request = system_pb2.TimeRequest()
-    
-    # Direct gRPC call
-    response = stub.Time(request)
-    assert response.time > 0
+    # Work with simple JSON response
+    assert 'timestamp' in result
+    assert result['timestamp'] > 0
 ```
 
 ### Infrastructure as Utilities
-The library handles setup concerns while keeping the native gRPC interface accessible:
+The library handles setup concerns while providing a simple test interface:
 - Proto compilation and import management  
 - Certificate setup and PTF deployment
 - Connection management between PTF and DUT
 - Error handling and logging
 
-This approach avoids abstraction layers that hide the underlying gRPC calls, giving test authors full access to the protocol buffer objects and gRPC stubs they need.
+This approach handles all gRPC complexity internally while exposing a clean JSON interface to test authors. The underlying implementation uses native protocol buffers for correctness, but tests work with simple Python dictionaries.
 
 ### Process Boundary Awareness
 The design respects sonic-mgmt's process architecture:
@@ -300,12 +296,6 @@ class PtfGnoiHelper:
     def __init__(self, ptfhost, target):
         self.ptfhost = ptfhost
         self.target = target
-        
-    def get_system_stub(self):
-        """Get native gRPC SystemStub for direct access"""
-        result = self._call_operation('get_stub', 'system')
-        # This would return a way to access the stub, but for now
-        # we'll provide helper methods that expose the native interface
         
     def _call_operation(self, operation, *args):
         """Call gNOI operation and parse JSON response"""
