@@ -49,7 +49,7 @@ class SonicHost(AnsibleHostBase):
     """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
-                 ssh_user=None, ssh_passwd=None):
+                 ssh_user=None, ssh_passwd=None, ssh_proxy={}):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
         self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
@@ -81,6 +81,16 @@ class SonicHost(AnsibleHostBase):
             evars = {
                 'ansible_ssh_user': ssh_user,
                 'ansible_ssh_pass': ssh_passwd,
+            }
+            self.host.options['variable_manager'].extra_vars.update(evars)
+
+        proxy_user = ssh_proxy.get('proxy_user', None)
+        proxy_host = ssh_proxy.get('proxy_host', None)
+        if proxy_user and proxy_host:
+            evars = {
+                'ansible_ssh_extra_args':
+                    "-o ProxyCommand='ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no " +
+                    f"-W %h:%p {proxy_user}@{proxy_host}'"
             }
             self.host.options['variable_manager'].extra_vars.update(evars)
 

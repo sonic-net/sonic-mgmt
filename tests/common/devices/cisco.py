@@ -76,7 +76,7 @@ class CiscoHost(AnsibleHostBase):
     """
     @summary: Class for Cisco host
     """
-    def __init__(self, ansible_adhoc, hostname, ansible_user, ansible_passwd):
+    def __init__(self, ansible_adhoc, hostname, ansible_user, ansible_passwd, ssh_proxy={}):
         '''Initialize an object for interacting with cisco device using ansible modules
         Args:
             ansible_adhoc (): The pytest-ansible fixture
@@ -87,6 +87,7 @@ class CiscoHost(AnsibleHostBase):
         self.ansible_user = ansible_user
         self.ansible_passwd = ansible_passwd
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+        self._ssh_proxy = ssh_proxy
         # Reserved for execute ansible commands in local device
         self.localhost = ansible_adhoc(inventory='localhost', connection='local', host_pattern="localhost")["localhost"]
 
@@ -100,6 +101,12 @@ class CiscoHost(AnsibleHostBase):
                 'ansible_ssh_user': self.ansible_user,
                 'ansible_ssh_pass': self.ansible_passwd,
             }
+            proxy_user = self._ssh_proxy.get('proxy_user', None)
+            proxy_host = self._ssh_proxy.get('proxy_host', None)
+            if proxy_user and proxy_host:
+                evars['ansible_paramiko_proxy_command'] = \
+                    'ssh -o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no ' + \
+                    f'-W %h:%p {proxy_user}@{proxy_host}'
         else:
             raise Exception("Does not have module: {}".format(module_name))
         self.host.options['variable_manager'].extra_vars.update(evars)
