@@ -5,6 +5,7 @@ from pytest_ansible.errors import AnsibleConnectionFailure
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.tacacs.tacacs_helper import setup_tacacs_client, setup_tacacs_server, load_tacacs_creds, \
                     cleanup_tacacs, restore_tacacs_servers
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 logger = logging.getLogger(__name__)
 TACACS_CREDS_FILE = 'tacacs_creds.yaml'
@@ -34,7 +35,8 @@ def collect_artifact(duthost, module_name):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_creds, creds, request):
+def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_creds, creds, request,
+                 duthost_mgmt_ip):  # noqa: F811
     # setup_tacacs only support test case using duthost
     if not selected_dut and not selected_rand_dut:
         logger.debug("Ignore setup_tacacs because can't find duthost for test.")
@@ -55,7 +57,7 @@ def setup_tacacs(ptfhost, duthosts, selected_dut, selected_rand_dut, tacacs_cred
         tacacs_server_ip = creds['lab_tacacs_server']
         tacacs_server_passkey = creds['lab_tacacs_passkey']
     else:
-        tacacs_server_ip = ptfhost.mgmt_ip
+        tacacs_server_ip = ptfhost.mgmt_ipv6 if duthost_mgmt_ip["version"] == "v6" else ptfhost.mgmt_ip
         tacacs_server_passkey = tacacs_creds[duthost.hostname]['tacacs_passkey']
 
     logger.warning("Setup TACACS server: use_lab_tacacs_server:{}, tacacs_server_ip:{}, tacacs_server_passkey:{}"
