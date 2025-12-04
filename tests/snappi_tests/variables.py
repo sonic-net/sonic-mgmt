@@ -297,3 +297,13 @@ t2_dut_portchannel_ipv6_list = ipv6[routed_port_count:]
 snappi_portchannel_ipv6_list = peer_ipv6[routed_port_count:]
 
 # END ---------------------   T2 BGP Case -------------------
+# AI Stress case Common Variables
+pfcQueueGroupSize = 4
+pfcQueueValueDict = {0: 0,
+                     1: 1,
+                     2: 0,
+                     3: 3,
+                     4: 2,
+                     5: 0,
+                     6: 1,
+                     7: 0}
