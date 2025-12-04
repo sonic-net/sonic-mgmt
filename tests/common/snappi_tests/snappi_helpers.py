@@ -361,3 +361,21 @@ def fetch_snappi_flow_metrics(api, flow_names):
     flow_metrics = api.get_metrics(request).flow_metrics
 
     return flow_metrics
+
+
+def is_traffic_converged(snappi_api, flow_names=[], threshold=0.01):
+    """
+    Returns true if traffic has converged within the threshold
+    """
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    for fs in flow_stats:
+        tx_rate = float(fs.frames_tx_rate)
+        rx_rate = float(fs.frames_rx_rate)
+        if tx_rate == 0:
+            return False
+        loss_percentage = ((tx_rate - rx_rate) / tx_rate) * 100
+        if loss_percentage > threshold:
+            return False
+    return True
