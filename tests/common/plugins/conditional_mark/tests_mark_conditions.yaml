@@ -346,11 +346,9 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
 
 bgp/test_bgp_port_disable.py:
   skip:
-    reason: "Not supperted on master. Skip test_bgp_port_disable in PR tests."
-    conditions_logical_operator: or
+    reason: "Not supported on public branches."
     conditions:
-      - "release in ['master', '202505']"
-      - "asic_type in ['vs']"
+      - "'internal' not in branch"
 
 bgp/test_bgp_queue.py:
   skip:
@@ -2523,11 +2521,12 @@ generic_config_updater/test_ecn_config_update.py::test_ecn_config_updates:
 
 generic_config_updater/test_eth_interface.py::test_replace_fec:
   skip:
-    reason: 'Skipping test on 7260/3800 platform due to bug of https://github.com/sonic-net/sonic-mgmt/issues/11237 or test is not supported on this platform'
+    reason: 'Skip test_replace_fec on unsupported hwsku/topo due to issues'
     conditions_logical_operator: "OR"
     conditions:
       - "hwsku in ['Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Arista-7260CX3-Q64', 'Mellanox-SN3800-D112C8'] and https://github.com/sonic-net/sonic-mgmt/issues/11237"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-nokia_ixr7250_x3b-r0']"
+      - "'dualtor' in topo_name and https://github.com/sonic-net/sonic-buildimage/issues/24365"
 
 generic_config_updater/test_eth_interface.py::test_replace_lanes:
   skip:
@@ -4631,7 +4630,8 @@ srv6/test_srv6_dataplane.py:
     reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom'] or release not in ['202412']"
+      - "asic_type not in ['mellanox', 'broadcom', 'vpp']"
+      - "release not in ['202412'] and asic_type not in ['vpp']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
@@ -4641,7 +4641,7 @@ srv6/test_srv6_static_config.py:
     reason: "Requires particular image support, skip in PR testing. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
-      - "release not in ['202412']"
+      - "release not in ['202412'] and asic_type not in ['vpp']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
 
@@ -4649,7 +4649,7 @@ srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
     reason: "Unsupported platform"
     conditions:
-      - "asic_type in ['mellanox']"
+      - "asic_type in ['mellanox', 'vpp']"
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
@@ -5320,6 +5320,12 @@ vxlan/test_vxlan_route_advertisement.py::Test_VxLAN_route_Advertisement::test_sc
     reason: "xfail for IPv6-only topologies, need to add support for IPv6-only - https://github.com/sonic-net/sonic-mgmt/issues/20725"
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/20725 and '-v6-' in topo_name"
+
+vxlan/test_vxlan_underlay_ecmp.py:
+  skip:
+    reason: "VxLAN underlay ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 #######################################
 #####           wan_lacp          #####
