@@ -1894,7 +1894,8 @@
             "cisco.master.1.1.release",
             "cisco.master.signed",
             "cisco.202405cz.2.1.ztp.release",
-            "cisco.202405c.2"
+            "cisco.202405c.2",
+            "c-master.ztp"
         ],
         "t0-m6-3-m64": "None",
         "b2b-tu-2-carib":  [
