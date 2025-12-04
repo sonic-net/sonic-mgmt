@@ -221,6 +221,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         return
 
     skip_sanity = False
+    skip_pre_sanity = False
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
@@ -238,6 +239,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Process marker {} in script. m.args={}, m.kwargs={}"
                     .format(customized_sanity_check.name, customized_sanity_check.args, customized_sanity_check.kwargs))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
+        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", False)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
         recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
@@ -256,6 +258,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Skip sanity check according to configuration of test script.")
         yield
         return
+
+    if request.config.option.skip_pre_sanity:
+        skip_pre_sanity = True
 
     if request.config.option.allow_recover:
         allow_recover = True
@@ -298,9 +303,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         post_check_items = set()
 
-    logger.info("Sanity check settings: skip_sanity=%s, pre_check_items=%s, allow_recover=%s, recover_method=%s, "
-                "post_check=%s, post_check_items=%s" %
-                (skip_sanity, pre_check_items, allow_recover, recover_method, post_check, post_check_items))
+    logger.info("Sanity check settings: skip_sanity=%s, skip_pre_sanity=%s, pre_check_items=%s, "
+                "allow_recover=%s, recover_method=%s, post_check=%s, post_check_items=%s" %
+                (skip_sanity, skip_pre_sanity, pre_check_items, allow_recover,
+                 recover_method, post_check, post_check_items))
 
     pre_post_check_items = pre_check_items + [item for item in post_check_items if item not in pre_check_items]
     for item in pre_post_check_items:
@@ -310,7 +316,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         # Each possibly used check fixture must be executed in setup phase. Otherwise there could be teardown error.
         request.getfixturevalue(item)
 
-    if pre_check_items:
+    if not skip_pre_sanity and pre_check_items:
         logger.info("Start pre-test sanity checks")
 
         # Dynamically attach selected check fixtures to node
