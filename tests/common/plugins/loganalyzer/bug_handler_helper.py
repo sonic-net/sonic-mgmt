@@ -1,16 +1,28 @@
-
-def skip_loganalyzer_bug_handler(duthost, request):
-    """
-    return True if the bug handler will be skipped.
-    User could implement their own logic here.
-    """
-    return True
+from abc import ABC, abstractmethod
 
 
-def log_analyzer_bug_handler(duthost, request):
-    """
-    If the not skip bug handler after the loganalyzer, run this function to handle the err msg detected in the
-    loganalyzer.
-    User could implement their own logic here.
-    """
-    pass
+class BugHandler(ABC):
+    @abstractmethod
+    def bug_handler_wrapper(self, analyzers, duthosts, la_results):
+        pass
+
+
+class ConsolidatedBugHandler(BugHandler):
+    def bug_handler_wrapper(self, analyzers, duthosts, la_results):
+        """
+        Consolidated bug handler.
+        This handler will consolidate the loganalyzer results from all the DUTs
+        """
+        pass
+
+
+class NoOpBugHandler(BugHandler):
+    """No operation bug handler"""
+    def bug_handler_wrapper(self, analyzers, duthosts, la_results):
+        pass
+
+
+def get_bughandler_instance(kwargs: dict) -> BugHandler:
+    if isinstance(kwargs, dict) and kwargs.get("type", "noop") == "consolidated":
+        return ConsolidatedBugHandler()
+    return NoOpBugHandler()

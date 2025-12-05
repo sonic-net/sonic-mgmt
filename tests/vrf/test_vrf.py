@@ -16,9 +16,9 @@ from six.moves import queue
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
@@ -484,7 +484,7 @@ def restore_config_db(localhost, duthost, ptfhost):
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
-              skip_test_module_over_backend_topologies):        # noqa F811
+              skip_test_module_over_backend_topologies):        # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
@@ -1301,9 +1301,9 @@ class TestVrfCapacity():
 
         Example:
         VRF         RIFs        Vlan_Member_Port    IP              Neighbor_IP(on PTF)     Static_Route
-        Vrf_Cap_1   Vlan2001    Ethernet2           192.1.1.0/31    192.1.1.1/31            ip route 200.200.200.0/24 192.2.1.1 vrf Vrf_Cap_1   # noqa E501
+        Vrf_Cap_1   Vlan2001    Ethernet2           192.1.1.0/31    192.1.1.1/31            ip route 200.200.200.0/24 192.2.1.1 vrf Vrf_Cap_1   # noqa: E501
                     Vlan3001    Ethernet14          192.2.1.0/31    192.2.1.1/31
-        Vrf_Cap_2   Vlan2002    Ethernet2           192.1.1.2/31    192.1.1.3/31            ip route 200.200.200.0/24 192.2.1.3 vrf Vrf_Cap_2   # noqa E501
+        Vrf_Cap_2   Vlan2002    Ethernet2           192.1.1.2/31    192.1.1.3/31            ip route 200.200.200.0/24 192.2.1.3 vrf Vrf_Cap_2   # noqa: E501
                     Vlan3002    Ethernet14          192.2.1.2/31    192.2.1.3/31
         ...
 

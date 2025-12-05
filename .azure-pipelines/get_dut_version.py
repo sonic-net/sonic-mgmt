@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
+import json
 import logging
 import os
 import sys
-import json
+
 import yaml
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
@@ -47,42 +48,72 @@ def read_asic_name(hwsku):
 
 
 def get_duts_version(sonichosts, output=None):
+    """
+    Collect version information from DUTs via `show version`.
+
+    Returns:
+        dict: Parsed version info per DUT, structured with general fields and Docker images.
+    """
     try:
         ret = {}
         duts_version = sonichosts.command("show version")
+
         for dut, version in duts_version.items():
-            ret[dut] = {}
-            dut_version = version["stdout_lines"]
+            dut_info = {}
+            dut_version = version.get("stdout_lines", [])
+            in_docker_section = False
 
             for line in dut_version:
-                if ":" in line:
-                    line_splitted = line.split(":", 1)
-                    key = line_splitted[0].strip()
-                    value = line_splitted[1].strip()
-                    if key == "Docker images":
-                        ret[dut]["Docker images"] = []
-                        continue
-                    elif key == "ASIC":
-                        ret[dut]["ASIC TYPE"] = value
-                        continue
-                    elif key == "HwSKU":
-                        ret[dut]["ASIC"] = read_asic_name(value)
-                    ret[dut][key] = value
-                elif "docker" in line:
-                    line_splitted = line.split()
-                    ret[dut]["Docker images"].append({"REPOSITORY": line_splitted[0],
-                                                      "TAG": line_splitted[1],
-                                                      "IMAGE ID": line_splitted[2],
-                                                      "SIZE": line_splitted[3]})
+                line = line.strip()
+                if not line:
+                    continue
 
+                # ---- General info ----
+                if not in_docker_section:
+                    if line.startswith("Docker images"):
+                        dut_info["Docker images"] = []
+                        in_docker_section = True
+                        continue
+
+                    if ":" in line:
+                        key, value = [x.strip() for x in line.split(":", 1)]
+                        if key == "HwSKU":
+                            dut_info["HwSKU"] = value
+                            dut_info["ASIC"] = read_asic_name(value)
+                        elif key == "ASIC":
+                            dut_info["ASIC TYPE"] = value
+                        else:
+                            dut_info[key] = value
+                    continue
+
+                # ---- Docker images ----
+                if line.startswith("REPOSITORY"):
+                    continue  # skip header
+
+                parts = line.split()
+                if len(parts) < 4:
+                    continue  # malformed line, skip
+
+                image = {
+                    "REPOSITORY": parts[0],
+                    "TAG": parts[1],
+                    "IMAGE ID": parts[2],
+                    "SIZE": " ".join(parts[3:])  # safe join for "742 MB" / "683kB"
+                }
+                dut_info["Docker images"].append(image)
+
+            ret[dut] = dut_info
+
+        # ---- Output handling ----
         if output:
-            with open(output, "w") as f:
-                f.write(json.dumps(ret))
-                f.close()
+            with open(output, "w", encoding="utf-8") as f:
+                json.dump(ret, f, indent=2)
         else:
-            print(ret)
+            print(json.dumps(ret, indent=2))
+
+        return ret
     except Exception as e:
-        logger.error("Failed to get DUT version: {}".format(e))
+        logger.error(f"Failed to get DUT version: {repr(e)}", exc_info=True)
         sys.exit(RC_GET_DUT_VERSION_FAILED)
 
 

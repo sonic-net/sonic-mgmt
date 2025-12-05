@@ -19,22 +19,25 @@ ignoreRegex = [
 
 CLEANUP_CMDS = [
                 "modprobe pktgen",
-                "echo 'reset' > /proc/net/pktgen/pgctrl",
-                "echo 'rem_device_all' > /proc/net/pktgen/kpktgend_0"
+]
+
+CLEANUP_ASIC_CMDS = [
+                "sh -c \"echo 'reset' > /proc/net/pktgen/pgctrl\"",
+                "sh -c \"echo 'rem_device_all' > /proc/net/pktgen/kpktgend_0\""
 ]
 
 PKTGEN_CMDS = [
-                "echo 'add_device {}' > /proc/net/pktgen/kpktgend_0",
-                "echo 'count 15000' > /proc/net/pktgen/{}",
-                "echo 'pkt_size 1460' > /proc/net/pktgen/{}",
-                "echo 'src_min 10.10.1.2' > /proc/net/pktgen/{}",
-                "echo 'dst_min 10.10.1.3' > /proc/net/pktgen/{}",
-                "echo 'src_mac {}' > /proc/net/pktgen/{}",
-                "echo 'dst_mac 00:06:07:08:09:00' > /proc/net/pktgen/{}",
-                "echo 'udp_src_min 5000' > /proc/net/pktgen/{}",
-                "echo 'udp_src_max 5000' > /proc/net/pktgen/{}",
-                "echo 'udp_dst_min 5001' > /proc/net/pktgen/{}",
-                "echo 'udp_dst_max 5001' > /proc/net/pktgen/{}",
+                "sh -c \"echo 'add_device {}' > /proc/net/pktgen/kpktgend_0\"",
+                "sh -c \"echo 'count 15000' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'pkt_size 1460' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'src_min 10.10.1.2' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'dst_min 10.10.1.3' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'src_mac {}' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'dst_mac 00:06:07:08:09:00' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'udp_src_min 5000' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'udp_src_max 5000' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'udp_dst_min 5001' > /proc/net/pktgen/{}\"",
+                "sh -c \"echo 'udp_dst_max 5001' > /proc/net/pktgen/{}\"",
                 ]
 
 
@@ -48,12 +51,18 @@ def clear_pktgen(duthosts, enum_dut_hostname):
     duthost = duthosts[enum_dut_hostname]
     for cmd in CLEANUP_CMDS:
         duthost.shell(cmd)
+    for asichost in duthost.asics:
+        for cmd in CLEANUP_ASIC_CMDS:
+            asichost.command(cmd)
     duthost.shell("sonic-clear counters")
 
     yield
 
     for cmd in CLEANUP_CMDS:
         duthost.shell(cmd)
+    for asichost in duthost.asics:
+        for cmd in CLEANUP_ASIC_CMDS:
+            asichost.command(cmd)
 
 
 def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, loganalyzer):
@@ -77,25 +86,31 @@ def test_pktgen(duthosts, enum_dut_hostname, enum_frontend_asic_index, tbinfo, l
 
     # Select a random port to run traffic
     port_list = get_port_list(duthost, tbinfo)
+
+    # Skip test if no data ports are available (e.g., on supervisor cards)
+    if not port_list:
+        pytest.skip("No data ports available for packet generation test")
+
     port = random.choice(port_list)
+    asichost = duthost.get_port_asic_instance(port)
 
     # Populate packet details
     for cmd in PKTGEN_CMDS:
         if "src_mac" in cmd:
-            duthost.shell(cmd.format(router_mac, port))
+            asichost.command(cmd.format(router_mac, port))
         else:
-            duthost.shell(cmd.format(port))
+            asichost.command(cmd.format(port))
 
     try:
         loganalyzer.ignore_regex.extend(ignoreRegex)
         with loganalyzer:
             # Send packet
-            duthost.shell("sudo echo 'start' > /proc/net/pktgen/pgctrl")
+            asichost.command("sh -c \"sudo echo 'start' > /proc/net/pktgen/pgctrl\"")
     except LogAnalyzerError as err:
         raise err
 
     # Verify packet count from pktgen
-    pktgen_param = duthost.shell("cat /proc/net/pktgen/{}".format(port))["stdout"]
+    pktgen_param = asichost.command("cat /proc/net/pktgen/{}".format(port))["stdout"]
     pktgen_param = pktgen_param.split("\n")[0]
     pytest_assert(int(re.match(r".*count\s(\d+)", pktgen_param).group(1)) == 15000,
                   "Mismatch between number of packets intended to be generated and number of packets generated")

@@ -4,9 +4,9 @@ import logging
 from tests.gnmi.conftest import setup_gnmi_rotated_server
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
-from .helper import gnmi_capabilities
+from tests.common.helpers.gnmi_utils import GNMIEnvironment, gnmi_capabilities
 from tests.common.utilities import get_image_type
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip      # noqa: F401
 
 
 logger = logging.getLogger(__name__)
@@ -30,12 +30,13 @@ def check_telemetry_status(duthost):
     return "RUNNING" in output['stdout']
 
 
-def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost, ptfhost,
+                                     duthost_mgmt_ip):  # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
 
     # Use bash -c to run the pipeline properly
     cmd_feature = (
-        'bash -c \'show feature status | awk "$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}"\''
+        'bash -c "show feature status | awk \'$1==\\"gnmi\\" || $1==\\"telemetry\\" {print $1, $2}\'"'
     )
     logging.debug("show feature status command is: {}".format(cmd_feature))
 
@@ -88,7 +89,7 @@ def test_mimic_hwproxy_cert_rotation(duthosts, rand_one_dut_hostname, localhost,
             enable_feature = 'sudo config feature state gnmi enabled'
             duthost.command(enable_feature, module_ignore_errors=True)
             assert wait_until(60, 3, 0, check_gnmi_status, duthost), "GNMI service failed to start"
-            ret, msg = gnmi_capabilities(duthost, localhost)
+            ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
             assert ret == 0, msg
             assert "sonic-db" in msg, msg
             assert "JSON_IETF" in msg, msg

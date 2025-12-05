@@ -23,7 +23,7 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
     hostname = duthost.hostname
 
     if reboot_type == REBOOT_TYPE_COLD:
-        if duthost.is_smartswitch():
+        if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
             if dpu_name is None:
                 logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
                 sync_reboot_history_queue_with_dut(duthost)
@@ -33,7 +33,7 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
             else:
                 logger.info("Rebooting the DPU {} with type {}".format(dpu_name, reboot_type))
                 return duthost.command("sudo reboot -d {}".format(dpu_name))
-        elif duthost.is_dpu():
+        elif duthost.facts['is_dpu']:
             pytest.skip("Skipping the reboot test as the DUT is a DPU")
     else:
         pytest.skip("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))

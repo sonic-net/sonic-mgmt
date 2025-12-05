@@ -1,6 +1,7 @@
 import logging
 import pytest
 import urllib3
+import ipaddress
 from six.moves.urllib.parse import urlunparse
 
 from tests.common import config_reload
@@ -113,7 +114,18 @@ def construct_url(duthosts, rand_one_dut_hostname):
     def get_endpoint(path):
         duthost = duthosts[rand_one_dut_hostname]
         RESTAPI_PORT = "8081"
-        netloc = duthost.mgmt_ip+":"+RESTAPI_PORT
+
+        # Handle IPv6 addresses by wrapping them in square brackets
+        try:
+            ip_obj = ipaddress.ip_address(duthost.mgmt_ip)
+            if ip_obj.version == 6:
+                netloc = "[{}]:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+            else:
+                netloc = "{}:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+        except ValueError:
+            # If it's not a valid IP address, treat it as hostname and use as-is
+            netloc = "{}:{}".format(duthost.mgmt_ip, RESTAPI_PORT)
+
         try:
             tup = ('https', netloc, path, '', '', '')
             endpoint = urlunparse(tup)
@@ -135,3 +147,17 @@ def vlan_members(duthosts, rand_one_dut_hostname, tbinfo):
         if vlan_interfaces is not None:
             return vlan_interfaces
     return []
+
+
+@pytest.fixture
+def is_support_warm_fast_reboot(duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+    support_warm_fast_reboot = True
+    if 'isolated' in duthosts.tbinfo['topo']['name'] or \
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+        support_warm_fast_reboot = False
+        logging.info("Skipping warm and fast reboot tests for isolated topology or smartswitch")
+        logging.info("Applying cert config")
+        apply_cert_config(duthost)
+
+    yield support_warm_fast_reboot

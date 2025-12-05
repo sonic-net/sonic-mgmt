@@ -9,7 +9,8 @@ logger = logging.getLogger(__name__)
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.asic('broadcom'),
-    pytest.mark.topology('any')
+    pytest.mark.topology('any'),
+    pytest.mark.disable_memory_utilization
 ]
 
 SER_RESULTS_DIR = '/tmp/ser_result.log'

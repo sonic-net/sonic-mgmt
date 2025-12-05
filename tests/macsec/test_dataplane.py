@@ -84,6 +84,8 @@ class TestDataPlane():
         portchannels = list(get_portchannel(duthost).values())
         for i in range(len(portchannels)):
             assert portchannels[i]["members"]
+            if portchannels[i]["members"][0] not in upstream_links:
+                continue
             requester = upstream_links[portchannels[i]["members"][0]]
             # Set DUT as the gateway of requester
             if isinstance(requester["host"], EosHost):
@@ -94,6 +96,8 @@ class TestDataPlane():
                     requester["peer_ipv4_addr"]), module_ignore_errors=True)
             for j in range(i + 1, len(portchannels)):
                 if portchannels[i]["members"][0] not in ctrl_links and portchannels[j]["members"][0] not in ctrl_links:
+                    continue
+                if portchannels[j]["members"][0] not in upstream_links:
                     continue
                 responser = upstream_links[portchannels[j]["members"][0]]
                 # Set DUT as the gateway of responser
