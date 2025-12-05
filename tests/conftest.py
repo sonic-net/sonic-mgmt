@@ -64,7 +64,6 @@ from tests.common.utilities import get_upstream_neigh_type, get_downstream_neigh
 from tests.common.helpers.dut_utils import is_supervisor_node, is_frontend_node, create_duthost_console, creds_on_dut, \
     is_enabled_nat_for_dpu, get_dpu_names_and_ssh_ports, enable_nat_for_dpus, is_macsec_capable_node, \
     get_supervisor_for_linecard, create_linecard_console
-from tests.common.connections.console_host import ConsoleHost, CONSOLE_LINECARD
 from tests.common.cache import FactsCache
 from tests.common.config_reload import config_reload
 from tests.common.helpers.assertions import pytest_assert as pt_assert

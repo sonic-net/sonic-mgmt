@@ -47,9 +47,9 @@ def test_console_stress_output(duthost_console):
     for line_idx, line in enumerate(pattern_lines):
         expected_line = f"LINE_{line_idx:04d}: " + '0123456789' * 10
         pytest_assert(line == expected_line,
-                     f"Line {line_idx}: Content mismatch\n"
-                     f"Expected: '{expected_line}'\n"
-                     f"Got:      '{line}'")
+                      f"Line {line_idx}: Content mismatch\n"
+                      f"Expected: '{expected_line}'\n"
+                      f"Got:      '{line}'")
 
     # Verify console is still responsive
     response = duthost_console.send_command("echo test_responsive")

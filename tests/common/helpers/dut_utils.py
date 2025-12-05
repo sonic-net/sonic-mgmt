@@ -477,7 +477,7 @@ def create_linecard_console(supervisor, linecard_duthost, inv_files, creds):
 
     if not slot_num:
         pytest.skip(f"Could not determine slot number for linecard {linecard_duthost.hostname} from inventory. "
-                   f"Ensure 'slot_num' variable is defined in inventory.")
+                    f"Ensure 'slot_num' variable is defined in inventory.")
 
     try:
         return ConsoleHost(
