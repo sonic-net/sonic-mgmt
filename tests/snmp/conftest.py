@@ -4,6 +4,8 @@ import shutil
 import yaml
 
 from tests.common.gu_utils import create_checkpoint, rollback
+from tests.common.helpers.counterpoll_helper import ConterpollHelper
+from tests.common.constants import CounterpollConstants
 
 SETUP_ENV_CP = "test_setup_checkpoint"
 
@@ -96,7 +98,11 @@ def check_redis_output(duthost, key):
 def enable_queue_counterpoll_type(duthosts):
     for duthost in duthosts:
         if duthost.facts['platform'] not in ['armhf-nokia_ixs7215_52x-r0']:
-            duthost.command('counterpoll queue enable')
+            if duthost.is_multi_asic:
+                for asic in duthost.asics:
+                    ConterpollHelper.enable_counterpoll(duthost, [CounterpollConstants.QUEUE], asic)
+            else:
+                ConterpollHelper.enable_counterpoll(duthost, [CounterpollConstants.QUEUE])
 
 
 def pytest_addoption(parser):
