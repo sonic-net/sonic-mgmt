@@ -3,6 +3,7 @@ import logging
 import ipaddress
 import json
 import re
+
 from six.moves.urllib.parse import urlparse
 from tests.common.helpers.assertions import pytest_assert
 from tests.common import reboot
