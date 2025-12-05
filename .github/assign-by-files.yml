@@ -1,0 +1,14 @@
+---
+"tests/**":
+  - nikamirrr
+  - wangxin
+  - yxieca
+
+".github/**":
+  - wangxin
+  - yxieca
+
+"ansible/**":
+  - wangxin
+  - yxieca
+  - lolyu
