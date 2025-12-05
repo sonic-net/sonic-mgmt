@@ -119,6 +119,7 @@
 
 {%         endfor %}
     },
+{%     elif k == 'DHCP_RELAY' %}
 {%     else %}
     "{{ k }}": {{ cfg_t0[k] | to_nice_json | indent}},
 {%     endif %}

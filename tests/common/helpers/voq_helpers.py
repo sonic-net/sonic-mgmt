@@ -412,13 +412,13 @@ def get_eos_mac(nbr, nbr_intf):
         A dictionary with the mac address and shell interface name.
     """
 
+    if 'loopback' in nbr_intf.lower():
+        return {'mac': None, 'shell_intf': 'lo'}
+
     if isinstance(nbr['host'], EosHost):
-        if "port-channel" in nbr_intf.lower():
-            # convert Port-Channel1 to po1
-            shell_intf = "po" + nbr_intf[-1]
-        else:
-            # convert Ethernet1 to eth1
-            shell_intf = "eth" + nbr_intf[-1]
+        mac = nbr['host'].get_dut_iface_mac(nbr_intf)
+        # All communications for EosHosts go via EOS CLI rather than shell
+        shell_intf = None
     else:
         if "port-channel" in nbr_intf.lower():
             # convert Port-Channel1 to PortChannel1
@@ -426,21 +426,24 @@ def get_eos_mac(nbr, nbr_intf):
         else:
             shell_intf = nbr_intf
 
-    output = nbr['host'].command("ip addr show dev %s" % shell_intf)
-    # 8: Ethernet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9100 ...
-    #     link/ether a6:69:05:fd:da:5f brd ff:ff:ff:ff:ff:ff
+        output = nbr['host'].command("ip addr show dev %s" % shell_intf)
+        # 8: Ethernet0: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 9100 ...
+        #     link/ether a6:69:05:fd:da:5f brd ff:ff:ff:ff:ff:ff
 
-    mac = output['stdout_lines'][1].split()[1]
-    return {'mac': mac, "shell_intf": shell_intf}
+        mac = output['stdout_lines'][1].split()[1]
+    return {'mac': mac, 'shell_intf': shell_intf}
 
 
 def get_neighbor_info(neigh_ip, nbrhosts):
     """
-    Gets the neighbor VM info of a neighbor VM on an EOS host.
+    Gets the neighbor VM info.
 
-    We need to get the MAC of the VM out of the linux shell, not from the EOS CLI.  The MAC used for punt/inject
-    on the EOS seems to be the linux one.  Find the interface name on the VM that is associated with the IP address,
-    then look on the linux OS shell for the MAC address of that interface.
+    Find the interface name on the VM that is associated with the IP address, then
+    retrieve MAC of that VM using either EOS CLI or linux OS shell.
+
+    If the VM is present on an EOS host, use the EOS CLI to get MAC address of the
+    VM. If the VM is not present on an EOS host, use the linux shell to get the MAC
+    address of the VM.
 
     Args:
         neigh_ip: The IP address of the neighbor.
@@ -453,10 +456,8 @@ def get_neighbor_info(neigh_ip, nbrhosts):
     vm_info = get_vm_with_ip(neigh_ip, nbrhosts)
     nbr_vm = vm_info['vm']
     nbr_intf = vm_info['port']
-
     macs = get_eos_mac(nbrhosts[nbr_vm], nbr_intf)
-
-    return {'mac': macs['mac'], "port": nbr_intf, "shell_intf": macs['shell_intf'], "vm": nbr_vm}
+    return {'mac': macs['mac'], "port": nbr_intf, "vm": nbr_vm, "shell_intf": macs['shell_intf']}
 
 
 def get_sonic_mac(host, asicnum, port):
@@ -616,7 +617,7 @@ def check_one_neighbor_present(duthosts, per_host, asic, neighbor, nbrhosts, all
     inband_info = get_inband_info(cfg_facts)
     local_ip = neighs[neighbor]['local_addr']
 
-    if local_ip == inband_info['ipv4_addr'] or local_ip == inband_info['ipv6_addr']:
+    if local_ip == inband_info.get('ipv4_addr') or local_ip == inband_info.get('ipv6_addr'):
         # skip inband neighbors
         return
 
@@ -785,36 +786,37 @@ def check_all_neighbors_present_local(duthosts, per_host, asic, neighbors, all_c
         else:
             check_host_arp_table(per_host, asic, neighbor, neigh_mac, local_port, None, arptable=arptable)
 
-        # supervisor checks
-        for entry in voq_dump:
-            if entry.endswith('|%s' % neighbor) or entry.endswith(':%s' % neighbor):
+        # supervisor checks. Proceed only if there is a supervisor.
+        if voq_dump:
+            for entry in voq_dump:
+                if entry.endswith('|%s' % neighbor) or entry.endswith(':%s' % neighbor):
 
-                if "portchannel" in local_port.lower():
-                    slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
-                    asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
-                else:
-                    slotname = sysport_info['slot']
-                    asicname = sysport_info['asic']
+                    if "portchannel" in local_port.lower():
+                        slotname = cfg_facts['DEVICE_METADATA']['localhost']['hostname']
+                        asicname = cfg_facts['DEVICE_METADATA']['localhost']['asic_name']
+                    else:
+                        slotname = sysport_info['slot']
+                        asicname = sysport_info['asic']
 
-                logger.debug("Neigh key: %s, slotnum: %s", entry, slotname)
-                pytest_assert("|%s|" % slotname in entry,
-                              "Slot for %s does not match %s" % (entry, slotname))
-                pytest_assert("|%s:" % local_port in entry or "|%s|" % local_port in entry,
-                              "Port for %s does not match %s" % (entry, local_port))
-                pytest_assert("|%s|" % asicname in entry,
-                              "Asic for %s does not match %s" % (entry, asicname))
+                    logger.debug("Neigh key: %s, slotnum: %s", entry, slotname)
+                    pytest_assert("|%s|" % slotname in entry,
+                                  "Slot for %s does not match %s" % (entry, slotname))
+                    pytest_assert("|%s:" % local_port in entry or "|%s|" % local_port in entry,
+                                  "Port for %s does not match %s" % (entry, local_port))
+                    pytest_assert("|%s|" % asicname in entry,
+                                  "Asic for %s does not match %s" % (entry, asicname))
 
-                pytest_assert(voq_dump[entry]['value']['neigh'].lower() == neigh_mac.lower(),
-                              "Voq: neighbor: %s mac does not match: %s" %
-                              (neighbor, voq_dump[entry]['value']['neigh'].lower()))
-                pytest_assert(voq_dump[entry]['value']['encap_index'].lower() == encaps[neighbor],
-                              "Voq: encap: %s mac does not match: %s" %
-                              (neighbor, voq_dump[entry]['value']['encap_index'].lower()))
-                break
-        else:
-            logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq",
-                         neighbor, sysport_info['slot'], sysport_info['asic'])
-            fail_cnt += 1
+                    pytest_assert(voq_dump[entry]['value']['neigh'].lower() == neigh_mac.lower(),
+                                  "Voq: neighbor: %s mac does not match: %s" %
+                                  (neighbor, voq_dump[entry]['value']['neigh'].lower()))
+                    pytest_assert(voq_dump[entry]['value']['encap_index'].lower() == encaps[neighbor],
+                                  "Voq: encap: %s mac does not match: %s" %
+                                  (neighbor, voq_dump[entry]['value']['encap_index'].lower()))
+                    break
+            else:
+                logger.error("Neighbor: %s on slot: %s, asic: %s not present in voq",
+                             neighbor, sysport_info['slot'], sysport_info['asic'])
+                fail_cnt += 1
 
         logger.info("Local %s/%s and chassisdb neighbor validation of %s is successful (mac: %s, idx: %s)",
                     per_host.hostname, asic.asic_index, neighbor, neigh_mac, encaps[neighbor])

@@ -4,7 +4,7 @@ import pytest
 from tests.common.helpers.snmp_helpers import get_snmp_facts
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 'lt2', 'ft2'),
     pytest.mark.device_type('vs')
 ]
 
@@ -54,15 +54,30 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
 
     logger.info('snmp_lldp: {}'.format(snmp_facts['snmp_lldp']))
     for k in ['lldpLocChassisIdSubtype', 'lldpLocChassisId', 'lldpLocSysName', 'lldpLocSysDesc']:
-        assert snmp_facts['snmp_lldp'][k]
-        assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k]
+        assert snmp_facts['snmp_lldp'][k], (
+            "LLDP fact not found for key: {}. "
+            "SNMP facts: {}"
+        ).format(k, snmp_facts['snmp_lldp'])
+
+        assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k], (
+            "LLDP fact contains 'No Such Object currently exists' error for key: {}. "
+            "SNMP facts: {}"
+        ).format(k, snmp_facts['snmp_lldp'])
 
     # Check if lldpLocPortTable is present for all ports
     for k, v in list(snmp_facts['snmp_interfaces'].items()):
         if "Ethernet" in v['name'] or "eth" in v['name']:
             for oid in ['lldpLocPortIdSubtype', 'lldpLocPortId', 'lldpLocPortDesc']:
-                assert oid in v
-                assert "No Such Object currently exists" not in v[oid]
+                assert oid in v, (
+                    "OID not found in value: {}. "
+                    "OID: {} "
+                ).format(v, oid)
+
+                assert "No Such Object currently exists" not in v[oid], (
+                    "OID contains 'No Such Object currently exists' error. "
+                    "OID: {} "
+                    "Value: {}"
+                ).format(oid, v[oid])
 
     # Check if lldpLocManAddrTable is present
     if not duthost.facts['modular_chassis']:
@@ -71,8 +86,15 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
                   'lldpLocManAddrIfSubtype',
                   'lldpLocManAddrIfId',
                   'lldpLocManAddrOID']:
-            assert snmp_facts['snmp_lldp'][k]
-            assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k]
+            assert snmp_facts['snmp_lldp'][k], (
+                "LLDP fact is empty or None for key: {}. "
+                "SNMP facts: {}"
+            ).format(k, snmp_facts['snmp_lldp'])
+
+            assert "No Such Object currently exists" not in snmp_facts['snmp_lldp'][k], (
+                "LLDP fact contains 'No Such Object currently exists' error for key: {}. "
+                "SNMP facts: {}"
+            ).format(k, snmp_facts['snmp_lldp'][k])
 
     minigraph_lldp_nei = []
     for k, v in list(mg_facts.items()):
@@ -95,7 +117,12 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
             active_intf.append(k)
     logger.info('lldpRemTable: {}'.format(active_intf))
 
-    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8
+    assert len(active_intf) >= len(minigraph_lldp_nei) * 0.8, (
+        "Number of active interfaces is less than expected. "
+        "Expected at least 80% of minigraph LLDP neighbors to be active. "
+        "Active interfaces: {} "
+        "Minigraph LLDP neighbors: {}"
+    ).format(len(active_intf), len(minigraph_lldp_nei))
 
     # skip neighbors that do not send chassis information via lldp
     lldp_facts = {}
@@ -120,4 +147,8 @@ def test_snmp_lldp(duthosts, enum_rand_one_per_hwsku_hostname, localhost, creds_
             active_intf.append(k)
     logger.info('lldpRemManAddrTable: {}'.format(active_intf))
 
-    assert len(active_intf) == len(nei)
+    assert len(active_intf) == len(nei), (
+        "Number of active interfaces does not match expected number of neighbors. "
+        "Active interfaces: {} "
+        "Neighbors: {}"
+    ).format(len(active_intf), len(nei))

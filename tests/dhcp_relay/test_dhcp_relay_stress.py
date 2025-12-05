@@ -4,7 +4,7 @@ import ptf.packet as scapy
 
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
-from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service
+from tests.dhcp_relay.dhcp_relay_utils import restart_dhcp_service, check_dhcp_stress_status
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.utilities import wait_until, capture_and_check_packet_on_dut
 from tests.ptf_runner import ptf_runner
@@ -101,35 +101,6 @@ def test_dhcp_relay_restart_with_stress(ptfhost, dut_dhcp_relay_data, validate_d
                    log_file="/tmp/dhcp_relay_test.stress.DHCPTest.log", is_python3=True)
 
 
-def check_dhcp_stress_status(duthost, test_duration_seconds):
-    # Monitor DHCP status during the test
-    start_time = time.time()
-    sleep_time = 30
-    while time.time() - start_time < test_duration_seconds - sleep_time:
-        # Check the status of the DHCP container
-        dhcp_container_status = duthost.shell('docker ps | grep dhcp_relay')["stdout"]
-        if dhcp_container_status == "":
-            assert False, "DHCP container is NOT running."
-
-        # Check CPU usage of the DHCP process
-        dhcp_cpu_usage = duthost.shell('show processes cpu --verbose | grep dhc | awk \'{print $9}\'')["stdout"]
-        if dhcp_cpu_usage:
-            dhcp_cpu_usage_lines = dhcp_cpu_usage.splitlines()
-            for cpu_usage in dhcp_cpu_usage_lines:
-                cpu_usage_float = float(cpu_usage)
-            assert cpu_usage_float < 50.0, "DHCP CPU usage is too high: {}%".format(cpu_usage_float)
-
-        # Check the status of multiple DHCP processes inside the container
-        dhcp_process_status = duthost.shell(
-             'docker exec dhcp_relay supervisorctl status | grep dhcp | grep -v dhcp6')["stdout"]
-        if dhcp_process_status:
-            dhcp_process_status_lines = dhcp_process_status.splitlines()
-            for dhcp_process_status_line in dhcp_process_status_lines:
-                process_name, process_status = dhcp_process_status_line.split()[0], dhcp_process_status_line.split()[1],
-                assert process_status == "RUNNING", "{} is not running!".format(process_name)
-    time.sleep(sleep_time)
-
-
 @pytest.mark.parametrize('dhcp_type', ['discover', 'offer', 'request', 'ack'])
 def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
                            setup_standby_ports_on_rand_unselected_tor,
@@ -177,14 +148,17 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             return not output['rc'] and output['stdout'].strip() == "exists"
 
         def _verify_server_packets(pkts):
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0]) * num_dhcp_servers
+            actual_count = len([pkt for pkt in pkts
+                               if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec]
+                               ) * num_dhcp_servers
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
             pytest_assert(lower_bound <= actual_count <= upper_bound,
                           "Mismatch: DUT count = {}, PTF count = {}.".format(actual_count, exp_count))
 
         def _verify_client_packets(pkts):
-            actual_count = len([pkt for pkt in pkts if pkt[scapy.BOOTP].xid == 0])
+            actual_count = len([pkt for pkt in pkts
+                                if pkt[scapy.BOOTP].xid <= packets_send_duration * client_packets_per_sec])
             lower_bound = int(exp_count * 0.9)
             upper_bound = int(exp_count * 1.1)
             pytest_assert(lower_bound <= actual_count <= upper_bound,
@@ -212,10 +186,3 @@ def test_dhcp_relay_stress(ptfhost, ptfadapter, dut_dhcp_relay_data, validate_du
             pytest_assert(wait_until(600, 2, 0, _check_count_file_exists), "{} is missing".format(count_file))
             exp_count = int(ptfhost.shell('cat {}'.format(count_file))['stdout'].strip())
             ptfhost.shell('rm -f {}'.format(count_file))
-
-
-@pytest.fixture(scope="function")
-def clean_processes_after_stress_test(ptfhost):
-    yield
-    ptfhost.shell("kill -9 $(ps aux | grep  dhcp_relay_stress_test | grep -v 'grep' | awk '{print $2}')",
-                  module_ignore_errors=True)

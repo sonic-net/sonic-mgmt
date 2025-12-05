@@ -29,6 +29,7 @@ function show_help_and_exit()
     echo "    -S <folders>   : specify list of test folders to skip (default: none)"
     echo "    -t <topology>  : specify toplogy: t0|t1|any|combo like t0,any (*)"
     echo "    -u             : bypass util group"
+    echo "    -w             : warm run, don't clear cache before running tests"
     echo "    -x             : print commands and their arguments as they are executed"
 
     exit $1
@@ -122,6 +123,7 @@ function setup_environment()
     TEST_METHOD='group'
     TEST_MAX_FAIL=0
     DPU_NAME="None"
+    NO_CLEAR_CACHE="False"
 
     export ANSIBLE_CONFIG=${BASE_PATH}/ansible
     export ANSIBLE_LIBRARY=${BASE_PATH}/ansible/library/
@@ -134,8 +136,6 @@ function setup_environment()
     pkill --signal 9 ansible-playbook
     # Kill ssh initiated by ansible, try to match full command begins with 'ssh' and contains path '/.ansible'
     pkill --signal 9 -f "^ssh.*/\.ansible"
-
-    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 function setup_test_options()
@@ -281,8 +281,20 @@ function run_debug_tests()
     echo "PRET_LOGGING_OPTIONS:  ${PRET_LOGGING_OPTIONS}"
     echo "POST_LOGGING_OPTIONS:  ${POST_LOGGING_OPTIONS}"
     echo "UTIL_TOPOLOGY_OPTIONS: ${UTIL_TOPOLOGY_OPTIONS}"
+    echo "NO_CLEAR_CACHE:        ${NO_CLEAR_CACHE}"
 
     echo "PYTEST_COMMON_OPTS:    ${PYTEST_COMMON_OPTS}"
+}
+
+function clear_cache()
+{
+    if [[ x"${NO_CLEAR_CACHE}" == x"True" ]]; then
+        echo "=== Skipping cache clear ==="
+        return
+    fi
+
+    echo "=== Clearing pytest cache ==="
+    rm -fr ${BASE_PATH}/tests/_cache
 }
 
 # Extra parameters for pre/post test stage
@@ -364,6 +376,12 @@ function run_individual_tests()
                 return ${ret_code}
             fi
 
+            # rc 16 means ptfhost is unreachable
+            if [ ${ret_code} -eq 16 ]; then
+                echo "=== ptfhost has exception for $test_script. Skip rest of the scripts if there is any. ==="
+                return ${ret_code}
+            fi
+
             EXIT_CODE=1
             if [[ ${TEST_MAX_FAIL} != 0 ]]; then
                 return ${EXIT_CODE}
@@ -405,7 +423,7 @@ for arg in "$@"; do
     fi
 done
 
-while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
+while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:uxw" opt; do
     case ${opt} in
         h|\? )
             show_help_and_exit 0
@@ -489,12 +507,16 @@ while getopts "h?a:b:Bc:C:d:e:Ef:F:H:i:I:k:l:m:n:oOp:q:rs:S:t:ux" opt; do
         u )
             BYPASS_UTIL="True"
             ;;
+        w )
+            NO_CLEAR_CACHE="True"
+            ;;
         x )
             set -x
             ;;
     esac
 done
 
+clear_cache
 get_dut_from_testbed_file
 
 if [[ x"${TEST_METHOD}" != x"debug" ]]; then
