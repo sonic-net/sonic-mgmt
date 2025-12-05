@@ -325,36 +325,35 @@ client_auth = gnmi_config.get('gnmi', {}).get('client_auth', 'false')
 
 This section outlines a step-by-step implementation plan with verification criteria for each step.
 
-### Step 1: Fix GNMIEnvironment Integration Issues  
+### ✅ Step 1: Fix GNMIEnvironment Integration Issues  
 **Goal**: Fix configuration discovery to work with real deployment (port 8080, CONFIG_DB fallback)
 
-**Implementation**:
-- Fix default port from 50051/50052 to 8080 in `GNMIEnvironment`
-- Implement proper CONFIG_DB reading using `duthost.config_facts()`
-- Add graceful fallback chain: CONFIG_DB → container detection → defaults
-- Support all configuration options (port, client_auth, TLS settings)
+**Implementation**: ✅ COMPLETED
+- ✅ Fixed default port from 50051/50052 to 8080 in `GNMIEnvironment`
+- ✅ Implemented proper CONFIG_DB reading using `duthost.config_facts()`
+- ✅ Added graceful fallback chain: CONFIG_DB → process detection → defaults
+- ✅ Support all configuration options (port, client_auth, TLS settings)
+- ✅ Removed LRU cache that prevented configuration updates
+- ✅ Added comprehensive test coverage for CONFIG_DB changes
 
-**Files Modified**: `tests/common/helpers/gnmi_utils.py`
+**Files Modified**: `tests/common/helpers/gnmi_utils.py`, `tests/gnxi/test_implementation.py`
 
-**Verification**:
+**Verification**: ✅ PASSED
 ```python
 # tests/gnxi/test_implementation.py
 def test_step1(duthost):
     """Verify GNMIEnvironment fixes work with real deployment"""
-    from tests.common.helpers.gnmi_utils import GNMIEnvironment
+    # Tests port 8080 detection from running process
+    # Tests TLS=False detection from --noTLS flag
     
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    
-    # Test correct default port
-    assert env.gnmi_port == 8080  # Not 50051/50052
-    
-    # Test that configuration matches actual running service
-    # telemetry process runs on: --port 8080 --noTLS --allow_no_client_auth
-    assert env.gnmi_port == 8080
-    assert env.use_tls == False  # --noTLS flag
+def test_step1_config_db_changes(duthost):
+    """Test CONFIG_DB priority and fallback chain"""
+    # Tests CONFIG_DB takes priority over process detection
+    # Tests dynamic CONFIG_DB updates
+    # Tests cleanup and fallback to process detection
 ```
 
-**Success Criteria**: GNMIEnvironment automatically detects port 8080 and plaintext mode
+**Success Criteria**: ✅ GNMIEnvironment correctly detects port 8080 and plaintext mode, handles CONFIG_DB changes
 
 ### Step 2: Create PtfGrpc Base Class
 **Goal**: Implement the core `PtfGrpc` class with basic grpcurl integration
