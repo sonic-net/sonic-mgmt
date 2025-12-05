@@ -3,7 +3,7 @@ import pytest
 import re
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from telemetry_utils import generate_client_cli, check_gnmi_cli_running
+from telemetry_utils import generate_client_cli, check_gnmi_cli_running, invoke_py_cli_from_ptf
 from tests.common.utilities import InterruptableThread
 
 pytestmark = [
@@ -23,12 +23,6 @@ def verify_route_table_status(duthost, namespace, expected_status="1"):  # statu
     cmd = cmd_prefix + " APPL_DB exists \"ROUTE_TABLE:0.0.0.0/0\""
     status = duthost.shell(cmd)["stdout"]
     return status == expected_status
-
-
-def invoke_py_cli_from_ptf(ptfhost, cmd, callback):
-    ret = ptfhost.shell(cmd)
-    assert ret["rc"] == 0, "PTF docker did not get a response"
-    callback(ret["stdout"])
 
 
 def modify_fake_appdb_table(duthost, add=True, entries=1):
