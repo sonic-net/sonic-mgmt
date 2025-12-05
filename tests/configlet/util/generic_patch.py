@@ -8,7 +8,7 @@ import re
 
 from tests.common.configlet.utils import orig_db_dir, no_t0_db_dir, patch_add_t0_dir, patch_rm_t0_dir, tor_data,\
                    RELOAD_WAIT_TIME, PAUSE_INTF_DOWN, PAUSE_INTF_UP, PAUSE_CLET_APPLY, DB_COMP_WAIT_TIME,\
-                   do_pause, db_comp, chk_bgp_session
+                   do_pause, db_comp, chk_bgp_session, report_error
 
 if os.path.exists("/etc/sonic/sonic-environment"):
     from mock_for_switch import config_reload, wait_until
@@ -174,8 +174,12 @@ def generic_patch_add_t0(duthost, skip_load=False, hack_apply=False):
         "DB compare failed after adding T0 via generic patch updater"
 
     # Ensure BGP session is up
-    chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-patch-add test")
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-patch-add test")
+    if len(tor_data.get("ip", []).get("remote", [])):
+        chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-patch-add test")
+    elif len(tor_data.get("ipv6", []).get("remote", [])):
+        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-patch-add test")
+    else:
+        report_error("No neighbors detected")
 
 
 def generic_patch_rm_t0(duthost, skip_load=False, hack_apply=False):
