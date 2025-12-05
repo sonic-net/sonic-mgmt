@@ -3013,12 +3013,16 @@ def core_dump_and_config_check(duthosts, tbinfo, parallel_run_context, request,
 
 
 @pytest.fixture(scope="module", autouse=True)
-def temporarily_disable_route_check(request, duthosts):
+def temporarily_disable_route_check(request, tbinfo, duthosts):
     check_flag = False
     for m in request.node.iter_markers():
         if m.name == "disable_route_check":
             check_flag = True
             break
+
+    if 't2' not in tbinfo['topo']['name']:
+        logger.info("Topology is not T2, skipping temporarily_disable_route_check fixture")
+        check_flag = False
 
     def wait_for_route_check_to_pass(dut):
 
