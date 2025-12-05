@@ -1,12 +1,38 @@
 import logging
 import re
 from tests.common.errors import RunAnsibleModuleFail
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.upgrade_helpers import install_sonic, reboot, check_sonic_version
 
 logger = logging.getLogger(__name__)
 
 
 def boot_into_base_image(duthost, localhost, base_image, tbinfo):
+    target_version = _install_base_image(duthost, base_image, tbinfo)
+    # Perform a cold reboot
+    logger.info("Cold reboot the DUT to make the base image as current")
+    # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
+    reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
+    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
+    check_sonic_version(duthost, target_version)
+
+
+def boot_into_base_image_t2(duthosts, localhost, base_image, tbinfo):
+    target_vers = {}
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            future = executor.submit(_install_base_image, duthost, base_image, tbinfo)
+            target_vers[duthost] = future.get()  # Should all be the same, but following best practice
+
+    # Rebooting the supervisor host will reboot all T2 DUTs
+    suphost = duthosts.supervisor_nodes[0]
+    reboot(suphost, localhost, reboot_type='cold', safe_reboot=True)
+
+    for duthost in duthosts:
+        check_sonic_version(duthost, target_vers[duthost])
+
+
+def _install_base_image(duthost, base_image, tbinfo):
     logger.info("Installing {}".format(base_image))
     try:
         target_version = install_sonic(duthost, base_image, tbinfo)
@@ -26,12 +52,8 @@ def boot_into_base_image(duthost, localhost, base_image, tbinfo):
     if duthost.shell("ls /host/old_config/minigraph.xml", module_ignore_errors=True)['rc'] == 0:
         duthost.shell("rm -f /host/old_config/config_db.json")
         duthost.shell("rm -f /host/old_config/golden_config_db.json")
-    # Perform a cold reboot
-    logger.info("Cold reboot the DUT to make the base image as current")
-    # for 6100 devices, sometimes cold downgrade will not work, use soft-reboot here
-    reboot_type = 'soft' if "s6100" in duthost.facts["platform"] else 'cold'
-    reboot(duthost, localhost, reboot_type=reboot_type, safe_reboot=True)
-    check_sonic_version(duthost, target_version)
+
+    return target_version
 
 
 def cleanup_prev_images(duthost):

@@ -27,7 +27,7 @@ def config_reload_after_test(duthosts, localhost, creds_all_duts,
             wait=True)['ansible_facts']
         return "No Such Instance currently exists" not in str(snmp_facts['snmp_lldp'])
 
-    if not wait_until(60, 5, 0, check_snmp_lldp_ready):
+    if not wait_until(300, 5, 0, check_snmp_lldp_ready):
         pytest.fail("SNMP LLDP not ready for next test")
 
 

@@ -770,10 +770,11 @@ function set_l2_mode
 function config_vm
 {
   echo "Configure VM $2"
+  testbed_name=$1
 
-  read_file $1
+  read_file ${testned_name}
 
-  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e topo="$topo" -e VM_base="$vm_base"
+  ansible-playbook -i $vmfile eos.yml --vault-password-file="$3" -l "$2" -e vm_type="$vm_type" -e vm_set_name="$vm_set_name" -e topo="$topo" -e VM_base="$vm_base"
 
   echo Done
 }
