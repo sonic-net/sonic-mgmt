@@ -153,16 +153,44 @@ The `PtfGnoi` class provides gNOI-specific operations using the generic `PtfGrpc
 - Protocol-specific data transformations (e.g., base64 for binary)
 ### 3. Pytest Fixtures
 
-Simple fixtures provide easy access to gRPC clients in tests:
+Fixtures provide easy access to gRPC clients with automatic configuration discovery:
 
-- `ptf_grpc` - Generic gRPC client fixture
-- `ptf_gnoi` - gNOI-specific client fixture  
-- `ptf_grpc_custom` - Configurable client with pytest options
+**Core Fixtures:**
+- `ptf_grpc` - Generic gRPC client with GNMIEnvironment auto-configuration
+- `ptf_gnoi` - gNOI-specific client using auto-configured gRPC client  
+- `ptf_grpc_custom` - Factory for custom client configuration when needed
 
-**Configuration Options:**
-- `--grpc-port` - Target port (default: 8080)
-- `--grpc-secure` - Enable TLS (default: plaintext)
-- `--grpc-timeout` - Call timeout (default: 30s)
+**Implementation:**
+```python
+@pytest.fixture
+def ptf_grpc(ptfhost, duthost):
+    """Auto-configured gRPC client using GNMIEnvironment"""
+    from tests.common.helpers.gnmi_utils import GNMIEnvironment
+    
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PtfGrpc(ptfhost, env)  # Auto-configured
+    return client
+
+@pytest.fixture  
+def ptf_gnoi(ptf_grpc):
+    """gNOI-specific client using auto-configured gRPC client"""
+    return PtfGnoi(ptf_grpc)
+
+@pytest.fixture
+def ptf_grpc_custom(ptfhost, duthost):
+    """Factory for custom gRPC client configuration"""
+    def _create_client(host=None, port=None, plaintext=None):
+        if host is None or port is None:
+            # Use GNMIEnvironment as fallback
+            env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE) 
+            host = host or f"{duthost.mgmt_ip}:{env.gnmi_port}"
+        
+        client = PtfGrpc(ptfhost, host)
+        if plaintext is not None:
+            client.plaintext = plaintext
+        return client
+    return _create_client
+```
 
 ## Usage Examples
 
