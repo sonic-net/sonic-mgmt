@@ -344,9 +344,9 @@ bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
 
 bgp/test_bgp_port_disable.py:
   skip:
-    reason: "Not supperted on master."
+    reason: "Not supported on public branches."
     conditions:
-      - "release in ['master', '202505']"
+      - "'internal' not in branch"
 
 bgp/test_bgp_queue.py:
   skip:
