@@ -208,25 +208,70 @@ def test_secure_grpc(ptfhost, duthost):
     response = client.call_unary("gnoi.system.System", "Time")
 ```
 
-## Implementation Plan
+## Configuration Discovery Integration
 
-### Phase 1: Core Implementation (Day 1)
-- Implement `PtfGrpc` base class with grpcurl wrapper
-- Create `PtfGnoi` wrapper with basic operations (Time, Reboot)
-- Add pytest fixtures for easy test integration
-- Validate with actual gRPC endpoint
+### Leveraging Existing GNMIEnvironment
 
-### Phase 2: Extended Operations (Day 2)
-- Add streaming support (file operations, ping)
-- Implement certificate-based authentication
-- Add more gNOI services (OS, Certificate, Diag)
-- Create comprehensive test examples
+The gNOI framework will integrate with the existing `GNMIEnvironment` class in `tests/common/helpers/gnmi_utils.py` for automatic server configuration discovery. Since gNOI services run on the same gRPC endpoint as gNMI services (confirmed by testing), we can reuse the existing configuration discovery infrastructure.
 
-### Phase 3: Production Ready (Day 3)
-- Add error handling and retry logic
-- Create migration guide for existing tests
-- Performance optimization and logging
-- Documentation and CI/CD integration
+### Integration Pattern
+
+**Automatic Configuration:**
+```python
+def test_gnoi_with_auto_config(ptfhost, duthost):
+    """Automatic configuration using GNMIEnvironment"""
+    from tests.common.helpers.gnmi_utils import GNMIEnvironment
+    
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    client = PtfGrpc(ptfhost, env)  # Auto-configured from environment
+    
+    # Client automatically configured with:
+    # - Correct host:port from env.gnmi_port
+    # - TLS settings from CONFIG_DB
+    # - Authentication parameters
+    response = client.call_unary("gnoi.system.System", "Time")
+```
+
+**Manual Override:**
+```python
+def test_gnoi_manual_config(ptfhost, duthost):
+    """Manual configuration for custom setups"""
+    client = PtfGrpc(ptfhost, f"{duthost.mgmt_ip}:8080")
+    client.plaintext = False
+    response = client.call_unary("gnoi.system.System", "Time")
+```
+
+### Required GNMIEnvironment Improvements
+
+The current `GNMIEnvironment` class has several issues that need to be addressed:
+
+**Current Issues:**
+1. **Incorrect default ports** - Uses 50051/50052 instead of actual default 8080
+2. **Missing CONFIG_DB integration** - Claims to read CONFIG_DB but uses hard-coded values
+3. **Hard failure modes** - Uses `pytest.fail()` instead of graceful degradation
+
+**Planned Fixes:**
+1. **Fix default port detection** - Use port 8080 as default (matches gnmi-native.sh)
+2. **Implement proper CONFIG_DB reading** - Use existing `duthost.config_facts()` API to read `GNMI` table configuration
+3. **Add graceful fallbacks** - Implement proper fallback chain: CONFIG_DB → container detection → defaults
+4. **Support all configuration options** - Read port, client_auth, TLS settings from CONFIG_DB
+
+**Configuration Reading Strategy:**
+```python
+# Use existing sonic-mgmt patterns
+cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+gnmi_config = cfg_facts.get('GNMI', {})
+port = gnmi_config.get('gnmi', {}).get('port', 8080)  # Default to 8080
+client_auth = gnmi_config.get('gnmi', {}).get('client_auth', 'false')
+```
+
+### Integration Benefits
+
+1. **Automatic configuration** - No manual port/TLS setup required for standard deployments
+2. **Reuse proven patterns** - Leverages existing `duthost.config_facts()` infrastructure
+3. **Unified gRPC endpoint** - Same configuration works for both gNMI and gNOI
+4. **Backward compatibility** - Existing gNMI tests continue to work unchanged
+5. **Flexible deployment** - Supports both auto-discovery and manual configuration
 
 ## Key Benefits
 
