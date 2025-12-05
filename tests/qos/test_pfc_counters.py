@@ -161,7 +161,10 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
         if asic_type != 'vs':
             for failure in failures:
                 logger.error("Got {}, expected {}".format(*failure))
-            assert len(failures) == 0, "PFC RX counter increment not matching expected for above logged cases."
+            assert len(failures) == 0, (
+                "PFC RX counter increment not matching expected for above logged cases. "
+                "Number of failures: {}"
+            ).format(len(failures))
 
     else:
         for intf in active_phy_intfs:
@@ -204,13 +207,24 @@ def run_test(fanouthosts, duthost, conn_graph_facts, enum_fanout_graph_facts, le
                     method="get")['ansible_facts']
                 if asic_type != 'vs':
                     """check pfc Rx frame count on particular priority are increased"""
-                    assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT)
+                    assert pfc_rx[intf]['Rx'][priority] == str(PKT_COUNT), (
+                        "PFC RX counter value mismatch for interface {} and priority {}. "
+                        "Expected value: {}, but got {}."
+                    ).format(intf, priority, PKT_COUNT, pfc_rx[intf]['Rx'][priority])
+
                     """check LHS priorities are 0 count"""
                     for i in range(priority):
-                        assert pfc_rx[intf]['Rx'][i] == '0'
+                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                            "PFC RX counter value is not zero for interface {} and priority {}. "
+                            "Expected value: 0, but got {}."
+                        ).format(intf, i, pfc_rx[intf]['Rx'][i])
+
                     """check RHS priorities are 0 count"""
                     for i in range(priority+1, PRIO_COUNT):
-                        assert pfc_rx[intf]['Rx'][i] == '0'
+                        assert pfc_rx[intf]['Rx'][i] == '0', (
+                            "PFC RX counter value is not zero for interface {} and priority {}. "
+                            "Expected value: 0, but got {}."
+                        ).format(intf, i, pfc_rx[intf]['Rx'][i])
 
 
 def test_pfc_pause(fanouthosts, duthosts, enum_rand_one_per_hwsku_frontend_hostname,

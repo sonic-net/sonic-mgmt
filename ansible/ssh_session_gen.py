@@ -204,6 +204,7 @@ class TestBedSshSessionRepoGenerator(DeviceSshSessionRepoGenerator):
             testbed.dut_nodes.values(),
             [testbed.ptf_node] if testbed.ptf_node else [],
             testbed.fanout_nodes.values(),
+            testbed.ocs_nodes.values(),
             testbed.root_fanout_nodes.values(),
             testbed.console_nodes.values(),
             testbed.server_nodes.values()

@@ -744,7 +744,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
         test_ports_info = {self.pfc_wd['rx_port'][0]: self.pfc_wd}
         queues = [self.storm_hndle.pfc_queue_idx]
 
-        extra_pfc_storm_timeout_needed = dut.facts['asic_type'] in ["mellanox", "cisco-8000"]
+        extra_pfc_storm_timeout_needed = dut.facts['asic_type'] in ["mellanox", "cisco-8000"] or \
+            "7060X6" in dut.facts['hwsku'].upper()
         if extra_pfc_storm_timeout_needed:
             PFC_STORM_TIMEOUT = 30
             pfcwd_stats_before_test = check_pfc_storm_state(dut, port, self.storm_hndle.pfc_queue_idx)
@@ -871,8 +872,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
 
     def set_traffic_action(self, duthost, action):
         action = action if action != "dontcare" else "drop"
-        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "marvell-teralynx"] or \
-                is_tunnel_qos_remap_enabled(duthost):
+        if duthost.facts["asic_type"] in ["mellanox", "cisco-8000", "innovium"] \
+                or is_tunnel_qos_remap_enabled(duthost):
             self.rx_action = "forward"
         else:
             self.rx_action = action
@@ -949,7 +950,8 @@ class TestPfcwdFunc(SetupPfcwdFunc):
             # wait time before we check the logs for the 'restore' signature. 'pfc_wd_restore_time_large' is in ms.
             self.timers['pfc_wd_wait_for_restore_time'] = int(pfc_wd_restore_time_large / 1000 * 2)
             actions = ['dontcare', 'drop', 'forward']
-            if duthost.sonichost._facts['asic_type'] == "cisco-8000":
+            # A temporary workaround for TH5 platform as forward action is not working
+            if duthost.sonichost._facts['asic_type'] == "cisco-8000" or "7060X6" in duthost.facts['hwsku'].upper():
                 actions = ['dontcare', 'drop']
             for action in actions:
                 try:

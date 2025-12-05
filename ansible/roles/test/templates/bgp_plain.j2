@@ -52,7 +52,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
 {% for (name, prefix) in VLAN_INTERFACE %}
 {% if prefix | ipv4 %}
   network {{ prefix }}
-{% elif prefix | ipv6 %}
+{% elif prefix | ansible.utils.ipv6 %}
   address-family ipv6
    network {{ prefix }}
   exit-address-family
@@ -76,7 +76,7 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
     maximum-paths 64
   exit-address-family
 {% endif %}
-{% if neighbor_addr | ipv6 %}
+{% if neighbor_addr | ansible.utils.ipv6 %}
   address-family ipv6
 {% if DEVICE_METADATA['localhost']['type'] == 'ToRRouter' %}
     neighbor {{ neighbor_addr }} allowas-in 1

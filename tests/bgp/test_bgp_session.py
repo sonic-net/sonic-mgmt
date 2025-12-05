@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 vrfname = 'default'
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", 'm1'),
+    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2'),
 ]
 
 
@@ -174,15 +174,17 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
     4: do the test, reset bgp or swss or do the reboot
     5: Verify all bgp sessions are up
     '''
+    duthost = duthosts[rand_one_dut_hostname]
+
     # Skip the test on dualtor with reboot test type
     pytest_require(
         ("dualtor" not in tbinfo["topo"]["name"] or test_type != "reboot"),
         "warm reboot is not supported on dualtor"
     )
-    if test_type == "reboot" and "isolated" in tbinfo["topo"]["name"]:
-        pytest.skip("Warm Reboot is not supported on isolated topology")
-
-    duthost = duthosts[rand_one_dut_hostname]
+    if test_type == "reboot" and (
+        "isolated" in tbinfo["topo"]["name"] or
+            duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch")):
+        pytest.skip("Warm Reboot is not supported on isolated topology or smartswitch")
 
     # Skip the test on Virtual Switch due to fanout switch dependency and warm reboot
     asic_type = duthost.facts['asic_type']
