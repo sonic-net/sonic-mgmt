@@ -17,6 +17,21 @@ class PtfGrpcError(Exception):
     pass
 
 
+class GrpcConnectionError(PtfGrpcError):
+    """Connection-related gRPC errors"""
+    pass
+
+
+class GrpcCallError(PtfGrpcError):
+    """gRPC method call errors"""
+    pass
+
+
+class GrpcTimeoutError(PtfGrpcError):
+    """gRPC timeout errors"""
+    pass
+
+
 class PtfGrpc:
     """
     PTF-based gRPC client using grpcurl.
@@ -54,9 +69,11 @@ class PtfGrpc:
             self.env = None
             logger.info(f"Manual PtfGrpc configuration: target={self.target}, plaintext={self.plaintext}")
         
-        # Default grpcurl options
-        self.default_timeout = 10.0  # seconds as float
+        # Connection configuration
+        self.timeout = 10.0  # seconds as float, configurable
         self.max_msg_size = 100 * 1024 * 1024  # 100MB in bytes
+        self.headers = {}  # Custom headers
+        self.verbose = False  # Enable verbose grpcurl output
     
     def _build_grpcurl_cmd(self, extra_args=None, service_method=None):
         """
@@ -77,10 +94,18 @@ class PtfGrpc:
         
         # Standard options
         cmd.extend([
-            "-connect-timeout", str(self.default_timeout),
+            "-connect-timeout", str(self.timeout),
             "-max-msg-sz", str(self.max_msg_size),
             "-format", "json"
         ])
+        
+        # Add custom headers
+        for name, value in self.headers.items():
+            cmd.extend(["-H", f"{name}: {value}"])
+        
+        # Add verbose output if enabled
+        if self.verbose:
+            cmd.append("-v")
         
         # Add extra arguments
         if extra_args:
@@ -95,20 +120,134 @@ class PtfGrpc:
         
         return cmd
     
+    def _execute_grpcurl(self, cmd: List[str], input_data: str = None) -> Dict:
+        """
+        Execute grpcurl command with enhanced error handling.
+        
+        Args:
+            cmd: grpcurl command as list
+            input_data: Optional input data to pipe to command
+            
+        Returns:
+            Dictionary with result information
+            
+        Raises:
+            GrpcConnectionError: Connection-related failures
+            GrpcTimeoutError: Timeout-related failures  
+            GrpcCallError: Other gRPC call failures
+        """
+        # Build full command with proper shell escaping
+        escaped_cmd = []
+        for arg in cmd:
+            if ' ' in arg or ':' in arg:
+                escaped_cmd.append(f"'{arg}'")
+            else:
+                escaped_cmd.append(arg)
+        
+        if input_data:
+            full_cmd = f"echo '{input_data}' | {' '.join(escaped_cmd)}"
+        else:
+            full_cmd = ' '.join(escaped_cmd)
+        
+        logger.debug(f"Executing: {full_cmd}")
+        result = self.ptfhost.shell(full_cmd, module_ignore_errors=True)
+        
+        # Analyze errors and provide specific exceptions
+        if result['rc'] != 0:
+            stderr = result['stderr']
+            
+            # Connection-related errors
+            if any(term in stderr.lower() for term in [
+                'connection refused', 'no such host', 'network is unreachable',
+                'connect: connection refused', 'dial tcp', 'connection failed'
+            ]):
+                raise GrpcConnectionError(f"Connection failed to {self.target}: {stderr}")
+            
+            # Timeout-related errors  
+            if any(term in stderr.lower() for term in [
+                'timeout', 'deadline exceeded', 'context deadline exceeded'
+            ]):
+                raise GrpcTimeoutError(f"Operation timed out after {self.timeout}s: {stderr}")
+            
+            # Service/method not found
+            if any(term in stderr.lower() for term in [
+                'unknown service', 'unknown method', 'not found',
+                'unimplemented', 'service not found'
+            ]):
+                raise GrpcCallError(f"Service or method not found: {stderr}")
+            
+            # Generic error
+            raise PtfGrpcError(f"grpcurl failed: {stderr}")
+        
+        return result
+    
+    def configure_timeout(self, timeout_seconds: float) -> None:
+        """
+        Configure connection timeout.
+        
+        Args:
+            timeout_seconds: Timeout in seconds
+        """
+        self.timeout = float(timeout_seconds)
+        logger.debug(f"Configured timeout: {self.timeout}s")
+    
+    def add_header(self, name: str, value: str) -> None:
+        """
+        Add a custom header for gRPC calls.
+        
+        Args:
+            name: Header name
+            value: Header value
+        """
+        self.headers[name] = value
+        logger.debug(f"Added header: {name}={value}")
+    
+    def set_verbose(self, enable: bool = True) -> None:
+        """
+        Enable/disable verbose grpcurl output.
+        
+        Args:
+            enable: Whether to enable verbose output
+        """
+        self.verbose = enable
+        logger.debug(f"Verbose output: {enable}")
+    
+    def test_connection(self) -> bool:
+        """
+        Test if the gRPC connection is working.
+        
+        Returns:
+            True if connection is successful
+            
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcTimeoutError: If connection times out
+        """
+        try:
+            # Try to list services as a connection test
+            services = self.list_services()
+            logger.info(f"Connection test passed: found {len(services)} services")
+            return True
+        except (GrpcConnectionError, GrpcTimeoutError):
+            # Re-raise connection/timeout errors as-is
+            raise
+        except Exception as e:
+            # Convert other errors to connection errors
+            raise GrpcConnectionError(f"Connection test failed: {e}")
+    
     def list_services(self) -> List[str]:
         """
         List all available gRPC services.
         
         Returns:
             List of service names
+            
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcTimeoutError: If operation times out
         """
         cmd = self._build_grpcurl_cmd(service_method="list")
-        
-        logger.debug(f"Executing: {' '.join(cmd)}")
-        result = self.ptfhost.shell(' '.join(cmd), module_ignore_errors=True)
-        
-        if result['rc'] != 0:
-            raise PtfGrpcError(f"Failed to list services: {result['stderr']}")
+        result = self._execute_grpcurl(cmd)
         
         # Parse service list from stdout
         services = []
@@ -129,14 +268,13 @@ class PtfGrpc:
             
         Returns:
             Parsed description as dictionary
+            
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If symbol not found
         """
         cmd = self._build_grpcurl_cmd(service_method=f"describe {symbol}")
-        
-        logger.debug(f"Executing: {' '.join(cmd)}")
-        result = self.ptfhost.shell(' '.join(cmd), module_ignore_errors=True)
-        
-        if result['rc'] != 0:
-            raise PtfGrpcError(f"Failed to describe {symbol}: {result['stderr']}")
+        result = self._execute_grpcurl(cmd)
         
         # Return raw description for now
         # TODO: Parse protobuf description into structured format
@@ -159,36 +297,31 @@ class PtfGrpc:
         
         Returns:
             Response as dictionary
+            
+        Raises:
+            GrpcConnectionError: If connection fails
+            GrpcCallError: If method call fails
+            GrpcTimeoutError: If call times out
         """
         service_method = f"{service}/{method}"
         cmd = self._build_grpcurl_cmd(service_method=service_method)
         
         # Prepare request data
-        request_data = ""
+        request_data = "{}"  # Default empty JSON
         if request:
             if isinstance(request, dict):
                 request_data = json.dumps(request)
             else:
                 request_data = str(request)
         
-        # Build full command
-        if request_data:
-            full_cmd = f"echo '{request_data}' | {' '.join(cmd)}"
-        else:
-            full_cmd = f"echo '{{}}' | {' '.join(cmd)}"
-        
-        logger.debug(f"Executing: {full_cmd}")
-        result = self.ptfhost.shell(full_cmd, module_ignore_errors=True)
-        
-        if result['rc'] != 0:
-            raise PtfGrpcError(f"Failed to call {service_method}: {result['stderr']}")
+        result = self._execute_grpcurl(cmd, request_data)
         
         try:
             response = json.loads(result['stdout'].strip())
             logger.debug(f"Response from {service_method}: {response}")
             return response
         except json.JSONDecodeError as e:
-            raise PtfGrpcError(f"Failed to parse response from {service_method}: {e}")
+            raise GrpcCallError(f"Failed to parse response from {service_method}: {e}")
     
     def call_server_streaming(self, service: str, method: str, request: Union[Dict, str] = None) -> List[Dict]:
         """
