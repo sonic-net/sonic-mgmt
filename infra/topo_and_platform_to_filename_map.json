@@ -37,6 +37,10 @@
         "laguna": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_laguna.yaml",
             "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_laguna.yaml"
+        },
+        "mth64": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_mathilda.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_topo_4D_ixia_mathilda.yaml"
         }
     },
     "t0-t1-5d-ixia_dhcp_relay": {
