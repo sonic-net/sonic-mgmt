@@ -116,12 +116,13 @@ def setup_table_and_rules(rand_selected_dut, prepare_test_port):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def remove_dataacl_table(duthosts, rand_selected_dut):
+def remove_dataacl_table(duthosts):
     """
     Remove DATAACL to free TCAM resources.
     The change is written to configdb as we don't want DATAACL recovered after reboot
     """
     TABLE_NAME_1 = "DATAACL"
+    data_acl_existing_duts = []
     for duthost in duthosts:
         lines = duthost.shell(cmd="show acl table {}".format(TABLE_NAME_1))['stdout_lines']
         data_acl_existing = False
@@ -133,23 +134,25 @@ def remove_dataacl_table(duthosts, rand_selected_dut):
         if data_acl_existing:
             # Remove DATAACL
             logger.info("Removing ACL table {}".format(TABLE_NAME_1))
-            rand_selected_dut.shell(cmd="config acl remove table {}".format(TABLE_NAME_1))
+            duthost.shell(cmd="config acl remove table {}".format(TABLE_NAME_1))
+            data_acl_existing_duts.append(duthost)
 
-    if not data_acl_existing:
+    if not data_acl_existing_duts:
         yield
         return
 
     yield
     # Recover DATAACL
     config_db_json = "/etc/sonic/config_db.json"
-    output = rand_selected_dut.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
-    entry_json = json.loads(output)
-    if TABLE_NAME_1 in entry_json:
-        entry = entry_json[TABLE_NAME_1]
-        cmd_create_table = "config acl add table {} {} -p {} -s {}"\
-            .format(TABLE_NAME_1, entry['type'], ",".join(entry['ports']), entry['stage'])
-        logger.info("Restoring ACL table {}".format(TABLE_NAME_1))
-        rand_selected_dut.shell(cmd_create_table)
+    for duthost in data_acl_existing_duts:
+        output = duthost.shell("sonic-cfggen -j {} --var-json \"ACL_TABLE\"".format(config_db_json))['stdout']
+        entry_json = json.loads(output)
+        if TABLE_NAME_1 in entry_json:
+            entry = entry_json[TABLE_NAME_1]
+            cmd_create_table = "config acl add table {} {} -p {} -s {}"\
+                .format(TABLE_NAME_1, entry['type'], ",".join(entry['ports']), entry['stage'])
+            logger.info("Restoring ACL table {}".format(TABLE_NAME_1))
+            duthost.shell(cmd_create_table)
 
 
 @pytest.fixture(scope='module')
@@ -207,7 +210,7 @@ def prepare_test_port(rand_selected_dut, tbinfo):
 
     dst_ip_addr = None
     if tbinfo["topo"]['name'] in ["t1-isolated-d28u1", "t1-isolated-d56u2", "t1-isolated-d448u15-lag",
-                                  "t1-isolated-d56u1-lag"]:
+                                  "t1-isolated-d56u1-lag"] or topo == "m1":
         dst_ip_addr = random.choices(list(upstream_port_neighbor_ips.values()))
     return ptf_src_port, upstream_port_ids, dut_port, dst_ip_addr
 

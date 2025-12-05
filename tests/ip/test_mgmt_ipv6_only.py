@@ -22,7 +22,8 @@ from tests.conftest import get_hosts_per_hwsku
 pytestmark = [
     pytest.mark.disable_loganalyzer,
     pytest.mark.topology('any'),
-    pytest.mark.device_type('vs')
+    pytest.mark.device_type('vs'),
+    pytest.mark.dualtor_skip_setup_mux_ports
 ]
 
 _cached_nodes_per_hwsku = None

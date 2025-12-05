@@ -26,7 +26,7 @@ from tests.common.fixtures.ptfhost_utils import \
 from tests.common.dualtor.dual_tor_mock import mock_server_base_ip_addr     # noqa: F401
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, check_msg_in_syslog
-from tests.common.utilities import get_all_upstream_neigh_type, get_downstream_neigh_type
+from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts         # noqa: F401
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_all_interface_information
@@ -34,8 +34,8 @@ from tests.common.utilities import get_iface_ip
 from tests.common.sai_validation.sonic_db import start_db_monitor, wait_for_n_keys, stop_db_monitor
 from tests.common.validation.sai.acl_validation import validate_acl_asicdb_entries
 from tests.common.utilities import is_ipv4_address
-from tests.common.mellanox_data import is_mellanox_device
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
+from tests.common.fixtures.duthost_utils import is_multi_binding_acl_enabled  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
@@ -384,8 +384,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         upstream_port_id_to_router_mac_map = t2_info['upstream_port_id_to_router_mac_map']
     else:
         upstream_neigh_types = get_all_upstream_neigh_type(topo)
-        downstream_neigh_type = get_downstream_neigh_type(topo)
-        pytest_require(len(upstream_neigh_types) > 0 and downstream_neigh_type is not None,
+        downstream_neigh_types = get_all_downstream_neigh_type(topo)
+        pytest_require(len(upstream_neigh_types) > 0 and len(downstream_neigh_types) > 0,
                        "Cannot get neighbor type for unsupported topo: {}".format(topo))
         mg_vlans = mg_facts["minigraph_vlans"]
         if tbinfo["topo"]["name"] in ("t1-isolated-d32", "t1-isolated-d128"):
@@ -404,17 +404,18 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
         else:
             for interface, neighbor in list(mg_facts["minigraph_neighbors"].items()):
                 port_id = mg_facts["minigraph_ptf_indices"][interface]
-                if downstream_neigh_type in neighbor["name"].upper():
-                    if topo in ["t0", "mx", "m0_vlan"]:
-                        if interface not in mg_vlans[vlan_name]["members"]:
-                            continue
+                for neigh_type in downstream_neigh_types:
+                    if neigh_type in neighbor["name"].upper():
+                        if topo in ["t0", "mx", "m0_vlan"]:
+                            if interface not in mg_vlans[vlan_name]["members"]:
+                                continue
 
-                    downstream_ports[neighbor['namespace']].append(interface)
-                    downstream_port_ids.append(port_id)
-                    # Duplicate all ports to upstream port list for FT2
-                    if topo == "ft2":
-                        upstream_port_ids.append(port_id)
-                    downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
+                        downstream_ports[neighbor['namespace']].append(interface)
+                        downstream_port_ids.append(port_id)
+                        # Duplicate all ports to upstream port list for FT2
+                        if topo == "ft2":
+                            upstream_port_ids.append(port_id)
+                        downstream_port_id_to_router_mac_map[port_id] = downlink_dst_mac
                 for neigh_type in upstream_neigh_types:
                     if neigh_type in neighbor["name"].upper():
                         upstream_ports[neighbor['namespace']].append(interface)
@@ -465,7 +466,8 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
             topo in ["t0", "m0_vlan", "m0_l3"]
             or tbinfo["topo"]["name"] in (
                 "t1-lag", "t1-64-lag", "t1-64-lag-clet",
-                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag"
+                "t1-56-lag", "t1-28-lag", "t1-32-lag", "t1-48-lag",
+                "t1-f2-d10u8"
             )
             or 't1-isolated' in tbinfo["topo"]["name"]
         )
@@ -705,32 +707,6 @@ def multi_binding_acl_table_type(duthosts, rand_selected_dut):
         yield
 
 
-def is_sai_profile_multi_binding_enabled(duthost):
-    """
-    Check if SAI_ACL_MULTI_BINDING_ENABLED is enabled in syncd docker's sai.profile
-
-    Args:
-        duthost: DUT host object
-
-    Returns:
-        bool: True if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in sai.profile, False otherwise
-    """
-    try:
-        # Check if sai.profile exists in syncd docker
-        result = duthost.shell(
-            "docker exec syncd ls /tmp/sai.profile", module_ignore_errors=True)
-        if result['rc'] != 0:
-            return False
-
-        # Check if SAI_ACL_MULTI_BINDING_ENABLED=1 exists in the file
-        result = duthost.shell(
-            "docker exec syncd grep 'SAI_ACL_MULTI_BINDING_ENABLED=1' /tmp/sai.profile", module_ignore_errors=True)
-        return result['rc'] == 0
-    except Exception as e:
-        logger.error("Failed to check sai.profile: %s", str(e))
-        return False
-
-
 def create_or_remove_acl_table(duthost, acl_table_config, setup, op, topo):
     for sonic_host_or_asic_inst in duthost.get_sonic_host_and_frontend_asic_instance():
         namespace = sonic_host_or_asic_inst.namespace if hasattr(sonic_host_or_asic_inst, 'namespace') else ''
@@ -779,12 +755,6 @@ def acl_table(duthosts, rand_selected_dut, rand_one_dut_hostname, setup, stage, 
     if is_multi_binding_acl():
         if stage == "egress":
             pytest.skip("Not applicable for multi binding ACL")
-        for duthost in duthosts:
-            if not is_sai_profile_multi_binding_enabled(duthost):
-                if is_mellanox_device(duthost) and 'dualtor' in tbinfo['topo']['name']:
-                    pytest.fail(
-                        "No multi-binding ACL supported on this platform, please check the sai.profile")
-                pytest.skip("No multi-binding ACL supported on this platform")
         table_name = f"MULTI_BINDING_{stage.upper()}_{ip_version.upper()}_TEST"
         table_type = "MULTI_BINDING_ACL"
         duthosts = [rand_selected_dut]
@@ -1767,7 +1737,8 @@ class TestAclWithPortToggle(TestBasicAcl):
 
 
 @pytest.mark.multi_binding_acl
-@pytest.mark.usefixtures("setup_standby_ports_on_rand_unselected_tor_class_scope", "restore_duthosts")
+@pytest.mark.usefixtures("setup_standby_ports_on_rand_unselected_tor_class_scope",
+                         "restore_duthosts", "is_multi_binding_acl_enabled")
 class TestMultiBindingAcl(TestBasicAcl):
     """Test ACL rule functionality with multi-binding ACL table."""
 
