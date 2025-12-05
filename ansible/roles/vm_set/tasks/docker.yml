@@ -98,7 +98,7 @@
     become: yes
     environment: "{{ proxy_env | default({}) }}"
     ignore_errors: yes
-  - name: Install python packages requests=2.32.4
+  - name: Install python packages requests=2.32.5
     pip: name=requests version=2.32.5 executable={{ pip_executable }} extra_args="--ignore-installed --no-deps"
     become: yes
     environment: "{{ proxy_env | default({}) }}"
