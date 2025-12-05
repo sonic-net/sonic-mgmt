@@ -915,7 +915,7 @@ dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_default[sonic-relay-agent]:
     reason: "Test skipped: sonic dhcpv4 is not supported in the DUT image version < 202511"
     conditions:
       - "release < '202511'"
-      
+
 dhcp_relay/test_dhcp_relay.py::test_dhcp_relay_monitor_checksum_validation:
   skip:
     reason: "Current isc-dhcp-relay do not support dropping packets with unexpected checksum"
