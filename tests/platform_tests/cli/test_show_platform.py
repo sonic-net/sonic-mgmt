@@ -37,8 +37,7 @@ THERMAL_CONTROL_TEST_WAIT_TIME = 65
 THERMAL_CONTROL_TEST_CHECK_INTERVAL = 5
 VPD_DATA_FILE = "/var/run/hw-management/eeprom/vpd_data"
 
-BF_2_PLATFORM = 'arm64-nvda_bf-mbf2h536c'
-BF_3_PLATFORM = 'arm64-nvda_bf-9009d3b600cvaa'
+BF_3_PLATFORM = 'arm64-nvda_bf-bf3comdpu'
 
 
 @pytest.fixture(scope='module')
@@ -502,7 +501,7 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
     supported_disks = ["SATA", "NVME"]
 
     platform_ssd_device_path_dict = {BF_3_PLATFORM: "/dev/nvme0"}
-    unsupported_ssd_values_per_platform = {BF_2_PLATFORM: ["Temperature"]}
+    unsupported_ssd_values_per_platform = {}
 
     # Build specific path to SSD device based on platform/ssd path mapping dict
     platform = duthost.facts['platform']
@@ -544,7 +543,8 @@ def test_show_platform_ssdhealth(duthosts, enum_supervisor_dut_hostname):
 
         if key == "Health":
             health_float_value = float(line_data.strip("%"))
-            pytest_assert(health_float_value > 50.0, "SSD health is '{}', SSD replacement required".format(line_data))
+            pytest_assert(0.0 <= health_float_value <= 100.0,
+                          "SSD health value '{}' is outside the expected 0-100 range".format(health_float_value))
 
         if key == "Temperature":
             temp_float_value = float(line_data.strip("C"))

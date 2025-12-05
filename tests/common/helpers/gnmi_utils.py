@@ -110,7 +110,23 @@ IP      = %s
     return
 
 
-def create_revoked_cert_and_crl(localhost, ptfhost):
+def get_ptf_crl_server_ip(duthost, ptfhost):
+    """
+    Get the appropriate PTF IP address for CRL server based on DUT management IP type.
+    If DUT is IPv6-only, use PTF IPv6 address; otherwise use IPv4.
+    """
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+    if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+        # Use IPv6 address with brackets for URL
+        return "[{}]".format(ptfhost.mgmt_ipv6)
+    else:
+        # Use IPv4 address
+        return ptfhost.mgmt_ip
+
+
+def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     # Create client key
     local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
     localhost.shell(local_command)
@@ -124,7 +140,9 @@ def create_revoked_cert_and_crl(localhost, ptfhost):
     localhost.shell(local_command)
 
     # Sign client certificate
-    crl_url = "http://{}:1234/crl".format(ptfhost.mgmt_ip)
+    # Get appropriate PTF IP address based on DUT management IP type
+    ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost) if duthost else ptfhost.mgmt_ip
+    crl_url = "http://{}:1234/crl".format(ptf_ip)
     create_ca_conf(crl_url, "crlext.cnf")
     local_command = "openssl x509 \
                         -req \
@@ -301,12 +319,13 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def gnmi_capabilities(duthost, localhost):
+def gnmi_capabilities(duthost, localhost, duthost_mgmt_ip):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    ip = duthost_mgmt_ip['mgmt_ip']
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    addr = f"[{ip}]" if duthost_mgmt_ip['version'] == 'v6' else f"{ip}"
+    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "
