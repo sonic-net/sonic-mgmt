@@ -21,6 +21,7 @@ broadcom_th5_hwskus: ['Arista-7060X6-64DE', 'Arista-7060X6-64DE-64x400G', 'Arist
 broadcom_j2c+_hwskus: ['Nokia-IXR7250E-36x100G', 'Nokia-IXR7250E-36x400G', 'Arista-7280DR3A-36', 'Arista-7280DR3AK-36', 'Arista-7280DR3AK-36S', 'Arista-7280DR3AM-36', 'Arista-7800R3A-36DM2-C36', 'Arista-7800R3A-36DM2-D36', 'Arista-7800R3AK-36DM2-C36', 'Arista-7800R3AK-36DM2-D36', 'Nokia-IXR7250-X3B']
 
 broadcom_jr2_hwskus: ['Arista-7800R3-48CQ2-C48', 'Arista-7800R3-48CQM2-C48']
+broadcom_q3d_hwskus: ['Arista-7280R4-32QF-32DF-64O', 'Arista-7280R4K-32QF-32DF-64O']
 
 mellanox_spc1_hwskus: [ 'ACS-MSN2700', 'ACS-MSN2740', 'ACS-MSN2100', 'ACS-MSN2410', 'ACS-MSN2010', 'Mellanox-SN2700', 'Mellanox-SN2700-A1', 'Mellanox-SN2700-D48C8','Mellanox-SN2700-D40C8S8', 'Mellanox-SN2700-A1-D48C8', 'Mellanox-SN2700-C28D8', 'Mellanox-SN2700-A1-C28D8']
 mellanox_spc2_hwskus: [ 'ACS-MSN3700', 'ACS-MSN3700C', 'ACS-MSN3800', 'Mellanox-SN3800-D112C8' , 'ACS-MSN3420']
