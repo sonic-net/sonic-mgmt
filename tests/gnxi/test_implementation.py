@@ -137,3 +137,70 @@ def test_step2(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
     logger.info(f"  - Auto config: {auto_client}")
     logger.info(f"  - Services discovered: {len(services)}")
     logger.info(f"  - System.Time working: {bool(time_response.get('time'))}")
+
+
+def test_step3(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
+    """Verify connection configuration and error handling"""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    from tests.common.ptf_grpc import PtfGrpc, GrpcConnectionError, GrpcTimeoutError
+    import pytest
+    
+    # Test connection validation with valid target
+    logger.info("Testing connection validation")
+    client = PtfGrpc(ptfhost, f"{duthost.mgmt_ip}:8080", plaintext=True)
+    
+    # Test successful connection
+    logger.info("Testing successful connection")
+    assert client.test_connection() == True
+    
+    # Test timeout configuration  
+    logger.info("Testing timeout configuration")
+    original_timeout = client.timeout
+    client.configure_timeout(5.0)
+    assert client.timeout == 5.0
+    
+    # Verify client still works with new timeout
+    services = client.list_services()
+    assert "gnoi.system.System" in services
+    
+    # Test header configuration
+    logger.info("Testing header configuration")
+    client.add_header("x-test-header", "test-value")
+    assert "x-test-header" in client.headers
+    assert client.headers["x-test-header"] == "test-value"
+    
+    # Verify client still works with headers
+    time_response = client.call_unary("gnoi.system.System", "Time")
+    assert "time" in time_response
+    
+    # Test verbose mode
+    logger.info("Testing verbose mode")
+    client.set_verbose(True)
+    assert client.verbose == True
+    
+    # Test connection error handling with invalid target
+    logger.info("Testing connection error handling") 
+    bad_client = PtfGrpc(ptfhost, "invalid.host:9999", plaintext=True)
+    
+    # Should raise either GrpcConnectionError or GrpcTimeoutError for invalid host
+    with pytest.raises((GrpcConnectionError, GrpcTimeoutError)) as exc_info:
+        bad_client.test_connection()
+    
+    assert any(term in str(exc_info.value).lower() for term in ["connection failed", "timed out", "deadline exceeded"])
+    
+    # Test timeout error with very short timeout
+    logger.info("Testing timeout error handling")
+    timeout_client = PtfGrpc(ptfhost, f"{duthost.mgmt_ip}:8080", plaintext=True) 
+    timeout_client.configure_timeout(0.001)  # 1ms - should timeout
+    
+    with pytest.raises(GrpcTimeoutError) as exc_info:
+        timeout_client.list_services()
+    
+    assert "timed out" in str(exc_info.value).lower()
+    
+    logger.info("✅ Step 3 verification successful:")
+    logger.info(f"  - Connection validation: working")
+    logger.info(f"  - Timeout configuration: {original_timeout}s -> 5.0s")
+    logger.info(f"  - Header support: {len(client.headers)} headers")
+    logger.info(f"  - Error handling: connection and timeout errors caught")
+    logger.info(f"  - Verbose mode: configurable")
