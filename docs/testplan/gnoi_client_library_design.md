@@ -2,21 +2,22 @@
 
 ## Purpose
 
-The purpose of this document is to describe the design of a common, reusable gNOI (gRPC Network Operations Interface) client library for sonic-mgmt test cases. This library provides test cases with direct access to gRPC stubs and channels while handling the infrastructure concerns of protocol buffer compilation, certificate management, and PTF container deployment.
+The purpose of this document is to describe the design of a common, reusable gNOI (gRPC Network Operations Interface) client library for sonic-mgmt test cases. This library leverages the existing grpcurl tool in the PTF container to provide a simple interface for gNOI operations without the complexity of protocol buffer compilation or Python gRPC dependencies.
 
 ## High Level Design Document
 
 | Rev      | Date        | Author                   | Change Description                  |
 |----------|-------------|--------------------------|-------------------------------------|
 | Draft    | 03-12-2024  | Dawei Huang <daweihuang@microsoft.com> | Initial version for gNOI client     |
+| v2       | 05-12-2024  | Dawei Huang <daweihuang@microsoft.com> | Simplified to use grpcurl           |
 
 ## Introduction
 
 SONiC tests in the [sonic-mgmt](https://github.com/sonic-net/sonic-mgmt) repository currently lack a unified approach for testing gNOI operations. Existing implementations in `tests/gnmi/` are fragmented, mix different authentication patterns, and hide the actual gRPC interfaces from users. This design proposes a lightweight infrastructure that:
 
-1. **Provides compiled gRPC stubs** - Users work directly with protocol buffer generated code
-2. **Handles infrastructure concerns** - Certificate management, PTF deployment, proto compilation
-3. **Maintains transparency** - No wrapper classes that hide the actual gRPC interfaces
+1. **Leverages grpcurl** - Uses the existing grpcurl tool in PTF container
+2. **Handles infrastructure concerns** - Certificate management and PTF integration
+3. **Maintains simplicity** - No proto compilation or Python gRPC dependencies
 4. **Follows sonic-mgmt patterns** - Uses pytest fixtures and PTF container patterns
 
 The gNOI protocol defines various service modules including System, File, Certificate, and Diagnostic operations. This design focuses initially on System operations while providing an extensible framework for additional services.
@@ -39,12 +40,12 @@ def test_system_time(gnoi_ptf):
 
 ### Infrastructure as Utilities
 The library handles setup concerns while providing a simple test interface:
-- Proto compilation and import management  
-- Certificate setup and PTF deployment
+- grpcurl command construction and execution
+- Certificate setup for secure connections
 - Connection management between PTF and DUT
 - Error handling and logging
 
-This approach handles all gRPC complexity internally while exposing a clean JSON interface to test authors. The underlying implementation uses native protocol buffers for correctness, but tests work with simple Python dictionaries.
+This approach handles all gRPC complexity through grpcurl while exposing a clean JSON interface to test authors. The grpcurl tool handles all protocol buffer parsing and serialization automatically.
 
 ### Process Boundary Awareness
 The design respects sonic-mgmt's process architecture:
@@ -59,7 +60,7 @@ The design respects sonic-mgmt's process architecture:
 | Issue | Current State | Impact |
 |-------|---------------|---------|
 | Mixed abstractions | Some tests use CLI tools, others direct gRPC | Inconsistent interfaces |
-| Complex setup | Protocol buffer compilation, Python dependencies | High maintenance burden |
+| Complex setup | Protocol buffer compilation, Python gRPC dependencies | High maintenance burden |
 | Authentication chaos | Certificates in multiple locations | Unreliable connections |
 | Limited reusability | gNMI-specific implementations | Cannot reuse for gNOI, gNSI |
 | Process boundary issues | gRPC clients in sonic-mgmt container | Fork safety concerns |
@@ -77,18 +78,16 @@ graph TB
     end
     
     subgraph PTF ["PTF container"]
-        OS["gNOI Operations Script"]
-        GCL["gNOI Client Library"]
-        CPS["Compiled Proto Stubs"]
+        GH["gNOI Helper Script"]
+        GC["grpcurl (/root/grpcurl)"]
         
-        OS --> GCL
-        GCL --> CPS
+        GH --> GC
     end
     
     DUT["DUT :50052"]
     
-    PF -->|"ptfhost.shell()"| OS
-    GCL -->|"gRPC Channel"| DUT
+    PF -->|"ptfhost.shell()"| GH
+    GC -->|"gRPC"| DUT
 ```
 
 ### Directory Structure
@@ -125,185 +124,115 @@ tests/common/grpc_protos/   # Source proto files
 
 ## Detailed Design
 
-### 1. Protocol Buffer Management
+### 1. grpcurl-based Architecture
 
-#### Automatic PTF Deployment Pattern
+#### Leveraging Existing grpcurl Tool
 
-```python
-# tests/common/grpc_protos/compile_protos.py  
-import subprocess
-from pathlib import Path
+The PTF container already includes grpcurl at `/root/grpcurl`, which provides:
+- Automatic proto discovery via server reflection
+- JSON input/output for easy parsing
+- No need for proto compilation or Python gRPC dependencies
 
-def compile_gnoi_protos_for_ptf():
-    """Compile gNOI proto files directly into PTF directory"""
-    proto_root = Path(__file__).parent
-    ptf_output = Path(__file__).parent.parent.parent / "ptftests" / "py3"
-    
-    proto_files = [
-        "gnoi/system/system.proto",
-        "gnoi/file/file.proto"
-    ]
-    
-    # Create output directory
-    ptf_output.mkdir(parents=True, exist_ok=True)
-    
-    for proto_file in proto_files:
-        cmd = [
-            "python", "-m", "grpc_tools.protoc",
-            f"--proto_path={proto_root}",
-            f"--python_out={ptf_output}",      # Output to PTF directory
-            f"--grpc_python_out={ptf_output}",  # Output to PTF directory
-            str(proto_root / proto_file)
-        ]
-        
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
-            raise Exception(f"Failed to compile {proto_file}: {result.stderr}")
+**Key Benefits**:
+- No protocol buffer files or compilation needed
+- Uses server reflection to discover available services automatically
+- Clean JSON interface for input and output
 
-if __name__ == "__main__":
-    compile_gnoi_protos_for_ptf()
-```
+### 2. PTF Helper Script
 
-**Key Change**: Compile protos directly into `tests/ptftests/py3/` so they're automatically deployed by sonic-mgmt's PTF deployment system.
-
-### 2. PTF-Side gNOI Client (Self-Contained)
-
-#### Local Client Implementation in PTF
+#### Simple grpcurl Wrapper
 
 ```python
-# tests/ptftests/py3/gnoi_client.py  
-import grpc
-import sys
-import os
-
-# Local imports - proto stubs are in same directory
-from gnoi.system import system_pb2, system_pb2_grpc
-from gnoi.file import file_pb2, file_pb2_grpc
-
-class GnoiError(Exception):
-    """gNOI operation errors"""
-    pass
-
-class GnoiClient:
-    """Lightweight gNOI client - exposes native gRPC stubs and proto objects"""
-    
-    def __init__(self, target, secure=True, cert_dir=None):
-        self.target = target
-        self.channel = None
-        self.system_stub = None
-        
-        self._connect(secure, cert_dir)
-        
-    def _connect(self, secure, cert_dir):
-        """Create gRPC channel and stubs"""
-        if secure and cert_dir:
-            credentials = create_credentials(cert_dir)
-            self.channel = grpc.secure_channel(self.target, credentials)
-        else:
-            self.channel = grpc.insecure_channel(self.target)
-            
-        # Create stubs - users can access these directly
-        self.system_stub = system_pb2_grpc.SystemStub(self.channel)
-        
-    def system_time(self):
-        """Get system time - direct gRPC call"""
-        request = system_pb2.TimeRequest()
-        try:
-            response = self.system_stub.Time(request)
-            return {
-                'time_ns': response.time,
-                'timestamp': response.time // 1000000000
-            }
-        except grpc.RpcError as e:
-            raise GnoiError(f"system_time failed: {e.details()}")
-            
-    def system_reboot(self, method=0, delay=0, message=""):
-        """Reboot system - direct gRPC call"""
-        request = system_pb2.RebootRequest(
-            method=method,
-            delay=delay, 
-            message=message
-        )
-        try:
-            response = self.system_stub.Reboot(request)
-            return {'status': 'success', 'response': str(response)}
-        except grpc.RpcError as e:
-            raise GnoiError(f"system_reboot failed: {e.details()}")
-            
-    def close(self):
-        if self.channel:
-            self.channel.close()
-            
-    def __enter__(self):
-        return self
-        
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        self.close()
-```
-
-### 3. PTF Operations Script
-
-#### Self-Contained PTF Script
-
-```python
-# tests/ptftests/py3/gnoi_operations.py
+# tests/ptftests/py3/gnoi_helper.py
 import sys
 import json
+import subprocess
 
-# Local import - client is in same directory
-from gnoi_client import GnoiClient
+def call_grpcurl(target, service, method, data=None, plaintext=True):
+    """Call grpcurl and return parsed JSON response"""
+    cmd = ["/root/grpcurl"]
+    
+    if plaintext:
+        cmd.append("-plaintext")
+    
+    if data:
+        cmd.extend(["-d", json.dumps(data)])
+    
+    cmd.extend([target, f"{service}/{method}"])
+    
+    try:
+        result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+        return json.loads(result.stdout) if result.stdout else {}
+    except subprocess.CalledProcessError as e:
+        error_msg = e.stderr if e.stderr else f"grpcurl failed with code {e.returncode}"
+        return {"error": error_msg}
+    except json.JSONDecodeError:
+        return {"error": f"Invalid JSON response: {result.stdout}"}
 
 def main():
     if len(sys.argv) < 3:
-        print(json.dumps({"error": "Usage: gnoi_operations.py <operation> <target> [args...]"}))
+        print(json.dumps({"error": "Usage: gnoi_helper.py <operation> <target> [args...]"}))
         sys.exit(1)
         
     operation = sys.argv[1]
     target = sys.argv[2]
-    args = sys.argv[3:] if len(sys.argv) > 3 else []
     
-    try:
-        with GnoiClient(target, secure=False) as client:
-            if operation == "time":
-                result = client.system_time()
-            elif operation == "reboot":
-                method = int(args[0]) if args else 0
-                delay = int(args[1]) if len(args) > 1 else 0
-                message = args[2] if len(args) > 2 else ""
-                result = client.system_reboot(method, delay, message)
-            else:
-                result = {"error": f"Unknown operation: {operation}"}
-                
-        print(json.dumps(result))
+    if operation == "system_time":
+        result = call_grpcurl(target, "gnoi.system.System", "Time", {})
+    elif operation == "system_reboot":
+        data = {
+            "method": int(sys.argv[3]) if len(sys.argv) > 3 else 0,
+            "delay": int(sys.argv[4]) if len(sys.argv) > 4 else 0,
+            "message": sys.argv[5] if len(sys.argv) > 5 else ""
+        }
+        result = call_grpcurl(target, "gnoi.system.System", "Reboot", data)
+    elif operation == "file_put":
+        data = {
+            "destination": sys.argv[3],
+            "content": sys.argv[4] if len(sys.argv) > 4 else ""
+        }
+        result = call_grpcurl(target, "gnoi.file.File", "Put", data)
+    elif operation == "list_services":
+        # Special operation to list available services
+        cmd = ["/root/grpcurl", "-plaintext", target, "list"]
+        try:
+            result = subprocess.run(cmd, capture_output=True, text=True, check=True)
+            services = result.stdout.strip().split('\n')
+            result = {"services": services}
+        except subprocess.CalledProcessError as e:
+            result = {"error": e.stderr}
+    else:
+        result = {"error": f"Unknown operation: {operation}"}
         
-    except Exception as e:
-        print(json.dumps({"error": str(e)}))
-        sys.exit(1)
+    print(json.dumps(result))
 
 if __name__ == "__main__":
     main()
 ```
 
-### 4. Test Integration Helper
+### 3. Test Integration Helper
 
 #### Clean Python Interface for Tests
 
 ```python
 # tests/common/ptf_gnoi.py
 import json
-from .grpc_clients.exceptions import GnoiError
+
+class GnoiError(Exception):
+    """gNOI operation errors"""
+    pass
 
 class PtfGnoiHelper:
-    """Helper for calling gNOI operations from PTF container"""
+    """Helper for calling gNOI operations from PTF container using grpcurl"""
     
     def __init__(self, ptfhost, target):
         self.ptfhost = ptfhost
         self.target = target
         
     def _call_operation(self, operation, *args):
-        """Call gNOI operation and parse JSON response"""
+        """Call gNOI operation via grpcurl helper and parse JSON response"""
         args_str = " ".join(str(arg) for arg in args)
-        cmd = f"python3 /root/ptftests/py3/gnoi_operations.py {operation} {self.target} {args_str}"
+        cmd = f"python3 /root/ptftests/py3/gnoi_helper.py {operation} {self.target} {args_str}"
         
         result = self.ptfhost.shell(cmd, module_ignore_errors=True)
         
@@ -322,37 +251,35 @@ class PtfGnoiHelper:
         
     def system_time(self):
         """Get system time"""
-        return self._call_operation('time')
+        return self._call_operation('system_time')
         
     def system_reboot(self, method=0, delay=0, message=""):
         """Reboot system"""
-        return self._call_operation('reboot', method, delay, f"'{message}'")
+        return self._call_operation('system_reboot', method, delay, message)
+        
+    def file_put(self, destination, content=""):
+        """Put file content"""
+        return self._call_operation('file_put', destination, content)
+        
+    def list_services(self):
+        """List available gRPC services"""
+        return self._call_operation('list_services')
 ```
 
-### 5. Pytest Fixtures
+### 4. Pytest Fixtures
 
-#### Simplified Fixtures (No Custom Deployment)
+#### Simplified Fixtures (No Dependencies Needed)
 
 ```python
 # tests/common/fixtures/gnoi_fixtures.py
 import pytest
 from ..ptf_gnoi import PtfGnoiHelper
 
-# No deployment fixture needed! PTF files are auto-deployed by sonic-mgmt
-
-@pytest.fixture(scope="session")
-def ensure_gnoi_dependencies(ptfhost):
-    """Ensure gRPC dependencies are available in PTF container"""
-    result = ptfhost.shell("python3 -c 'import grpc'", module_ignore_errors=True)
-    if result['rc'] != 0:
-        ptfhost.shell("pip3 install grpcio grpcio-tools protobuf")
-    return True
-
 @pytest.fixture 
-def gnoi_ptf(ensure_gnoi_dependencies, ptfhost, duthosts, rand_one_dut_hostname):
-    """Provide gNOI helper for tests"""
+def gnoi_ptf(ptfhost, duthosts, rand_one_dut_hostname):
+    """Provide gNOI helper for tests - no setup needed since grpcurl is pre-installed"""
     duthost = duthosts[rand_one_dut_hostname]
-    target = f"{duthost.mgmt_ip}:50052"
+    target = f"{duthost.mgmt_ip}:8080"  # Updated to use discovered port
     
     return PtfGnoiHelper(ptfhost, target)
 
@@ -361,49 +288,38 @@ def pytest_addoption(parser):
     parser.addoption(
         "--gnoi_port",
         type=int,
-        default=50052,
-        help="gNOI server port (default: 50052)"
+        default=8080,
+        help="gNOI server port (default: 8080)"
     )
     
     parser.addoption(
-        "--gnoi_insecure",
+        "--gnoi_secure",
         action="store_true", 
         default=False,
-        help="Use insecure gNOI connections"
+        help="Use secure gNOI connections (default: plaintext)"
     )
 ```
 
-### 6. Certificate Management
+### 5. Certificate Management (Optional)
 
-#### Simple Certificate Handling
+#### Simple Certificate Handling for Secure Connections
+
+When secure connections are needed, certificates can be passed to grpcurl via command line options. This would be implemented in the helper script by modifying the grpcurl command construction:
 
 ```python
-# tests/common/grpc_clients/credentials.py
-import grpc
-from pathlib import Path
-
-def create_credentials(cert_dir):
-    """Create gRPC SSL credentials from certificate directory"""
-    cert_path = Path(cert_dir)
+def call_grpcurl(target, service, method, data=None, secure=False, cert_dir=None):
+    """Call grpcurl with optional certificate support"""
+    cmd = ["/root/grpcurl"]
     
-    with open(cert_path / "ca.pem", "rb") as f:
-        root_cert = f.read()
-    with open(cert_path / "client.crt", "rb") as f:
-        client_cert = f.read()
-    with open(cert_path / "client.key", "rb") as f:
-        client_key = f.read()
-        
-    return grpc.ssl_channel_credentials(
-        root_certificates=root_cert,
-        private_key=client_key,
-        certificate_chain=client_cert
-    )
-
-def setup_certificates(duthost, localhost):
-    """Set up certificates for secure gNOI connection"""
-    # This would implement certificate generation and deployment
-    # Similar to existing gnmi certificate setup but cleaner
-    pass
+    if not secure:
+        cmd.append("-plaintext")
+    else:
+        if cert_dir:
+            cmd.extend(["-cacert", f"{cert_dir}/ca.pem"])
+            cmd.extend(["-cert", f"{cert_dir}/client.crt"])
+            cmd.extend(["-key", f"{cert_dir}/client.key"])
+    
+    # ... rest of the function
 ```
 
 ## Usage Examples
@@ -412,16 +328,21 @@ def setup_certificates(duthost, localhost):
 
 ```python
 def test_system_operations(gnoi_ptf):
-    """Test basic gNOI system operations"""
+    """Test basic gNOI system operations using grpcurl"""
+    
+    # List available services first
+    services_result = gnoi_ptf.list_services()
+    assert 'services' in services_result
+    assert 'gnoi.system.System' in services_result['services']
     
     # Get system time
     time_result = gnoi_ptf.system_time()
-    assert 'timestamp' in time_result
-    assert time_result['timestamp'] > 0
+    assert 'time' in time_result  # grpcurl returns the actual proto field names
     
     # Test reboot (with delay so it doesn't actually reboot)
     reboot_result = gnoi_ptf.system_reboot(method=0, delay=300, message="Test reboot")
-    assert reboot_result['status'] == 'success'
+    # Response format depends on actual service implementation
+    assert 'error' not in reboot_result
 ```
 
 ### Integration with DUT Configuration
@@ -474,105 +395,77 @@ def test_direct_grpc_access(deploy_gnoi_to_ptf, ptfhost, duthosts, rand_one_dut_
 
 ## Implementation Plan
 
-### Phase 1: Initial Implementation (Week 1)
-**Goal**: Minimal working implementation with extension example
+### Phase 1: Initial Implementation (1 Day)
+**Goal**: Working grpcurl-based gNOI helper
 
-**Core Infrastructure + System Time**:
-1. Create minimal directory structure
-2. Implement basic proto compilation for System and File services
-3. Create gNOI client with System.Time and File.Put operations only
-4. Implement PTF operations script with 'time' and 'file_put' handlers
-5. Basic pytest fixtures for PTF deployment
+**Core Implementation**:
+1. Create grpcurl helper script in PTF directory
+2. Implement System.Time, System.Reboot, and File.Put operations
+3. Create Python integration helper class  
+4. Basic pytest fixtures
 
 **Deliverables**:
 ```
 tests/ptftests/
-├── py3/                         # Modern Python 3 implementation
-│   ├── gnoi_operations.py       # Main operations script
-│   ├── gnoi_client.py          # gNOI client (self-contained)
-│   └── gnoi/                   # Compiled proto stubs (auto-deployed)
-│       ├── system/
-│       │   ├── system_pb2.py
-│       │   └── system_pb2_grpc.py
-│       └── file/
-│           ├── file_pb2.py  
-│           └── file_pb2_grpc.py
-└── gnoi_operations.py           # Python 2 fallback
-
-tests/common/grpc_protos/        # Source proto files
-├── gnoi/
-│   ├── system/system.proto      # System service
-│   └── file/file.proto          # File service
-└── compile_protos.py            # Compilation to PTF directory
-
-tests/common/fixtures/
-└── gnoi_fixtures.py             # Simple fixtures (no deployment)
+└── py3/
+    └── gnoi_helper.py           # grpcurl wrapper script
 
 tests/common/
-└── ptf_gnoi.py                  # PtfGnoiHelper integration class
+├── fixtures/
+│   └── gnoi_fixtures.py         # Simple pytest fixtures
+└── ptf_gnoi.py                 # PtfGnoiHelper integration class
 ```
 
 **Test Examples**:
 ```python
 def test_system_time_basic(gnoi_ptf):
-    """Basic system time test - proves infrastructure works"""
+    """Basic system time test - proves grpcurl integration works"""
     result = gnoi_ptf.system_time()
-    assert 'timestamp' in result
-    assert result['timestamp'] > 0
+    assert 'time' in result  # Actual proto field name
 
-def test_file_put_example(gnoi_ptf):
-    """Example showing file operations - demonstrates extension pattern"""
-    content = "test config data"
-    result = gnoi_ptf.file_put("/tmp/test_file", content)
-    assert result['status'] == 'success'
+def test_list_services(gnoi_ptf):
+    """Test service discovery via server reflection"""
+    result = gnoi_ptf.list_services()
+    assert 'services' in result
+    assert 'gnoi.system.System' in result['services']
 ```
 
-### Phase 2: Integration and Testing (Week 2)  
-1. Test deployment to PTF container with real testbed
-2. Add error handling and retry logic
-3. Create comprehensive test cases
+### Phase 2: Integration and Testing (1 Day)  
+1. Test with real testbed using discovered endpoint (10.250.0.101:8080)
+2. Add error handling for grpcurl failures
+3. Validate actual service responses
 4. Documentation and usage examples
-5. Performance validation
 
-### Phase 3: Extension Framework (Week 3)
-1. Add certificate management for secure connections
-2. Document extension patterns for new gNOI services
-3. Add more File operations (Get, Remove) as examples
-4. Implement logging and debugging utilities
-5. Integration with existing test patterns
-
-### Phase 4: Production Ready (Week 4)
-1. Code review and hardening
-2. Add monitoring and observability
-3. Migration guide for existing tests
-4. CI/CD integration
-5. Final documentation and training materials
+### Phase 3: Extension and Security (1 Day)
+1. Add certificate support for secure connections
+2. Add more gNOI service operations (File.Get, OS operations, etc.)
+3. Implement logging and debugging utilities
+4. Integration with existing test patterns
 
 **Phase 1 Success Criteria**:
-- ✅ System.Time operation working end-to-end
-- ✅ File.Put operation working as extension example  
-- ✅ PTF deployment functioning correctly
-- ✅ Clear path for adding new gNOI services
-- ✅ Basic test cases passing
+- ✅ grpcurl-based System.Time operation working
+- ✅ Service discovery via server reflection working
+- ✅ Simple pytest integration functioning
+- ✅ Clear pattern for adding new gNOI operations
 
 ## Benefits
 
 ### For Test Authors
 - **Simple JSON Interface**: Clean function calls like `gnoi_ptf.system_time()` and `gnoi_ptf.file_put()`
-- **Easy Extension**: Clear pattern for adding new gNOI services following File.Put example
+- **Zero Setup**: No dependencies to install - grpcurl is pre-available
 - **Familiar Patterns**: Uses standard pytest fixtures and sonic-mgmt patterns
-- **No gRPC Complexity**: Infrastructure handles proto compilation and connection management
+- **No gRPC Complexity**: grpcurl handles all protocol buffer and connection management
 
 ### For Test Maintenance
-- **Centralized**: Single location for gNOI client logic
-- **Modular**: Easy to add new gNOI services
-- **Testable**: Library components can be unit tested
+- **Ultra Simple**: Single Python script leveraging existing grpcurl tool
+- **Easy Extension**: Just add new operation handlers to the helper script
+- **No Dependencies**: No Python gRPC libraries or proto compilation needed
 - **Fork Safe**: Clean separation between sonic-mgmt and PTF processes
 
 ### For CI/CD
-- **Reliable**: No certificate/authentication confusion
-- **Fast**: Session-level deployment, minimal overhead
-- **Observable**: Clear error messages and logging
+- **Reliable**: No dependency installation or proto compilation failures
+- **Fast**: Minimal overhead - just shell command execution
+- **Observable**: grpcurl provides clear error messages
 - **Scalable**: PTF container isolation allows parallel testing
 
 ## Security Considerations
@@ -589,20 +482,25 @@ def test_file_put_example(gnoi_ptf):
 
 ## Performance Considerations
 
-### Deployment Optimization
-- Session-scoped deployment to PTF (one-time cost)
-- Proto compilation cached between test runs
-- Connection reuse within PTF container
-
 ### Minimal Overhead
-- Direct gRPC calls with minimal wrapping
+- No compilation or dependency installation needed
+- Direct grpcurl execution with minimal Python wrapper
 - JSON-based communication between containers (lightweight)
 - No persistent services or background processes
 
+### Deployment Simplification
+- Zero deployment time - grpcurl pre-installed in PTF container
+- No proto files to manage or copy
+- Uses server reflection for automatic service discovery
+
 ## Conclusion
 
-This design provides a clean foundation for gNOI testing in sonic-mgmt through a simple JSON interface while managing all gRPC infrastructure concerns. The initial implementation focuses on System.Time operations with File.Put as an extension example, proving the concept while keeping complexity minimal.
+This simplified design provides an extremely lightweight foundation for gNOI testing in sonic-mgmt by leveraging the existing grpcurl tool. The grpcurl-based approach eliminates the complexity of protocol buffer compilation, dependency management, and gRPC library integration while maintaining a clean JSON interface for test authors.
 
-The infrastructure-as-utilities approach handles complex setup (proto compilation, certificates, PTF deployment) while exposing a clean, testable interface. The PTF container deployment strategy ensures fork safety while maintaining familiar sonic-mgmt test patterns.
+Key advantages of the grpcurl approach:
+- **Zero setup complexity**: No proto files, no dependencies, no compilation
+- **Server reflection**: Automatic service and method discovery
+- **Proven tool**: grpcurl is a mature, widely-used gRPC client
+- **JSON native**: Perfect match for Python test framework integration
 
-Phase 1 delivers a working foundation with clear extension patterns, making it easy to add new gNOI services incrementally. The JSON interface abstracts gRPC complexity while the underlying implementation uses native protocol buffers for type safety and correctness.
+The implementation is dramatically simpler than the original Python gRPC approach while providing the same functionality. This makes it easier to maintain, extend, and debug while reducing the likelihood of environment-specific issues.
