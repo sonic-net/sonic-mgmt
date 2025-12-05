@@ -4,6 +4,7 @@ import pytest
 from .loganalyzer import LogAnalyzer, DisableLogrotateCronContext
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.parallel import parallel_run, reset_ansible_local_tmp
+from .bug_handler_helper import get_bughandler_instance
 
 
 def pytest_addoption(parser):
@@ -49,7 +50,9 @@ def analyzer_add_marker(analyzers, node=None, results=None):
 @reset_ansible_local_tmp
 def analyze_logs(analyzers, markers, node=None, results=None, fail_test=True, store_la_logs=False):
     dut_analyzer = analyzers[node.hostname]
-    dut_analyzer.analyze(markers[node.hostname], fail_test, store_la_logs=store_la_logs)
+    analyzer_summary = dut_analyzer.analyze(markers[node.hostname], fail_test, store_la_logs=store_la_logs)
+    # results is a ProxyDict passed from parallel_run
+    results[node.hostname] = analyzer_summary
 
 
 @pytest.fixture(scope="module")
@@ -99,5 +102,35 @@ def loganalyzer(duthosts, request, log_rotate_modular_chassis):
             "rep_setup" in request.node.__dict__ and request.node.rep_setup.skipped:
         return
     logging.info("Starting to analyse on all DUTs")
-    parallel_run(analyze_logs, [analyzers, markers], {'fail_test': fail_test, 'store_la_logs': store_la_logs},
-                 duthosts, timeout=240)
+    la_results = parallel_run(
+        analyze_logs,
+        [analyzers, markers],
+        {'fail_test': fail_test, 'store_la_logs': store_la_logs},
+        duthosts,
+        timeout=240
+    )
+    consolidated_bughandler = get_bughandler_instance({"type": "consolidated"})
+    consolidated_bughandler.bug_handler_wrapper(analyzers, duthosts, la_results)
+
+
+@pytest.fixture(autouse=True)
+def ignore_pkt_trim_errors(duthosts, loganalyzer):
+    ASIC_LIST = ["th5"]
+    if loganalyzer:
+        for duthost in duthosts:
+            platform_asic = duthost.facts["platform_asic"].lower()
+            asic_name = duthost.get_asic_name().lower()
+            if platform_asic == "broadcom" and asic_name not in ASIC_LIST:
+                # We should cleanup this code once CSP12420291 is fixed.
+                loganalyzer[duthost.hostname].ignore_regex.extend(
+                    [
+                        (r".*ERR syncd#syncd: .* SAI_API_SWITCH:_brcm_sai_xgs_pkt_trim_get_mapped_counter:"
+                         r"[\d]+ Packet trim feature is not supported.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_QUEUE:_brcm_sai_xgs_queue_pkt_trim_get_clear_ctr:"
+                         r"[\d]+ Get Trim mapped counter failed with error -2.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_QUEUE:_brcm_sai_cosq_stat_get:"
+                         r"[\d]+ Get Trim stats packets failed with error -2.*"),
+                        (r".*ERR syncd#syncd: .* SAI_API_SWITCH:sai_query_switch_attribute_enum_values_capability:"
+                         r"[\d]+ packet trim Enum Capability values get for [\d]+ failed with error -2.*")
+                    ]
+                )

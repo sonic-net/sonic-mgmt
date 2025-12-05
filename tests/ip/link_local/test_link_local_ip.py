@@ -13,7 +13,8 @@ from scapy.all import sniff
 from tests.common import utilities
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
-from tests.ip.ip_util import parse_rif_counters, sum_ifaces_counts
+from tests.common.utilities import parse_rif_counters
+from tests.ip.ip_util import sum_ifaces_counts
 
 pytestmark = [
     pytest.mark.topology('any')
@@ -60,8 +61,10 @@ class TestLinkLocalIPacket:
         sai_settings = {}
         sai_profile = "/usr/share/sonic/device/{}/{}/sai.profile".format(platform, hwsku)
         for line in duthost.command("cat %s" % sai_profile)["stdout_lines"]:
-            key, value = line.split("=")
-            sai_settings[key] = value
+            if (not re.match("^[ \t]*#", line)) and re.search("=", line):
+                # line should not a comment, and must contain the "=".
+                key, value = line.split("=")
+                sai_settings[key] = value
         if int(sai_settings.get("SAI_NOT_DROP_SIP_DIP_LINK_LOCAL", 0)) != 1:
             pytest.skip("Test is not supported, SAI_NOT_DROP_SIP_DIP_LINK_LOCAL is not equal 1 or not specified")
 

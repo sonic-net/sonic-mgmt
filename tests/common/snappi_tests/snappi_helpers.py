@@ -8,6 +8,16 @@ chassis instead of reading it from fanout_graph_facts fixture.
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import ansible_stdout_to_str, get_peer_snappi_chassis
 import time
+from enum import Enum
+
+
+class StrEnum(str, Enum):
+    """
+    Backport of Python 3.11's StrEnum
+    Makes enum members also behave like strings.
+    """
+    def __str__(self) -> str:
+        return str(self.value)
 
 
 class SnappiFanoutManager():
@@ -192,7 +202,12 @@ class SnappiFanoutManager():
                     'port_id': info_list[2].replace('Port', ''),
                     'peer_port': info_list[3],
                     'peer_device': info_list[4],
-                    'speed': info_list[5]
+                    'speed': info_list[5],
+                    'location': "{};{};{}".format(
+                        info_list[0],
+                        info_list[1].replace('Card', ''),
+                        info_list[2].replace('Port', '')
+                    )
                 }
 
                 if peer_device is None or info_list[4] == peer_device:
@@ -203,7 +218,8 @@ class SnappiFanoutManager():
                     'port_id': info_list[1].replace('Port', ''),
                     'peer_port': info_list[2],
                     'peer_device': info_list[3],
-                    'speed': info_list[4]
+                    'speed': info_list[4],
+                    'location': "{}/{}".format(info_list[0], info_list[1].replace('Port', ''))
                 }
 
                 if peer_device is None or info_list[3] == peer_device:
@@ -245,7 +261,7 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
 
     if snappi_fanout is None:
         return None
-
+    snappi_fanout = snappi_fanout[0]
     snappi_fanout_id = list(fanout_data.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_data)
     snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)

@@ -6,6 +6,8 @@ from tests.common.helpers.gnmi_utils import gnmi_capabilities, add_gnmi_client_c
 from .helper import gnmi_set, dump_gnmi_log
 from tests.common.utilities import wait_until
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip       # noqa: F401
+
 
 logger = logging.getLogger(__name__)
 allure.logger = logger
@@ -16,12 +18,12 @@ pytestmark = [
 ]
 
 
-def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
+def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost, duthost_mgmt_ip):  # noqa: F811
     '''
     Verify GNMI capabilities
     '''
     duthost = duthosts[rand_one_dut_hostname]
-    ret, msg = gnmi_capabilities(duthost, localhost)
+    ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
     assert ret == 0, (
         "GNMI capabilities command failed (non-zero return code).\n"
         "- Error message: {}"
@@ -38,7 +40,7 @@ def test_gnmi_capabilities(duthosts, rand_one_dut_hostname, localhost):
     ).format(msg)
 
 
-def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost):
+def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localhost, duthost_mgmt_ip):  # noqa: F811
     '''
     Verify GNMI capabilities with different roles
     '''
@@ -47,7 +49,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with noaccess role"):
         role = "gnmi_noaccess"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
+        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
         assert ret != 0, (
             "GNMI capabilities authenticate with noaccess role command unexpectedly succeeded "
             "(zero return code) for a client with noaccess role.\n"
@@ -61,7 +63,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with readonly role"):
         role = "gnmi_readonly"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
+        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
         assert ret == 0, (
             "GNMI capabilities authenticate readonly command failed (non-zero return code).\n"
             "- Error message: {}"
@@ -78,7 +80,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with readwrite role"):
         role = "gnmi_readwrite"
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
+        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
         assert ret == 0, (
             "GNMI capabilities authenticate readwrite role command failed (non-zero return code).\n"
             "- Error message: {}"
@@ -95,7 +97,7 @@ def test_gnmi_capabilities_authenticate(duthosts, rand_one_dut_hostname, localho
     with allure.step("Verify GNMI capabilities with empty role"):
         role = ""
         add_gnmi_client_common_name(duthost, "test.client.gnmi.sonic", role)
-        ret, msg = gnmi_capabilities(duthost, localhost)
+        ret, msg = gnmi_capabilities(duthost, localhost, duthost_mgmt_ip)
         assert ret == 0, (
             "GNMI capabilities authenticate with empty role command failed (non-zero return code).\n"
             "- Error message: {}"
@@ -171,9 +173,30 @@ def test_gnmi_authorize_failed_with_invalid_cname(duthosts,
 
 
 @pytest.fixture(scope="function")
-def setup_crl_server_on_ptf(ptfhost):
+def setup_crl_server_on_ptf(ptfhost, duthosts, rand_one_dut_hostname):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Determine which address to bind the CRL server to
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+
+    if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+        # Bind to IPv6 address when DUT is IPv6-only
+        bind_addr = ptfhost.mgmt_ipv6
+        logger.info(f"DUT is IPv6-only, binding CRL server to IPv6: {bind_addr}")
+    else:
+        # Bind to all interfaces (default behavior) for IPv4 or mixed environments
+        bind_addr = ''
+        logger.info("Binding CRL server to all interfaces (IPv4 compatible)")
+
     ptfhost.shell('rm -f /root/crl.log')
-    ptfhost.shell('nohup python /root/crl_server.py &')
+
+    # Start CRL server with appropriate bind address
+    if bind_addr:
+        ptfhost.shell(f'nohup /root/env-python3/bin/python /root/crl_server.py --bind {bind_addr} &')
+    else:
+        ptfhost.shell('nohup /root/env-python3/bin/python /root/crl_server.py &')
+
     logger.warning("crl server started")
 
     # Wait untill HTTP server ready
@@ -188,7 +211,7 @@ def setup_crl_server_on_ptf(ptfhost):
     yield
 
     # pkill will use the kill signal -9 as exit code, need ignore error
-    ptfhost.shell("pkill -9 -f 'python /root/crl_server.py'", module_ignore_errors=True)
+    ptfhost.shell("pkill -9 -f '/root/env-python3/bin/python /root/crl_server.py'", module_ignore_errors=True)
 
 
 def test_gnmi_authorize_failed_with_revoked_cert(duthosts,
