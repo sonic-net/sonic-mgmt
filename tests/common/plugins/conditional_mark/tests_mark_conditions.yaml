@@ -4818,14 +4818,6 @@ telemetry/test_events.py:
       - "asic_type in ['vs']"
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
-telemetry/test_events.py::test_events:
-  skip:
-    reason: "dut ipv6 mgmt ip not supported"
-    conditions_logical_operator: and
-    conditions:
-      - "is_mgmt_ipv6_only==True"
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20395"
-
 telemetry/test_telemetry.py:
   skip:
     reason: "Skip telemetry test for 201911 and older branches"
