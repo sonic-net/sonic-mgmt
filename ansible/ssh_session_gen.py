@@ -202,8 +202,9 @@ class TestBedSshSessionRepoGenerator(DeviceSshSessionRepoGenerator):
         """
         devices = itertools.chain(
             testbed.dut_nodes.values(),
-            [testbed.ptf_node],
+            [testbed.ptf_node] if testbed.ptf_node else [],
             testbed.fanout_nodes.values(),
+            testbed.ocs_nodes.values(),
             testbed.root_fanout_nodes.values(),
             testbed.console_nodes.values(),
             testbed.server_nodes.values()
@@ -338,10 +339,13 @@ def main(args):
 
     if create_testbed_repo:
         print(
-            f"\nLoading testbeds: TestBedFile = {args.testbed_file_path}, Pattern = {args.testbed_pattern}"
+            "\nLoading testbeds:\n"
+            f"  TestBedFile = {args.testbed_file_path}\n"
+            f"  NUTTestBedFile = {args.testbed_nut_file_path}\n"
+            f"  Pattern = {args.testbed_pattern}"
         )
         testbeds = TestBed.from_file(
-            device_inventories, args.testbed_file_path, args.testbed_pattern
+            device_inventories, args.testbed_file_path, args.testbed_nut_file_path, args.testbed_pattern
         )
         print(f"{len(testbeds)} testbeds are loaded.")
 
@@ -418,6 +422,14 @@ the `secrets.json` file and use the alternative credentials.
         dest="testbed_file_path",
         default="testbed.yaml",
         help="Testbed file path.",
+    )
+
+    parser.add_argument(
+        "--testbed-nut",
+        type=str,
+        dest="testbed_nut_file_path",
+        default="testbed.nut.yaml",
+        help="NUT Testbed file path.",
     )
 
     parser.add_argument(

@@ -15,7 +15,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, delete_running_config
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm1'),
+    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
 ]
 
 TEST_ITERATIONS = 5
@@ -51,10 +51,10 @@ def common_setup_teardown(
         if k == duthost.hostname:
             dut_type = v["type"]
 
-    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
-    elif dut_type == "UpperSpineRouter":
-        neigh_type = "SpineRouter"
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
+        neigh_type = "LowerSpineRouter"
     else:
         neigh_type = "ToRRouter"
     logging.info(
@@ -73,7 +73,7 @@ def common_setup_teardown(
             ptfhost,
             "pseudoswitch0",
             conn0["neighbor_addr"].split("/")[0],
-            NEIGHBOR_ASN0,
+            dut_asn if dut_type == "FabricSpineRouter" else NEIGHBOR_ASN0,
             conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,

@@ -10,7 +10,9 @@ all:
       vars:
         topologies:
           - t1
+          - t1-vpp
           - t1-lag
+          - t1-lag-vpp
           - t1-28-lag
           - t1-48-lag
           - t1-56-lag
@@ -33,6 +35,7 @@ all:
           - t0-116
           - t0-118
           - t0-backend
+          - t0-88-o8c80
           - dualtor
           - dualtor-56
           - dualtor-120
@@ -40,6 +43,9 @@ all:
           - t2_2lc_min_ports-masic
           - t2_2lc_min_ports
           - m1-48
+          - m1-44
+          - m1-108
+          - m1-128
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120

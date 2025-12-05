@@ -27,7 +27,7 @@ This test checks for reset status and sets it
 '''
 
 
-def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, localhost):
+def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, localhost, is_support_warm_fast_reboot):
     duthost = duthosts[rand_one_dut_hostname]
     # Set reset status
     logger.info("Checking for RESTAPI reset status")
@@ -56,13 +56,8 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
     response = r.json()
     pytest_assert(response['reset_status'] == "true")
 
-    support_warm_fast_reboot = True
-    if 'isolated' in duthosts.tbinfo['topo']['name']:
-        support_warm_fast_reboot = False
-        logger.info("Skipping warm and fast reboot tests for isolated topology")
-
     # Check reset status post fast reboot
-    if support_warm_fast_reboot:
+    if is_support_warm_fast_reboot:
         check_reset_status_after_reboot(
             'fast', "false", "true", duthost, localhost, construct_url)
 
@@ -71,7 +66,7 @@ def test_check_reset_status(construct_url, duthosts, rand_one_dut_hostname, loca
         'cold', "false", "true", duthost, localhost, construct_url)
 
     # Check reset status post warm reboot
-    if support_warm_fast_reboot:
+    if is_support_warm_fast_reboot:
         check_reset_status_after_reboot(
             'warm', "false", "false", duthost, localhost, construct_url)
 
@@ -95,7 +90,7 @@ def check_reset_status_after_reboot(reboot_type, pre_reboot_status, post_reboot_
     if reboot_type == 'warm':
         wait_warmboot_finalizer = True
     reboot(duthost, localhost, reboot_type,
-           wait_warmboot_finalizer=wait_warmboot_finalizer)
+           wait_warmboot_finalizer=wait_warmboot_finalizer, safe_reboot=True)
     apply_cert_config(duthost)
     r = restapi.get_reset_status(construct_url)
     pytest_assert(r.status_code == 200)
@@ -350,6 +345,8 @@ def test_data_path(construct_url, vlan_members, cleanup_after_testing):
     pytest_assert(r.status_code == 204)
 
     # Verify routes
+    # Add some delay before query
+    time.sleep(5)
     params = '{}'
     r = restapi.get_config_vrouter_vrf_id_routes(
         construct_url, 'vnet-guid-3', params)
@@ -393,7 +390,7 @@ def test_data_path(construct_url, vlan_members, cleanup_after_testing):
         "Routes with incorrect CIDR addresses with vnid: 7036002 to VNET vnet-guid-3 have not been added successfully")
 
 
-def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing):
+def test_data_path_sad(construct_url, vlan_members, cleanup_after_testing, is_support_warm_fast_reboot):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -670,7 +667,7 @@ This test creates a default VxLAN Tunnel and two VNETs. It adds VLAN, VLAN membe
 '''
 
 
-def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
+def test_create_interface(construct_url, vlan_members, cleanup_after_testing, is_support_warm_fast_reboot):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
@@ -800,7 +797,7 @@ def test_create_interface(construct_url, vlan_members, cleanup_after_testing):
     logger.info("VNET with vnet_id: vnet-guid-4 has been successfully deleted")
 
 
-def test_create_interface_sad(construct_url, vlan_members):
+def test_create_interface_sad(construct_url, vlan_members, is_support_warm_fast_reboot):
     # Create Default VxLan Tunnel
     if restapi.get_config_tunnel_decap_tunnel_type(construct_url, 'vxlan').status_code == 404:
         params = '{"ip_addr": "10.1.0.32"}'
