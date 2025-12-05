@@ -4,7 +4,7 @@ import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.fixtures.duthost_utils import utils_vlan_intfs_dict_orig,\
-    utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa F401
+    utils_vlan_intfs_dict_add, utils_create_test_vlans      # noqa: F401
 from tests.common.gu_utils import apply_patch, expect_op_success, expect_res_success, expect_op_failure
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
@@ -25,7 +25,7 @@ CONFIG_ADD_DEFAULT = "config_add_default"
 
 
 @pytest.fixture(scope="module")
-def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa F811
+def vlan_intfs_dict(utils_vlan_intfs_dict_orig):        # noqa: F811
     """ Add two new vlan for test
 
     If added vlan_id is 108 and 109, it will add a dict as below

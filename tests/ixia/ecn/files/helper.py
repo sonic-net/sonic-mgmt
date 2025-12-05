@@ -2,9 +2,9 @@ import time
 import dpkt
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts         # noqa: F401
 from tests.common.ixia.ixia_fixtures import ixia_api_serv_ip, ixia_api_serv_port,\
-    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                          # noqa F401
+    ixia_api_serv_user, ixia_api_serv_passwd, ixia_api                                          # noqa: F401
 from tests.common.ixia.ixia_helpers import get_dut_port_id
 from tests.common.ixia.common_helpers import pfc_class_enable_vector, config_wred,\
     enable_ecn, config_ingress_lossless_buffer_alpha, stop_pfcwd, disable_packet_aging

@@ -4,16 +4,7 @@
                         "routing_type":"vnet_encap",
                         "underlay_ip":"{{ remote_pa_ip }}",
                         "mac_address":"{{ remote_eni_mac }}",
-                        "use_dst_vni":"true"
-                },
-                "OP": "{{ op }}"
-        },
-        {
-                "DASH_QOS_TABLE:qos100" : {
-                        "qos_id":"100",
-                        "bw":"4000000000",
-                        "cps":"10000000",
-                        "flows":"50000000"
+                        "use_dst_vni":true
                 },
                 "OP": "{{ op }}"
         },
