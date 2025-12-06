@@ -354,7 +354,7 @@ def dhcp_setup_ipv4_clients_verify(mhost=False, mclients=2):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -413,7 +413,7 @@ def test_dhcp_relay_ipv4_default_vrf_srclb_vrfs_tc1(dhcpv4_relay_flag_config_unc
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -485,7 +485,7 @@ def test_dhcp_relay_ipv4_one_non_default_vrf_srclb_vrfs_tc2(dhcpv4_relay_flag_co
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -567,7 +567,7 @@ def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc3(dhcpv4_relay_flag_co
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_two_non_default_vrf_srclb_vrfs_tc4_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}

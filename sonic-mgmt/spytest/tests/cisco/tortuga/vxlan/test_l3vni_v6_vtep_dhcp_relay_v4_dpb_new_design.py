@@ -189,7 +189,7 @@ def config_dhcp_relay_ipv4(node, vlan, server, loopback=None, add=True):
 ######################################################################################
 
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB(dhcpv4_relay_flag_config_unconfig):
+def test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB_new_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc1_DPB")
     vars = st.get_testbed_vars()

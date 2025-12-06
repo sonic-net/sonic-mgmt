@@ -178,7 +178,7 @@ def dhcp_setup_verify_ipv4(linksel=False):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_2vlans(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_2vlans_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -229,7 +229,7 @@ def test_dhcp_relay_ipv4_2vlans(dhcpv4_relay_flag_config_unconfig):
 ##
 ######################################################################
 
-def test_dhcp_relay_ipv4_single_vrf(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_single_vrf_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
@@ -272,7 +272,7 @@ def test_dhcp_relay_ipv4_single_vrf(dhcpv4_relay_flag_config_unconfig):
 
 """
 @pytest.mark.skip(reason="not required for tortuga beta")
-def test_dhcp_relay_ipv4_diff_vrf(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_relay_ipv4_diff_vrf_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}

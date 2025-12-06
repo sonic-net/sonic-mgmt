@@ -219,7 +219,7 @@ def config_dhcp_relay_ipv4(node, vlan, server, loopback=None, add=True):
 ######################################################################################
 
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc1(dhcpv4_relay_flag_config_unconfig):
+def test_l3vni_vtep6_sag_dhcp_relay_tc1_new_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc1")
     vars = st.get_testbed_vars()
@@ -295,7 +295,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc1(dhcpv4_relay_flag_config_unconfig):
 ##
 ######################################################################################
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc2(dhcpv4_relay_flag_config_unconfig):
+def test_l3vni_vtep6_sag_dhcp_relay_tc2_new_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc2")
     vars = st.get_testbed_vars()
@@ -384,7 +384,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc2(dhcpv4_relay_flag_config_unconfig):
 ##
 ######################################################################################
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc3(dhcpv4_relay_flag_config_unconfig):
+def test_l3vni_vtep6_sag_dhcp_relay_tc3_new_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc3")
     vars = st.get_testbed_vars()
@@ -469,7 +469,7 @@ def test_l3vni_vtep6_sag_dhcp_relay_tc3(dhcpv4_relay_flag_config_unconfig):
 ##
 ######################################################################################
 
-def test_l3vni_vtep6_sag_dhcp_relay_tc4(dhcpv4_relay_flag_config_unconfig):
+def test_l3vni_vtep6_sag_dhcp_relay_tc4_new_design(dhcpv4_relay_flag_config_unconfig):
 
     st.banner("Start on test_l3vni_vtep6_sag_dhcp_relay_tc4")
     vars = st.get_testbed_vars()

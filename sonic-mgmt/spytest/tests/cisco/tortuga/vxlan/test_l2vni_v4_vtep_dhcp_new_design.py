@@ -172,7 +172,7 @@ def dhcp_l2vni_ipv4_setup_and_verification():
 ##
 #############################################################################
  
-def test_dhcp_l2vni_ipv4_basic(dhcpv4_relay_flag_config_unconfig):
+def test_dhcp_l2vni_ipv4_basic_new_design(dhcpv4_relay_flag_config_unconfig):
     vars = st.get_testbed_vars()
 
     nodes = {}
