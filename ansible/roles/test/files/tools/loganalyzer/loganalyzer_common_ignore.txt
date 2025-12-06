@@ -388,3 +388,6 @@ r, ".* ERR ntpd.*: CLOCK: leapsecond file ('/usr/share/zoneinfo/leap-seconds.lis
 
 # Ignore lldp error log, don't have real impact
 r, ".* ERR container: docker cmd: stop for lldp failed with 500 Server Error.*"
+
+# Ignore syncd error when switching global packet trimming mode
+r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.* Egress qos map with idx .* entries are already present.*"
