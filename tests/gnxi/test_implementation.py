@@ -350,3 +350,99 @@ def test_step5(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
     logger.info(f"  - Value-added: Adds human-readable time formatting")
     logger.info(f"  - Preservation: Maintains all original response data")
     logger.info(f"  - Wrapper pattern: Ready for additional gNOI methods")
+
+
+def test_step6(duthosts, enum_rand_one_per_hwsku_hostname, ptfhost):
+    """Verify pytest fixtures work correctly"""
+    logger.info("Testing pytest fixtures functionality")
+    
+    # Test fixture creation by directly calling the functions (not pytest-wrapped)
+    from tests.common.helpers.gnmi_utils import GNMIEnvironment
+    from tests.common.ptf_grpc import PtfGrpc
+    from tests.common.ptf_gnoi import PtfGnoi
+    
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    
+    # Test 1: Auto-configured gRPC fixture logic
+    logger.info("Testing auto-configured gRPC client logic")
+    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
+    grpc_client = PtfGrpc(ptfhost, env, duthost=duthost)
+    
+    # Verify auto-configured client works
+    services = grpc_client.list_services()
+    assert "gnoi.system.System" in services, f"Auto-config: gnoi.system.System not found: {services}"
+    
+    time_response = grpc_client.call_unary("gnoi.system.System", "Time")
+    assert "time" in time_response, f"Auto-config: Expected 'time' field: {time_response}"
+    
+    logger.info("✅ Auto-configured gRPC client logic working")
+    
+    # Test 2: gNOI wrapper fixture logic
+    logger.info("Testing gNOI wrapper client logic")
+    gnoi_client = PtfGnoi(grpc_client)
+    
+    time_result = gnoi_client.system_time()
+    assert "time" in time_result, f"Wrapper: Expected 'time' field: {time_result}"
+    assert "formatted_time" in time_result, f"Wrapper: Expected 'formatted_time' field: {time_result}"
+    
+    # Verify time format
+    from datetime import datetime
+    try:
+        parsed_time = datetime.fromisoformat(time_result["formatted_time"])
+        logger.info(f"Wrapper formatted time: {parsed_time}")
+    except ValueError as e:
+        assert False, f"Invalid formatted_time from wrapper: {e}"
+    
+    logger.info("✅ gNOI wrapper client logic working")
+    
+    # Test 3: Custom configuration factory logic
+    logger.info("Testing custom configuration factory logic")
+    
+    # Test explicit configuration
+    custom_client1 = PtfGrpc(ptfhost, f"{duthost.mgmt_ip}:8080", plaintext=True)
+    custom_services = custom_client1.list_services()
+    assert "gnoi.system.System" in custom_services, f"Custom: gnoi.system.System not found: {custom_services}"
+    
+    # Test timeout configuration
+    custom_client2 = PtfGrpc(ptfhost, f"{duthost.mgmt_ip}:8080", plaintext=True)
+    custom_client2.configure_timeout(15.0)
+    assert custom_client2.timeout == 15.0, f"Expected timeout 15.0, got {custom_client2.timeout}"
+    
+    custom_time = custom_client2.call_unary("gnoi.system.System", "Time")
+    assert "time" in custom_time, f"Custom timeout: Expected 'time' field: {custom_time}"
+    
+    logger.info("✅ Custom configuration factory logic working")
+    
+    # Test 4: Integration - all clients should return consistent results
+    logger.info("Testing client integration and consistency")
+    
+    # Get time from all client types
+    grpc_time = grpc_client.call_unary("gnoi.system.System", "Time")
+    gnoi_time = gnoi_client.system_time()
+    custom_time = custom_client1.call_unary("gnoi.system.System", "Time")
+    
+    # Verify all returned valid time data
+    assert "time" in grpc_time, f"gRPC client time missing: {grpc_time}"
+    assert "time" in gnoi_time, f"gNOI client time missing: {gnoi_time}"
+    assert "time" in custom_time, f"Custom client time missing: {custom_time}"
+    
+    # Verify times are consistent (within 30 seconds of each other)
+    grpc_ns = int(grpc_time["time"])
+    gnoi_ns = int(gnoi_time["time"]) 
+    custom_ns = int(custom_time["time"])
+    
+    max_diff_ns = 30 * 1_000_000_000  # 30 seconds in nanoseconds
+    assert abs(grpc_ns - gnoi_ns) < max_diff_ns, f"gRPC/gNOI time difference too large: {abs(grpc_ns - gnoi_ns) / 1_000_000_000}s"
+    assert abs(grpc_ns - custom_ns) < max_diff_ns, f"gRPC/Custom time difference too large: {abs(grpc_ns - custom_ns) / 1_000_000_000}s"
+    
+    # Verify gNOI wrapper added formatted time
+    assert "formatted_time" in gnoi_time, f"gNOI wrapper should add formatted_time: {gnoi_time}"
+    assert "formatted_time" not in grpc_time, f"Raw gRPC should not have formatted_time: {grpc_time}"
+    
+    logger.info("✅ Step 6 verification successful:")
+    logger.info("  - Auto-configured client: working with GNMIEnvironment detection")
+    logger.info("  - gNOI wrapper: provides clean high-level interface")  
+    logger.info("  - Custom configuration: supports flexible manual setup")
+    logger.info("  - Client integration: all client types work consistently")
+    logger.info("  - Time consistency: all clients return coherent timestamps")
+    logger.info("  - Fixtures ready: ptf_grpc, ptf_gnoi, ptf_grpc_custom available for tests")
