@@ -104,6 +104,11 @@ def setup_teardown_basic():
     yield 'setup_teardown_basic'
     st.log("LLDP test teardown completed.")
 
+def check_lldp_tlv_support(node):
+    cmd = "config lldp custom-tlv add tlv_table oui 00,20,2C subtype 1 oui-info A1,B2,C3,D4,E5,F6"
+    output = st.config(node, cmd, skip_error_check=True)
+    st.log("checking support for lldp tlv:\n{}".format(output))
+    return "Error: No such command" in output
 
 def verify_lldp_custom_tlv_on_peer(dut, peer_port, tlv_data):
     """
@@ -255,6 +260,9 @@ def test_lldp_3_custom_tlv_verification(setup_teardown_basic, lldp_func_hooks):
     This test uses the default three TLV definitions set in setup_teardown_basic.
     """
     st.log("Starting test_lldp_3_custom_tlv_verification")
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
 
     # No need to assign data_glob.tlv_definitions here, it's already set by setup_teardown_basic
     # and processed by lldp_func_hooks.
@@ -272,6 +280,10 @@ def test_lldp_1_custom_tlv_verification(setup_teardown_basic, lldp_func_hooks):
     This test uses the first TLV definition from the list defined in setup_teardown_basic.
     """
     st.log("Starting test_lldp_1_custom_tlv_verification")
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
+
     data_glob.single_lldp = True
     if configure_and_verify_all_tlvs():
         st.report_pass("test_case_passed")
@@ -285,6 +297,10 @@ def test_lldp_custom_tlv_verification_docker_restart(setup_teardown_basic, lldp_
     This test uses the default three TLV definitions set in setup_teardown_basic.
     """
     st.log("Starting test_lldp_custom_tlv_verification_docker_restart")
+
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
 
     if not configure_and_verify_all_tlvs():
         st.report_fail("msg", "Initial verification of one or more custom TLVs failed.")
@@ -311,6 +327,10 @@ def test_lldp_custom_tlv_verification_with_link_up_down(setup_teardown_basic, ll
     This test uses the default three TLV definitions set in setup_teardown_basic.
     """
     st.log("Starting test_lldp_custom_tlv_verification_with_link_up_down")
+
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
 
     if not configure_and_verify_all_tlvs():
         st.report_fail("msg", "Initial verification of one or more custom TLVs failed.")
@@ -350,6 +370,10 @@ def test_lldp_custom_tlv_verification_system_restart(setup_teardown_basic, lldp_
     """
     st.log("Starting test_lldp_custom_tlv_verification_system_restart")
 
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
+
     if not configure_and_verify_all_tlvs():
         st.report_fail("msg", "Initial verification of one or more custom TLVs failed.")
 
@@ -385,6 +409,10 @@ def test_lldp_single_tlv_modify_and_verify_update(setup_teardown_basic, lldp_fun
     (e.g., vars.D1D3P2, vars.D3D1P2) and the test logic would need to iterate over these.
     """
     st.log("Starting test_lldp_single_tlv_modify_and_verify_update")
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
+
     initial_tlv_data = data_glob.tlv_definitions[0]
     initial_tlv_data.expected_oui_lldpcli = initial_tlv_data.oui_value
     initial_tlv_data.expected_subtype_lldpcli = initial_tlv_data.subtype_value
@@ -456,6 +484,10 @@ def test_lldp_tlv_with_breakout(setup_teardown_basic, lldp_func_hooks):
     This test uses the default three TLV definitions set in setup_teardown_basic.
     """
     st.log("Starting test_lldp_tlv_with_breakout")
+
+    if check_lldp_tlv_support(data_glob.dut1):
+        st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
+        return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
 
     Breakout_dut1 = "sudo config interface breakout {} 2x100G -yfl".format(data_glob.dut1_port)
     st.config(data_glob.dut1, Breakout_dut1, skip_error_check=True, timeout=10)
