@@ -148,7 +148,7 @@ command : command to reboot the smartswitch DUT
 '''
 reboot_ss_ctrl_dict = {
     REBOOT_TYPE_COLD: {
-        "command": "sudo reboot &",
+        "command": "reboot",
         "timeout": 300,
         "wait": 120,
         "cause": r"'reboot'|Non-Hardware \(reboot|^reboot",

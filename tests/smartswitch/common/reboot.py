@@ -1,5 +1,6 @@
 import logging
 import pytest
+from multiprocessing.pool import ThreadPool
 from tests.common.reboot import reboot_ss_ctrl_dict as reboot_dict, REBOOT_TYPE_HISTOYR_QUEUE, \
     sync_reboot_history_queue_with_dut
 
@@ -22,15 +23,24 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
     """
     hostname = duthost.hostname
 
+    def execute_reboot_smartswitch_command():
+        reboot_command = "sudo reboot"
+        logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
+        return duthost.command(reboot_command)
+
     if reboot_type == REBOOT_TYPE_COLD:
         if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
             if dpu_name is None:
                 logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
                 sync_reboot_history_queue_with_dut(duthost)
 
-                logger.info("Rebooting the switch {} with type {}".format(hostname, reboot_type))
-                duthost.shell("sudo reboot &", executable="/bin/bash")
-                return
+                pool = ThreadPool(processes=1)
+                async_result = pool.apply_async(execute_reboot_smartswitch_command)
+                pool.terminate()
+
+                return {"failed": False,
+                        "result": async_result}
+
             else:
                 logger.info("Rebooting the DPU {} with type {}".format(dpu_name, reboot_type))
                 return duthost.command("sudo reboot -d {}".format(dpu_name))
