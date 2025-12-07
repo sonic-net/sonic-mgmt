@@ -375,7 +375,7 @@ def get_sai_sdk_dump_file(duthost, dump_file_name):
     cmd_gen_sdk_dump = f"docker exec syncd bash -c 'saisdkdump -f {full_path_dump_file}' "
     duthost.shell(cmd_gen_sdk_dump)
 
-    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"
+    cmd_copy_dmp_from_syncd_to_host = f"docker cp syncd:{full_path_dump_file}  {full_path_dump_file}"  # noqa E231
     duthost.shell(cmd_copy_dmp_from_syncd_to_host)
 
     compressed_dump_file = f"/tmp/{dump_file_name}.tar.gz"
@@ -693,7 +693,7 @@ def get_dpu_names_and_ssh_ports(duthost, dpuhost_names, ansible_adhoc):
                        f"e.g smartswitch-01-dpu-1, smartswitch-01 is the duthost name, " \
                        f"dpu-1 is the dpu name, and 1 is the dpu index"
             dpu_name_ssh_port_dict[f"dpu{dpuhost_index}"] = str(dpu_host_ssh_port)
-    logger.info(f"dpu_name_ssh_port_dict:{dpu_name_ssh_port_dict}")
+    logger.info(f"dpu_name_ssh_port_dict: {dpu_name_ssh_port_dict}")
 
     return dpu_name_ssh_port_dict
 
@@ -711,11 +711,13 @@ def check_nat_is_enabled_and_set_cache(duthost, request):
 
 
 def enable_nat_for_dpus(duthost, dpu_name_ssh_port_dict, request):
+    is_bookworm = "bookworm" in duthost.shell("cat /etc/os-release")['stdout']
+    sysctl_file = "/etc/sysctl.conf" if is_bookworm else "/usr/lib/sysctl.d/90-sonic.conf"
     enable_nat_cmds = [
         "sudo su",
-        "sudo sed -i 's/#net.ipv4.ip_forward=1/net.ipv4.ip_forward=1/g' /etc/sysctl.conf",
-        "sudo echo net.ipv4.conf.eth0.forwarding=1 >> /etc/sysctl.conf",
-        "sudo sysctl -p",
+        f"sudo echo net.ipv4.ip_forward=1 >> {sysctl_file}",
+        f"sudo echo net.ipv4.conf.eth0.forwarding=1 >> {sysctl_file}",
+        f"sudo sysctl -p {sysctl_file}",
         f"sudo sonic-dpu-mgmt-traffic.sh inbound -e --dpus "
         f"{','.join(dpu_name_ssh_port_dict.keys())} --ports {','.join(dpu_name_ssh_port_dict.values())}",
         "sudo iptables-save > /etc/iptables/rules.v4",
