@@ -260,6 +260,12 @@ class PDUValidator(GlobalValidator):
                     if port_key in pdu_port_usage:
                         # PDU port conflict detected
                         existing_device_psu = pdu_port_usage[port_key]
+                        try:
+                            existing_device = existing_device_psu.split(':')[0]
+                        except ValueError:
+                            existing_device = ""
+                        if existing_device == device_name:
+                            continue  # Same device using multiple PSUs on same port is allowed using Y cable
                         # pdu_port_conflict: PDU outlet is used by multiple devices
                         self.result.add_issue(
                             'E4007',

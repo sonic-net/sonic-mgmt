@@ -105,3 +105,4 @@ console-241,10.3.150.241,Cisco,ConsoleServer,ssh,
 console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 STR43-7060x6-512-C17-U08,10.64.246.198/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 STR43-7060x6-512-C17-U10,10.64.246.199/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
+str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
