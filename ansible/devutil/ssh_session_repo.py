@@ -77,6 +77,8 @@ class SshSessionRepoGenerator(object):
             device_type = "ptf"
         elif "Root" in device.device_type:
             device_type = "root"
+        elif "FanoutL1" in device.device_type:
+            device_type = "ocs"
         elif "Fanout" in device.device_type:
             device_type = "fan"
         elif "Console" in device.device_type:

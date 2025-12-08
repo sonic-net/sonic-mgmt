@@ -304,7 +304,7 @@ def __tgen_bgp_config(snappi_api,
     layer1.ieee_media_defaults = False
     layer1.auto_negotiation.rs_fec = False
     layer1.auto_negotiation.link_training = False
-    layer1.speed = "speed_100_gbps"
+    layer1.speed = temp_tg_port[0]['speed']
     layer1.auto_negotiate = False
 
     # Source
@@ -442,7 +442,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
         layer1.ieee_media_defaults = False
         layer1.auto_negotiation.rs_fec = False
         layer1.auto_negotiation.link_training = False
-        layer1.speed = "speed_100_gbps"
+        layer1.speed = temp_tg_port[0]['speed']
         layer1.auto_negotiate = False
 
         def create_v4_topo():
@@ -575,6 +575,7 @@ def get_convergence_for_remote_link_failover(snappi_api,
             assert tx_frame_rate != 0, "Traffic has not started"
             """ Withdrawing routes from a BGP peer """
             logger.info('Withdrawing Routes from {}'.format(route_name))
+            wait(TIMEOUT, "Waiting before routes to be withdrawn")
             cs = snappi_api.control_state()
             cs.protocol.route.state = cs.protocol.route.WITHDRAW
             cs.protocol.route.names = [route_name]

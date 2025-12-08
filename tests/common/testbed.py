@@ -26,6 +26,7 @@ class TestbedInfo(object):
                                   'ptf_ip', 'ptf_ipv6', 'server', 'vm_base', 'dut',
                                   'inv_name', 'auto_recover', 'is_smartswitch', 'comment')
     TOPOLOGY_FILEPATH = "../../ansible/vars/"
+    NUT_TOPOLOGY_FILEPATH = "../../ansible/vars/nut_topos"
 
     def __init__(self, testbed_file):
         if testbed_file.endswith(".csv"):
@@ -106,16 +107,33 @@ class TestbedInfo(object):
         """Read yaml testbed info file."""
         with open(self.testbed_filename) as f:
             tb_info = yaml.safe_load(f)
-            for tb in tb_info:
-                if "ptf_ip" in tb and tb["ptf_ip"]:
-                    tb["ptf_ip"], tb["ptf_netmask"] = \
-                        self._cidr_to_ip_mask(tb["ptf_ip"])
-                if "ptf_ipv6" in tb and tb["ptf_ipv6"]:
-                    tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
-                        self._cidr_to_ip_mask(tb["ptf_ipv6"])
-                tb["duts"] = tb.pop("dut")
-                tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
-                self.testbed_topo[tb["conf-name"]] = tb
+
+            if tb_info is None or len(tb_info) == 0:
+                raise ValueError("Testbed file {} is empty".format(self.testbed_filename))
+
+            tb_type = "regular" if "conf-name" in tb_info[0] else "nut"
+            if tb_type == "nut":
+                self._read_nut_testbed_topo_from_yaml(tb_info)
+            else:
+                self._read_regular_testbed_topo_from_yaml(tb_info)
+
+    def _read_regular_testbed_topo_from_yaml(self, tb_info):
+        for tb in tb_info:
+            if "ptf_ip" in tb and tb["ptf_ip"]:
+                tb["ptf_ip"], tb["ptf_netmask"] = \
+                    self._cidr_to_ip_mask(tb["ptf_ip"])
+            if "ptf_ipv6" in tb and tb["ptf_ipv6"]:
+                tb["ptf_ipv6"], tb["ptf_netmask_v6"] = \
+                    self._cidr_to_ip_mask(tb["ptf_ipv6"])
+            tb["duts"] = tb.pop("dut")
+            tb["duts_map"] = {dut: i for i, dut in enumerate(tb["duts"])}
+            self.testbed_topo[tb["conf-name"]] = tb
+
+    def _read_nut_testbed_topo_from_yaml(self, tb_info):
+        for tb in tb_info:
+            tb["conf-name"] = tb["name"]
+            tb["ptf_ip"] = tb["tg_api_server"].split(':')[0]
+            self.testbed_topo[tb["conf-name"]] = tb
 
     def dump_testbeds_to_yaml(self, args=""):
 
@@ -256,7 +274,7 @@ class TestbedInfo(object):
 
     def get_testbed_type(self, topo_name):
         pattern = re.compile(
-            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|tgen|mgmttor|m0|mc0|mx|m1|dpu|ptp|smartswitch)'
+            r'^(wan|t0|t1|ptf|fullmesh|dualtor|ciscovs|t2|lt2|ft2|tgen|mgmttor|m0|mc0|mx|m1|dpu|ptp|smartswitch|nut)'
         )
         match = pattern.match(topo_name)
         if match is None:
@@ -363,13 +381,20 @@ class TestbedInfo(object):
             tb["topo"] = defaultdict()
             tb["topo"]["name"] = topo
             tb["topo"]["type"] = self.get_testbed_type(topo)
-            topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
-            topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
-            with open(topo_file, 'r') as fh:
-                tb['topo']['properties'] = yaml.safe_load(fh)
-            tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
-            tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
-            tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
+
+            if topo.startswith("nut-"):
+                topo_dir = os.path.join(os.path.dirname(__file__), self.NUT_TOPOLOGY_FILEPATH)
+                topo_file = os.path.join(topo_dir, "{}.yml".format(topo))
+                with open(topo_file, 'r') as fh:
+                    tb['topo']['properties'] = yaml.safe_load(fh)
+            else:
+                topo_dir = os.path.join(os.path.dirname(__file__), self.TOPOLOGY_FILEPATH)
+                topo_file = os.path.join(topo_dir, "topo_{}.yml".format(topo))
+                with open(topo_file, 'r') as fh:
+                    tb['topo']['properties'] = yaml.safe_load(fh)
+                tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
+                tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
+                tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
 
 
 if __name__ == "__main__":

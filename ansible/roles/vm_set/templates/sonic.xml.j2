@@ -22,12 +22,19 @@
     <model fallback='forbid'/>
     <topology sockets='1' dies='1' cores='3' threads='2'/>
   </cpu>
-{% elif hwsku == 'Nokia-IXR7250E-36x400G' or hwsku == 'Nokia-IXR7250E-SUP-10' %}
-  <memory unit='GB'>8</memory>
-  <vcpu placement='static'>10</vcpu>
+{% elif hwsku == 'Nokia-IXR7250E-36x400G' %}
+  <memory unit='GB'>12</memory>
+  <vcpu placement='static'>5</vcpu>
   <cpu mode='host-model'>
     <model fallback='forbid'/>
-    <topology sockets='1' dies='1' cores='5' threads='2'/>
+    <topology sockets='1' dies='1' cores='5' threads='1'/>
+  </cpu>
+{% elif hwsku == 'Nokia-IXR7250E-SUP-10' %}
+  <memory unit='GB'>4</memory>
+  <vcpu placement='static'>3</vcpu>
+  <cpu mode='host-model'>
+    <model fallback='forbid'/>
+    <topology sockets='1' dies='1' cores='3' threads='1'/>
   </cpu>
 {% elif asic_type == 'vpp' %}
   <memory unit='GiB'>8</memory>

@@ -107,7 +107,7 @@ def check_config(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_rand_
     asic_id = enum_rand_one_frontend_asic_index
 
     if (asic == "broadcom"):
-        if "7060x6_64pe" in platform:
+        if "x86_64-arista_7060x6" in platform:
             # For all TH5 family devices, l3_alpm_template is set in config.bcm
             # * 1 - Combined (By default)
             # * 2 - Parallel
@@ -149,13 +149,13 @@ def ignore_expected_loganalyzer_exceptions(
 
 
 @pytest.fixture(scope="function", autouse=True)
-def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request):
+def reload_dut(duthosts, enum_rand_one_per_hwsku_frontend_hostname, request, loganalyzer):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     yield
     if request.node.rep_call.failed:
         # Issue a config_reload to clear statically added route table and ip addr
         logging.info("Reloading config..")
-        config_reload(duthost)
+        config_reload(duthost, ignore_loganalyzer=loganalyzer)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -188,7 +188,12 @@ def exec_routes(
 
     # Calculate timeout as a function of the number of routes
     # Allow at least 1 second even when there is a limited number of routes
-    route_timeout = max(len(prefixes) / 250, 1)
+    asic_type = duthost.facts["asic_type"]
+    if asic_type == "vs":
+        # In vs, route entries need more time to be installed
+        route_timeout = max(len(prefixes) / 160, 1)
+    else:
+        route_timeout = max(len(prefixes) / 250, 1)
 
     # Calculate expected number of route and record start time
     if op == "SET":
@@ -228,6 +233,9 @@ def exec_routes(
         actual_num_routes = asichost.count_routes(ROUTE_TABLE_NAME)
         if total_delay >= route_timeout:
             break
+
+    logger.info("After pushing route to swssconfig, current {} expected {}".format(
+        actual_num_routes, expected_num_routes))
 
     # Record time when all routes show up in ASIC_DB
     end_time = datetime.now()

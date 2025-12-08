@@ -78,6 +78,7 @@ class GenericHashTest(BaseTest):
         self.ecmp_hash = self.test_params['ecmp_hash']
         self.lag_hash = self.test_params['lag_hash']
         self.vlan_range = self.test_params.get('vlan_range', [1032, 1060])
+        self.flow_lable_range = self.test_params.get('flow_label_range', [0, 1048575])
         self.ethertype_range = self.test_params.get('ethertype_range', [0x0801, 0x0900])
         self.is_l2_test = self.test_params.get('is_l2_test', False)
         self.encap_type = self.test_params.get('encap_type')
@@ -151,6 +152,13 @@ class GenericHashTest(BaseTest):
                 vlan_id = 0
             return vlan_id
 
+        def _get_flow_label():
+            if self.hash_field == 'IPV6_FLOW_LABEL':
+                flow_label = random.choice(range(self.flow_lable_range[0], self.flow_lable_range[1]))
+            else:
+                flow_label = 0
+            return flow_label
+
         def _get_single_layer_packet():
             # Generate a tcp packet to cover the outer IP header fields
             if self.ipver == 'ipv4':  # IP version is ipv4
@@ -186,6 +194,7 @@ class GenericHashTest(BaseTest):
                     ipv6_src=src_ip,
                     tcp_sport=src_port,
                     tcp_dport=dst_port,
+                    ipv6_fl=flow_label,
                     ipv6_hlim=64)
                 if self.hash_field == 'IP_PROTOCOL':
                     pkt['IPv6'].nh = ip_proto
@@ -203,6 +212,9 @@ class GenericHashTest(BaseTest):
             else:
                 pkt_summary = f"Ethernet packet with src_mac:{src_mac}, dst_mac:{dst_mac}, " \
                               f"ether_type:{hex(pkt['Ether'].type)}, vlan_id:{vlan_id if vlan_id != 0 else 'N/A'}"
+            if self.hash_field == 'IPV6_FLOW_LABEL':
+                pkt_summary += f", ipv6 flow label: {flow_label} "
+
             return pkt, masked_expected_pkt, pkt_summary
 
         def _get_ipinip_packet():
@@ -322,6 +334,7 @@ class GenericHashTest(BaseTest):
         src_mac = _get_src_mac()
         dst_mac = _get_dst_mac()
         vlan_id = _get_vlan_id()
+        flow_label = _get_flow_label()
 
         if 'INNER' not in self.hash_field:
             packet, masked_expected_packet, packet_summary = _get_single_layer_packet()

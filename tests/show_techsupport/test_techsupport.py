@@ -10,7 +10,7 @@ from random import randint
 from collections import defaultdict
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer, LogAnalyzerError
-from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology, wait_until, check_msg_in_syslog
 from log_messages import LOG_EXPECT_ACL_RULE_CREATE_RE, LOG_EXPECT_ACL_RULE_REMOVE_RE, LOG_EXCEPT_MIRROR_SESSION_REMOVE
 from pkg_resources import parse_version
 
@@ -51,9 +51,10 @@ SESSION_INFO = {
     'queue': "0"
 }
 
+IPV6_IPS = {'src_ip': "2001::1", 'dst_ip': "2001::2"}
+
 DPU_PLATFORM_DUMP_FILES = ["sysfs_tree", "sys_version", "dmesg",
                            "dmidecode", "lsmod", "lspci", "top", "bin/platform-dump.sh"]
-
 # ACL PART #
 
 
@@ -83,21 +84,13 @@ def setup_acl_rules(duthost, acl_setup):
     duthost.command('config acl update full {}'.format(dut_conf_file_path))
 
 
-def check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    """
-    Check dut is dpu or not. True when dut is dpu, else False
-    """
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    return config_facts['DEVICE_METADATA']['localhost'].get('switch_type', '') == 'dpu'
-
-
 @pytest.fixture(scope='module')
 def skip_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     When dut is dpu, skip the case
     """
-    if check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is not supported on DPU.")
 
 
@@ -136,7 +129,7 @@ def teardown_acl(dut, acl_setup):
 
 
 @pytest.fixture(scope='function')
-def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
+def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup, request):
     """
     setup/teardown ACL rules based on test class requirements
     :param duthost: DUT host object
@@ -147,13 +140,14 @@ def acl(duthosts, enum_rand_one_per_hwsku_frontend_hostname, acl_setup):
     acl_facts = duthost.acl_facts()["ansible_facts"]["ansible_acl_facts"]
     pytest_require(ACL_TABLE_NAME in acl_facts, "{} acl table not exists")
 
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
     loganalyzer.load_common_config()
 
     try:
         loganalyzer.expect_regex = [LOG_EXPECT_ACL_RULE_CREATE_RE]
         with loganalyzer:
             setup_acl_rules(duthost, acl_setup)
+            wait_until(300, 20, 0, check_msg_in_syslog, duthost, LOG_EXPECT_ACL_RULE_CREATE_RE)
     except LogAnalyzerError as err:
         # cleanup config DB in case of log analysis error
         teardown_acl(duthost, acl_setup)
@@ -213,14 +207,15 @@ def gre_version(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
         SESSION_INFO['gre'] = 0x8949  # Mellanox specific
     elif asic_type in ["barefoot"]:
         SESSION_INFO['gre'] = 0x22EB  # barefoot specific
-    elif asic_type in ["cisco-8000"]:
+    elif asic_type in ["cisco-8000", "marvell-teralynx"]:
         SESSION_INFO['gre'] = 0x88BE  # ERSPAN type-2
     else:
         SESSION_INFO['gre'] = 0x6558
 
 
 @pytest.fixture(scope='function')
-def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, mirror_setup, gre_version):
+def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip,
+              mirror_setup, gre_version, request, tbinfo):
     """
     fixture gathers all configuration fixtures
     :param duthost: DUT host
@@ -235,13 +230,23 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     }
     logger.info('Extra variables for MIRROR table:\n{}'.format(pprint.pformat(extra_vars)))
     duthost.host.options['variable_manager'].extra_vars.update(extra_vars)
+    cmd = "config mirror_session add {} {} {} {} {} {} {}"
+    if is_ipv6_only_topology(tbinfo):
+        SESSION_INFO['src_ip'] = IPV6_IPS['src_ip']
+        SESSION_INFO['dst_ip'] = IPV6_IPS['dst_ip']
+        cmd = "redis-cli -n 4 hset \"MIRROR_SESSION|{}\" src_ip {} dst_ip {} dscp {} ttl {} type {} queue {}"
 
+    cmd = cmd.format(
+        SESSION_INFO['name'],
+        SESSION_INFO['src_ip'],
+        neighbor_ip,
+        SESSION_INFO['dscp'],
+        SESSION_INFO['ttl'],
+        SESSION_INFO['gre'],
+        SESSION_INFO['queue']
+    )
     duthost.template(src=os.path.join(TEMPLATE_DIR, ACL_RULE_PERSISTENT_TEMPLATE), dest=acl_rule_file)
-    duthost.command('config mirror_session add {} {} {} {} {} {} {}'.format(SESSION_INFO['name'],
-                                                                            SESSION_INFO['src_ip'], neighbor_ip,
-                                                                            SESSION_INFO['dscp'], SESSION_INFO['ttl'],
-                                                                            SESSION_INFO['gre'], SESSION_INFO['queue'])
-                    )
+    duthost.command(cmd)
 
     logger.info('Loading acl mirror rules ...')
     load_rule_cmd = "acl-loader update full {} --session_name={}".format(acl_rule_file, SESSION_INFO['name'])
@@ -250,7 +255,7 @@ def mirroring(duthosts, enum_rand_one_per_hwsku_frontend_hostname, neighbor_ip, 
     try:
         yield
     finally:
-        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl')
+        loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='acl', request=request)
         loganalyzer.load_common_config()
 
         try:
@@ -406,6 +411,11 @@ def validate_dump_file_content(duthost, dump_folder_path):
     if duthost.facts['asic_type'] in ["mellanox"]:
         sai_sdk_dump = duthost.command("ls {}/sai_sdk_dump/".format(dump_folder_path))["stdout_lines"]
         assert len(sai_sdk_dump), "Folder 'sai_sdk_dump' in dump archive is empty. Expected not empty folder"
+        if "dpu" not in duthost.hostname:
+            # sai XML dump is only support on the switch
+            sai_xml_regex = re.compile(r'sai_[\w-]+\.xml(?:\.gz)?')
+            assert any(sai_xml_regex.fullmatch(file_name) for file_name in sai_sdk_dump), \
+                   "No SAI XML file found in sai_sdk_dump folder"
     assert len(dump) > MIN_FILES_NUM, "Seems like not all expected files available in 'dump' folder in dump archive. " \
                                       "Test expects not less than 50 files. Available files: {}".format(dump)
     assert len(etc) > MIN_FILES_NUM, "Seems like not all expected files available in 'etc' folder in dump archive. " \
@@ -513,8 +523,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
                     add_asic_arg("{}", cmds.broadcom_cmd_misc, num),
             }
         )
-        if duthost.facts["platform"] in ['x86_64-cel_e1031-r0',
-                                         'x86_64-arista_720dt_48s']:
+        if duthost.topo_type in ["mx", "m0", "m1"]:
             cmds_to_check.update(
                 {
                     "copy_config_cmds":
@@ -536,7 +545,7 @@ def commands_to_check(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     return cmds_to_check
 
 
-def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
+def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist, tbinfo=None):
     """
     Check commands within a group against the command list
 
@@ -548,6 +557,9 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
     for cmd_name in cmd_group_to_check:
         found = False
         cmd_str = cmd_name if isinstance(cmd_name, str) else cmd_name.pattern
+        if tbinfo and is_ipv6_only_topology(tbinfo) and 'ipv4' in cmd_str:
+            logger.info("Skipping IPv4 command {} on IPv6-only topology".format(cmd_str))
+            continue
         logger.info("Checking for {}".format(cmd_str))
 
         for command in cmdlist:
@@ -574,7 +586,7 @@ def check_cmds(cmd_group_name, cmd_group_to_check, cmdlist, strbash_in_cmdlist):
 
 
 def test_techsupport_commands(
-        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu):  # noqa F811
+        duthosts, enum_rand_one_per_hwsku_frontend_hostname, commands_to_check, skip_on_dpu, tbinfo):  # noqa F811
     """
     This test checks list of commands that will be run when executing
     'show techsupport' CLI against a standard expected list of commands
@@ -606,7 +618,7 @@ def test_techsupport_commands(
 
     for cmd_group_name, cmd_group_to_check in list(commands_to_check.items()):
         cmd_not_found.update(
-            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist)
+            check_cmds(cmd_group_name, cmd_group_to_check, cmd_list, strbash_in_cmdlist, tbinfo)
         )
 
     error_message = ''
@@ -628,7 +640,7 @@ def test_techsupport_on_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname)
     :param duthosts: DUT host
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if not check_dut_is_dpu(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    if not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_dpu"):
         pytest.skip("Skip the test, as it is supported only on DPU.")
 
     since = str(randint(1, 5)) + " minute ago"

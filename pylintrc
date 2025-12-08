@@ -288,10 +288,10 @@ exclude-too-few-public-methods=
 ignored-parents=
 
 # Maximum number of arguments for function / method.
-max-args=5
+max-args=10
 
 # Maximum number of attributes for a class (see R0902).
-max-attributes=7
+max-attributes=20
 
 # Maximum number of boolean expressions in an if statement (see R0916).
 max-bool-expr=5
@@ -306,7 +306,7 @@ max-locals=15
 max-parents=7
 
 # Maximum number of positional arguments for function / method.
-max-positional-arguments=5
+max-positional-arguments=10
 
 # Maximum number of public methods for a class (see R0904).
 max-public-methods=20
@@ -343,7 +343,7 @@ indent-after-paren=4
 indent-string='    '
 
 # Maximum number of characters on a single line.
-max-line-length=100
+max-line-length=120
 
 # Maximum number of lines in a module.
 max-module-lines=1000
@@ -474,8 +474,6 @@ enable=missing-docstring,
        bare-except,
        super-init-not-called,
        bad-indentation,
-       bad-continuation,
-       bad-whitespace,
        pointless-string-statement,
        consider-using-with,
        consider-using-f-string,
@@ -486,11 +484,7 @@ enable=missing-docstring,
        consider-using-set-comprehension,
        consider-using-join,
        consider-using-min-builtin,
-       consider-using-max-builtin,
-       consider-using-any,
-       consider-using-all,
-       consider-using-namedtuple-or-dataclass,
-       consider-using-assignment-expr
+       consider-using-max-builtin
 
 
 
@@ -590,7 +584,7 @@ spelling-ignore-comment-directives=fmt: on,fmt: off,noqa:,noqa,nosec,isort:skip,
 spelling-ignore-words=
 
 # A path to a file that contains the private dictionary; one word per line.
-spelling-private-dict-file=
+spelling-private-dict-file=sonic_dictionary.txt
 
 # Tells whether to store unknown words to the private dictionary (see the
 # --spelling-private-dict-file option) instead of raising a message.

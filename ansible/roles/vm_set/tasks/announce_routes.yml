@@ -121,10 +121,17 @@
         loop_var: vm_item
       delegate_to: localhost
 
+  - name: Print upstream_neighbor_groups and downstream_neighbor_groups
+    debug:
+      msg: "upstream_neighbor_groups={{ upstream_neighbor_groups | default('undefined', true) }},
+      downstream_neighbor_groups={{ downstream_neighbor_groups | default('undefined', true) }}"
+
   - name: Announce routes
     announce_routes:
       topo_name: "{{ topo }}"
       ptf_ip: "{{ ptf_host_ip }}"
       dut_interfaces: "{{ dut_interfaces | default('') }}"
+      upstream_neighbor_groups: "{{ upstream_neighbor_groups | default(0) | int }}"
+      downstream_neighbor_groups: "{{ downstream_neighbor_groups | default(0) | int }}"
     delegate_to: localhost
   when: exabgp_action == 'start'

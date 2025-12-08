@@ -15,7 +15,7 @@ MAX_WAIT_TIME = 120
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 'm2', 'm3', 't2')
+    pytest.mark.topology('t0', 't1', 'm0', 'mx', 'm1', 't2')
 ]
 
 

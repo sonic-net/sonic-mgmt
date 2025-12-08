@@ -16,11 +16,14 @@ SUPPORTED_PLATFORMS = [
     "8101_32fh",
     "8111_32eh",
     "arista",
-    "x86_64-88_lc0_36fh_m-r0"
+    "x86_64-nvidia",
+    "x86_64-88_lc0_36fh_m-r0",
+    "x86_64-nexthop_4010-r0",
+    "marvell"
 ]
 
 SUPPORTED_SPEEDS = [
-    "100G", "200G", "400G", "800G", "1600G"
+    "50G", "100G", "200G", "400G", "800G", "1600G"
 ]
 
 
@@ -61,6 +64,9 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # Get interfaces that are operationally up and have supported speeds.
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
 
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
     for intf in interfaces:
         # Verify the FEC operational mode is valid
         fec = get_fec_oper_mode(duthost, intf)
@@ -80,6 +86,9 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     # Get interfaces that are operationally up and have supported speeds.
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
 
     for intf in interfaces:
         fec_mode = get_fec_oper_mode(duthost, intf)
@@ -121,6 +130,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+    # Get operationally up and interfaces with supported speeds
+    interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
@@ -138,7 +153,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     for intf in intf_status:
         intf_name = intf['iface']
         speed = duthost.get_speed(intf_name)
-        if speed not in SUPPORTED_SPEEDS:
+        # Speed is a empty string if the port isn't up
+        if speed == '':
+            continue
+        # Convert the speed to gbps format
+        speed_gbps = f"{int(speed) // 1000}G"
+        if speed_gbps not in SUPPORTED_SPEEDS:
             continue
 
         # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
@@ -236,6 +256,9 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     # Get operationally up and interfaces with supported speeds
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
 
     for intf_name in interfaces:
         for _ in range(3):

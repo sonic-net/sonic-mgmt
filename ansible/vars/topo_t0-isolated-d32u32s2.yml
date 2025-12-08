@@ -222,7 +222,6 @@ configuration_properties:
   common:
     dut_asn: 65100
     dut_type: ToRRouter
-    swrole: leaf
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
     podset_number: 200
@@ -234,13 +233,18 @@ configuration_properties:
     leaf_asn_start: 64600
     tor_asn_start: 65500
     failure_rate: 0
+  leaf:
+    swrole: leaf
+  tor:
+    swrole: tor
 
 configuration:
   ARISTA01T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64601
+      asn: 64600
       peers:
         65100:
           - 10.0.0.128
@@ -258,8 +262,9 @@ configuration:
   ARISTA09T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64602
+      asn: 64600
       peers:
         65100:
           - 10.0.0.144
@@ -277,8 +282,9 @@ configuration:
   ARISTA17T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64603
+      asn: 64600
       peers:
         65100:
           - 10.0.0.160
@@ -296,8 +302,9 @@ configuration:
   ARISTA25T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64604
+      asn: 64600
       peers:
         65100:
           - 10.0.0.176
@@ -315,8 +322,9 @@ configuration:
   ARISTA33T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64605
+      asn: 64600
       peers:
         65100:
           - 10.0.0.192
@@ -334,8 +342,9 @@ configuration:
   ARISTA41T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64606
+      asn: 64600
       peers:
         65100:
           - 10.0.0.208
@@ -353,8 +362,9 @@ configuration:
   ARISTA49T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64607
+      asn: 64600
       peers:
         65100:
           - 10.0.0.224
@@ -372,8 +382,9 @@ configuration:
   ARISTA57T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64608
+      asn: 64600
       peers:
         65100:
           - 10.0.0.240
@@ -391,8 +402,9 @@ configuration:
   ARISTA65T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64609
+      asn: 64600
       peers:
         65100:
           - 10.0.1.0
@@ -410,8 +422,9 @@ configuration:
   ARISTA73T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64610
+      asn: 64600
       peers:
         65100:
           - 10.0.1.16
@@ -429,8 +442,9 @@ configuration:
   ARISTA81T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64611
+      asn: 64600
       peers:
         65100:
           - 10.0.1.32
@@ -448,8 +462,9 @@ configuration:
   ARISTA89T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64612
+      asn: 64600
       peers:
         65100:
           - 10.0.1.48
@@ -467,8 +482,9 @@ configuration:
   ARISTA97T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64613
+      asn: 64600
       peers:
         65100:
           - 10.0.1.64
@@ -486,8 +502,9 @@ configuration:
   ARISTA105T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64614
+      asn: 64600
       peers:
         65100:
           - 10.0.1.80
@@ -505,8 +522,9 @@ configuration:
   ARISTA113T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64615
+      asn: 64600
       peers:
         65100:
           - 10.0.1.96
@@ -524,8 +542,9 @@ configuration:
   ARISTA121T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64616
+      asn: 64600
       peers:
         65100:
           - 10.0.1.112
@@ -543,8 +562,9 @@ configuration:
   ARISTA129T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64617
+      asn: 64600
       peers:
         65100:
           - 10.0.2.128
@@ -562,8 +582,9 @@ configuration:
   ARISTA137T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64618
+      asn: 64600
       peers:
         65100:
           - 10.0.2.144
@@ -581,8 +602,9 @@ configuration:
   ARISTA145T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64619
+      asn: 64600
       peers:
         65100:
           - 10.0.2.160
@@ -600,8 +622,9 @@ configuration:
   ARISTA153T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64620
+      asn: 64600
       peers:
         65100:
           - 10.0.2.176
@@ -619,8 +642,9 @@ configuration:
   ARISTA161T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64621
+      asn: 64600
       peers:
         65100:
           - 10.0.2.192
@@ -638,8 +662,9 @@ configuration:
   ARISTA169T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64622
+      asn: 64600
       peers:
         65100:
           - 10.0.2.208
@@ -657,8 +682,9 @@ configuration:
   ARISTA177T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64623
+      asn: 64600
       peers:
         65100:
           - 10.0.2.224
@@ -676,8 +702,9 @@ configuration:
   ARISTA185T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64624
+      asn: 64600
       peers:
         65100:
           - 10.0.2.240
@@ -695,8 +722,9 @@ configuration:
   ARISTA193T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64625
+      asn: 64600
       peers:
         65100:
           - 10.0.3.0
@@ -714,8 +742,9 @@ configuration:
   ARISTA201T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64626
+      asn: 64600
       peers:
         65100:
           - 10.0.3.16
@@ -733,8 +762,9 @@ configuration:
   ARISTA209T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64627
+      asn: 64600
       peers:
         65100:
           - 10.0.3.32
@@ -752,8 +782,9 @@ configuration:
   ARISTA217T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64628
+      asn: 64600
       peers:
         65100:
           - 10.0.3.48
@@ -771,8 +802,9 @@ configuration:
   ARISTA225T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64629
+      asn: 64600
       peers:
         65100:
           - 10.0.3.64
@@ -790,8 +822,9 @@ configuration:
   ARISTA233T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64630
+      asn: 64600
       peers:
         65100:
           - 10.0.3.80
@@ -809,8 +842,9 @@ configuration:
   ARISTA241T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64631
+      asn: 64600
       peers:
         65100:
           - 10.0.3.96
@@ -828,8 +862,9 @@ configuration:
   ARISTA249T1:
     properties:
     - common
+    - leaf
     bgp:
-      asn: 64632
+      asn: 64600
       peers:
         65100:
           - 10.0.3.112
@@ -847,6 +882,7 @@ configuration:
   ARISTA01PT0:
     properties:
     - common
+    - tor
     bgp:
       asn: 65101
       peers:
@@ -861,11 +897,12 @@ configuration:
         ipv4: 10.0.4.1/31
         ipv6: fc00::802/126
     bp_interface:
-      ipv4: 10.10.248.2/22
+      ipv4: 10.10.244.4/22
       ipv6: fc0a::202/64
   ARISTA02PT0:
     properties:
     - common
+    - tor
     bgp:
       asn: 65102
       peers:
@@ -880,5 +917,5 @@ configuration:
         ipv4: 10.0.4.3/31
         ipv6: fc00::806/126
     bp_interface:
-      ipv4: 10.10.248.3/22
+      ipv4: 10.10.244.5/22
       ipv6: fc0a::203/64

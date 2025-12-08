@@ -1,5 +1,7 @@
 import pytest
 import logging
+
+from tests.common.fixtures.duthost_utils import stop_route_checker_on_duthost
 from tests.common.utilities import wait_until
 from tests.common import config_reload
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
@@ -35,6 +37,15 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
             ".*teamsyncd: :- cleanTeamSync.*"
         ]
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(expectRegex)
+
+
+@pytest.fixture(autouse=True)
+def disable_route_check_for_duthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+    logging.info("Stopping route check on DUT {}".format(duthost.hostname))
+    stop_route_checker_on_duthost(duthost)
+
+    yield
 
 
 def check_kernel_po_interface_cleaned(duthost, asic_index):
@@ -92,6 +103,22 @@ def test_po_cleanup_after_reload(duthosts, enum_rand_one_per_hwsku_frontend_host
         # Make CPU high
         for i in range(host_vcpus):
             duthost.shell("nohup yes > /dev/null 2>&1 & sleep 1")
+
+        # Stop rsyslogd in the swss container for this test case. This is because in the
+        # shutdown path, there will be a flood of syslogs from orchagent with messages
+        # like "removeLag: Failed to remove ref count 3 LAG PortChannel101". On scale
+        # setups, this can potentially cause some syslogs from other containers to get
+        # missed (because rsyslog is all using UDP, so if the RX buffer on the host's
+        # rsyslogd gets full, messages will get dropped. This test case is looking for
+        # specific logs from the teamd container, and if those logs happen to get dropped,
+        # this test case will incorrectly fail.
+        #
+        # Since we don't care about logs from swss for this test case, stop rsyslogd in
+        # the swss container completely.
+        for asic_id in duthost.get_asic_ids():
+            if asic_id is None:
+                asic_id = ""
+            duthost.command("docker exec swss{} supervisorctl stop rsyslogd".format(asic_id))
 
         with loganalyzer:
             logging.info("Reloading config..")

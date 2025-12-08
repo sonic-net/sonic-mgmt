@@ -21,7 +21,7 @@ from tests.common.config_reload import config_reload
 # SSH_ONLY    CTRLPLANE  SSH              SSH_ONLY       ingress
 
 pytestmark = [
-    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 'm2', 'm3', 't1', 't2'),
+    pytest.mark.topology('t0', 'm0', 'mx', 'm1', 't1', 't2'),
 ]
 
 logger = logging.getLogger(__name__)
@@ -416,11 +416,11 @@ def cacl_tc2_add_init_rule(duthost, protocol, ip_netns_namespace_prefix, namespa
         params_dict["table"] = "EXTERNAL_CLIENT_ACL"
         params_dict["IP_PROTOCOL"] = "6"
         params_dict["L4_DST_PORT"] = "8081"
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_RULE".format(json_namespace),
+            "path": "/ACL_RULE",
             "value": {
                 "{}|TEST_DROP".format(params_dict["table"]): {
                     "IP_PROTOCOL": "{}".format(params_dict["IP_PROTOCOL"]),
@@ -433,7 +433,8 @@ def cacl_tc2_add_init_rule(duthost, protocol, ip_netns_namespace_prefix, namespa
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -475,11 +476,11 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol, namespace=None):
         params_dict["table"] = "EXTERNAL_CLIENT_ACL"
         params_dict["IP_PROTOCOL"] = "6"
         params_dict["L4_DST_PORT"] = "8081"
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_RULE".format(json_namespace),
+            "path": "/ACL_RULE",
             "value": {
                 "{}|TEST_DROP".format(params_dict["table"]): {
                     "IP_PROTOCOL": "{}".format(params_dict["IP_PROTOCOL"]),
@@ -492,7 +493,8 @@ def cacl_tc2_add_duplicate_rule(duthost, protocol, namespace=None):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -525,15 +527,16 @@ def cacl_tc2_replace_rule(duthost, protocol, ip_netns_namespace_prefix, namespac
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "replace",
-            "path": "{}/ACL_RULE/{}|TEST_DROP/SRC_IP".format(json_namespace, table),
+            "path": "/ACL_RULE/{}|TEST_DROP/SRC_IP".format(table),
             "value": "8.8.8.8/32"
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
 
@@ -563,11 +566,11 @@ def cacl_tc2_replace_rule(duthost, protocol, ip_netns_namespace_prefix, namespac
 def cacl_tc2_add_rule_to_unexisted_table(duthost, namespace=None):
     """ Add acl rule to unexisted table
     """
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_RULE/TEST_2|TEST_DROP".format(json_namespace),
+            "path": "/ACL_RULE/TEST_2|TEST_DROP",
             "value": {
                 "L4_DST_PORT": "22",
                 "IP_PROTOCOL": "6",
@@ -578,7 +581,8 @@ def cacl_tc2_add_rule_to_unexisted_table(duthost, namespace=None):
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -601,14 +605,15 @@ def cacl_tc2_remove_table_before_rule(duthost, protocol, namespace=None):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/ACL_TABLE/{}".format(json_namespace, table)
+            "path": "/ACL_TABLE/{}".format(table)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -631,14 +636,15 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol, namespace=None):
         table = 'NTP_ACL'
     elif protocol == 'EXTERNAL_CLIENT':
         table = 'EXTERNAL_CLIENT_ACL'
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/ACL_RULE/{}|TEST_DROP2".format(json_namespace, table)
+            "path": "/ACL_RULE/{}|TEST_DROP2".format(table)
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
     try:
@@ -651,14 +657,15 @@ def cacl_tc2_remove_unexist_rule(duthost, protocol, namespace=None):
 def cacl_tc2_remove_rule(duthost, ip_netns_namespace_prefix, namespace=None):
     """ Remove acl rule test
     """
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "remove",
-            "path": "{}/ACL_RULE".format(json_namespace)
+            "path": "/ACL_RULE".format()
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -685,11 +692,11 @@ def cacl_external_client_add_new_table(duthost, ip_netns_namespace_prefix, names
     ----------------------  ---------  ---------------  ----------------------------  -------  --------
     EXTERNAL_CLIENT_ACL     CTRLPLANE  EXTERNAL_CLIENT  EXTERNAL_CLIENT_ACL           ingress  Active
     """
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_TABLE/EXTERNAL_CLIENT_ACL".format(json_namespace),
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
             "value": {
                 "policy_desc": "EXTERNAL_CLIENT_ACL",
                 "services": [
@@ -700,7 +707,8 @@ def cacl_external_client_add_new_table(duthost, ip_netns_namespace_prefix, names
             }
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -720,11 +728,11 @@ def cacl_external_client_add_new_table(duthost, ip_netns_namespace_prefix, names
 def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespace=None):
     """ Add acl table and acl rule in single patch for test
     """
-    json_namespace = '' if namespace is None else '/' + namespace
+
     json_patch = [
         {
             "op": "add",
-            "path": "{}/ACL_TABLE/EXTERNAL_CLIENT_ACL".format(json_namespace),
+            "path": "/ACL_TABLE/EXTERNAL_CLIENT_ACL",
             "value": {
                 "type": "CTRLPLANE",
                 "stage": "ingress",
@@ -736,7 +744,7 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
         },
         {
             "op": "add",
-            "path": "{}/ACL_RULE".format(json_namespace),
+            "path": "/ACL_RULE",
             "value": {
                 "EXTERNAL_CLIENT_ACL|RULE_1": {
                     "PRIORITY": "9999",
@@ -749,7 +757,8 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
         }
     ]
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -769,7 +778,7 @@ def cacl_tc3_acl_table_and_acl_rule(duthost, ip_netns_namespace_prefix, namespac
 
 
 @pytest.fixture(scope="module", params=["SSH", "NTP", "SNMP", "EXTERNAL_CLIENT"])
-def cacl_protocol(request):       # noqa F811
+def cacl_protocol(request):       # noqa: F811
     """
     Return the protocol to be tested
     """
