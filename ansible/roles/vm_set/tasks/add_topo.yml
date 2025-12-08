@@ -161,7 +161,12 @@
     docker_container:
       name: ptf_{{ vm_set_name }}
       image: "{{ docker_registry_host }}/{{ ptf_imagename }}:{{ ptf_imagetag }}"
-      pull: yes
+      # Set pull to 'missing' when ptf_modified is True (PR test with preloaded image)
+      # to avoid pulling and overwriting the local image. For nightly tests where
+      # ptf_modified is False/undefined, use 'always' to always pull the latest image.
+      # The ptf_modified flag is passed from Azure Pipelines through Elastictest's
+      # add_topo_params as "-e ptf_modified=True" when testing PR built docker-ptf images.
+      pull: "{{ 'missing' if (ptf_modified | default(false) | bool) else 'always' }}"
       state: started
       restart: no
       network_mode: none
