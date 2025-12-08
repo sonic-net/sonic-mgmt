@@ -91,14 +91,6 @@ dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, prog
 dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
 ```
 
-### 5. Maintainability and Noise Issues
-**Quantified Problems:**
-- **55x code bloat**: 2,684 lines across 22 files vs 49 lines for gNOI approach
-- **Certificate management scattered**: OpenSSL commands duplicated across multiple files
-- **Helper function complexity**: Functions like `apply_cert_config()` span 50+ lines and are duplicated
-- **Manual cleanup everywhere**: Tests must manually clean up certificates, processes, and configuration state
-
-**Result**: The maintenance burden increases exponentially with each new test or configuration change.
 
 ## gNOI Approach Advantages
 
