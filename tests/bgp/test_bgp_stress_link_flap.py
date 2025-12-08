@@ -128,9 +128,9 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     # Cleanup: Remove any BGP Sentinel/Monitor configs that might be left over
     logger.info("Fixture teardown: Cleaning up BGP configurations")
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all',
-                                  module_ignore_errors=True)
+                                 module_ignore_errors=True)
     duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all',
-                                  module_ignore_errors=True)
+                                 module_ignore_errors=True)
     duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent', module_ignore_errors=True)
     duthost.file(path='/tmp/bgpmon_v4.json', state='absent', module_ignore_errors=True)
     duthost.file(path='/tmp/bgpmon_v6.json', state='absent', module_ignore_errors=True)
@@ -142,7 +142,7 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
         for monitor_ip in bgp_monitors.keys():
             logger.info("Removing BGP_MONITOR: {}".format(monitor_ip))
             duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(monitor_ip),
-                                          asic_index='all', module_ignore_errors=True)
+                                         asic_index='all', module_ignore_errors=True)
     except Exception as e:
         logger.warning("Failed to clean up BGP_MONITORS: {}".format(str(e)))
 
@@ -304,7 +304,6 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
 
     # Try to apply BGP Sentinel and Monitor configurations (optional, best effort)
-    bgp_features_applied = False
     if spine_bp_addr and ipv4_subnet and ipv6_subnet:
         try:
             logger.info("Applying BGPSentinel configuration (IPv4 + IPv6)")
@@ -351,8 +350,6 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
             duthost.shell("sonic-cfggen -j {} -w".format(bgpmon_v6_file))
             time.sleep(5)
             logger.info("BGPMonV6 configuration applied")
-
-            bgp_features_applied = True
         except Exception as e:
             logger.warning("Failed to apply BGP Sentinel/Monitor configuration: {}. "
                            "Continuing test without these features.".format(str(e)))
