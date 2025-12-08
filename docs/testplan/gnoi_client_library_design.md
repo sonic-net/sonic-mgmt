@@ -104,9 +104,9 @@ def test_system_time(ptf_gnoi):
     # Clean function call returns JSON data
     result = ptf_gnoi.system_time()
     
-    # Work with simple JSON response
+    # Work with simple JSON response from gNOI protocol
     assert 'time' in result
-    assert 'formatted_time' in result
+    assert isinstance(result['time'], int)
 ```
 
 ### Infrastructure as Utilities
@@ -197,7 +197,7 @@ The `PtfGrpc` class provides a generic interface for making gRPC calls using grp
 The `PtfGnoi` class provides gNOI-specific operations using the generic `PtfGrpc` client:
 
 **System Operations:**
-- `system_time()` - Get device time with automatic formatting
+- `system_time()` - Get device time in nanoseconds since epoch
 
 **File Operations:**
 - `file_stat(remote_file)` - Get file statistics
@@ -237,8 +237,7 @@ def test_system_time(ptf_gnoi):
     """Test runs with TLS automatically configured"""
     result = ptf_gnoi.system_time()
     assert 'time' in result
-    assert 'formatted_time' in result
-    logger.info(f"Device time: {result['formatted_time']}")
+    logger.info(f"Device time: {result['time']} nanoseconds since epoch")
 
 def test_file_operations(ptf_gnoi):
     """File operations with automatic TLS"""
