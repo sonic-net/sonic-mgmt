@@ -17,6 +17,7 @@ from dash_api.meter_policy_pb2 import MeterPolicy
 from dash_api.meter_rule_pb2 import MeterRule
 from dash_api.tunnel_pb2 import Tunnel
 from dash_api.route_rule_pb2 import RouteRule
+import dash_api.types_pb2 as types_pb2
 
 from google.protobuf.descriptor import FieldDescriptor
 from google.protobuf.json_format import ParseDict
@@ -49,6 +50,13 @@ PB_CLASS_MAP = {
     "METER_RULE": MeterRule,
     "TUNNEL": Tunnel,
     "ROUTE_RULE": RouteRule
+    "HA_SCOPE": types_pb2.HaScope,
+    "HA_OWNER": types_pb2.HaOwner,
+    "IP_VERSION": types_pb2.IpVersion,
+    "IP_ADDRESS": types_pb2.IpAddress,
+    "IP_PREFIX": types_pb2.IpPrefix,
+    "VALUE_OR_RANGE": types_pb2.ValueOrRange,
+    "RANGE": types_pb2.Range,
 }
 
 
@@ -279,21 +287,26 @@ def json_to_proto(key: str, proto_dict: dict):
         # ============================================================
         # ENUM FIELDS (HaScope, HaRole, HaOwner, etc.)
         # ============================================================
-        if field.type == field.TYPE_ENUM:
+        elif field.type == field.TYPE_ENUM:
             enum_type = field.enum_type.name  # Example: "HaScope"
 
             # Convert CamelCase → HA_SCOPE
             parts = re.findall(r'[A-Z][a-z]*', enum_type)
-            enum_prefix = '_'.join(parts).upper()  # "HA_SCOPE"
+            enum_prefix = '_'.join(parts).upper()  # HaScope → HA_SCOPE
 
-            # User may pass full or short value
-            # Example: "dpu" → HA_SCOPE_DPU
-            if value.upper().startswith(enum_prefix):
-                enum_name = value.upper()
+            # Normalize user-supplied value (e.g. "dpu" or "HA_SCOPE_DPU")
+            value_upper = value.upper()
+            if value_upper.startswith(enum_prefix):
+                enum_name = value_upper
             else:
-                enum_name = f"{enum_prefix}_{value.upper()}"
+                enum_name = f"{enum_prefix}_{value_upper}"
 
-            enum_class = globals()[enum_type]
+            # Lookup enum class from unified PB_CLASS_MAP
+            enum_class = PB_CLASS_MAP.get(enum_prefix)
+            if enum_class is None:
+                raise KeyError(f"Enum type '{enum_type}' ({enum_prefix}) not found in PB_CLASS_MAP")
+
+            # Convert string to enum integer
             new_dict[field_name] = enum_class.Value(enum_name)
             continue
 
