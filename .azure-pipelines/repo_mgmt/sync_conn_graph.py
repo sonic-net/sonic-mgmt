@@ -55,7 +55,8 @@ EXCLUDE_FILES = [
 
 NEW_BRANCH_HEADER = 'auto_sync_conn_graph'
 REPO_URL = 'https://dev.azure.com/mssonic/internal/_git/sonic-mgmt-int'
-PULL_REQUEST_URL_PREFIX = f'https://dev.azure.com/mssonic/internal/_apis/git/repositories/{MGMT_REPOSITOR_ID}/pullrequests'
+PULL_REQUEST_URL_PREFIX = \
+    f'https://dev.azure.com/mssonic/internal/_apis/git/repositories/{MGMT_REPOSITOR_ID}/pullrequests'
 HEADERS = {'Content-Type': 'application/json'}
 AUTH = HTTPBasicAuth('', MSSONIC_PUBLIC_TOKEN)
 
@@ -79,7 +80,8 @@ def close_previous_pull_requests(branch):
         pr_id = pull_requests[0].get("pullRequestId")
         pr_status = pull_requests[0].get("status")
         if pr_id and pr_status != "completed":
-            logger.info(f"Abandom pull request for branch {branch} since pipeline is going to create new pull request with latest code.")
+            logger.info(f"Abandon pull request for branch {branch} \
+                        since pipeline is going to create new pull request with latest code.")
             response = requests.patch(
                 url=f'{PULL_REQUEST_URL_PREFIX}/{pr_id}?api-version=7.1-preview.1',
                 headers=HEADERS,
@@ -89,7 +91,8 @@ def close_previous_pull_requests(branch):
             if response.status_code == 200:
                 logger.info(f"Pull request {pr_id} is abandoned.")
             else:
-                logger.info(f"Failed to abandon pull request {pr_id}. Status code: {response.status_code}, Response: {response.text}")
+                logger.info(f"Failed to abandon pull request {pr_id}. \
+                            Status code: {response.status_code}, Response: {response.text}")
 
 
 def remove_useless_remote_branches_and_prs(repo, url_with_token, pull_request_info):
@@ -106,7 +109,8 @@ def remove_useless_remote_branches_and_prs(repo, url_with_token, pull_request_in
 
     for branch in remote_branches:
         if pr_sub_string and pr_sub_string in branch:
-            logger.info(f"Skip branch {branch} since pull request {pull_request_info['pullRequestId']} has been created.")
+            logger.info(
+                f"Skip branch {branch} since pull request {pull_request_info['pullRequestId']} has been created.")
             is_pr_already_created = True
             continue
         logger.info(f"Delete branch {branch} since pull request is completed or abandoned.")
@@ -186,8 +190,10 @@ def get_source_pull_request_info(repo, files):
         return
 
     try:
-        pull_request = [pr for pr in completed_prs if pr.get("lastMergeCommit", {}).get("commitId") == latest_commit_id]
-        pull_request_url = f'{PULL_REQUEST_URL_PREFIX}?pullRequestId={pull_request[0]["pullRequestId"]}&api-version=7.1-preview.1'
+        pull_request = [
+            pr for pr in completed_prs if pr.get("lastMergeCommit", {}).get("commitId") == latest_commit_id]
+        pull_request_url = \
+            f'{PULL_REQUEST_URL_PREFIX}?pullRequestId={pull_request[0]["pullRequestId"]}&api-version=7.1-preview.1'
         pull_request_response = requests.get(
             pull_request_url,
             headers=HEADERS,
@@ -199,7 +205,8 @@ def get_source_pull_request_info(repo, files):
             logger.info("pull_request_info: {}".format(pull_request_info))
             return pull_request_info
         else:
-            logger.info("Failed to get pull request info with error code {}.".format(pull_request_response.status_code))
+            logger.info(
+                "Failed to get pull request info with error code {}.".format(pull_request_response.status_code))
             return
     except Exception as e:
         logger.info("Failed to find pull request info for {}".format(e))
@@ -221,7 +228,7 @@ def create_graph_xml(repo_path, graph_groups):
             continue
         logger.info(f"Creating graph xml for {group}...")
         try:
-            result = os.system(f"python2 {create_graph_file_path} -i {group} -o {graph_xml}")
+            result = os.system(f"python3 {create_graph_file_path} -i {group} -o {graph_xml}")
             if result != 0:
                 logger.info(f"Failed to create {graph_xml} for {group}.")
                 return
@@ -237,8 +244,10 @@ def create_graph_xml(repo_path, graph_groups):
 def compare_and_create_pull_request(repo, repo_path, url_with_token, source_branch, target_branch,
                                     graph_groups, files_to_compare, pull_request_info):
     # Fetch the branches
-    repo.git.execute(['git', 'fetch', url_with_token, f'refs/heads/{source_branch}:refs/remotes/origin/{source_branch}'])
-    repo.git.execute(['git', 'fetch', url_with_token, f'refs/heads/{target_branch}:refs/remotes/origin/{target_branch}'])
+    repo.git.execute(
+        ['git', 'fetch', url_with_token, f'refs/heads/{source_branch}:refs/remotes/origin/{source_branch}'])
+    repo.git.execute(
+        ['git', 'fetch', url_with_token, f'refs/heads/{target_branch}:refs/remotes/origin/{target_branch}'])
     has_diff = False
 
     if target_branch not in CREATE_GRAPH_BRANCHES:
@@ -305,7 +314,8 @@ def create_pull_request(source_branch, target_branch, pull_request_info):
         reviewer['id'] = pull_request_info['createdBy']['id']
         reviewers.append(reviewer)
         additional_title = f" by PR {pull_request_info['pullRequestId']}"
-        additional_description = f"This pull request is created from {REPO_URL}/pullrequest/{pull_request_info['pullRequestId']}"
+        additional_description = \
+            f"This pull request is created from {REPO_URL}/pullrequest/{pull_request_info['pullRequestId']}"
     repository_url = f'{PULL_REQUEST_URL_PREFIX}?api-version=7.1-preview.1'
     title = f"[Auto Created{additional_title}] Sync connection graph facts from internal to {target_branch}"
     description = "Across different branches, the connection graph facts should remain consistent. " \
@@ -349,7 +359,8 @@ if __name__ == "__main__":
     repo_path = os.path.join(current_dir, "../../")
     repo = git.Repo(repo_path)
     set_up_git_env(repo)
-    url_with_token = f'https://x-access-token:{MSSONIC_PUBLIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int'
+    url_with_token = \
+        f'https://x-access-token:{MSSONIC_PUBLIC_TOKEN}@dev.azure.com/mssonic/internal/_git/sonic-mgmt-int'
 
     graph_groups, graph_files = get_graph_files(repo_path)
     logger.info(f"Graph groups: {graph_groups}, files to compare: {graph_files}")
@@ -362,4 +373,5 @@ if __name__ == "__main__":
     for branch in TARGET_BRANCHES:
         logger.info("################################################################################################")
         logger.info(f"Comparing files between {SOURCE_BRANCH} and {branch}...")
-        compare_and_create_pull_request(repo, repo_path, url_with_token, SOURCE_BRANCH, branch, graph_groups, graph_files, pull_request_info)
+        compare_and_create_pull_request(repo, repo_path, url_with_token, SOURCE_BRANCH,
+                                        branch, graph_groups, graph_files, pull_request_info)
