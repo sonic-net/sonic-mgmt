@@ -1,19 +1,23 @@
 """
 Simple integration tests for gNOI File service.
 
-One test per RPC method to demonstrate library usage.
+All tests automatically run with TLS server configuration by default.
+Users don't need to worry about TLS configuration.
 """
 import pytest
 import logging
 
 # Import fixtures
-from tests.common.fixtures.grpc_fixtures import ptf_grpc, ptf_gnoi
+from tests.common.fixtures.grpc_fixtures import ptf_grpc, ptf_gnoi, setup_gnoi_tls_server
 
 logger = logging.getLogger(__name__)
 
+# Enable TLS fixture by default for all tests in this module
+pytestmark = pytest.mark.usefixtures("setup_gnoi_tls_server")
+
 
 def test_file_stat(ptf_gnoi):
-    """Test File.Stat RPC."""
+    """Test File.Stat RPC with TLS enabled by default."""
     try:
         result = ptf_gnoi.file_stat("/etc/hostname")
         assert "stats" in result

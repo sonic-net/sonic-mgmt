@@ -53,6 +53,11 @@ class PtfGrpc:
         """
         self.ptfhost = ptfhost
         
+        # TLS certificate configuration
+        self.ca_cert = None
+        self.client_cert = None
+        self.client_key = None
+        
         # Configure target and connection parameters
         if hasattr(target_or_env, 'gnmi_port'):
             # Auto-configuration from GNMIEnvironment
@@ -61,6 +66,11 @@ class PtfGrpc:
             self.target = f"{duthost.mgmt_ip}:{target_or_env.gnmi_port}"
             self.plaintext = not target_or_env.use_tls if plaintext is None else plaintext
             self.env = target_or_env
+            
+            # Auto-configure TLS certificates if TLS is enabled
+            if not self.plaintext:
+                self._auto_configure_tls_certificates()
+                
             logger.info(f"Auto-configured PtfGrpc: target={self.target}, plaintext={self.plaintext}")
         else:
             # Manual configuration
@@ -91,11 +101,18 @@ class PtfGrpc:
         # Connection options
         if self.plaintext:
             cmd.append("-plaintext")
+        else:
+            # TLS mode - add certificate arguments if configured
+            if self.ca_cert:
+                cmd.extend(["-cacert", self.ca_cert])
+            if self.client_cert:
+                cmd.extend(["-cert", self.client_cert])
+            if self.client_key:
+                cmd.extend(["-key", self.client_key])
         
-        # Standard options
+        # Standard options (avoid unsupported flags like -max-msg-sz)
         cmd.extend([
             "-connect-timeout", str(self.timeout),
-            "-max-msg-sz", str(self.max_msg_size),
             "-format", "json"
         ])
         
@@ -212,6 +229,36 @@ class PtfGrpc:
         self.verbose = enable
         logger.debug(f"Verbose output: {enable}")
     
+    def configure_tls_certificates(self, ca_cert: str, client_cert: str, client_key: str) -> None:
+        """
+        Configure TLS certificates for secure connections.
+        
+        Args:
+            ca_cert: Path to CA certificate file in PTF container
+            client_cert: Path to client certificate file in PTF container  
+            client_key: Path to client key file in PTF container
+        """
+        self.ca_cert = ca_cert
+        self.client_cert = client_cert
+        self.client_key = client_key
+        self.plaintext = False
+        logger.info(f"Configured TLS certificates: ca={ca_cert}, cert={client_cert}, key={client_key}")
+    
+    def _auto_configure_tls_certificates(self) -> None:
+        """
+        Auto-configure standard TLS certificate paths for gNOI/gNMI.
+        
+        This method sets up the standard certificate paths used by the gNOI TLS
+        infrastructure fixture. Certificates should be available in the PTF container
+        at these standard locations.
+        """
+        self.configure_tls_certificates(
+            ca_cert="/etc/sonic/telemetry/gnmiCA.cer",
+            client_cert="/etc/sonic/telemetry/gnmiclient.cer",
+            client_key="/etc/sonic/telemetry/gnmiclient.key"
+        )
+        logger.debug("Auto-configured TLS certificates with standard paths")
+    
     def test_connection(self) -> bool:
         """
         Test if the gRPC connection is working.
@@ -273,7 +320,39 @@ class PtfGrpc:
             GrpcConnectionError: If connection fails
             GrpcCallError: If symbol not found
         """
-        cmd = self._build_grpcurl_cmd(service_method=f"describe {symbol}")
+        # Build grpcurl command for describe - it's a grpcurl verb, not a service method
+        cmd = ["grpcurl"]
+        
+        # Add connection options
+        if self.plaintext:
+            cmd.append("-plaintext")
+        else:
+            # TLS mode - add certificate arguments if configured
+            if self.ca_cert:
+                cmd.extend(["-cacert", self.ca_cert])
+            if self.client_cert:
+                cmd.extend(["-cert", self.client_cert])
+            if self.client_key:
+                cmd.extend(["-key", self.client_key])
+        
+        # Basic options (avoid unsupported flags like -max-msg-size)
+        cmd.extend([
+            "-connect-timeout", str(self.timeout)
+        ])
+        
+        # Add custom headers
+        for name, value in self.headers.items():
+            cmd.extend(["-H", f"{name}: {value}"])
+        
+        # Add verbose output if enabled
+        if self.verbose:
+            cmd.append("-v")
+        
+        # Add target and describe command
+        cmd.append(self.target)
+        cmd.append("describe")
+        cmd.append(symbol)
+        
         result = self._execute_grpcurl(cmd)
         
         # Return raw description for now
