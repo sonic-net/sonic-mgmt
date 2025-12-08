@@ -14,15 +14,113 @@ The purpose of this document is to describe the design of a common, reusable gNO
 
 ## Introduction
 
-SONiC tests in the [sonic-mgmt](https://github.com/sonic-net/sonic-mgmt) repository currently lack a unified approach for testing gNOI operations. This design proposes a lightweight infrastructure that:
+SONiC tests in the [sonic-mgmt](https://github.com/sonic-net/sonic-mgmt) repository currently lack a unified approach for testing gNOI operations. While the existing `tests/gnmi` directory provides gNMI testing capabilities, it suffers from significant complexity and maintenance issues that make it unsuitable as a foundation for gRPC testing.
+
+This design proposes a lightweight gNOI infrastructure that addresses the limitations of existing gRPC testing approaches:
 
 1. **Leverages grpcurl** - Uses the existing grpcurl tool in PTF container
-2. **Handles infrastructure concerns** - Certificate management and PTF integration
+2. **Handles infrastructure concerns** - Certificate management and PTF integration  
 3. **Maintains simplicity** - No proto compilation or Python gRPC dependencies
 4. **Follows sonic-mgmt patterns** - Uses pytest fixtures and PTF container patterns
 5. **Automatic TLS setup** - All gNOI tests use TLS by default without manual configuration
 
 The gNOI protocol defines various service modules including System, File, Certificate, and Diagnostic operations. This design focuses initially on System operations while providing an extensible framework for additional services.
+
+## Problems with Existing gNMI Test Infrastructure
+
+The existing `tests/gnmi` directory demonstrates critical architectural issues that make it unsuitable for reliable test automation:
+
+### 1. Wide Configuration Surface Area
+**Problem**: When you change server configuration (certificate or key files), you must update numerous files across the codebase.
+
+**Evidence:**
+- Certificate paths hardcoded in **14+ files**: `conftest.py`, `gnmi_utils.py`, `gnmi_setup.py`, `helper.py`, and individual test files
+- Port configuration (8080/50052) scattered across: `GNMIEnvironment` class, helper functions, test files
+- Command-line arguments duplicated: The same `nohup` command with `--server_crt`, `--server_key`, `--ca_crt` flags constructed identically in multiple places
+
+```python
+# Typical duplication - same config in multiple files
+dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /etc/sonic/telemetry/gnmiserver.key"
+```
+
+**Impact:** A single certificate path change requires updates across the entire test suite, creating massive maintenance burden.
+
+### 2. Ad Hoc Server Process Management 
+**Critical Problem**: The gNMI server uses `nohup` commands instead of proper service integration, causing complete failure during device operations.
+
+```python
+# From helper.py - problematic ad hoc process management
+dut_command += "\"/usr/bin/nohup /usr/sbin/%s -logtostderr --port %s " % (env.gnmi_process, env.gnmi_port)
+dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt ... >/root/gnmi.log 2>&1 &\""
+```
+
+**Critical Issues:**
+- **Lost run flags**: When you issue `gnoi reboot`, the `nohup` process is completely lost
+- **Manual process control**: Tests use `pkill`/`pgrep` instead of proper service management
+- **No service integration**: Bypasses systemd/supervisor, creating unreliable process state
+- **State inconsistency**: Mix of manually-managed and supervisor-managed processes
+
+### 3. Server Lifecycle Fragility During Reboots
+**Problem**: The infrastructure completely breaks down during device reboots, requiring manual recovery.
+
+```python
+# Explicit workaround comments in test code
+# This is an adhoc workaround because the cert config is cleared after reboot.
+# We should refactor the test to always use the default config.
+apply_cert_config(duthost)
+```
+
+**Critical Issues:**
+- **Configuration loss**: Certificate configuration cleared after every reboot
+- **Manual restart required**: Tests must manually call `apply_cert_config()` after reboots  
+- **Process state loss**: The `nohup` approach loses all process state during device operations
+- **No proper dependency management**: Server doesn't automatically restart with correct configuration
+
+### 4. Systemic Architecture Problems
+**Problem**: The infrastructure bypasses SONiC's proper service management, creating fundamental reliability issues.
+
+**Issues:**
+- **Service management bypass**: Code manually stops supervisor-controlled services and starts ad hoc processes
+- **Resource leaks**: Manual `pkill` commands may not clean up properly
+- **Health check complexity**: Custom process checking instead of using standard service status
+- **Cascading failures**: When any component changes, multiple layers break
+
+```python
+# Example of bypassing proper service management
+dut_command = "docker exec %s supervisorctl stop %s" % (env.gnmi_container, program)
+dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
+```
+
+### 5. Maintainability and Noise Issues
+**Quantified Problems:**
+- **55x code bloat**: 2,684 lines across 22 files vs 49 lines for gNOI approach
+- **Certificate management scattered**: OpenSSL commands duplicated across multiple files
+- **Helper function complexity**: Functions like `apply_cert_config()` span 50+ lines and are duplicated
+- **Manual cleanup everywhere**: Tests must manually clean up certificates, processes, and configuration state
+
+**Result**: The maintenance burden increases exponentially with each new test or configuration change.
+
+## gNOI Approach Advantages
+
+This design eliminates all identified issues through architectural improvements:
+
+```python
+# New gNOI approach - clean and simple
+def test_system_time(ptf_gnoi):
+    """Test System.Time RPC with automatic TLS setup"""
+    result = ptf_gnoi.system_time()
+    assert "time" in result
+    assert "formatted_time" in result
+```
+
+**Key Benefits:**
+- **Zero Protocol Buffer Dependencies**: Uses grpcurl binary, no compilation needed
+- **Automatic Infrastructure**: TLS certificates and server configuration handled transparently  
+- **Single-Line Operations**: Complex gRPC calls reduced to method calls
+- **Built-in Error Handling**: Connection issues handled in wrapper classes
+- **Clean Resource Management**: No manual cleanup or state management required
+
+This architectural approach represents a 55x reduction in code complexity while providing superior maintainability and test authoring experience.
 
 ## Design Philosophy
 
