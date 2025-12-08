@@ -179,7 +179,7 @@ def tear_down(duthost, route, ptfIp, gwIp):
     teardownRouteToPtfhost(duthost, route, ptfIp, gwIp)
 
 
-def testWrArp(request, duthost, ptfhost, creds):
+def wrArp(request, duthost, ptfhost, creds):
     testDuration = request.config.getoption('--test_duration', default=DEFAULT_TEST_DURATION)
     ptfIp = ptfhost.host.options['inventory_manager'].get_host(ptfhost.hostname).vars['ansible_host']
     dutIp = duthost.host.options['inventory_manager'].get_host(duthost.hostname).vars['ansible_host']
