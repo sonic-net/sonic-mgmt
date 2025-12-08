@@ -3,11 +3,10 @@ import pytest
 import re
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.gu_utils import apply_patch, expect_op_failure, expect_op_success
+from tests.common.gu_utils import apply_patch, expect_op_success
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
-from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
 
@@ -40,7 +39,8 @@ def setup_env(duthosts, rand_one_dut_hostname):  # noqa: F811
 
         cur_dns_nameservers = current_dns_nameservers(duthost)
         pytest_assert(cur_dns_nameservers == init_dns_nameservers,
-                      "DNS nameservers {} do not match {}.".format(cur_dns_nameservers, init_dns_nameservers))
+                      "DNS nameservers {} do not match {}.".format(
+                          cur_dns_nameservers, init_dns_nameservers))
     finally:
         delete_checkpoint(duthost)
 
@@ -80,7 +80,9 @@ def add_dns_nameserver(duthost, dns_nameserver):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost,
+                                                 json_data=json_patch,
+                                                 is_host_specific=True)
 
     json_patch_bc = [
         {
@@ -89,7 +91,9 @@ def add_dns_nameserver(duthost, dns_nameserver):
             "value": {}
         }
     ]
-    json_patch_bc = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch_bc, is_host_specific=True)
+    json_patch_bc = format_json_patch_for_multiasic(duthost=duthost,
+                                                    json_data=json_patch_bc,
+                                                    is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
@@ -98,7 +102,8 @@ def add_dns_nameserver(duthost, dns_nameserver):
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         output_original = output
         if output['rc'] != 0:
-            output = apply_patch(duthost, json_data=json_patch_bc, dest_file=tmpfile)
+            output = apply_patch(duthost, json_data=json_patch_bc,
+                                 dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         pytest_assert(
@@ -118,7 +123,9 @@ def remove_dns_nameserver(duthost, dns_nameserver):
             "value": {}
         }
     ]
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_host_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost,
+                                                 json_data=json_patch,
+                                                 is_host_specific=True)
 
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {}".format(tmpfile))
