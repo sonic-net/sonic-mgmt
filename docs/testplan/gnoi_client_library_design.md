@@ -92,27 +92,6 @@ dut_command = "docker exec %s pkill %s" % (env.gnmi_container, env.gnmi_process)
 ```
 
 
-## gNOI Approach Advantages
-
-This design eliminates all identified issues through architectural improvements:
-
-```python
-# New gNOI approach - clean and simple
-def test_system_time(ptf_gnoi):
-    """Test System.Time RPC with automatic TLS setup"""
-    result = ptf_gnoi.system_time()
-    assert "time" in result
-    assert "formatted_time" in result
-```
-
-**Key Benefits:**
-- **Zero Protocol Buffer Dependencies**: Uses grpcurl binary, no compilation needed
-- **Automatic Infrastructure**: TLS certificates and server configuration handled transparently  
-- **Single-Line Operations**: Complex gRPC calls reduced to method calls
-- **Built-in Error Handling**: Connection issues handled in wrapper classes
-- **Clean Resource Management**: No manual cleanup or state management required
-
-This architectural approach represents a 55x reduction in code complexity while providing superior maintainability and test authoring experience.
 
 ## Design Philosophy
 
