@@ -125,6 +125,29 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 
     yield setup_info
 
+    # Cleanup: Remove any BGP Sentinel/Monitor configs that might be left over
+    logger.info("Fixture teardown: Cleaning up BGP configurations")
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all',
+                                  module_ignore_errors=True)
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all',
+                                  module_ignore_errors=True)
+    duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent', module_ignore_errors=True)
+    duthost.file(path='/tmp/bgpmon_v4.json', state='absent', module_ignore_errors=True)
+    duthost.file(path='/tmp/bgpmon_v6.json', state='absent', module_ignore_errors=True)
+
+    # Clean up BGP_MONITORS - need to get the actual IPs
+    try:
+        config_facts_cleanup = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        bgp_monitors = config_facts_cleanup.get('BGP_MONITORS', {})
+        for monitor_ip in bgp_monitors.keys():
+            logger.info("Removing BGP_MONITOR: {}".format(monitor_ip))
+            duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(monitor_ip),
+                                          asic_index='all', module_ignore_errors=True)
+    except Exception as e:
+        logger.warning("Failed to clean up BGP_MONITORS: {}".format(str(e)))
+
+    time.sleep(5)
+
     # verify sessions are established
     wait_until(120, 5, 0, duthost.check_bgp_session_state, list(bgp_neighbors.keys()))
 
@@ -429,22 +452,5 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
     logger.info("Test Completed, waiting for {} seconds to stabilize the system".format(sleep_time))
     time.sleep(sleep_time)
 
-    # Cleanup BGP configurations (only if they were applied)
-    if bgp_features_applied:
-        logger.info("Cleaning up BGPSentinel and BGPMonitor configurations")
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
-        duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
-
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v4), asic_index='all')
-        duthost.file(path='/tmp/bgpmon_v4.json', state='absent')
-
-        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all')
-        duthost.file(path='/tmp/bgpmon_v6.json', state='absent')
-
-        time.sleep(5)
-        logger.info("BGP configurations cleanup completed")
-    else:
-        logger.info("Skipping BGP configuration cleanup (features were not applied)")
-
+    logger.info("Test completed. BGP configurations will be cleaned up in fixture teardown.")
     return
