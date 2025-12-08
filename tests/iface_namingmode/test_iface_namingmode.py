@@ -22,6 +22,31 @@ ESTABLISH_LLDP_NEIGHBOR_TIMEOUT = 90
 QUEUE_COUNTERS_RE_FMT = r'{}\s+[U|M]C|ALL\d\s+\S+\s+\S+\s+\S+\s+\S+'
 
 
+@pytest.fixture
+def ignore_host_lane_count_loganalyzer(enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
+    def wrapper(ignore_condition=False):
+        """
+            Ignore expected failures logs during test execution.
+
+            LAG tests are triggering following syncd complaints but the don't cause
+            harm to DUT.
+
+            Args:
+                duthost: DUT fixture
+                loganalyzer: Loganalyzer utility fixture
+        """
+        if not ignore_condition:
+            return
+        # when loganalyzer is disabled, the object could be None
+        if loganalyzer:
+            ignoreRegex = [
+                (".*ERR pmon#xcvrd.*: no suitable app for the port appl .* host_lane_count [0-9] host_speed.*"),
+            ]
+            loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(ignoreRegex)
+
+    yield wrapper
+
+
 @pytest.fixture(autouse=True)
 def ignore_expected_loganalyzer_exception(duthosts, enum_rand_one_per_hwsku_frontend_hostname, loganalyzer):
     if loganalyzer:
@@ -1014,7 +1039,7 @@ class TestShowVlan():
 
 
 # Tests to be run in t1 topology
-@pytest.mark.topology('t1')
+@pytest.mark.topology('t1', 'lt2', 'ft2')
 class TestConfigInterface():
     def check_speed_change(self, duthost, asic_index, interface, change_speed):
         db_cmd = 'sudo {} CONFIG_DB HGET "PORT|{}" speed'\
@@ -1169,7 +1194,8 @@ class TestConfigInterface():
                       "LLDP neighbor should exist for interface {}".format(test_intf))
 
     def test_config_interface_speed(self, setup_config_mode, sample_intf,
-                                    duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+                                    duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                                    ignore_host_lane_count_loganalyzer):
         """
         Checks whether 'config interface speed <intf> <speed>' sets
         speed of the test interface when its interface alias/name is
@@ -1189,6 +1215,9 @@ class TestConfigInterface():
             supported_speeds.remove(native_speed)
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
+
+        ignore_host_lane_count_loganalyzer(ignore_condition=duthost.facts['hwsku'] in ["Arista-7060X6-64PE-P32O64",
+                                                                                       "Arista-7060X6-64PE-P64"])
 
         if not self.check_speed_change(duthost, asic_index, interface, configure_speed):
             pytest.skip(
@@ -1352,7 +1381,7 @@ def test_show_acl_table(setup, setup_config_mode, tbinfo):
     Checks whether 'show acl table DATAACL' lists the interface names
     as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2']:
+    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
         pytest.skip('Unsupported topology')
 
     if not setup['physical_interfaces']:
@@ -1391,7 +1420,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
     Checks whether 'show interfaces neighbor expected' lists the
     interface names as per the configured naming mode
     """
-    if tbinfo['topo']['type'] not in ['t1', 't2']:
+    if tbinfo['topo']['type'] not in ['t1', 't2', 'lt2', 'ft2']:
         pytest.skip('Unsupported topology')
 
     dutHostGuest, mode, ifmode = setup_config_mode
@@ -1441,7 +1470,7 @@ def test_show_interfaces_neighbor_expected(setup, setup_config_mode, tbinfo, dut
                 )
 
 
-@pytest.mark.topology('t1', 't2')
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 class TestNeighbors():
 
     @pytest.fixture(scope="class", autouse=True)
@@ -1531,7 +1560,7 @@ class TestNeighbors():
                     ).format(addr, detail['interface'], ndp_output)
 
 
-@pytest.mark.topology('t1', 't2')
+@pytest.mark.topology('t1', 't2', 'lt2', 'ft2')
 class TestShowIP():
 
     @pytest.fixture(scope="class", autouse=True)

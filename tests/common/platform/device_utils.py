@@ -19,7 +19,8 @@ from tests.common.mellanox_data import is_mellanox_device
 from tests.common.platform.reboot_timing_constants import SERVICE_PATTERNS, OTHER_PATTERNS, SAIREDIS_PATTERNS, \
     OFFSET_ITEMS, TIME_SPAN_ITEMS, REQUIRED_PATTERNS
 from tests.common.devices.duthosts import DutHosts
-from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa F401
+from tests.common.plugins.ansible_fixtures import ansible_adhoc  # noqa: F401
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 """
 Helper script for fanout switch operations
@@ -52,7 +53,7 @@ FMT_ALT = "%Y-%m-%dT%H:%M:%S.%f%z"
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 IPTABLES_PREPEND_RULE_CMD = 'iptables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
-
+IP6TABLES_PREPEND_RULE_CMD = 'ip6tables -I INPUT 1 -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
 test_report = dict()
 
 
@@ -1080,9 +1081,10 @@ def advanceboot_neighbor_restore(duthosts, enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(scope='function')
-def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, localhost, request):
+def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, duthost_mgmt_ip,  # noqa: F811
+                               localhost, request):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+    dut_ip = duthost_mgmt_ip['mgmt_ip']
 
     res = localhost.wait_for(host=dut_ip,
                              port=SERVER_PORT,
@@ -1097,12 +1099,15 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
         supervisor_conf = [
             '[program:platform_api_server]',
-            'command=/usr/bin/python{} /opt/platform_api_server.py --port {}'.format('3' if py3_platform_api_available
-                                                                                     else '2', SERVER_PORT),
+            'command=/usr/bin/python{} /opt/platform_api_server.py --port {} {}'.format(
+                '3' if py3_platform_api_available else '2',
+                SERVER_PORT,
+                '--ipv6' if duthost_mgmt_ip['version'] == 'v6' else ''),
             'autostart=True',
             'autorestart=True',
             'stdout_logfile=syslog',
             'stderr_logfile=syslog',
+            'startsec=0',
         ]
         dest_path = os.path.join(os.sep, 'tmp', 'platform_api_server.conf')
         pmon_path = os.path.join(os.sep, 'etc', 'supervisor', 'conf.d', 'platform_api_server.conf')
@@ -1116,7 +1121,10 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
         duthost.command('docker cp {} pmon:{}'.format(dest_path, pmon_path))
 
         # Prepend an iptables rule to allow incoming traffic to the HTTP server
-        duthost.command(IPTABLES_PREPEND_RULE_CMD)
+        if duthost_mgmt_ip['version'] == 'v6':
+            duthost.command(IP6TABLES_PREPEND_RULE_CMD)
+        else:
+            duthost.command(IPTABLES_PREPEND_RULE_CMD)
 
         # Reload the supervisor config and Start the HTTP server
         duthost.command('docker exec -i pmon supervisorctl reread')
@@ -1127,9 +1135,8 @@ def start_platform_api_service(duthosts, enum_rand_one_per_hwsku_hostname, local
 
 
 @pytest.fixture(scope='function')
-def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform_api_service):
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    dut_ip = duthost.mgmt_ip
+def platform_api_conn(duthost_mgmt_ip, start_platform_api_service):  # noqa: F811
+    dut_ip = duthost_mgmt_ip['mgmt_ip']
 
     conn = http.client.HTTPConnection(dut_ip, 8000)
     try:
@@ -1140,7 +1147,7 @@ def platform_api_conn(duthosts, enum_rand_one_per_hwsku_hostname, start_platform
 
 @pytest.fixture(scope='module')
 def add_platform_api_server_port_nat_for_dpu(
-        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa F811
+        ansible_adhoc, tbinfo, request, duthosts, enum_rand_one_per_hwsku_hostname):  # noqa: F811
     '''
     This fixture is used to add a NAT rule to the DPU's eth0-midplane interface
     to forward traffic from NPU to the platform API server on DPU.
@@ -1168,7 +1175,7 @@ def add_platform_api_server_port_nat_for_dpu(
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
 
 
-def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
+def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa: F811
     host = ansible_adhoc(become=True, args=[], kwargs={})[duthost.hostname]
     vm = host.options["inventory_manager"].get_host(duthost.hostname).vars
     ansible_ssh_port = vm.get("ansible_ssh_port", None)
@@ -1176,7 +1183,7 @@ def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa F811
     return ansible_ssh_port
 
 
-def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): # noqa F811
+def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost):  # noqa: F811
     '''
     Create a NPU host object based on DPU info
     E.g
@@ -1200,3 +1207,96 @@ def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost): 
         pytest.fail('No NPU host found in testbed')
     npu_host = DutHosts(ansible_adhoc, tbinfo, request, npu_host_name)[0]
     return npu_host
+
+
+def get_dpu_ip(duthost, dpu_index):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logging.error("Failed to retrieve config_facts from DUT")
+        return None
+
+    dhcp_server_ipv4_port = config_facts.get('DHCP_SERVER_IPV4_PORT', {})
+    if not dhcp_server_ipv4_port:
+        logging.error("DHCP_SERVER_IPV4_PORT not found in config_facts")
+        return None
+
+    # Navigate through the nested structure: bridge-midplane -> dpu{index} -> ips
+    bridge_midplane = dhcp_server_ipv4_port.get('bridge-midplane', {})
+    if not bridge_midplane:
+        logging.error("bridge-midplane not found in DHCP_SERVER_IPV4_PORT")
+        return None
+
+    dpu_config = bridge_midplane.get('dpu{}'.format(dpu_index), {})
+    if not dpu_config:
+        logging.error("dpu{} not found in bridge-midplane".format(dpu_index))
+        return None
+
+    ips = dpu_config.get('ips', [])
+    if not ips:
+        logging.error("IP address not found in config_facts for dpu_index {}".format(dpu_index))
+        return None
+
+    # Take the first IP and remove any CIDR notation
+    ip = ips[0]
+    return ip.split('/')[0]
+
+
+def get_dpu_port(duthost, dpu_index):
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if not config_facts:
+        logger.error("Failed to retrieve config_facts from DUT")
+        return None
+
+    dpu_section = config_facts.get('DPU', {})
+    if not dpu_section:
+        logger.error("DPU section not found in config_facts")
+        return None
+
+    dpu_key = 'dpu{}'.format(dpu_index)
+    # Check if the DPU exists in the configuration
+    if dpu_key not in dpu_section:
+        logger.error("DPU '{}' not found in config_facts. Available DPUs: {}".format(
+            dpu_key, list(dpu_section.keys())))
+        return None
+
+    dpu_config = dpu_section[dpu_key]
+    port = dpu_config.get('gnmi_port', None)
+    if port is None:
+        logger.error("gnmi_port not found in config_facts for dpu_index {}".format(dpu_index))
+        return None
+    return port
+
+
+def check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index):
+    # Check DPU ping status
+    logging.info("Checking DPU ping status")
+    dpu_ip = get_dpu_ip(duthost, dpu_index)
+    if not dpu_ip:
+        logging.error(f"Failed to retrieve IP address for DPU {dpuhost_name}")
+        return False
+
+    ping_status = duthost.command(f"ping -c 3 {dpu_ip}", module_ignore_errors=True)
+    if ping_status['rc'] != 0:
+        logging.error(f"Failed to ping DPU {dpuhost_name} at IP {dpu_ip}")
+        return False
+    return True
+
+
+def reboot_dpu_and_wait_for_start_up(duthost, dpuhost_name, dpu_index):
+    logging.info(f"Rebooting DPU {dpuhost_name} (DPU index: {dpu_index})")
+    reboot_status = duthost.command(f"sudo reboot -d dpu{dpu_index}")
+    if reboot_status['rc'] != 0:
+        logging.error(f"Failed to initiate reboot for DPU {dpuhost_name} (DPU index: {dpu_index}). "
+                      f"Command output: {reboot_status}")
+        return False
+
+    logging.info(f"DPU {dpuhost_name} (DPU index: {dpu_index}) reboot initiated successfully")
+
+    # Wait until the system is back up
+    wait_until(180, 15, 0, check_dpu_reachable_from_npu, duthost, dpuhost_name, dpu_index)
+    is_dpu_reachable = check_dpu_reachable_from_npu(duthost, dpuhost_name, dpu_index)
+    if not is_dpu_reachable:
+        logging.error(f"DPU {dpuhost_name} (DPU index: {dpu_index}) is not reachable from NPU after reboot")
+        return False
+
+    return True

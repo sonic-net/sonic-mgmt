@@ -131,7 +131,8 @@ def duthost_bgp_config(duthost,
         "sudo config interface ip add PortChannel1 %s/%s\n"
     )
     tx_portchannel_config %= (tgen_ports[0]['peer_port'], tgen_ports[0]
-                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'], 64)
+                              ['peer_ip'], tgen_ports[0]['prefix'], tgen_ports[0]['peer_ipv6'],
+                              tgen_ports[0]['ipv6_prefix'])
     logger.info('Configuring %s to PortChannel1 with IPs %s,%s' % (
         tgen_ports[0]['peer_port'], tgen_ports[0]['peer_ip'], tgen_ports[0]['peer_ipv6']))
     duthost.shell(tx_portchannel_config)
@@ -147,7 +148,7 @@ def duthost_bgp_config(duthost,
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
                   (tgen_ports[1]['peer_ip'], tgen_ports[1]['prefix']))
     duthost.shell("sudo config interface ip add PortChannel2 %s/%s \n" %
-                  (tgen_ports[1]['peer_ipv6'], 64))
+                  (tgen_ports[1]['peer_ipv6'], tgen_ports[1]['ipv6_prefix']))
     bgp_config = (
         "vtysh "
         "-c 'configure terminal' "

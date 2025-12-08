@@ -237,7 +237,6 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="dhcpmon counter")
                 marker = loganalyzer.init()
                 loganalyzer.expect_regex = [expected_agg_counter_message]
-
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -268,21 +267,21 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
-                dhcy_relay_request_times = 2
+                dhcp_relay_request_times = 2
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
-                    dhcy_relay_request_times = 1
+                    dhcp_relay_request_times = 1
                     # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
                     validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
-                    "RX": {"Unknown": 1, "Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1,
+                    "RX": {"Unknown": 1, "Discover": 1, "Request": dhcp_relay_request_times, "Bootp": 1,
                            "Decline": 1, "Release": 1, "Inform": 1},
                     "TX": {"Unknown": 1, "Ack": 1, "Offer": 1, "Nak": 1}
                 }
                 expected_uplink_counter = {
                     "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1},
                     "TX": {"Unknown": dhcp_server_sum, "Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
-                           "Request": dhcp_server_sum * dhcy_relay_request_times, "Inform": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcp_relay_request_times, "Inform": dhcp_server_sum,
                            "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
                 validate_dhcpcom_relay_counters(dhcp_relay, duthost,
@@ -378,21 +377,21 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                 time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
                 loganalyzer.analyze(marker)
                 dhcp_server_sum = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
-                dhcy_relay_request_times = 2
+                dhcp_relay_request_times = 2
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
-                    dhcy_relay_request_times = 1
+                    dhcp_relay_request_times = 1
                     # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
                     validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
-                    "RX": {"Unknown": 1, "Discover": 1, "Request": dhcy_relay_request_times, "Bootp": 1,
+                    "RX": {"Unknown": 1, "Discover": 1, "Request": dhcp_relay_request_times, "Bootp": 1,
                            "Decline": 1, "Release": 1, "Inform": 1},
                     "TX": {"Unknown": 1, "Ack": 1, "Offer": 1, "Nak": 1}
                 }
                 expected_uplink_counter = {
                     "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1},
                     "TX": {"Unknown": dhcp_server_sum, "Bootp": dhcp_server_sum, "Discover": dhcp_server_sum,
-                           "Request": dhcp_server_sum * dhcy_relay_request_times, "Inform": dhcp_server_sum,
+                           "Request": dhcp_server_sum * dhcp_relay_request_times, "Inform": dhcp_server_sum,
                            "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
                 validate_dhcpcom_relay_counters(dhcp_relay, duthost,
@@ -592,6 +591,7 @@ def test_dhcp_relay_random_sport(ptfhost, dut_dhcp_relay_data, validate_dut_rout
                              .format(dhcp_relay["downlink_vlan_iface"]["name"])),
                    is_python3=True)
 
+
 def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_config, rand_unselected_dut):     # noqa F811
     """
     Test the dhcp relay function on dual tor standby host
@@ -672,3 +672,64 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
     restart_dhcp_service(standby_duthost)
     pytest_assert(wait_until(120, 5, 0, check_interface_status, standby_duthost))
     pytest_assert(wait_until(120, 5, 0, check_interface_status, duthost))
+
+
+def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, validate_dut_routes_exist, testing_config,
+                            setup_standby_ports_on_rand_unselected_tor,												# noqa F811
+                            rand_unselected_dut):     # noqa F811
+    """Test DHCP relay functionality on T0 topology.
+       For each DHCP relay agent running on the DuT, verify DHCP packets are relayed properly
+    """
+
+    testing_mode, duthost = testing_config
+
+    try:
+        for dhcp_relay in dut_dhcp_relay_data:
+            if testing_mode == DUAL_TOR_MODE:
+                standby_duthost = rand_unselected_dut
+                start_dhcp_monitor_debug_counter(standby_duthost)
+                init_dhcpcom_relay_counters(standby_duthost)
+            start_dhcp_monitor_debug_counter(duthost)
+            init_dhcpcom_relay_counters(duthost)
+            # Run the DHCP relay test on the PTF host
+            ptf_runner(ptfhost,
+                       "ptftests",
+                       "dhcp_relay_test.DHCPInvalidChecksumTest",
+                       platform_dir="ptftests",
+                       params={"hostname": duthost.hostname,
+                               "client_port_index": dhcp_relay['client_iface']['port_idx'],
+                               # This port is introduced to test DHCP relay packet received
+                               # on other client port
+                               "other_client_port": repr(dhcp_relay['other_client_ports']),
+                               "client_iface_alias": str(dhcp_relay['client_iface']['alias']),
+                               "leaf_port_indices": repr(dhcp_relay['uplink_port_indices']),
+                               "num_dhcp_servers": len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs']),
+                               "server_ip": dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'],
+                               "relay_iface_ip": str(dhcp_relay['downlink_vlan_iface']['addr']),
+                               "relay_iface_mac": str(dhcp_relay['downlink_vlan_iface']['mac']),
+                               "relay_iface_netmask": str(dhcp_relay['downlink_vlan_iface']['mask']),
+                               "dest_mac_address": BROADCAST_MAC,
+                               "client_udp_src_port": DEFAULT_DHCP_CLIENT_PORT,
+                               "switch_loopback_ip": dhcp_relay['switch_loopback_ip'],
+                               "uplink_mac": str(dhcp_relay['uplink_mac']),
+                               "testing_mode": testing_mode,
+                               "kvm_support": True},
+                       log_file=("/tmp/dhcp_relay_test.DHCPTest.default.{}.log"
+                                 .format(dhcp_relay["downlink_vlan_iface"]["name"])),
+                       is_python3=True)
+            time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
+            if testing_mode == DUAL_TOR_MODE:
+                # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
+                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+            expected_downlink_counter = {
+                "RX": {"Malformed": 4}
+            }
+            expected_uplink_counter = {
+                "RX": {"Malformed": 3}
+            }
+            validate_dhcpcom_relay_counters(dhcp_relay, duthost,
+                                            expected_uplink_counter,
+                                            expected_downlink_counter)
+    except LogAnalyzerError as err:
+        logger.error("Unable to find expected log in syslog")
+        raise err

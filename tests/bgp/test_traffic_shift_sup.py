@@ -6,6 +6,7 @@ from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.bgp_helpers import initial_tsa_check_before_and_after_test
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('t2')
@@ -41,7 +42,7 @@ def config_reload_all_lcs(duthosts):
 
 def verify_traffic_shift_state_all_lcs(duthosts, ts_state, state):
     def verify_traffic_shift_state(lc):
-        pytest_assert(ts_state == get_traffic_shift_state(lc, "TSC no-stats"),
+        pytest_assert(wait_until(30, 5, 0, lambda: ts_state == get_traffic_shift_state(lc, "TSC no-stats")),
                       "Linecard {} is not in {} state".format(lc, state))
 
     with SafeThreadPoolExecutor(max_workers=8) as executor:

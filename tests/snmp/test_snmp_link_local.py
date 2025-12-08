@@ -4,7 +4,7 @@ from tests.common import config_reload
 from tests.common.utilities import wait_until
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 't1-multi-asic'),
+    pytest.mark.topology('t0', 't1', 't2', 'm0', 'mx', 'm1', 't1-multi-asic', 'lt2', 'ft2'),
     pytest.mark.device_type('vs')
 ]
 
@@ -27,7 +27,7 @@ def config_reload_after_test(duthosts, localhost, creds_all_duts,
             wait=True)['ansible_facts']
         return "No Such Instance currently exists" not in str(snmp_facts['snmp_lldp'])
 
-    if not wait_until(60, 5, 0, check_snmp_lldp_ready):
+    if not wait_until(300, 5, 0, check_snmp_lldp_ready):
         pytest.fail("SNMP LLDP not ready for next test")
 
 

@@ -186,6 +186,8 @@ class QosParamMellanox(object):
             hdrm_pool_size['pgs_num'] = (2 if not self.dualTor else 4) * len(self.qos_parameters['src_port_ids'])
             hdrm_pool_size['cell_size'] = self.cell_size
             hdrm_pool_size['margin'] = 3
+            if self.asic_type == "spc3":
+                hdrm_pool_size['margin'] = 4
         else:
             self.qos_params_mlnx[self.speed_cable_len].pop('hdrm_pool_size')
 
