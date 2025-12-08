@@ -344,7 +344,7 @@ def test_buffer_profile_add_remove_rollback(
             duthost=duthost, json_data=json_patch,
             is_asic_specific=True, asic_namespaces=[namespace])
         output = apply_patch(duthost, json_data=json_patch,
-                           dest_file=tmpfile)
+                             dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         # Step 3: Change cable length
@@ -359,7 +359,7 @@ def test_buffer_profile_add_remove_rollback(
             duthost=duthost, json_data=json_patch,
             is_asic_specific=True, asic_namespaces=[namespace])
         output = apply_patch(duthost, json_data=json_patch,
-                           dest_file=tmpfile)
+                             dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         # Step 4: Startup interface
@@ -374,7 +374,7 @@ def test_buffer_profile_add_remove_rollback(
             duthost=duthost, json_data=json_patch,
             is_asic_specific=True, asic_namespaces=[namespace])
         output = apply_patch(duthost, json_data=json_patch,
-                           dest_file=tmpfile)
+                             dest_file=tmpfile)
         expect_op_success(duthost, output)
 
         import time
@@ -385,7 +385,7 @@ def test_buffer_profile_add_remove_rollback(
             new_profile_name))
         pytest_assert(
             wait_until(30, 5, 0,
-                      lambda: check_profile_exists(new_profile_name, True)),
+                       lambda: check_profile_exists(new_profile_name, True)),
             "New buffer profile {} was not generated".format(
                 new_profile_name)
         )
@@ -411,7 +411,7 @@ def test_buffer_profile_add_remove_rollback(
             new_profile_name))
         pytest_assert(
             wait_until(30, 5, 0,
-                      lambda: check_profile_exists(new_profile_name, False)),
+                       lambda: check_profile_exists(new_profile_name, False)),
             "Buffer profile {} was not removed after rollback".format(
                 new_profile_name)
         )
