@@ -1,9 +1,16 @@
 parameters:
+  - name: BUILD_BRANCH
+    type: string
+    default: 'master'
   - name: TARGET_BRANCH
     type: string
     default: 'origin/master'
   - name: SOURCE_BRANCH
     type: string
+    default: ''
+  - name: IMPACT_AREA_INFO
+    type: object
+    default: {}
 
 steps:
 - script: |
