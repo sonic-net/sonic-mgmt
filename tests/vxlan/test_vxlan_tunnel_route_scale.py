@@ -297,7 +297,7 @@ def vxlan_scale_setup_teardown(duthosts, rand_one_dut_hostname, ptfhost, tbinfo,
         cfg_facts = json.loads(duthost.shell("sonic-cfggen -d --print-data")["stdout"])
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
         num_vnets = scaled_vnet_params.get("num_vnet") or 5
-        routes_per_vnet = scaled_vnet_params.get("num_routes") or 100
+        routes_per_vnet = scaled_vnet_params.get("num_routes") or 10000
         vnet_base = 10000
         duts_map = tbinfo["duts_map"]
         dut_indx = duts_map[duthost.hostname]
@@ -352,3 +352,87 @@ def test_vxlan_scale_traffic(vxlan_scale_setup_teardown, ptfhost):
     )
 
     logger.info("VXLAN traffic test completed successfully")
+
+
+def test_vxlan_scale_mac_vni(vxlan_scale_setup_teardown, ptfhost):
+    setup, duthost = vxlan_scale_setup_teardown
+
+    programmed_mac = "52:54:00:12:34:56"
+
+    logger.info("Programming MAC+VNI overrides for each VNET (per-VNET test).")
+
+    # Program one /32 per VNET with MAC + shifted VNI
+    for vnet_name, mapping in setup["vnet_ptf_map"].items():
+        vnet_id = mapping["vnet_id"]
+        prefix = f"30.{vnet_id}.0.1/32"
+        endpoint = setup["ptf_vtep"]
+        vni = setup["vnet_base"] + vnet_id + 1
+
+        logger.info(f"Updating {vnet_name} route {prefix}, vni={vni}, mac={programmed_mac}")
+
+        duthost.shell(
+            f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet_name}|{prefix}' "
+            f"endpoint '{endpoint}' vni '{vni}' mac_address '{programmed_mac}'"
+        )
+
+    # Run PTF in MAC+VNI mode
+    ptf_params = {
+        **setup,
+        "mac_vni_per_vnet": "yes",
+        "mac_address": programmed_mac,
+    }
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "vxlan_traffic_scale.VXLANScaleTest",
+        platform_dir="ptftests",
+        params=ptf_params,
+        log_file="/tmp/vxlan_scale_macvni.log",
+        is_python3=True
+    )
+
+    logger.info("MAC+VNI per-VNET test completed successfully.")
+
+
+def test_vxlan_scale_config_reload(vxlan_scale_setup_teardown, ptfhost, duthosts, rand_one_dut_hostname):
+    setup_params, duthost = vxlan_scale_setup_teardown
+    logger.info("Running VXLAN scale config reload test")
+
+    num_vnets = setup_params["num_vnets"]
+    routes_per_vnet = setup_params["routes_per_vnet"]
+
+    logger.info("Saving config before reload...")
+    duthost.shell("config save -y")
+    time.sleep(10)
+    logger.info("Performing config reload...")
+    duthost.shell("config reload -y")
+    time.sleep(10)
+
+    logger.info("Waiting for VNET routes to repopulate STATE_DB after reload (max 120s)")
+    ready = wait_until(
+        120, 30, 0,
+        all_vnet_routes_in_state_db,
+        duthost,
+        num_vnets,
+        routes_per_vnet
+    )
+
+    if not ready:
+        pytest.fail("State DB VNET routes failed to repopulate after config reload")
+
+    logger.info("All VNET routes restored in STATE_DB after reload")
+    logger.info("Running PTF traffic after config reload")
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "vxlan_traffic_scale.VXLANScaleTest",
+        platform_dir="ptftests",
+        params=setup_params,
+        qlen=1000,
+        log_file="/tmp/vxlan_traffic_scale_reload.log",
+        is_python3=True
+    )
+
+    logger.info("VXLAN scale config-reload test PASSED")
