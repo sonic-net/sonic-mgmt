@@ -61,6 +61,7 @@ class TestbedInfo(object):
             # create yaml testbed file
             self.dump_testbeds_to_yaml()
         self.parse_topo()
+        self._normalize_topo_names()
 
     def _cidr_to_ip_mask(self, network):
         addr = ipaddress.IPNetwork(network)
@@ -395,6 +396,13 @@ class TestbedInfo(object):
                 tb['topo']['ptf_map'] = self.calculate_ptf_index_map(tb)
                 tb['topo']['ptf_map_disabled'] = self.calculate_ptf_index_map_disabled(tb)
                 tb['topo']['ptf_dut_intf_map'] = self.calculate_ptf_dut_intf_map(tb)
+
+    def _normalize_topo_names(self):
+        """Normalize topology names by removing the '-vpp' suffix if present."""
+        for tb_name, tb in list(self.testbed_topo.items()):
+            topo_name = tb["topo"]["name"]
+            if topo_name.endswith("-vpp"):
+                tb["topo"]["name"] = topo_name[:-4]  # Remove the last 4 characters ("-vpp")
 
 
 if __name__ == "__main__":
