@@ -2087,18 +2087,18 @@
   auto_recover: 'True'
   comment: janetcui
 
-- conf-name: vms91-t1-sn5640-4
-  group-name: vms91-2
-  topo: t1-isolated-d56u1-lag
+- conf-name: vms97-t1-sn5640-1
+  group-name: vms97-1
+  topo: t1-isolated-d448u15-lag
   ptf_image_name: docker-ptf
-  ptf: vms91-2
+  ptf: vms97-1
   ptf_ip: 10.64.247.150/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f796/64
-  server: server_91
-  vm_base: VM91034
+  server: server_97
+  vm_base: VM97000
   dut:
-  - str5-sn5640-4
-  inv_name: str5
+  - str4-sn5640-6
+  inv_name: str4
   auto_recover: 'True'
   comment: janetcui
 
