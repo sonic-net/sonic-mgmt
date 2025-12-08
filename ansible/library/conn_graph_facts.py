@@ -161,6 +161,7 @@ def main():
             group=dict(required=False),
             anchor=dict(required=False, type='list'),
             ignore_errors=dict(required=False, type='bool', default=False),
+            ansible_port=dict(required=False, type='int', default=22)
         ),
         mutually_exclusive=[['host', 'hosts', 'anchor']],
         supports_check_mode=True
