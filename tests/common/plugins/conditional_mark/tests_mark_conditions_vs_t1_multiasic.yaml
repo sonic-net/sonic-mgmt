@@ -318,6 +318,11 @@ packet_trimming/test_packet_trimming_symmetric.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+pc/test_po_cleanup:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't1-8-lag' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 pfcwd/test_pfcwd_cli.py:
   skip:
     conditions:
