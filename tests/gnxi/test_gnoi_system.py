@@ -20,5 +20,5 @@ def test_system_time(ptf_gnoi):
     """Test System.Time RPC with TLS enabled by default."""
     result = ptf_gnoi.system_time()
     assert "time" in result
-    assert "formatted_time" in result
-    logger.info(f"System time: {result['formatted_time']}")
+    assert isinstance(result["time"], int)
+    logger.info(f"System time: {result['time']} nanoseconds since epoch")

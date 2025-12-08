@@ -8,7 +8,6 @@ gRPC complexity behind clean, Pythonic method interfaces.
 import base64
 import logging
 import os
-from datetime import datetime
 from typing import Dict, List, Optional, Union
 
 logger = logging.getLogger(__name__)
@@ -38,9 +37,8 @@ class PtfGnoi:
         Get the current system time from the device.
         
         Returns:
-            Dictionary containing time information:
-            - time: Nanoseconds since Unix epoch (string)
-            - formatted_time: Human-readable timestamp (added by wrapper)
+            Dictionary containing:
+            - time: Nanoseconds since Unix epoch (int)
             
         Raises:
             GrpcConnectionError: If connection fails
@@ -52,18 +50,13 @@ class PtfGnoi:
         # Make the low-level gRPC call
         response = self.grpc_client.call_unary("gnoi.system.System", "Time")
         
-        # Add human-readable formatting
+        # Convert time string to int for consistency
         if "time" in response:
             try:
-                # Convert nanoseconds to seconds for Python datetime
-                time_ns = int(response["time"])
-                time_seconds = time_ns / 1_000_000_000
-                formatted_time = datetime.fromtimestamp(time_seconds).isoformat()
-                response["formatted_time"] = formatted_time
-                logger.debug(f"System time: {response['time']} ns ({formatted_time})")
+                response["time"] = int(response["time"])
+                logger.debug(f"System time: {response['time']} ns")
             except (ValueError, TypeError) as e:
-                logger.warning(f"Failed to format time {response['time']}: {e}")
-                # Don't fail the call, just skip formatting
+                logger.warning(f"Failed to convert time to int: {e}")
         
         return response
     
@@ -94,28 +87,16 @@ class PtfGnoi:
         try:
             response = self.grpc_client.call_unary("gnoi.file.File", "Stat", request)
             
-            # Add human-readable information if stats are present
-            if "stats" in response:
-                stats = response["stats"]
-                
-                # Convert timestamps to readable format
-                for time_field in ["last_modified", "last_access"]:
-                    if time_field in stats and stats[time_field]:
-                        try:
-                            time_ns = int(stats[time_field])
-                            time_seconds = time_ns / 1_000_000_000
-                            readable_time = datetime.fromtimestamp(time_seconds).isoformat()
-                            stats[f"{time_field}_formatted"] = readable_time
-                        except (ValueError, TypeError) as e:
-                            logger.warning(f"Failed to format {time_field}: {e}")
-                
-                # Add readable permissions if present
-                if "permissions" in stats:
-                    try:
-                        perms = int(stats["permissions"])
-                        stats["permissions_octal"] = oct(perms)
-                    except (ValueError, TypeError) as e:
-                        logger.warning(f"Failed to format permissions: {e}")
+            # Convert numeric strings to proper types for consistency
+            if "stats" in response and isinstance(response["stats"], list):
+                for stat in response["stats"]:
+                    # Convert numeric fields from strings to integers
+                    for field in ["last_modified", "permissions", "size", "umask"]:
+                        if field in stat:
+                            try:
+                                stat[field] = int(stat[field])
+                            except (ValueError, TypeError) as e:
+                                logger.warning(f"Failed to convert {field} to int: {e}")
             
             logger.info(f"Successfully got file stats: {remote_file}")
             return response
