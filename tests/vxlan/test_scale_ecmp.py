@@ -45,13 +45,20 @@ def apply_chunk(duthost, payload, name):
     duthost.shell(f"sonic-cfggen -j {dest} --write-to-db")
 
 
-def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni):
-    logger.info(f"Updating VNET_ROUTE_TUNNEL {vnet}|{prefix} with {len(endpoints)} endpoints")
+def _update_vxlan_endpoints(duthost, vnet, prefix, endpoints, vni, mac_address=None):
     ep_str = ",".join(endpoints)
-    duthost.shell(
+    logger.info(
+        f"Updating VNET_ROUTE_TUNNEL {vnet}|{prefix} "
+        f"with {len(endpoints)} endpoints, vni={vni}, mac={mac_address}"
+    )
+    cmd = (
         f"sonic-db-cli CONFIG_DB hmset 'VNET_ROUTE_TUNNEL|{vnet}|{prefix}' "
         f"endpoint '{ep_str}' vni '{vni}'"
     )
+    if mac_address:
+        cmd += f" mac_address '{mac_address}'"
+
+    duthost.shell(cmd)
     time.sleep(3)
 
 
@@ -174,7 +181,7 @@ def one_vnet_setup_teardown(
         dut_indx = duts_map[duthost.hostname]
         vxlan_port = request.config.option.vxlan_port
 
-        num_endpoints = scaled_vnet_params.get("num_endpoints", 128) or 128
+        num_endpoints = scaled_vnet_params.get("num_endpoints", 511) or 511
         setup_params = vxlan_setup_one_vnet(duthost, ptfhost, tbinfo, cfg_facts,
                                             config_facts, dut_indx, vxlan_port)
         setup_params["num_endpoints"] = int(num_endpoints)
@@ -254,4 +261,48 @@ def test_ecmp_scale(ptfhost, one_vnet_setup_teardown):
         endpoints,
         setup,
         num_packets=num_packets,
+    )
+
+
+def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
+    """
+    Verify that mac_address + vni in VNET_ROUTE_TUNNEL_TABLE
+    are applied by DUT in the VXLAN encapsulated packet.
+    """
+
+    setup, duthost, _ = one_vnet_setup_teardown
+
+    endpoint = "100.0.50.10"
+    programmed_mac = "52:54:00:12:34:56"
+    vni = 5001
+
+    logger.info("Programming VNET route with MAC + VNI fields")
+
+    _update_vxlan_endpoints(
+        duthost,
+        VNET_NAME,
+        PREFIX,
+        [endpoint],
+        vni,
+        mac_address=programmed_mac
+    )
+
+    ptf_params = setup.copy()
+    ptf_params.update({
+        "endpoints": [endpoint],
+        "mac_address": programmed_mac,
+        "vni": vni,
+        "num_packets": 1,
+        "mac_vni_verify": "yes",
+    })
+
+    logger.info("Calling PTF for mac+vni verification")
+
+    ptf_runner(
+        ptfhost,
+        "ptftests",
+        "vxlan_ecmp_ptftest.VxlanEcmpTest",
+        platform_dir="ptftests",
+        params=ptf_params,
+        log_file="/tmp/vxlan_macvni_test.log",
     )
