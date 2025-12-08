@@ -1,4 +1,3 @@
-import json
 import logging
 from pathlib import Path
 from collections import defaultdict
@@ -17,12 +16,12 @@ from common.ha.smartswitch_ha_helper import (
 
 from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
 
-from common.ha.smartswitch_ha_gnmi_utils import (
-    ha_gnmi_apply_config,
-    generate_gnmi_cert,
-    apply_gnmi_cert,
-)
 
+from tests.common.ha.smartswitch_ha_gnmi_utils import (
+        apply_ha_config_from_files,
+        generate_gnmi_cert,
+        apply_gnmi_cert
+        )
 logger = logging.getLogger(__name__)
 
 
@@ -139,7 +138,7 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
 
 
 @pytest.fixture(scope="module")
-def apply_ha_config(duthosts, localhost, ptfhost):
+def ha_gnmi_apply_config(duthosts, localhost, ptfhost):
     """
     Independent fixture that:
 
@@ -163,34 +162,11 @@ def apply_ha_config(duthosts, localhost, ptfhost):
     logger.info("========== APPLY GNMI CERTS TO DUT + PTF ==========")
     apply_gnmi_cert(duthost, ptfhost)
 
-    logger.info("========== LOADING HA JSON CONFIG FILES ==========")
-    tests_root = Path(__file__).parents[1]
-    base_path = tests_root / "common" / "ha"
-    ha_set_path = base_path / "dash_ha_set_dpu_config_table.json"
-    ha_scope_path = base_path / "dash_ha_scope_config_table.json"
+    logger.info("=== APPLYING SMARTSWITCH HA CONFIG TO ALL DUTs ===")
 
-    if not ha_set_path.exists() or not ha_scope_path.exists():
-        raise FileNotFoundError(f"Missing HA config JSONs under: {base_path}")
+    for dut in duthosts:
+        logger.info(f"--- Applying HA config to {dut.hostname} ---")
+        apply_ha_config_from_files(dut, ptfhost)
 
-    with open(ha_set_path) as f:
-        ha_set_json = json.load(f)
-
-    with open(ha_scope_path) as f:
-        ha_scope_json = json.load(f)
-
-    logger.info("========== APPLYING HA CONFIG VIA GNMI ==========")
-
-    ha_gnmi_apply_config(
-        duthost=duthost,
-        ptfhost=ptfhost,
-        ha_set_json=ha_set_json,
-        ha_scope_json=ha_scope_json,
-    )
-
-    logger.info("========== HA CONFIG APPLIED SUCCESSFULLY ==========")
-
-    # Return something only if needed by future tests
-    return {
-        "ha_set": ha_set_json,
-        "ha_scope": ha_scope_json,
-    }
+    logger.info("=== HA CONFIG APPLIED TO BOTH DUTs ===")
+    yield

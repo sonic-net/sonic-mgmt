@@ -225,39 +225,104 @@ def parse_ip_prefix(ip_prefix_str):
 def json_to_proto(key: str, proto_dict: dict):
     """
     Custom parser for DASH configs to allow writing configs
-    in a more human-readable format
+    in a more human-readable format.
+    Converts JSON → protobuf bytes.
     """
+
     table_name = re.search(r"DASH_(\w+)_TABLE", key).group(1)
+
+    # Special handler for ROUTING_TYPE
     if table_name == "ROUTING_TYPE":
         pb = routing_type_from_json(proto_dict)
         return pb.SerializeToString()
 
+    # Load the PB message type
     message = get_message_from_table_name(table_name)
     field_map = message.DESCRIPTOR.fields_by_name
     new_dict = {}
-    for key, value in proto_dict.items():
-        if field_map[key].type == field_map[key].TYPE_MESSAGE:
 
-            if field_map[key].message_type.name == "IpAddress":
-                new_dict[key] = parse_ip_address(value)
-            elif field_map[key].message_type.name == "IpPrefix":
-                new_dict[key] = parse_ip_prefix(value)
-            elif field_map[key].message_type.name == "Guid":
-                new_dict[key] = parse_guid(value)
+    for field_name, value in proto_dict.items():
+        field = field_map[field_name]
 
-        elif field_map[key].type == field_map[key].TYPE_ENUM:
-            new_dict[key] = get_enum_type_from_str(field_map[key].enum_type.name, value)
-        elif field_map[key].type == field_map[key].TYPE_BOOL:
-            new_dict[key] = value == 'true'
+        # ============================================================
+        # MESSAGE FIELDS (IpAddress, IpPrefix, Guid, etc.)
+        # ============================================================
+        if field.type == field.TYPE_MESSAGE:
 
-        elif field_map[key].type == field_map[key].TYPE_BYTES:
-            new_dict[key] = parse_byte_field(value)
+            # REPEATED message
+            if field.label == field.LABEL_REPEATED:
+                new_list = []
+                for item in value:
+                    if field.message_type.name == "IpAddress":
+                        new_list.append(parse_ip_address(item))
+                    elif field.message_type.name == "IpPrefix":
+                        new_list.append(parse_ip_prefix(item))
+                    elif field.message_type.name == "Guid":
+                        new_list.append(parse_guid(item))
+                    else:
+                        new_list.append(item)
+                new_dict[field_name] = new_list
+                continue
 
-        elif field_map[key].type in PB_INT_TYPES:
-            new_dict[key] = int(value)
+            # SINGLE message field
+            if field.message_type.name == "IpAddress":
+                new_dict[field_name] = parse_ip_address(value)
+            elif field.message_type.name == "IpPrefix":
+                new_dict[field_name] = parse_ip_prefix(value)
+            elif field.message_type.name == "Guid":
+                new_dict[field_name] = parse_guid(value)
+            else:
+                new_dict[field_name] = value
 
-        if key not in new_dict:
-            new_dict[key] = value
+            continue
 
+        # ============================================================
+        # ENUM FIELDS (HaScope, HaRole, HaOwner, etc.)
+        # ============================================================
+        if field.type == field.TYPE_ENUM:
+            enum_type = field.enum_type.name  # Example: "HaScope"
+
+            # Convert CamelCase → HA_SCOPE
+            parts = re.findall(r'[A-Z][a-z]*', enum_type)
+            enum_prefix = '_'.join(parts).upper()  # "HA_SCOPE"
+
+            # User may pass full or short value
+            # Example: "dpu" → HA_SCOPE_DPU
+            if value.upper().startswith(enum_prefix):
+                enum_name = value.upper()
+            else:
+                enum_name = f"{enum_prefix}_{value.upper()}"
+
+            enum_class = globals()[enum_type]
+            new_dict[field_name] = enum_class.Value(enum_name)
+            continue
+
+        # ============================================================
+        # BOOL
+        # ============================================================
+        if field.type == field.TYPE_BOOL:
+            new_dict[field_name] = bool(value)
+            continue
+
+        # ============================================================
+        # BYTES
+        # ============================================================
+        if field.type == field.TYPE_BYTES:
+            new_dict[field_name] = parse_byte_field(value)
+            continue
+
+        # ============================================================
+        # INT
+        # ============================================================
+        if field.type in PB_INT_TYPES:
+            new_dict[field_name] = int(value)
+            continue
+
+        # ============================================================
+        # STRING / DEFAULT
+        # ============================================================
+        new_dict[field_name] = value
+
+    # Build protobuf
     pb = ParseDict(new_dict, message)
     return pb.SerializeToString()
