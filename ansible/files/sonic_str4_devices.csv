@@ -9,6 +9,7 @@ str4-acs-serv-75,10.64.246.100/23,TestServ,Server,,
 str4-acs-serv-76,10.3.155.80/26,TestServ,Server,,
 str4-acs-serv-77,10.64.246.216/23,TestServ,Server,,
 str4-acs-serv-13,10.64.247.246/23,TestServ,Server,,
+str4-acs-serv-97,10.64.247.197/23,TestServ,Server,,
 str4-7050cx3-c28s4-1,10.64.247.113/23,Arista-7050CX3-32S-C28S4,DevSonic,,sonic
 str4-7050cx3-fan-1,10.64.247.114/23,Arista-7050CX3-32S-C28S4,FanoutLeafSonic,,sonic
 str4-7060x6-64pe-2,10.64.246.8/23,Arista-7060X6-64PE-P64,DevSonic,,sonic
@@ -54,6 +55,8 @@ pdu-81,10.3.154.81,Sentry4,Pdu,snmp,
 pdu-82,10.3.154.82,Sentry4,Pdu,snmp,
 str4-sn5640-4,10.64.246.202/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str4-sn5640-5,10.64.246.203/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
+str4-sn5640-6,10.64.246.35/23,Mellanox-SN5640-C448O16,DevSonic,,sonic
+str4-sn5640-fan-6,10.64.246.169/23,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
 pdu-85,10.3.154.84,ApcRPDU,Pdu,snmp,
 pdu-86,10.3.154.85,ApcRPDU,Pdu,snmp,
 pdu-88,10.3.154.86,Sentry,Pdu,snmp,
