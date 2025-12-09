@@ -193,24 +193,27 @@ def apply_module_dependencies(impacted_tests: List[str], dependency_file: str) -
 
 
 if __name__ == '__main__':
-    # Example usage
+    # Standalone testing/demo mode
+    # This is only used when running the script directly for testing purposes
+    # The actual pipeline integration happens through apply_module_dependencies()
 
-    if len(sys.argv) < 2:
-        print("Usage: python dependency_resolver.py <dependency_file> [test_file1] [test_file2] ...")
+    if len(sys.argv) < 3:
+        print("Usage: python dependency_resolver.py <dependency_file> <test_file1> [test_file2] ...",
+              file=sys.stderr)
+        print("\nExample:", file=sys.stderr)
+        print("  python dependency_resolver.py test_dependencies.json tests/bgp/test_bgp_session.py",
+              file=sys.stderr)
         sys.exit(1)
 
     dep_file = sys.argv[1]
-    test_files = sys.argv[2:] if len(sys.argv) > 2 else [
-        "tests/bgp/test_bgp_fact.py",
-        "tests/common/plugins/sanity_check/checks.py"
-    ]
+    test_files = sys.argv[2:]
 
-    print(f"Input test files: {test_files}")
-    print()
+    print(f"Input test files: {test_files}", file=sys.stderr)
+    print(file=sys.stderr)
 
     result = apply_module_dependencies(test_files, dep_file)
 
-    print()
-    print(f"Final test files ({len(result)}):")
+    print(file=sys.stderr)
+    print(f"Final test files ({len(result)}):", file=sys.stderr)
     for test_file in result:
-        print(f"  {test_file}")
+        print(f"  {test_file}", file=sys.stderr)

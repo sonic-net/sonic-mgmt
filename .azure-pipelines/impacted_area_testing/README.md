@@ -99,6 +99,90 @@ Impacted area based PR testing runs test scripts on demand, reducing the overall
 And instances will be allocated as needed, resulting in more cost-efficient resource usage.
 Additionally, the PR testing will be more flexible as we can collect test scripts automatically rather than hard code.
 
+## NEW DESIGN: AST-Based Impact Analysis
+
+The original design described above used a directory-based approach to determine impacted areas - if a file in a feature folder changed, all tests in that folder would run. While this was an improvement over running all tests, it still resulted in running many unnecessary tests.
+
+The new design introduces **AST (Abstract Syntax Tree) based impact analysis** for more precise test selection.
+
+### How It Works
+
+Instead of analyzing at the directory level, the new approach analyzes code changes at the **function level**:
+
+1. **Detect Changed Functions**: For each modified Python file, parse the git diff to identify which specific functions were changed
+2. **Call Stack Analysis**: Use AST parsing to build a call graph and determine which test functions depend on the changed functions
+3. **Fixture Dependency Analysis**: Detect pytest fixture usage to find tests that indirectly depend on changed code through fixtures
+4. **Module Dependency Resolution**: Apply manually-defined module dependencies for logical relationships that cannot be detected through code analysis
+
+### Key Components
+
+- **`detect_function_changes.py`**:
+  - Parses git diffs to identify changed functions in modified files
+  - Detects changes to imports and global variables
+  - Invokes impact analysis for each changed function
+  - Applies module dependencies to expand the test list
+
+- **`analyze_impact.py`**:
+  - Builds a call graph using AST analysis
+  - Traces which test functions call the changed functions (direct or indirect)
+  - Tracks fixture dependencies to find tests using affected fixtures
+  - Returns a list of impacted test files
+
+- **`categorize_test_scripts_by_topology.py`**:
+  - Groups impacted test files by topology type (t0, t1, t2, etc.)
+  - Ensures tests are distributed to the correct PR checker jobs
+
+- **`dependency_resolver.py`**:
+  - Loads manually-defined module dependencies from `test_dependencies.json`
+  - Resolves transitive dependencies automatically
+  - Detects and handles circular dependencies
+  - See `TEST_DEPENDENCIES.md` for usage documentation
+
+### Advantages Over Original Design
+
+1. **Higher Precision**: Only runs tests that are actually affected by code changes, not all tests in a directory
+   - Example: Changing one helper function only runs tests that use that function, not all tests in the folder
+
+2. **Fixture Awareness**: Automatically detects when tests are affected through pytest fixture dependencies
+   - Tests using a changed fixture are automatically included
+
+3. **Cross-Feature Impact Detection**: Can detect when changes in shared code affect specific features
+   - Example: Changing a common utility function correctly identifies all dependent tests across features
+
+4. **Manual Override Support**: Allows defining logical dependencies that cannot be detected through code analysis
+   - Example: ACL changes affecting forwarding behavior can be manually specified in `test_dependencies.json`
+
+5. **Better Accuracy**: Reduces false negatives (missing impacted tests) and false positives (running unnecessary tests)
+
+6. **Scalable**: As the codebase grows, only analyzes changed files rather than entire directories
+
+### Comparison Example
+
+**Original Design:**
+- Change one line in `tests/bgp/utils.py`
+- Result: Run ALL tests in `tests/bgp/` directory (~50 tests)
+
+**New AST-Based Design:**
+- Change one line in `tests/bgp/utils.py` in function `validate_route()`
+- AST analysis finds only 3 test files actually call `validate_route()`
+- Result: Run only those 3 tests
+- Savings: 94% reduction in test execution
+
+### Configuration
+
+Module dependencies can be defined in `.azure-pipelines/impacted_area_testing/test_dependencies.json`:
+
+```json
+{
+  "module_dependencies": {
+    "tests/bgp": ["tests/fib"],
+    "tests/acl": ["tests/forwarding"]
+  }
+}
+```
+
+See `TEST_DEPENDENCIES.md` for complete documentation on defining dependencies.
+
 ## Safeguard
 As impacted area based PR testing would not cover all test scripts, we need a safeguard to run all test scripts daily to prevent any unforeseen issues.
 Fortunately, we have Baseline testing to do so.
