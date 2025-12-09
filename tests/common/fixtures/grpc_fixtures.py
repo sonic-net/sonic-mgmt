@@ -11,17 +11,16 @@ logger = logging.getLogger(__name__)
 
 
 @pytest.fixture
-def ptf_grpc(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname):
+def ptf_grpc(ptfhost, duthost):
     """
     Auto-configured gRPC client using GNMIEnvironment for discovery.
 
     This fixture provides a ready-to-use PtfGrpc client that automatically
-    detects the correct gRPC endpoint configuration from the DUT.
+    detects the correct gRPC endpoint configuration from the specified DUT.
 
     Args:
         ptfhost: PTF host fixture for command execution
-        duthosts: DUT hosts fixture
-        enum_rand_one_per_hwsku_hostname: Random DUT selection fixture
+        duthost: DUT host instance to target
 
     Returns:
         PtfGrpc: Configured gRPC client ready for use
@@ -33,8 +32,6 @@ def ptf_grpc(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname):
     """
     from tests.common.helpers.gnmi_utils import GNMIEnvironment
     from tests.common.ptf_grpc import PtfGrpc
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     # Auto-configure using GNMIEnvironment
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
@@ -72,7 +69,7 @@ def ptf_gnoi(ptf_grpc):
 
 
 @pytest.fixture
-def ptf_grpc_custom(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname):
+def ptf_grpc_custom(ptfhost, duthost):
     """
     Factory fixture for custom gRPC client configuration.
 
@@ -81,19 +78,18 @@ def ptf_grpc_custom(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname):
 
     Args:
         ptfhost: PTF host fixture for command execution
-        duthosts: DUT hosts fixture
-        enum_rand_one_per_hwsku_hostname: Random DUT selection fixture
+        duthost: DUT host instance to target
 
     Returns:
         Callable: Factory function for creating custom gRPC clients
 
     Example:
-        def test_custom_grpc(ptf_grpc_custom, duthost):
+        def test_custom_grpc(ptf_grpc_custom):
             # Custom TLS configuration
             tls_client = ptf_grpc_custom(
-                host=f"{duthost.mgmt_ip}:8080",
-                plaintext=False,
-                cert_path="/path/to/cert.pem"
+                host="192.168.1.1",
+                port=8080,
+                plaintext=False
             )
 
             # Custom timeout
@@ -103,8 +99,6 @@ def ptf_grpc_custom(ptfhost, duthosts, enum_rand_one_per_hwsku_hostname):
     """
     from tests.common.helpers.gnmi_utils import GNMIEnvironment
     from tests.common.ptf_grpc import PtfGrpc
-
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     def _create_custom_client(host=None, port=None, plaintext=None, timeout=None, **kwargs):
         """
@@ -181,7 +175,7 @@ def ptf_gnmi(ptf_grpc):
 
 
 @pytest.fixture(scope="module")
-def setup_gnoi_tls_server(duthosts, enum_rand_one_per_hwsku_hostname, localhost, ptfhost):
+def setup_gnoi_tls_server(duthost, localhost, ptfhost):
     """
     Set up gNOI server with TLS certificates and configuration.
 
@@ -197,6 +191,11 @@ def setup_gnoi_tls_server(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     6. Verifies TLS connectivity
     7. Provides cleanup on teardown
 
+    Args:
+        duthost: DUT host instance to configure
+        localhost: Localhost instance for certificate generation
+        ptfhost: PTF host instance for client certificates
+
     Usage:
         @pytest.mark.usefixtures("setup_gnoi_tls_server")
         def test_gnoi_with_tls(ptf_gnoi):
@@ -210,7 +209,6 @@ def setup_gnoi_tls_server(duthosts, enum_rand_one_per_hwsku_hostname, localhost,
     """
     from tests.common.gu_utils import create_checkpoint, rollback
 
-    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     checkpoint_name = "gnoi_tls_setup"
 
     logger.info("Setting up gNOI TLS server environment")
@@ -329,7 +327,7 @@ def _configure_gnoi_tls_server(duthost):
     duthost.shell(
         '''sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|test.client.gnmi.sonic" "role@" '''
         '''"gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,'''
-        '''"gnmi_dpu_appl_db_readwrite,gnoi_readwrite"'''
+        '''gnmi_dpu_appl_db_readwrite,gnoi_readwrite"'''
     )
 
     logger.info("TLS configuration completed")
