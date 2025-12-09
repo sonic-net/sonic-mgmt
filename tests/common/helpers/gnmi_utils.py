@@ -199,7 +199,7 @@ def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     localhost.shell(local_command)
 
 
-def create_gnmi_certs(duthost, localhost, ptfhost):
+def create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=None):
     '''
     Create GNMI client certificates
     '''
@@ -232,7 +232,7 @@ def create_gnmi_certs(duthost, localhost, ptfhost):
     localhost.shell(local_command)
 
     # Sign server certificate
-    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    create_ext_conf(dut_ip or duthost.mgmt_ip, "extfile.cnf")
     local_command = "openssl x509 \
                         -req \
                         -in gnmiserver.csr \

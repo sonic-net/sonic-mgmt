@@ -330,11 +330,6 @@ gnmi/test_gnmi_appldb.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-gnmi/test_gnmi_configdb.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_gnmi_countersdb.py:
   skip:
     conditions:
@@ -381,6 +376,11 @@ gnmi/test_gnoi_system_reboot.py:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
 gnmi/test_mimic_hwproxy_cert_rotation.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't2' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+gnmi/vrf_aware_tests/test_gnmi_configdb.py:
   skip:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name

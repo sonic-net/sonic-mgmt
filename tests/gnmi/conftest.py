@@ -8,7 +8,8 @@ from grpc_tools import protoc
 
 from tests.common.helpers.assertions import pytest_require as pyrequire
 from tests.common.helpers.dut_utils import check_container_state
-from tests.gnmi.helper import gnmi_container, apply_cert_config, recover_cert_config
+from tests.common.helpers.gnmi_utils import gnmi_container
+from tests.gnmi.helper import apply_cert_config, recover_cert_config
 from tests.gnmi.helper import GNMI_SERVER_START_WAIT_TIME, check_ntp_sync_status
 from tests.common.gu_utils import create_checkpoint, rollback
 from tests.common.helpers.gnmi_utils import GNMIEnvironment, create_revoked_cert_and_crl, \
@@ -18,6 +19,24 @@ from tests.common.helpers.ntp_helper import setup_ntp_context
 
 logger = logging.getLogger(__name__)
 SETUP_ENV_CP = "test_setup_checkpoint"
+
+VRF_SCENARIOS = [
+    {"name": "default_1", "vrf": None, "description": "Default (no VRF)"},
+]
+
+
+@pytest.fixture(scope="module", params=VRF_SCENARIOS, ids=lambda scenario: f"vrf_{scenario['name']}")
+def vrf_config(request):
+    return request.param
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_vrf_configuration(vrf_config):
+    """
+    This fixture runs before setup_gnmi_server to ensure VRF config is in place.
+    It gets overridden in vrf_aware_tests/conftest.py.
+    """
+    return vrf_config
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -40,7 +59,7 @@ def setup_gnmi_ntp_client_server(duthosts, rand_one_dut_hostname, ptfhost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config, setup_vrf_configuration):
     '''
     Setup GNMI server with client certificates
     '''
@@ -51,10 +70,10 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
         check_container_state(duthost, gnmi_container(duthost), should_be_running=True),
         "Test was not supported on devices which do not support GNMI!")
 
-    create_gnmi_certs(duthost, localhost, ptfhost)
+    create_gnmi_certs(duthost, localhost, ptfhost, dut_ip=vrf_config.get("dut_ip"))
 
     create_checkpoint(duthost, SETUP_ENV_CP)
-    apply_cert_config(duthost)
+    apply_cert_config(duthost, vrf_config.get("vrf"))
 
     yield
 
@@ -69,7 +88,7 @@ def setup_gnmi_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost):
+def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhost, vrf_config={}):
     '''
     Create GNMI client certificates
     '''
@@ -110,7 +129,8 @@ def setup_gnmi_rotated_server(duthosts, rand_one_dut_hostname, localhost, ptfhos
     localhost.shell(local_command)
 
     # Sign server certificate
-    create_ext_conf(duthost.mgmt_ip, "extfile.cnf")
+    dut_ip = vrf_config.get("dut_ip") or duthost.mgmt_ip
+    create_ext_conf(dut_ip, "extfile.cnf")
     local_command = "openssl x509 \
                         -req \
                         -in gnmiserver.csr \
