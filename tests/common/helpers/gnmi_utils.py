@@ -1,4 +1,3 @@
-import pytest
 import logging
 
 logger = logging.getLogger(__name__)
@@ -105,7 +104,8 @@ class GNMIEnvironment(object):
                 self.gnmi_port = int(config.get('port', 8080))
                 client_auth = config.get('client_auth', 'false').lower()
                 self.use_tls = client_auth != 'false'
-                logger.info(f"Found CONFIG_DB {self.gnmi_config_table} config: port={self.gnmi_port}, tls={self.use_tls}")
+                logger.info(f"Found CONFIG_DB {self.gnmi_config_table} config: "
+                            f"port={self.gnmi_port}, tls={self.use_tls}")
                 return
         except Exception as e:
             logger.warning(f"Failed to read CONFIG_DB: {e}")
@@ -114,7 +114,7 @@ class GNMIEnvironment(object):
         try:
             if hasattr(self, 'gnmi_container'):
                 res = duthost.shell(f"docker exec {self.gnmi_container} ps aux | grep telemetry",
-                                  module_ignore_errors=True)
+                                    module_ignore_errors=True)
                 if res['rc'] == 0 and '--port' in res['stdout']:
                     # Extract port from telemetry command line
                     import re

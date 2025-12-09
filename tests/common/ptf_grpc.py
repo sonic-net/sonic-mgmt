@@ -6,8 +6,7 @@ enabling gNOI/gNMI operations against DUT gRPC services with proper process sepa
 """
 import json
 import logging
-import re
-from typing import Dict, List, Optional, Union
+from typing import Dict, List, Union
 
 logger = logging.getLogger(__name__)
 

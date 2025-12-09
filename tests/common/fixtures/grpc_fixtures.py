@@ -326,8 +326,11 @@ def _configure_gnoi_tls_server(duthost):
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" server_key "/etc/sonic/telemetry/gnmiserver.key"')
 
     # Register client certificate with appropriate roles
-    duthost.shell('''sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|test.client.gnmi.sonic" "role@" \
-                     "gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,gnmi_dpu_appl_db_readwrite,gnoi_readwrite"''')
+    duthost.shell(
+        '''sonic-db-cli CONFIG_DB hset "GNMI_CLIENT_CERT|test.client.gnmi.sonic" "role@" '''
+        '''"gnmi_readwrite,gnmi_config_db_readwrite,gnmi_appl_db_readwrite,'''
+        '''"gnmi_dpu_appl_db_readwrite,gnoi_readwrite"'''
+    )
 
     logger.info("TLS configuration completed")
 

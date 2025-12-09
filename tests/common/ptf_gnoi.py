@@ -5,10 +5,8 @@ This module provides a user-friendly wrapper around PtfGrpc for gNOI
 (gRPC Network Operations Interface) operations, hiding the low-level
 gRPC complexity behind clean, Pythonic method interfaces.
 """
-import base64
 import logging
-import os
-from typing import Dict, List, Optional, Union
+from typing import Dict
 
 logger = logging.getLogger(__name__)
 
