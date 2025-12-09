@@ -111,7 +111,10 @@ MAX_PARTS_IMAGE_NAME = 6
 START_INDEX_IMAGE = 2
 IMAGE_INDEX = 4
 
-streams_list = ["202205", "202305", "202311", "master", "202405c", "202405", "202411", "202501", "202505"]
+streams_list = ["202205", "202305", "202311", "master", "202405c", "202405", "202411", "202501", "202505", "202511"]
+STREAM_BRANCH_OVERRIDE = {
+    "c-master.ztp": "202505",
+}
 
 BIN_FILE = "sonic-cisco-8000.bin"
 
@@ -310,6 +313,12 @@ def getLogsPath(stream, testbed):
         return testbed_info_dict["logs_path_default"]
 
 def getBranchFromStream(stream):
+    log.info(f"getBranchFromStream executed with arg stream={stream}")
+
+    override = STREAM_BRANCH_OVERRIDE.get(stream)
+    if override:
+        log.warning(f"For stream {stream} overriding with branch value {override} because it's hardcoded!")
+        return override
     
     for str in streams_list:
         if stream.find(str)>0:
