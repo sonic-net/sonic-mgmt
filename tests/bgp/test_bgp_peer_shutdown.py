@@ -5,14 +5,15 @@ import os
 import time
 
 import pytest
-from scapy.all import sniff, IP
+from scapy.all import sniff, IP, IPv6
 from scapy.contrib import bgp
 
 from tests.bgp.bgp_helpers import capture_bgp_packages_to_file, fetch_and_delete_pcap_file
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from tests.common.utilities import wait_until, delete_running_config
+from tests.common.helpers.generators import generate_ip_through_default_route
+from tests.common.utilities import wait_until, delete_running_config, is_ipv6_address
 
 pytestmark = [
     pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
@@ -57,30 +58,41 @@ def common_setup_teardown(
         neigh_type = "LowerSpineRouter"
     else:
         neigh_type = "ToRRouter"
+    neighbor_addr = conn0["neighbor_addr"].split("/")[0]
+    local_addr = conn0["local_addr"].split("/")[0]
+
     logging.info(
         "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
-            conn0["neighbor_addr"].split("/")[0],
+            neighbor_addr,
             conn0_ns,
             dut_asn,
-            conn0["local_addr"].split("/")[0],
+            local_addr,
             neigh_type,
         )
     )
+
+    # BGP router ID must be in IPv4 format, even for IPv6 sessions
+    # Generate a simple IPv4 router ID from the neighbor address if it's IPv6
+    if is_ipv6_address(neighbor_addr):
+        router_id = generate_ip_through_default_route(duthost)
+    else:
+        router_id = neighbor_addr
 
     bgp_neighbor = (
         BGPNeighbor(
             duthost,
             ptfhost,
             "pseudoswitch0",
-            conn0["neighbor_addr"].split("/")[0],
+            neighbor_addr,
             dut_asn if dut_type == "FabricSpineRouter" else NEIGHBOR_ASN0,
-            conn0["local_addr"].split("/")[0],
+            local_addr,
             dut_asn,
             NEIGHBOR_PORT0,
             neigh_type,
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            router_id=router_id,
         )
     )
 
@@ -129,14 +141,16 @@ def bgp_notification_packets(pcap_file):
     """Get bgp notification packets from pcap file."""
     packets = sniff(
         offline=pcap_file,
-        lfilter=lambda p: IP in p and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
+        lfilter=lambda p: (IP in p or IPv6 in p) and bgp.BGPHeader in p and p[bgp.BGPHeader].type == 3,
     )
     return packets
 
 
 def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time):
     """Check if the bgp notification packet matches."""
-    if not (packet[IP].src == src_ip and packet[IP].dst == dst_ip):
+    packet_ip_version = IPv6 if is_ipv6_address(dst_ip) else IP
+    ip_packet_layer = packet[packet_ip_version]
+    if not (ip_packet_layer.src == src_ip and ip_packet_layer.dst == dst_ip):
         return False
 
     bgp_fields = packet[bgp.BGPNotification].fields
@@ -192,7 +206,10 @@ def test_bgp_peer_shutdown(
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     n0 = common_setup_teardown
-    announced_route = {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
+    if is_ipv6_address(n0.ip):
+        announced_route = {"prefix": "2001:db8:100::/64", "nexthop": n0.ip}
+    else:
+        announced_route = {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
 
     for _ in range(TEST_ITERATIONS):
         try:
@@ -243,4 +260,5 @@ def test_bgp_peer_shutdown(
                 pytest.fail("route %s still exists in DUT after BGP shutdown" % announced_route["prefix"])
         finally:
             n0.stop_session()
-            duthost.shell("ip route flush %s" % announced_route["prefix"])
+            ip_cmd = "ip -6" if is_ipv6_address(n0.ip) else "ip"
+            duthost.shell("{} route flush {}".format(ip_cmd, announced_route["prefix"]), module_ignore_errors=True)
