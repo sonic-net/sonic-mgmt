@@ -73,32 +73,69 @@ Detail route scale is described in below table:
 | t1-isolated-d2u510                         |   510 * ( 1 + 1 )     | 510                     | 1                               |
 
 
+# Test Methodology
+
+- Use PTF to generate traffic that exercises all route prefixes.
+- Send traffic to these prefixes in threads and perform action required for the test cases.
+- Measure data-plane downtime by analyzing packet loss and timing from PTF.
+- Measure control-plane convergence by polling the DUT routes (via "docker exec bgp vtysh -c 'show ipv6 route bgp json'") and record a timestamp immediately before each poll; the delta between the command issue to the time DUT routes match is the convergence time.
+- Measure route programming time by the time delta from the issued shutdown/start command (from syslog) to the final SAI change (from sairedis logs).
+
+
 # Test Cases
 
 ## Initial State
 All bgp sessions are up and established and all routes are stable with expected count.
 
-## BGP Sessions Flapping Test
+## Port Sessions Flap Test
 ### Objective
-When BGP sessions are flapping, make sure control plane is functional and data plane has no downtime or acceptable downtime.
-### Steps
-1. Start and keep sending packets with all routes to the random one open port via ptf.
-1. Shutdown one or half random port(s) that establishing bgp sessions. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
-1. Wait for routes are stable, check if all nexthops connecting the shut down ports are disappeared in routes.
-1. Stop packet sending
-1. Estamite data plane down time by check packet count sent, received and duration.
+Verify route convergence and dataplane downtime after ports are flapping.
 
+Parameters: Number of ports N ∈ {1, 10, 20, all}.
 
-## Unisolation Test
-### Objective
-In the worst senario, verify control/data plane have acceptable conergence time.
 ### Steps
-1. Shut down all ports on device. (shut down T1 sessions ports on T0 DUT, shut down T0 sesssions ports on T1 DUT.)
-1. Wait for routes are stable.
-1. Start and keep sending packets with all routes to all ports via ptf.
-1. Unshut all ports and wait for routes are stable.
+1. Randomly select N Ports to shut down and startup.
+#### Test Shutdown
+1. Start sending packets with all routes to a random open port via ptf.
+1. Shut down the selected N ports.
+1. Wait for routes to stabilize and check if all nexthops connecting the shut down neighbors disappear in routes.
 1. Stop sending packets.
-1. Estamite control/data plane convergence time.
+1. Estimate data plane downtime by analyzing packets sent, received, and the duration.
+1. Verify Route Programming Time is less than the convergence threshold.
+
+#### Test Startup
+1. Start traffic for all prefixes using PTF to a selected active port.
+2. Bring the previously shutdown N ports back up.
+3. Wait for routes to converge and verify routes/nexthops are reintroduced.
+4. Stop traffic collection.
+5. Measure control/data-plane convergence times.
+6. Verify route programming time meets the convergence threshold.
+
+
+## BGP Administrative Flap Test
+### Objective
+Verify route convergence and dataplane downtime after administratively shutting down and re-enabling BGP neighbors.
+
+Parameters: Number of neighbors N ∈ {1, 10}.
+
+### Steps
+1. Randomly select N BGP sessions to shut down and startup.
+
+#### Test Shutdown
+1. Start traffic for all prefixes using PTF to a randomly selected port.
+2. Administratively shut down the selected N BGP neighbors.
+3. Wait for routes to converge and verify nexthops for those neighbors are removed.
+4. Stop traffic collection.
+5. Measure control/data-plane convergence times.
+6. Verify route programming time meets the convergence threshold.
+
+#### Test Startup
+1. Start traffic for all prefixes using PTF to a selected active port.
+2. Re-enable the previously shut BGP neighbors.
+3. Wait for routes to converge and verify routes/nexthops are reintroduced.
+4. Stop traffic collection.
+5. Measure control/data-plane convergence times.
+6. Verify route programming time meets the convergence threshold.
 
 
 ## Nexthop Group Member Scale Test
@@ -118,3 +155,8 @@ When routes on BGP peers are flapping, make sure the large next hop group member
 1. Wait for routes are stable.
 1. Stop sending packets.
 1. Estamite control/data plane convergence time.
+
+
+Notes:
+- A clean_ptf_dataplane fixture is invoked during each test setup to clear stray packets and reset counters.
+- Between shutdown and startup actions the PTF dataplane counters are cleared again to isolate measurements.
