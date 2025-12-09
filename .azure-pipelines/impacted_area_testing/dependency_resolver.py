@@ -8,6 +8,7 @@ that cannot be detected through AST and call stack analysis alone.
 
 import json
 import os
+import sys
 from typing import Dict, List, Set
 from collections import deque
 
@@ -30,7 +31,7 @@ class DependencyResolver:
         """Load dependencies from the JSON configuration file."""
         if not os.path.exists(self.dependency_file):
             print(f"Warning: Dependency file '{self.dependency_file}' not found. "
-                  f"No additional dependencies will be added.")
+                  f"No additional dependencies will be added.", file=sys.stderr)
             return
 
         try:
@@ -41,12 +42,13 @@ class DependencyResolver:
             # Validate and normalize paths
             self._validate_dependencies()
 
-            print(f"Loaded {len(self.module_dependencies)} module dependency rules from {self.dependency_file}")
+            print(f"Loaded {len(self.module_dependencies)} module dependency rules from {self.dependency_file}",
+                  file=sys.stderr)
         except json.JSONDecodeError as e:
-            print(f"Error: Invalid JSON in dependency file '{self.dependency_file}': {e}")
+            print(f"Error: Invalid JSON in dependency file '{self.dependency_file}': {e}", file=sys.stderr)
             self.module_dependencies = {}
         except Exception as e:
-            print(f"Error loading dependency file '{self.dependency_file}': {e}")
+            print(f"Error loading dependency file '{self.dependency_file}': {e}", file=sys.stderr)
             self.module_dependencies = {}
 
     def _validate_dependencies(self):
@@ -54,8 +56,9 @@ class DependencyResolver:
         # Check for circular dependencies
         cycles = self._detect_cycles()
         if cycles:
-            print(f"Warning: Circular dependencies detected: {cycles}")
-            print("Circular dependencies will be resolved but may cause excessive test execution.")
+            print(f"Warning: Circular dependencies detected: {cycles}", file=sys.stderr)
+            print("Circular dependencies will be resolved but may cause excessive test execution.",
+                  file=sys.stderr)
 
         # Normalize paths (ensure consistent format)
         normalized = {}
@@ -142,10 +145,10 @@ class DependencyResolver:
 
         added_count = len(all_modules) - len(impacted_modules)
         if added_count > 0:
-            print(f"Module dependencies: Added {added_count} additional test modules")
+            print(f"Module dependencies: Added {added_count} additional test modules", file=sys.stderr)
             added_modules = sorted(all_modules - set(impacted_modules))
             for module in added_modules:
-                print(f"  + {module}")
+                print(f"  + {module}", file=sys.stderr)
 
         return all_modules
 
@@ -191,7 +194,6 @@ def apply_module_dependencies(impacted_tests: List[str], dependency_file: str) -
 
 if __name__ == '__main__':
     # Example usage
-    import sys
 
     if len(sys.argv) < 2:
         print("Usage: python dependency_resolver.py <dependency_file> [test_file1] [test_file2] ...")
