@@ -69,14 +69,14 @@ def check_portchannel_table(duthost, portchannel_table):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname, portchannel_table):
+def setup_env(duthosts, enum_rand_one_per_hwsku_frontend_hostname, portchannel_table):
     """
     Setup/teardown fixture for portchannel interface config
     Args:
         duthosts: list of DUTs.
-        rand_one_dut_hostname: The fixture returns a randomly selected DuT
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture returns a randomly selected frontend DuT per HwSKU
     """
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     create_checkpoint(duthost)
 
     yield
@@ -224,9 +224,9 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc1_suite(duthosts, rand_one_dut_hostname, portchannel_table,
+def test_portchannel_interface_tc1_suite(duthosts, enum_rand_one_per_hwsku_frontend_hostname, portchannel_table,
                                          enum_rand_one_frontend_asic_index, rand_portchannel_name):
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portchannel_interface_tc1_add_duplicate(duthost, portchannel_table,
                                             enum_rand_one_frontend_asic_index, rand_portchannel_name)
     portchannel_interface_tc1_xfail(duthost,
@@ -345,10 +345,10 @@ def portchannel_interface_tc2_incremental(duthost,
         delete_tmpfile(duthost, tmpfile)
 
 
-def test_portchannel_interface_tc2_attributes(duthosts, rand_one_dut_hostname,
+def test_portchannel_interface_tc2_attributes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                                               enum_rand_one_frontend_asic_index,
                                               rand_portchannel_name):
-    duthost = duthosts[rand_one_dut_hostname]
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portchannel_interface_tc2_replace(duthost,
                                       enum_rand_one_frontend_asic_index,
                                       rand_portchannel_name)
