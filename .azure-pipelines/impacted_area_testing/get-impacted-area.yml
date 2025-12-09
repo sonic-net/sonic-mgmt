@@ -79,6 +79,9 @@ steps:
       PR_CHECKERS="[]"
       TEST_SCRIPTS="{}"
     else
+      # Detect impacted tests using AST analysis and module dependencies
+      # Module dependencies are defined in .azure-pipelines/impacted_area_testing/test_dependencies.json
+      # See TEST_DEPENDENCIES.md for documentation on defining dependencies
       IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_function_changes.py --modified_files $CHANGED_FILES --feature_branch $SOURCE_BRANCH --target_branch $TARGET_BRANCH --directory tests --no-log)
       echo "Impacted tests:"
       echo "$IMPACTED_TESTS"

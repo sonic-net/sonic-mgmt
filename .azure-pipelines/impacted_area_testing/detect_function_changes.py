@@ -5,6 +5,7 @@ import ast
 import logging
 import json
 import sys
+from dependency_resolver import apply_module_dependencies
 
 logger = logging.getLogger()
 handler = logging.StreamHandler(sys.stdout)
@@ -127,6 +128,9 @@ if __name__ == "__main__":
     parser.add_argument("--directory", type=str, required=True, help="Directory to analyze.")
     parser.add_argument("--trace", action="store_true", help="Enable trace logging.")
     parser.add_argument("--no-log", action="store_true", help="Disable logging.")
+    parser.add_argument("--dependency_file", type=str,
+                        default=os.path.join(os.path.dirname(__file__), "test_dependencies.json"),
+                        help="Path to test_dependencies.json file.")
 
     args = parser.parse_args()
 
@@ -179,6 +183,16 @@ if __name__ == "__main__":
     # Remove duplicates from the consolidated results
     consolidated_results["tests"] = list(set(consolidated_results["tests"]))
     consolidated_results["others"] = list(set(consolidated_results["others"]))
+
+    # Apply module dependencies to expand the test list
+    if consolidated_results["tests"]:
+        logger.info(f"Applying module dependencies from {args.dependency_file}")
+        original_count = len(consolidated_results["tests"])
+        consolidated_results["tests"] = apply_module_dependencies(
+            consolidated_results["tests"],
+            args.dependency_file
+        )
+        logger.info(f"Test count after dependencies: {len(consolidated_results['tests'])} (was {original_count})")
 
     # Print the consolidated results as a single JSON
     print(json.dumps(consolidated_results, indent=4))
