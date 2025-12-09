@@ -2,7 +2,6 @@ import logging
 import pytest
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,7 @@ CRON_ERROR_KEYWORDS = [
 
 
 @pytest.mark.topology("any")
-def test_cron_job_exec_successfully(duthost, loganalyzer):
+def test_cron_job(duthost, loganalyzer):
     # Validate cron file permission
     stat = duthost.stat(path=CRON_FILE)["stat"]
     if stat["exists"]:
@@ -26,13 +25,12 @@ def test_cron_job_exec_successfully(duthost, loganalyzer):
             f"{CRON_FILE} exists but permission is incorrect: {mode} (expected {EXPECTED_MODE})",
         )
     else:
-        # This test is intended for releases earlier than 202205
-        logger.warning(f"{CRON_FILE} does not exist on DUT - skipping permission check.")
+        logger.warning(f"{CRON_FILE} does not exist - skipping permission check.")
 
     # Find cron logs for error
     pattern = "|".join(CRON_ERROR_KEYWORDS)
     cmd = "sudo zgrep -iE '{}' /var/log/cron.log*".format(pattern)
-    logger.info(f"Running cron log check with command: {cmd}")
+    logger.info(f"Running cron log check: {cmd}")
     result = duthost.shell(cmd, module_ignore_errors=True)
     output = result["stdout"].strip()
 
