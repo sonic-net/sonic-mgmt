@@ -3549,6 +3549,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiXonHysteresis:
     conditions:
       - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0']"
       - "asic_type not in ['cisco-8000']"
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgMinThreshold:
+  skip:
+    reason: "testQosSaiPgMinThreshold is only supported on x86_64-nexthop_4010* platforms."
+    conditions:
+      - "not platform.startswith('x86_64-nexthop_4010')"
+
 
 qos/test_tunnel_qos_remap.py:
   skip:
