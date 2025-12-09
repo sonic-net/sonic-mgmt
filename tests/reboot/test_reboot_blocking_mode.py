@@ -1,5 +1,6 @@
 import pytest
 import re
+from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 
@@ -40,16 +41,16 @@ def restore_systemctl_reboot_and_reboot(duthost):
         "sudo sed -i 's#/usr/local/bin/disabled_watchdogutil#/usr/local/bin/watchdogutil#g' /usr/local/bin/reboot")
     debian_version = duthost.command("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
     if "trixie" in debian_version:
-        execute_command_ignore_error(duthost, "sudo reboot")
+        reboot(duthost, safe_reboot=True)
     else:
         execute_command(duthost, "sudo reboot")
 
-    timeout = None
-    if duthost.is_supervisor_node():
-        timeout = 900
-    elif duthost.is_multi_asic:
-        timeout = 420
-    wait_critical_processes(duthost, timeout=timeout)
+        timeout = None
+        if duthost.is_supervisor_node():
+            timeout = 900
+        elif duthost.is_multi_asic:
+            timeout = 420
+        wait_critical_processes(duthost, timeout=timeout)
 
 
 def mock_reboot_config_file(duthost):
