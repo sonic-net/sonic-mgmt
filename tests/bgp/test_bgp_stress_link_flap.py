@@ -127,13 +127,30 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
 
     # Cleanup: Remove any BGP Sentinel/Monitor configs that might be left over
     logger.info("Fixture teardown: Cleaning up BGP configurations")
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all',
-                                 module_ignore_errors=True)
-    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all',
-                                 module_ignore_errors=True)
-    duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent', module_ignore_errors=True)
-    duthost.file(path='/tmp/bgpmon_v4.json', state='absent', module_ignore_errors=True)
-    duthost.file(path='/tmp/bgpmon_v6.json', state='absent', module_ignore_errors=True)
+    try:
+        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
+    except Exception as e:
+        logger.debug("Failed to delete BGPSentinel: {}".format(str(e)))
+
+    try:
+        duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+    except Exception as e:
+        logger.debug("Failed to delete BGPSentinelV6: {}".format(str(e)))
+
+    try:
+        duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
+    except Exception as e:
+        logger.debug("Failed to delete sentinel config file: {}".format(str(e)))
+
+    try:
+        duthost.file(path='/tmp/bgpmon_v4.json', state='absent')
+    except Exception as e:
+        logger.debug("Failed to delete bgpmon_v4 file: {}".format(str(e)))
+
+    try:
+        duthost.file(path='/tmp/bgpmon_v6.json', state='absent')
+    except Exception as e:
+        logger.debug("Failed to delete bgpmon_v6 file: {}".format(str(e)))
 
     # Clean up BGP_MONITORS - need to get the actual IPs
     try:
@@ -141,8 +158,11 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
         bgp_monitors = config_facts_cleanup.get('BGP_MONITORS', {})
         for monitor_ip in bgp_monitors.keys():
             logger.info("Removing BGP_MONITOR: {}".format(monitor_ip))
-            duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(monitor_ip),
-                                         asic_index='all', module_ignore_errors=True)
+            try:
+                duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(monitor_ip),
+                                             asic_index='all')
+            except Exception as e:
+                logger.debug("Failed to delete BGP_MONITOR {}: {}".format(monitor_ip, str(e)))
     except Exception as e:
         logger.warning("Failed to clean up BGP_MONITORS: {}".format(str(e)))
 
