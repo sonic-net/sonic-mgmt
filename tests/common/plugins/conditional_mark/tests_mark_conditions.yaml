@@ -685,17 +685,14 @@ crm/test_crm_available.py:
 #######################################
 #####           dash              #####
 #######################################
-dash:
-  skip:
-    reason: "Not supported on this DUT topology."
-    conditions:
-      - "'dpu' not in topo_name"
-
 dash/crm/test_dash_crm.py:
   skip:
-    reason: "Currently dash tests are not supported on KVM"
+    reason: "Currently dash tests are not supported on KVM / It is not supported on this DUT topology and skipped for '202412' for now"
+    conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/16407"
+      - "release in ['202412']"
+      - "'dpu' not in topo_name"
 
 dash/test_dash_acl.py:
   skip:
