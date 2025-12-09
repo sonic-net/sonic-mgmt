@@ -7,8 +7,8 @@ Users don't need to worry about TLS configuration.
 import pytest
 import logging
 
-# Import fixtures - needed even if not directly used due to pytest fixture discovery
-from tests.common.fixtures.grpc_fixtures import ptf_grpc, ptf_gnoi, setup_gnoi_tls_server  # noqa: F401
+# Import fixtures module to ensure pytest discovers them
+import tests.common.fixtures.grpc_fixtures  # noqa: F401
 
 logger = logging.getLogger(__name__)
 
