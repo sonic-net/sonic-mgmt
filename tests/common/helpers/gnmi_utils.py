@@ -51,7 +51,7 @@ class GNMIEnvironment(object):
                     self.gnmi_process = "gnmi"
                 else:
                     self.gnmi_process = "telemetry"
-                
+
                 # Read configuration from CONFIG_DB or use defaults
                 self._configure_connection_params(duthost)
                 return True
@@ -74,7 +74,7 @@ class GNMIEnvironment(object):
                 else:
                     self.gnmi_program = "gnmi-native"
                 self.gnmi_process = "telemetry"
-                
+
                 # Read configuration from CONFIG_DB or use defaults
                 self._configure_connection_params(duthost)
                 return True
@@ -94,13 +94,13 @@ class GNMIEnvironment(object):
         # Try to read from CONFIG_DB first based on the container type
         try:
             cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-            
+
             # Only check the config table that matches our container type
             if self.gnmi_config_table == "GNMI":
                 config = cfg_facts.get('GNMI', {}).get('gnmi', {})
             else:  # TELEMETRY
                 config = cfg_facts.get('TELEMETRY', {}).get('gnmi', {})
-            
+
             if config:
                 self.gnmi_port = int(config.get('port', 8080))
                 client_auth = config.get('client_auth', 'false').lower()
@@ -113,7 +113,7 @@ class GNMIEnvironment(object):
         # Fallback: detect from running telemetry process
         try:
             if hasattr(self, 'gnmi_container'):
-                res = duthost.shell(f"docker exec {self.gnmi_container} ps aux | grep telemetry", 
+                res = duthost.shell(f"docker exec {self.gnmi_container} ps aux | grep telemetry",
                                   module_ignore_errors=True)
                 if res['rc'] == 0 and '--port' in res['stdout']:
                     # Extract port from telemetry command line

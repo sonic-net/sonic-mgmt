@@ -19,7 +19,7 @@ SONiC tests in the [sonic-mgmt](https://github.com/sonic-net/sonic-mgmt) reposit
 This design proposes a lightweight gNOI infrastructure that addresses the limitations of existing gRPC testing approaches:
 
 1. **Leverages grpcurl** - Uses the existing grpcurl tool in PTF container
-2. **Handles infrastructure concerns** - Certificate management and PTF integration  
+2. **Handles infrastructure concerns** - Certificate management and PTF integration
 3. **Maintains simplicity** - No proto compilation or Python gRPC dependencies
 4. **Follows sonic-mgmt patterns** - Uses pytest fixtures and PTF container patterns
 5. **Automatic TLS setup** - All gNOI tests use TLS by default without manual configuration
@@ -45,7 +45,7 @@ dut_command += "--server_crt /etc/sonic/telemetry/gnmiserver.crt --server_key /e
 
 **Impact:** A single certificate path change requires updates across the entire test suite, creating massive maintenance burden.
 
-### 2. Ad Hoc Server Process Management 
+### 2. Ad Hoc Server Process Management
 **Critical Problem**: The gNMI server uses `nohup` commands instead of proper service integration, causing complete failure during device operations.
 
 ```python
@@ -72,7 +72,7 @@ apply_cert_config(duthost)
 
 **Critical Issues:**
 - **Configuration loss**: Certificate configuration cleared after every reboot
-- **Manual restart required**: Tests must manually call `apply_cert_config()` after reboots  
+- **Manual restart required**: Tests must manually call `apply_cert_config()` after reboots
 - **Process state loss**: The `nohup` approach loses all process state during device operations
 - **No proper dependency management**: Server doesn't automatically restart with correct configuration
 
@@ -103,7 +103,7 @@ def test_system_time(ptf_gnoi):
     """Simple test - TLS automatically configured"""
     # Clean function call returns JSON data
     result = ptf_gnoi.system_time()
-    
+
     # Work with simple JSON response from gNOI protocol
     assert 'time' in result
     assert isinstance(result['time'], int)
@@ -136,23 +136,23 @@ graph TB
         PG["PtfGrpc Class"]
         PN["PtfGnoi Wrapper"]
         TF["TLS Fixture"]
-        
+
         TC --> PF
         PF --> PG
         PG --> PN
         PF --> TF
     end
-    
+
     subgraph PTF ["PTF container"]
         GC["grpcurl binary"]
         CC["Client Certificates"]
     end
-    
+
     subgraph DUT ["DUT"]
         GS["gNOI Server :50052 (TLS)"]
         SC["Server Certificates"]
     end
-    
+
     TF -->|"Generate & Distribute"| CC
     TF -->|"Configure & Restart"| GS
     PG -->|"ptfhost.shell()"| GC
@@ -256,7 +256,7 @@ def test_custom_grpc(ptf_grpc):
     # List available services
     services = ptf_grpc.list_services()
     assert 'gnoi.system.System' in services
-    
+
     # Make custom RPC call
     response = ptf_grpc.call_unary("gnoi.system.System", "Time")
     assert 'time' in response
