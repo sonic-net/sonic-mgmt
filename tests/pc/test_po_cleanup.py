@@ -40,10 +40,13 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 @pytest.fixture(autouse=True)
-def disable_route_check_for_duthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
-    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    logging.info("Stopping route check on DUT {}".format(duthost.hostname))
-    stop_route_checker_on_duthost(duthost)
+def disable_route_check_for_duthost(tbinfo, duthosts, enum_rand_one_per_hwsku_frontend_hostname):
+    if 't2' not in tbinfo['topo']['name']:
+        logging.info("Topology is not T2, skipping disabling route check")
+    else:
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        logging.info("Stopping route check on DUT {}".format(duthost.hostname))
+        stop_route_checker_on_duthost(duthost)
 
     yield
 
