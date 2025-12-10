@@ -140,6 +140,8 @@ Prerequisite tests provide early readiness validation before a category's main t
 **Common prerequisite test examples:**
 
 - Verify transceiver presence on the port
+- Verify port speed in CONFIG_DB matches expected speed per dut_info.json
+- Ensure RS FEC is configured if applicable
 - Validate active firmware version matches the expected gold firmware
 - Confirm I2C communication functionality via `sfputil`
 - Verify link operational status (link-up state)
