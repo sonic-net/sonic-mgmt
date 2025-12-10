@@ -640,7 +640,7 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
        Returns Nothing
     """
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
-        logging.info("Check power_status of DPUs in parallel")
+        logging.info("Checking reboot cause of DPUs in parallel")
         for dpu_name in dpu_list:
             executor.submit(
                 wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
