@@ -1062,10 +1062,14 @@ def __intf_config_macsec(config, port_config_list, duthost, snappi_ports, setup=
     ptype = "--snappi_macsec" in sys.argv
     num_of_non_macsec_snappi_devices = 7
     static_prefix_length = str(subnet_mask_from_hosts(num_of_non_macsec_snappi_devices))
-    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     for index, port in enumerate(snappi_ports):
         if port['duthost'] == duthost:
             peer_port = port['peer_port']
+            asic_inst = duthost.get_port_asic_instance(peer_port)
+            namespace = duthost.get_namespace_from_asic_id(asic_inst.asic_index) if asic_inst else None
+            facts = duthost.config_facts(host=duthost.hostname,
+                                         source="running", namespace=namespace)
+            config_facts = facts['ansible_facts']
             int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
             subnet = [ele for ele in int_addrs if "." in ele]
             if port['port_id'] == 0 and int(subnet[0].split("/")[1]) > int(static_prefix_length):
