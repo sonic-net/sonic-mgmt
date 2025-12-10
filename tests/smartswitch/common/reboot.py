@@ -34,9 +34,10 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
                 logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
                 sync_reboot_history_queue_with_dut(duthost)
 
-                pool = ThreadPool(processes=1)
-                async_result = pool.apply_async(execute_reboot_smartswitch_command)
-                pool.terminate()
+                with ThreadPool(processes=1) as pool:
+                    async_result = pool.apply_async(execute_reboot_smartswitch_command)
+                    pool.close()
+                    pool.join()
 
                 return {"failed": False,
                         "result": async_result}
