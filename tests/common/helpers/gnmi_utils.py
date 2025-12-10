@@ -404,7 +404,7 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def gnmi_capabilities(duthost, localhost, duthost_mgmt_ip):
+def gnmi_capabilities(duthost, localhost, duthost_mgmt_ip=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     duthost_mgmt_info = duthost.get_mgmt_ip()
     ip = duthost_mgmt_info['mgmt_ip']
