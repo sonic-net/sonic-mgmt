@@ -120,6 +120,92 @@ def invoke_analyze_impact(function_name, directory, trace=False):
         return None
 
 
+def is_infrastructure_file(file_path):
+    """
+    Check if a file is part of infrastructure that affects all tests.
+    Infrastructure changes require running the full test suite.
+
+    Note: tests/common is NOT included here because AST-based analysis
+    can precisely detect which tests depend on changed common code.
+    """
+    # Directories that are considered infrastructure
+    infrastructure_dirs = [
+        "ansible/",
+        "tests/scripts/"
+    ]
+
+    # Critical shell scripts that affect test execution
+    infrastructure_scripts = [
+        "tests/run_tests.sh",
+        "setup-container.sh"
+    ]
+
+    # Exclude changes to impacted_area_testing itself (would cause infinite recursion)
+    if file_path.startswith(".azure-pipelines/impacted_area_testing/"):
+        return False
+
+    # Check if file is in an infrastructure directory
+    for infra_dir in infrastructure_dirs:
+        if file_path.startswith(infra_dir):
+            return True
+
+    # Check if file is a critical infrastructure script
+    if file_path in infrastructure_scripts:
+        return True
+
+    return False
+
+
+def has_autouse_fixture(file_path, function_name):
+    """
+    Check if a function in a file is a pytest fixture with autouse=True.
+    Autouse fixtures affect all tests and require running the full test suite.
+    """
+    try:
+        with open(file_path, 'r') as f:
+            tree = ast.parse(f.read())
+
+        for node in tree.body:
+            if isinstance(node, ast.FunctionDef) and node.name == function_name:
+                # Check if it has @pytest.fixture decorator
+                for decorator in node.decorator_list:
+                    # Handle @pytest.fixture(autouse=True)
+                    if isinstance(decorator, ast.Call):
+                        if (hasattr(decorator.func, 'attr') and decorator.func.attr == 'fixture') or \
+                           (hasattr(decorator.func, 'id') and decorator.func.id == 'fixture'):
+                            # Check for autouse=True in keywords
+                            for keyword in decorator.keywords:
+                                if keyword.arg == 'autouse' and \
+                                   isinstance(keyword.value, ast.Constant) and keyword.value.value is True:
+                                    return True
+    except (SyntaxError, FileNotFoundError) as e:
+        logger.error(f"Error checking autouse fixture in {file_path}: {e}")
+
+    return False
+
+
+def collect_all_tests(directory):
+    """
+    Collect all test files in the tests directory.
+    Used when infrastructure files change and we need to run all tests.
+    """
+    all_tests = []
+    tests_path = directory
+
+    for root, dirs, files in os.walk(tests_path):
+        # Skip common and scripts directories as they're not test suites
+        if 'common' in root or 'scripts' in root:
+            continue
+
+        for file in files:
+            if file.startswith("test_") and file.endswith(".py"):
+                # Get relative path from current directory
+                full_path = os.path.join(root, file)
+                all_tests.append(full_path)
+
+    return all_tests
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Detect changed functions and invoke analyze_impact.py.")
     parser.add_argument("--modified_files", type=str, nargs="+", required=True, help="List of modified files.")
@@ -143,6 +229,21 @@ if __name__ == "__main__":
     logger.info(f"Feature branch: {args.feature_branch}")
     logger.info(f"Target branch: {args.target_branch}")
 
+    # Check if any infrastructure files were modified
+    has_infrastructure_changes = any(is_infrastructure_file(f) for f in args.modified_files)
+
+    if has_infrastructure_changes:
+        logger.info("Infrastructure files detected. Running full test suite.")
+        # Collect all tests
+        all_tests = collect_all_tests(args.directory)
+        consolidated_results = {"tests": all_tests, "others": []}
+        logger.info(f"Collected {len(all_tests)} tests from full test suite")
+
+        # Skip individual file analysis and dependency resolution for infrastructure changes
+        # Print the consolidated results as a single JSON
+        print(json.dumps(consolidated_results, indent=4))
+        sys.exit(0)
+
     consolidated_results = {"tests": [], "others": []}
 
     for file_path in args.modified_files:
@@ -157,6 +258,15 @@ if __name__ == "__main__":
             logger.info(f"No changed functions detected in {file_path}.")
         else:
             for function_name in changed_functions:
+                # Check if this is an autouse fixture - if so, run all tests
+                if has_autouse_fixture(file_path, function_name):
+                    logger.info(f"Detected autouse fixture '{function_name}' in {file_path}. Running full test suite.")
+                    all_tests = collect_all_tests(args.directory)
+                    consolidated_results = {"tests": all_tests, "others": []}
+                    logger.info(f"Collected {len(all_tests)} tests from full test suite")
+                    print(json.dumps(consolidated_results, indent=4))
+                    sys.exit(0)
+
                 logger.info(f"Invoking analyze_impact.py for function: {function_name}")
                 result = invoke_analyze_impact(function_name, args.directory, args.trace)
                 if result and result.get('tests'):

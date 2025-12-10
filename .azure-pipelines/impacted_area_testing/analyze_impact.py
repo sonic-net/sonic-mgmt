@@ -7,9 +7,10 @@ import logging
 import json
 
 logger = logging.getLogger()
-handler = logging.StreamHandler(sys.stdout)
+handler = logging.StreamHandler(sys.stderr)  # Use stderr to avoid contaminating JSON output
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 handler.setFormatter(formatter)
+logger.addHandler(handler)
 
 
 def find_python_files(directory):
@@ -92,10 +93,125 @@ def find_dependent_functions_and_methods(function_name, calls):
     return dependent_items
 
 
-def find_tests_using_fixture(fixture_name, python_files):
+def is_pytest_fixture(node):
     """
-    Find all test files that use the given pytest fixture.
+    Check if a function node is a pytest fixture.
+    Returns True if the function has @pytest.fixture decorator.
     """
+    if not isinstance(node, ast.FunctionDef):
+        return False
+
+    for decorator in node.decorator_list:
+        # Handle @pytest.fixture or @pytest.fixture(...)
+        if isinstance(decorator, ast.Name) and decorator.id == 'fixture':
+            return True
+        if isinstance(decorator, ast.Attribute) and decorator.attr == 'fixture':
+            return True
+        if isinstance(decorator, ast.Call):
+            if isinstance(decorator.func, ast.Name) and decorator.func.id == 'fixture':
+                return True
+            if isinstance(decorator.func, ast.Attribute) and decorator.func.attr == 'fixture':
+                return True
+    return False
+
+
+def get_fixture_dependencies(node):
+    """
+    Get the list of fixtures that this fixture depends on.
+    Returns a set of fixture names used as parameters.
+    """
+    if not isinstance(node, ast.FunctionDef):
+        return set()
+
+    dependencies = set()
+    for arg in node.args.args:
+        # Skip 'self', 'cls', 'request' which are special parameters
+        if arg.arg not in ['self', 'cls', 'request']:
+            dependencies.add(arg.arg)
+
+    return dependencies
+
+
+def build_fixture_dependency_graph(python_files):
+    """
+    Build a dependency graph of all fixtures.
+    Returns a dictionary: {fixture_name: set of fixtures it depends on}
+    """
+    fixture_graph = {}
+
+    for py_file in python_files:
+        try:
+            with open(py_file, 'r') as f:
+                tree = ast.parse(f.read())
+
+            for node in tree.body:
+                if is_pytest_fixture(node):
+                    fixture_name = node.name
+                    dependencies = get_fixture_dependencies(node)
+
+                    if fixture_name in fixture_graph:
+                        fixture_graph[fixture_name].update(dependencies)
+                    else:
+                        fixture_graph[fixture_name] = dependencies.copy()
+
+        except (SyntaxError, FileNotFoundError) as e:
+            logger.debug(f'Error parsing file {py_file}: {e}')
+            continue
+
+    return fixture_graph
+
+
+def find_dependent_fixtures(fixture_name, fixture_graph):
+    """
+    Find all fixtures that directly or indirectly depend on the given fixture.
+    Uses recursive tracing to find the complete dependency chain.
+
+    Args:
+        fixture_name: The name of the fixture that was changed
+        fixture_graph: Dictionary mapping fixture names to their dependencies
+
+    Returns:
+        Set of fixture names that depend on the given fixture
+    """
+    dependent_fixtures = set()
+    visited = set()
+
+    def helper(current_fixture):
+        if current_fixture in visited:
+            return
+        visited.add(current_fixture)
+
+        # Find all fixtures that depend on current_fixture
+        for fixture, dependencies in fixture_graph.items():
+            if current_fixture in dependencies:
+                dependent_fixtures.add(fixture)
+                helper(fixture)  # Recursively find fixtures depending on this one
+
+    helper(fixture_name)
+    return dependent_fixtures
+
+
+def find_tests_using_fixture(fixture_name, python_files, fixture_graph=None):
+    """
+    Find all test files that use the given pytest fixture, including indirect usage
+    through fixture dependency chains.
+
+    Args:
+        fixture_name: The name of the fixture to search for
+        python_files: List of Python files to search
+        fixture_graph: Optional fixture dependency graph. If provided, will also
+                      find tests using fixtures that depend on fixture_name.
+
+    Returns:
+        Set of test file paths that use the fixture directly or indirectly
+    """
+    # Find all fixtures that depend on the changed fixture
+    fixtures_to_check = {fixture_name}
+    if fixture_graph:
+        dependent_fixtures = find_dependent_fixtures(fixture_name, fixture_graph)
+        fixtures_to_check.update(dependent_fixtures)
+        logger.debug(f'Fixture {fixture_name} has {len(dependent_fixtures)} dependent fixtures: {dependent_fixtures}')
+
     affected_test_files = set()
     for py_file in python_files:
         with open(py_file, 'r') as f:
@@ -108,9 +224,12 @@ def find_tests_using_fixture(fixture_name, python_files):
             for node in tree.body:
                 if isinstance(node, ast.FunctionDef) and node.name.startswith('test'):
                     for arg in node.args.args:
-                        if arg.arg == fixture_name:
+                        # Check if test uses any of the fixtures in our chain
+                        if arg.arg in fixtures_to_check:
                             affected_test_files.add(py_file)
+                            logger.debug(f'Test {node.name} in {py_file} uses fixture {arg.arg}')
                             break
+
     return affected_test_files
 
 
@@ -134,12 +253,17 @@ find all functions that directly or indirectly call the given function or use th
     else:
         logger.setLevel(logging.INFO)
 
-    logger.debug('Function Name:', args.function_name)
-    logger.debug('Directory:', args.directory)
+    logger.debug(f'Function Name: {args.function_name}')
+    logger.debug(f'Directory: {args.directory}')
 
     # find all python files
     python_files = find_python_files(args.directory)
     logger.debug(f'Scanning {len(python_files)} python files in {args.directory}')
+
+    # Build fixture dependency graph
+    logger.debug('Building fixture dependency graph...')
+    fixture_graph = build_fixture_dependency_graph(python_files)
+    logger.debug(f'Found {len(fixture_graph)} fixtures in dependency graph')
 
     # Update to handle both functions and methods
     function_calls = {}
@@ -168,8 +292,8 @@ find all functions that directly or indirectly call the given function or use th
         if p.name.startswith('test'):
             affected_test_files.add(file_path)
 
-    # Check if the function_name is a fixture
-    fixture_test_files = find_tests_using_fixture(args.function_name, python_files)
+    # Check if the function_name is a fixture (with fixture dependency graph)
+    fixture_test_files = find_tests_using_fixture(args.function_name, python_files, fixture_graph)
     affected_test_files.update(fixture_test_files)
 
     # Check if the function_name is a test function
