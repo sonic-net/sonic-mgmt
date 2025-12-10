@@ -152,25 +152,16 @@ class PtfGrpc:
             GrpcTimeoutError: Timeout-related failures
             GrpcCallError: Other gRPC call failures
         """
-        # Use ansible command module with stdin for robust input handling
+        # Use ansible command module for robust execution
+        # Join command parts into a single command string
+        cmd_str = ' '.join(cmd)
+
         if input_data:
-            # Join command parts into a single command string
-            cmd_str = ' '.join(cmd)
             logger.debug(f"Executing: {cmd_str} (with stdin data)")
             result = self.ptfhost.command(cmd_str, stdin=input_data, module_ignore_errors=True)
         else:
-            # For commands without stdin, use shell module for better compatibility
-            # Build full command with proper shell escaping
-            escaped_cmd = []
-            for arg in cmd:
-                if ' ' in arg or ':' in arg:
-                    escaped_cmd.append(f"'{arg}'")
-                else:
-                    escaped_cmd.append(arg)
-            
-            full_cmd = ' '.join(escaped_cmd)
-            logger.debug(f"Executing: {full_cmd}")
-            result = self.ptfhost.shell(full_cmd, module_ignore_errors=True)
+            logger.debug(f"Executing: {cmd_str}")
+            result = self.ptfhost.command(cmd_str, module_ignore_errors=True)
 
         # Analyze errors and provide specific exceptions
         if result['rc'] != 0:
