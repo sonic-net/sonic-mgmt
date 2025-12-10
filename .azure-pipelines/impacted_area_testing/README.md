@@ -183,6 +183,179 @@ Module dependencies can be defined in `.azure-pipelines/impacted_area_testing/te
 
 See `TEST_DEPENDENCIES.md` for complete documentation on defining dependencies.
 
+## Local Testing
+
+To test the impact analysis locally before pushing to CI, use the provided test script:
+
+### Quick Start
+
+```bash
+# Test your current changes against master
+cd .azure-pipelines/impacted_area_testing
+./test_locally.sh
+```
+
+### Usage
+
+```bash
+./test_locally.sh [options]
+
+Options:
+  --target-branch <branch>    Target branch to compare against (default: origin/master)
+  --source-branch <branch>    Source branch or commit to test (default: HEAD)
+  --patch <file>              Apply a patch file before testing
+  --trace                     Enable detailed trace logging
+  --help                      Show help message
+```
+
+### Examples
+
+**Test current uncommitted changes:**
+```bash
+./test_locally.sh
+```
+
+**Test a specific feature branch:**
+```bash
+./test_locally.sh --source-branch feat/my-feature
+```
+
+**Test with a patch file:**
+```bash
+# Generate a patch from your changes
+git diff > my-changes.patch
+
+# Test what would happen if that patch was applied
+./test_locally.sh --patch my-changes.patch
+```
+
+**Compare two specific commits:**
+```bash
+./test_locally.sh --target-branch abc123 --source-branch def456
+```
+
+**Debug with detailed trace logging:**
+```bash
+./test_locally.sh --trace
+```
+
+**Reproduce a CI failure:**
+```bash
+# If CI failed on PR #12345, you can test the same comparison locally
+git fetch origin pull/12345/head:pr-12345
+./test_locally.sh --source-branch pr-12345 --target-branch origin/master
+```
+
+### Output
+
+The script provides:
+
+1. **Changed Files**: List of all files modified
+2. **Impact Analysis Results**: JSON output showing impacted tests
+3. **Categorized Test Scripts**: Tests organized by topology (t0, t1, t2, etc.)
+4. **Pipeline Variables**: Exact values that would be set in CI (`PR_CHECKERS`, `TEST_SCRIPTS`)
+5. **Summary Statistics**: Count of tests per topology
+
+### Example Output
+
+```
+========================================
+Impacted Area Testing - Local Test
+========================================
+
+Configuration:
+  Target Branch: origin/master
+  Source Branch: HEAD
+  Trace Logging: disabled
+
+Getting changed files...
+Changed files:
+  - tests/bgp/test_bgp_fact.py
+
+Running impact analysis...
+
+========================================
+Impact Analysis Results
+========================================
+
+Raw Impact Analysis Output:
+{
+  "tests": [
+    "tests/bgp/test_bgp_fact.py",
+    "tests/fib/test_fib.py"
+  ],
+  "others": []
+}
+
+Impacted Test Files (2):
+  - tests/bgp/test_bgp_fact.py
+  - tests/fib/test_fib.py
+
+Categorizing tests by topology...
+
+Categorized Test Scripts:
+{
+  "t0_checker": ["tests/bgp/test_bgp_fact.py"],
+  "t1_checker": ["tests/bgp/test_bgp_fact.py", "tests/fib/test_fib.py"]
+}
+
+========================================
+Final Pipeline Variables
+========================================
+
+PR_CHECKERS:
+["t0_checker", "t1_checker"]
+
+TEST_SCRIPTS:
+{
+  "t0_checker": ["tests/bgp/test_bgp_fact.py"],
+  "t1_checker": ["tests/bgp/test_bgp_fact.py", "tests/fib/test_fib.py"]
+}
+
+========================================
+Summary
+========================================
+
+Changed Files: 1
+Impacted Test Files: 2
+Topology Checkers: 2
+
+  - t0_checker: 1 tests
+  - t1_checker: 2 tests
+
+✓ Local testing complete!
+```
+
+### Troubleshooting
+
+**"Error: Not in a git repository"**
+- Make sure you're running the script from within the sonic-mgmt repository
+
+**"Error: Target branch not found"**
+- Fetch the latest branches: `git fetch --all`
+- Check branch name: `git branch -a`
+
+**"Error: Invalid JSON output"**
+- Run with `--trace` flag to see detailed error messages
+- Check for syntax errors in Python files
+
+**Module dependencies not being applied**
+- Verify `test_dependencies.json` is valid JSON
+- Check file paths match exactly (case-sensitive)
+- See `TEST_DEPENDENCIES.md` for configuration help
+
+### Integration with CI
+
+The local test script simulates exactly what happens in the CI pipeline:
+
+1. Gets changed files using `git diff`
+2. Runs `detect_function_changes.py` for AST-based analysis
+3. Applies module dependencies from `test_dependencies.json`
+4. Categorizes tests by topology using `categorize_test_scripts_by_topology.py`
+5. Outputs the same `PR_CHECKERS` and `TEST_SCRIPTS` variables used in CI
+
+This allows you to verify locally what tests will run before creating a PR.
+
 ## Safeguard
 As impacted area based PR testing would not cover all test scripts, we need a safeguard to run all test scripts daily to prevent any unforeseen issues.
 Fortunately, we have Baseline testing to do so.
