@@ -307,14 +307,20 @@ def test_buffer_profile_add_remove_rollback(
     # Determine new cable length (different from original)
     new_cable_length = '300m' if original_cable_length == '5m' else '5m'
 
+    original_profile_name = 'pg_lossless_{}_{}_profile'.format(
+        original_speed, original_cable_length)
     new_profile_name = 'pg_lossless_{}_{}_profile'.format(
         original_speed, new_cable_length)
+
+    # Skip test if original and new profiles would be the same
+    if original_profile_name == new_profile_name:
+        pytest.skip("Cannot test profile removal - original and new cable lengths are identical")
 
     logger.info("Test interface: {}, speed: {}, "
                 "original cable length: {}".format(
                     test_interface, original_speed, original_cable_length))
-    logger.info("New cable length: {}, expected profile: {}".format(
-        new_cable_length, new_profile_name))
+    logger.info("New cable length: {}, expected new profile: {}, original profile: {}".format(
+        new_cable_length, new_profile_name, original_profile_name))
 
     def check_profile_exists(profile_name, should_exist):
         """Check if profile exists in APPL_DB"""
@@ -407,16 +413,22 @@ def test_buffer_profile_add_remove_rollback(
         time.sleep(10)
 
         # Step 7: Check buffer profile is removed
-        logger.info("Step 7: Verifying profile {} is removed".format(
-            new_profile_name))
+        logger.info("Step 7: Verifying new profile {} is removed and original profile {} is restored".format(
+            new_profile_name, original_profile_name))
         pytest_assert(
             wait_until(30, 5, 0,
                        lambda: check_profile_exists(new_profile_name, False)),
-            "Buffer profile {} was not removed after rollback".format(
+            "New buffer profile {} was not removed after rollback".format(
                 new_profile_name)
         )
-        logger.info("Buffer profile {} successfully removed".format(
-            new_profile_name))
+        pytest_assert(
+            wait_until(30, 5, 0,
+                       lambda: check_profile_exists(original_profile_name, True)),
+            "Original buffer profile {} was not restored after rollback".format(
+                original_profile_name)
+        )
+        logger.info("Buffer profile rollback successful: new profile {} removed, original profile {} restored".format(
+            new_profile_name, original_profile_name))
 
         # Clean up checkpoint
         duthost.shell("config checkpoint delete {}".format(
