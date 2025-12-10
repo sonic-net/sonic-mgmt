@@ -31,6 +31,18 @@ except ImportError as e:
     OTLP_AVAILABLE = False
     logging.warning(f"OTLP exporter not available, TSReporter will operate in mock mode: {e}")
 
+    MetricsData = type(None)
+    ResourceMetrics = type(None)
+    ScopeMetrics = type(None)
+    Metric = type(None)
+    Gauge = type(None)
+    Histogram = type(None)
+    AggregationTemporality = type(None)
+    NumberDataPoint = type(None)
+    HistogramDataPoint = type(None)
+    Resource = type(None)
+    InstrumentationScope = type(None)
+    OTLPMetricExporter = type(None)
 
 class TSReporter(Reporter):
     """
