@@ -1175,12 +1175,17 @@ def add_platform_api_server_port_nat_for_dpu(
                 {SERVER_PORT} -j DNAT --to-destination {dpu_ip}:{SERVER_PORT}')
 
 
-def get_ansible_ssh_port(duthost, ansible_adhoc):  # noqa: F811
-    host = ansible_adhoc(become=True, args=[], kwargs={})[duthost.hostname]
-    vm = host.options["inventory_manager"].get_host(duthost.hostname).vars
-    ansible_ssh_port = vm.get("ansible_ssh_port", None)
-    logger.info(f'ansible_ssh_port for {duthost.hostname} is {ansible_ssh_port}')
-    return ansible_ssh_port
+def get_ssh_port_from_duthost(duthost):
+    """
+    Get SSH port from duthost's Ansible inventory variables.
+    Returns: SSH port number (int)
+    """
+    if getattr(duthost, 'host', None):
+        dut_vars = duthost.host.options["inventory_manager"].get_host(duthost.hostname).vars
+        ansible_ssh_port = dut_vars.get("ansible_port", 22)
+    else:
+        ansible_ssh_port = 22
+    return int(ansible_ssh_port)
 
 
 def create_npu_host_based_on_dpu_info(ansible_adhoc, tbinfo, request, duthost):  # noqa: F811
