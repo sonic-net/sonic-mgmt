@@ -14,7 +14,8 @@ from scapy.contrib import bgp
 from tests.bgp.bgp_helpers import (
         capture_bgp_packages_to_file,
         fetch_and_delete_pcap_file,
-        is_neighbor_sessions_established
+        is_neighbor_sessions_established,
+        check_routes_presence
 )
 from tests.common.helpers.bgp import BGPNeighbor
 from tests.common.utilities import wait_until, delete_running_config
@@ -283,33 +284,22 @@ def test_bgp_update_timer_single_route(
         for i, route in enumerate(constants.routes):
             bgp_pcap = BGP_LOG_TMPL % i
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):
+                asichost = duthost.asic_instance_from_namespace(n0.namespace)
                 n0.announce_route(route)
                 time.sleep(constants.sleep_interval)
-                duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} received-routes' | grep '{}'".format(
-                        n0.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
-                duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} advertised-routes' | grep '{}'".format(
-                        n1.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
+                res = asichost.run_vtysh(
+                    " -c \'show ip bgp neighbors {} received-routes\'".format(n0.ip))
+                check_routes_presence(res, route["prefix"])
+                res = asichost.run_vtysh(
+                    " -c \'show ip bgp neighbors {} received-routes\'".format(n1.ip))
+                check_routes_presence(res, route["prefix"])
                 n0.withdraw_route(route)
-                duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} received-routes' | grep '{}'".format(
-                        n0.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
-                duthost.shell(
-                    "vtysh -c 'show ip bgp neighbors {} advertised-routes' | grep '{}'".format(
-                        n1.ip, route["prefix"]
-                    ),
-                    module_ignore_errors=True,
-                )
+                res = asichost.run_vtysh(
+                    " -c \'show ip bgp neighbors {} received-routes\'".format(n0.ip))
+                check_routes_presence(res, route["prefix"])
+                res = asichost.run_vtysh(
+                    " -c \'show ip bgp neighbors {} received-routes\'".format(n1.ip))
+                check_routes_presence(res, route["prefix"])
                 time.sleep(constants.sleep_interval)
 
             local_pcap_filename = fetch_and_delete_pcap_file(bgp_pcap, constants.log_dir, duthost, request)
