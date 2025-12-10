@@ -952,7 +952,7 @@ def main_legacy(module):
 
     errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
         snmp_auth,
-        _create_transport_target(m_args['host'], 161, m_args['timeout']),
+        cmdgen.UdpTransportTarget((m_args['host'], 161), timeout=m_args['timeout']),
         cmdgen.MibVariable(p.csqIfQosGroupStatsValue,),
         lookupMib=False,
     )
