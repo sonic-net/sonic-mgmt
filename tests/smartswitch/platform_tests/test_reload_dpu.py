@@ -247,7 +247,7 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
-    logging.info("Checking DPUs reboot reason as Kernal Panic")
+    logging.info("Checking DPUs reboot reason as Kernel Panic")
     check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
 
     logging.info("Shutdown DPUs after memory exhaustion")
