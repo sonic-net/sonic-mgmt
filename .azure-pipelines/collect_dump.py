@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 
 import argparse
+import datetime
+import gzip
 import logging
 import os
 import sys
-import datetime
-import traceback
 import tarfile
-import gzip
+import traceback
 from concurrent.futures import ThreadPoolExecutor
 
 _self_dir = os.path.dirname(os.path.abspath(__file__))
@@ -21,6 +21,14 @@ if ansible_path not in sys.path:
 from devutil.devices.factory import init_testbed_sonichosts  # noqa: E402
 
 logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+
+if not logger.handlers:  # prevent adding multiple handlers
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(logging.INFO)
+    formatter = logging.Formatter("%(asctime)s [%(levelname)s] %(message)s")
+    console_handler.setFormatter(formatter)
+    logger.addHandler(console_handler)
 
 RC_INIT_FAILED = 1
 RC_GET_TECHSUPPORT_FAILED = 2
@@ -28,19 +36,21 @@ TECHSUPPORT_SAVE_PATH = '../tests/logs/'
 LOGS_DIR = os.path.join(_self_dir, TECHSUPPORT_SAVE_PATH)
 
 
-def get_techsupport(sonichost, time_since):
-    """Runs 'show techsupport' on SONiC devices and saves the output to logs/"""
+def get_techsupport(sonichost, time_since, dump_dir):
+    """Runs 'show techsupport' on SONiC devices and saves the output to dump_dir/"""
     try:
-        # Run "show techsupport" command
+        logger.info(f"[{sonichost.hostname}] Running 'show techsupport --since {time_since}' ...")
         result = sonichost.command(f"show techsupport --since {time_since}")
         if result['rc'] == 0:
             tar_file = result['stdout_lines'][-1]
-            tar_file_name = tar_file.split("/")[-1]
-            sonichost.fetch_no_slurp(src=tar_file, dest=TECHSUPPORT_SAVE_PATH, flat=True)
+            tar_file_name = os.path.basename(tar_file)
+            sonichost.fetch_no_slurp(src=tar_file, dest=dump_dir, flat=True)
             return tar_file_name
+        logger.error(f"[{sonichost.hostname}] Failed to generate techsupport (rc={result['rc']})")
+        return None
 
     except Exception as e:
-        logger.info(f"Failed to get techsupport for {e}")
+        logger.info(f"[{sonichost.hostname}] Failed to get techsupport: {e}")
         sys.exit(RC_GET_TECHSUPPORT_FAILED)
 
 
@@ -69,38 +79,49 @@ def extract_gz_file(gz_file_path):
         traceback.print_exc()
 
 
-def extract_dump_file(testbed_name_with_idx, hostname, tar_file_name):
+def extract_dump_file(testbed_name_with_idx, hostname, tar_file_name, dump_dir):
     try:
         # extract dump file
-        dump_file_path = os.path.join(TECHSUPPORT_SAVE_PATH, tar_file_name)
-        extract_dump_tar_gz(dump_file_path, TECHSUPPORT_SAVE_PATH)
+        dump_file_path = os.path.join(dump_dir, tar_file_name)
+        logger.info(f"[{hostname}] Extracting dump file {dump_file_path}")
+        extract_dump_tar_gz(dump_file_path, dump_dir)
 
         # rename dump file
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        new_file_name = testbed_name_with_idx + "_" + hostname + "_" + timestamp
-        new_file_path = os.path.join(LOGS_DIR, new_file_name)
-        os.rename(os.path.join(_self_dir, dump_file_path), os.path.join(LOGS_DIR, new_file_name + ".tar.gz"))
-        os.rename(os.path.join(_self_dir, dump_file_path.split(".tar.gz")[0]), new_file_path)
+        new_file_name = f"{testbed_name_with_idx}_{hostname}_{timestamp}"
+        new_file_path = os.path.join(dump_dir, new_file_name)
+
+        logger.info(f"[{hostname}] Renaming dump to {new_file_path}")
+        os.rename(dump_file_path, os.path.join(dump_dir, new_file_name + ".tar.gz"))
+        os.rename(dump_file_path.split(".tar.gz")[0], new_file_path)
 
         # extract syslog gz files
         syslog_dir = os.path.join(new_file_path, "log")
-        syslog_gz_files = [file for file in os.listdir(os.path.join(LOGS_DIR, syslog_dir))
-                           if file.startswith("syslog") and file.endswith(".gz")]
-        logger.info("Syslog files: {}".format(syslog_gz_files))
+        syslog_gz_files = [
+            file for file in os.listdir(syslog_dir)
+            if file.startswith("syslog") and file.endswith(".gz")
+        ]
+        logger.info(f"[{hostname}] Extracting {len(syslog_gz_files)} syslog files")
         for syslog_gz in syslog_gz_files:
             syslog_gz_files_path = os.path.join(syslog_dir, syslog_gz)
             extract_gz_file(syslog_gz_files_path)
 
+        logger.info(f"[{hostname}] Dump extraction completed")
     except Exception as e:
-        logger.info("Extract dump file failed: " + str(e))
+        logger.exception(f"[{hostname}] ERROR during extraction: {e}")
         traceback.print_exc()
 
 
-def collect_dump_and_extract(sonichost, time_since, testbed_name_with_idx):
-    """Function to run tasks in parallel per sonichost"""
-    tar_file_name = get_techsupport(sonichost, time_since=time_since)
-    extract_dump_file(testbed_name_with_idx=testbed_name_with_idx,
-                      hostname=sonichost.hostname, tar_file_name=tar_file_name)
+def collect_dump_and_extract(sonichost, time_since, testbed_name_with_idx, dump_dir):
+    logger.info(f"[{sonichost.hostname}] Starting dump collection ...")
+    tar_file_name = get_techsupport(sonichost, time_since=time_since, dump_dir=dump_dir)
+    if tar_file_name:
+        extract_dump_file(testbed_name_with_idx=testbed_name_with_idx,
+                          hostname=sonichost.hostname,
+                          tar_file_name=tar_file_name,
+                          dump_dir=dump_dir)
+    else:
+        logger.warning(f"[{sonichost.hostname}] No dump file collected.")
 
 
 def main(args):
@@ -112,12 +133,13 @@ def main(args):
     if not sonichosts:
         sys.exit(RC_INIT_FAILED)
 
-    if not os.path.exists(LOGS_DIR):
-        os.makedirs(LOGS_DIR)
+    if not os.path.exists(args.dump_dir):
+        os.makedirs(args.dump_dir)
 
     with ThreadPoolExecutor(max_workers=len(sonichosts)) as executor:
         futures = [
-            executor.submit(collect_dump_and_extract, sonichost, args.time_since, args.testbed_name_with_idx)
+            executor.submit(collect_dump_and_extract,
+                            sonichost, args.time_since, args.testbed_name_with_idx, args.dump_dir)
             for sonichost in sonichosts
         ]
         for future in futures:
@@ -175,6 +197,14 @@ if __name__ == "__main__":
         dest="verbosity",
         default=2,
         help="Log verbosity (0-3)."
+    )
+
+    parser.add_argument(
+        "--dump-dir",
+        type=str,
+        dest="dump_dir",
+        default=LOGS_DIR,
+        help="Directory to store collected dumps."
     )
 
     args = parser.parse_args()

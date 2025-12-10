@@ -1,4 +1,6 @@
-pfcQueueGroupSize = 8  # can have values 4 or 8
+from tests.common.snappi_tests.common_helpers import get_pfcQueueGroupSize
+
+pfcQueueGroupSize = get_pfcQueueGroupSize(default=8)  # can have values 4 or 8
 pfcQueueValueDict = {0: 0,
                      1: 1,
                      2: 0,

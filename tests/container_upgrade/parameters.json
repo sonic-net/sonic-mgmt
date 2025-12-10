@@ -9,9 +9,15 @@
         "parameters": ""
     },
     "docker-sonic-gnmi": {
-        "parameters": ""
+        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /etc/fips/fips_enable:/etc/fips/fips_enable:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/dbus:/var/run/dbus:rw -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-chassis:/var/run/redis-chassis:ro --env RUNTIME_OWNER=local"
+    },
+    "docker-sonic-bmp": {
+        "parameters": "--net=host -v /etc/sonic:/etc/sonic:ro -v /etc/localtime:/etc/localtime:ro -v /usr/share/sonic/templates/rsyslog-container.conf.j2:/usr/share/sonic/templates/rsyslog-container.conf.j2:ro -v /var/run/redis:/var/run/redis:rw -v /var/run/redis-bmp:/var/run/redis-bmp:ro"
     },
     "docker-gnmi-watchdog": {
+        "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
+    },
+    "docker-bmp-watchdog": {
         "parameters": "--pid=host --net=host -v /etc/localtime:/etc/localtime:ro -v /etc/sonic:/etc/sonic:ro"
     }
 }

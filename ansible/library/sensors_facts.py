@@ -239,7 +239,7 @@ class SensorsModule(object):
                 if self.skip_the_value(path):
                     continue
                 value = self.get_raw_value(path)
-                if value is None:
+                if value in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append('Path %s is not exist' % path)
@@ -256,20 +256,29 @@ class SensorsModule(object):
                     continue
                 value_input = self.get_raw_value(path_input)
                 value_max = self.get_raw_value(path_max)
-                if value_input is None:
+                if value_input in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append(
                         'Path %s is not exist' % path_input)
-                elif value_max is None:
+                elif value_max in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append(
                         'Path %s is not exist' % path_max)
-                elif float(value_input) >= float(value_max):
-                    self.alarms[hw_part] = True
-                    self.facts['alarm'] = True
-                    self.alarms[reasons].append('Alarm on %s' % path_input)
+                else:
+                    try:
+                        if float(value_input) >= float(value_max):
+                            self.alarms[hw_part] = True
+                            self.facts['alarm'] = True
+                            self.alarms[reasons].append('Alarm on %s' % path_input)
+                    except (ValueError, TypeError):
+                        self.alarms[hw_part] = True
+                        self.facts['alarm'] = True
+                        self.alarms[reasons].append(
+                            f'Invalid value on {path_input}. Value is expected to be a string or int. '
+                            f'Got value_input={value_input}|{type(value_input)}, '
+                            f'value_max={value_max}|{type(value_max)}')
 
         # check not zero lists
         for hw_part, not_zero_list in self.checks['non_zero'].items():
@@ -278,7 +287,7 @@ class SensorsModule(object):
                 if self.skip_the_value(path):
                     continue
                 value = self.get_raw_value(path)
-                if value is None:
+                if value in (None, {}):
                     self.alarms[hw_part] = True
                     self.facts['alarm'] = True
                     self.alarms[reasons].append('Path %s is not exist' % path)

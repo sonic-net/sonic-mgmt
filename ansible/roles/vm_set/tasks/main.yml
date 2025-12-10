@@ -26,6 +26,10 @@
     package_installation: true
   when: package_installation is not defined or package_installation == ''
 
+- name: Initialize async flag
+  set_fact:
+    enable_async: "{{ enable_async | default(false) | bool }}"
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
@@ -114,6 +118,7 @@
         pkg:
         - python3-libvirt
         - python3-pip
+        - python3-lxml
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
@@ -160,6 +165,41 @@
   become: yes
   when: host_distribution_version.stdout >= "20.04"
 
+- name: Set kernel.pty.max to 8192
+  become: true
+  sysctl:
+    name: kernel.pty.max
+    value: 8192
+    state: present
+    sysctl_set: true
+    reload: true
+    sysctl_file: /etc/sysctl.d/99-pty.conf
+
+- name: Update libvirt qemu configuration
+  block:
+  - name: Set user to root in qemu.conf
+    lineinfile:
+      path: /etc/libvirt/qemu.conf
+      regexp: '^#?user\s*=.*'
+      line: 'user = "root"'
+      state: present
+      backrefs: yes
+    become: yes
+  - name: Set group to root in qemu.conf
+    lineinfile:
+      path: /etc/libvirt/qemu.conf
+      regexp: '^#?group\s*=.*'
+      line: 'group = "root"'
+      state: present
+      backrefs: yes
+    become: yes
+  - name: Restart libvirtd to apply qemu.conf changes
+    service:
+      name: libvirtd
+      state: restarted
+    become: yes
+  when: host_distribution_version.stdout >= "24.04"
+
 - name: Install br_netfilter kernel module
   become: yes
   modprobe: name=br_netfilter state=present
@@ -193,6 +233,50 @@
   sysctl:
     name: "net.ipv6.route.max_size"
     value: "16384"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase neighbor gc_thresh1
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "8192"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh1
+    - net.ipv6.neigh.default.gc_thresh1
+
+- name: Increase neighbor gc_thresh2
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "16384"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh2
+    - net.ipv6.neigh.default.gc_thresh2
+
+- name: Increase neighbor gc_thresh3
+  sysctl:
+    sysctl_set: yes
+    name: "{{ item }}"
+    value: "32768"
+  become: yes
+  with_items:
+    - net.ipv4.neigh.default.gc_thresh3
+    - net.ipv6.neigh.default.gc_thresh3
+
+- name: increase kernel pid max
+  sysctl:
+    name: "kernel.pid_max"
+    value: "4194304"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase fs limitation
+  sysctl:
+    name: "fs.inotify.max_user_instances"
+    value: "62800"
     sysctl_set: yes
   become: yes
 

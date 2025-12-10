@@ -12,6 +12,7 @@ from tests.common.snappi_tests.port import select_ports                         
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp                                 # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -75,14 +76,19 @@ def run_pfcwd_multi_node_test(api,
     pfcwd_to_be_configured = set()
 
     rx_port = snappi_extra_params.multi_dut_params.multi_dut_ports[0]
-    rx_port_id_list = [rx_port["port_id"]]
     egress_duthost = rx_port['duthost']
     # Add the port to the set of ports to be configured for PFC
     pfcwd_to_be_configured.add((egress_duthost, rx_port['asic_value']))
 
     tx_port = [snappi_extra_params.multi_dut_params.multi_dut_ports[1],
                snappi_extra_params.multi_dut_params.multi_dut_ports[2]]
-    tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+    if pattern == 'all to all':
+        tx_port_id_list = [rx_port["port_id"], tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        rx_port_id_list = [rx_port["port_id"], tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        pfcwd_to_be_configured.add((rx_port['duthost'], rx_port['asic_value']))
+    elif pattern == 'many to one':
+        tx_port_id_list = [tx_port[0]["port_id"], tx_port[1]["port_id"]]
+        rx_port_id_list = [rx_port["port_id"]]
     # add ingress DUT into the set
     pfcwd_to_be_configured.add((tx_port[0]['duthost'], tx_port[0]['asic_value']))
     pfcwd_to_be_configured.add((tx_port[1]['duthost'], tx_port[1]['asic_value']))
@@ -438,7 +444,7 @@ def __gen_data_flow(testbed_config,
         eth.pfc_queue.value = pfcQueueValueDict[flow_prio]
 
     ipv4.src.value = tx_port_config.ip
-    ipv4.dst.value = rx_port_config.ip
+    ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
     ipv4.priority.choice = ipv4.priority.DSCP
     ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio]
     ipv4.priority.dscp.ecn.value = (
@@ -544,9 +550,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(exp_dur_sec)
 
@@ -577,9 +583,9 @@ def __run_traffic(api, config, all_flow_names, exp_dur_sec):
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 

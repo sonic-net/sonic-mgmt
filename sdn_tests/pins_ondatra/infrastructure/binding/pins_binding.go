@@ -8,13 +8,17 @@ import (
 	"net/http"
 	"time"
 
+       "flag"
+
 	log "github.com/golang/glog"
 
 	"github.com/openconfig/gnoigo"
+        pinsbackend "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbackend"
+        "google.golang.org/grpc"
+
 	"github.com/openconfig/ondatra/binding"
 	"github.com/openconfig/ondatra/binding/grpcutil"
-	pinsbackend "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbackend"
-	"google.golang.org/grpc"
+        "github.com/openconfig/ondatra/binding/introspect"
 
 	opb "github.com/openconfig/ondatra/proto"
 	"github.com/openconfig/ondatra/proxy"
@@ -27,18 +31,22 @@ import (
 )
 
 var (
+	supportedBackends = []string{"pins"}
+	backendType       = flag.String("pins_backend_type", "pins", fmt.Sprintf("define the pins-ondatra backend type, choose from : %v. Uses pins as default.", supportedBackends))
+)
+
+var (
 	// validate that the Binding fulfills both binding.Binding and proxy.Dialer
 	// interfaces.
 	_ binding.Binding = &Binding{}
 	_ proxy.Dialer    = &Binding{}
 )
 
-var backend bindingbackend.Backend
-
 // Binding is a binding for PINS switches.
 type Binding struct {
 	resv       *binding.Reservation
 	httpDialer func(target string) (proxy.HTTPDoCloser, error)
+        backend    bindingbackend.Backend
 }
 
 // Option are configurable inputs to the binding.
@@ -48,6 +56,13 @@ type Option func(b *Binding)
 func WithHTTPDialer(f func(target string) (proxy.HTTPDoCloser, error)) Option {
 	return func(b *Binding) {
 		b.httpDialer = f
+	}
+}
+
+// WithBackend provides a custom backend to support different bindings.
+func WithBackend(backend bindingbackend.Backend) Option {
+	return func(b *Binding) {
+		b.backend = backend
 	}
 }
 
@@ -68,6 +83,17 @@ func defaultHTTPDialer(target string) (proxy.HTTPDoCloser, error) {
 	return &httpClient{http.DefaultClient}, nil
 }
 
+// createBackendFromFlag creates a backend based on the passed flag.
+func createBackendFromFlag() (bindingbackend.Backend, error) {
+	switch *backendType {
+	case "pins":
+                log.Infof("Creating PINS backend")
+		return pinsbackend.New(), nil
+	default:
+		return nil, fmt.Errorf("unknown backend type: %q", *backendType)
+	}
+}
+
 // NewWithOpts returns a new instance of a PINS Binding.
 func NewWithOpts(opts ...Option) (*Binding, error) {
 	b := &Binding{
@@ -78,37 +104,26 @@ func NewWithOpts(opts ...Option) (*Binding, error) {
 		opt(b)
 	}
 
-	if backend == nil {
-		backend = pinsbackend.New()
+        if b.backend != nil {
+		return b, nil
 	}
+
+	backend, err := createBackendFromFlag()
+	if err != nil {
+		return nil, fmt.Errorf("createBackendFromFlag() failed, err : %v", err)
+	}
+	b.backend = backend
 
 	return b, nil
 }
 
-// SetBackend sets the backend for binding.
-func SetBackend(b bindingbackend.Backend) {
-	backend = b
-}
-
-// CloseBackend closes the backend.
-func CloseBackend() {
-	if backend != nil {
-		backend.Close()
-	}
-	backend = nil
-}
-
 // Reserve returns a testbed meeting requirements of testbed proto.
 func (b *Binding) Reserve(ctx context.Context, tb *opb.Testbed, runtime, waitTime time.Duration, partial map[string]string) (*binding.Reservation, error) {
-	if backend == nil {
-		return nil, fmt.Errorf("backend is not set")
-	}
-
 	if len(partial) > 0 {
 		return nil, fmt.Errorf("PINSBind Reserve does not yet support partial mappings")
 	}
 
-	reservedtopology, err := backend.ReserveTopology(ctx, tb, runtime, waitTime)
+	reservedtopology, err := b.backend.ReserveTopology(ctx, tb, runtime, waitTime)
 	if err != nil {
 		return nil, fmt.Errorf("failed to reserve topology: %v", err)
 	}
@@ -144,7 +159,7 @@ func (b *Binding) Reserve(ctx context.Context, tb *opb.Testbed, runtime, waitTim
 
 // Release returns the testbed to a pool of resources.
 func (b *Binding) Release(ctx context.Context) error {
-	return backend.Release(ctx)
+	return b.backend.Release(ctx)
 }
 
 type pinsDUT struct {
@@ -163,11 +178,7 @@ type pinsATE struct {
 // be used by any new service definitions which create underlying gRPC
 // connections.
 func (b *Binding) DialGRPC(ctx context.Context, addr string, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	if backend == nil {
-		return nil, fmt.Errorf("backend is not set")
-	}
-
-	return backend.DialGRPC(ctx, addr, opts...)
+	return b.backend.DialGRPC(ctx, addr, opts...)
 }
 
 // HTTPClient returns a http client that is capable of dialing the provided target.
@@ -175,30 +186,40 @@ func (b *Binding) HTTPClient(target string) (proxy.HTTPDoCloser, error) {
 	return b.httpDialer(target)
 }
 
-// DialGNMI connects directly to the switch's proxy.
-func (d *pinsDUT) DialGNMI(ctx context.Context, opts ...grpc.DialOption) (gpb.GNMIClient, error) {
-	addr := d.grpc.Addr[bindingbackend.GNMI]
+func (d *pinsDUT) dialGRPC(ctx context.Context, grpcInfo bindingbackend.ServiceInfo, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	addr := grpcInfo.Addr
 	if addr == "" {
-		return nil, fmt.Errorf("service gnmi not registered on DUT %q", d.Name())
+		return nil, fmt.Errorf("service not registered on DUT %q", d.Name())
 	}
 
-	const defaultTimeout = time.Minute
-	ctx, cancel := grpcutil.WithDefaultTimeout(ctx, defaultTimeout)
+	timeout := grpcInfo.Timeout
+	if timeout == 0 {
+		timeout = 2 * time.Minute
+	}
+
+	ctx, cancel := grpcutil.WithDefaultTimeout(ctx, timeout)
 	defer cancel()
 	opts = append(opts,
-		grpcutil.WithUnaryDefaultTimeout(defaultTimeout),
-		grpcutil.WithStreamDefaultTimeout(defaultTimeout),
+		grpcutil.WithUnaryDefaultTimeout(timeout),
+		grpcutil.WithStreamDefaultTimeout(timeout),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*20)))
 
-	conn, err := d.bind.DialGRPC(ctx, addr, opts...)
+	return d.bind.DialGRPC(ctx, addr, opts...)
+}
+
+// DialGNMI connects directly to the switch's proxy.
+func (d *pinsDUT) DialGNMI(ctx context.Context, opts ...grpc.DialOption) (gpb.GNMIClient, error) {
+	conn, err := d.dialGRPC(ctx, d.grpc.Info[introspect.GNMI], opts...)
+	if err != nil {
+		return nil, fmt.Errorf("dialGRPC() for GNMI failed, err : %v", err)
+	}
+
+	cli, err := d.bind.backend.GNMIClient(ctx, d.AbstractDUT, conn)
 	if err != nil {
 		return nil, err
 	}
 
-	cli, err := backend.GNMIClient(ctx, d.AbstractDUT, conn)
-	if err != nil {
-		return nil, err
-	}
+        log.InfoContextf(ctx, "GNMI dial success Address:%s, Switch:%s", conn.Target(), d.Name())
 	return &clientWrap{GNMIClient: cli}, nil
 }
 
@@ -292,24 +313,12 @@ func (c *clientWrap) Capabilities(ctx context.Context, in *gpb.CapabilityRequest
 
 // DialGNOI connects directly to the switch's proxy.
 func (d *pinsDUT) DialGNOI(ctx context.Context, opts ...grpc.DialOption) (gnoigo.Clients, error) {
-	addr := d.grpc.Addr[bindingbackend.GNOI]
-	if addr == "" {
-		return nil, fmt.Errorf("service gnoi not registered on DUT %q", d.Name())
-	}
-
-	ctx, cancel := grpcutil.WithDefaultTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	opts = append(opts,
-		grpcutil.WithUnaryDefaultTimeout(30*time.Second),
-		grpcutil.WithStreamDefaultTimeout(2*time.Minute),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*20)))
-
-	conn, err := d.bind.DialGRPC(ctx, addr, opts...)
+	conn, err := d.dialGRPC(ctx, d.grpc.Info[introspect.GNOI], opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("dialGRPC() for GNOI failed, err : %v", err)
 	}
 
-	log.Infof("GNOI dial success Address:%s, Switch:%s", conn.Target(), d.Name())
+	log.InfoContextf(ctx, "GNOI dial success Address:%s, Switch:%s", conn.Target(), d.Name())
 	return &GNOIClients{
 		Clients: gnoigo.NewClients(conn),
 	}, nil
@@ -322,30 +331,18 @@ type GNOIClients struct {
 
 // DialP4RT connects directly to the switch's proxy.
 func (d *pinsDUT) DialP4RT(ctx context.Context, opts ...grpc.DialOption) (p4pb.P4RuntimeClient, error) {
-	addr := d.grpc.Addr[bindingbackend.P4RT]
-	if addr == "" {
-		return nil, fmt.Errorf("service gnsi not registered on DUT %q", d.Name())
-	}
-
-	ctx, cancel := grpcutil.WithDefaultTimeout(ctx, 2*time.Minute)
-	defer cancel()
-	opts = append(opts,
-		grpcutil.WithUnaryDefaultTimeout(30*time.Second),
-		grpcutil.WithStreamDefaultTimeout(2*time.Minute),
-		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*20)))
-
-	conn, err := d.bind.DialGRPC(ctx, addr, opts...)
+	conn, err := d.dialGRPC(ctx, d.grpc.Info[introspect.P4RT], opts...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("dialGRPC() for P4RT failed, err : %v", err)
 	}
 
-	log.Infof("P4RT dial success Address:%s, Switch:%s", conn.Target(), d.Name())
+	log.InfoContextf(ctx, "P4RT dial success Address:%s, Switch:%s", conn.Target(), d.Name())
 	return p4pb.NewP4RuntimeClient(conn), nil
 }
 
 // DialConsole returns a StreamClient for the DUT.
 func (d *pinsDUT) DialConsole(ctx context.Context) (binding.ConsoleClient, error) {
-	return backend.DialConsole(ctx, d.AbstractDUT)
+	return d.bind.backend.DialConsole(ctx, d.AbstractDUT)
 }
 
 // FetchReservation unimplemented for experimental purposes.
@@ -396,7 +393,7 @@ func (b *Binding) resolveDUT(key string, d *pinsDUT) (*rpb.ResolvedDevice, error
 			Id: "gnmi.gNMI",
 			Endpoint: &rpb.Service_ProxiedGrpc{
 				ProxiedGrpc: &rpb.ProxiedGRPCEndpoint{
-					Address: d.grpc.Addr[bindingbackend.GNMI],
+					Address: d.grpc.Info[introspect.GNMI].Addr,
 					Proxy:   nil,
 				},
 			},
@@ -405,7 +402,7 @@ func (b *Binding) resolveDUT(key string, d *pinsDUT) (*rpb.ResolvedDevice, error
 			Id: "p4.v1.P4Runtime",
 			Endpoint: &rpb.Service_ProxiedGrpc{
 				ProxiedGrpc: &rpb.ProxiedGRPCEndpoint{
-					Address: d.grpc.Addr[bindingbackend.P4RT],
+					Address: d.grpc.Info[introspect.P4RT].Addr,
 					Proxy:   nil,
 				},
 			},

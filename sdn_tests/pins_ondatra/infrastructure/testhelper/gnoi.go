@@ -9,9 +9,12 @@ import (
 	"time"
 
 	log "github.com/golang/glog"
+        "github.com/openconfig/gnoigo"
 	"github.com/openconfig/ondatra"
+        "github.com/openconfig/ondatra/binding/grpcutil"
 	"github.com/openconfig/ondatra/gnmi"
 	"github.com/pkg/errors"
+        "google.golang.org/grpc"
 
 	healthzpb "github.com/openconfig/gnoi/healthz"
 	syspb "github.com/openconfig/gnoi/system"
@@ -20,7 +23,13 @@ import (
 // Function pointers that interact with the switch. They enable unit testing
 // of methods that interact with the switch.
 var (
-	gnoiSystemClientGet = func(t *testing.T, d *ondatra.DUTDevice) syspb.SystemClient {
+	gnoiClientGet = func(t *testing.T, d *ondatra.DUTDevice) (gnoigo.Clients, error) {
+		ctx, cancel := grpcutil.WithDefaultTimeout(context.Background(), time.Minute)
+		defer cancel()
+		return d.RawAPIs().BindingDUT().DialGNOI(ctx, grpc.WithBlock())
+	}
+
+        gnoiSystemClientGet = func(t *testing.T, d *ondatra.DUTDevice) syspb.SystemClient {
 		return d.RawAPIs().GNOI(t).System()
 	}
 
@@ -156,8 +165,13 @@ func Reboot(t *testing.T, d *ondatra.DUTDevice, params *RebootParams) error {
 // GNOIAble returns whether the gNOI server on the specified device is reachable
 // or not.
 func GNOIAble(t *testing.T, d *ondatra.DUTDevice) error {
-	// Time() gNOI request is used to verify the gNOI server reachability.
-	_, err := gnoiSystemClientGet(t, d).Time(context.Background(), &syspb.TimeRequest{})
+	gnoiClient, err := gnoiClientGet(t, d)
+	if err != nil {
+		return err
+	}
+
+        // Time() gNOI request is used to verify the gNOI server reachability.
+	_, err = gnoiClient.System().Time(context.Background(), &syspb.TimeRequest{})
 	return err
 }
 

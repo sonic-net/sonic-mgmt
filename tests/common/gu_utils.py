@@ -15,7 +15,10 @@ CONTAINER_SERVICES_LIST = ["swss", "syncd", "radv", "lldp", "dhcp_relay", "teamd
 DEFAULT_CHECKPOINT_NAME = "test"
 GCU_FIELD_OPERATION_CONF_FILE = "gcu_field_operation_validators.conf.json"
 GET_HWSKU_CMD = "sonic-cfggen -d -v DEVICE_METADATA.localhost.hwsku"
-GCUTIMEOUT_MAP = {'armhf-nokia_ixs7215_52x-r0': 1200}
+GCUTIMEOUT_MAP = {
+    'armhf-nokia_ixs7215_52x-r0': 1200,
+    'x86_64-nvidia_sn5640-r0': 3600  # Increase timeout due to issue #22370
+}
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 FILES_DIR = os.path.join(BASE_DIR, "files")
@@ -117,7 +120,9 @@ def apply_patch(duthost, json_data, dest_file):
         json_data: Source json patch to apply
         dest_file: Destination file on duthost
     """
-    duthost.copy(content=json.dumps(json_data, indent=4), dest=dest_file)
+    patch_content = json.dumps(json_data, indent=4)
+    duthost.copy(content=patch_content, dest=dest_file)
+    logger.debug("Patch Content: {}".format(patch_content))
 
     cmds = 'config apply-patch {}'.format(dest_file)
 
@@ -361,7 +366,10 @@ def check_show_ip_intf(duthost, intf_name, expected_content_list, unexpected_con
                                       fe80::5054:ff:feda:c6af%Vlan1000/64                       N/A             N/A
     """
     address_family = "ip" if is_ipv4 else "ipv6"
-    output = duthost.shell("show {} interfaces | grep -w {} || true".format(address_family, intf_name))
+    # Use -d all flag for multi-ASIC systems to show interfaces from all namespaces
+    display_option = "-d all" if duthost.is_multi_asic else ""
+    output = duthost.shell("show {} interfaces {} | grep -w {} || true".format(
+        address_family, display_option, intf_name))
 
     expect_res_success(duthost, output, expected_content_list, unexpected_content_list)
 
@@ -452,8 +460,8 @@ def is_valid_platform_and_version(duthost, table, scenario, operation, field_val
             "validator_data"]["rdma_config_update_validator"][scenario]["platforms"][asic]     # noqa: E501
         if version_required == "":
             return False
-        # os_version is in format "20220531.04", version_required is in format "20220500"
-        return os_version[0:8] >= version_required[0:8]
+        # os_version can be in any of 202411.1, 20241100.1 formats and version_required is in format "20220500"
+        return os_version.split('.')[0].ljust(8, '0') >= version_required[0:8]
     except KeyError:
         return False
     except IndexError:
@@ -567,6 +575,56 @@ def expect_acl_rule_removed(duthost, rulename, setup):
         removed = len(output) == 0
 
         pytest_assert(removed, "'{}' showed a rule, this following rule should have been removed".format(cmds))
+
+
+def save_backup_test_config(duthost, file_postfix="bkp"):
+    """Save test env before a test case starts.
+    Back up the existing config_db.json file(s).
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for the backup files.
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Backup {} to {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("cp {} {}".format(CONFIG_DB, CONFIG_DB_BACKUP))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Backup {} to {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("cp {} {}".format(asic_config_db, asic_config_db_backup))
+
+
+def restore_backup_test_config(duthost, file_postfix="bkp", config_reload=True):
+    """Restore test env after a test case finishes.
+    Args:
+        duthost: Device Under Test (DUT)
+        file_postfix: Postfix string to be used for restoring the saved backup files.
+    Returns:
+        None.
+    """
+    CONFIG_DB = "/etc/sonic/config_db.json"
+    CONFIG_DB_BACKUP = "/etc/sonic/config_db.json.{}".format(file_postfix)
+
+    logger.info("Restore {} with {} on {}".format(
+        CONFIG_DB, CONFIG_DB_BACKUP, duthost.hostname))
+    duthost.shell("mv {} {}".format(CONFIG_DB_BACKUP, CONFIG_DB))
+    if duthost.is_multi_asic:
+        for n in range(len(duthost.asics)):
+            asic_config_db = "/etc/sonic/config_db{}.json".format(n)
+            asic_config_db_backup = "/etc/sonic/config_db{}.json.{}".format(n, file_postfix)
+            logger.info("Restore {} with {} on {}".format(
+                asic_config_db, asic_config_db_backup, duthost.hostname))
+            duthost.shell("mv {} {}".format(asic_config_db_backup, asic_config_db))
+
+    if config_reload:
+        config_reload(duthost)
 
 
 def get_bgp_speaker_runningconfig(duthost):

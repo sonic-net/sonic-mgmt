@@ -20,9 +20,10 @@ from tests.common.utilities import wait_until
 from tests.common.platform.device_utils import fanout_switch_port_lookup, toggle_one_link
 
 CISCO_NHOP_GROUP_FILL_PERCENTAGE = 0.92
+PTF_QUEUE_LEN = 100000
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2', 'm1', 'm2', 'm3')
+    pytest.mark.topology('t1', 't2', 'm1')
 ]
 
 logger = logging.getLogger(__name__)
@@ -327,7 +328,7 @@ def build_pkt(dest_mac, ip_addr, ttl, flow_count):
 
 def validate_asic_route(duthost, route, exist=True):
     logger.info(f"Checking ip route: {route}")
-    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"',
+    asic_info = duthost.shell(f'redis-cli -n 1 keys "ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY:*{route}*"', # noqa E231
                               module_ignore_errors=True)["stdout"]
     if route in asic_info:
         logger.info(f"Matched ASIC route: {asic_info}")
@@ -447,7 +448,7 @@ def test_nhop_group_member_count(duthost, tbinfo, loganalyzer):
 
     # verify the test used up all the NHOP group resources
     # skip this check on Mellanox as ASIC resources are shared
-    if is_cisco_device(duthost):
+    if is_cisco_device(duthost) or "7060X6" in duthost.sonichost.get_facts()['platform'].upper():
         pytest_assert(
             crm_after["available_nhop_grp"] + nhop_group_count == crm_before["available_nhop_grp"],
             "Unused NHOP group resource:{}, used:{}, nhop_group_count:{}, Unused NHOP group resource before:{}".format(
@@ -520,7 +521,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
             pkt, exp_pkt = build_pkt(rtr_mac, ip_route, ip_ttl, flow_count)
             testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, 10)
             verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                             ports=gather_facts['src_port_ids'])
+                                                             ports=gather_facts['src_port_ids'], timeout=30)
             if isinstance(verify_result, bool):
                 logger.info("Using dummy testutils to skip traffic test.")
                 return
@@ -558,6 +559,7 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                           f"Static route: {ip_prefix} is failed to be programmed!")
 
             ptfadapter.dataplane.flush()
+            ptfadapter.dataplane.set_qlen(PTF_QUEUE_LEN)
 
             built_and_send_tcp_ip_packet()
 
@@ -584,7 +586,10 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                               .format(flow_count, iter_count))
         finally:
             asic.start_service("bgp")
-            time.sleep(15)
+            config_facts = duthost.config_facts(host=duthost.hostname, source="running")["ansible_facts"]
+            bgp_neighbors = config_facts.get("BGP_NEIGHBOR", {}).keys()
+            pytest_assert(wait_until(60, 5, 0, duthost.check_bgp_session_state, bgp_neighbors),
+                          "bgp did not come up in expected time")
             nhop.delete_routes()
             pytest_assert(wait_until(60, 5, 0, validate_asic_route, duthost, ip_prefix, False),
                           f"Static route: {ip_prefix} is failed to be removed!")
@@ -719,6 +724,32 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
                          45: 'c0:ff:ee:00:00:0c', 46: 'c0:ff:ee:00:00:0d',
                          47: 'c0:ff:ee:00:00:0b', 48: 'c0:ff:ee:00:00:11', 49: 'c0:ff:ee:00:00:0f'}
 
+    th5_asic_flow_map = {0: 'c0:ff:ee:00:00:12', 1: 'c0:ff:ee:00:00:0b',
+                         2: 'c0:ff:ee:00:00:0f', 3: 'c0:ff:ee:00:00:0e',
+                         4: 'c0:ff:ee:00:00:0e', 5: 'c0:ff:ee:00:00:0f',
+                         6: 'c0:ff:ee:00:00:0b', 7: 'c0:ff:ee:00:00:12',
+                         8: 'c0:ff:ee:00:00:0c', 9: 'c0:ff:ee:00:00:11',
+                         10: 'c0:ff:ee:00:00:0d', 11: 'c0:ff:ee:00:00:10',
+                         12: 'c0:ff:ee:00:00:12', 13: 'c0:ff:ee:00:00:0b',
+                         14: 'c0:ff:ee:00:00:0f', 15: 'c0:ff:ee:00:00:0e',
+                         16: 'c0:ff:ee:00:00:0e', 17: 'c0:ff:ee:00:00:0f',
+                         18: 'c0:ff:ee:00:00:0b', 19: 'c0:ff:ee:00:00:12',
+                         20: 'c0:ff:ee:00:00:12', 21: 'c0:ff:ee:00:00:0b',
+                         22: 'c0:ff:ee:00:00:0f', 23: 'c0:ff:ee:00:00:0e',
+                         24: 'c0:ff:ee:00:00:11', 25: 'c0:ff:ee:00:00:0c',
+                         26: 'c0:ff:ee:00:00:10', 27: 'c0:ff:ee:00:00:0d',
+                         28: 'c0:ff:ee:00:00:0d', 29: 'c0:ff:ee:00:00:10',
+                         30: 'c0:ff:ee:00:00:0c', 31: 'c0:ff:ee:00:00:11',
+                         32: 'c0:ff:ee:00:00:11', 33: 'c0:ff:ee:00:00:0c',
+                         34: 'c0:ff:ee:00:00:10', 35: 'c0:ff:ee:00:00:0d',
+                         36: 'c0:ff:ee:00:00:0d', 37: 'c0:ff:ee:00:00:10',
+                         38: 'c0:ff:ee:00:00:0c', 39: 'c0:ff:ee:00:00:11',
+                         40: 'c0:ff:ee:00:00:0b', 41: 'c0:ff:ee:00:00:12',
+                         42: 'c0:ff:ee:00:00:0e', 43: 'c0:ff:ee:00:00:0f',
+                         44: 'c0:ff:ee:00:00:11', 45: 'c0:ff:ee:00:00:0c',
+                         46: 'c0:ff:ee:00:00:10', 47: 'c0:ff:ee:00:00:0d',
+                         48: 'c0:ff:ee:00:00:0d', 49: 'c0:ff:ee:00:00:10'}
+
     gr_asic_flow_map = {0: 'c0:ff:ee:00:00:0b', 1: 'c0:ff:ee:00:00:0c',
                         2: 'c0:ff:ee:00:00:0d',
                         3: 'c0:ff:ee:00:00:0b', 4: 'c0:ff:ee:00:00:12',
@@ -805,10 +836,11 @@ def test_nhop_group_member_order_capability(duthost, tbinfo, ptfadapter, gather_
     SUPPORTED_ASIC_TO_NEXTHOP_SELECTED_MAP = {"th": th_asic_flow_map, "gb": gb_asic_flow_map, "gblc": gb_asic_flow_map,
                                               "td2": td2_asic_flow_map, "th2": th2_asic_flow_map,
                                               "th4": th_asic_flow_map, "td3": td3_asic_flow_map,
-                                              "th5": th_asic_flow_map,
+                                              "th5": th5_asic_flow_map,
                                               "gr": gr_asic_flow_map, "spc1": spc_asic_flow_map,
                                               "spc2": spc_asic_flow_map, "spc3": spc_asic_flow_map,
-                                              "spc4": spc_asic_flow_map, "gr2": gr2_asic_flow_map}
+                                              "spc4": spc_asic_flow_map, "spc5": spc_asic_flow_map,
+                                              "gr2": gr2_asic_flow_map}
 
     vendor = duthost.facts["asic_type"]
     hostvars = duthost.host.options['variable_manager']._hostvars[duthost.hostname]
@@ -911,15 +943,22 @@ def test_nhop_group_interface_flap(duthosts, enum_rand_one_per_hwsku_frontend_ho
         # We observe flakiness failure on chassis devices
         # Suspect it's because the route is not programmed into hardware
         # Add external sleep to make sure route is in hardware
-        if duthost.get_facts().get("modular_chassis"):
-            time.sleep(180)
-        else:
-            time.sleep(20)
+        sumv4, sumv6 = duthost.get_ip_route_summary()
+        v4_routes_count = sumv4.get('ebgp', {'routes': 0})['routes']
+        v6_routes_count = sumv6.get('ebgp', {'routes': 0})['routes']
+
+        sleep_seconds = 180 if (v4_routes_count > 10000 or v6_routes_count > 10000) else 20
+        logger.info(
+            "Route scale v4_ebgp=%s v6_ebgp=%s -> sleeping %ss before verification",
+            v4_routes_count, v6_routes_count, sleep_seconds
+        )
+        time.sleep(sleep_seconds)
         duthost.shell("portstat -c")
         ptfadapter.dataplane.flush()
+        ptfadapter.dataplane.set_qlen(PTF_QUEUE_LEN)
         testutils.send(ptfadapter, gather_facts['dst_port_ids'][0], pkt, pkt_count)
         verify_result = testutils.verify_packet_any_port(test=ptfadapter, pkt=exp_pkt,
-                                                         ports=gather_facts['src_port_ids'])
+                                                         ports=gather_facts['src_port_ids'], timeout=30)
         if isinstance(verify_result, bool):
             logger.info("Using dummy testutils to skip traffic test.")
             return

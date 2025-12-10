@@ -1,0 +1,44 @@
+{ "op": "add", "path": "/BGP_NEIGHBOR", "value": {} },
+{ "op": "add", "path": "/DEVICE_NEIGHBOR", "value": {} },
+{%- for port, peer in bgp_neighbor_ports.items() %}
+{%- if peer.local_ip_v4 %}
+{
+  "op": "add",
+  "path": "/BGP_NEIGHBOR/{{ peer.peer_ip_v4 }}",
+  "value": {
+      "admin_status": "up",
+      "asn": {{ peer.peer_asn }},
+      "holdtime": "10",
+      "keeplive": "3",
+      "local_addr": "{{ peer.local_ip_v4 }}",
+      "name": "{{ peer.peer_device }}",
+      "nhopself": "0",
+      "rrclient": "0"
+  }
+},
+{% endif %}
+{%- if peer.local_ip_v6 %}
+{
+  "op": "add",
+  "path": "/BGP_NEIGHBOR/{{ peer.peer_ip_v6 }}",
+  "value": {
+      "admin_status": "up",
+      "asn": {{ peer.peer_asn }},
+      "holdtime": "10",
+      "keeplive": "3",
+      "local_addr": "{{ peer.local_ip_v6 }}",
+      "name": "{{ peer.peer_device }}",
+      "nhopself": "0",
+      "rrclient": "0"
+  }
+},
+{% endif %}
+{
+  "op": "add",
+  "path": "/DEVICE_NEIGHBOR/{{ port }}",
+  "value": {
+      "name": "{{ peer.peer_device }}",
+      "port": "{{ peer.peer_port }}"
+  }
+},
+{% endfor %}

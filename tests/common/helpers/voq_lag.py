@@ -39,8 +39,14 @@ def get_lag_id_from_chassis_db(duthosts, pc=TMP_PC):
     Returns:
         lag_id: LAG ID of LAG
     """
-    for sup in duthosts.supervisor_nodes:
-        voqdb = VoqDbCli(sup)
+    duthosts[0].facts['switch_type'] == "voq"
+    is_chassis = duthosts[0].get_facts().get("modular_chassis")
+    if duthosts[0].facts['switch_type'] == "voq" and not is_chassis:
+        nodes = [duthosts[0]]
+    else:
+        nodes = duthosts.supervisor_nodes
+    for node in nodes:
+        voqdb = VoqDbCli(node)
         lag_list = voqdb.get_lag_list()
         for lag in lag_list:
             if pc in lag:

@@ -17,4 +17,5 @@ def upgrade_path_lists(request):
     from_list = request.config.getoption('base_image_list')
     to_list = request.config.getoption('target_image_list')
     restore_to_image = request.config.getoption('restore_to_image')
-    return upgrade_type, from_list, to_list, restore_to_image
+    enable_cpa = request.config.getoption('enable_cpa')
+    return upgrade_type, from_list, to_list, restore_to_image, enable_cpa

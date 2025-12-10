@@ -98,7 +98,11 @@
     become: yes
     environment: "{{ proxy_env | default({}) }}"
     ignore_errors: yes
-  - name: Install python packages
+  - name: Install python packages requests=2.32.5
+    pip: name=requests version=2.32.5 executable={{ pip_executable }} extra_args="--ignore-installed --no-deps"
+    become: yes
+    environment: "{{ proxy_env | default({}) }}"
+  - name: Install python packages docker==7.1.0
     pip: name=docker version=7.1.0 state=forcereinstall executable={{ pip_executable }}
     become: yes
     environment: "{{ proxy_env | default({}) }}"
@@ -106,6 +110,12 @@
 
 - name: Update python3 packages
   block:
+  - name: Ensure python3-venv is installed
+    apt:
+      name: python3-venv
+      state: present
+      update_cache: yes
+    become: yes
   - name: Install python packages
     pip: name=docker version=7.1.0 state=forcereinstall virtualenv=/tmp/sonic-mgmt-virtualenv virtualenv_site_packages=true virtualenv_command="python3 -m venv"
     become: yes

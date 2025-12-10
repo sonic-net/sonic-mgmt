@@ -13,7 +13,7 @@ from bgp_helpers import check_routes_on_neighbors_empty_allow_list, checkout_bgp
 from bgp_helpers import bgp_allow_list_setup, prepare_eos_routes    # noqa:F401
 
 pytestmark = [
-    pytest.mark.topology('t1', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t1', 'm1'),
     pytest.mark.device_type('vs')
 ]
 

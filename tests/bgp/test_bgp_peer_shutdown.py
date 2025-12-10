@@ -15,7 +15,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.common.utilities import wait_until, delete_running_config
 
 pytestmark = [
-    pytest.mark.topology('t0', 't1', 't2', 'm1', 'm2', 'm3'),
+    pytest.mark.topology('t0', 't1', 't2', 'm1', 'lt2', 'ft2'),
 ]
 
 TEST_ITERATIONS = 5
@@ -51,11 +51,12 @@ def common_setup_teardown(
         if k == duthost.hostname:
             dut_type = v["type"]
 
-    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter"]:
+    if dut_type in ["ToRRouter", "SpineRouter", "BackEndToRRouter", "LowerSpineRouter"]:
         neigh_type = "LeafRouter"
+    elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
+        neigh_type = "LowerSpineRouter"
     else:
         neigh_type = "ToRRouter"
-
     logging.info(
         "pseudoswitch0 neigh_addr {} ns {} dut_asn {} local_addr {} neigh_type {}".format(
             conn0["neighbor_addr"].split("/")[0],
@@ -72,7 +73,7 @@ def common_setup_teardown(
             ptfhost,
             "pseudoswitch0",
             conn0["neighbor_addr"].split("/")[0],
-            NEIGHBOR_ASN0,
+            dut_asn if dut_type == "FabricSpineRouter" else NEIGHBOR_ASN0,
             conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,
@@ -211,7 +212,7 @@ def test_bgp_peer_shutdown(
             if not announced_route_on_dut_before_shutdown:
                 pytest.fail("announce route %s from n0 to dut failed" % announced_route["prefix"])
 
-            timestamp_before_teardown = time.time()
+            timestamp_before_teardown = float(duthost.shell("date +%s.%6N")['stdout'])
             # tear down BGP session on n0
             bgp_pcap = BGP_DOWN_LOG_TMPL
             with capture_bgp_packages_to_file(duthost, "any", bgp_pcap, n0.namespace):

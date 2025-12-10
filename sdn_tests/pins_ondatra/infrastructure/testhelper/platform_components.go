@@ -39,6 +39,7 @@ func (c CPUInfo) GetMaxAverageUsage() uint8 {
 
 // RebootTimeForDevice returns the maximum time that the device might take to reboot.
 func RebootTimeForDevice(t *testing.T, d *ondatra.DUTDevice) (time.Duration, error) {
+
 	info, err := platformInfoForDevice(t, d)
 	if err != nil {
 		return 0, errors.Wrapf(err, "failed to fetch platform specific information")

@@ -1,0 +1,15 @@
+[
+  {
+    "data": 1048576,
+    "labels": {
+      "device.id": "dut-01",
+      "device.queue.id": "UC0"
+    },
+    "metric": {
+      "description": "Queue watermark (Bytes)",
+      "metric_type": "gauge",
+      "name": "queue.watermark.bytes",
+      "unit": "bytes"
+    }
+  }
+]

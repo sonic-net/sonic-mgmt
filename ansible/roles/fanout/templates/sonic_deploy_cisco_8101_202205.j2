@@ -20,14 +20,14 @@
 {% if device_port_vlans[port_name]["mode"].lower() == "access" %}
 {% if ns.notFirstPrinted %},
 {% endif %}
-        "Vlan{{ device_port_vlans[port_name]["vlanids"] }}|{{ port_name }}": {
+        "Vlan{{ device_port_vlans[port_name]["vlanids"] }}|{{ lookup("cisco_8101_port_convert", port_name, speed=device_conn[port_name]["speed"], output="sonic") }}": {
             "tagging_mode": "untagged"
         }{% if ns.update({"notFirstPrinted": True}) %} {% endif %}
 {% elif device_port_vlans[port_name]["mode"].lower() == "trunk" %}
 {% for vlanid in device_port_vlans[port_name]["vlanlist"] %}
 {% if ns.notFirstPrinted %},
 {% endif %}
-        "Vlan{{ vlanid }}|{{ port_name }}": {
+        "Vlan{{ vlanid }}|{{ lookup("cisco_8101_port_convert", port_name, speed=device_conn[port_name]["speed"], output="sonic") }}": {
             "tagging_mode": "tagged"
         }{% if ns.update({"notFirstPrinted": True}) %} {% endif %}
 {% endfor %}

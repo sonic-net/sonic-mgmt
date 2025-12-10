@@ -13,7 +13,8 @@ from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
 from .vnet_utils import generate_dut_config_files, safe_open_template, \
     apply_dut_config_files, cleanup_dut_vnets, cleanup_vxlan_tunnels, cleanup_vnet_routes
 
-from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
+from tests.common.flow_counter.flow_counter_utils \
+    import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa: F401
 from tests.common.arp_utils import set_up, tear_down, testWrArp
 from tests.common.config_reload import config_reload
 
@@ -188,7 +189,7 @@ def is_neigh_reachable(duthost, vnet_config):
 
 
 def test_vnet_vxlan(setup, vxlan_status, duthosts, rand_one_dut_hostname, ptfhost,
-                    vnet_test_params, creds, is_route_flow_counter_supported):  # noqa F811
+                    vnet_test_params, creds, is_route_flow_counter_supported):  # noqa: F811
     """
     Test case for VNET VxLAN
 

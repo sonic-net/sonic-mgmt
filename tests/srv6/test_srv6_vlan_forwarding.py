@@ -8,8 +8,9 @@ from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
 
-from ptf.testutils import simple_ipv6_sr_packet
+from ptf.testutils import simple_ipv6_sr_packet, send, verify_no_packet_any
 from srv6_utils import runSendReceive, get_neighbor_mac
+from tests.common.helpers.assertions import pytest_require
 
 
 logger = logging.getLogger(__name__)
@@ -48,6 +49,46 @@ def run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_por
         expected_pkt['IPv6'].hlim -= 1
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
         runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_dst_port], True, ptfadapter)
+
+
+@pytest.fixture
+def proxy_arp_enabled(rand_selected_dut):
+    """
+    Tries to enable proxy ARP for each VLAN on the ToR
+
+    Also checks CONFIG_DB to see if the attempt was successful
+
+    During teardown, restores the original proxy ARP setting
+    """
+    duthost = rand_selected_dut
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    pytest_require(duthost.has_config_subcommand('config vlan proxy_arp'),
+                   "Proxy ARP command does not exist on device")
+
+    proxy_arp_check_cmd = 'sonic-db-cli CONFIG_DB HGET "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    proxy_arp_config_cmd = 'config vlan proxy_arp {} {}'
+    vlans = config_facts['VLAN']
+    vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
+    old_proxy_arp_vals = {}
+
+    # Enable proxy ARP/NDP for every VLAN on the DUT
+    for vid in vlan_ids:
+        old_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
+        old_proxy_arp_vals[vid] = old_proxy_arp_res['stdout']
+
+        duthost.shell(proxy_arp_config_cmd.format(vid, 'enabled'))
+        logger.info("Enabled proxy ARP for Vlan{}".format(vid))
+
+    yield
+
+    proxy_arp_del_cmd = 'sonic-db-cli CONFIG_DB HDEL "VLAN_INTERFACE|Vlan{}" proxy_arp'
+    for vid, proxy_arp_val in list(old_proxy_arp_vals.items()):
+        if 'enabled' not in proxy_arp_val:
+            # Disable proxy_arp explicitly
+            duthost.shell(proxy_arp_config_cmd.format(vid, 'disabled'))
+            time.sleep(2)
+            # Delete the DB entry instead of using the config command to satisfy check_dut_health_status
+            duthost.shell(proxy_arp_del_cmd.format(vid))
 
 
 @pytest.fixture()
@@ -99,6 +140,11 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
     # randomly select a downstream port to be used as the PTF dst port
     random.seed(time.time())
     ptf_dst_port = random.choice(downstream_port_ids)
+    for intf in ptf_ports_map:
+        if ptf_ports_map[intf] == ptf_dst_port:
+            dut_downstream_port = intf
+            break
+    assert dut_downstream_port, "No downstream port on DUT found for {}".format(ptf_dst_port)
 
     logger.info("Doing test on DUT port {} | PTF src port {} | PTF dst port {}".format(
         dut_port, ptf_src_port, ptf_dst_port))
@@ -124,8 +170,10 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
         "duthost": duthost,
         "dut_mac": duthost._get_router_mac(),
         "dut_port": dut_port,
+        "dut_downstream_port": dut_downstream_port,
         "ptf_src_port": ptf_src_port,
         "ptf_dst_port": ptf_dst_port,
+        "downstream_port_ids": downstream_port_ids,
         "neighbor_ip": server_neighbor_ip,
         "vlan": vlan,
     }
@@ -154,3 +202,48 @@ def test_srv6_uN_forwarding_towards_vlan(setup_downstream_uN, ptfadapter, ptfhos
 
     run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_port,
                                      neighbor_ip, ptfadapter, ptfhost, with_srh)
+
+
+@pytest.mark.parametrize("with_srh", [True, False])
+def test_srv6_uN_no_vlan_flooding(setup_downstream_uN, proxy_arp_enabled, ptfadapter, ptfhost, with_srh):
+    duthost = setup_downstream_uN['duthost']
+    dut_mac = setup_downstream_uN['dut_mac']
+    ptf_src_port = setup_downstream_uN['ptf_src_port']
+    dut_downstream_port = setup_downstream_uN['dut_downstream_port']
+    ptf_downstream_ports = setup_downstream_uN['downstream_port_ids']
+    neighbor_ip = setup_downstream_uN['neighbor_ip']
+
+    # shutdown DUT downstream port
+    duthost.shell("config interface shutdown {}".format(dut_downstream_port))
+    duthost.shell("sonic-clear fdb all")
+    time.sleep(5)
+
+    # run traffic test and verify no flooding in vlan
+    ptfadapter.dataplane.flush()
+    # generate a random payload
+    payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+    if with_srh:
+        injected_pkt = simple_ipv6_sr_packet(
+            eth_dst=dut_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode(),
+            ipv6_src=ptfhost.mgmt_ipv6,
+            ipv6_dst="fcbb:bbbb:1:2::",
+            srh_seg_left=0,
+            srh_nh=41,
+            inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+        )
+    else:
+        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
+            / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
+            / IPv6() / UDP(dport=4791) / Raw(load=payload)
+
+    expected_pkt = injected_pkt.copy()
+    expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
+    expected_pkt['Ether'].src = dut_mac
+    expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
+    expected_pkt['IPv6'].hlim -= 1
+    send(ptfadapter, ptf_src_port, injected_pkt, count=100)
+    verify_no_packet_any(ptfadapter, expected_pkt, ptf_downstream_ports, timeout=5)
+
+    # bring DUT downstream port back up
+    duthost.shell("config interface startup {}".format(dut_downstream_port))

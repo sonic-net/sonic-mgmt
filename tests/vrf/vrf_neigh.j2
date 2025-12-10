@@ -7,9 +7,9 @@
 {% endif -%}
 {%- endmacro %}
 
-{% for intf, ip_facts in intf_ips.iteritems() -%}
+{% for intf, ip_facts in intf_ips.items() -%}
 {% if 'Loopback' not in intf -%}
-{% for ver, ips in ip_facts.iteritems() -%}
+{% for ver, ips in ip_facts.items() -%}
 {% for ip in ips -%}
 {{ ip.ip + 1 }} {{ gen_dst_ports(intf) }}
 {% endfor -%}

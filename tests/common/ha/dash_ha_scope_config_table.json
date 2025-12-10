@@ -1,0 +1,14 @@
+{
+  "DASH_HA_SET_CONFIG_TABLE": {
+    "ha-set-1001": {
+      "version": "1.0",
+      "vip_v4": "192.168.100.1",
+      "vip_v6": "fd00::1001",
+      "vdpu_ids": ["dpu0", "dpu1"],
+      "scope": "dpu",
+      "pinned_vdpu_bfd_probe_states": ["up", "down"],
+      "preferred_vdpu_id": "dpu0",
+      "preferred_standalone_vdpu_index": 0
+    }
+  }
+}

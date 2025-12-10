@@ -8,7 +8,7 @@ import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
 
-from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa F401
+from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 from tests.common.platform.device_utils import fanout_switch_port_lookup
@@ -247,7 +247,18 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     for po_member in set(l2_port_channel_members):
         port_channel_members.pop(po_member)
 
-    rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
+    rif_members_list = [item["attachto"] for item in mg_facts["minigraph_interfaces"]]
+
+    # On some Broadcom platforms, counters on interfaces with 'PT0' in their neighbor's name do not work as expected.
+    # This filters them out to prevent test failures.
+    if duthost.facts["asic_type"] == "broadcom":
+        logger.info("Broadcom platform detected, filtering out RIF members connected to 'PT0' neighbors.")
+        rif_members_list = [
+            port for port in rif_members_list
+            if "PT0" not in mg_facts["minigraph_neighbors"].get(port, {}).get("name", "")
+        ]
+    rif_members = {port: port for port in rif_members_list}
+
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
@@ -516,7 +527,7 @@ def send_packets(pkt, ptfadapter, ptf_tx_port_id, num_packets=1):
 
 
 def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
-                              pkt_fields, ports_info, enum_fanout_graph_facts):      # noqa F811
+                              pkt_fields, ports_info, enum_fanout_graph_facts):      # noqa: F811
     """
     @summary: Create a packet with equal SMAC and DMAC.
     """
@@ -559,7 +570,7 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
 
 
 def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
-                             pkt_fields, ports_info, enum_fanout_graph_facts):   # noqa F811
+                             pkt_fields, ports_info, enum_fanout_graph_facts):   # noqa: F811
     """
     @summary: Create a packet with multicast SMAC.
     """
@@ -1043,7 +1054,7 @@ def test_non_routable_igmp_pkts(do_test, ptfadapter, setup, fanouthost, tx_dut_p
         "v2": {"membership_report": IGMP(type=0x16, gaddr=multicast_group_addr),
                "leave_group": IGMP(type=0x17, gaddr=multicast_group_addr)},
         "v3": {"general_query": "\x11\x00L2\xe0\x00\x00\x01\x01}\x00\x02\xac\x10\x0b\x01\n\x00\x00;",
-               "membership_report": "\"\x009\xa9\x00\x00\x00\x01\x01\x00\x00\x02\xe0\x02\x02\x04\xac\x10\x0b\x01\n\x00\x00;"}   # noqa E501
+               "membership_report": "\"\x009\xa9\x00\x00\x00\x01\x01\x00\x00\x02\xe0\x02\x02\x04\xac\x10\x0b\x01\n\x00\x00;"}   # noqa: E501
     }
 
     if igmp_version == "v3":

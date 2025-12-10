@@ -157,6 +157,12 @@ def parse_monit_output(lines):
             continue
         if service is None:
             continue
+
+        # Ignore line continuations that start with more than 2 whitespace
+        # characters.  We don't need the data at all.
+        if len(line) - len(line.lstrip()) > 2:
+            continue
+
         if line.startswith('  '):
             key, value = line.lstrip().split('  ', 1)
             service[key.replace(' ', '_')] = value.lstrip()
@@ -257,10 +263,10 @@ def remove_and_restart_container(memory_checker_dut_and_container):
 
 
 def get_test_container(duthost):
-    test_container = "telemetry"
-    cmd = "docker images | grep -w sonic-gnmi"
+    test_container = "gnmi"
+    cmd = "docker images | grep -w sonic-telemetry"
     if duthost.shell(cmd, module_ignore_errors=True)['rc'] == 0:
-        test_container = "gnmi"
+        test_container = "telemetry"
     return test_container
 
 
@@ -398,11 +404,6 @@ def mem_size_str_to_int(size_str):
 class MemoryCheckerContainer(object):
 
     EXTRA_MEMORY_TO_ALLOCATE = 20 * 1024 * 1024
-    # NOTE: these limits could be computed by reading the monit_$container config
-    MEMORY_LIMITS = {
-        'telemetry': 400 * 1024 * 1024,
-        'gnmi': 400 * 1024 * 1024,
-    }
 
     def __init__(self, name, duthost):
         self.name = name
@@ -411,7 +412,15 @@ class MemoryCheckerContainer(object):
 
     @property
     def memory_limit(self):
-        return self.MEMORY_LIMITS[self.name]
+        command = f"cat /etc/monit/conf.d/monit_{self.name}"
+        result = self.duthost.shell(command, module_ignore_errors=True)
+        # Extract the memory limit from the monit config file
+        # e.g. memory_checker gnmi 1024
+        pattern = r'memory_checker {} (\d+)'.format(self.name)
+        match = re.search(pattern, result['stdout'])
+        if not match:
+            pytest.fail("Failed to get memory limit for '{}' container!".format(self.name))
+        return int(match.group(1))
 
     def current_memory_used(self):
         value = get_container_mem_usage(self.duthost, self.name)
@@ -432,7 +441,7 @@ class MemoryCheckerContainer(object):
 
     def is_monit_mem_ok(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok'
+        return status['status'] in ('Status ok', 'OK')
 
     def is_monit_mem_failed(self):
         status = self.get_monit_mem_status()
@@ -441,11 +450,13 @@ class MemoryCheckerContainer(object):
 
     def is_monit_mem_last_ok(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok' and status['last_exit_value'] == '0'
+        return status['status'] in ('Status ok', 'OK') \
+            and status['last_exit_value'] == '0'
 
     def is_monit_mem_last_failed(self):
         status = self.get_monit_mem_status()
-        return status['status'] == 'Status ok' and status['last_exit_value'] != '0'
+        return status['status'] in ('Status ok', 'OK') \
+            and status['last_exit_value'] != '0'
 
     def remove(self):
         remove_container(self.duthost, self.name)
@@ -466,7 +477,8 @@ class MemoryCheckerContainer(object):
         cap_name = self.name.capitalize()
         if self.name == "gnmi":
             cap_name = "GNMI"
-        if "bookworm" in self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower():
+        debian_version = self.duthost.shell("grep VERSION_CODENAME /etc/os-release")['stdout'].lower()
+        if "bookworm" in debian_version or "trixie" in debian_version:
             return [
                 r".*restart_service.*Restarting service '{}'.*".format(self.name),
                 r".*Stopping {}.service - {} container.*".format(self.name, cap_name),

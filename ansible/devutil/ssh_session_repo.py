@@ -77,6 +77,8 @@ class SshSessionRepoGenerator(object):
             device_type = "ptf"
         elif "Root" in device.device_type:
             device_type = "root"
+        elif "FanoutL1" in device.device_type:
+            device_type = "ocs"
         elif "Fanout" in device.device_type:
             device_type = "fan"
         elif "Console" in device.device_type:
@@ -419,11 +421,8 @@ class SshConfigSshSessionRepoGenerator(SshSessionRepoGenerator):
         self.ssh_config.write(self.target)
 
 
-class SshConfigTmuxinatorSessionRepoGenerator(SshSessionRepoGenerator):
-    """Tmuxinator session repo generator for tmuxinator configs.
-
-    It derives from SshSessionRepoGenerator and implements the generate method.
-    """
+class SshSessionLayoutRepoGenerator(SshSessionRepoGenerator):
+    """SSH session layout repo generator."""
 
     def __init__(self, target: str, ssh_config_params: Dict[str, str], console_ssh_config_params: Dict[str, str]):
         super().__init__(target, "")
@@ -440,6 +439,42 @@ class SshConfigTmuxinatorSessionRepoGenerator(SshSessionRepoGenerator):
 
         self.console_ssh_config_params = "".join([f" -o {k}={v}" for k, v in console_ssh_config_params.items()]
                                                  if console_ssh_config_params is not None else [])
+
+    def _load_template(self, template_file):
+        pass
+
+    def generate(self, repo_type: str, inv_name: str, testbed_name: str,
+                 device: DeviceInfo, ssh_info: DeviceSSHInfo):
+        config = self.testbeds.setdefault(testbed_name, {})
+        self._generate_tmuxinator_config_for_device(config, device, ssh_info.ip, ssh_info)
+
+    def _generate_tmuxinator_config_for_device(self, config: Dict[str, List[str]], device: DeviceInfo,
+                                               ssh_ip: str, ssh_info: DeviceSSHInfo):
+        device_type = self._get_device_type_short_name(device)
+        ssh_pass = f"sshpass -p {ssh_info.password} " if ssh_info.password else ""
+        ssh_common_params = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
+
+        if device.device_type == "Console":
+            command = f"{ssh_pass}ssh {ssh_common_params}{self.console_ssh_config_params} -l {ssh_info.user} {ssh_ip}"
+        else:
+            command = f"{ssh_pass}ssh {ssh_common_params}{self.ssh_config_params} {ssh_info.user}@{ssh_ip}"
+
+        panes = config.setdefault(device_type, {})
+        panes[device.hostname] = command
+
+    def finish(self):
+        for testbed_name, config in self.testbeds.items():
+            self._generate_layout_file(testbed_name, config)
+
+    def _generate_layout_file(self, testbed_name: str, config: Dict[str, List[str]]):
+        pass
+
+
+class SshConfigTmuxinatorSessionRepoGenerator(SshSessionLayoutRepoGenerator):
+    """Tmuxinator session repo generator for tmuxinator configs."""
+
+    def __init__(self, target: str, ssh_config_params: Dict[str, str], console_ssh_config_params: Dict[str, str]):
+        super().__init__(target, ssh_config_params, console_ssh_config_params)
 
     def _load_template(self, template_file):
         """Load SSH session template file.
@@ -465,33 +500,52 @@ windows:
 """
         return jinja2.Template(template)
 
-    def generate(self, repo_type: str, inv_name: str, testbed_name: str,
-                 device: DeviceInfo, ssh_info: DeviceSSHInfo):
-        config = self.testbeds.setdefault(testbed_name, {})
-        self._generate_tmuxinator_config_for_device(config, device, ssh_info.ip, ssh_info)
-
-    def _generate_tmuxinator_config_for_device(self, config: Dict[str, List[str]], device: DeviceInfo,
-                                               ssh_ip: str, ssh_info: DeviceSSHInfo):
-        device_type = self._get_device_type_short_name(device)
-        ssh_pass = f"sshpass -p {ssh_info.password} " if ssh_info.password else ""
-        ssh_common_params = "-o UserKnownHostsFile=/dev/null -o StrictHostKeyChecking=no"
-
-        if device.device_type == "Console":
-            command = f"{ssh_pass}ssh {ssh_common_params}{self.console_ssh_config_params} -l {ssh_info.user} {ssh_ip}"
-        else:
-            command = f"{ssh_pass}ssh {ssh_common_params}{self.ssh_config_params} {ssh_info.user}@{ssh_ip}"
-
-        panes = config.setdefault(device_type, {})
-        panes[device.hostname] = command
-
-    def finish(self):
-        for testbed_name, config in self.testbeds.items():
-            self._generate_tmuxinator_session_file(testbed_name, config)
-
-    def _generate_tmuxinator_session_file(self, testbed_name: str, config: Dict[str, List[str]]):
+    def _generate_layout_file(self, testbed_name: str, config: Dict[str, List[str]]):
         tmux_config_file_path = os.path.join(self.target, testbed_name + ".yml")
 
         config_file_content = self.template.render(testbed_name=testbed_name,
+                                                   config=config)
+
+        with open(tmux_config_file_path, "w") as f:
+            f.write(config_file_content)
+
+
+class ZellijLayoutRepoGenerator(SshSessionLayoutRepoGenerator):
+    """Zillij layout repo generator."""
+
+    def __init__(self, target: str, ssh_config_params: Dict[str, str], console_ssh_config_params: Dict[str, str]):
+        super().__init__(target, ssh_config_params, console_ssh_config_params)
+        self.shell = os.environ.get("SHELL", "/bin/bash")
+
+    def _load_template(self, template_file):
+        """Load zillij layout template file."""
+
+        template = """layout {
+    cwd "."
+    {%- for device_type, panes in config.items() %}
+    tab name="{{ device_type }}" {
+        pane stacked=true {
+            {%- for title, command in panes.items() %}
+            pane name="{{ title }}" command="{{ shell }}" {
+                args "-c" "{{ command }}"
+            }
+            {%- endfor %}
+        }
+        pane size=1 borderless=true {
+            plugin location="compact-bar"
+        }
+    }
+    {%- endfor %}
+}
+"""
+
+        return jinja2.Template(template)
+
+    def _generate_layout_file(self, testbed_name: str, config: Dict[str, List[str]]):
+        tmux_config_file_path = os.path.join(self.target, testbed_name + ".kdl")
+
+        config_file_content = self.template.render(testbed_name=testbed_name,
+                                                   shell=self.shell,
                                                    config=config)
 
         with open(tmux_config_file_path, "w") as f:

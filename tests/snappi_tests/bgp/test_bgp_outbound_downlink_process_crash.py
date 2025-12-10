@@ -1,6 +1,6 @@
 import pytest
 import logging
-from tests.common.helpers.assertions import pytest_require                                          # noqa: F401
+from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, \
      fanout_graph_facts_multidut                                                                    # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
@@ -17,24 +17,14 @@ pytestmark = [pytest.mark.topology('multidut-tgen')]
 ITERATION = 1
 ROUTE_RANGES = [{
                     'IPv4': [
-                        ['100.1.1.1', 24, 500],
-                        ['200.1.1.1', 24, 500]
+                        ['100.1.1.1', 24, 15000],
+                        ['200.1.1.1', 24, 15000]
                     ],
                     'IPv6': [
-                        ['5000::1', 64, 500],
-                        ['4000::1', 64, 500]
+                        ['5000::1', 64, 15000],
+                        ['4000::1', 64, 15000]
                     ],
-                },
-                {
-                    'IPv4': [
-                        ['100.1.1.1', 24, 2500],
-                        ['200.1.1.1', 24, 2500]
-                    ],
-                    'IPv6': [
-                        ['5000::1', 64, 2500],
-                        ['4000::1', 64, 2500]
-                    ],
-            }]
+                }]
 
 
 def test_bgp_outbound_downlink_process_crash(snappi_api,                                     # noqa: F811
@@ -42,7 +32,8 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
                                              conn_graph_facts,                             # noqa: F811
                                              fanout_graph_facts_multidut,                           # noqa: F811
                                              duthosts,                                  # noqa: F811
-                                             creds):                                # noqa: F811
+                                             creds,              # noqa: F811
+                                             record_property):
     """
     Gets the packet loss duration on killing certain processes in downlink
 
@@ -87,4 +78,5 @@ def test_bgp_outbound_downlink_process_crash(snappi_api,                        
     snappi_extra_params.multi_dut_params.hw_platform = hw_platform
     run_bgp_outbound_process_restart_test(api=snappi_api,
                                           creds=creds,
-                                          snappi_extra_params=snappi_extra_params)
+                                          snappi_extra_params=snappi_extra_params,
+                                          record_property=record_property)

@@ -8,6 +8,8 @@ from tests.common.snappi_tests.port import select_ports, select_tx_port       # 
 from tests.common.snappi_tests.snappi_helpers import wait_for_arp
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
+
 
 DATA_FLOW_NAME = "Data Flow"
 WARM_UP_TRAFFIC_NAME = "Warm Up Traffic"
@@ -176,7 +178,7 @@ def __gen_traffic(testbed_config,
             udp.src_port.increment.count = 1
 
             ipv4.src.value = tx_port_config.ip
-            ipv4.dst.value = rx_port_config.ip
+            ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
             ipv4.priority.choice = ipv4.priority.DSCP
             ipv4.priority.dscp.phb.values = prio_dscp_map[prio]
             ipv4.priority.dscp.ecn.value = (
@@ -214,9 +216,9 @@ def __run_traffic(api, config, duthost, port, all_flow_names, pfcwd_start_delay_
     wait_for_arp(api, max_attempts=30, poll_interval_sec=2)
 
     logger.info('Starting transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.START
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    api.set_control_state(cs)
 
     time.sleep(pfcwd_start_delay_sec)
     start_pfcwd(duthost, port['asic_value'])
@@ -248,9 +250,9 @@ def __run_traffic(api, config, duthost, port, all_flow_names, pfcwd_start_delay_
     rows = api.get_metrics(request).flow_metrics
 
     logger.info('Stop transmit on all flows ...')
-    ts = api.transmit_state()
-    ts.state = ts.STOP
-    api.set_transmit_state(ts)
+    cs = api.control_state()
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
+    api.set_control_state(cs)
 
     return rows
 

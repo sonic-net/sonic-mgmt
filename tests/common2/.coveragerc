@@ -1,0 +1,23 @@
+[run]
+source = .
+include = routing/bgp/*.py
+omit =
+    unit_tests/*
+    check_coverage.py
+    setup.py
+    conftest.py
+    */__pycache__/*
+    .pytest_cache/*
+    htmlcov/*
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise AssertionError
+    raise NotImplementedError
+    if __name__ == .__main__.:
+    if TYPE_CHECKING:
+
+[html]
+directory = htmlcov

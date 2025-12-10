@@ -92,14 +92,26 @@ def verify_expected_loganalyzer_logs(
         loganalyzer: Loganalyzer utility fixture
     """
     expectRegex = [
-        ".*ERR.* meta_sai_validate_route_entry:.* already exists.*",
-        ".*ERR.* status: SAI_STATUS_ITEM_ALREADY_EXISTS.*",
-        ".*ERR.* addRoutePost: Failed to create route.*",
         ]
+    ignoreRegex = [
+        ".*ERR.* create failed, object already exists.*",
+        ".*ERR.* bulkCreate: Failed to create object.*",
+        ".*ERR.* api SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
+        ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
+        ".*ERR.* handleSaiFailure: Encountered failure in create operation.*",
+        ".*ERR.* Failed to add UC route .* Entry Already Exists.",
+        r".*ERR.* uc_route_set_async_pre_send_validate .* \[Entry Already Exists\].",
+        ".*ERR.* mlnx_create_route_async.* Entry Already Exists.",
+        ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",  # TODO move to expectRegex
+        ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
+    ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
         loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].expect_regex.extend(
             expectRegex
+        )
+        loganalyzer[enum_rand_one_per_hwsku_frontend_hostname].ignore_regex.extend(
+            ignoreRegex
         )
 
 

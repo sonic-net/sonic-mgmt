@@ -1,162 +1,162 @@
 topology:
   VMs:
-    ARISTA01M2:
+    ARISTA01MA:
       vlans:
         - 0
       vm_offset: 0
-    ARISTA02M2:
+    ARISTA02MA:
       vlans:
         - 1
       vm_offset: 1
-    ARISTA03M2:
+    ARISTA03MA:
       vlans:
         - 2
       vm_offset: 2
-    ARISTA04M2:
+    ARISTA04MA:
       vlans:
         - 3
       vm_offset: 3
-    ARISTA01M0:
+    ARISTA01MB:
       vlans:
         - 4
       vm_offset: 4
-    ARISTA02M0:
+    ARISTA01M0:
       vlans:
         - 5
       vm_offset: 5
-    ARISTA03M0:
+    ARISTA02M0:
       vlans:
         - 6
       vm_offset: 6
-    ARISTA04M0:
+    ARISTA03M0:
       vlans:
         - 7
       vm_offset: 7
-    ARISTA05M0:
+    ARISTA04M0:
       vlans:
         - 8
       vm_offset: 8
-    ARISTA06M0:
+    ARISTA05M0:
       vlans:
         - 9
       vm_offset: 9
-    ARISTA07M0:
+    ARISTA06M0:
       vlans:
         - 10
       vm_offset: 10
-    ARISTA08M0:
+    ARISTA07M0:
       vlans:
         - 11
       vm_offset: 11
-    ARISTA09M0:
+    ARISTA08M0:
       vlans:
         - 12
       vm_offset: 12
-    ARISTA10M0:
+    ARISTA09M0:
       vlans:
         - 13
       vm_offset: 13
-    ARISTA11M0:
+    ARISTA10M0:
       vlans:
         - 14
       vm_offset: 14
-    ARISTA12M0:
+    ARISTA11M0:
       vlans:
         - 15
       vm_offset: 15
-    ARISTA13M0:
+    ARISTA12M0:
       vlans:
         - 16
       vm_offset: 16
-    ARISTA14M0:
+    ARISTA13M0:
       vlans:
         - 17
       vm_offset: 17
-    ARISTA15M0:
+    ARISTA14M0:
       vlans:
         - 18
       vm_offset: 18
-    ARISTA16M0:
+    ARISTA15M0:
       vlans:
         - 19
       vm_offset: 19
-    ARISTA17M0:
+    ARISTA16M0:
       vlans:
         - 20
       vm_offset: 20
-    ARISTA18M0:
+    ARISTA17M0:
       vlans:
         - 21
       vm_offset: 21
-    ARISTA19M0:
+    ARISTA18M0:
       vlans:
         - 22
       vm_offset: 22
-    ARISTA20M0:
+    ARISTA19M0:
       vlans:
         - 23
       vm_offset: 23
-    ARISTA21M0:
+    ARISTA20M0:
       vlans:
         - 24
       vm_offset: 24
-    ARISTA22M0:
+    ARISTA21M0:
       vlans:
         - 25
       vm_offset: 25
-    ARISTA23M0:
+    ARISTA22M0:
       vlans:
         - 26
       vm_offset: 26
-    ARISTA24M0:
+    ARISTA23M0:
       vlans:
         - 27
       vm_offset: 27
-    ARISTA25M0:
+    ARISTA24M0:
       vlans:
         - 28
       vm_offset: 28
-    ARISTA26M0:
+    ARISTA25M0:
       vlans:
         - 29
       vm_offset: 29
-    ARISTA27M0:
+    ARISTA26M0:
       vlans:
         - 30
       vm_offset: 30
-    ARISTA28M0:
+    ARISTA27M0:
       vlans:
         - 31
       vm_offset: 31
-    ARISTA29M0:
+    ARISTA28M0:
       vlans:
         - 32
       vm_offset: 32
-    ARISTA30M0:
+    ARISTA29M0:
       vlans:
         - 33
       vm_offset: 33
-    ARISTA31M0:
+    ARISTA30M0:
       vlans:
         - 34
       vm_offset: 34
-    ARISTA32M0:
+    ARISTA31M0:
       vlans:
         - 35
       vm_offset: 35
-    ARISTA33M0:
+    ARISTA32M0:
       vlans:
         - 36
       vm_offset: 36
-    ARISTA34M0:
+    ARISTA33M0:
       vlans:
         - 37
       vm_offset: 37
-    ARISTA35M0:
+    ARISTA34M0:
       vlans:
         - 38
       vm_offset: 38
-    ARISTA36M0:
+    ARISTA35M0:
       vlans:
         - 39
       vm_offset: 39
@@ -199,16 +199,10 @@ configuration_properties:
     dut_type: MgmtLeafRouter
     nhipv4: 10.10.246.254
     nhipv6: FC0A::FF
-    m2_asn: 65201
-    m1_number: 2
-    m1_loopback_v4_start: 100.11.0.1/32
-    m1_loopback_v6_start: 2064:1100::1/128
-    m1_asn: 65101
-    m0_number: 36
+    ma_asn: 65201
+    mb_asn: 65211
     m0_subnet_number: 1
     m0_subnet_size: 64
-    m0_loopback_v4_start: 100.10.0.1/32
-    m0_loopback_v6_start: 2064:1000::1/128
     m0_asn: 65001
     mx_number: 20
     mx_subnet_number: 1
@@ -216,22 +210,20 @@ configuration_properties:
     mx_asn: 64801
     mx_loopback_v4_start: 100.8.0.1/32
     mx_loopback_v6_start: 2064:800::1/128
-    c0_number: 8
-    c0_asn: 64901
-    c0_loopback_v4_start: 100.9.0.1/32
-    c0_loopback_v6_start: 2064:900::1/128
-  m2:
-    swrole: m2
+  ma:
+    swrole: ma
+  mb:
+    swrole: mb
   m0:
     swrole: m0
   c0:
     swrole: c0
 
 configuration:
-  ARISTA01M2:
+  ARISTA01MA:
     properties:
     - common
-    - m2
+    - ma
     bgp:
       asn: 65200
       peers:
@@ -249,10 +241,10 @@ configuration:
       ipv4: 10.10.246.1/24
       ipv6: fc0a::1/64
 
-  ARISTA02M2:
+  ARISTA02MA:
     properties:
     - common
-    - m2
+    - ma
     bgp:
       asn: 65200
       peers:
@@ -270,10 +262,10 @@ configuration:
       ipv4: 10.10.246.2/24
       ipv6: fc0a::2/64
 
-  ARISTA03M2:
+  ARISTA03MA:
     properties:
     - common
-    - m2
+    - ma
     bgp:
       asn: 65200
       peers:
@@ -291,10 +283,10 @@ configuration:
       ipv4: 10.10.246.3/24
       ipv6: fc0a::3/64
 
-  ARISTA04M2:
+  ARISTA04MA:
     properties:
     - common
-    - m2
+    - ma
     bgp:
       asn: 65200
       peers:
@@ -312,12 +304,12 @@ configuration:
       ipv4: 10.10.246.4/24
       ipv6: fc0a::4/64
 
-  ARISTA01M0:
+  ARISTA01MB:
     properties:
     - common
-    - m0
+    - mb
     bgp:
-      asn: 65000
+      asn: 65210
       peers:
         65100:
         - 10.0.0.8
@@ -333,7 +325,7 @@ configuration:
       ipv4: 10.10.246.5/24
       ipv6: fc0a::5/64
 
-  ARISTA02M0:
+  ARISTA01M0:
     properties:
     - common
     - m0
@@ -354,7 +346,7 @@ configuration:
       ipv4: 10.10.246.6/24
       ipv6: fc0a::6/64
 
-  ARISTA03M0:
+  ARISTA02M0:
     properties:
     - common
     - m0
@@ -375,7 +367,7 @@ configuration:
       ipv4: 10.10.246.7/24
       ipv6: fc0a::7/64
 
-  ARISTA04M0:
+  ARISTA03M0:
     properties:
     - common
     - m0
@@ -396,7 +388,7 @@ configuration:
       ipv4: 10.10.246.8/24
       ipv6: fc0a::8/64
 
-  ARISTA05M0:
+  ARISTA04M0:
     properties:
     - common
     - m0
@@ -417,7 +409,7 @@ configuration:
       ipv4: 10.10.246.9/24
       ipv6: fc0a::9/64
 
-  ARISTA06M0:
+  ARISTA05M0:
     properties:
     - common
     - m0
@@ -438,7 +430,7 @@ configuration:
       ipv4: 10.10.246.10/24
       ipv6: fc0a::a/64
 
-  ARISTA07M0:
+  ARISTA06M0:
     properties:
     - common
     - m0
@@ -459,7 +451,7 @@ configuration:
       ipv4: 10.10.246.11/24
       ipv6: fc0a::b/64
 
-  ARISTA08M0:
+  ARISTA07M0:
     properties:
     - common
     - m0
@@ -480,7 +472,7 @@ configuration:
       ipv4: 10.10.246.12/24
       ipv6: fc0a::c/64
 
-  ARISTA09M0:
+  ARISTA08M0:
     properties:
     - common
     - m0
@@ -501,7 +493,7 @@ configuration:
       ipv4: 10.10.246.13/24
       ipv6: fc0a::d/64
 
-  ARISTA10M0:
+  ARISTA09M0:
     properties:
     - common
     - m0
@@ -522,7 +514,7 @@ configuration:
       ipv4: 10.10.246.14/24
       ipv6: fc0a::e/64
 
-  ARISTA11M0:
+  ARISTA10M0:
     properties:
     - common
     - m0
@@ -543,7 +535,7 @@ configuration:
       ipv4: 10.10.246.15/24
       ipv6: fc0a::f/64
 
-  ARISTA12M0:
+  ARISTA11M0:
     properties:
     - common
     - m0
@@ -564,7 +556,7 @@ configuration:
       ipv4: 10.10.246.16/24
       ipv6: fc0a::10/64
 
-  ARISTA13M0:
+  ARISTA12M0:
     properties:
     - common
     - m0
@@ -585,7 +577,7 @@ configuration:
       ipv4: 10.10.246.17/24
       ipv6: fc0a::11/64
 
-  ARISTA14M0:
+  ARISTA13M0:
     properties:
     - common
     - m0
@@ -606,7 +598,7 @@ configuration:
       ipv4: 10.10.246.18/24
       ipv6: fc0a::12/64
 
-  ARISTA15M0:
+  ARISTA14M0:
     properties:
     - common
     - m0
@@ -627,7 +619,7 @@ configuration:
       ipv4: 10.10.246.19/24
       ipv6: fc0a::13/64
 
-  ARISTA16M0:
+  ARISTA15M0:
     properties:
     - common
     - m0
@@ -648,7 +640,7 @@ configuration:
       ipv4: 10.10.246.20/24
       ipv6: fc0a::14/64
 
-  ARISTA17M0:
+  ARISTA16M0:
     properties:
     - common
     - m0
@@ -669,7 +661,7 @@ configuration:
       ipv4: 10.10.246.21/24
       ipv6: fc0a::15/64
 
-  ARISTA18M0:
+  ARISTA17M0:
     properties:
     - common
     - m0
@@ -690,7 +682,7 @@ configuration:
       ipv4: 10.10.246.22/24
       ipv6: fc0a::16/64
 
-  ARISTA19M0:
+  ARISTA18M0:
     properties:
     - common
     - m0
@@ -711,7 +703,7 @@ configuration:
       ipv4: 10.10.246.23/24
       ipv6: fc0a::17/64
 
-  ARISTA20M0:
+  ARISTA19M0:
     properties:
     - common
     - m0
@@ -732,7 +724,7 @@ configuration:
       ipv4: 10.10.246.24/24
       ipv6: fc0a::18/64
 
-  ARISTA21M0:
+  ARISTA20M0:
     properties:
     - common
     - m0
@@ -753,7 +745,7 @@ configuration:
       ipv4: 10.10.246.25/24
       ipv6: fc0a::19/64
 
-  ARISTA22M0:
+  ARISTA21M0:
     properties:
     - common
     - m0
@@ -774,7 +766,7 @@ configuration:
       ipv4: 10.10.246.26/24
       ipv6: fc0a::1a/64
 
-  ARISTA23M0:
+  ARISTA22M0:
     properties:
     - common
     - m0
@@ -795,7 +787,7 @@ configuration:
       ipv4: 10.10.246.27/24
       ipv6: fc0a::1b/64
 
-  ARISTA24M0:
+  ARISTA23M0:
     properties:
     - common
     - m0
@@ -816,7 +808,7 @@ configuration:
       ipv4: 10.10.246.28/24
       ipv6: fc0a::1c/64
 
-  ARISTA25M0:
+  ARISTA24M0:
     properties:
     - common
     - m0
@@ -837,7 +829,7 @@ configuration:
       ipv4: 10.10.246.29/24
       ipv6: fc0a::1d/64
 
-  ARISTA26M0:
+  ARISTA25M0:
     properties:
     - common
     - m0
@@ -858,7 +850,7 @@ configuration:
       ipv4: 10.10.246.30/24
       ipv6: fc0a::1e/64
 
-  ARISTA27M0:
+  ARISTA26M0:
     properties:
     - common
     - m0
@@ -879,7 +871,7 @@ configuration:
       ipv4: 10.10.246.31/24
       ipv6: fc0a::1f/64
 
-  ARISTA28M0:
+  ARISTA27M0:
     properties:
     - common
     - m0
@@ -900,7 +892,7 @@ configuration:
       ipv4: 10.10.246.32/24
       ipv6: fc0a::20/64
 
-  ARISTA29M0:
+  ARISTA28M0:
     properties:
     - common
     - m0
@@ -921,7 +913,7 @@ configuration:
       ipv4: 10.10.246.33/24
       ipv6: fc0a::21/64
 
-  ARISTA30M0:
+  ARISTA29M0:
     properties:
     - common
     - m0
@@ -942,7 +934,7 @@ configuration:
       ipv4: 10.10.246.34/24
       ipv6: fc0a::22/64
 
-  ARISTA31M0:
+  ARISTA30M0:
     properties:
     - common
     - m0
@@ -963,7 +955,7 @@ configuration:
       ipv4: 10.10.246.35/24
       ipv6: fc0a::23/64
 
-  ARISTA32M0:
+  ARISTA31M0:
     properties:
     - common
     - m0
@@ -984,7 +976,7 @@ configuration:
       ipv4: 10.10.246.36/24
       ipv6: fc0a::24/64
 
-  ARISTA33M0:
+  ARISTA32M0:
     properties:
     - common
     - m0
@@ -1005,7 +997,7 @@ configuration:
       ipv4: 10.10.246.37/24
       ipv6: fc0a::25/64
 
-  ARISTA34M0:
+  ARISTA33M0:
     properties:
     - common
     - m0
@@ -1026,7 +1018,7 @@ configuration:
       ipv4: 10.10.246.38/24
       ipv6: fc0a::26/64
 
-  ARISTA35M0:
+  ARISTA34M0:
     properties:
     - common
     - m0
@@ -1047,7 +1039,7 @@ configuration:
       ipv4: 10.10.246.39/24
       ipv6: fc0a::27/64
 
-  ARISTA36M0:
+  ARISTA35M0:
     properties:
     - common
     - m0

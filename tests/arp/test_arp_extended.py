@@ -87,6 +87,12 @@ def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfad
         ndppd_conf = rand_selected_dut.shell('docker exec swss cat /etc/ndppd.conf',
                                              module_ignore_errors=True)['stdout']
         logger.debug(ndppd_conf)
+        # when there are a large number of routes, ndppd will take long time to read /proc/net/ipv6_route.
+        # instead of sleep for a specific time, we just log the time taken to read the file to match the delay time.
+        # once ndppd performance is improved, this can be removed.
+        ipv6_routes_read_time = rand_selected_dut.shell("docker exec swss bash -c 'time wc -l /proc/net/ipv6_route'")
+        logger.debug("Total ipv6 route entries: {} \n Read time:{}".format(ipv6_routes_read_time['stdout'],
+                                                                           ipv6_routes_read_time['stderr']))
 
         neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
         logger.debug(neigh_table)
