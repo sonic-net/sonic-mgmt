@@ -921,7 +921,7 @@ class MultiAsicSonicHost(object):
         if strict_yang_validation:
             for line in output['stdout_lines']:
                 if "Note: Below table(s) have no YANG models:" in line:
-                    logger.info(line)
+                    logger.error(line)
                     return False
         return True
 
