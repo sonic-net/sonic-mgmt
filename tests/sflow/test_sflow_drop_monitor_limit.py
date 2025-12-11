@@ -10,7 +10,6 @@ Validates:
 
 import pytest
 import logging
-import json
 
 LOGGER = logging.getLogger(__name__)
 
