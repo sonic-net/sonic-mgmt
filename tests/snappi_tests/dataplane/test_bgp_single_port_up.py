@@ -1,11 +1,7 @@
-from tests.common.telemetry import (
-    UNIT_SECONDS,       # noqa: F401, F403, F405, E402
-)
-from tests.common.telemetry.constants import (
-    METRIC_LABEL_TG_TRAFFIC_RATE,
-    METRIC_LABEL_TG_FRAME_BYTES,
-)
-from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
+from tests.common.telemetry import UNIT_SECONDS       # noqa: F401, F403, F405, E402
+from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE,\
+    METRIC_LABEL_TG_FRAME_BYTES  # noqa: F401, F403, F405, E402
+from tests.snappi_tests.dataplane.imports import *    # noqa: F401, F403, F405, E402
 from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, create_traffic_items, \
     get_duthost_interface_details, configure_acl_for_route_withdrawl, start_stop, \
     get_stats, check_bgp_state  # noqa: F401, F403, F405, E402
