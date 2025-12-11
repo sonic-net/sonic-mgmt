@@ -1,7 +1,8 @@
 import logging
 from tests.common.telemetry import UNIT_SECONDS       # noqa: F401, F403, F405, E402
 from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
-from tests.snappi_tests.dataplane.imports import pytest, pytest_assert  # noqa: F401, F403, F405
+from tests.snappi_tests.dataplane.imports import pytest, pytest_assert, Final, SnappiTestParams, \
+    GaugeMetric  # noqa: F401, F403, F405, E402
 from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, create_traffic_items, \
     get_duthost_bgp_details, configure_acl_for_route_withdrawl, start_stop, \
     get_stats, check_bgp_state, is_traffic_converged, wait_for, get_all_port_names, \
@@ -192,7 +193,8 @@ def get_convergence_for_device_unisolation(
         logger.info("Frame Rate Difference : {}".format(frame_rate_difference))
         pytest_assert(
             frame_rate_difference <= (0.001 * int(flow_stats[0].frames_tx_rate)),
-            "Total Tx Rx Rates are varying by more than 0.1 percent after {} on DUT {}".format(event_type, dut_obj.hostname)
+            "Total Tx Rx Rates are varying by more than 0.1 percent after {} on DUT {}".
+            format(event_type, dut_obj.hostname)
         )
         delta_frames = flow_stats[0].frames_tx - flow_stats[0].frames_rx
         logger.info('Traffic has converged after {} on DUT {}'.format(event_type, dut_obj.hostname))
