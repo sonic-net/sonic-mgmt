@@ -123,7 +123,7 @@ def test_bgp_commands_with_like_bgp_container(
     multiple containers with "bgp" in their names.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    
+
     # Determine if we are on IPv6 only topology
     ipv6_only_topo = (
         "-v6-" in tbinfo["topo"]["name"]
@@ -140,19 +140,19 @@ def test_bgp_commands_with_like_bgp_container(
 
     # Create like-bgp container with "bgp" in name
     like_bgp_container_name = "database-like-bgp"
-    
+
     create_result = duthost.shell(
         'docker run --rm --detach --name={} docker-database:latest sleep infinity'.format(
             like_bgp_container_name
         ),
         module_ignore_errors=True
     )
-    
+
     pytest_assert(
         create_result["rc"] == 0,
         "Failed to create like-bgp container: {}".format(create_result.get("stderr", ""))
     )
-    
+
     try:
         verify_result = duthost.shell(
             "docker ps | grep {}".format(like_bgp_container_name),
@@ -165,7 +165,7 @@ def test_bgp_commands_with_like_bgp_container(
 
         # Verify BGP command works with like-bgp container present
         summary_result = duthost.shell(bgp_summary_cmd, module_ignore_errors=True)
-        
+
         if summary_result["rc"] != 0:
             error_output = summary_result.get("stderr", "") + summary_result.get("stdout", "")
             pytest_assert(
@@ -173,14 +173,14 @@ def test_bgp_commands_with_like_bgp_container(
                 "BGP command failed with 'No such command' error when like-bgp container is present. "
                 "Error: {}".format(error_output)
             )
-        
+
         pytest_assert(
             summary_result["rc"] == 0,
             "Command '{}' failed with like-bgp container present: {}".format(
                 bgp_summary_cmd, summary_result.get("stderr", "")
             ),
         )
-        
+
         # Stop like-bgp container and verify command still works
         stop_result = duthost.shell(
             "docker stop {}".format(like_bgp_container_name),
@@ -190,7 +190,7 @@ def test_bgp_commands_with_like_bgp_container(
             stop_result["rc"] == 0,
             "Failed to stop like-bgp container: {}".format(stop_result.get("stderr", ""))
         )
-        
+
         summary_result_after = duthost.shell(bgp_summary_cmd, module_ignore_errors=True)
         pytest_assert(
             summary_result_after["rc"] == 0,
@@ -198,12 +198,12 @@ def test_bgp_commands_with_like_bgp_container(
                 bgp_summary_cmd, summary_result_after.get("stderr", "")
             ),
         )
-        
+
     except Exception as e:
         logger.error("Test failed: {}".format(str(e)))
         duthost.shell("docker stop {}".format(like_bgp_container_name), module_ignore_errors=True)
         raise
-    
+
     # Verify cleanup (container should be auto-removed via --rm flag)
     verify_cleanup = duthost.shell(
         "docker ps -a | grep {}".format(like_bgp_container_name),
