@@ -5,18 +5,33 @@ import re
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.topology('any'),
+    pytest.mark.topology('t0', 't1'),
     pytest.mark.device_type('vs')
 ]
 
 FROM_V6_NEXT_HOP_CLAUSE = "set ipv6 next-hop prefer-global"
 
 
-def get_run_config(duthost):
-    """Fetch plain-text running config via 'vtysh -c "show run"'."""
-    res = duthost.shell('vtysh -c "show run"')["stdout"]
-    logger.info(f"Running config: {res}")
-    return res
+def get_run_configs(duthost):
+    """Fetch FRR running config per ASIC namespace.
+
+    Returns list of (asic_label, config_text). `asic_label` is the ASIC id as
+    string, or 'global' for single-ASIC/default namespace.
+    """
+    results = []
+
+    if duthost.is_multi_asic:
+        asic_len = len(duthost.asics)
+        for asic_id in range(asic_len):
+            logger.info(f"Fetching 'show run' from {duthost.hostname} asic {asic_id}")
+            out = duthost.command(f'vtysh -n {asic_id} -c "show run"').get("stdout", "")
+            results.append((str(asic_id), out))
+    else:
+        logger.info(f"Fetching 'show run' from {duthost.hostname} default namespace")
+        out = duthost.command('vtysh -c "show run"').get("stdout", "")
+        results.append(("default namespace", out))
+
+    return results
 
 
 def verify_v6_next_hop_from_run(raw_run_config):
@@ -67,11 +82,13 @@ def test_route_map_check(duthosts):
     """
     failures = []
     for duthost in duthosts:
-        raw_run = get_run_config(duthost)
-        result = verify_v6_next_hop_from_run(raw_run)
-        if result is False:
-            reason = "Missing clause in running-config"
-            failures.append((duthost.hostname, reason))
+        output = get_run_configs(duthost)
+        logger.info(f"Get route-map configs from {duthost.hostname}: {output}")
+        for asic, raw_run in output:
+            logger.info(f"Verifying route-map config on {duthost.hostname} asic {asic}")
+            result = verify_v6_next_hop_from_run(raw_run)
+            if result is False:
+                failures.append((duthost.hostname, asic if asic else None))
 
     assert not failures, (
-        f"ipv6 next-hop prefer-global is not set in route-map on: {', '.join([f[0] for f in failures])}")
+        f"ipv6 next-hop prefer-global is not set in route-map on: {failures}")
