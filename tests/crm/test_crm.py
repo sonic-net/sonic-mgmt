@@ -240,23 +240,21 @@ def verify_thresholds(duthost, asichost, **kwargs):
     Verifies the following threshold parameters: percentage, actual used, actual free
     """
     # Skip on virtual testbed (VS/KVM): ASIC/counters DB checks are not applicable
-    if str(duthost.facts.get("asic_type", "")).lower() == "vs":
+    if duthost.facts["asic_type"].lower() == "vs":
         logging.info(
             "[CRM] Skipping verify_thresholds on VS/KVM (asic_type == 'vs'); "
             "ASIC/counters DB checks are not applicable in virtual testbeds."
         )
         return
- 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix='crm_test')
     for key, value in list(THR_VERIFY_CMDS.items()):
         logger.info("Verifying CRM threshold '{}'".format(key))
         template = Template(value)
- 
         if "exceeded" in key:
             loganalyzer.expect_regex = [EXPECT_EXCEEDED]
         elif "clear" in key:
             loganalyzer.expect_regex = [EXPECT_CLEAR]
- 
+
         if "percentage" in key:
             if "nexthop_group" in kwargs["crm_cli_res"] and "mellanox" in duthost.facts["asic_type"].lower():
                 # TODO: Fix this. Temporal skip percentage verification for 'test_crm_nexthop_group' test case
@@ -264,44 +262,36 @@ def verify_thresholds(duthost, asichost, **kwargs):
                 # in order to test percentage threshold (Can't even reach 1 percent)
                 # For test case used 'nexthop_group' need to be configured at least 1 percent from available
                 continue
- 
             if kwargs["crm_cli_res"] in ["ipv4 neighbor", "ipv6 neighbor"] and \
-               "cisco-8000" in duthost.facts["asic_type"].lower():
+                    "cisco-8000" in duthost.facts["asic_type"].lower():
                 # Skip the percentage check for Cisco-8000 devices
                 continue
- 
             used_percent = get_used_percent(kwargs["crm_used"], kwargs["crm_avail"])
- 
             if key == "exceeded_percentage":
                 if used_percent < 1:
-                    logger.warning(
-                        "The used percentage for {} is {} and "
-                        "verification for exceeded_percentage is skipped"
-                        .format(kwargs["crm_cli_res"], used_percent)
-                    )
+                    logger.warning("The used percentage for {} is {} and \
+                                   verification for exceeded_percentage is skipped"
+                                   .format(kwargs["crm_cli_res"], used_percent))
                     continue
                 kwargs["th_lo"] = used_percent - 1
                 kwargs["th_hi"] = used_percent
                 loganalyzer.expect_regex = [EXPECT_EXCEEDED]
- 
             elif key == "clear_percentage":
                 if used_percent >= 100 or used_percent < 1:
-                    logger.warning(
-                        "The used percentage for {} is {} and verification for clear_percentage is skipped"
-                        .format(kwargs["crm_cli_res"], used_percent)
-                    )
+                    logger.warning("The used percentage for {} is {} and verification for clear_percentage is skipped"
+                                   .format(kwargs["crm_cli_res"], used_percent))
                     continue
                 kwargs["th_lo"] = used_percent
                 kwargs["th_hi"] = used_percent + 1
                 loganalyzer.expect_regex = [EXPECT_CLEAR]
- 
+
         kwargs['crm_used'], kwargs['crm_avail'] = get_crm_stats(kwargs['crm_cmd'], duthost)
         cmd = template.render(**kwargs)
+
         with loganalyzer:
             asichost.command(cmd)
-        # Make sure CRM counters updated
-        time.sleep(CRM_UPDATE_TIME)
- 
+            # Make sure CRM counters updated
+            time.sleep(CRM_UPDATE_TIME)
 
 
 def get_crm_stats(cmd, duthost):
