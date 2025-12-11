@@ -107,8 +107,7 @@ def ssh_run_command(ssh_client, command, expect_exit_code=0, verify=False):
             # do get evaluated, then the state of the object will be different,
             # which will cause issues for other functions that use those
             # objects.
-            pytest_assert(
-                exit_code == expect_exit_code,
+            pytest.fail(
                 f"Command: '{command}' failed with exit code: {exit_code}, "
                 f"stdout: {stdout.readlines()}, stderr: {stderr.readlines()}")
     return exit_code, stdout, stderr
