@@ -1,8 +1,12 @@
 import pytest
+import ipaddress
+import logging
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.dhcp_relay.dhcp_relay_utils import check_routes_to_dhcp_server
+
+logger = logging.getLogger(__name__)
 
 SINGLE_TOR_MODE = 'single'
 DUAL_TOR_MODE = 'dual'
@@ -76,6 +80,9 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
             if vlan_interface_info_dict['attachto'] == vlan_iface_name:
                 downlink_vlan_iface['addr'] = vlan_interface_info_dict['addr']
                 downlink_vlan_iface['mask'] = vlan_interface_info_dict['mask']
+                subnet = ipaddress.IPv4Interface("{}/{}".format(vlan_interface_info_dict['addr'],
+                                                 vlan_interface_info_dict['mask'])).network
+                downlink_vlan_iface['link_selection_ip'] = str(subnet.network_address)
                 break
 
         # Obtain MAC address of the VLAN interface
@@ -115,6 +122,42 @@ def dut_dhcp_relay_data(duthosts, rand_one_dut_hostname, ptfhost, tbinfo):
         dhcp_relay_data['switch_loopback_ip'] = str(switch_loopback_ip)
         dhcp_relay_data['portchannels'] = mg_facts['minigraph_portchannels']
         dhcp_relay_data['vlan_members'] = vlan_members
+
+        # Add loopback interface name (needed for source_interface)
+        loopback_iface = mg_facts['minigraph_lo_interfaces'][0]['name']
+        dhcp_relay_data['loopback_iface'] = loopback_iface
+        portchannels_with_ips = {}
+        portchannels_ip_list = []
+
+        for portchannel_name, portchannel_info in mg_facts['minigraph_portchannels'].items():
+            for pc_interface in mg_facts['minigraph_portchannel_interfaces']:
+                if pc_interface['attachto'] == portchannel_name:
+                    ip_with_mask = f"{pc_interface['addr']}/{pc_interface['mask']}"
+
+                    # Optional: format to standard CIDR
+                    # formatted_ip = str(ipaddress.ip_interface(ip_with_mask))
+                    ip_obj = ipaddress.ip_interface(ip_with_mask)
+                    # Skip IPv6 if needed
+                    if ip_obj.version != 4:
+                        continue
+                    hosts = list(ip_obj.network.hosts())
+                    if len(hosts) < 2:
+                        logger.warning(f"Not enough hosts for nexthop in {ip_with_mask}")
+                        continue
+
+                    nexthop = str(hosts[1]) if str(ip_obj.ip) == str(hosts[0]) else str(hosts[0])
+                    if portchannel_name not in portchannels_with_ips:
+                        portchannels_with_ips[portchannel_name] = []
+                    # Save as flat dictionary
+                    portchannels_with_ips[portchannel_name] = {
+                        "ip": str(ip_obj),
+                        "nexthop": nexthop
+                    }
+                    # Append the IP to the list
+                    portchannels_ip_list.append(str(ip_obj))
+
+        dhcp_relay_data['portchannels_with_ips'] = portchannels_with_ips
+        dhcp_relay_data['portchannels_ip_list'] = portchannels_ip_list
 
         # Obtain MAC address of an uplink interface because vlan mac may be different than that of physical interfaces
         res = duthost.shell('cat /sys/class/net/{}/address'.format(uplink_interfaces[0]))
