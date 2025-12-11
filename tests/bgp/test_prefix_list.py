@@ -60,7 +60,8 @@ def verify_prefix_list_in_db(duthost, prefix_type, prefix):
 def verify_prefix_in_bgp_table(duthost, ip_version, prefix):
     # Check whether prefix in BGP table
     for asic_index in duthost.get_frontend_asic_ids():
-        cmd = "vtysh -n {} -c 'show bgp {} {}'".format(asic_index, ip_version, prefix)
+        asic_ns = f"-n {asic_index}" if duthost.is_multi_asic else ""
+        cmd = f"vtysh {asic_ns} -c 'show bgp {ip_version} {prefix}'"
         outputs = duthost.shell(cmd)["stdout"]
         if "Network not in table" in outputs:
             logger.info("Expected prefix {} to be in the BGP table, but it was not found".format(prefix))
@@ -71,7 +72,8 @@ def verify_prefix_in_bgp_table(duthost, ip_version, prefix):
 def verify_prefix_in_fib_table(duthost, prefix):
     # Check whether prefix in FIB table
     for asic_index in duthost.get_frontend_asic_ids():
-        cmd = "sonic-db-cli -n asic{} APPL_DB hgetall \"ROUTE_TABLE:{}\"".format(asic_index, prefix)
+        asic_ns = f"-n asic{asic_index}" if duthost.is_multi_asic else ""
+        cmd = f"sonic-db-cli {asic_ns} APPL_DB hgetall \"ROUTE_TABLE:{prefix}\""
         output = duthost.shell(cmd)["stdout"].strip().replace("'", "\"")
         route_info = json.loads(output) if output else {}
         if route_info == {} or ("blackhole" in route_info and route_info["blackhole"] == "true"):

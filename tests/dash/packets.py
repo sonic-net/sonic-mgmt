@@ -137,6 +137,8 @@ def inbound_pl_packets(
         eth_dst=pl.ENI_MAC,
         ipv6_src=inner_sip,
         ipv6_dst=inner_dip,
+        udp_sport=inner_sport,
+        udp_dport=inner_dport,
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
@@ -238,6 +240,8 @@ def outbound_pl_packets(
         eth_dst=pl.ENI_MAC if floating_nic else pl.REMOTE_MAC,
         ip_src=pl.VM1_CA,
         ip_dst=pl.PE_CA,
+        udp_sport=inner_sport,
+        udp_dport=inner_dport,
     )
     inner_packet[l4_protocol_key].sport = inner_sport
     inner_packet[l4_protocol_key].dport = inner_dport
