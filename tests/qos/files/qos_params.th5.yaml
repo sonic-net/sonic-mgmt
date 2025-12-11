@@ -3,6 +3,20 @@ qos_params:
         topo-t0-standalone: &topo-t0-standalone
             cell_size: 254
             hdrm_pool_wm_multiplier: 1
+            pg_min_threshold:
+                pg0_dscp: 8
+                pg1_dscp: 3
+                pg0: 0
+                pg1: 3
+                packet_size: 1500
+                cell_size: 254
+                shared_pool_size: 166000000
+                pg1_min_size: 10000000
+                pg0_pkts_to_fill: 2000000
+                pg1_pkts_to_fill: 2000000
+                pg0_pkts_to_drop: 0
+                pg1_pkts_to_drop: 0
+                pkts_num_margin: 1000
             200000_5m:
                 hdrm_pool_size:
                     dscps:
