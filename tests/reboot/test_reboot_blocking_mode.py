@@ -2,7 +2,6 @@ import pytest
 import re
 from tests.common.reboot import reboot
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.platform.processes_utils import wait_critical_processes
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
