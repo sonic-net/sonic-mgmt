@@ -5,6 +5,7 @@ import pytest
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa: F401
 from tests.common.dualtor.dual_tor_common import active_standby_ports                                       # noqa: F401
 from tests.common.dualtor.dual_tor_common import cable_type                                                 # noqa: F401
+from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.dual_tor_utils import upper_tor_host                                              # noqa: F401
 from tests.common.dualtor.dual_tor_utils import lower_tor_host                                              # noqa: F401
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
@@ -39,6 +40,18 @@ def loop_times(get_function_completeness_level):
     return LOOP_TIMES_LEVEL_MAP[normalized_level]
 
 
+@pytest.fixture
+def heartbeat_control(request, start_icmp_responder, shutdown_icmp_responder):                      # noqa: F811
+    heartbeat = request.param
+    if heartbeat == "off":
+        shutdown_icmp_responder()
+
+    yield heartbeat
+
+    if heartbeat == "off":
+        start_icmp_responder()
+
+
 def check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_times,              # noqa: F811
                                                  status=None, health=None):
     def _check_mux_port_status(duthost, ports, status, health):
@@ -71,11 +84,10 @@ def check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_
                       "MUX port status is not correct after linkmgrd restart")
 
 
-@pytest.mark.parametrize("cable_type", ["active-active", "active-standby"])
-@pytest.mark.parametrize("heartbeat", ["on", "off"])
-def test_dualtor_linkmgrd_restart_mux_port_status(cable_type, heartbeat, rand_selected_dut,           # noqa: F811
+@pytest.mark.enable_active_active
+@pytest.mark.parametrize("heartbeat_control", ["on", "off"], indirect=True)
+def test_dualtor_linkmgrd_restart_mux_port_status(cable_type, heartbeat_control, rand_selected_dut,   # noqa: F811
                                                   active_active_ports, active_standby_ports,          # noqa: F811
-                                                  start_icmp_responder, shutdown_icmp_responder,      # noqa: F811
                                                   loop_times):
     """
     Test MUX port status on dual ToR after linkmgrd restart with heartbeat on/off
@@ -83,25 +95,17 @@ def test_dualtor_linkmgrd_restart_mux_port_status(cable_type, heartbeat, rand_se
     Note: Skip mux status checking for active-standby case due to initialization timing issue.
           Only health and hwstatus are checked in this scenario.
     """
-    ports = active_active_ports if cable_type == "active-active" else active_standby_ports
+    ports = active_active_ports if cable_type == CableType.active_active else active_standby_ports
 
     # skip test if topology mismatch
     if not ports:
         pytest.skip(f'Skipping toggle on dualtor for cable_type={cable_type}.')
 
-    # Set heartbeat off
-    if heartbeat == "off":
-        shutdown_icmp_responder()
-
     # Check MUX port status after linkmgrd restart
-    if cable_type == "active-active":
-        expected_status = 'active' if heartbeat == "on" else 'standby'
+    if cable_type == CableType.active_active:
+        expected_status = 'active' if heartbeat_control == "on" else 'standby'
         check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_times, expected_status)
-    else:  # active-standby
-        health = 'healthy' if heartbeat == "on" else 'unhealthy'
+    if cable_type == CableType.active_standby:  # active-standby
+        health = 'healthy' if heartbeat_control == "on" else 'unhealthy'
         check_mux_port_status_after_linkmgrd_restart(rand_selected_dut, ports, loop_times,
                                                      status=None, health=health)
-
-    # Restore heartbeat on
-    if heartbeat == "off":
-        start_icmp_responder()
