@@ -519,7 +519,7 @@ def post_test_dpu_check(duthost, dpuhosts, dpu_name, reboot_cause):
         wait_until(
             DPU_MAX_PROCESS_UP_TIMEOUT, DPU_MAX_TIME_INT, 0,
             check_dpu_critical_processes, dpuhosts, dpu_id),
-        f"Crictical process check for {dpu_name} has been failed"
+        f"Critical process check for {dpu_name} has been failed"
     )
 
     if reboot_cause:
