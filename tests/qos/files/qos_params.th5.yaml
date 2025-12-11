@@ -614,8 +614,8 @@ qos_params:
                     - 41
                     - 42
                     - 43
-                    - 44
-                    - 45
+                    - 56
+                    - 57
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
@@ -699,7 +699,7 @@ qos_params:
                     dscps:
                     - 3
                     - 4
-                    dst_port_id: 0
+                    dst_port_id: 2
                     ecn: 1
                     margin: 2
                     pgs:
@@ -734,18 +734,18 @@ qos_params:
                     - 74
                     - 74
                     src_port_ids:
-                    - 1
-                    - 2
                     - 3
                     - 4
                     - 5
                     - 6
                     - 7
-                    - 8
-                    - 9
-                    - 10
-                    - 11
-                    - 12
+                    - 16
+                    - 17
+                    - 18
+                    - 19
+                    - 24
+                    - 25
+                    - 26
                 lossy_queue_1:
                     dscp: 8
                     ecn: 1
