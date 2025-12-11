@@ -350,6 +350,9 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
             for m in members
             if ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
 
+        member_port_ids = [int(sp['port_id']) for sp in (snappi_ports) for m in members if
+                           ((sp['peer_port'] == m) and (sp['peer_device'] == duthost.hostname))]
+
         if not member_port_ids:
             continue
         last_byte = _next_system_id & 0xFF
