@@ -114,4 +114,3 @@ def test_sflow_drop_monitor_limit_cli_valid(duthost):
 def test_sflow_drop_monitor_limit_cli_invalid(duthost):
     res = duthost.shell("config sflow drop monitor-limit 700", module_ignore_errors=True)
     assert res["rc"] != 0
-
