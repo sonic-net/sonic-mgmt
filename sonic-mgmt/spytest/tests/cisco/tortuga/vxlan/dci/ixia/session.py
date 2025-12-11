@@ -1,6 +1,7 @@
 from ixnetwork_restpy import SessionAssistant
 from spytest import st
 import requests
+import os
 
 
 def get_session_id(ixia_vm_ip, api_key):
@@ -57,26 +58,32 @@ def get_session_id(ixia_vm_ip, api_key):
         return None
 
 
-def session_assistant(ixia_vm_ip, api_key):
+def session_assistant(ixia_vm_ip, api_key, force_new_session=True):
     """
     Create and configure an Ixia SessionAssistant for traffic generator operations.
     
-    Automatically discovers existing session or creates new one. This prevents
-    "port in use" errors by reusing existing sessions when available.
+    Can either create a new session or reuse an existing one based on force_new_session flag.
     
     Args:
         ixia_vm_ip (str): IP address of the Ixia Virtual Machine/Chassis
         api_key (str): API key for authentication with Ixia Web API
+        force_new_session (bool): If True, creates new session. If False, reuses existing session.
+                                 Default is True.
         
     Returns:
         SessionAssistant: Configured session object for Ixia operations
         
     Note:
         Uses default admin credentials and INFO log level for debugging.
-        Automatically discovers and connects to existing session if available.
+        Set via DCI_IXIA_FORCE_NEW_SESSION environment variable in conftest.py
     """
-    # Try to get existing session first
-    session_id = get_session_id(ixia_vm_ip, api_key)
+    session_id = None
+    
+    # Only try to get existing session if not forcing new session
+    if not force_new_session:
+        session_id = get_session_id(ixia_vm_ip, api_key)
+    else:
+        st.log("force_new_session=True, will create a new IXIA session")
     
     st.log(f"Creating IXIA SessionAssistant for VM IP: {ixia_vm_ip}, Session ID: {session_id}")
     params = {

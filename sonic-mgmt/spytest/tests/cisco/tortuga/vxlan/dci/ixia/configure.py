@@ -62,7 +62,7 @@ def setup_ixia_session(session_assistant: SessionAssistant) -> bool:
     return True
 
 
-def configure_ixia_session(config_file, ixia_vm_ip, api_key) -> Optional[SessionAssistant]:
+def configure_ixia_session(config_file, ixia_vm_ip, api_key, force_new_session=True) -> Optional[SessionAssistant]:
     """
     Configure and initialize an Ixia traffic generator session for DCI testing.
     
@@ -74,6 +74,7 @@ def configure_ixia_session(config_file, ixia_vm_ip, api_key) -> Optional[Session
         config_file (str): Name of the Ixia configuration file in ixia_config/ directory
         ixia_vm_ip (str): IP address of the Ixia Virtual Machine/Chassis
         api_key (str): API key for authentication with Ixia Web API
+        force_new_session (bool): If True, creates new session. If False, reuses existing session.
         
     Returns:
         SessionAssistant: Configured Ixia session object for traffic operations
@@ -85,7 +86,8 @@ def configure_ixia_session(config_file, ixia_vm_ip, api_key) -> Optional[Session
         sess = configure_ixia_session(
             "dci_3dc_6d.ixncfg", 
             "192.168.1.100", 
-            "my-api-key"
+            "my-api-key",
+            force_new_session=True
         )
     """
     # Construct absolute path to Ixia configuration file in ixia subdirectory
@@ -95,7 +97,8 @@ def configure_ixia_session(config_file, ixia_vm_ip, api_key) -> Optional[Session
     st.log(f"Loading IXIA config file from: {config_path}")
     
     # Establish authenticated session with Ixia chassis using provided credentials
-    sess_assistant: SessionAssistant = session_assistant(ixia_vm_ip, api_key)
+    # force_new_session controls whether to create fresh session or reuse existing
+    sess_assistant: SessionAssistant = session_assistant(ixia_vm_ip, api_key, force_new_session)
     
     try:
         # Load the Ixia configuration file (.ixncfg) containing topology and protocol settings

@@ -25,6 +25,7 @@ def get_command_line_args():
         "cleanup": os.getenv("DCI_CLEANUP", "false").lower() == "true",
         "ixia_config_file": os.getenv("DCI_IXIA_CONFIG_FILE", "ixia_dci_hosts.ixncfg"),
         "ixia_api_key": os.getenv("DCI_IXIA_API_KEY", ""),
+        "ixia_force_new_session": os.getenv("DCI_IXIA_FORCE_NEW_SESSION", "true").lower() == "true",
     }
 
 
@@ -114,9 +115,10 @@ def setup():
         wa = st.getwa()
         config_file = command_line_args["ixia_config_file"]
         api_key = command_line_args["ixia_api_key"]
+        force_new_session = command_line_args["ixia_force_new_session"]
         ixia_vm_ip = wa.net.tb.devices["T1"]["properties"]["ix_server"]
         sess_assistant: SessionAssistant | None = configure_ixia_session(
-            config_file, ixia_vm_ip, api_key
+            config_file, ixia_vm_ip, api_key, force_new_session
         )
         if not sess_assistant:
             st.abort_module("module_config_failed", "failed to configure IXIA session")

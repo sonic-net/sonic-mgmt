@@ -13,9 +13,11 @@
 +args:--max-time function 2400
 +args:--logs-level=debug
 +args:--random-order=0
++args:--skip-tgen
 
 #Environment Variables for IXIA Configuration
 +args:--env DCI_CONFIG_FILE dci/device_configs/config_ixia_8D.yaml
 +args:--env DCI_USE_IXIA_FOR_HOSTS true
 +args:--env DCI_IXIA_API_KEY f01a12559c4c46c192ab67a6121469e1
 +args:--env DCI_IXIA_CONFIG_FILE ixia_dci_hosts.ixncfg
++args:--env DCI_IXIA_FORCE_NEW_SESSION true
