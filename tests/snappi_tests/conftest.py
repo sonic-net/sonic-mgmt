@@ -5,7 +5,6 @@ from tests.conftest import generate_priority_lists
 from tests.common.helpers.parallel import parallel_run
 from tests.common.helpers.xml_utils import modify_minigraph
 from tests.common.config_reload import config_reload
-from tests.common.utilities import str2bool
 
 
 @pytest.fixture(autouse=True, scope="module")
@@ -90,27 +89,33 @@ def pytest_addoption(parser):
     snappi_group.addoption(
         "--test_gcu_snappi",
         action="store",
-        type=str2bool,
-        default=False,
-        help="Control execution of GCU feature in Snappi Tests.",
+        type=str,
+        default="",
+        choices=("no_front_panel_ports", "one_front_panel_port", ""),
+        help="Control execution of GCU feature in Snappi Tests."
     )
 
 
+@pytest.fixture(scope="session")
+def gcu_mode_enabled(request):
+    return request.config.getoption("--test_gcu_snappi")
+
+
 @pytest.fixture(autouse=True, scope="session")
-def convert_to_rsb(duthosts, duts_minigraph_facts, request):
+def convert_to_rsb(duthosts, duts_minigraph_facts, gcu_mode_enabled):
 
     '''
        Change the DUTs to Reduced-Set-Base configs. These configs have no
        front-panel port configured. This is done by removing the front-panel
        ports from the minigraph, and loading the new minigraph.
     '''
-    if not request.config.getoption("--test_gcu_snappi"):
+    if gcu_mode_enabled == "":
         yield
         return
 
     minigraph_xml = "/etc/sonic/minigraph.xml"
 
-    def convert_dut_to_rsb(node, duts_minigraph_facts, results):
+    def convert_dut_to_rsb(node, duts_minigraph_facts, rsb_mode, results):
         if node.is_supervisor_node():
             return
         node.shell("rm /etc/sonic/running_golden*", module_ignore_errors=True)
@@ -123,8 +128,12 @@ def convert_to_rsb(duthosts, duts_minigraph_facts, request):
         copy_minigraph_back(node, "full_configs")
 
     # for dut in duthosts:
-    #     convert_dut_to_rsb(dut, duts_minigraph_facts)
-    parallel_run(convert_dut_to_rsb, [], {'duts_minigraph_facts': duts_minigraph_facts}, duthosts)
+    #     convert_dut_to_rsb(dut, duts_minigraph_facts, rsb_mode)
+    parallel_run(
+        convert_dut_to_rsb,
+        [],
+        {'duts_minigraph_facts': duts_minigraph_facts, 'rsb_mode': gcu_mode_enabled},
+        duthosts)
 
     yield
 
@@ -168,9 +177,9 @@ def copy_minigraph_back(duthost, source):
 
 
 @pytest.fixture(autouse=True,  scope="module")
-def load_gcu_config(duthosts, request):
+def load_gcu_config(duthosts, gcu_mode_enabled):
 
-    if not request.config.getoption("--test_gcu_snappi"):
+    if gcu_mode_enabled == "":
         yield
         return
 
@@ -178,7 +187,7 @@ def load_gcu_config(duthosts, request):
         if dut.stat(path=filename)['stat']['exists']:
             result = dut.shell(f"config apply-patch {filename}")
             if result['stdout_lines'][-1] != 'Patch applied successfully.':
-                raise RuntimeError(f"GCU patch{filename} was not applied successfully:Result: {result}")
+                raise RuntimeError(f"GCU patch{filename} was not applied successfully: Result: {result}")
             return True
         else:
             return False
