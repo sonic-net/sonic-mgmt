@@ -1,8 +1,8 @@
-from tests.snappi_tests.dataplane.imports import *  # noqa: F401, F403, F405
+from tests.snappi_tests.dataplane.imports import *   # noqa F403
 from snappi_tests.dataplane.files.helper import get_duthost_bgp_details, create_snappi_config, \
     get_fanout_port_groups, set_primary_chassis, create_traffic_items, start_stop, get_stats    # noqa: F401, F405
 
-pytestmark = [pytest.mark.topology("'multidut-tgen', 'tgen', 'nut")]
+pytestmark = [pytest.mark.topology("nut")]
 logger = logging.getLogger(__name__)  # noqa: F405
 
 """
