@@ -240,8 +240,8 @@ if __name__ == "__main__":
         logger.info(f"Collected {len(all_tests)} tests from full test suite")
 
         # Skip individual file analysis and dependency resolution for infrastructure changes
-        # Print the consolidated results as a single JSON
-        print(json.dumps(consolidated_results, indent=4))
+        # Print compressed JSON (single line)
+        print(json.dumps(consolidated_results, separators=(',', ':')))
         sys.exit(0)
 
     consolidated_results = {"tests": [], "others": []}
@@ -264,7 +264,8 @@ if __name__ == "__main__":
                     all_tests = collect_all_tests(args.directory)
                     consolidated_results = {"tests": all_tests, "others": []}
                     logger.info(f"Collected {len(all_tests)} tests from full test suite")
-                    print(json.dumps(consolidated_results, indent=4))
+                    # Print compressed JSON to avoid Azure Pipelines truncation bug
+                    print(json.dumps(consolidated_results, separators=(',', ':')))
                     sys.exit(0)
 
                 logger.info(f"Invoking analyze_impact.py for function: {function_name}")
@@ -304,5 +305,5 @@ if __name__ == "__main__":
         )
         logger.info(f"Test count after dependencies: {len(consolidated_results['tests'])} (was {original_count})")
 
-    # Print the consolidated results as a single JSON
-    print(json.dumps(consolidated_results, indent=4))
+    # Print compressed JSON (single line)
+    print(json.dumps(consolidated_results, separators=(',', ':')))

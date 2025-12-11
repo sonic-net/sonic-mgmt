@@ -94,7 +94,8 @@ def collect_scripts_by_topology_type_from_files(files: list) -> dict:
 
 def main(files):
     scripts_list = collect_scripts_by_topology_type_from_files(files)
-    print(json.dumps(scripts_list))
+    # Output compressed JSON (single line, no whitespace)
+    print(json.dumps(scripts_list, separators=(',', ':')))
 
 
 if __name__ == '__main__':
