@@ -52,9 +52,9 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
                     elements_to_mark_for_removal.add(root)
                 else:
                     logger.info(
-                        f"Warning: Root element '{root.tag}' matches"
-                        f"'{text_to_remove}' and 'remove_parent_if_matched' is "
-                        f"True. Cannot remove root's parent. Skipping removal of root.")
+                        f"Warning: Root element '{root.tag}' matches '{text_to_remove}'"
+                        f" and 'remove_parent_if_matched' is True. Cannot remove root's "
+                        f"parent. Skipping removal of root.")
             elif remove_parent_if_matched:
                 # If we need to remove the parent of the matched element
                 if elem in parent_map:
@@ -71,7 +71,7 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
             elem_to_remove.clear()
             logger.info(
                 f"Cleared content of root element '{root.tag}' as it matched"
-                f"'{text_to_remove}' and was marked for self-removal.")
+                f" '{text_to_remove}' and was marked for self-removal.")
             removed_count += 1
         elif elem_to_remove in parent_map:
             parent_map[elem_to_remove].remove(elem_to_remove)
@@ -79,12 +79,12 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
         else:
             # This case should ideally not happen if parent_map is correctly built and elem_to_remove is not root
             logger.info(
-                f"Warning: Could not remove element '{elem_to_remove.tag}' as"
-                f" its parent was not found in the map.")
+                f"Warning: Could not remove element '{elem_to_remove.tag}' "
+                f"as its parent was not found in the map.")
 
     if removed_count == 0:
         logger.info(f"No entries related to '{text_to_remove}' were found or removed.")
-        return  # No changes, so no need to rewrite
+        return   # No changes, so no need to rewrite
 
     try:
         # Write the modified tree back to the file
@@ -95,25 +95,41 @@ def remove_xml_entries(file_path, text_to_remove, element_tag_to_check=None, rem
         logger.info(f"Error writing XML file {file_path}: {e}")
 
 
-def modify_minigraph(minigraph_file, minigraph_data):
+def modify_minigraph(minigraph_file, minigraph_data, rsb_mode):
     if "minigraph_interfaces" not in minigraph_data:
         raise RuntimeError("Couldnot find any interface data in minigraph_data")
 
-    for entry in minigraph_data['minigraph_interfaces']:
+    all_active_ports = minigraph_data['minigraph_ports'].keys()
+    all_active_fp_ports = [x for x in all_active_ports if "-BP" not in x]
+    if rsb_mode == "no_front_panel_ports":
+        interfaces_to_remove = all_active_fp_ports
+        interfaces_not_to_remove = []
+    elif rsb_mode == "one_front_panel_port":
+        if len(all_active_fp_ports) > 1:
+            interfaces_to_remove = all_active_fp_ports[1:]
+            interfaces_not_to_remove = [all_active_fp_ports[0]]
+        else:
+            # This becomes a no-op.
+            interfaces_to_remove = []
+            interfaces_not_to_remove = all_active_fp_ports
+
+    for entry in interfaces_to_remove:
         remove_xml_entries(
             minigraph_file,
-            text_to_remove=entry['attachto'],
+            text_to_remove=entry,
             element_tag_to_check=None,
             remove_parent_if_matched=True)
         remove_xml_entries(
             minigraph_file,
-            text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry['attachto']],
+            text_to_remove=minigraph_data['minigraph_port_name_to_alias_map'][entry],
             element_tag_to_check=None,
             remove_parent_if_matched=True)
 
+        # TODO: take care of vlan members
+
         for pc, data in minigraph_data['minigraph_portchannels'].items():
             for member in data['members']:
-                if "-BP" not in member:
+                if "-BP" not in member and member not in interfaces_not_to_remove:
                     remove_xml_entries(
                         minigraph_file,
                         text_to_remove=member,
@@ -121,7 +137,7 @@ def modify_minigraph(minigraph_file, minigraph_data):
                         remove_parent_if_matched=False)
 
         for entry in minigraph_data['minigraph_neighbors']:
-            if "-BP" not in entry:
+            if "-BP" not in entry and entry not in interfaces_not_to_remove:
                 remove_xml_entries(
                     minigraph_file,
                     text_to_remove=entry,
@@ -129,7 +145,7 @@ def modify_minigraph(minigraph_file, minigraph_data):
                     remove_parent_if_matched=True)
 
         for entry, value in minigraph_data['minigraph_ports'].items():
-            if "-BP" not in entry:
+            if "-BP" not in entry and entry not in interfaces_not_to_remove:
                 remove_xml_entries(
                     minigraph_file,
                     text_to_remove=value['name'],
