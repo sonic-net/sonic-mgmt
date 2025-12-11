@@ -70,7 +70,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
@@ -79,7 +79,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t0_2vlans_elastictest
@@ -104,7 +104,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
@@ -114,7 +114,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t1_lag_elastictest
@@ -139,7 +139,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
@@ -148,7 +148,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_dualtor_elastictest
@@ -173,7 +173,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: dualtor
           SCRIPTS: $(SCRIPTS)
@@ -182,7 +182,7 @@ jobs:
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t0_sonic_elastictest
@@ -207,7 +207,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0-64-32
           SCRIPTS: $(SCRIPTS)
@@ -221,7 +221,7 @@ jobs:
               {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
               {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_dpu_elastictest
@@ -246,7 +246,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: dpu
           SCRIPTS: $(SCRIPTS)
@@ -258,7 +258,7 @@ jobs:
           SPECIFIC_PARAM: '[
               {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
@@ -284,7 +284,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t1-8-lag
           SCRIPTS: $(SCRIPTS)
@@ -294,7 +294,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t2_elastictest
@@ -320,7 +320,7 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
-          ${{ for param in parameters.GLOBAL_PARAMS }}:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t2
           SCRIPTS: $(SCRIPTS)
@@ -335,5 +335,5 @@ jobs:
           MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
           MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
           PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
-          ${{ for param in parameters.OVERRIDE_PARAMS }}:
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
