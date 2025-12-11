@@ -1,31 +1,7 @@
 parameters:
-- name: BUILD_REASON
-  type: string
-  default: "PullRequest"
-
 - name: TIMEOUT_IN_MINUTES_PR_TEST
   type: number
   default: 480
-
-- name: MAX_RUN_TEST_MINUTES
-  type: number
-  default: 240
-
-- name: TEST_PLAN_NUM
-  type: string
-  default: "1"
-
-- name: TEST_PLAN_STOP_ON_FAILURE
-  type: string
-  default: "True"
-
-- name: RETRY_TIMES
-  type: string
-  default: "2"
-
-- name: ASIC_TYPE
-  type: string
-  default: "vs"
 
 - name: CHECKOUT_SONIC_MGMT
   type: boolean
@@ -35,20 +11,26 @@ parameters:
   type: string
   default: "sonic-mgmt"
 
-- name: MGMT_COMMIT_HASH
-  type: string
-  default: ""
-
 # Keys: "dpu_checker","dualtor_checker","t0-2vlans_checker","t0-sonic_checker","t0_checker","t1-multi-asic_checker","t1_checker","t2_checker"
 # Example: {"t0_checker": ["bgp/test_bgp_command.py", "bgp/test_ping_bgp_neighbor.py"], "t1_checker": ["bgp/test_bgp_fact.py"]}
 - name: IMPACT_AREA_INFO
   type: object
   default: {}
 
-- name: PTF_MODIFIED
-  type: string
-  default: "False"
+- name: GLOBAL_PARAMS
+  type: object
+  default:
+    BUILD_REASON: "PullRequest"
+    RETRY_TIMES: "2"
+    STOP_ON_FAILURE: "True"
+    TEST_PLAN_NUM: "1"
+    MAX_RUN_TEST_MINUTES: 240
+    MGMT_COMMIT_HASH: ""
+    PTF_MODIFIED: "False"
 
+- name: OVERRIDE_PARAMS
+  type: object
+  default: {}
 
 jobs:
   - job: get_impacted_area
@@ -88,6 +70,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -95,13 +79,8 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t0_2vlans_elastictest
     displayName: "impacted-area-kvmtest-t0-2vlans by Elastictest"
@@ -125,6 +104,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -133,13 +114,8 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t1_lag_elastictest
     displayName: "impacted-area-kvmtest-t1-lag by Elastictest"
@@ -163,6 +139,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t1-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -170,13 +148,8 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_dualtor_elastictest
     displayName: "impacted-area-kvmtest-dualtor by Elastictest"
@@ -200,6 +173,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: dualtor
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -207,13 +182,8 @@ jobs:
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t0_sonic_elastictest
     displayName: "impacted-area-kvmtest-t0-sonic by Elastictest"
@@ -237,6 +207,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t0-64-32
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -249,13 +221,8 @@ jobs:
               {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
               {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_dpu_elastictest
     displayName: "impacted-area-kvmtest-dpu by Elastictest"
@@ -279,6 +246,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: dpu
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -289,13 +258,8 @@ jobs:
           SPECIFIC_PARAM: '[
               {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   # This PR checker aims to run all t1 test scripts on multi-asic topology.
   - job: impacted_area_multi_asic_t1_elastictest
@@ -320,6 +284,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t1-8-lag
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -328,13 +294,8 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
 
   - job: impacted_area_t2_elastictest
     displayName: "impacted-area-kvmtest-t2 by Elastictest"
@@ -359,6 +320,8 @@ jobs:
 
       - template: run-test-elastictest-template.yml
         parameters:
+          ${{ each param in parameters.GLOBAL_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
           TOPOLOGY: t2
           SCRIPTS: $(SCRIPTS)
           MIN_WORKER: $(INSTANCE_NUMBER)
@@ -366,10 +329,5 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          BUILD_REASON: ${{ parameters.BUILD_REASON }}
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
+          ${{ each param in parameters.OVERRIDE_PARAMS }}:
+            ${{ param.key }}: ${{ param.value }}
