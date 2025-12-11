@@ -1,6 +1,7 @@
+import logging
 from tests.common.telemetry import UNIT_SECONDS       # noqa: F401, F403, F405, E402
 from tests.common.telemetry.constants import METRIC_LABEL_TG_TRAFFIC_RATE, METRIC_LABEL_TG_FRAME_BYTES
-from tests.snappi_tests.dataplane.imports import *   # noqa: F401, F403, F405
+from tests.snappi_tests.dataplane.imports import pytest, pytest_assert  # noqa: F401, F403, F405
 from snappi_tests.dataplane.files.helper import set_primary_chassis, create_snappi_config, create_traffic_items, \
     get_duthost_bgp_details, configure_acl_for_route_withdrawl, start_stop, \
     get_stats, check_bgp_state, is_traffic_converged, wait_for, get_all_port_names, \
@@ -130,7 +131,7 @@ def get_convergence_for_device_unisolation(
     Get the packet loss duration
     """
     convergence_dataplane_time = GaugeMetric(METRIC_NAME_BGP_CONVERGENCE_DATAPLANE_UPDATE_TIME_MS,
-                                             "convergence time for port up/Route Injection event",
+                                             "convergence time-port up/Route Injection event",
                                              UNIT_SECONDS,
                                              db_reporter)
     dut_obj = snappi_extra_params.unisolation_device
@@ -218,4 +219,3 @@ def get_convergence_for_device_unisolation(
         all_ports_startup(dut_obj)
         start_stop(snappi_api, operation="stop", op_type="protocols", waittime=1)
         start_stop(snappi_api, operation="stop", op_type="traffic", waittime=1)
-
