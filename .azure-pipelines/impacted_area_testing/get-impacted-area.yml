@@ -99,12 +99,13 @@ steps:
         echo "=========================================="
 
         # Step 1: Detect impacted tests using AST analysis
+        # Note: Do NOT use 2>&1 here - we only want stdout (JSON), not stderr (log messages)
         IMPACTED_TESTS=$(python ./.azure-pipelines/impacted_area_testing/detect_function_changes.py \
           --modified_files $CHANGED_FILES \
           --feature_branch $SOURCE_BRANCH \
           --target_branch $TARGET_BRANCH \
           --directory tests \
-          --no-log 2>&1)
+          --no-log)
 
         if [[ $? -ne 0 ]]; then
           echo "ERROR: detect_function_changes.py failed on attempt $((RETRY_COUNT + 1))"
@@ -150,8 +151,9 @@ steps:
 
           # Step 3: Categorize tests by topology
           # CRITICAL: Use jq -c to compress output to single line (prevents Azure Pipelines truncation)
+          # Note: Do NOT use 2>&1 here - we only want stdout (JSON), not stderr (log messages)
           TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/categorize_test_scripts_by_topology.py \
-            --files $IMPACTED_TEST_SCRIPTS 2>&1)
+            --files $IMPACTED_TEST_SCRIPTS)
 
           if [[ $? -ne 0 ]]; then
             echo "ERROR: categorize_test_scripts_by_topology.py failed on attempt $((RETRY_COUNT + 1))"
