@@ -329,11 +329,5 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
-          RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
-          STOP_ON_FAILURE: ${{ parameters.TEST_PLAN_STOP_ON_FAILURE }}
-          TEST_PLAN_NUM: ${{ parameters.TEST_PLAN_NUM }}
-          MAX_RUN_TEST_MINUTES: ${{ parameters.MAX_RUN_TEST_MINUTES }}
-          MGMT_COMMIT_HASH: ${{ parameters.MGMT_COMMIT_HASH }}
-          PTF_MODIFIED: ${{ parameters.PTF_MODIFIED }}
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
