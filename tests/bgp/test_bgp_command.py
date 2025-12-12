@@ -112,3 +112,102 @@ def test_bgp_network_command(
             bgp_network_routes_and_paths, bgp_docker_routes_and_paths
         ),
     )
+
+
+@pytest.mark.parametrize("ip_version", ["ipv4", "ipv6"])
+def test_bgp_commands_with_like_bgp_container(
+    duthosts, enum_rand_one_per_hwsku_frontend_hostname, ip_version, tbinfo
+):
+    """
+    @summary: Verify BGP show/clear commands work correctly when there are
+    multiple containers with "bgp" in their names.
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+
+    # Determine if we are on IPv6 only topology
+    ipv6_only_topo = (
+        "-v6-" in tbinfo["topo"]["name"]
+        if tbinfo and "topo" in tbinfo and "name" in tbinfo["topo"]
+        else False
+    )
+
+    if ip_version == "ipv4":
+        if ipv6_only_topo:
+            pytest.skip("Skipping IPv4 BGP commands test in IPv6 only topology")
+        bgp_summary_cmd = "show ip bgp summary"
+    else:
+        bgp_summary_cmd = "show ipv6 bgp summary"
+
+    # Create like-bgp container with "bgp" in name
+    like_bgp_container_name = "database-like-bgp"
+
+    create_result = duthost.shell(
+        'docker run --rm --detach --name={} docker-database:latest sleep infinity'.format(
+            like_bgp_container_name
+        ),
+        module_ignore_errors=True
+    )
+
+    pytest_assert(
+        create_result["rc"] == 0,
+        "Failed to create like-bgp container: {}".format(create_result.get("stderr", ""))
+    )
+
+    try:
+        verify_result = duthost.shell(
+            "docker ps | grep {}".format(like_bgp_container_name),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            verify_result["rc"] == 0 and like_bgp_container_name in verify_result["stdout"],
+            "Like-bgp container {} not found in running containers".format(like_bgp_container_name)
+        )
+
+        # Verify BGP command works with like-bgp container present
+        summary_result = duthost.shell(bgp_summary_cmd, module_ignore_errors=True)
+
+        if summary_result["rc"] != 0:
+            error_output = summary_result.get("stderr", "") + summary_result.get("stdout", "")
+            pytest_assert(
+                "No such command" not in error_output,
+                "BGP command failed with 'No such command' error when like-bgp container is present. "
+                "Error: {}".format(error_output)
+            )
+
+        pytest_assert(
+            summary_result["rc"] == 0,
+            "Command '{}' failed with like-bgp container present: {}".format(
+                bgp_summary_cmd, summary_result.get("stderr", "")
+            ),
+        )
+
+        # Stop like-bgp container and verify command still works
+        stop_result = duthost.shell(
+            "docker stop {}".format(like_bgp_container_name),
+            module_ignore_errors=True
+        )
+        pytest_assert(
+            stop_result["rc"] == 0,
+            "Failed to stop like-bgp container: {}".format(stop_result.get("stderr", ""))
+        )
+
+        summary_result_after = duthost.shell(bgp_summary_cmd, module_ignore_errors=True)
+        pytest_assert(
+            summary_result_after["rc"] == 0,
+            "Command '{}' failed after stopping like-bgp container: {}".format(
+                bgp_summary_cmd, summary_result_after.get("stderr", "")
+            ),
+        )
+
+    except Exception as e:
+        logger.error("Test failed: {}".format(str(e)))
+        duthost.shell("docker stop {}".format(like_bgp_container_name), module_ignore_errors=True)
+        raise
+
+    # Verify cleanup (container should be auto-removed via --rm flag)
+    verify_cleanup = duthost.shell(
+        "docker ps -a | grep {}".format(like_bgp_container_name),
+        module_ignore_errors=True
+    )
+    if verify_cleanup["rc"] == 0 and like_bgp_container_name in verify_cleanup["stdout"]:
+        duthost.shell("docker rm -f {}".format(like_bgp_container_name), module_ignore_errors=True)
