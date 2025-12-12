@@ -916,7 +916,7 @@ platform_tests/api/test_watchdog.py:
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['barefoot'] and hwsku in ['newport', 'montara'] or ('sw_to3200k' in hwsku)"
-      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-dell_s6000_s1220-r0']"
+      - "platform in ['x86_64-nokia_ixr7250e_sup-r0', 'x86_64-nokia_ixr7250e_36x400g-r0', 'x86_64-dell_s6000_s1220-r0', 'arm64-elba-asic-flash128-r0']"
       - "asic_type in ['vs']"
       - "is_multi_asic==True and release in ['201911']"
 
