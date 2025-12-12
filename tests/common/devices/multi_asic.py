@@ -318,14 +318,30 @@ class MultiAsicSonicHost(object):
             return 1
         return 3
 
-    def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
-        asic_id = self.get_asic_id_from_namespace(namespace)
-        if asic_id == DEFAULT_ASIC_ID:
-            ns_prefix = ''
+    def get_route(self, prefix=None, namespace=DEFAULT_NAMESPACE):
+        """
+        Get route information from DUT for multi-ASIC.
+        Args:
+            prefix (str, optional): Specific prefix to query. If None, returns BGP summary.
+            namespace (str): Network namespace. Defaults to DEFAULT_NAMESPACE.
+        Returns:
+            dict: Route information in JSON format.
+        """
+        asic_id = None if namespace == DEFAULT_NAMESPACE else self.get_asic_id_from_namespace(namespace)
+        ns_prefix = ''
+
+        if asic_id is not None:
+            ns_prefix = '-n {}'.format(asic_id)
+
+        if prefix is None:
+            cmd = "vtysh {} -c 'show bgp summary json'".format(ns_prefix)
         else:
-            ns_prefix = '-n ' + str(asic_id)
-        cmd = 'show bgp ipv4' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show bgp ipv6'
-        return json.loads(self.shell('vtysh {} -c "{} {} json"'.format(ns_prefix, cmd, prefix))['stdout'])
+            # Determine address family based on the prefix
+            cmd = 'show bgp ipv4' if ipaddress.ip_network(prefix.encode().decode()).version == 4 else 'show bgp ipv6'
+            cmd = "vtysh {} -c '{} unicast {} json'".format(ns_prefix, cmd, prefix)
+
+        output = self.command(cmd)
+        return json.loads(output['stdout'])
 
     def __getattr__(self, attr):
         """ To support calling an ansible module on a MultiAsicSonicHost.
