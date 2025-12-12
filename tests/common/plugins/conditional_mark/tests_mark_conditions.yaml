@@ -3468,12 +3468,13 @@ mvrf:
 
 mvrf/test_mgmtvrf.py:
   skip:
-    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox, nvidia and broadcom asic from 202411 and later"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox, nvidia and broadcom asic from 202411 and later and  skipped for '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia', 'broadcom']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "release in ['202412']"
 
 mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
   skip:
@@ -4372,6 +4373,14 @@ scripts:
 #######################################
 #####              sflow          #####
 #######################################
+sflow/test_sflow.py:
+  skip:
+    reason: "It is not supported on this DUT topology and skipped for '202412' for now"
+    conditions_logical_operator: or
+    conditions:
+      - "release in ['202412']"
+      - "'t0', 'm0', 'mx' not in topo_name"
+
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -5054,11 +5063,13 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 vrf/test_vrf.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently  / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
       - "topo_type not in ['t0']"
+      - "release in ['202412']"
+      - "'t0' not in topo_name"
 
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
@@ -5082,11 +5093,13 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently / It is not supported on this DUT topology and skipped for '202412' for now"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
       - "topo_type not in ['t0']"
+      - "release in ['202412']"
+      - "'t0' not in topo_name"
 
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
