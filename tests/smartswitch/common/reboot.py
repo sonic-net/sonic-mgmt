@@ -2,7 +2,7 @@ import logging
 import pytest
 from multiprocessing.pool import ThreadPool
 from tests.common.reboot import reboot_ss_ctrl_dict as reboot_dict, REBOOT_TYPE_HISTOYR_QUEUE, \
-    sync_reboot_history_queue_with_dut
+    sync_reboot_history_queue_with_dut, execute_reboot_smartswitch_command
 
 logger = logging.getLogger(__name__)
 
@@ -23,11 +23,6 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
     """
     hostname = duthost.hostname
 
-    def execute_reboot_smartswitch_command():
-        reboot_command = "sudo reboot"
-        logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
-        return duthost.command(reboot_command)
-
     if reboot_type == REBOOT_TYPE_COLD:
         if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
             if dpu_name is None:
@@ -35,11 +30,14 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
                 sync_reboot_history_queue_with_dut(duthost)
 
                 with ThreadPool(processes=1) as pool:
-                    async_result = pool.apply_async(execute_reboot_smartswitch_command)
+                    async_result = pool.apply_async(execute_reboot_smartswitch_command,
+                                                   (duthost, reboot_type, hostname))
                     pool.close()
                     pool.join()
 
-                return {"failed": False,
+                result = async_result.get()
+                failed = result.get('rc', 1) != 0
+                return {"failed": failed,
                         "result": async_result}
 
             else:

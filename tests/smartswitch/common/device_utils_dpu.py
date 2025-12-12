@@ -384,7 +384,7 @@ def check_dpu_health_status(duthost, dpu_name,
        expected_oper_status: (Online/Offline)
        expected_oper_value: (up/down)
     Returns:
-       Returns Nothing
+       Returns: None
     """
     logging.info(f"Checking system-health status of {dpu_name}")
     output_dpu_health_status = duthost.show_and_parse(f"show system-health dpu {dpu_name}")
