@@ -31,7 +31,7 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
 
                 with ThreadPool(processes=1) as pool:
                     async_result = pool.apply_async(execute_reboot_smartswitch_command,
-                                                   (duthost, reboot_type, hostname))
+                                                    (duthost, reboot_type, hostname))
                     pool.close()
                     pool.join()
 
