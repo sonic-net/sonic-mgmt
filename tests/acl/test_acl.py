@@ -537,7 +537,9 @@ def setup(duthosts, ptfhost, rand_selected_dut, rand_selected_front_end_dut, ran
 
 @pytest.fixture(scope="module", params=["ipv4", "ipv6"])
 def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
-    if tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
+    if tbinfo['topo']['name'] in ["t0-d18u8s4"] and request.param == "ipv6":
+        return request.param
+    elif tbinfo["topo"]["type"] in ["t0"] and request.param == "ipv6":
         pytest.skip("IPV6 ACL test not currently supported on t0 testbeds")
 
     return request.param
@@ -1036,8 +1038,10 @@ class BaseAclTest(six.with_metaclass(ABCMeta, object)):
                 logger.info("No byte counters for this hwsku\n")
 
     @pytest.fixture(params=["downlink->uplink", "uplink->downlink"])
-    def direction(self, request, tbinfo):
+    def direction(self, request, tbinfo, ip_version):
         """Parametrize test based on direction of traffic."""
+        if tbinfo['topo']['name'] in ["t0-d18u8s4"] and request.param == "uplink->downlink" and ip_version == "ipv6":
+            pytest.skip("Not applicable for t0-d18u8s4 topology")
         if is_multi_binding_acl() and request.param == "downlink->uplink":
             pytest.skip("Not applicable for multi binding ACL")
 
