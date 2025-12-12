@@ -3085,16 +3085,16 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                         "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
                         .format(expected_profile, profile_info, buffer_profile_asic_info))
 
+                    if is_ingress_lossless:
+                        if not lossless_pool_oid:
+                            lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
+                        else:
+                            pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
+                                        "Buffer profile {} has different buffer pool id {} from others {}"
+                                        .format(expected_profile,
+                                                buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
+                                                lossless_pool_oid))
                 profiles_checked[expected_profile] = buffer_profile_oid
-                if is_ingress_lossless:
-                    if not lossless_pool_oid:
-                        lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
-                    else:
-                        pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
-                                      "Buffer profile {} has different buffer pool id {} from others {}"
-                                      .format(expected_profile,
-                                              buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
-                                              lossless_pool_oid))
             else:
                 pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
                               "PG {}:{} has different OID of profile from other PGs sharing the same profile {}"
