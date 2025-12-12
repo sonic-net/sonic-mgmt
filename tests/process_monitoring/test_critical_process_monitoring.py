@@ -522,10 +522,22 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container, without_database=False):
+def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
+    """Gets the list of containers to skip for testing.
+    
+    Note: Database container is no longer skipped to ensure complete coverage
+    of critical process monitoring.
+    
+    Args:
+        duthost: Hostname of DUT.
+        tbinfo: Testbed information.
+        skip_vendor_specific_container: List of vendor-specific containers to skip.
+    
+    Returns:
+        A list of container names to skip.
+    """
     skip_containers = []
-    if not without_database:
-        skip_containers.append("database")
+    # Database container is now included in testing to ensure complete coverage
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
@@ -610,109 +622,6 @@ def test_monitoring_critical_processes(
     logger.info("Checking the alerting messages from syslog...")
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
-
-
-def test_database_critical_processes(
-                                   duthosts,
-                                   rand_one_dut_hostname,
-                                   tbinfo,
-                                   skip_vendor_specific_container):
-    """Tests the monitoring of critical processes in the database container.
-    
-    This test specifically targets the database container which was previously skipped
-    in the main test. It verifies that when critical processes in the database container
-    are stopped, appropriate alerting messages are generated in syslog.
-    
-    Args:
-        duthosts: list of DUTs.
-        rand_one_dut_hostname: hostname of DUT.
-        tbinfo: Testbed information.
-        skip_vendor_specific_container: List of vendor-specific containers to skip.
-    
-    Returns:
-        None.
-    """
-    duthost = duthosts[rand_one_dut_hostname]
-    
-    # Check if database container is running
-    database_running = is_container_running(duthost, 'database')
-    if not database_running:
-        pytest.skip("Database container is not running on this DUT")
-    
-    # Get BGP neighbors before test for post-check
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
-    
-    # Get skip containers without database
-    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container, without_database=True)
-    
-    # Only test database container
-    containers_to_test = {"database": [DEFAULT_ASIC_ID]}
-    
-    # Verify database container is not in skip list
-    pytest_assert("database" not in skip_containers, 
-                  "Database container should not be in skip list for this test")
-    
-    # Initialize LogAnalyzer
-    loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_database_critical_processes")
-    loganalyzer.expect_regex = []
-    
-    # Generate expected alerting messages for database container
-    if "20191130" in duthost.os_version:
-        expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_to_test)
-    else:
-        expected_alerting_messages = get_expected_alerting_messages_supervisor(duthost, containers_to_test)
-    
-    pytest_assert(len(expected_alerting_messages) > 0, 
-                  "No expected alerting messages found for database container")
-    
-    logger.info("Expected alerting messages for database container: {}".format(expected_alerting_messages))
-    
-    loganalyzer.expect_regex.extend(expected_alerting_messages)
-    marker = loganalyzer.init()
-    
-    # Disable autorestart for database container
-    logger.info("Disabling autorestart for database container...")
-    command_output = duthost.shell("sudo config feature autorestart database disabled")
-    pytest_assert(command_output["rc"] == 0, "Failed to disable autorestart for database container")
-    
-    try:
-        # Stop critical processes in database container
-        logger.info("Stopping critical processes in database container...")
-        stop_critical_processes(duthost, containers_to_test)
-        
-        wait_time = 70
-        # For KVM DUT, add extra wait time
-        if duthost.facts['platform'] == KVM_PLATFORM:
-            wait_time = 90
-        
-        # Wait for Supervisord/Monit to write alerting messages to syslog
-        logger.info("Sleep {} seconds to wait for the alerting messages in syslog...".format(wait_time))
-        time.sleep(wait_time)
-        
-        # Verify alerting messages are in syslog
-        logger.info("Checking the alerting messages from syslog for database container...")
-        loganalyzer.analyze(marker)
-        logger.info("Found all the expected alerting messages from syslog for database container!")
-        
-    finally:
-        # Cleanup: Re-enable autorestart for database container
-        logger.info("Re-enabling autorestart for database container...")
-        command_output = duthost.shell("sudo config feature autorestart database enabled")
-        pytest_assert(command_output["rc"] == 0, "Failed to re-enable autorestart for database container")
-        
-        # Ensure all critical processes are running
-        logger.info("Ensuring all critical processes in database container are running...")
-        ensure_all_critical_processes_running(duthost, containers_to_test)
-        
-        # Perform config reload to restore system state
-        logger.info("Executing config reload to restore system state...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-        logger.info("Config reload completed!")
-        
-        # Post-check
-        if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-            pytest.fail("Post-check failed after testing database container process monitoring!")
-        logger.info("Post-checking status of critical processes and BGP sessions was done!")
 
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
