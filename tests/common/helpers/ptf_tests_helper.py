@@ -13,6 +13,21 @@ from tests.common.config_reload import config_reload
 logger = logging.getLogger(__name__)
 
 
+def get_dut_to_ptf_port_mapping(duthost, tbinfo):
+    """
+    Get mapping of DUT interfaces to PTF ports.
+
+    Args:
+        duthost: DUT host object
+        tbinfo: Testbed info
+
+    Returns:
+        dict: Mapping of DUT interface names to PTF port indices
+    """
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    return mg_facts.get('minigraph_ptf_indices', {})
+
+
 @pytest.fixture(scope="module")
 def downstream_links(rand_selected_dut, tbinfo, nbrhosts):
     """
