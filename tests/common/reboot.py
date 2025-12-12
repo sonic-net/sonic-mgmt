@@ -248,6 +248,12 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     return [reboot_res, dut_datetime]
 
 
+def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
+    reboot_command = reboot_ss_ctrl_dict[reboot_type]["command"]
+    logger.info(f'rebooting {hostname} with command "{reboot_command}"')
+    return duthost.command(reboot_command)
+
+
 @support_ignore_loganalyzer
 def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
     """
@@ -255,11 +261,6 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
     :param duthost: DUT host object
     :param reboot_type: reboot type (cold)
     """
-
-    def execute_reboot_smartswitch_command():
-        reboot_command = reboot_ss_ctrl_dict[reboot_type]["command"]
-        logger.info('rebooting {} with command "{}"'.format(hostname, reboot_command))
-        return duthost.command(reboot_command)
 
     if reboot_type not in reboot_ss_ctrl_dict:
         pytest.skip(
@@ -271,7 +272,9 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = pool.apply_async(execute_reboot_smartswitch_command)
+    reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
+                                 (duthost, reboot_type, hostname)
+                                 )
 
     return [reboot_res, dut_datetime]
 
