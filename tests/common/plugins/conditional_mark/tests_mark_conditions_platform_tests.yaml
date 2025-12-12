@@ -977,7 +977,10 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus:
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
     reason: "Test should be skipped on DPU for it doesn't have PSUs."
-    conditions: "'nvda_bf' in platform"
+    conditions_logical_operator: or
+    conditions:
+      - "'nvda_bf' in platform"
+      - "platform in ['arm64-elba-asic-flash128-r0']"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
   xfail:
@@ -987,7 +990,10 @@ platform_tests/cli/test_show_platform.py::test_show_platform_psustatus_json:
       - https://github.com/sonic-net/sonic-mgmt/issues/6518
   skip:
     reason: "Test should be skipped on DPU for it doesn't have PSUs."
-    conditions: "'nvda_bf' in platform"
+    conditions_logical_operator: or
+    conditions:
+      - "'nvda_bf' in platform"
+      - "platform in ['arm64-elba-asic-flash128-r0']"
 
 platform_tests/cli/test_show_platform.py::test_show_platform_syseeprom:
   xfail:
