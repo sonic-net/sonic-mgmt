@@ -314,8 +314,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         asic_type = duthost.facts['asic_type']
         dst_mac = test_params['dst_mac']
-        ptf_src_port_id = test_params['ptf_downlink_port']
-        ptf_dst_port_ids = test_params['ptf_uplink_ports']
+        ptf_src_port_id = test_params['ptf_src_port_id']
+        ptf_dst_port_ids = test_params['ptf_dst_port_ids']
         outer_dst_pkt_ip = test_params['outer_dst_ip']
         outer_src_pkt_ip = DUMMY_OUTER_SRC_IP
         inner_dst_pkt_ip_list = inner_dst_ip_list
