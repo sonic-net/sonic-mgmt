@@ -32,7 +32,7 @@ class VXLANScaleTest(BaseTest):
         self.samples_per_vnet = int(self.test_params.get("samples_per_vnet", 100))
         self.vnet_ptf_map = self.test_params["vnet_ptf_map"]
         self.mac_vni_per_vnet = self.test_params.get("mac_vni_per_vnet", "")
-        self.programmed_mac = self.test_params.get("mac_address")
+        self.routes_per_vni = self.test_params.get("vni_batch_size", 1000)
 
         # egress interfaces can be list or single int (for backward compat)
         egress_param = self.test_params.get("egress_ptf_if", [])
@@ -59,6 +59,15 @@ class VXLANScaleTest(BaseTest):
             f"VXLANScaleTest params: vnets={self.num_vnets}, routes_per_vnet={self.routes_per_vnet}, "
             f"samples_per_vnet={self.samples_per_vnet}, egress_ptf_if={self.egress_ptf_if}"
         )
+
+    def _det_mac(self, vnet_id, idx):
+        hi = (idx >> 8) & 0xFF
+        lo = idx & 0xFF
+        return f"52:54:aa:{vnet_id:02x}:{hi:02x}:{lo:02x}"
+
+    def _det_vni(self, vnet_id, idx, group_size):
+        bucket = idx // group_size
+        return self.vnet_base + (vnet_id * 100) + bucket
 
     def _next_port(self, key="sport"):
         """Simple port generator for varying TCP ports."""
@@ -141,35 +150,41 @@ class VXLANScaleTest(BaseTest):
             )
 
     def run_mac_vni_per_vnet_test(self):
-        self.logger.info("=== Running MAC+VNI validation for each VNET ===")
+        self.logger.info("=== Running deterministic MAC+VNI validation ===")
 
         failures = {v: 0 for v in self.vnet_ptf_map}
 
         for vnet_name, mapping in self.vnet_ptf_map.items():
             vnet_id = mapping["vnet_id"]
-            ingress_port = int(mapping["ptf_ifindex"])
-            ptf_intf = mapping["ptf_intf"]
+            ingress = int(mapping["ptf_ifindex"])
 
-            dst_ip = f"30.{vnet_id}.0.1"
-            src_ip = f"201.0.{vnet_id}.101"
-            vni = self.vnet_base + vnet_id + 1
-
-            self.logger.info(f"[MAC+VNI] Testing {vnet_name}: ip={dst_ip}, vni={vni} ingress={ptf_intf}")
-
-            inner, masked = self._build_packets_for_test(
-                ingress_port, dst_ip, src_ip, self.programmed_mac, vni
+            # sample N routes per VNET
+            sample_indices = random.sample(
+                range(self.routes_per_vnet),
+                min(self.samples_per_vnet, self.routes_per_vnet)
             )
 
-            self._send_and_verify(vnet_name, ingress_port, inner, masked,
-                                  failures, "MAC+VNI")
+            for idx in sample_indices:
+                dst_ip = f"30.{vnet_id}.{idx // 256}.{idx % 256}"
+                src_ip = f"201.0.{vnet_id}.101"
+
+                mac = self._det_mac(vnet_id, idx)
+                vni = self._det_vni(vnet_id, idx, self.routes_per_vni)
+
+                inner, exp = self._build_packets_for_test(
+                    ingress, dst_ip, src_ip, mac, vni
+                )
+
+                self._send_and_verify(vnet_name, ingress, inner, exp,
+                                      failures, "MAC+VNI")
 
         # Summary
-        total_failures = sum(failures.values())
-        for v, c in failures.items():
-            self.logger.info(f"{v}: {c} failures")
+        total = sum(failures.values())
+        for n, f in failures.items():
+            self.logger.info(f"{n}: {f} failures")
 
-        if total_failures > 0:
-            self.fail(f"MAC+VNI validation failed with {total_failures} failures.")
+        if total > 0:
+            self.fail(f"MAC+VNI validation failed ({total} failures).")
 
     def runTest(self):
         self.logger.info("Starting VXLAN scale TCP verification test...")
