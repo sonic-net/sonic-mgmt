@@ -5,6 +5,7 @@ import json
 import copy
 import pandas as pd
 import re
+import random
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN
 
@@ -39,13 +40,16 @@ class DataDeduplicator:
     def deduplication(self, original_failure_dict, branches):
         """
         Deduplicate the IcM list, remove the duplicated IcM.
+        If candidates exceed limits, randomly select up to the limit.
         """
         duplicated_icm_list = []
         unique_title = set()
         final_icm_list = []
-        count_ai_flaky = 0  # Add counter for AI flaky cases
-        count_flaky = 0  # Add counter for flaky failure type cases
-        branch_counts = {branch: 0 for branch in branches}  # Initialize counts for each branch
+
+        # Collect candidates by category before applying limits
+        ai_flaky_candidates = []
+        flaky_candidates = []
+        branch_candidates = {branch: [] for branch in branches}
 
         logger.info("limit the number of setup error cases to {}".format(self.setup_error_limit))
         logger.info("limit the number of general failure cases to {}".format(self.failure_limit))
@@ -59,6 +63,7 @@ class DataDeduplicator:
             if limit is not None:
                 logger.info(f"limit the number of {branch} cases to {limit}")
 
+        # Phase 1: Collect all non-duplicated candidates
         for data in original_failure_dict:
             icm_table = data['table']
             failure_type = data['type']
@@ -93,47 +98,101 @@ class DataDeduplicator:
                 if not duplicated_flag:
                     candidator_branch = candidator['branch']
 
-                    # Check AI flaky limit
+                    # Only add to one category: ai_flaky, flaky, or branch
                     if failure_type == 'ai_flaky':
-                        if count_ai_flaky >= self.max_ai_flaky_icm_limit:
-                            logger.info(f"Reach the limit of AI flaky cases: {self.max_ai_flaky_icm_limit}, "
-                                        f"ignore this IcM {candidator['subject']}")
-                            candidator['trigger_icm'] = False
-                            continue
-                        count_ai_flaky += 1
+                        ai_flaky_candidates.append(candidator)
+                    elif failure_type == 'flaky':
+                        flaky_candidates.append(candidator)
+                    else:
+                        # Only non-flaky, non-ai_flaky go to branch_candidates
+                        candidator_branch_prefix_list = [
+                            branch for branch in branch_candidates.keys()
+                            if candidator_branch.startswith(branch)]
 
-                    # Check flaky failure type limit
-                    if failure_type == 'flaky':
-                        if count_flaky >= self.max_flaky_icm_limit:
-                            logger.info(f"Reach the limit of flaky failure cases: {self.max_flaky_icm_limit}, "
-                                        f"ignore this IcM {candidator['subject']}")
-                            candidator['trigger_icm'] = False
-                            continue
-                        count_flaky += 1
+                        if len(candidator_branch_prefix_list) > 0:
+                            candidator_branch_prefix = candidator_branch_prefix_list[0]
+                            branch_candidates[candidator_branch_prefix].append(candidator)
 
-                    # Check that this branch is part of a release we care about
-                    # (i.e. 20231105, if we have specified 202311 in config)
-                    candidator_branch_prefix_list = [
-                        branch for branch in branch_counts.keys()
-                        if candidator_branch.startswith(branch)]
-
-                    if len(candidator_branch_prefix_list) > 0:
-                        candidator_branch_prefix = candidator_branch_prefix_list[0]
-                        branch_limit_attr = f"icm_{candidator_branch_prefix}_limit"
-                        branch_limit = getattr(self, branch_limit_attr)
-                        if branch_counts[candidator_branch_prefix] >= branch_limit:
-                            logger.info(f"Reach the limit of {candidator_branch_prefix} case: "
-                                        f"{branch_limit}, ignore this IcM {candidator['subject']}")
-                            candidator['trigger_icm'] = False
-                            continue
-                        branch_counts[candidator_branch_prefix] += 1
-
-                    logger.info(f"Add branch {candidator_branch} type {failure_type} : "
-                                f"{candidator['subject']} to final_icm_list")
+                    # Add to final list (will be filtered later if needed)
                     final_icm_list.append(candidator)
 
+        # Phase 2: Apply limits with random selection
+        logger.info("\n=== Applying limits with random selection ===")
+
+        # Apply AI flaky limit
+        if len(ai_flaky_candidates) > self.max_ai_flaky_icm_limit:
+            logger.info(f"AI flaky candidates ({len(ai_flaky_candidates)}) exceed limit "
+                        f"({self.max_ai_flaky_icm_limit}), randomly selecting...")
+            selected_ai_flaky = random.sample(
+                ai_flaky_candidates,
+                min(self.max_ai_flaky_icm_limit, len(ai_flaky_candidates))
+            )
+            rejected_ai_flaky = [c for c in ai_flaky_candidates if c not in selected_ai_flaky]
+
+            for candidator in rejected_ai_flaky:
+                candidator['trigger_icm'] = False
+                final_icm_list.remove(candidator)
+                duplicated_icm_list.append(candidator)
+                logger.info(f"AI flaky limit reached, not selected: {candidator['subject']}")
+
+            ai_flaky_candidates = selected_ai_flaky
+            for candidator in selected_ai_flaky:
+                logger.info(f"AI flaky selected: {candidator['subject']}")
+
+        # Apply flaky limit
+        if len(flaky_candidates) > self.max_flaky_icm_limit:
+            logger.info(f"Flaky candidates ({len(flaky_candidates)}) exceed limit "
+                        f"({self.max_flaky_icm_limit}), randomly selecting...")
+            selected_flaky = random.sample(flaky_candidates, self.max_flaky_icm_limit)
+            rejected_flaky = [c for c in flaky_candidates if c not in selected_flaky]
+
+            for candidator in rejected_flaky:
+                candidator['trigger_icm'] = False
+                if candidator in final_icm_list:
+                    final_icm_list.remove(candidator)
+                duplicated_icm_list.append(candidator)
+                logger.info(f"Flaky limit reached, not selected: {candidator['subject']}")
+
+            flaky_candidates = selected_flaky
+            for candidator in selected_flaky:
+                logger.info(f"Flaky selected: {candidator['subject']}")
+
+        # Apply branch limits
+        branch_counts = {branch: 0 for branch in branches}
+        for branch, candidates in branch_candidates.items():
+            if not candidates:
+                continue
+
+            branch_limit_attr = f"icm_{branch}_limit"
+            branch_limit = getattr(self, branch_limit_attr)
+
+            if len(candidates) > branch_limit:
+                logger.info(f"Branch {branch} candidates ({len(candidates)}) exceed limit "
+                            f"({branch_limit}), randomly selecting...")
+                selected_branch = random.sample(candidates, branch_limit)
+                rejected_branch = [c for c in candidates if c not in selected_branch]
+
+                for candidator in rejected_branch:
+                    candidator['trigger_icm'] = False
+                    final_icm_list.remove(candidator)
+                    duplicated_icm_list.append(candidator)
+                    logger.info(f"Branch {branch} limit reached, not selected: {candidator['subject']}")
+                for candidator in selected_branch:
+                    logger.info(f"Branch {branch} selected: {candidator['subject']}")
+                branch_counts[branch] = len(selected_branch)
+            else:
+                branch_counts[branch] = len(candidates)
+
+        # Count final results
+        count_ai_flaky = len(ai_flaky_candidates)
+        count_flaky = len(flaky_candidates)
+
+        logger.info("\n=== Final count summary ===")
         logger.info(f"Count summary: ai_flaky {count_ai_flaky}, flaky {count_flaky}, " +
                     ", ".join(f"{branch} {count}" for branch, count in branch_counts.items()))
+        logger.info(f"Total final ICMs: {len(final_icm_list)}")
+        logger.info(f"Total duplicated/rejected ICMs: {len(duplicated_icm_list)}")
+
         for kusto_row_item in final_icm_list:
             self.check_subject_match(kusto_row_item)
         for kusto_row_item in duplicated_icm_list:
