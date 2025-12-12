@@ -2,6 +2,7 @@ import json
 import pytest
 import os
 import logging
+import re
 from tests.common.mellanox_data import is_mellanox_device
 from .args.counterpoll_cpu_usage_args import add_counterpoll_cpu_usage_args
 from tests.common.helpers.mellanox_thermal_control_test_helper import suspend_hw_tc_service, resume_hw_tc_service
@@ -56,6 +57,12 @@ def xcvr_skip_list(duthosts, dpu_npu_port_list, tbinfo):
             sfp_list = ['Ethernet48', 'Ethernet49', 'Ethernet50', 'Ethernet51']
             logging.debug('Skipping sfp interfaces: {}'.format(sfp_list))
             intf_skip_list[dut.hostname].extend(sfp_list)
+        # For lt2-p32o64 topo, skip the admin down interfaces as transceiver may not be present
+        elif tbinfo['topo']['name'] == "lt2-p32o64":
+            intf_skip_list[dut.hostname].extend([
+                'Ethernet88', 'Ethernet96', 'Ethernet104', 'Ethernet112',
+                'Ethernet216', 'Ethernet224', 'Ethernet232', 'Ethernet240'
+                ])
 
     return intf_skip_list
 
@@ -145,6 +152,25 @@ def thermal_manager_enabled(duthosts, enum_rand_one_per_hwsku_hostname):
             "chassis").get("thermal_manager", True)
     if not thermal_manager_available:
         pytest.skip("skipped as thermal manager is not available")
+
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+    """
+    @summary: This function checks if pmon uptime is at least the minimal_runtime
+    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    """
+    result = duthost.command("docker ps | grep pmon", _uses_shell=True)
+    if result["stdout"]:
+        match = re.search(r'Up (\d+) (minutes|hours)', result["stdout"])
+        if match:
+            if match.group(2) == "hours":
+                return int(match.group(1))*60 >= minimal_runtime
+            else:
+                return int(match.group(1)) >= minimal_runtime
+        match = re.search(r'Up About an hour', result["stdout"])
+        if match:
+            return 60 >= minimal_runtime
+    return False
 
 
 def pytest_generate_tests(metafunc):

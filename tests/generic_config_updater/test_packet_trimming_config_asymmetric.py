@@ -13,16 +13,16 @@ pytestmark = [
 logger = logging.getLogger(__name__)
 
 # Default values
-TRIM_SIZE = 256
+TRIM_SIZE = 256  # For Mellanox
 TRIM_DSCP = 48
 TRIM_DSCP_ASYM = "from-tc"
-TRIM_QUEUE = 6
+TRIM_QUEUE = 6  # For Mellanox
 TRIM_TC = 5
 
 # Update values
-TRIM_SIZE_UPDATE = 4084
+TRIM_SIZE_UPDATE = 4084  # For Mellanox
 TRIM_DSCP_UPDATE = 63
-TRIM_QUEUE_UPDATE = 3
+TRIM_QUEUE_UPDATE = 3  # For Mellanox
 TRIM_TC_UPDATE = 4
 
 # Invalid values
@@ -41,6 +41,28 @@ def setup_env(duthost):
     Args:
         duthost: DUT.
     """
+
+    if 'th5' == duthost.get_asic_name():
+
+        global TRIM_SIZE
+        global TRIM_SIZE_UPDATE
+        global TRIM_QUEUE
+        global TRIM_QUEUE_UPDATE
+
+        th5_queue = {
+            'Arista-7060X6-64PE-B-C448O16': 4,
+            'Arista-7060X6-64PE-B-C512S2': 4,
+        }
+
+        # TH5 trim queue defaults to 9 unless otherwise configured
+        # and does not support being modified at runtime
+        TRIM_QUEUE = th5_queue.get(duthost.facts['hwsku'], 9)
+        TRIM_QUEUE_UPDATE = TRIM_QUEUE
+
+        # TH5 supports only fixed size of 206
+        TRIM_SIZE = 206
+        TRIM_SIZE_UPDATE = TRIM_SIZE
+
     create_checkpoint(duthost)
 
     yield

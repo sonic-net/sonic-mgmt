@@ -39,7 +39,7 @@ def lo_intf(cfg_facts):
     def _is_ipv4_address(ip_addr):
         return ipaddress.ip_address(ip_addr).version == 4
 
-    loopback = cfg_facts["LOOPBACK_INTERFACE"].get(DEFAULT_LOOPBACK, {})
+    loopback = cfg_facts.get("LOOPBACK_INTERFACE", {}).get(DEFAULT_LOOPBACK, {})
     if not loopback:
         pytest.skip("Skipping as Loopback0 does not existed...")
     lo_intf = {}

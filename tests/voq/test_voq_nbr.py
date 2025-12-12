@@ -657,20 +657,27 @@ def test_neighbor_clear_one(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
     check_all_neighbors_present(duthosts, nbrhosts, all_cfg_facts, nbr_macs, check_nbr_state=False)
 
 
-def change_mac(nbr, intf, mac):
+def change_mac(nbr, mac, port, intf):
     """
-    Change the mac of a CEOS interface on the linux host OS.
+    change the mac of a CEOS interface
 
     Args:
-        nbr: Instance of the neighbor host.
-        intf: Interface to change in linux interface format. (ethX)
+        nbr: Instance of neighbor host
+        port: port name
         mac: New MAC address
+        intf: Interface to change in linux interface format. (ethX)
 
 
     """
-    nbr['host'].command("sudo ifconfig {} down".format(intf))
-    nbr['host'].command("sudo ifconfig {} hw ether {}".format(intf, mac))
-    nbr['host'].command("sudo ifconfig {} up".format(intf))
+    if isinstance(nbr['host'], EosHost):
+        parents = ["interface {}".format(port)]
+        nbr['host'].eos_config(lines=["shutdown"], parents=parents)
+        nbr['host'].eos_config(lines=["mac-address {}".format(mac)], parents=parents)
+        nbr['host'].eos_config(lines=["no shutdown"], parents=parents)
+    else:
+        nbr['host'].command("sudo ifconfig {} down".format(intf))
+        nbr['host'].command("sudo ifconfig {} hw ether {}".format(intf, mac))
+        nbr['host'].command("sudo ifconfig {} up".format(intf))
 
 
 def change_mac_ptf(ptfhost, intf, mac):
@@ -806,9 +813,10 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
     dump_and_verify_neighbors_on_asic(duthosts, per_host, asic, nbr_to_test, nbrhosts, all_cfg_facts, nbr_macs)
 
     try:
-        logger.info("Changing ethernet mac on port %s, vm %s", nbrinfo['shell_intf'], nbrinfo['vm'])
+        logger.info("Changing ethernet mac on intf %s, port %s, vm %s",
+                    nbrinfo['shell_intf'], nbrinfo['port'], nbrinfo['vm'])
 
-        change_mac(nbrhosts[nbrinfo['vm']], nbrinfo['shell_intf'], NEW_MAC)
+        change_mac(nbrhosts[nbrinfo['vm']], NEW_MAC, nbrinfo['port'], nbrinfo['shell_intf'])
 
         for neighbor in nbr_to_test:
             if ":" in neighbor:
@@ -829,8 +837,9 @@ def test_neighbor_hw_mac_change(duthosts, enum_rand_one_per_hwsku_frontend_hostn
 
     finally:
         logger.info("-" * 60)
-        logger.info("Will Restore ethernet mac on port %s, vm %s", nbrinfo['shell_intf'], nbrinfo['vm'])
-        change_mac(nbrhosts[nbrinfo['vm']], nbrinfo['shell_intf'], original_mac)
+        logger.info("Will Restore ethernet mac on intf %s, port %s, vm %s",
+                    nbrinfo['shell_intf'], nbrinfo['port'], nbrinfo['vm'])
+        change_mac(nbrhosts[nbrinfo['vm']], original_mac, nbrinfo['port'], nbrinfo['shell_intf'])
         for neighbor in nbr_to_test:
             if ":" in neighbor:
                 logger.info("Force neighbor solicitation for IPV6.")
@@ -1255,7 +1264,7 @@ class TestGratArp(object):
             check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
 
             try:
-                change_mac(nbrhosts[nbrinfo['vm']], nbrinfo['shell_intf'], NEW_MAC)
+                change_mac(nbrhosts[nbrinfo['vm']], NEW_MAC, nbrinfo['port'], nbrinfo['shell_intf'])
                 self.send_grat_pkt(NEW_MAC, neighbor, int(tb_port))
 
                 pytest_assert(wait_until(60, 2, 0, check_arptable_mac,
@@ -1270,9 +1279,9 @@ class TestGratArp(object):
                               "MAC {} didn't change in ARP table of neighbor {}".format(NEW_MAC, neighbor))
                 check_one_neighbor_present(duthosts, duthost, asic, neighbor, nbrhosts, all_cfg_facts)
             finally:
-                logger.info("Will Restore ethernet mac on neighbor: %s, port %s, vm %s", neighbor,
-                            nbrinfo['shell_intf'], nbrinfo['vm'])
-                change_mac(nbrhosts[nbrinfo['vm']], nbrinfo['shell_intf'], original_mac)
+                logger.info("Will Restore ethernet mac on neighbor: %s, intf %s, port %s, vm %s", neighbor,
+                            nbrinfo['shell_intf'], nbrinfo['port'], nbrinfo['vm'])
+                change_mac(nbrhosts[nbrinfo['vm']], original_mac, nbrinfo['port'], nbrinfo['shell_intf'])
                 self.send_grat_pkt(original_mac, neighbor, int(tb_port))
 
                 if ":" in neighbor:

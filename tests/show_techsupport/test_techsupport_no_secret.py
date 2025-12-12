@@ -28,6 +28,14 @@ TEST_RADIUS_SERVER_ADDRESS = "1.2.3.4"
 @pytest.fixture
 def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    # Backup original values - if no output, then no backup needed
+    tacacs_backup = duthost.shell("sonic-db-cli CONFIG_DB hget 'TACPLUS|global' passkey",
+                                  module_ignore_errors=True)['stdout'].strip()
+    radius_backup = duthost.shell("sonic-db-cli CONFIG_DB hget 'RADIUS|global' passkey",
+                                  module_ignore_errors=True)['stdout'].strip()
+    server_existed = TEST_RADIUS_SERVER_ADDRESS in duthost.shell("sonic-db-cli CONFIG_DB keys 'RADIUS_SERVER|*'",
+                                                                 module_ignore_errors=True)['stdout']
+
     # Setup TACACS/Radius password
     duthost.shell("sudo config tacacs passkey %s" % creds_all_duts[duthost.hostname]['tacacs_passkey'])
     duthost.shell("sudo config radius passkey %s" % creds_all_duts[duthost.hostname]['radius_passkey'])
@@ -38,9 +46,21 @@ def setup_password(duthosts, enum_rand_one_per_hwsku_hostname, creds_all_duts):
     duthost.shell("sudo config radius default passkey")
     duthost.shell("sudo config radius delete %s" % TEST_RADIUS_SERVER_ADDRESS)
 
-    # Remove TACACS/Radius keys
-    delete_keys_json = [{"RADIUS": {}}, {"TACPLUS": {}}]
-    delete_running_config(delete_keys_json, duthost)
+    # Restore configuration
+    if tacacs_backup:
+        duthost.shell("sudo config tacacs passkey %s" % tacacs_backup)
+    else:
+        delete_keys_json = [{"TACPLUS": {}}]
+        delete_running_config(delete_keys_json, duthost)
+
+    if radius_backup:
+        duthost.shell("sudo config radius passkey %s" % radius_backup)
+    else:
+        delete_keys_json = [{"RADIUS": {}}]
+        delete_running_config(delete_keys_json, duthost)
+
+    if not server_existed:
+        duthost.shell("sudo config radius delete %s" % TEST_RADIUS_SERVER_ADDRESS)
 
 
 def check_no_result(duthost, command):

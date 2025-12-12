@@ -26,6 +26,10 @@
     package_installation: true
   when: package_installation is not defined or package_installation == ''
 
+- name: Initialize async flag
+  set_fact:
+    enable_async: "{{ enable_async | default(false) | bool }}"
+
 - name: get host distribution
   shell: grep ^NAME /etc/os-release | awk -F '=' '{print $2}' | tr -d '"'
   register: host_distribution
@@ -114,6 +118,7 @@
         pkg:
         - python3-libvirt
         - python3-pip
+        - python3-lxml
         - libvirt-daemon-system
         - qemu-system-x86
       become: yes
@@ -265,6 +270,13 @@
   sysctl:
     name: "kernel.pid_max"
     value: "4194304"
+    sysctl_set: yes
+  become: yes
+
+- name: Increase fs limitation
+  sysctl:
+    name: "fs.inotify.max_user_instances"
+    value: "62800"
     sysctl_set: yes
   become: yes
 

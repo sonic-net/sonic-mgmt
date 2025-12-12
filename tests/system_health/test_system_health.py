@@ -4,6 +4,7 @@ import os
 import pytest
 import random
 import time
+import re
 from pkg_resources import parse_version
 from tests.common import config_reload
 from tests.common.utilities import wait_until
@@ -12,7 +13,7 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.thermal_control_test_helper import disable_thermal_policy     # noqa F401
 from .device_mocker import device_mocker_factory        # noqa F401
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.fixtures.duthost_utils import is_support_mock_asic    # noqa F401
+from tests.common.fixtures.duthost_utils import is_support_mock_asic, is_support_fan, is_support_psu    # noqa F401
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -96,6 +97,7 @@ def ignore_log_analyzer_by_vendor(request, duthosts, enum_rand_one_per_hwsku_hos
 def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
+    check_system_health_led_info(duthost)
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
         processes_status = duthost.all_critical_process_status()
         expect_error_dict = {}
@@ -123,6 +125,7 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
             duthost, STATE_DB, HEALTH_TABLE_NAME)
         assert result is True, 'Expect summary {}, got {}'.format(
             expect_summary, table_output)
+        check_system_health_led_info(duthost)
 
 
 @pytest.mark.disable_loganalyzer
@@ -156,12 +159,17 @@ def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hos
                     duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
                 assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(
                     SUMMARY_NOT_OK, summary)
+                check_system_health_led_info(duthost)
             break
 
 
 @pytest.mark.disable_loganalyzer
 def test_device_checker(duthosts, enum_rand_one_per_hwsku_hostname,
-                        device_mocker_factory, disable_thermal_policy, is_support_mock_asic):     # noqa F811
+                        device_mocker_factory, disable_thermal_policy,             # noqa F811
+                        is_support_mock_asic, is_support_psu, is_support_fan):     # noqa F811
+    if all([not is_support_mock_asic, not is_support_psu, not is_support_fan]):
+        pytest.skip("Device does not support mock asic and not have psu or fan")
+
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -349,7 +357,8 @@ def test_external_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 @pytest.mark.disable_loganalyzer
 @pytest.mark.parametrize('ignore_log_analyzer_by_vendor', [['mellanox']], indirect=True)
 def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
-                              device_mocker_factory, ignore_log_analyzer_by_vendor, is_support_mock_asic):    # noqa F811
+                              device_mocker_factory, ignore_log_analyzer_by_vendor,  # noqa F811
+                              is_support_mock_asic, is_support_psu):    # noqa F811
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
@@ -382,16 +391,17 @@ def test_system_health_config(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logger.info(
         'Ignore PSU check, verify there is no error information about psu')
-    with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_PSU_CHECK_CONFIG_FILE)):
-        time.sleep(FAST_INTERVAL)
-        mock_result, psu_name = device_mocker.mock_psu_presence(False)
-        expect_value = EXPECT_PSU_MISSING.format(psu_name)
-        if mock_result:
-            time.sleep(PSU_CHECK_INTERVAL)
-            value = redis_get_field_value(
-                duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
-            assert not value or expect_value != value, 'PSU check is still performed after it ' \
-                                                       'is configured to be ignored'
+    if is_support_psu:
+        with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_PSU_CHECK_CONFIG_FILE)):
+            time.sleep(FAST_INTERVAL)
+            mock_result, psu_name = device_mocker.mock_psu_presence(False)
+            expect_value = EXPECT_PSU_MISSING.format(psu_name)
+            if mock_result:
+                time.sleep(PSU_CHECK_INTERVAL)
+                value = redis_get_field_value(
+                    duthost, STATE_DB, HEALTH_TABLE_NAME, psu_name)
+                assert not value or expect_value != value, \
+                    'PSU check is still performed after it is configured to be ignored'
 
 
 @pytest.mark.disable_loganalyzer
@@ -400,6 +410,8 @@ def test_device_fan_speed_checker(duthosts, enum_rand_one_per_hwsku_hostname,
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     device_mocker = device_mocker_factory(duthost)
     wait_system_health_boot_up(duthost)
+    if not is_support_fan:
+        pytest.skip("Fan is not supported on this device")
     with ConfigFileContext(duthost, os.path.join(FILES_DIR, DEVICE_CHECK_CONFIG_FILE)):
         time.sleep(DEFAULT_INTERVAL)
 
@@ -485,6 +497,30 @@ def check_system_health_info(duthost, category, expected_value):
     value = redis_get_field_value(
         duthost, STATE_DB, HEALTH_TABLE_NAME, category)
     return value == expected_value
+
+
+def check_system_health_led_info(duthost):
+    system_health_summary = duthost.shell('show system-health summary')['stdout']
+
+    "System status LED  red"
+    system_led_res = re.findall(r"System status LED\s+(\w+)", system_health_summary)
+    if system_led_res:
+        system_led_status = system_led_res[0].strip()
+    logger.info(f"System status LED is {system_led_status}")
+
+    # Regex to find all status names and values
+    status_data = re.findall(r"(\w+):\s+Status:\s+(\w+)", system_health_summary)
+    status_dict = {name: status for name, status in status_data}
+    logger.info(f"Status dict is {status_dict}")
+
+    if all(status == "OK" for status in status_dict.values()):
+        assert system_led_status.lower() == 'green', \
+            f"System status LED is not green, but it is {system_led_status}"
+    else:
+        assert system_led_status.lower() in ["yellow", "amber", "red"], \
+            f"System status LED is not yellow, amber, or red, but it is {system_led_status}"
+
+    return True
 
 
 class ConfigFileContext:
