@@ -651,6 +651,14 @@
         become: true
         when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
 
+      - name: Wait for essential services to start
+        shell: systemctl is-active --quiet pmon
+        register: pmon_status
+        retries: 30
+        delay: 10
+        until: pmon_status.rc == 0
+        when: "('t2' in topo or num_asics > 1) and type == 'kvm'"
+
       - name: Copy dhcp_server config hwsku {{ hwsku }}
         copy: src=golden_config_db/dhcp_server_mx.json
               dest=/tmp/dhcp_server.json
