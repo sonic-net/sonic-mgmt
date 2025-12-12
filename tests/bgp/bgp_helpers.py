@@ -576,12 +576,21 @@ def get_default_action():
     return DEFAULT_ACTION
 
 
-def restart_bgp_session(duthost):
+def restart_bgp_session(duthost, neighbor=None):
     """
-    Restart bgp session
+    Restart bgp session. If neighbor is specified, only restart that specific neighbor's session.
+    Otherwise restart all BGP sessions.
+
+    Args:
+        duthost: DUT host object
+        neighbor (str, optional): BGP neighbor IP address. If None, restarts all sessions.
     """
-    logging.info("Restart all BGP sessions")
-    duthost.shell('vtysh -c "clear bgp *"')
+    if neighbor:
+        logging.info(f"Restart BGP session with neighbor {neighbor}")
+        duthost.shell(f'vtysh -c "clear bgp {neighbor}"')
+    else:
+        logging.info("Restart all BGP sessions")
+        duthost.shell('vtysh -c "clear bgp *"')
 
 
 def get_ptf_recv_port(duthost, vm_name, tbinfo):
