@@ -15,6 +15,9 @@ parameters:
     displayName: "AST Rollout Percentage (0-100)"
     type: number
     default: 0
+  - name: FROM_BUILDIMAGE
+    type: boolean
+    default: false
 
 steps:
 - script: |
@@ -22,15 +25,24 @@ steps:
     sudo apt-get -o DPkg::Lock::Timeout=600 -y install jq
 
     # Routing decision
+    FROM_BUILDIMAGE="${{ parameters.FROM_BUILDIMAGE }}"
     AST_PCT=${{ parameters.AST_ROLLOUT_PERCENTAGE }}
-    if [[ $AST_PCT -eq 100 ]]; then
+
+    # Always use legacy for buildimage PRs
+    if [[ "$FROM_BUILDIMAGE" == "True" ]] || [[ "$FROM_BUILDIMAGE" == "true" ]]; then
+      USE_AST="false"
+      echo "→ FROM_BUILDIMAGE=true: Using Legacy implementation"
+    elif [[ $AST_PCT -eq 100 ]]; then
       USE_AST="true"
+      echo "→ AST Rollout: 100% - Using AST implementation"
     elif [[ $AST_PCT -gt 0 ]] && [[ $((1 + RANDOM % 100)) -le $AST_PCT ]]; then
       USE_AST="true"
+      echo "→ AST Rollout: ${AST_PCT}% - Randomly selected AST implementation"
     else
       USE_AST="false"
+      echo "→ AST Rollout: ${AST_PCT}% - Using Legacy implementation"
     fi
-    echo "→ Implementation: $([ "$USE_AST" = "true" ] && echo "AST" || echo "Legacy") (Rollout: ${AST_PCT}%)"
+
     echo "##vso[task.setvariable variable=USE_AST]$USE_AST"
   displayName: "Setup & routing decision"
 
