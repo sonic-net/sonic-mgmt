@@ -273,8 +273,7 @@ def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
     reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
-                                 (duthost, reboot_type, hostname)
-                                 )
+                                  (duthost, reboot_type, hostname))
 
     return [reboot_res, dut_datetime]
 
