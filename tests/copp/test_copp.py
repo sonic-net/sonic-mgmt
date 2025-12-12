@@ -94,12 +94,8 @@ class TestCOPP(object):
     feature_name = "bgp"
 
     @pytest.mark.parametrize("protocol", ["ARP",
-                                          "IP2ME",
-                                          "SNMP",
-                                          "SSH",
                                           "DHCP",
                                           "DHCP6",
-                                          "BGP",
                                           "LACP",
                                           "LLDP",
                                           "UDLD",
@@ -146,6 +142,27 @@ class TestCOPP(object):
                      protocol,
                      copp_testbed,
                      dut_type)
+
+    @pytest.mark.parametrize("protocol", ["IP2ME",
+                                          "SNMP",
+                                          "SSH",
+                                          "BGP"])
+    def test_policer_mtu(self, protocol, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                         ptfhost, copp_testbed, dut_type, packet_size):
+        """
+            Validates that rate-limited COPP groups work as expected.
+
+            Checks that the policer enforces the rate limit for protocols
+            that can receive packets with different sizes and have a set rate
+            limit.
+        """
+        duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
+        _copp_runner(duthost,
+                     ptfhost,
+                     protocol,
+                     copp_testbed,
+                     dut_type,
+                     packet_size=packet_size)
 
     @pytest.mark.disable_loganalyzer
     def test_trap_neighbor_miss(self, duthosts, enum_rand_one_per_hwsku_frontend_hostname,
@@ -410,7 +427,7 @@ def ignore_expected_loganalyzer_exceptions(enum_rand_one_per_hwsku_frontend_host
 
 
 def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
-                 ip_version="4"):    # noqa: F811
+                 ip_version="4", packet_size=100):    # noqa: F811
     """
         Configures and runs the PTF test cases.
     """
@@ -430,6 +447,7 @@ def _copp_runner(dut, ptf, protocol, test_params, dut_type, has_trap=True,
               "platform": dut.facts["platform"],
               "topo_type": test_params.topo_type,
               "ip_version": ip_version,
+              "packet_size": packet_size,
               "neighbor_miss_trap_supported": test_params.neighbor_miss_trap_supported}
 
     dut_ip = dut.mgmt_ip
