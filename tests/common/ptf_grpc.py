@@ -7,6 +7,7 @@ enabling gNOI/gNMI operations against DUT gRPC services with proper process sepa
 import json
 import logging
 from typing import Dict, List, Union
+from tests.common.grpc_config import grpc_config
 
 logger = logging.getLogger(__name__)
 
@@ -246,10 +247,11 @@ class PtfGrpc:
         infrastructure fixture. Certificates should be available in the PTF container
         at these standard locations.
         """
+        ptf_cert_paths = grpc_config.get_ptf_cert_paths()
         self.configure_tls_certificates(
-            ca_cert="/etc/sonic/telemetry/gnmiCA.cer",
-            client_cert="/etc/sonic/telemetry/gnmiclient.cer",
-            client_key="/etc/sonic/telemetry/gnmiclient.key"
+            ca_cert=ptf_cert_paths['ca_cert'],
+            client_cert=ptf_cert_paths['client_cert'],
+            client_key=ptf_cert_paths['client_key']
         )
         logger.debug("Auto-configured TLS certificates with standard paths")
 

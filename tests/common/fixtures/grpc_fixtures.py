@@ -6,6 +6,7 @@ automatic configuration discovery, making it simple to write gRPC-based tests.
 """
 import pytest
 import logging
+from tests.common.grpc_config import grpc_config
 
 logger = logging.getLogger(__name__)
 
@@ -296,15 +297,18 @@ IP      = {duthost.mgmt_ip}"""
     localhost.shell(f"""cd {cert_dir} && openssl x509 -req -in gnmiclient.csr -CA gnmiCA.cer -CAkey gnmiCA.key \
                        -CAcreateserial -out gnmiclient.cer -days 825 -sha256""")
 
+    # Get certificate copy destinations from centralized config
+    copy_destinations = grpc_config.get_cert_copy_destinations()
+
     # Copy certificates to DUT
-    duthost.copy(src=f'{cert_dir}/gnmiCA.cer', dest='/etc/sonic/telemetry/')
-    duthost.copy(src=f'{cert_dir}/gnmiserver.cer', dest='/etc/sonic/telemetry/')
-    duthost.copy(src=f'{cert_dir}/gnmiserver.key', dest='/etc/sonic/telemetry/')
+    duthost.copy(src=f'{cert_dir}/{grpc_config.CA_CERT}', dest=copy_destinations['dut'][grpc_config.CA_CERT])
+    duthost.copy(src=f'{cert_dir}/{grpc_config.SERVER_CERT}', dest=copy_destinations['dut'][grpc_config.SERVER_CERT])
+    duthost.copy(src=f'{cert_dir}/{grpc_config.SERVER_KEY}', dest=copy_destinations['dut'][grpc_config.SERVER_KEY])
 
     # Copy client certificates to PTF container
-    ptfhost.copy(src=f'{cert_dir}/gnmiCA.cer', dest='/etc/sonic/telemetry/gnmiCA.cer')
-    ptfhost.copy(src=f'{cert_dir}/gnmiclient.cer', dest='/etc/sonic/telemetry/gnmiclient.cer')
-    ptfhost.copy(src=f'{cert_dir}/gnmiclient.key', dest='/etc/sonic/telemetry/gnmiclient.key')
+    ptfhost.copy(src=f'{cert_dir}/{grpc_config.CA_CERT}', dest=copy_destinations['ptf'][grpc_config.CA_CERT])
+    ptfhost.copy(src=f'{cert_dir}/{grpc_config.CLIENT_CERT}', dest=copy_destinations['ptf'][grpc_config.CLIENT_CERT])
+    ptfhost.copy(src=f'{cert_dir}/{grpc_config.CLIENT_KEY}', dest=copy_destinations['ptf'][grpc_config.CLIENT_KEY])
 
     logger.info("Certificate generation and distribution completed")
 
@@ -318,10 +322,11 @@ def _configure_gnoi_tls_server(duthost):
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" client_auth true')
     duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|gnmi" log_level 2')
 
-    # Configure certificate paths
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" ca_crt "/etc/sonic/telemetry/gnmiCA.cer"')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" server_crt "/etc/sonic/telemetry/gnmiserver.cer"')
-    duthost.shell('sonic-db-cli CONFIG_DB hset "GNMI|certs" server_key "/etc/sonic/telemetry/gnmiserver.key"')
+    # Configure certificate paths using centralized config
+    config_db_settings = grpc_config.get_config_db_cert_settings()
+    duthost.shell(f'sonic-db-cli CONFIG_DB hset "GNMI|certs" ca_crt "{config_db_settings["ca_crt"]}"')
+    duthost.shell(f'sonic-db-cli CONFIG_DB hset "GNMI|certs" server_crt "{config_db_settings["server_crt"]}"')
+    duthost.shell(f'sonic-db-cli CONFIG_DB hset "GNMI|certs" server_key "{config_db_settings["server_key"]}"')
 
     # Register client certificate with appropriate roles
     duthost.shell(
@@ -336,6 +341,12 @@ def _configure_gnoi_tls_server(duthost):
 def _restart_gnoi_server(duthost):
     """Restart gNOI server to pick up new TLS configuration."""
     logger.info("Restarting gNOI server process")
+
+    # Check if the 'gnmi' container exists
+    container_check = duthost.shell("docker ps --format '{{.Names}}' | grep '^gnmi$'", module_ignore_errors=True)
+
+    if container_check['rc'] != 0:
+        raise Exception("The 'gnmi' container does not exist.")
 
     # Restart gnmi-native process to pick up new configuration
     result = duthost.shell("docker exec gnmi supervisorctl restart gnmi-native", module_ignore_errors=True)
@@ -359,10 +370,9 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
     logger.info("Verifying gNOI TLS connectivity")
 
     # Test basic gRPC service listing with TLS
-    test_cmd = """grpcurl -cacert /etc/sonic/telemetry/gnmiCA.cer \
-                         -cert /etc/sonic/telemetry/gnmiclient.cer \
-                         -key /etc/sonic/telemetry/gnmiclient.key \
-                         {}:50052 list""".format(duthost.mgmt_ip)
+    cacert_arg, cert_arg, key_arg = grpc_config.get_grpcurl_cert_args()
+    test_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
+                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} list"""
 
     result = ptfhost.shell(test_cmd, module_ignore_errors=True)
 
@@ -373,10 +383,8 @@ def _verify_gnoi_tls_connectivity(duthost, ptfhost):
         raise Exception(f"gNOI services not found in response: {result['stdout']}")
 
     # Test basic gNOI call
-    time_cmd = """grpcurl -cacert /etc/sonic/telemetry/gnmiCA.cer \
-                         -cert /etc/sonic/telemetry/gnmiclient.cer \
-                         -key /etc/sonic/telemetry/gnmiclient.key \
-                         {}:50052 gnoi.system.System.Time""".format(duthost.mgmt_ip)
+    time_cmd = f"""grpcurl {cacert_arg} {cert_arg} {key_arg} \
+                         {duthost.mgmt_ip}:{grpc_config.DEFAULT_TLS_PORT} gnoi.system.System.Time"""
 
     result = ptfhost.shell(time_cmd, module_ignore_errors=True)
 
