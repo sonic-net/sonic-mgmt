@@ -1403,6 +1403,156 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_any_protocol[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_any_transport_protocol[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_both_subnets[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_dest_subnet[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_dscp_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_dst_ipv6_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_fuzzy_subnets[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_icmpv6_code[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_icmpv6_type[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_invalid_tcp_rule[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_ip_type_any[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_ip_type_ip[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_ip_type_ipv6any[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_l4_dst_port_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_l4_dst_port_range_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_l4_range_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_l4_src_port_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_l4_src_port_range_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_next_header_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_source_subnet[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_src_ipv6_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_tcp_application_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_tcp_flags_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_tcp_response_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
+everflow/test_everflow_ipv6.py::TestEgressEverflowIPv6::test_udp_application_mirroring[erspan_ipv4-cli-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
+
 everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspan_ipv4-cli-default]:
   skip:
     reason: "Skip for IPv6-only topologies"
