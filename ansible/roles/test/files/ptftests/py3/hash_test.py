@@ -27,6 +27,7 @@ from ptf.testutils import simple_tcpv6_packet
 from ptf.testutils import send_packet
 from ptf.testutils import verify_packet_any_port
 from ptf.testutils import simple_ipv4ip_packet
+from ptf.testutils import simple_ipv6ip_packet
 from ptf.testutils import simple_vxlan_packet
 from ptf.testutils import simple_vxlanv6_packet
 from ptf.testutils import simple_nvgre_packet
@@ -118,6 +119,7 @@ class HashTest(BaseTest):
         self.is_active_active_dualtor = self.test_params.get("is_active_active_dualtor", False)
 
         self.topo_name = self.test_params.get('topo_name', '')
+        self.is_v6_topo = self.test_params.get('is_v6_topo', False)
 
         # set the base mac here to make it persistent across calls of check_ip_route
         self.base_mac = self.dataplane.get_mac(
@@ -771,19 +773,32 @@ class IPinIPHashTest(HashTest):
                                   tcp_dport=dport,
                                   ipv6_hlim=64)
 
-        ipinip_pkt = simple_ipv4ip_packet(
-            eth_dst=router_mac,
-            eth_src=src_mac,
-            ip_src=outer_src_ip,
-            ip_dst=outer_dst_ip,
-            inner_frame=pkt['IPv6'])
+        if self.is_v6_topo:
+            outer_ip_ver = "IPv6"
+            ipinip_pkt = simple_ipv6ip_packet(
+                eth_dst=router_mac,
+                eth_src=src_mac,
+                ipv6_src=outer_src_ip,
+                ipv6_dst=outer_dst_ip,
+                inner_frame=pkt['IPv6'])
+        else:
+            outer_ip_ver = "IP"
+            ipinip_pkt = simple_ipv4ip_packet(
+                eth_dst=router_mac,
+                eth_src=src_mac,
+                ip_src=outer_src_ip,
+                ip_dst=outer_dst_ip,
+                inner_frame=pkt['IPv6'])
 
         exp_pkt = ipinip_pkt.copy()
-        exp_pkt['IP'].ttl -= 1
+        if self.is_v6_topo:
+            exp_pkt[outer_ip_ver].hlim -= 1
+        else:
+            exp_pkt[outer_ip_ver].ttl -= 1
 
         if hash_key == 'ip-proto':
-            ipinip_pkt['IP'].payload['IPv6'].nh = ip_proto
-            exp_pkt['IP'].payload['IPv6'].nh = ip_proto
+            ipinip_pkt[outer_ip_ver].payload['IPv6'].nh = ip_proto
+            exp_pkt[outer_ip_ver].payload['IPv6'].nh = ip_proto
 
         masked_exp_pkt = Mask(exp_pkt)
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
@@ -795,13 +810,14 @@ class IPinIPHashTest(HashTest):
             masked_exp_pkt.set_do_not_care_scapy(scapy.TCP, "chksum")
 
         send_packet(self, src_port, ipinip_pkt)
-        logging.info('Sent Ether(src={}, dst={})/IP(src={}, dst={}, proto={})/IPv6(src={}, '
+        logging.info('Sent Ether(src={}, dst={})/{}(src={}, dst={}, proto={})/IPv6(src={}, '
                      'dst={}, proto={})/TCP(sport={}, dport={} on port {})'
                      .format(ipinip_pkt.src,
                              ipinip_pkt.dst,
-                             ipinip_pkt['IP'].src,
-                             ipinip_pkt['IP'].dst,
-                             ipinip_pkt['IP'].proto,
+                             outer_ip_ver,
+                             ipinip_pkt[outer_ip_ver].src,
+                             ipinip_pkt[outer_ip_ver].dst,
+                             ipinip_pkt[outer_ip_ver].nh if self.is_v6_topo else ipinip_pkt[outer_ip_ver].proto,
                              pkt['IPv6'].src,
                              pkt['IPv6'].dst,
                              pkt['IPv6'].nh,
@@ -854,6 +870,9 @@ class IPinIPHashTest(HashTest):
         # The outer_src_ip and outer_dst_ip are fixed
         outer_src_ip = '80.1.0.31'
         outer_dst_ip = '80.1.0.32'
+        if self.is_v6_topo:
+            outer_src_ip = '80::31'
+            outer_dst_ip = '80::32'
         src_port, exp_port_lists, next_hops = self.get_src_and_exp_ports(
             outer_dst_ip)
         if self.switch_type == "chassis-packet":

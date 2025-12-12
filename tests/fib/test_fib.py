@@ -18,7 +18,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor_active_standby                 # noqa F401
 from tests.common.dualtor.dual_tor_utils import validate_active_active_dualtor_setup                        # noqa F401
 from tests.common.dualtor.dual_tor_common import active_active_ports                                        # noqa F401
-from tests.common.utilities import is_ipv4_address
+from tests.common.utilities import is_ipv4_address, is_ipv6_only_topology
 
 from tests.common.fixtures.fib_utils import fib_info_files_per_function     # noqa F401
 from tests.common.fixtures.fib_utils import single_fib_for_duts             # noqa F401
@@ -351,7 +351,8 @@ def test_hash(add_default_route_to_dut, duthosts, fib_info_files_per_function, s
             "single_fib_for_duts": single_fib_for_duts,
             "switch_type": switch_type,
             "is_active_active_dualtor": is_active_active_dualtor,
-            "topo_name": updated_tbinfo['topo']['name']
+            "topo_name": updated_tbinfo['topo']['name'],
+            "is_v6_topo": is_ipv6_only_topology(updated_tbinfo),
         },
         log_file=log_file,
         qlen=PTF_QLEN,
@@ -394,7 +395,8 @@ def test_ipinip_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -436,7 +438,8 @@ def test_ipinip_hash_negative(add_default_route_to_dut, duthosts, fib_info_files
                    "ignore_ttl": ignore_ttl,
                    "single_fib_for_duts": single_fib_for_duts,
                    "ipver": ipver,
-                   "topo_name": tbinfo['topo']['name']
+                   "topo_name": tbinfo['topo']['name'],
+                   "is_v6_topo": is_ipv6_only_topology(tbinfo),
                },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -488,7 +491,8 @@ def test_vxlan_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": vxlan_ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
@@ -542,7 +546,8 @@ def test_nvgre_hash(add_default_route_to_dut, duthost, duthosts, fib_info_files_
                        "ignore_ttl": ignore_ttl,
                        "single_fib_for_duts": single_fib_for_duts,
                        "ipver": nvgre_ipver,
-                       "topo_name": tbinfo['topo']['name']
+                       "topo_name": tbinfo['topo']['name'],
+                       "is_v6_topo": is_ipv6_only_topology(tbinfo),
                        },
                log_file=log_file,
                qlen=PTF_QLEN,
