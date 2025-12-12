@@ -198,7 +198,8 @@ class TestQosSai(QosSaiBase):
         'Arista-7260CX3-Q64',
         'Arista-7050CX3-32S-C32',
         'Arista-7050CX3-32S-C28S4',
-        'Arista-7050CX3-32S-D48C8'
+        'Arista-7050CX3-32S-D48C8',
+        'dbmvtx9180_64osfp_128x400G_lab'
     ]
 
     @pytest.fixture(scope="class", autouse=True)
