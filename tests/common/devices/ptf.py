@@ -1,7 +1,8 @@
 import logging
 import pickle
 import tempfile
-
+from pytest_ansible.errors import AnsibleConnectionFailure
+from retry import retry
 from tests.common.devices.base import AnsibleHostBase
 from tests.common.macsec.macsec_helper import load_macsec_info
 
@@ -25,6 +26,10 @@ class PTFHost(AnsibleHostBase):
         self.tbinfo = tbinfo
         self.macsec_enabled = macsec_enabled
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
+
+    @retry(AnsibleConnectionFailure, tries=3, delay=3)
+    def __getattr__(self, module_name):
+        return super().__getattr__(module_name)
 
     def change_mac_addresses(self):
         self.script(CHANGE_MAC_ADDRESS_SCRIPT)

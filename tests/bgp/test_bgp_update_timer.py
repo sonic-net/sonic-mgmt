@@ -101,6 +101,10 @@ def common_setup_teardown(
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
+    if tbinfo['topo']['type'] in {'lt2', 'ft2'}:
+        dut_asn = duthost.get_running_config_facts().get("BGP_DEVICE_GLOBAL", {}).get("CONFED", {})\
+            .get("asn", dut_asn)
+
     dut_type = ""
     for k, v in list(mg_facts["minigraph_devices"].items()):
         if k == duthost.hostname:
