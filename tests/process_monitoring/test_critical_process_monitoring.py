@@ -600,10 +600,22 @@ def test_monitoring_critical_processes(
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
+    # Verify that database container(s) are included in the test
+    # In multi-ASIC systems, there can be database, database0, database1, etc.
+    database_containers = [name for name in containers_in_namespaces.keys() if name.startswith("database")]
+    pytest_assert(len(database_containers) == duthost.facts.get('num_asic') if duthost.is_multi_asic else 1, 
+                  "All database container(s) should be included in critical process monitoring test")
+    logger.info("All database container(s) included in the test: {}".format(database_containers))
+    logger.info("All containers being tested: {}".format(list(containers_in_namespaces.keys())))
+
     if "20191130" in duthost.os_version:
         expected_alerting_messages = get_expected_alerting_messages_monit(duthost, containers_in_namespaces)
     else:
         expected_alerting_messages = get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
+
+    pytest_assert(len(expected_alerting_messages) > 0, 
+                  "No expected alerting messages generated for any container")
+    logger.info("Total expected alerting messages for all containers: {}".format(len(expected_alerting_messages)))
 
     loganalyzer.expect_regex.extend(expected_alerting_messages)
     marker = loganalyzer.init()
