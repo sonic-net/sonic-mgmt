@@ -159,9 +159,9 @@ function pull_sonic_mgmt_docker_image() {
         DOCKER_IMAGES_CMD="docker images --format \"{{.Repository}}:{{.Tag}}\""
         DOCKER_PULL_CMD="docker pull \"${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}\""
 
-        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}:latest$"; then
+        if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}:latest$"; then
+        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         elif log_info "pulling docker image from a registry ..." && eval "${DOCKER_PULL_CMD}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
