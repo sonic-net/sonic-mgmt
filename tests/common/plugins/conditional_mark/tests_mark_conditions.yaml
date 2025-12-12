@@ -271,10 +271,6 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-  xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
@@ -337,12 +333,6 @@ bgp/test_bgp_operation_in_ro.py:
     reason: "Feature is reverted and pending enhancement"
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23462"
-
-bgp/test_bgp_peer_shutdown.py::test_bgp_peer_shutdown:
-  xfail:
-    reason: "xfail for IPv6-only topologies, is with it parse everthing as IPv4"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19907 and '-v6-' in topo_name"
 
 bgp/test_bgp_port_disable.py:
   skip:
@@ -479,18 +469,6 @@ bgp/test_bgp_update_replication.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
 
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_session_down:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue caused by _is_ipv4_address check"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19918 and '-v6-' in topo_name"
-
-bgp/test_bgp_update_timer.py::test_bgp_update_timer_single_route:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue caused by _is_ipv4_address check"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19918 and '-v6-' in topo_name"
-
 bgp/test_bgpmon.py:
   skip:
     reason: "Not supported on T2 topology or topology backend
@@ -526,12 +504,6 @@ bgp/test_startup_tsa_tsb_service.py::test_user_init_tsb_on_sup_while_service_run
     reason: "Not supported on T2 single node topology"
     conditions:
       - "'t2_single_node' in topo_name"
-
-bgp/test_traffic_shift.py:
-  xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20194 and '-v6-' in topo_name"
 
 bgp/test_traffic_shift.py::test_load_minigraph_with_traffic_shift_away:
   skip:
@@ -4089,6 +4061,12 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiPgHeadroomWatermark:
       - "topo_type in ['m0', 'mx', 'm1']"
       - "topo_name not in (constants['QOS_SAI_TOPO'] + ['t2_single_node_max', 't2_single_node_min']) and asic_type not in ['mellanox']"
 
+qos/test_qos_sai.py::TestQosSai::testQosSaiPgMinThreshold:
+  skip:
+    reason: "testQosSaiPgMinThreshold is only supported on x86_64-nexthop_4010* platforms."
+    conditions:
+      - "not platform.startswith('x86_64-nexthop_4010')"
+
 qos/test_qos_sai.py::TestQosSai::testQosSaiPgSharedWatermark[None-wm_pg_shared_lossy]:
   xfail:
     reason: "Image issue on Arista platforms / Unsupported testbed type."
@@ -4120,7 +4098,6 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiXonHysteresis:
     conditions:
       - "platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-8111_32eh_o-r0']"
       - "asic_type not in ['cisco-8000']"
-
 qos/test_tunnel_qos_remap.py:
   skip:
     reason: "Tunnel qos remap test needs some SAI attributes, which are not supported on KVM."
