@@ -198,7 +198,7 @@ def one_vnet_setup_teardown(
 
 
 # ---------- PTF runner helper ----------
-def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets):
+def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets, mac_list=None):
     logger.info(f"Calling VXLAN ECMP PTF test: {len(endpoints)} endpoints, {num_packets} packets")
 
     endpoints_file = "/tmp/ptf_endpoints.json"
@@ -208,6 +208,12 @@ def run_vxlan_ptf_test(ptfhost, endpoints, params, num_packets):
         "endpoints_file": endpoints_file,
         "num_packets": num_packets
     })
+    if mac_list:
+        macs_file = "/tmp/ptf_macs.json"
+        ptfhost.copy(content=json.dumps(mac_list), dest=macs_file)
+        ptf_params.update({
+            "macs_file": macs_file,
+        })
     params_path = "/tmp/ptf_params.json"
     ptfhost.copy(content=json.dumps(ptf_params), dest=params_path)
 
@@ -266,43 +272,54 @@ def test_ecmp_scale(ptfhost, one_vnet_setup_teardown):
 
 def test_vxlan_mac_vni(ptfhost, one_vnet_setup_teardown):
     """
-    Verify that mac_address + vni in VNET_ROUTE_TUNNEL_TABLE
-    are applied by DUT in the VXLAN encapsulated packet.
+    Validate that endpoint[i] → mac_address[i] mapping is honored
+    for a single prefix with multiple endpoints.
     """
 
     setup, duthost, _ = one_vnet_setup_teardown
+    num_endpoints = setup["num_endpoints"]
 
-    endpoint = "100.0.50.10"
-    programmed_mac = "52:54:00:12:34:56"
-    vni = 5001
+    logger.info(f"Running MAC+VNI multi-endpoint scale test with {num_endpoints} endpoints")
 
-    logger.info("Programming VNET route with MAC + VNI fields")
+    # --- Build endpoints list ---
+    base_ip = int(IPv4Address("100.0.50.1"))
+    endpoints = [str(IPv4Address(base_ip + i)) for i in range(num_endpoints)]
 
+    # --- Build deterministic MAC list ---
+    # 52:54:00:00:xx:yy (unique per endpoint)
+    mac_list = [f"52:54:00:{i//256:02x}:{i%256:02x}:aa" for i in range(num_endpoints)]
+    mac_list_str = ",".join(mac_list)
+    updated_vni = 5001
+
+    logger.info(f"Generated {len(endpoints)} endpoints + {len(mac_list)} MACs")
+    logger.info(f"MAC list: {mac_list_str}")
+
+    # --- Program into VNET_ROUTE_TUNNEL table ---
     _update_vxlan_endpoints(
         duthost,
         VNET_NAME,
         PREFIX,
-        [endpoint],
-        vni,
-        mac_address=programmed_mac
+        endpoints,
+        updated_vni,
+        mac_address=mac_list_str
     )
 
+    # --- Prepare PTF params ---
+    num_packets = num_endpoints * PACKET_MULTIPLIER
     ptf_params = setup.copy()
     ptf_params.update({
-        "endpoints": [endpoint],
-        "mac_address": programmed_mac,
-        "vni": vni,
-        "num_packets": 1,
         "mac_vni_verify": "yes",
+        "vni": updated_vni,
     })
 
-    logger.info("Calling PTF for mac+vni verification")
+    logger.info("Calling PTF for MAC+VNI multi-endpoint validation...")
 
-    ptf_runner(
+    run_vxlan_ptf_test(
         ptfhost,
-        "ptftests",
-        "vxlan_ecmp_ptftest.VxlanEcmpTest",
-        platform_dir="ptftests",
-        params=ptf_params,
-        log_file="/tmp/vxlan_macvni_test.log",
+        endpoints,
+        ptf_params,
+        num_packets=num_packets,
+        mac_list=mac_list
     )
+
+    logger.info("MAC+VNI multi-endpoint scale test completed successfully")

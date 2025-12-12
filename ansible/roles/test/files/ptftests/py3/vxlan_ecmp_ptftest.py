@@ -11,7 +11,6 @@ from ptf.base_tests import BaseTest
 from ptf.testutils import (
     simple_tcp_packet,
     simple_vxlan_packet,
-    verify_packet_any_port,
     send_packet,
     test_params_get,
     dp_poll
@@ -41,6 +40,12 @@ class VxlanEcmpTest(BaseTest):
         else:
             self.endpoints = params.get("endpoints", [])
 
+        if "macs_file" in params and os.path.exists(params["macs_file"]):
+            with open(params["macs_file"], "r") as f:
+                self.mac_list = json.load(f)
+        else:
+            self.mac_list = params.get("mac_address", [])
+
         self.dst_ip = params.get("dst_ip")
         self.src_ip = params.get("ptf_src_ip")
         self.dut_vtep = params.get("dut_vtep")
@@ -49,7 +54,6 @@ class VxlanEcmpTest(BaseTest):
         self.vxlan_port = int(params.get("vxlan_port", 4789))
         self.send_port = int(params.get("ptf_ingress_port", 0))
         self.mac_vni_verify = params.get("mac_vni_verify", "") == "yes"
-        self.inner_dst_mac = params.get("mac_address")
         self.vni = params.get("vni")
         self.random_mac = "00:aa:bb:cc:dd:ee"
         self.tcp_sport = 1234
@@ -78,30 +82,37 @@ class VxlanEcmpTest(BaseTest):
             self.tcp_dport = (self.tcp_dport + 1) % 65535 or 5000
             return self.tcp_dport
 
-    def build_expected_encap(self, inner_exp_pkt):
+    def _build_expected_for_index(self, idx, inner_pkt):
         """
-        Build expected VXLAN-encapsulated packet with masking for nondeterministic fields.
+        Build a masked VXLAN expected packet for endpoint[idx] with mac_list[idx].
         """
+        endpoint = self.endpoints[idx]
+        programmed_mac = self.mac_list[idx]
+
+        # inner expected frame
+        inner_exp = inner_pkt.copy()
+        inner_exp[scapy.Ether].src = self.router_mac
+        inner_exp[scapy.Ether].dst = programmed_mac
+        inner_exp[scapy.IP].ttl = inner_exp[scapy.IP].ttl - 1
+
+        # outer VXLAN header
         encap = simple_vxlan_packet(
             eth_src=self.router_mac,
             eth_dst=self.random_mac,
             ip_src=self.dut_vtep,
-            ip_dst=self.endpoints[0],
+            ip_dst=endpoint,
             ip_id=0,
             ip_ttl=128,
             udp_sport=12345,
             udp_dport=self.vxlan_port,
             with_udp_chksum=False,
             vxlan_vni=self.vni,
-            inner_frame=inner_exp_pkt,
+            inner_frame=inner_exp,
         )
-
         encap[scapy.IP].flags = 0x2
 
         m = Mask(encap)
         m.set_ignore_extra_bytes()
-
-        # Outer headers vary
         m.set_do_not_care_scapy(scapy.Ether, "src")
         m.set_do_not_care_scapy(scapy.Ether, "dst")
         m.set_do_not_care_scapy(scapy.IP, "ttl")
@@ -112,36 +123,65 @@ class VxlanEcmpTest(BaseTest):
         return m
 
     def verify_mac_vni_encap(self):
-        logger.info("=== Running MAC + VNI deep verification ===")
-
+        logger.info("=== MAC+VNI multi-endpoint ECMP validation ===")
         src_mac = self.dataplane.get_mac(0, self.send_port)
+        endpoint_hits = {ep: 0 for ep in self.endpoints}
+        mismatch_count = 0
 
-        inner = simple_tcp_packet(
-            eth_dst=self.router_mac,
-            eth_src=src_mac,
-            ip_dst=self.dst_ip,
-            ip_src=self.src_ip,
-            ip_id=105,
-            ip_ttl=64,
-            tcp_sport=1234,
-            tcp_dport=5000,
-            pktlen=100,
-        )
+        for _ in range(self.num_packets):
 
-        # Expected inner after DUT rewrite
-        inner_exp = inner.copy()
-        inner_exp[scapy.Ether].src = self.router_mac
-        inner_exp[scapy.Ether].dst = self.inner_dst_mac
-        inner_exp[scapy.IP].ttl = 63
+            sport = self._next_port("sport")
+            dport = self._next_port("dport")
 
-        # Build expected outer encapsulated VXLAN
-        exp_vxlan = self.build_expected_encap(inner_exp)
+            inner = simple_tcp_packet(
+                eth_dst=self.router_mac,
+                eth_src=src_mac,
+                ip_dst=self.dst_ip,
+                ip_src=self.src_ip,
+                ip_id=105,
+                ip_ttl=64,
+                tcp_sport=sport,
+                tcp_dport=dport,
+                pktlen=100,
+            )
 
-        # 4. Send and verify
-        send_packet(self, self.send_port, inner)
-        verify_packet_any_port(self, exp_vxlan, self.all_ports, timeout=3)
+            send_packet(self, self.send_port, inner)
 
-        logger.info("MAC+VNI encapsulation verified successfully!")
+            res = dp_poll(self, timeout=2)
+            if not isinstance(res, self.dataplane.PollSuccess):
+                continue
+            pkt = scapy.Ether(res.packet)
+            if scapy.IP not in pkt or scapy.UDP not in pkt:
+                continue
+            if pkt[scapy.UDP].dport != self.vxlan_port:
+                continue
+            outer_dst = pkt[scapy.IP].dst
+            if outer_dst not in self.endpoints:
+                logger.error(f"Received VXLAN pkt to unexpected endpoint {outer_dst}")
+                continue
+
+            idx = self.endpoints.index(outer_dst)
+            exp = self._build_expected_for_index(idx, inner)
+
+            if exp.pkt_match(pkt):
+                endpoint_hits[outer_dst] += 1
+            else:
+                mismatch_count += 1
+                logger.error(
+                    f"Packet mismatch for endpoint={outer_dst}, mac={self.mac_list[idx]}"
+                )
+
+        logger.info(f"MAC+VNI Multi-endpoint validation counts: {endpoint_hits}")
+        if mismatch_count > 0:
+            raise AssertionError(f"{mismatch_count} packet(s) did NOT match expected MAC/VNI encapsulation")
+        used = [ep for ep, c in endpoint_hits.items() if c > 0]
+        if len(used) == 0:
+            raise AssertionError("NO endpoints used VXLAN not working")
+        if len(used) < len(self.endpoints):
+            missing = set(self.endpoints) - set(used)
+            raise AssertionError(f"Missing endpoint hits: {missing}")
+
+        logger.info("MAC+VNI multi-endpoint ECMP validation PASSED.")
 
     def runTest(self):
         if self.mac_vni_verify:
@@ -224,4 +264,4 @@ class VxlanEcmpTest(BaseTest):
 
     def tearDown(self):
         self.dataplane.flush()
-        logger.info("Dataplane flushed — VXLAN ECMP test complete")
+        logger.info("Dataplane flushed VXLAN ECMP test complete")
