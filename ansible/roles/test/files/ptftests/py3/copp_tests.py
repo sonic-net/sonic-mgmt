@@ -547,9 +547,11 @@ class UDLDTest(PolicyTest):
 class BGPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("BGPTest")
+        self.log("BGPTest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def construct_packet(self, port_number):
@@ -557,6 +559,7 @@ class BGPTest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_dst=dst_mac,
             ip_dst=dst_ip,
             ip_ttl=1,
@@ -676,9 +679,11 @@ class SSHTest(PolicyTest):
 class IP2METest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()  # Get a fresh copy to be safe
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("IP2METest")
+        self.log("IP2METest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def one_port_test(self, port_number):
@@ -700,6 +705,7 @@ class IP2METest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
             ip_dst=dst_ip
