@@ -2887,6 +2887,10 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
         'redis-cli -n 2 hgetall COUNTERS_QUEUE_NAME_MAP')['stdout'].split())
     cable_length_map = _compose_dict_from_cli(duthost.shell(
         'redis-cli -n 4 hgetall "CABLE_LENGTH|AZURE"')['stdout'].split())
+
+    if not pg_name_map or not queue_name_map or not cable_length_map:
+        raise Exception("COUNTERS_PG_NAME_MAP, COUNTERS_QUEUE_NAME_MAP or CABLE_LENGTH|AZURE not found in the database")
+
     buffer_table_up = {
         KEY_2_LOSSLESS_QUEUE: [('BUFFER_PG_TABLE', '0', '[BUFFER_PROFILE_TABLE:ingress_lossy_profile]'),
                                ('BUFFER_QUEUE_TABLE', '0-2',
@@ -3033,6 +3037,9 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
             buffer_profile_oid, _ = _check_port_buffer_info_and_get_profile_oid(
                 dut_db_info, table, ids, port, expected_profile)
 
+            if not buffer_profile_oid:
+                raise Exception(f"Buffer profile {expected_profile} not found in ASIC_DB")
+
             if is_qos_db_reference_with_table:
                 expected_profile_key = expected_profile[1:-1]
             else:
@@ -3059,31 +3066,30 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                                 "Buffer profile {} {} doesn't match default {}"
                                 .format(expected_profile, profile_info, std_profile))
 
-                if buffer_profile_oid:
-                    # Further check the buffer profile in ASIC_DB
-                    logging.info("Checking profile {} oid {}".format(
-                        expected_profile, buffer_profile_oid))
-                    buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(
-                        buffer_profile_oid)
-                    buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(
-                        buffer_profile_key)
-                    pytest_assert(
-                        buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') ==
-                        profile_info.get('xon') and
-                        buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') ==
-                        profile_info.get('xoff') and
-                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] ==
-                        profile_info['size'] and
-                        (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
-                         'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] ==
-                         profile_info['dynamic_th'] or
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
-                         'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
-                         buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] ==
-                         profile_info['static_th']),
-                        "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
-                        .format(expected_profile, profile_info, buffer_profile_asic_info))
+                # Further check the buffer profile in ASIC_DB
+                logging.info("Checking profile {} oid {}".format(
+                    expected_profile, buffer_profile_oid))
+                buffer_profile_key = dut_db_info.get_buffer_profile_key_from_asic_db(
+                    buffer_profile_oid)
+                buffer_profile_asic_info = dut_db_info.get_buffer_profile_info_from_asic_db(
+                    buffer_profile_key)
+                pytest_assert(
+                    buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XON_TH') ==
+                    profile_info.get('xon') and
+                    buffer_profile_asic_info.get('SAI_BUFFER_PROFILE_ATTR_XOFF_TH') ==
+                    profile_info.get('xoff') and
+                    buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_RESERVED_BUFFER_SIZE'] ==
+                    profile_info['size'] and
+                    (buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
+                        'SAI_BUFFER_PROFILE_THRESHOLD_MODE_DYNAMIC' and
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH'] ==
+                        profile_info['dynamic_th'] or
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_THRESHOLD_MODE'] ==
+                        'SAI_BUFFER_PROFILE_THRESHOLD_MODE_STATIC' and
+                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_SHARED_STATIC_TH'] ==
+                        profile_info['static_th']),
+                    "Buffer profile {} {} doesn't align with ASIC_TABLE {}"
+                    .format(expected_profile, profile_info, buffer_profile_asic_info))
 
                 profiles_checked[expected_profile] = buffer_profile_oid
                 if is_ingress_lossless:
