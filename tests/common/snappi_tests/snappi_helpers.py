@@ -261,7 +261,7 @@ def get_dut_port_id(dut_hostname, dut_port, conn_data, fanout_data):
 
     if snappi_fanout is None:
         return None
-
+    snappi_fanout = snappi_fanout[0]
     snappi_fanout_id = list(fanout_data.keys()).index(snappi_fanout)
     snappi_fanout_list = SnappiFanoutManager(fanout_data)
     snappi_fanout_list.get_fanout_device_details(device_number=snappi_fanout_id)

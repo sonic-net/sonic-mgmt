@@ -93,6 +93,33 @@ def backup_and_restore_config_db_session(duthosts):
         yield func
 
 
+def _is_route_checker_in_status(duthost, expected_status_substrings):
+    """
+    Check if routeCheck service status contains any expected substring.
+    """
+    route_checker_status = duthost.get_monit_services_status().get("routeCheck", {})
+    status = route_checker_status.get("service_status", "").lower()
+    return any(status_fragment in status for status_fragment in expected_status_substrings)
+
+
+def stop_route_checker_on_duthost(duthost, wait_for_status=False):
+    duthost.command("sudo monit stop routeCheck", module_ignore_errors=True)
+    if wait_for_status:
+        pt_assert(
+            wait_until(600, 15, 0, _is_route_checker_in_status, duthost, ("not monitored",)),
+            "routeCheck service did not stop on {}".format(duthost.hostname),
+        )
+
+
+def start_route_checker_on_duthost(duthost, wait_for_status=False):
+    duthost.command("sudo monit start routeCheck", module_ignore_errors=True)
+    if wait_for_status:
+        pt_assert(
+            wait_until(900, 20, 0, _is_route_checker_in_status, duthost, ("status ok",)),
+            "routeCheck service did not start on {}".format(duthost.hostname),
+        )
+
+
 def _disable_route_checker(duthost):
     """
         Some test cases will add static routes for test, which may trigger route_checker
@@ -102,9 +129,9 @@ def _disable_route_checker(duthost):
         Args:
             duthost: DUT fixture
     """
-    duthost.command('monit stop routeCheck', module_ignore_errors=True)
+    stop_route_checker_on_duthost(duthost)
     yield
-    duthost.command('monit start routeCheck', module_ignore_errors=True)
+    start_route_checker_on_duthost(duthost)
 
 
 @pytest.fixture
