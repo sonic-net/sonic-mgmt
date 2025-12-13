@@ -64,27 +64,27 @@ class snmpPduController(PduControllerBase):
         self.has_lanes = True
         self.max_lanes = 5
         self.PORT_POWER_BASE_OID = None
-        if self.pduType == "Apc":
+        if self.pduType.lower() == "apc":
             self.PORT_NAME_BASE_OID = APC_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_PORT_CONTROL_BASE_OID
-        elif self.pduType == "Sentry":
+        elif self.pduType.lower() == "sentry":
             self.PORT_NAME_BASE_OID = SENTRY_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY_PORT_CONTROL_BASE_OID
-        elif self.pduType == "Emerson":
+        elif self.pduType.lower() == "emerson":
             self.PORT_NAME_BASE_OID = EMERSON_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = EMERSON_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = EMERSON_PORT_CONTROL_BASE_OID
             self.CONTROL_OFF = "0"
-        elif self.pduType == "Sentry4":
+        elif self.pduType.lower() == "sentry4":
             self.PORT_NAME_BASE_OID = SENTRY4_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = SENTRY4_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = SENTRY4_PORT_CONTROL_BASE_OID
             self.PORT_POWER_BASE_OID = SENTRY4_PORT_POWER_BASE_OID
             self.has_lanes = False
             self.max_lanes = 1
-        elif self.pduType == "Vertiv":
+        elif self.pduType.lower() == "vertiv":
             self.PORT_NAME_BASE_OID = VERTIV_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = VERTIV_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = VERTIV_PORT_CONTROL_BASE_OID
@@ -94,13 +94,13 @@ class snmpPduController(PduControllerBase):
             self.CONTROL_OFF = "4"
             self.has_lanes = False
             self.max_lanes = 1
-        elif self.pduType == "ApcRPDU":
+        elif self.pduType.lower() == "apcrpdu":
             self.PORT_NAME_BASE_OID = APC_RPDU_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = APC_RPDU_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = APC_RPDU_PORT_CONTROL_BASE_OID
             self.has_lanes = False
             self.max_lanes = 1
-        elif self.pduType == "Raritan":
+        elif self.pduType.lower() == "raritan":
             self.PORT_NAME_BASE_OID = RARITAN_PORT_NAME_BASE_OID
             self.PORT_STATUS_BASE_OID = RARITAN_PORT_STATUS_BASE_OID
             self.PORT_CONTROL_BASE_OID = RARITAN_PORT_CONTROL_BASE_OID
@@ -306,7 +306,7 @@ class snmpPduController(PduControllerBase):
         # b = outletId (the number of the outlet on the PDU)
         # c = sensorID (1=amps, 4=volts, 5=watts)
         query_id = '.' + self.PORT_POWER_BASE_OID + port_id
-        if self.pduType == "Raritan":
+        if self.pduType.lower() == "raritan":
             query_id = query_id + ".5"  # 5 = watts for Raritan PDU
         errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
             snmp_auth,
@@ -321,7 +321,7 @@ class snmpPduController(PduControllerBase):
             current_oid = str(oid)
             current_val = str(val)
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
-            if self.pduType == "Raritan":
+            if self.pduType.lower() == "raritan":
                 port_oid = port_oid.rsplit('.', 1)[0]  # Remove the ".5" suffix
             if port_oid == port_id:
                 if current_val != "":
