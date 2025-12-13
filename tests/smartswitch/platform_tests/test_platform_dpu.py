@@ -4,6 +4,7 @@ Tests for the `platform cli ...` commands in DPU
 
 import logging
 import pytest
+import time
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
@@ -16,7 +17,6 @@ from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     dpus_shutdown_and_check, dpus_startup_and_check,\
     check_dpu_health_status, check_midplane_status, num_dpu_modules, dpu_setup  # noqa: F401
 from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service  # noqa: F401,F403
-from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 
 pytestmark = [
     pytest.mark.topology('smartswitch')
@@ -25,6 +25,9 @@ pytestmark = [
 # Timeouts, Delays and Time Intervals in secs
 DPU_MAX_TIMEOUT = 360
 DPU_TIME_INT = 30
+
+# Cool off time period after shutting down DPUs
+COOL_OFF_TIME = 300
 
 # DPU Memory Threshold
 DPU_MEMORY_THRESHOLD = 90
@@ -51,34 +54,31 @@ def test_midplane_ip(duthosts, enum_rand_one_per_hwsku_hostname, platform_api_co
     pytest_assert(ping_status == 1, "Ping to one or more DPUs has failed")
 
 
-def test_reboot_cause(duthosts, enum_rand_one_per_hwsku_hostname,
+@pytest.mark.disable_loganalyzer
+def test_reboot_cause(duthosts, dpuhosts,
+                      enum_rand_one_per_hwsku_hostname,
                       platform_api_conn, num_dpu_modules):    # noqa: F811
     """
     @summary: Verify `Reboot Cause` using parallel execution.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    dpu_names = [
-        module.get_name(platform_api_conn, index)
-        for index in range(num_dpu_modules)
-    ]
+    ip_address_list, dpu_on_list, dpu_off_list = pre_test_check(
+                                                 duthost,
+                                                 platform_api_conn,
+                                                 num_dpu_modules)
 
     logging.info("Shutting DOWN the DPUs in parallel")
-    dpus_shutdown_and_check(duthost, dpu_names, num_dpu_modules)
+    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Starting UP the DPUs in parallel")
-    dpus_startup_and_check(duthost, dpu_names, num_dpu_modules)
-
-    with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
-        logging.info("Verify Reboot cause of all DPUs in parallel")
-        for dpu_name in dpu_names:
-            executor.submit(
-                wait_until, DPU_MAX_TIMEOUT, DPU_TIME_INT, 0,
-                check_dpu_reboot_cause, duthost, dpu_name,
-                "Switch rebooted DPU"
-            )
+    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
+@pytest.mark.disable_loganalyzer
 def test_pcie_link(duthosts, dpuhosts,
                    enum_rand_one_per_hwsku_hostname,
                    platform_api_conn, num_dpu_modules):   # noqa: F811
@@ -115,7 +115,9 @@ def test_pcie_link(duthosts, dpuhosts,
             duthost.shell("sudo config chassis modules \
                            startup %s" % (dpu_on_list[index]))
 
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Switch rebooted DPU")
 
     logging.info("Verifying output of '{}' on '{}'..."
                  .format(CMD_PCIE_INFO, duthost.hostname))
@@ -152,10 +154,14 @@ def test_restart_pmon(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
     pmon_status = check_pmon_status(duthost)
     pytest_assert(pmon_status == 1, "PMON status is Not UP")
 
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Switch rebooted DPU")
 
 
-def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
+@pytest.mark.disable_loganalyzer
+def test_system_health_state(duthosts, dpuhosts,
+                             enum_rand_one_per_hwsku_hostname,
                              platform_api_conn, num_dpu_modules):  # noqa: F811
     """
     @summary: To Verify `show system-health dpu` CLI
@@ -169,6 +175,9 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
+    logging.info("5 minutes Cool off period after shutdown")
+    time.sleep(COOL_OFF_TIME)
+
     try:
         for index in range(len(dpu_on_list)):
             check_dpu_health_status(duthost, dpu_on_list[index],
@@ -180,6 +189,10 @@ def test_system_health_state(duthosts, enum_rand_one_per_hwsku_hostname,
 
     logging.info("Starting UP the DPUs in parallel")
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+
+    post_test_dpus_check(duthost, dpuhosts,
+                         dpu_on_list, ip_address_list,
+                         num_dpu_modules, "Switch rebooted DPU")
 
     for index in range(len(dpu_on_list)):
         check_dpu_health_status(duthost, dpu_on_list[index],
@@ -315,7 +328,7 @@ def test_system_health_summary(duthosts, dpuhosts,
 
     logging.info("Checking DPU is completely UP")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list,
-                         ip_address_list, num_dpu_modules, "Non-Hardware")
+                         ip_address_list, num_dpu_modules, "Switch rebooted DPU")
 
     logging.info("Checking show system-health summary on Switch")
     output_health_summary = duthost.command("show system-health summary")
