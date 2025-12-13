@@ -119,8 +119,7 @@ def main():
         iface = str(iface)
         if iface.find('@') != -1:
             iface, vlan = iface.split('@')
-            vlan_tag = format(int(vlan), 'x')
-            vlan_tag = vlan_tag.zfill(4)
+            vlan_tag = int(vlan)
         if iface not in ip_sets:
             ip_sets[iface] = defaultdict(list)
         if args.extended:
@@ -130,12 +129,14 @@ def main():
             for ip in ip_dict:
                 ip_sets[iface][str(ip)] = scapy.get_if_hwaddr(iface)
         if vlan is not None:
-            ip_sets[iface]['vlan'].append(binascii.unhexlify(vlan_tag))
+            ip_sets[iface]['vlan'].append(vlan_tag)
 
     for iface in ip_sets:
         arp_filter_entries = []
         icmp_filter_entries = []
         for ip in ip_sets[iface]:
+            if ip == 'vlan':
+                continue
             ip_address = ipaddress.ip_address(ip)
             if ip_address.version == 4:
                 arp_filter_entries.append(f'arp[24:4] = 0x{int.from_bytes(ip_address.packed, "big"):0x}')  # noqa: E231

@@ -134,8 +134,6 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
     if vnet_test_params[APPLY_NEW_CONFIG_KEY]:
         logger.info("Applying config files on DUT")
         timeout = num_routes/50  # Sufficent time to configure routes
-        num_routes_before_add = count_routes_from_asic_db(duthost)
-        logger.info("Routes number before adding: {}".format(num_routes_before_add))
         config_files = [DUT_VNET_INTF_JSON,
                         DUT_VNET_NBR_JSON, DUT_VNET_CONF_JSON]
         for config in config_files:
@@ -152,10 +150,8 @@ def apply_dut_config_files(duthost, vnet_test_params, num_routes):
         duthost.shell(
             "docker exec swss sh -c \"swssconfig /vnet.switch.json\"")
         duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
-                      num_routes_before_add, 'add'), "Routes weren't configured successfully, test Failed.")
-        routes_after = count_routes_from_asic_db(duthost)
-        logger.info("Routes number after adding: {}".format(routes_after))
+        pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, 'add'),
+                      "Routes weren't configured successfully, test Failed.")
 
         if vnet_test_params[VXLAN_RANGE_ENABLE_KEY]:
             logger.info(
@@ -237,22 +233,32 @@ def cleanup_vnet_routes(duthost, vnet_config, num_routes):
     duthost.shell(
         "docker cp {} swss:/vnet.route.json".format(DUT_VNET_ROUTE_JSON))
     duthost.shell("docker exec swss sh -c \"swssconfig /vnet.route.json\"")
-    current_route_num = count_routes_from_asic_db(duthost)
     timeout = num_routes/50
-    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, num_routes,
-                  current_route_num, 'clean'), "Routes weren't configured successfully, test Failed.")
+    pytest_assert(wait_until(timeout, 20, 0, verify_routes_configured, duthost, 'clean'),
+                  "Routes weren't configured successfully, test Failed.")
 
 
-def count_routes_from_asic_db(duthost):
-    num_routes = int(duthost.shell("redis-cli -n 1 keys *ROUTE_ENTRY* | wc -l")['stdout_lines'][0])
-    return num_routes
+def count_routes_from_conf(duthost):
+    num_routes = int(duthost.shell("cat /tmp/vnet.route.json | grep VNET_ROUTE_TABLE | wc -l")['stdout_lines'][0])
+    num_tunnles = int(duthost.shell("cat /tmp/vnet.route.json | grep VNET_ROUTE_TUNNEL_TABLE | wc -l")['stdout_lines'][0])
+    return num_routes, num_tunnles
 
 
-def verify_routes_configured(duthost, expected_routes, routes_num_before_change, action):
-    configured_routes_num = count_routes_from_asic_db(duthost)
-    actual_routes_changed = abs(configured_routes_num - routes_num_before_change)
-    if not (actual_routes_changed >= expected_routes):
-        logger.warning("Expected {} routes to be {}ed, but actually {}ed only {}"
-                       .format(expected_routes, action, action, actual_routes_changed))
+def count_routes_from_cli(duthost):
+    num_routes = int(duthost.shell("show vnet routes all | grep Vlan | wc -l")['stdout_lines'][0])
+    num_tunnles = int(duthost.shell("show vnet routes tunnel | grep Vnet | wc -l")['stdout_lines'][0])
+    return num_routes, num_tunnles
+
+def verify_routes_configured(duthost, action):
+    expected_num_routes = 0
+    expected_num_tunnels = 0
+    configured_num_routes, configured_num_tunnels = count_routes_from_cli(duthost)
+    if action == 'add':
+        expected_num_routes, expected_num_tunnels = count_routes_from_conf(duthost)
+
+    if not (configured_num_routes == expected_num_routes and configured_num_tunnels == expected_num_tunnels):
+        logger.warning("Vnet routes {} error, epected routes {}, tunnels {}, configured routes {}, tunnels {}"
+                       .format(action, expected_num_routes, expected_num_tunnels, configured_num_routes, configured_num_tunnels))
         return False
+    logger.info("Vnet routes added {}, tunnel added {}".format(configured_num_routes, configured_num_tunnels))
     return True

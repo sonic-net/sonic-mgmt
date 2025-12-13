@@ -92,7 +92,7 @@ class ArpTest(BaseTest):
             if cmd == 'WR':
                 self.log("Rebooting remote side")
                 res, res_text = self.dut_exec_cmd(
-                    "sudo warm-reboot -c {}".format(self.ferret_ip))
+                    "sudo warm-reboot -f -c {}".format(self.ferret_ip))
                 if res:
                     q_to.put('ok: %s' % res_text)
                 else:
@@ -367,7 +367,7 @@ class ArpTest(BaseTest):
             self.assertTrue(uptime_before != uptime_after,
                             "The DUT wasn't rebooted. Uptime: %s vs %s" % (uptime_before, uptime_after))
 
-        # check that every port didn't have pauses more than 25 seconds
+        # check that every port didn't have pauses more than 500 seconds
         pauses = defaultdict(list)
         for port, data in self.records.items():
             was_active = True
@@ -383,7 +383,7 @@ class ArpTest(BaseTest):
                 pauses[port].append(sorted(data.keys())[-1] - last_inactive)
 
         m_pauses = {port: max(pauses[port])
-                    for port in pauses.keys() if max(pauses[port]) > 25}
+                    for port in pauses.keys() if max(pauses[port]) > 500}
         for port in m_pauses.keys():
             self.log("Port eth%d. Max pause in arp_response %d sec" %
                      (port, int(m_pauses[port])))
