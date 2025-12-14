@@ -1258,7 +1258,7 @@ def get_hw_management_version(duthost):
 
 def is_pinewave_module(port_info):
     """ Check if the given port info indicates an pinewave module and handle known issues """
-    return 'PINEWAVE' in port_info.get('manufacturer', '')
+    return 'PINEWAVE' in port_info.get('Vendor Name', '') and 'T-OH8CNT-NMT' in port_info.get('Vendor PN', '')
 
 
 def is_unsupported_module(port_info, port_number):
