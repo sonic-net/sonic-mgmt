@@ -2,7 +2,8 @@
 
 - [Overview](#overview)
   - [Scope](#scope)
-- [Setup configuration](#setup-configuration)
+  - [Supported Counters](#supported-counters)
+- [Setup Configuration](#setup-configuration)
   - [Prerequisites](#prerequisites)
   - [Platform Support](#platform-support)
 - [Test Cases](#test-cases)
@@ -36,7 +37,43 @@ The test suite covers:
 
 ---
 
-## Setup configuration
+### Supported counters
+
+**Phase 1**: Implement core HFT functionality. Support key AI DC stats: PORT, QUEUE, INGRESS_PRIORITY_GROUP, BUFFER_POOL
+
+- SAI_PORT_STAT_IF_IN_OCTETS
+- SAI_PORT_STAT_IF_IN_UCAST_PKTS
+- SAI_PORT_STAT_IF_IN_DISCARDS
+- SAI_PORT_STAT_IF_IN_ERRORS
+- SAI_PORT_STAT_IN_CURR_OCCUPANCY_BYTES
+- SAI_PORT_STAT_IF_OUT_OCTETS
+- SAI_PORT_STAT_IF_OUT_DISCARDS
+- SAI_PORT_STAT_IF_OUT_ERRORS
+- SAI_PORT_STAT_IF_OUT_UCAST_PKTS
+- SAI_PORT_STAT_OUT_CURR_OCCUPANCY_BYTES
+- SAI_PORT_STAT_TRIM_PACKETS
+- SAI_QUEUE_STAT_PACKETS
+- SAI_QUEUE_STAT_BYTES
+- SAI_QUEUE_STAT_DROPPED_PACKETS
+- SAI_QUEUE_STAT_CURR_OCCUPANCY_BYTES
+- SAI_QUEUE_STAT_WATERMARK_BYTES
+- SAI_QUEUE_STAT_WRED_ECN_MARKED_PACKETS
+- SAI_QUEUE_STAT_TRIM_PACKETS
+- SAI_BUFFER_POOL_STAT_DROPPED_PACKETS
+- SAI_BUFFER_POOL_STAT_CURR_OCCUPANCY_BYTES
+- SAI_BUFFER_POOL_STAT_WATERMARK_BYTES
+- SAI_BUFFER_POOL_STAT_XOFF_ROOM_WATERMARK_BYTES
+- SAI_INGRESS_PRIORITY_GROUP_STAT_PACKETS
+- SAI_INGRESS_PRIORITY_GROUP_STAT_BYTES
+- SAI_INGRESS_PRIORITY_GROUP_STAT_CURR_OCCUPANCY_BYTES
+- SAI_INGRESS_PRIORITY_GROUP_STAT_WATERMARK_BYTES
+- SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_CURR_OCCUPANCY_BYTES
+- SAI_INGRESS_PRIORITY_GROUP_STAT_XOFF_ROOM_WATERMARK_BYTES
+- SAI_INGRESS_PRIORITY_GROUP_STAT_DROPPED_PACKETS
+
+---
+
+## Setup Configuration
 ### Prerequisites
 - Validate that HFT dummy tables are added to config DB for supported platforms by running golden config DB generation and inspecting contents.
 - Confirm SWSS container readiness and stability before each test by exercising the `ensure_swss_ready` fixture.
