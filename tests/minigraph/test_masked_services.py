@@ -23,7 +23,8 @@ def change_service_state(duthost, service, enable):
     if enable:
         outputs = [
             duthost.shell("systemctl unmask {}.service".format(service)),
-            duthost.shell("systemctl enable {}.service".format(service)),
+            duthost.shell("systemctl enable {}.service".format(service),
+                          module_ignore_errors=True),
             duthost.shell("systemctl start {}.service".format(service))
         ]
     else:
