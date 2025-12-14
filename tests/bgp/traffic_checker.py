@@ -1,6 +1,8 @@
-import pytest
+import logging
 from tests.common.helpers.constants import DEFAULT_ASIC_ID
-from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_INCONSISTENT, TS_NO_NEIGHBORS
+from tests.bgp.constants import TS_NORMAL, TS_MAINTENANCE, TS_INCONSISTENT, TS_NO_NEIGHBORS, TS_UNEXPECTED
+
+logger = logging.getLogger(__name__)
 
 
 def verify_traffic_shift_per_asic(host, outputs, match_result, asic_index):
@@ -32,7 +34,8 @@ def get_traffic_shift_state(host, cmd="TSC"):
         return TS_MAINTENANCE
     if verify_traffic_shift(host, outputs, TS_INCONSISTENT) != "ERROR":
         return TS_INCONSISTENT
-    pytest.fail("{} return unexpected state {}".format(cmd, "ERROR"))
+    logger.info("{} return unexpected state {}".format(cmd, "ERROR"))
+    return TS_UNEXPECTED
 
 
 # API to check if the image has support for BGP_DEVICE_GLOBAL table in the configDB

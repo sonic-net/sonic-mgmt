@@ -7,6 +7,8 @@ import logging
 import ptf.testutils as testutils
 import ptf.mask as mask
 import ptf.packet as packet
+import csv
+import json
 
 from tests.common.fixtures.conn_graph_facts import enum_fanout_graph_facts  # noqa: F401
 from tests.common.errors import RunAnsibleModuleFail
@@ -88,10 +90,132 @@ def fanouthost(duthosts, enum_rand_one_per_hwsku_frontend_hostname, fanouthosts,
         if not is_mellanox_fanout(duthost, localhost) or fanout.os == "sonic":
             fanout = None
 
+    # Check if DUT has Marvell Teralynx ASIC
+    if duthost.facts["asic_type"] == "marvell-teralynx":
+        # Re-acquire specific fanout object for Marvell DUT
+        fanout = get_fanout_obj(conn_graph_facts, duthost, fanouthosts)
+        # Check if FANOUT has Marvell ASIC
+        if fanout.facts["asic_type"] != "marvell-teralynx":
+            fanout = None
+
     yield fanout
     if fanout:
         if hasattr(fanout, 'restore_drop_counter_config'):
             fanout.restore_drop_counter_config()
+
+    if fanout:
+        if fanout.facts["asic_type"] == "marvell-teralynx":
+            # Check and clean up existing REDIRECT_VLAN ACL table if present.
+            check_output = fanout.shell("show acl table", module_ignore_errors=True)
+            if "REDIRECT_VLAN" in check_output["stdout"]:
+                # Clean up existing ACL rules
+                fanout.shell("acl-loader delete REDIRECT_VLAN")
+                # Clean up existing ACL table to reset environment
+                fanout.shell("config acl remove table REDIRECT_VLAN")
+
+                # Remove generated acl_rules.json file
+                acl_json_path = "drop_packets/acl_rules.json"
+                if os.path.exists(acl_json_path):
+                    os.remove(acl_json_path)
+                    logger.info(f"Removed generated ACL file: {acl_json_path}")
+                else:
+                    logger.warning(f"Expected ACL file not found for deletion: {acl_json_path}")
+
+
+def generate_acl_rules_from_csv(csv_path, output_json_path):
+    """
+    Generate ACL rules JSON from the given CSV and write it to the specified file.
+
+    Args:
+        output_json_path (str): Path to ACL rule JSON file.
+        csv_path (str): Path to CSV file containing interface mappings.
+    """
+    if not os.path.exists(csv_path):
+        logger.error(f"CSV file not found: {csv_path}")
+        return
+
+    acl_data = {"ACL_RULE": {}}
+
+    try:
+        with open(csv_path, "r") as csvfile:
+            reader = csv.DictReader(csvfile)
+            for row in reader:
+                vlan_id = row.get("VlanID")
+                port = row.get("StartPort")
+                if vlan_id and port:
+                    rule_name = f"REDIRECT_VLAN|MATCH_VLAN_{vlan_id}"
+                    acl_data["ACL_RULE"][rule_name] = {
+                        "PRIORITY": "1000",
+                        "VLAN_ID": vlan_id,
+                        "REDIRECT_ACTION": port
+                    }
+                else:
+                    logger.warning(f"Skipping invalid row: {row}")
+
+        # Ensure output directory exists
+        os.makedirs(os.path.dirname(output_json_path), exist_ok=True)
+
+        # Write ACL rules to JSON file
+        with open(output_json_path, "w") as jsonfile:
+            json.dump(acl_data, jsonfile, indent=2)
+            logger.info(f"ACL rules written to {output_json_path}")
+
+    except Exception as e:
+        logger.error(f"Failed to generate ACL rules: {e}", exc_info=True)
+
+
+def drop_counter_config(fanouthost):
+    """
+    This function injects ACL rules on fanout host by parsing the port info from a CSV file.
+    It creates ACL(Access Control List) rule for each VLAN which helps in identifying the
+    pkt based on the VLAN id and redirect the pkt to the egress.
+
+    Args:
+        fanouthost: Fanout host object with .facts, .copy(), and .shell() methods.
+        acl_file (str): Path to ACL rule JSON file.
+        csv_path (str): Path to CSV file containing interface mappings.
+        search_str (str): String to identify target row in CSV.
+        fetch_port (str): Port identifier substring (e.g., 'Ethernet').
+    """
+
+    acl_file = "drop_packets/acl_rules.json"
+    csv_path = "../ansible/files/sonic_lab_links.csv"
+    search_str = "Trunk"
+    fetch_port = "Ethernet"
+
+    # Generate ACL rules JSON from the given CSV
+    generate_acl_rules_from_csv(csv_path, acl_file)
+
+    try:
+        if not os.path.exists(acl_file):
+            raise FileNotFoundError(f"ACL file not found: {acl_file}")
+
+        fanouthost.copy(src=acl_file, dest="/tmp")
+        fanouthost.shell(f"config load -y /tmp/{os.path.basename(acl_file)}")
+
+        if not os.path.exists(csv_path):
+            raise FileNotFoundError(f"CSV file not found: {csv_path}")
+
+        host_con_port = None
+        with open(csv_path, 'r') as file:
+            reader = csv.reader(file)
+            for row in reader:
+                if search_str in row:
+                    host_con_port = next((field for field in row if fetch_port in field), None)
+                    if host_con_port:
+                        logger.info(f"Found interface: {host_con_port}")
+                        fanouthost.shell(f"config acl add table REDIRECT_VLAN L3 -s ingress -p {host_con_port}")
+                        break
+
+        if host_con_port is None:
+            raise ValueError(f"No matching port with '{fetch_port}' found in any row containing '{search_str}'.")
+
+    except FileNotFoundError as e:
+        logger.error(f"[File Error] {e}")
+    except ValueError as e:
+        logger.error(f"[Value Error] {e}")
+    except Exception as e:
+        logger.error(f"[Unexpected Error] {e}", exc_info=True)
 
 
 @pytest.fixture
@@ -247,7 +371,18 @@ def setup(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo):
     for po_member in set(l2_port_channel_members):
         port_channel_members.pop(po_member)
 
-    rif_members = {item["attachto"]: item["attachto"] for item in mg_facts["minigraph_interfaces"]}
+    rif_members_list = [item["attachto"] for item in mg_facts["minigraph_interfaces"]]
+
+    # On some Broadcom platforms, counters on interfaces with 'PT0' in their neighbor's name do not work as expected.
+    # This filters them out to prevent test failures.
+    if duthost.facts["asic_type"] == "broadcom":
+        logger.info("Broadcom platform detected, filtering out RIF members connected to 'PT0' neighbors.")
+        rif_members_list = [
+            port for port in rif_members_list
+            if "PT0" not in mg_facts["minigraph_neighbors"].get(port, {}).get("name", "")
+        ]
+    rif_members = {port: port for port in rif_members_list}
+
     # Compose list of sniff ports
     neighbor_sniff_ports = []
     for dut_port, neigh in list(mg_facts['minigraph_neighbors'].items()):
@@ -527,6 +662,10 @@ def test_equal_smac_dmac_drop(do_test, ptfadapter, setup, fanouthost,
                    ports_info["dst_mac"], pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
     src_mac = ports_info["dst_mac"]
 
+    # Marvell ASIC specific ACL rule injection
+    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+        drop_counter_config(fanouthost)
+
     if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
         src_mac = "00:00:00:00:00:11"
@@ -571,6 +710,10 @@ def test_multicast_smac_drop(do_test, ptfadapter, setup, fanouthost,
 
     log_pkt_params(ports_info["dut_iface"], ports_info["dst_mac"], multicast_smac,
                    pkt_fields["ipv4_dst"], pkt_fields["ipv4_src"])
+
+    # Marvell ASIC specific ACL rule injection
+    if fanouthost.facts["asic_type"] == "marvell-teralynx":
+        drop_counter_config(fanouthost)
 
     if fanouthost.os == 'onyx':
         pytest.SKIP_COUNTERS_FOR_MLNX = True
