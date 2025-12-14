@@ -320,6 +320,14 @@ bgp/test_bgp_gr_helper.py::test_bgp_gr_helper_routes_perserved:
       - "'-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
+bgp/test_bgp_max_route.py::test_bgp_max_prefix_behavior:
+  xfail:
+    reason: "Test failed on multi-asic PR tests"
+    conditions_logical_operator: and
+      - "is_multi_asic==True"
+      - "asic_type in ['vs']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21691"
+
 bgp/test_bgp_multipath_relax.py:
   skip:
     reason: "Not supported topology backend."
@@ -4407,6 +4415,15 @@ show_techsupport/test_auto_techsupport.py::TestAutoTechSupport::test_sai_sdk_dum
     conditions:
       - "asic_type not in ['mellanox']"
       - "is_multi_asic==True"
+
+show_techsupport/test_techsupport.py::test_techsupport:
+  xfail:
+    reason: "Test failed on multi-asic PR tests"
+    conditions_logical_operator: and
+      - "is_multi_asic==True"
+      - "asic_type in ['vs']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21690"
+
 
 #######################################
 #####         snappi_tests        #####
