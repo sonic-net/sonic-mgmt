@@ -174,8 +174,10 @@ drop_packets/test_drop_counters.py::test_multicast_smac_drop[vlan_members]:
   skip:
     reason: "Test case is only suitable for t0 type topology since it requires vlan interfaces"
     strict: True
+    conditions_logical_operator: and
     conditions:
       - "hwsku in ['Cisco-8101-O8C48']"
+      - "topo_type not in ['t0']"
 
 drop_packets/test_drop_counters.py::test_multicast_smac_drop[rif_members]:
   skip:
