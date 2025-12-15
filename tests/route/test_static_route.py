@@ -432,30 +432,28 @@ def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut
                                toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     """
     Test static route persistence and traffic forwarding during warmboot.
-    
     This test validates that:
     1. Static routes are properly configured and traffic is forwarded correctly before warmboot
     2. Static routes persist through warmboot and remain in the routing table
     3. Traffic continues to be forwarded correctly after warmboot completes
     4. Routes are properly advertised to BGP neighbors after warmboot
-    
     Addresses issue: https://github.com/sonic-net/sonic-buildimage/issues/21423
     """
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    
+
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo)
     prefix = "3.3.3.0/24"
-    
+
     # Clean up arp
     clear_arp_ndp(duthost, ipv6=False)
     if is_dual_tor:
         clear_arp_ndp(unselected_duthost, ipv6=False)
-    
+
     # Add ipaddresses in ptf
     add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False)
-    
+
     try:
         # Add static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(
@@ -468,63 +466,63 @@ def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut
                     prefix, ",".join(nexthop_addrs)
                 )
             )
-        
+
         time.sleep(5)
-        
+
         # Verify static route in kernel before warmboot
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
-        
+
         # Verify traffic forwarding before warmboot
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=False)
-        
+
         # Check route is advertised before warmboot
         check_route_redistribution(duthost, prefix, ipv6=False)
-        
+
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-        
+
         # After warmboot, verify routes are still present
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
-        
+
         # Wait for BGP sessions to be established
         wait_all_bgp_up(duthost)
-        
+
         # Refresh ARP entries
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         # Verify traffic forwarding after warmboot
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=False)
-        
+
         # Verify route is still advertised after warmboot
         check_route_redistribution(duthost, prefix, ipv6=False)
-        
+
     finally:
         # Clean up: remove static route
         duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
         if is_dual_tor:
             unselected_duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix),
                                      module_ignore_errors=True)
-        
+
         # Delete ipaddresses in ptf
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False)
-        
+
         # Verify route is removed from BGP advertisements
         time.sleep(5)
         check_route_redistribution(duthost, prefix, ipv6=False, removed=True)
-        
+
         # Save config to persist cleanup
         duthost.shell('config save -y')
-        
+
         # Clean up arp
         clear_arp_ndp(duthost, ipv6=False)
         if is_dual_tor:
@@ -537,7 +535,6 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
                                    toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     """
     Test static route with ECMP persistence and traffic forwarding during warmboot.
-    
     This test validates that:
     1. Static routes with multiple nexthops (ECMP) are properly configured
     2. Traffic is load-balanced across all nexthops before warmboot
@@ -547,18 +544,18 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    
+
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=3)
     prefix = "4.4.4.0/24"
-    
+
     # Clean up arp
     clear_arp_ndp(duthost, ipv6=False)
     if is_dual_tor:
         clear_arp_ndp(unselected_duthost, ipv6=False)
-    
+
     # Add ipaddresses in ptf
     add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False)
-    
+
     try:
         # Add static route with multiple nexthops
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(
@@ -571,50 +568,50 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
                     prefix, ",".join(nexthop_addrs)
                 )
             )
-        
+
         time.sleep(5)
-        
+
         # Verify all nexthops are in kernel routing table
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
-        
+
         # Verify traffic forwarding with ECMP before warmboot
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=False)
-        
+
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-        
+
         # After warmboot, verify all ECMP nexthops are still present
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
-        
+
         # Wait for BGP sessions
         wait_all_bgp_up(duthost)
-        
+
         # Refresh ARP for all nexthops
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         # Verify ECMP traffic forwarding after warmboot
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=False)
-        
+
         # Verify route is advertised
         check_route_redistribution(duthost, prefix, ipv6=False)
-        
+
     finally:
         # Clean up
         duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
         if is_dual_tor:
             unselected_duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix),
                                      module_ignore_errors=True)
-        
+
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False)
         time.sleep(5)
         check_route_redistribution(duthost, prefix, ipv6=False, removed=True)
@@ -630,7 +627,7 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
                                    toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     """
     Test IPv6 static route persistence and traffic forwarding during warmboot.
-    
+
     This test validates that IPv6 static routes:
     1. Are properly configured and traffic is forwarded before warmboot
     2. Persist through warmboot and remain in the routing table
@@ -639,18 +636,18 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    
+
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, ipv6=True)
     prefix = "2000:3::/64"
-    
+
     # Clean up ndp
     clear_arp_ndp(duthost, ipv6=True)
     if is_dual_tor:
         clear_arp_ndp(unselected_duthost, ipv6=True)
-    
+
     # Add ipaddresses in ptf
     add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=True)
-    
+
     try:
         # Add IPv6 static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(
@@ -663,50 +660,50 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
                     prefix, ",".join(nexthop_addrs)
                 )
             )
-        
+
         time.sleep(5)
-        
+
         # Verify static route before warmboot
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=True)
-        
+
         # Verify traffic forwarding before warmboot
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -6 -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=True)
-        
+
         check_route_redistribution(duthost, prefix, ipv6=True)
-        
+
         # Perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-        
+
         # Verify routes persist after warmboot
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=True)
-        
+
         wait_all_bgp_up(duthost)
-        
+
         # Refresh NDP entries
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -6 -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         # Verify traffic forwarding after warmboot
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=True)
-        
+
         check_route_redistribution(duthost, prefix, ipv6=True)
-        
+
     finally:
         # Clean up
         duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
         if is_dual_tor:
             unselected_duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix),
                                      module_ignore_errors=True)
-        
+
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=True)
         time.sleep(5)
         check_route_redistribution(duthost, prefix, ipv6=True, removed=True)
@@ -722,7 +719,6 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
                                                  toggle_all_simulator_ports_to_rand_selected_tor_m, is_route_flow_counter_supported): # noqa F811
     """
     Test static route persistence through config reload with comprehensive traffic validation.
-    
     This test validates that:
     1. Static routes are configured and traffic flows correctly
     2. Routes persist through config reload
@@ -732,18 +728,18 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
     duthost = rand_selected_dut
     unselected_duthost = rand_unselected_dut
     is_dual_tor = 'dualtor' in tbinfo['topo']['name'] and unselected_duthost is not None
-    
+
     prefix_len, nexthop_addrs, nexthop_devs, nexthop_interfaces = get_nexthops(duthost, tbinfo, count=2)
     prefix = "5.5.5.0/24"
-    
+
     # Clean up arp
     clear_arp_ndp(duthost, ipv6=False)
     if is_dual_tor:
         clear_arp_ndp(unselected_duthost, ipv6=False)
-    
+
     # Add ipaddresses in ptf
     add_ipaddr(ptfadapter, ptfhost, nexthop_addrs, prefix_len, nexthop_interfaces, ipv6=False)
-    
+
     try:
         # Configure static route
         duthost.shell("sonic-db-cli CONFIG_DB hmset 'STATIC_ROUTE|{}' nexthop {}".format(
@@ -756,30 +752,30 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
                     prefix, ",".join(nexthop_addrs)
                 )
             )
-        
+
         time.sleep(5)
-        
+
         # Verify initial state
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
-        
+
         ip_dst = str(ipaddress.ip_network(six.text_type(prefix))[1])
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         # Verify traffic before config reload
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=False)
-        
+
         check_route_redistribution(duthost, prefix, ipv6=False)
-        
+
         # Perform config reload
         duthost.shell('config save -y')
         if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
             config_reload(duthost, wait=500)
         else:
             config_reload(duthost, wait=450)
-        
+
         # Handle potential mux state change on dualtor
         if is_dual_tor:
             duthost.shell("config mux mode active all")
@@ -788,41 +784,41 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
                           "Could not config ports to active")
             pytest_assert(wait_until(60, 5, 0, check_mux_status, unselected_duthost, 'standby'),
                           "Could not config ports to standby")
-        
+
         # Verify routes persist after config reload
         check_static_route(duthost, prefix, nexthop_addrs, ipv6=False)
-        
+
         # Wait for BGP convergence
         wait_all_bgp_up(duthost)
-        
+
         # Refresh ARP
         for nexthop_addr in nexthop_addrs:
             duthost.shell("timeout 1 ping -c 1 -w 1 {}".format(nexthop_addr), module_ignore_errors=True)
-        
+
         # Verify traffic after config reload
         with RouteFlowCounterTestContext(is_route_flow_counter_supported,
                                          duthost, [prefix], {prefix: {'packets': COUNT}}):
             generate_and_verify_traffic(duthost, ptfadapter, tbinfo, ip_dst, nexthop_devs, ipv6=False)
-        
+
         check_route_redistribution(duthost, prefix, ipv6=False)
-        
+
     finally:
         # Clean up
         duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix), module_ignore_errors=True)
         if is_dual_tor:
             unselected_duthost.shell("sonic-db-cli CONFIG_DB del 'STATIC_ROUTE|{}'".format(prefix),
                                      module_ignore_errors=True)
-        
+
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=False)
         time.sleep(5)
         check_route_redistribution(duthost, prefix, ipv6=False, removed=True)
         duthost.shell('config save -y')
-        
+
         if is_dual_tor:
             duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config save -y')
-        
+
         clear_arp_ndp(duthost, ipv6=False)
         if is_dual_tor:
             clear_arp_ndp(unselected_duthost, ipv6=False)
