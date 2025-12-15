@@ -1255,12 +1255,17 @@ def get_hw_management_version(duthost):
     full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
     return full_version[len('1.mlnx.'):]
 
-
 def is_pinewave_module(port_info):
     """ Check if the given port info indicates an pinewave module and handle known issues """
-    first_cmd_option_check = 'PINEWAVE' in port_info.get('Vendor Name', '') and 'T-OH8CNT-NMT' in port_info.get('Vendor PN', '')
-    second_cmd_option_check = 'PINEWAVE' in port_info.get('manufacturer', '')
-    return first_cmd_option_check or second_cmd_option_check
+    vendor_name = port_info.get('Vendor Name', '').upper()
+    vendor_pn = port_info.get('Vendor PN', '').upper()
+    manufacturer = port_info.get('manufacturer', '').upper()
+
+    return (
+        ('PINEWAVE' in vendor_name and 'T-OH8CNT-NMT' in vendor_pn) or
+        ('PINEWAVE' in manufacturer)
+    )
+
 
 def is_unsupported_module(port_info, port_number):
     if is_pinewave_module(port_info):
