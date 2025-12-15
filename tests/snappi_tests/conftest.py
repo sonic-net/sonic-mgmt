@@ -120,7 +120,9 @@ def convert_to_rsb(duthosts, duts_minigraph_facts, gcu_mode_enabled):
             return
         node.shell("rm /etc/sonic/running_golden*", module_ignore_errors=True)
         filename = node.fetch(src=minigraph_xml, dest="/tmp")['dest']
-        modify_minigraph(filename, duts_minigraph_facts[node.hostname][0][1])
+        for entry in duts_minigraph_facts[node.hostname]:
+            modify_minigraph(filename, entry[1], rsb_mode)
+
         backup_config_files(node, "full_configs")
         copy_and_load_minigraph_to_dut(node, filename)
         backup_config_files(node, "rsb_configs")
