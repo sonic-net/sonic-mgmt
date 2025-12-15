@@ -94,7 +94,7 @@ def parallel_run(
     # Callback API for wait_procs
     def on_terminate(worker):
         logger.info("process {} terminated with exit code {}".format(
-            worker.name, worker.returncode)
+            worker.name, worker.exitcode)
         )
 
     def force_terminate(workers, init_result):
