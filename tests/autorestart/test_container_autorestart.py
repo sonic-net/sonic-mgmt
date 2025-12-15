@@ -345,10 +345,12 @@ def clear_failed_flag_and_restart(duthost, service_name, container_name):
 
 
 def verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
-                                             program_pid):
+                                             program_pid, expect_autorestart=True):
     """
     @summary: Kill a critical process in a container to verify whether the container
-              is stopped and restarted correctly
+              is stopped and restarted correctly, or remains running without autorestart
+    @param expect_autorestart: Whether to expect the container to autorestart (default True).
+                               Set to False for containers that don't autorestart by design.
     """
     global PROGRAM_STATUS
     pytest_assert(wait_until(40, 3, 0, is_process_running, duthost, container_name, program_name),
@@ -356,26 +358,38 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
                   .format(program_name, container_name, PROGRAM_STATUS))
 
     kill_process_by_pid(duthost, container_name, program_name, program_pid)
-    logger.info("Waiting until container '{}' is stopped...".format(container_name))
-    stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
-                         CONTAINER_CHECK_INTERVAL_SECS,
-                         0,
-                         check_container_state, duthost, container_name, False)
-    pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
-    logger.info("Container '{}' was stopped".format(container_name))
 
-    logger.info("Waiting until container '{}' is restarted...".format(container_name))
-    restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                           CONTAINER_CHECK_INTERVAL_SECS,
-                           0,
-                           check_container_state, duthost, container_name, True)
-    if not restarted:
-        if is_hiting_start_limit(duthost, service_name):
-            clear_failed_flag_and_restart(duthost, service_name, container_name)
-        else:
-            pytest.fail("Failed to restart container '{}'".format(container_name))
+    if expect_autorestart:
+        logger.info("Waiting until container '{}' is stopped...".format(container_name))
+        stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
+                             CONTAINER_CHECK_INTERVAL_SECS,
+                             0,
+                             check_container_state, duthost, container_name, False)
+        pytest_assert(stopped, "Failed to stop container '{}'".format(container_name))
+        logger.info("Container '{}' was stopped".format(container_name))
 
-    logger.info("Container '{}' was restarted".format(container_name))
+        logger.info("Waiting until container '{}' is restarted...".format(container_name))
+        restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                               CONTAINER_CHECK_INTERVAL_SECS,
+                               0,
+                               check_container_state, duthost, container_name, True)
+        if not restarted:
+            if is_hiting_start_limit(duthost, service_name):
+                clear_failed_flag_and_restart(duthost, service_name, container_name)
+            else:
+                pytest.fail("Failed to restart container '{}'".format(container_name))
+
+        logger.info("Container '{}' was restarted".format(container_name))
+    else:
+        # For containers without autorestart: killing critical process should NOT stop the container
+        logger.info("Verifying container '{}' remains running (no autorestart by design)...".format(container_name))
+        stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
+                            CONTAINER_CHECK_INTERVAL_SECS,
+                            0,
+                            check_container_state, duthost, container_name, False)
+        pytest_assert(not stopped,
+                     "Container '{}' stopped unexpectedly after killing process (should remain running)".format(container_name))
+        logger.info("Container '{}' remained running as expected (no autorestart triggered)".format(container_name))
 
 
 def verify_no_autorestart_with_non_critical_process(duthost, container_name, program_name,
@@ -494,7 +508,6 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     disabled_containers = get_disabled_container_list(duthost)
 
     skip_condition = disabled_containers[:]
-    skip_condition.append("database")
     skip_condition.append("acms")
     if tbinfo["topo"]["type"] != "t0":
         skip_condition.append("radv")
@@ -504,7 +517,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     # bgp0 -> bgp, bgp -> bgp, p4rt -> p4rt
     feature_name = ''.join(re.match(CONTAINER_NAME_REGEX, container_name).groups()[:-1])
 
-    # Skip testing the database container, radv container on T1 devices and containers/services which are disabled
+    # Skip testing radv container on T1 devices and containers/services which are disabled
     pytest_require(feature_name not in skip_condition,
                    "Skipping test for container {}".format(feature_name))
 
@@ -525,30 +538,52 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
     critical_group_list, critical_process_list, succeeded = duthost.get_critical_group_and_process_lists(container_name)
     pytest_assert(succeeded, "Failed to get critical group and process lists of container '{}'".format(container_name))
 
-    for critical_process in critical_process_list:
-        # Skip 'dsserve' process since it was not managed by supervisord
-        # TODO: Should remove the following two lines once the issue was solved in the image.
-        if feature_name == "syncd" and critical_process == "dsserve":
-            continue
-        _, program_pid = get_program_info(duthost, container_name, critical_process)
-        verify_autorestart_with_critical_process(duthost, container_name, service_name, critical_process,
-                                                 program_pid)
-        # Sleep 20 seconds in order to let the processes come into live after container is restarted.
-        # We will uncomment the following line once the "extended" mode is added
-        # time.sleep(20)
-        # We are currently only testing one critical process, that is why we use 'break'. Once
-        # we add the "extended" mode, we will remove this statement
-        break
+    # Some containers do not autorestart by design, regardless of autorestart config
+    expect_autorestart = (feature_name != "database")
 
-    for critical_group in critical_group_list:
-        group_program_info = get_group_program_info(duthost, container_name, critical_group)
-        for program_name in group_program_info:
-            verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
-                                                     group_program_info[program_name][1])
-            # We are currently only testing one critical program for each critical group, which is
-            # why we use 'break' statement. Once we add the "extended" mode, we will remove this
-            # statement
+    try:
+        for critical_process in critical_process_list:
+            # Skip 'dsserve' process since it was not managed by supervisord
+            # TODO: Should remove the following two lines once the issue was solved in the image.
+            if feature_name == "syncd" and critical_process == "dsserve":
+                continue
+            _, program_pid = get_program_info(duthost, container_name, critical_process)
+            verify_autorestart_with_critical_process(duthost, container_name, service_name, critical_process,
+                                                     program_pid, expect_autorestart)
+            # Sleep 20 seconds in order to let the processes come into live after container is restarted.
+            # We will uncomment the following line once the "extended" mode is added
+            # time.sleep(20)
+            # We are currently only testing one critical process, that is why we use 'break'. Once
+            # we add the "extended" mode, we will remove this statement
             break
+
+        for critical_group in critical_group_list:
+            group_program_info = get_group_program_info(duthost, container_name, critical_group)
+            for program_name in group_program_info:
+                verify_autorestart_with_critical_process(duthost, container_name, service_name, program_name,
+                                                         group_program_info[program_name][1], expect_autorestart)
+                # We are currently only testing one critical program for each critical group, which is
+                # why we use 'break' statement. Once we add the "extended" mode, we will remove this
+                # statement
+                break
+    finally:
+        # For database container, manually restart and perform config reload to ensure proper recovery
+        if feature_name == "database":
+            logger.info("Manually restarting container '{}' to recover...".format(container_name))
+            duthost.shell("sudo systemctl restart {}.service".format(service_name))
+            restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
+                                  CONTAINER_CHECK_INTERVAL_SECS,
+                                  0,
+                                  check_container_state, duthost, container_name, True)
+            pytest_assert(restarted, "Failed to manually restart container '{}'".format(container_name))
+            logger.info("Container '{}' was manually restarted successfully".format(container_name))
+
+            # Perform config reload to restore system state (e.g., BGP sessions)
+            logger.info("Performing config reload to restore system state...")
+            config_reload(duthost, config_source='config_db', safe_reload=True)
+
+            # Re-enable autorestart after config reload
+            enable_autorestart(duthost)
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
