@@ -37,6 +37,8 @@ from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_ses
 from tests.common.fixtures.ptfhost_utils import ptf_portmap_file                            # noqa: F401
 from tests.common.fixtures.ptfhost_utils import ptf_test_port_map_active_active             # noqa: F401
 from tests.common.fixtures.ptfhost_utils import run_icmp_responder_session                  # noqa: F401
+from tests.common.fixtures.grpc_fixtures import ptf_grpc, ptf_gnoi, ptf_grpc_custom, \
+    setup_gnoi_tls_server, ptf_gnmi                                                          # noqa: F401
 from tests.common.dualtor.dual_tor_utils import disable_timed_oscillation_active_standby    # noqa: F401
 from tests.common.dualtor.dual_tor_utils import config_active_active_dualtor
 from tests.common.dualtor.dual_tor_common import active_active_ports                        # noqa: F401

@@ -6,6 +6,7 @@ from tests.common.helpers.dut_utils import patch_rsyslog
 from tests.common.reboot import REBOOT_TYPE_COLD
 from tests.common.helpers.upgrade_helpers import install_sonic, upgrade_test_helper, add_pfc_storm_table
 from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from upgrade_strategies import create_upgrade_strategy
 from tests.common.fixtures.advanced_reboot import get_advanced_reboot                                   # noqa F401
 from tests.common.fixtures.duthost_utils import backup_and_restore_config_db                            # noqa F401
 from tests.common.fixtures.consistency_checker.consistency_checker import consistency_checker_provider  # noqa F401
@@ -39,6 +40,42 @@ def skip_cancelled_case(request, upgrade_type_params):
     if "test_cancelled_upgrade_path" in request.node.name and \
             upgrade_type_params not in ["warm", "fast"]:
         pytest.skip("Cancelled upgrade path test supported only for fast and warm reboot types.")
+
+
+@pytest.fixture(scope="module")
+def upgrade_strategy_fixture(request, ptfhost):
+    """
+    Pytest fixture to create upgrade strategy based on command-line option.
+
+    Args:
+        request: Pytest request object for accessing command-line options
+        ptfhost: PTF host fixture for gNOI-based strategies
+
+    Returns:
+        UpgradeStrategy instance
+    """
+    strategy_type = request.config.getoption('upgrade_strategy', default='script')
+
+    if strategy_type == 'script':
+        return create_upgrade_strategy('script')
+    elif strategy_type == 'gnoi':
+        # Import ptf_gnoi here to avoid circular dependency
+        from tests.common.ptf_gnoi import PtfGnoi
+        ptf_gnoi = PtfGnoi(ptfhost)
+        return create_upgrade_strategy('gnoi', ptf_gnoi)
+    else:
+        raise ValueError(f"Unknown upgrade strategy '{strategy_type}'. Valid options: script, gnoi")
+
+
+def pytest_addoption(parser):
+    """Add command line option for upgrade strategy selection."""
+    parser.addoption(
+        "--upgrade_strategy",
+        action="store",
+        default="script",
+        choices=["script", "gnoi"],
+        help="Strategy to use for firmware upgrade process: script (default) or gnoi"
+    )
 
 
 def pytest_generate_tests(metafunc):
@@ -93,7 +130,7 @@ def pytest_generate_tests(metafunc):
 
 def setup_upgrade_test(duthost, localhost, from_image, to_image,
                        tbinfo, metadata_process, upgrade_type,
-                       modify_reboot_script=None, allow_fail=False):
+                       modify_reboot_script=None, allow_fail=False, upgrade_strategy=None):
     """Sets up the test environment for an A->B upgrade test."""
     logger.info("Test upgrade path from {} to {} on {}".format(from_image, to_image, duthost.hostname))
 
@@ -105,7 +142,9 @@ def setup_upgrade_test(duthost, localhost, from_image, to_image,
     # Install target image
     logger.info("Upgrading {} to {}".format(duthost.hostname, to_image))
     if metadata_process:
-        sonic_update_firmware(duthost, localhost, to_image, upgrade_type)
+        if upgrade_strategy is None:
+            raise ValueError("upgrade_strategy is required when metadata_process=True")
+        sonic_update_firmware(duthost, localhost, to_image, upgrade_type, upgrade_strategy)
     else:
         install_sonic(duthost, to_image, tbinfo)
 
@@ -121,7 +160,7 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
                                 upgrade_path_lists, skip_cancelled_case, tbinfo, request,
                                 get_advanced_reboot, advanceboot_loganalyzer,  # noqa: F811
                                 add_fail_step_to_reboot, verify_dut_health,    # noqa: F811
-                                consistency_checker_provider):                 # noqa: F811
+                                consistency_checker_provider, upgrade_strategy_fixture):  # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, _ = upgrade_path_lists
     modify_reboot_script = add_fail_step_to_reboot
@@ -130,7 +169,8 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
-                           metadata_process, upgrade_type, modify_reboot_script=modify_reboot_script, allow_fail=True)
+                           metadata_process, upgrade_type, modify_reboot_script=modify_reboot_script,
+                           allow_fail=True, upgrade_strategy=upgrade_strategy_fixture)
 
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
@@ -149,7 +189,7 @@ def test_cancelled_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfh
 def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                       upgrade_path_lists, tbinfo, request, get_advanced_reboot,  # noqa: F811
                       advanceboot_loganalyzer, verify_dut_health,                # noqa: F811
-                      consistency_checker_provider):                             # noqa: F811
+                      consistency_checker_provider, upgrade_strategy_fixture):   # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -157,7 +197,7 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
-                           metadata_process, upgrade_type)
+                           metadata_process, upgrade_type, upgrade_strategy=upgrade_strategy_fixture)
 
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
@@ -174,7 +214,8 @@ def test_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
 
 
 def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
-                         tbinfo, request, verify_testbed_health):            # noqa: F811
+                         tbinfo, request, verify_testbed_health,             # noqa: F811
+                         upgrade_strategy_fixture):
     _, from_image, to_image, _, _ = upgrade_path_lists
     # Only cold reboot is supported for T2
     upgrade_type = REBOOT_TYPE_COLD
@@ -188,7 +229,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
 
     def upgrade_path_preboot_setup(dut):
         setup_upgrade_test(dut, localhost, from_image, to_image, tbinfo,
-                           metadata_process, upgrade_type)
+                           metadata_process, upgrade_type, upgrade_strategy=upgrade_strategy_fixture)
 
     def upgrade_path_postboot_setup(dut):
         run_postupgrade_actions(dut, localhost, tbinfo, metadata_process, skip_postupgrade_actions)
@@ -220,7 +261,7 @@ def test_upgrade_path_t2(localhost, duthosts, ptfhost, upgrade_path_lists,
 def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost,
                              upgrade_path_lists, tbinfo, request, get_advanced_reboot,  # noqa: F811
                              advanceboot_loganalyzer, verify_dut_health,                # noqa: F811
-                             consistency_checker_provider):                             # noqa: F811
+                             consistency_checker_provider, upgrade_strategy_fixture):   # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -228,7 +269,7 @@ def test_double_upgrade_path(localhost, duthosts, rand_one_dut_hostname, ptfhost
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
-                           metadata_process, upgrade_type)
+                           metadata_process, upgrade_type, upgrade_strategy=upgrade_strategy_fixture)
 
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,
@@ -248,7 +289,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
                                upgrade_path_lists, tbinfo, request, get_advanced_reboot,                   # noqa: F811
                                advanceboot_loganalyzer, verify_dut_health, nbrhosts, fanouthosts, vmhost,  # noqa: F811
                                backup_and_restore_config_db, consistency_checker_provider,                 # noqa: F811
-                               advanceboot_neighbor_restore, sad_case_type):                               # noqa: F811
+                               advanceboot_neighbor_restore, sad_case_type, upgrade_strategy_fixture):     # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
     upgrade_type, from_image, to_image, _, enable_cpa = upgrade_path_lists
     metadata_process = request.config.getoption('metadata_process')
@@ -258,7 +299,7 @@ def test_warm_upgrade_sad_path(localhost, duthosts, rand_one_dut_hostname, ptfho
 
     def upgrade_path_preboot_setup():
         setup_upgrade_test(duthost, localhost, from_image, to_image, tbinfo,
-                           metadata_process, upgrade_type)
+                           metadata_process, upgrade_type, upgrade_strategy=upgrade_strategy_fixture)
 
     def upgrade_path_postboot_setup():
         run_postupgrade_actions(duthost, localhost, tbinfo, metadata_process, skip_postupgrade_actions,

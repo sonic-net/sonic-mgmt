@@ -140,7 +140,7 @@ def cleanup_prev_images(duthost):
     duthost.shell("sonic_installer cleanup -y", module_ignore_errors=True)
 
 
-def sonic_update_firmware(duthost, localhost, image_url, upgrade_type):
+def sonic_update_firmware(duthost, localhost, image_url, upgrade_type, upgrade_strategy):
     base_path = os.path.dirname(__file__)
     metadata_scripts_path = os.path.join(base_path, "../../../sonic-metadata/scripts")
     pytest_assert(os.path.exists(metadata_scripts_path),
@@ -157,16 +157,16 @@ def sonic_update_firmware(duthost, localhost, image_url, upgrade_type):
     logger.info("perform a purge based on manifest.json to make sure it is correct")
     duthost.command("python /tmp/anpscripts/tests/purge.py")
 
-    logger.info("Step 2 Copy the image to /tmp/")
+    logger.info("Step 2 Download firmware image")
     image_name = image_url.split("/")[-1]
     image_path = "/tmp/" + image_name
     duthost.command("curl -o {} {}".format(image_path, image_url))
     out = duthost.command("md5sum {}".format(image_path))
     md5sum = out['stdout'].split()
 
-    duthost.command("chmod +x /tmp/anpscripts/preload_firmware")
-    logger.info("execute preload_firmware {} {} {}".format(image_name, image_url, md5sum[0]))
-    duthost.command("/usr/bin/sudo /tmp/anpscripts/preload_firmware {} {} {}".format(image_name, image_url, md5sum[0]))
+    # Use upgrade strategy for firmware preloading
+    logger.info("Using upgrade strategy: {}".format(upgrade_strategy.get_strategy_name()))
+    upgrade_strategy.preload_firmware(duthost, localhost, image_url, image_name, md5sum[0])
 
     out = duthost.command("sonic_installer binary_version {}".format(image_path))
 
