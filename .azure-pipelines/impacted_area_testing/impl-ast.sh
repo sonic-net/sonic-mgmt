@@ -28,8 +28,13 @@ SOURCE_BRANCH=$(git rev-parse HEAD)
 echo "SOURCE_BRANCH: $SOURCE_BRANCH"
 echo "TARGET_BRANCH: $TARGET_BRANCH"
 
-CHANGED_FILES=$(git diff --name-only $TARGET_BRANCH | tr '\n' ' ')
-echo "Changed files:"
+# Get merge base to handle both direct branch comparison and PR merge commits
+MERGE_BASE=$(git merge-base HEAD $TARGET_BRANCH)
+echo "MERGE_BASE: $MERGE_BASE"
+
+# Compare HEAD against merge base to get only changes introduced by this branch/PR
+CHANGED_FILES=$(git diff --name-only $MERGE_BASE HEAD | tr '\n' ' ')
+echo "Changed files (from merge-base):"
 echo "$CHANGED_FILES"
 
 if [ -z "$CHANGED_FILES" ]; then
