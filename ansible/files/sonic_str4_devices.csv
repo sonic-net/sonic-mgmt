@@ -47,6 +47,8 @@ str4-sn5640-5,10.64.246.162/23,Mellanox-SN5640-C448O16,DevSonic,,sonic
 str4-sn5640-fan-5,10.64.246.163/23,Mellanox-SN5640-C448O16,FanoutLeafSonic,,sonic
 str4-sn5640-7,10.64.246.184/23,Mellanox-SN5640-C512S2,DevSonic,,sonic
 str4-sn5640-fan-7,10.64.246.167/23,Mellanox-SN5640-C512S2,FanoutLeafSonic,,sonic
+str4-7060x6-512-7,10.64.246.205/23,Arista-7060X6-64PE-B-C448O16,DevSonic,,sonic
+str4-7060x6-512-fan-7,10.64.246.206/23,Arista-7060X6-64PE-B-C448O16,FanoutLeafSonic,,sonic
 str4-8122-fanout-03,10.64.247.96/23,Cisco-8122-O128,FanoutLeafSonic,,sonic
 str4-8122-04,10.64.247.97/23,Cisco-8122-O128,DevSonic,,sonic
 str4-7060x6-512-1,10.64.247.151/23,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
