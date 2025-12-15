@@ -370,9 +370,10 @@ validators:
       - str4-7060x6-512-4         # conflicts with str4-sn5600-4
       - str3-7808-sup-1           # conflicts with STR43-7060x6-512-C17-U08
       - str3-7808-sup-1           # conflicts with STR43-7060x6-512-C17-U10
-      - bjw3-can-7215a1d-leaf-1   # conflicts with bjw3-can-7215a1d-leaf-2
-      - bjw3-can-7215a1d-1        # conflicts with bjw3-can-7215a1d-leaf-2
+      - bjw3-can-7215a1d-1        # expected with direct
       - bjw3-can-7215a1d-2        # conflicts with bjw3-can-7215a1d-leaf-2
+      - bjw3-can-7215a1d-3        # conflicts with bjw3-can-7215a1d-leaf-2
+      - bjw3-can-7215a1d-4        # conflicts with bjw3-can-7215a1d-leaf-2
       - str2-7260cx3-d10-u42      # conflicts with str2-7260cx3-d10-u42
       # Exclude smartswitch devices because DPUs share the same PDU IP as the NPU
       - .*-dpu-.*                 # SmartSwitch DPUs. The all share the same IP as the NPU
