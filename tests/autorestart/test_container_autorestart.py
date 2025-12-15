@@ -384,11 +384,12 @@ def verify_autorestart_with_critical_process(duthost, container_name, service_na
         # For containers without autorestart: killing critical process should NOT stop the container
         logger.info("Verifying container '{}' remains running (no autorestart by design)...".format(container_name))
         stopped = wait_until(CONTAINER_STOP_THRESHOLD_SECS,
-                            CONTAINER_CHECK_INTERVAL_SECS,
-                            0,
-                            check_container_state, duthost, container_name, False)
+                             CONTAINER_CHECK_INTERVAL_SECS,
+                             0,
+                             check_container_state, duthost, container_name, False)
         pytest_assert(not stopped,
-                     "Container '{}' stopped unexpectedly after killing process (should remain running)".format(container_name))
+                      "Container '{}' stopped unexpectedly after killing process "
+                      "(should remain running)".format(container_name))
         logger.info("Container '{}' remained running as expected (no autorestart triggered)".format(container_name))
 
 
@@ -572,9 +573,9 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             logger.info("Manually restarting container '{}' to recover...".format(container_name))
             duthost.shell("sudo systemctl restart {}.service".format(service_name))
             restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                                  CONTAINER_CHECK_INTERVAL_SECS,
-                                  0,
-                                  check_container_state, duthost, container_name, True)
+                                   CONTAINER_CHECK_INTERVAL_SECS,
+                                   0,
+                                   check_container_state, duthost, container_name, True)
             pytest_assert(restarted, "Failed to manually restart container '{}'".format(container_name))
             logger.info("Container '{}' was manually restarted successfully".format(container_name))
 
