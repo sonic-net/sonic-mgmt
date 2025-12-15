@@ -46,6 +46,8 @@ all:
           - m1-44
           - m1-108
           - m1-128
+          - c0
+          - c0-lo
           - dualtor-mixed
           - dualtor-mixed-56
           - dualtor-mixed-120
