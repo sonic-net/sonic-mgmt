@@ -1255,6 +1255,7 @@ def get_hw_management_version(duthost):
     full_version = duthost.shell('dpkg-query --showformat=\'${Version}\' --show hw-management')['stdout']
     return full_version[len('1.mlnx.'):]
 
+
 def is_pinewave_module(port_info):
     """ Check if the given port info indicates an pinewave module and handle known issues """
     vendor_name = port_info.get('Vendor Name', '').upper()
