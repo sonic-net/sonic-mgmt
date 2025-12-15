@@ -1,0 +1,5 @@
+StartDevice,StartPort,EndDevice,EndPort,BaudRate,FlowControl
+console-2,1,str-7260-10,1,9600,0
+console-2,2,str-7260-10,2,9600,0
+console-2,3,str-7260-10,3,9600,0
+console-2,4,str-7260-10,4,9600,0
