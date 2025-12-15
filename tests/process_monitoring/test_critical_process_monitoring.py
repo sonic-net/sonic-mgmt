@@ -524,15 +524,12 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     """Gets the list of containers to skip for testing.
-    
     Note: Database container is no longer skipped to ensure complete coverage
     of critical process monitoring.
-    
     Args:
         duthost: Hostname of DUT.
         tbinfo: Testbed information.
         skip_vendor_specific_container: List of vendor-specific containers to skip.
-    
     Returns:
         A list of container names to skip.
     """
