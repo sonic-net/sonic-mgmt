@@ -1,0 +1,140 @@
+topology:
+  console_interfaces:
+    - 1.9600.0
+    - 2.9600.0
+    - 3.9600.0
+    - 4.9600.0
+    - 5.9600.0
+    - 6.9600.0
+    - 7.9600.0
+    - 8.9600.0
+    - 9.9600.0
+    - 10.9600.0
+    - 11.9600.0
+    - 12.9600.0
+    - 13.9600.0
+    - 14.9600.0
+    - 15.9600.0
+    - 16.9600.0
+    - 17.9600.0
+    - 18.9600.0
+    - 19.9600.0
+    - 20.9600.0
+    - 21.9600.0
+    - 22.9600.0
+    - 23.9600.0
+    - 24.9600.0
+    - 25.9600.0
+    - 26.9600.0
+    - 27.9600.0
+    - 28.9600.0
+    - 29.9600.0
+    - 30.9600.0
+    - 31.9600.0
+    - 32.9600.0
+    - 33.9600.0
+    - 34.9600.0
+    - 35.9600.0
+    - 36.9600.0
+    - 37.9600.0
+    - 38.9600.0
+    - 39.9600.0
+    - 40.9600.0
+    - 41.9600.0
+    - 42.9600.0
+    - 43.9600.0
+    - 44.9600.0
+    - 45.9600.0
+    - 46.9600.0
+    - 47.9600.0
+    - 48.9600.0
+  VMs:
+    ARISTA01C1:
+      vlans:
+        - 0
+      vm_offset: 0
+    ARISTA01M0:
+      vlans:
+        - 1
+      vm_offset: 1
+    ARISTA01M1:
+      vlans:
+        - 2
+      vm_offset: 2
+
+configuration_properties:
+  common:
+    dut_asn: 65100
+    dut_type: MiniTs
+    nhipv4: 10.10.246.254
+    nhipv6: FC0A::FF
+  m1:
+    swrole: m1
+  m0:
+    swrole: m0
+  c1:
+    swrole: c1
+
+configuration:
+  ARISTA01C1:
+    properties:
+    - common
+    - c1
+    bgp:
+      asn: 65200
+      peers:
+        65100:
+        - 10.0.0.0
+        - FC00::1
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.1/32
+        ipv6: 2064:100::1/128
+      Ethernet1:
+        ipv4: 10.0.0.1/31
+        ipv6: fc00::2/126
+    bp_interface:
+      ipv4: 10.10.246.1/24
+      ipv6: fc0a::1/64
+
+  ARISTA01M0:
+    properties:
+    - common
+    - m0
+    bgp:
+      asn: 64800
+      peers:
+        65100:
+        - 10.0.0.2
+        - FC00::5
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.2/32
+        ipv6: 2064:100::2/128
+      Ethernet1:
+        ipv4: 10.0.0.3/31
+        ipv6: fc00::6/126
+    bp_interface:
+      ipv4: 10.10.246.2/24
+      ipv6: fc0a::2/64
+
+  ARISTA01M1:
+    properties:
+    - common
+    - m1
+    bgp:
+      asn: 64900
+      peers:
+        65100:
+        - 10.0.0.4
+        - FC00::9
+    interfaces:
+      Loopback0:
+        ipv4: 100.1.0.3/32
+        ipv6: 2064:100::3/128
+      Ethernet1:
+        ipv4: 10.0.0.5/31
+        ipv6: fc00::a/126
+    bp_interface:
+      ipv4: 10.10.246.3/24
+      ipv6: fc0a::3/64
