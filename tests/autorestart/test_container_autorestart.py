@@ -581,7 +581,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
             # Perform config reload to restore system state (e.g., BGP sessions)
             logger.info("Performing config reload to restore system state...")
-            config_reload(duthost, config_source='config_db', safe_reload=True)
+            config_reload(duthost, config_source='config_db', safe_reload=True, wait_before_force_reload=600)
 
             # Re-enable autorestart after config reload
             enable_autorestart(duthost)
