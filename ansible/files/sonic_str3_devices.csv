@@ -178,3 +178,8 @@ str3-t0-8101-fanout-01,10.3.147.206/24,32x400Gb,FanoutLeafSonic,,sonic
 str3-t0-8102-smartswitch-02,10.3.147.210/24,Cisco-8102-28FH-DPU-C28,DevSonic,,sonic
 str3-t0-8101-fanout-02,10.3.147.208/24,32x400Gb,FanoutLeafSonic,,sonic
 str3-d03u28-8101-01,10.64.246.196/23,Cisco-8101-32FH-O,DevSonic,,sonic
+str43-0101-0400-05c0,10.3.150.231,Cisco,ConsoleServer,ssh,
+str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
+str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
+str43-0101-0400-08c0,10.3.150.33,Cisco,ConsoleServer,ssh,
+str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,
