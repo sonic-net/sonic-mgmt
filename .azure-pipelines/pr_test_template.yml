@@ -41,7 +41,7 @@ parameters:
 # 0 = All PRs use legacy (safe default), 100 = All PRs use AST (full rollout)
 - name: AST_ROLLOUT_PERCENTAGE
   type: number
-  default: 85  # Start at 0%, gradually increase (10, 25, 50, 75, 100)
+  default: 0  # Start at 0%, gradually increase (10, 25, 50, 75, 100)
 
 
 jobs:
