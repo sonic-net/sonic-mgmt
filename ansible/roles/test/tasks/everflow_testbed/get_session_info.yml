@@ -26,5 +26,5 @@
 
 - name: Initialize session prefixes.
   set_fact:
-    session_prefix_1: "{{ addr_1|ipaddr('network') }}/{{ addr_1|ipaddr('prefix') }}"
-    session_prefix_2: "{{ addr_2|ipaddr('network') }}/{{ addr_2|ipaddr('prefix') }}"
+    session_prefix_1: "{{ addr_1|ansible.utils.ipaddr('network') }}/{{ addr_1|ansible.utils.ipaddr('prefix') }}"
+    session_prefix_2: "{{ addr_2|ansible.utils.ipaddr('network') }}/{{ addr_2|ansible.utils.ipaddr('prefix') }}"

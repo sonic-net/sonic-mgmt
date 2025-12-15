@@ -922,6 +922,9 @@ def port_to_test(request, duthost):
         PORT_TO_TEST = None
     if not PORT_TO_TEST:
         # The NVIDIA SPC1 platform requires a 4 lanes port for testing to avoid exceeding the maximum available headroom
+        exclude_ports_with_autogeg_enable(duthost, testPort)
+        if not testPort:
+            pytest.skip("No available port to test")
         if duthost.facts['asic_type'].lower() == 'mellanox' and 'sn2' in duthost.facts['hwsku'].lower():
             for port in list(testPort):
                 if duthost.count_portlanes(port) >= 4:
@@ -2661,6 +2664,30 @@ def _recovery_to_dynamic_buffer_model(duthost):
     config_reload(duthost, config_source='config_db')
 
 
+def _is_pfc_enabled_on_port(config_facts, intf):
+    """
+    Checks if Priority Flow Control (PFC) is enabled on a specific interface.
+    Args:
+        config_facts (dict): Configuration facts of the DUT.
+        intf (str): Interface name.
+    Returns:
+        bool: True if PFC is enabled on the specified interface, False otherwise.
+    """
+    if "PORT_QOS_MAP" not in list(config_facts.keys()):
+        return False
+
+    port_qos_map = config_facts["PORT_QOS_MAP"]
+    if len(list(port_qos_map.keys())) == 0:
+        return False
+    if intf not in port_qos_map:
+        return False
+    pfc_enable = port_qos_map[intf].get('pfc_enable')
+    if pfc_enable:
+        return True
+
+    return False
+
+
 def test_buffer_model_test(duthosts, rand_one_dut_hostname, conn_graph_facts, skip_traditional_model):  # noqa: F811
     """Verify whether the buffer model is expected after configuration operations:
     The following items are verified
@@ -2961,6 +2988,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
     profiles_checked = {}
     lossless_pool_oid = None
     admin_up_ports = set()
+    config_facts = duthost.config_facts(host=duthost.hostname, asic_index=0, source="running")['ansible_facts']
     for port in configdb_ports:
         logging.info("Checking port buffer information: {}".format(port))
         port_config = dut_db_info.get_port_info_from_config_db(port)
@@ -2973,6 +3001,7 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
             key_name = KEY_4_LOSSLESS_QUEUE
         else:
             key_name = KEY_2_LOSSLESS_QUEUE
+
         # The last item in the check list various according to port's admin state.
         # We need to append it according to the port each time. Pop the last item first
         if port_config.get('admin_status') == 'up':
@@ -2983,8 +3012,11 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                     [('BUFFER_PG_TABLE', '2-4', profile_wrapper.format(expected_profile)),
                      ('BUFFER_PG_TABLE', '6', profile_wrapper.format(expected_profile))])
             else:
-                buffer_items_to_check.append(
-                    ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+                if _is_pfc_enabled_on_port(config_facts, port):
+                    buffer_items_to_check.append(
+                        ('BUFFER_PG_TABLE', '3-4', profile_wrapper.format(expected_profile)))
+                else:
+                    logging.info(f"Lossless config does not apply on port {port}")
         else:
             if is_mellanox_device(duthost):
                 buffer_items_to_check = buffer_items_to_check_dict["down"][key_name]
@@ -3323,3 +3355,17 @@ def mellanox_calculate_headroom_data(duthost, port_to_test):
     head_room_data['xon'] = int(xon_value)
     head_room_data['xoff'] = int(xoff_value)
     return True, head_room_data
+
+
+def exclude_ports_with_autogeg_enable(duthost, test_ports):
+    """
+    This function is used to exclude the port with auto-negotiation enabled
+    """
+    logging.info(f"Test ports with auto-negotiation enabled: {test_ports}")
+
+    autoneg_status_list = duthost.show_and_parse("show int autoneg status")
+    for autoneg_status in autoneg_status_list:
+        if autoneg_status.get('auto-neg mode') == 'enabled' and autoneg_status.get('interface') in test_ports:
+            test_ports.remove(autoneg_status.get('interface'))
+
+    logging.info(f"Test ports without auto-negotiation enabled: {test_ports}")

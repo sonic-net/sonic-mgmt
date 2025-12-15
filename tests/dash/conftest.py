@@ -9,12 +9,15 @@ from constants import ENI, VM_VNI, VNET1_VNI, VNET2_VNI, REMOTE_CA_IP, LOCAL_CA_
     LOCAL_ENI_MAC, REMOTE_CA_PREFIX, LOOPBACK_IP, DUT_MAC, LOCAL_PA_IP, LOCAL_PTF_INTF, LOCAL_PTF_MAC, \
     REMOTE_PA_IP, REMOTE_PTF_INTF, REMOTE_PTF_MAC, REMOTE_PA_PREFIX, VNET1_NAME, VNET2_NAME, ROUTING_ACTION, \
     ROUTING_ACTION_TYPE, LOOKUP_OVERLAY_IP, ACL_GROUP, ACL_STAGE, LOCAL_DUT_INTF, REMOTE_DUT_INTF, \
-    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK
+    REMOTE_PTF_SEND_INTF, REMOTE_PTF_RECV_INTF, LOCAL_REGION_ID, VXLAN_UDP_BASE_SRC_PORT, VXLAN_UDP_SRC_PORT_MASK, \
+    NPU_DATAPLANE_IP, NPU_DATAPLANE_MAC, NPU_DATAPLANE_PORT, DPU_DATAPLANE_IP, DPU_DATAPLANE_MAC, DPU_DATAPLANE_PORT
 from dash_utils import render_template_to_host, apply_swssconfig_file
 from gnmi_utils import generate_gnmi_cert, apply_gnmi_cert, recover_gnmi_cert, apply_gnmi_file
 from dash_acl import AclGroup, DEFAULT_ACL_GROUP, WAIT_AFTER_CONFIG, DefaultAclRule
-from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost # noqa F401
+from tests.common.helpers.smartswitch_util import correlate_dpu_info_with_dpuhost, get_data_port_on_dpu, get_dpu_dataplane_port # noqa F401
 from tests.common import config_reload
+import configs.privatelink_config as pl
+from tests.common.helpers.assertions import pytest_require as pt_require
 
 logger = logging.getLogger(__name__)
 
@@ -138,7 +141,7 @@ def use_underlay_route(request):
 
 
 @pytest.fixture(scope="module")
-def dash_pl_config(duthost, config_facts, minigraph_facts):
+def dash_pl_config(duthost, dpuhosts, dpu_index, config_facts, minigraph_facts):
     dash_info = {
         DUT_MAC: config_facts["DEVICE_METADATA"]["localhost"]["mac"],
         LOCAL_CA_IP: "10.2.2.2",
@@ -162,6 +165,14 @@ def dash_pl_config(duthost, config_facts, minigraph_facts):
 
             if REMOTE_PTF_INTF in dash_info and LOCAL_PTF_INTF in dash_info:
                 break
+    dpuhost = dpuhosts[dpu_index]
+    dash_info[DPU_DATAPLANE_PORT] = dpuhost.dpu_dataplane_port
+    dash_info[DPU_DATAPLANE_IP] = dpuhost.dpu_data_port_ip
+    dash_info[DPU_DATAPLANE_MAC] = dpuhost.dpu_dataplane_mac
+
+    dash_info[NPU_DATAPLANE_PORT] = dpuhost.npu_dataplane_port
+    dash_info[NPU_DATAPLANE_IP] = dpuhost.npu_data_port_ip
+    dash_info[NPU_DATAPLANE_MAC] = dpuhost.npu_dataplane_mac
 
     return dash_info
 
@@ -429,7 +440,7 @@ def vxlan_udp_dport(request, duthost):
     config_vxlan_udp_dport(duthost, 4789)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
     """
     Configure VXLAN UDP source port range in dpu configuration.
@@ -446,12 +457,16 @@ def set_vxlan_udp_sport_range(dpuhosts, dpu_index):
         }
     ]
 
+    logger.info(f"Setting VXLAN source port config: {vxlan_sport_config}")
     config_path = "/tmp/vxlan_sport_config.json"
     dpuhost.copy(content=json.dumps(vxlan_sport_config, indent=4), dest=config_path, verbose=False)
     apply_swssconfig_file(dpuhost, config_path)
+    if 'pensando' in dpuhost.facts['asic_type']:
+        logger.warning("Applying Pensando DPU VXLAN sport workaround")
+        dpuhost.shell("pdsctl debug update device --vxlan-port 4789 --vxlan-src-ports 5120-5247")
     yield
     if str(VXLAN_UDP_BASE_SRC_PORT) in dpuhost.shell("redis-cli -n 0 hget SWITCH_TABLE:switch vxlan_sport")['stdout']:
-        config_reload(dpuhost, safe_reload=True)
+        config_reload(dpuhost, safe_reload=True, yang_validate=False)
 
 
 @pytest.fixture(scope="function")
@@ -478,3 +493,72 @@ def acl_default_rule(localhost, duthost, ptfhost, dash_config_info):
 @pytest.fixture(scope="module")
 def dpu_index(request):
     return request.config.getoption("--dpu_index")
+
+
+@pytest.fixture(scope="module", params=[True, False], ids=["single-endpoint", "multi-endpoint"])
+def single_endpoint(request):
+    return request.param
+
+
+@pytest.fixture
+def dpu_setup(duthost, dpuhosts, dpu_index, skip_config):
+    if skip_config:
+
+        return
+    dpuhost = dpuhosts[dpu_index]
+    # explicitly add mgmt IP route so the default route doesn't disrupt SSH access
+    dpuhost.shell(f'ip route replace {duthost.mgmt_ip}/32 via 169.254.200.254')
+    intfs = dpuhost.shell("show ip int")["stdout"]
+    dpu_cmds = list()
+    if "Loopback0" not in intfs:
+        dpu_cmds.append("config loopback add Loopback0")
+        dpu_cmds.append(f"config int ip add Loopback0 {pl.APPLIANCE_VIP}/32")
+
+    pt_require(dpuhost.npu_data_port_ip, "DPU data port IP is not set")
+    dpu_cmds.append(f"ip route replace default via {dpuhost.npu_data_port_ip}")
+    dpuhost.shell_cmds(cmds=dpu_cmds)
+
+
+@pytest.fixture(scope="function")
+def add_npu_static_routes(
+    duthost, dash_pl_config, skip_config, skip_cleanup, dpu_index, dpuhosts
+):
+    dpuhost = dpuhosts[dpu_index]
+    if not skip_config:
+        cmds = []
+        vm_nexthop_ip = get_interface_ip(duthost, dash_pl_config[LOCAL_DUT_INTF]).ip + 1
+        pe_nexthop_ip = get_interface_ip(duthost, dash_pl_config[REMOTE_DUT_INTF]).ip + 1
+
+        pt_require(vm_nexthop_ip, "VM nexthop interface does not have an IP address")
+        pt_require(pe_nexthop_ip, "PE nexthop interface does not have an IP address")
+
+        cmds.append(f"ip route replace {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
+        cmds.append(f"ip route replace {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+
+        return_tunnel_endpoints = pl.TUNNEL1_ENDPOINT_IPS + pl.TUNNEL2_ENDPOINT_IPS
+        for tunnel_ip in return_tunnel_endpoints:
+            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
+        nsg_tunnel_endpoints = pl.TUNNEL3_ENDPOINT_IPS + pl.TUNNEL4_ENDPOINT_IPS
+        for tunnel_ip in nsg_tunnel_endpoints:
+            cmds.append(f"ip route replace {tunnel_ip}/32 via {pe_nexthop_ip}")
+
+        cmds.append(f"ip route replace {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        logger.info(f"Adding static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
+
+    yield
+
+    if not skip_config and not skip_cleanup:
+        cmds = []
+        cmds.append(f"ip route del {pl.APPLIANCE_VIP}/32 via {dpuhost.dpu_data_port_ip}")
+        cmds.append(f"ip route del {pl.VM1_PA}/32 via {vm_nexthop_ip}")
+        for tunnel_ip in return_tunnel_endpoints:
+            cmds.append(f"ip route replace {tunnel_ip}/32 via {vm_nexthop_ip}")
+        cmds.append(f"ip route del {pl.PE_PA}/32 via {pe_nexthop_ip}")
+        logger.info(f"Removing static routes: {cmds}")
+        duthost.shell_cmds(cmds=cmds)
+
+
+@pytest.fixture(scope="function")
+def setup_npu_dpu(dpu_setup, add_npu_static_routes):
+    yield

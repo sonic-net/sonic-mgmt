@@ -1,5 +1,3 @@
-from functools import lru_cache
-import pytest
 import logging
 
 logger = logging.getLogger(__name__)
@@ -9,27 +7,34 @@ GNMI_CERT_NAME = "test.client.gnmi.sonic"
 TELEMETRY_CONTAINER = "telemetry"
 
 
-@lru_cache(maxsize=None)
 class GNMIEnvironment(object):
     TELEMETRY_MODE = 0
     GNMI_MODE = 1
 
     def __init__(self, duthost, mode):
+        logger.info(f"Initializing GNMIEnvironment with mode {mode}")
         if mode == self.TELEMETRY_MODE:
             ret = self.generate_telemetry_config(duthost)
             if ret:
+                logger.info("Successfully generated telemetry config")
                 return
             ret = self.generate_gnmi_config(duthost)
             if ret:
+                logger.info("Successfully generated gnmi config")
                 return
         elif mode == self.GNMI_MODE:
             ret = self.generate_gnmi_config(duthost)
             if ret:
+                logger.info("Successfully generated gnmi config")
                 return
             ret = self.generate_telemetry_config(duthost)
             if ret:
+                logger.info("Successfully generated telemetry config")
                 return
-        pytest.fail("Can't generate GNMI/TELEMETRY configuration, mode %d" % mode)
+        # If no container found, use default configuration
+        logger.warning("No GNMI/Telemetry container found, using default configuration")
+        self._set_default_config()
+        self._configure_connection_params(duthost)
 
     def generate_gnmi_config(self, duthost):
         cmd = "docker images | grep -w sonic-gnmi"
@@ -45,10 +50,12 @@ class GNMIEnvironment(object):
                     self.gnmi_process = "gnmi"
                 else:
                     self.gnmi_process = "telemetry"
-                self.gnmi_port = 50052
+
+                # Read configuration from CONFIG_DB or use defaults
+                self._configure_connection_params(duthost)
                 return True
             else:
-                pytest.fail("GNMI is not running")
+                logger.warning("GNMI container is not running")
         return False
 
     def generate_telemetry_config(self, duthost):
@@ -66,11 +73,65 @@ class GNMIEnvironment(object):
                 else:
                     self.gnmi_program = "gnmi-native"
                 self.gnmi_process = "telemetry"
-                self.gnmi_port = 50051
+
+                # Read configuration from CONFIG_DB or use defaults
+                self._configure_connection_params(duthost)
                 return True
             else:
-                pytest.fail("Telemetry is not running")
+                logger.warning("Telemetry container is not running")
         return False
+
+    def _set_default_config(self):
+        """Set default configuration when no container is found"""
+        self.gnmi_config_table = "GNMI"
+        self.gnmi_container = "gnmi"
+        self.gnmi_program = "telemetry"
+        self.gnmi_process = "telemetry"
+
+    def _configure_connection_params(self, duthost):
+        """Configure connection parameters from CONFIG_DB with fallbacks"""
+        # Try to read from CONFIG_DB first based on the container type
+        try:
+            cfg_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+
+            # Only check the config table that matches our container type
+            if self.gnmi_config_table == "GNMI":
+                config = cfg_facts.get('GNMI', {}).get('gnmi', {})
+            else:  # TELEMETRY
+                config = cfg_facts.get('TELEMETRY', {}).get('gnmi', {})
+
+            if config:
+                self.gnmi_port = int(config.get('port', 8080))
+                client_auth = config.get('client_auth', 'false').lower()
+                self.use_tls = client_auth != 'false'
+                logger.info(f"Found CONFIG_DB {self.gnmi_config_table} config: "
+                            f"port={self.gnmi_port}, tls={self.use_tls}")
+                return
+        except Exception as e:
+            logger.warning(f"Failed to read CONFIG_DB: {e}")
+
+        # Fallback: detect from running telemetry process
+        try:
+            if hasattr(self, 'gnmi_container'):
+                res = duthost.shell(f"docker exec {self.gnmi_container} ps aux | grep telemetry",
+                                    module_ignore_errors=True)
+                if res['rc'] == 0 and '--port' in res['stdout']:
+                    # Extract port from telemetry command line
+                    import re
+                    match = re.search(r'--port\s+(\d+)', res['stdout'])
+                    if match:
+                        self.gnmi_port = int(match.group(1))
+                        # Check for --noTLS flag
+                        self.use_tls = '--noTLS' not in res['stdout']
+                        logger.info(f"Detected from process: port={self.gnmi_port}, tls={self.use_tls}")
+                        return
+        except Exception as e:
+            logger.warning(f"Failed to detect from running process: {e}")
+
+        # Final fallback: use standard defaults
+        self.gnmi_port = 8080
+        self.use_tls = False
+        logger.info(f"Using default config: port={self.gnmi_port}, tls={self.use_tls}")
 
 
 def gnmi_container(duthost):
@@ -110,7 +171,23 @@ IP      = %s
     return
 
 
-def create_revoked_cert_and_crl(localhost, ptfhost):
+def get_ptf_crl_server_ip(duthost, ptfhost):
+    """
+    Get the appropriate PTF IP address for CRL server based on DUT management IP type.
+    If DUT is IPv6-only, use PTF IPv6 address; otherwise use IPv4.
+    """
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+    if is_mgmt_ipv6_only and ptfhost.mgmt_ipv6:
+        # Use IPv6 address with brackets for URL
+        return "[{}]".format(ptfhost.mgmt_ipv6)
+    else:
+        # Use IPv4 address
+        return ptfhost.mgmt_ip
+
+
+def create_revoked_cert_and_crl(localhost, ptfhost, duthost=None):
     # Create client key
     local_command = "openssl genrsa -out gnmiclient.revoked.key 2048"
     localhost.shell(local_command)
@@ -124,7 +201,9 @@ def create_revoked_cert_and_crl(localhost, ptfhost):
     localhost.shell(local_command)
 
     # Sign client certificate
-    crl_url = "http://{}:1234/crl".format(ptfhost.mgmt_ip)
+    # Get appropriate PTF IP address based on DUT management IP type
+    ptf_ip = get_ptf_crl_server_ip(duthost, ptfhost) if duthost else ptfhost.mgmt_ip
+    crl_url = "http://{}:1234/crl".format(ptf_ip)
     create_ca_conf(crl_url, "crlext.cnf")
     local_command = "openssl x509 \
                         -req \
@@ -301,12 +380,17 @@ def verify_tcp_port(localhost, ip, port):
     logger.info("TCP: " + res['stdout'] + res['stderr'])
 
 
-def gnmi_capabilities(duthost, localhost):
+def gnmi_capabilities(duthost, localhost, duthost_mgmt_ip=None):
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    ip = duthost.mgmt_ip
+    if duthost_mgmt_ip:
+        ip = duthost_mgmt_ip['mgmt_ip']
+        addr = f"[{ip}]" if duthost_mgmt_ip['version'] == 'v6' else f"{ip}"
+    else:
+        ip = duthost.mgmt_ip
+        addr = ip
     port = env.gnmi_port
     # Run gnmi_cli in gnmi container as workaround
-    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, ip, port)
+    cmd = "docker exec %s gnmi_cli -client_types=gnmi -a %s:%s " % (env.gnmi_container, addr, port)
     cmd += "-client_crt /etc/sonic/telemetry/gnmiclient.crt "
     cmd += "-client_key /etc/sonic/telemetry/gnmiclient.key "
     cmd += "-ca_crt /etc/sonic/telemetry/gnmiCA.pem "

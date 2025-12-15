@@ -60,7 +60,8 @@ class GenerateGoldenConfigDBModule(object):
                                     num_asics=dict(require=False, type='int', default=1),
                                     hwsku=dict(require=False, type='str', default=None),
                                     vm_configuration=dict(require=False, type='dict', default={}),
-                                    prober_type=dict(require=False, type='str', default=None)),
+                                    prober_type=dict(require=False, type='str', default=None),
+                                    is_light_mode=dict(require=False, type='bool', default=True)),
                                     supports_check_mode=True)
         self.topo_name = self.module.params['topo_name']
         self.port_index_map = self.module.params['port_index_map']
@@ -69,6 +70,7 @@ class GenerateGoldenConfigDBModule(object):
         self.hwsku = self.module.params['hwsku']
         self.vm_configuration = self.module.params['vm_configuration']
         self.prober_type = self.module.params['prober_type']
+        self.is_light_mode = self.module.params['is_light_mode']
 
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
@@ -466,7 +468,6 @@ class GenerateGoldenConfigDBModule(object):
         dhcp_server_ipv4_config = {
             "DHCP_SERVER_IPV4": {
                 "bridge-midplane": {
-                    "gateway": "169.254.200.254",
                     "lease_time": "600000000",
                     "mode": "PORT",
                     "netmask": "255.255.255.0",
@@ -486,6 +487,9 @@ class GenerateGoldenConfigDBModule(object):
             "MID_PLANE_BRIDGE": copy.deepcopy(ori_config_db["MID_PLANE_BRIDGE"]),
             "DHCP_SERVER_IPV4": copy.deepcopy(ori_config_db["DHCP_SERVER_IPV4"])
         }
+
+        # Set buffer_model to traditional by default
+        gold_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
 
         # Generate dhcp_server related configuration
         rc, out, err = self.module.run_command("cat {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
@@ -534,6 +538,38 @@ class GenerateGoldenConfigDBModule(object):
             return json.dumps(ori_config_db, indent=4)
         else:
             return config
+
+    def generate_default_init_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate config table from init_cfg.ini
+        ori_config_db = json.loads(out)
+
+        golden_config_db = {}
+        if "DEVICE_METADATA" in ori_config_db:
+            golden_config_db["DEVICE_METADATA"] = ori_config_db["DEVICE_METADATA"]
+
+        # Set buffer_model to traditional to prevent regression, as it is currently hardcoded here:
+        #     https://github.com/sonic-net/sonic-utilities/blob/19594b99129f3c881d500ff65d4955d077accb25/config/main.py#L2216
+        golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        return json.dumps(golden_config_db, indent=4)
+
+    def update_zmq_config(self, config):
+        ori_config_db = json.loads(config)
+        if "DEVICE_METADATA" not in ori_config_db:
+            ori_config_db["DEVICE_METADATA"] = {}
+        if "localhost" not in ori_config_db["DEVICE_METADATA"]:
+            ori_config_db["DEVICE_METADATA"]["localhost"] = {}
+
+        # Older version image may not support ZMQ feature flag
+        rc, out, err = self.module.run_command("sudo cat /usr/local/yang-models/sonic-device_metadata.yang")
+        if "orch_northbond_route_zmq_enabled" in out:
+            ori_config_db["DEVICE_METADATA"]["localhost"]["orch_northbond_route_zmq_enabled"] = "true"
+
+        return json.dumps(ori_config_db, indent=4)
 
     def generate_lt2_ft2_golden_config_db(self):
         """
@@ -589,7 +625,8 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_mgfx_golden_config_db()
             module_msg = module_msg + " for mgfx"
             self.module.run_command("sudo rm -f {}".format(TEMP_DHCP_SERVER_CONFIG_PATH))
-        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"]:
+        elif self.topo_name in ["t1-smartswitch-ha", "t1-28-lag", "smartswitch-t1", "t1-48-lag"] \
+                and self.is_light_mode:
             config = self.generate_smartswitch_golden_config_db()
             module_msg = module_msg + " for smartswitch"
             self.module.run_command("sudo rm -f {}".format(TEMP_SMARTSWITCH_CONFIG_PATH))
@@ -609,7 +646,10 @@ class GenerateGoldenConfigDBModule(object):
             config = self.generate_dualtor_golden_config_db()
             module_msg = module_msg + " for dualtor"
         else:
-            config = "{}"
+            config = self.generate_default_init_config_db()
+
+        # update ZMQ config
+        config = self.update_zmq_config(config)
 
         # update dns config
         config = self.update_dns_config(config)

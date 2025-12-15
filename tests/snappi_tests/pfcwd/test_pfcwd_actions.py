@@ -33,7 +33,7 @@ port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
 over_subs_port_map = [[1, 100, 2, 100], [1, 400, 2, 400]]
 
 
-def _verify_port_speed(snappi_port_list, tbinfo, port_map):
+def _verify_port_speed(port_list, tbinfo, port_map):
 
     # port_map is defined as port-speed combination.
     # first two parameters are count of egress links and its speed.
@@ -41,7 +41,7 @@ def _verify_port_speed(snappi_port_list, tbinfo, port_map):
     speed_specific_port_list = []
     tx_port_count = port_map[0]
     rx_port_count = port_map[2]
-    for item in snappi_port_list:
+    for item in port_list:
         if (int(item['speed']) == (port_map[1] * 1000)):
             speed_specific_port_list.append(item)
     pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
@@ -56,18 +56,22 @@ def _verify_port_speed(snappi_port_list, tbinfo, port_map):
 
 
 @pytest.fixture(params=port_map, autouse=False)
-def verify_port_speed(get_snappi_ports, tbinfo, request):  # noqa: F811
-    return (_verify_port_speed(get_snappi_ports, tbinfo, request.param))
+def verify_port_speed(setup_ports_and_dut, tbinfo, request):  # noqa: F811
+    return (_verify_port_speed(setup_ports_and_dut[2], tbinfo, request.param))
 
 
 @pytest.fixture(params=over_subs_port_map, autouse=False)
-def verify_port_speed_oversubscribe(get_snappi_ports, tbinfo, request):   # noqa: F811
-    return (_verify_port_speed(get_snappi_ports, tbinfo, request.param))
+def verify_port_speed_oversubscribe(setup_ports_and_dut, tbinfo, request):   # noqa: F811
+    return (_verify_port_speed(setup_ports_and_dut[2], tbinfo, request.param))
 
 
 @pytest.fixture(autouse=True)
-def number_of_tx_rx_ports():
-    yield (2, 1)
+def number_of_tx_rx_ports(request):
+
+    if request.param:
+        yield (2, 1)
+    else:
+        yield (1, 1)
 
 
 def pfcwd_actions_cleanup(duthosts, get_snappi_ports, setup_ports_and_dut):  # noqa: F811
@@ -87,6 +91,7 @@ def disable_voq_wd_cisco_8000(duthosts):
 
 
 # This is a single-tx-single-rx test.
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["False"], indirect=True)
 def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
@@ -214,6 +219,7 @@ def test_pfcwd_drop_90_10(snappi_api,                  # noqa: F811
 
 
 # This is a single-tx-single-rx test.
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["False"], indirect=True)
 def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
                         conn_graph_facts,             # noqa: F811
                         fanout_graph_facts_multidut,  # noqa: F811
@@ -343,6 +349,7 @@ def test_pfcwd_drop_uni(snappi_api,                  # noqa: F811
 
 @pytest.mark.parametrize('port_map', port_map)
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["False"], indirect=True)
 def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
                           conn_graph_facts,             # noqa: F811
                           fanout_graph_facts_multidut,  # noqa: F811
@@ -393,10 +400,16 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
         for item in tmp_snappi_port_list:
             if (int(item['speed']) == (port_map[1] * 1000)):
                 snappi_port_list.append(item)
-        pytest_require(MULTIDUT_TESTBED == tbinfo['conf-name'],
-                       "The testbed name from testbed file doesn't match with MULTIDUT_TESTBED in variables.py ")
-        pytest_require(len(snappi_port_list) >= tx_port_count + rx_port_count,
-                       "Need Minimum of 2 ports defined in ansible/files/*links.csv file")
+        pytest_require(
+            MULTIDUT_TESTBED == tbinfo['conf-name'],
+            "The testbed name from testbed file doesn't match with "
+            "MULTIDUT_TESTBED in variables.py ")
+        pytest_require(
+            len(snappi_port_list) >= tx_port_count + rx_port_count,
+            "Need Minimum of {} ports defined in ansible/files/*links.csv"
+            " file, snappi_port_list={}".format(
+                tx_port_count + rx_port_count,
+                snappi_port_list))
 
         pytest_require(len(rdma_ports['tx_ports']) >= tx_port_count,
                        'MULTIDUT_PORT_INFO doesn\'t have the required Tx ports defined for \
@@ -508,6 +521,7 @@ def test_pfcwd_frwd_90_10(snappi_api,                  # noqa: F811
 
 
 # This is an oversubscribe-testcase.
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
 def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
@@ -647,6 +661,7 @@ def test_pfcwd_drop_over_subs_40_09(snappi_api,                  # noqa: F811
 
 @pytest.mark.parametrize('port_map', over_subs_port_map)
 @pytest.mark.parametrize("multidut_port_info", MULTIDUT_PORT_INFO[MULTIDUT_TESTBED])
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
 def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
                                     conn_graph_facts,             # noqa: F811
                                     fanout_graph_facts_multidut,  # noqa: F811
@@ -815,6 +830,7 @@ def test_pfcwd_frwd_over_subs_40_09(snappi_api,                  # noqa: F811
 
 
 # This is an non-oversubscribe-testcase.
+@pytest.mark.parametrize("number_of_tx_rx_ports", ["True"], indirect=True)
 def test_pfcwd_disable_pause_cngtn(snappi_api,                  # noqa: F811
                                    conn_graph_facts,             # noqa: F811
                                    fanout_graph_facts_multidut,  # noqa: F811

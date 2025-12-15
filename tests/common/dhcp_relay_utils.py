@@ -7,7 +7,7 @@ import ptf.packet as scapy
 
 logger = logging.getLogger(__name__)
 SUPPORTED_DHCPV4_TYPE = [
-     "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp", "Unknown"
+     "Discover", "Offer", "Request", "Decline", "Ack", "Nak", "Release", "Inform", "Bootp", "Unknown", "Malformed"
 ]
 SUPPORTED_DIR = ["TX", "RX"]
 
@@ -163,7 +163,7 @@ def calculate_counters_per_pkts(pkts):
     """
     all_counters = {}
     for pkt in pkts:
-        if hasattr(pkt, 'ifindex') and pkt.haslayer(scapy.DHCP) and pkt[scapy.BOOTP].xid == 0:
+        if hasattr(pkt, 'ifindex') and pkt.haslayer(scapy.DHCP):
             counter = all_counters.setdefault(pkt.ifindex, {
                 "RX": {},
                 "TX": {}
