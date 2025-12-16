@@ -8,6 +8,7 @@ import paramiko
 import os
 import yaml
 import urllib.parse
+from collections import namedtuple
 from hw_setup_utils import log, lower_pass_prompt, sshUtil, sshDUTUtil, extractFromImageName, getImageUCS, \
     cleanUpImageFolder, removeImageDir, checkSpace, getTestbedInfoDict, checkProdImage, telnetConnection, telnetLoginUtil, checklldpCount, \
     login_prompt, passwd_prompt, cisco_prompt, pre_sonic_prompt, sonic_login_prompt, admin_prompt, pre_admin_prompt, first_login, onie_prompt, \
@@ -998,6 +999,105 @@ def nested_ssh(bastion_host, bastion_user, bastion_key, target_host, target_user
     closeConnections(bastion_client, target_client, sock_channel)
     return 0
 
+def execute_cmd_on_dut(bastion_host, bastion_user, bastion_key,
+                       dut_mgmt_ip, dut_username, dut_ssh_password,
+                       cmd, timeout=60):
+    """
+    ssh into the dut using mgmt-ip through the testbed server used as a bastion host,
+    then execute the cmd and return (stdout_read, stderr_read, return_code)
+    """
+    with paramiko.SSHClient() as bastion_client:
+        bastion_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        bastion_client.connect(bastion_host, username=bastion_user, password=bastion_key)
+        log.debug("First ssh done")
+        [target_client, sock_channel] = channelConnection(bastion_client, dut_mgmt_ip, dut_username, dut_ssh_password)
+        log.debug(f"target_client: {target_client}")
+        _, stdout, stderr = target_client.exec_command(command=cmd,
+                                                           timeout=timeout
+                                                           )
+        stdout_read = stdout.read().decode('utf-8')
+        stderr_read = stderr.read().decode('utf-8')
+        return_code = stdout.channel.recv_exit_status()
+        target_client.close()
+        sock_channel.close()
+    return stdout_read, stderr_read, return_code
+
+def reboot_all_DUTs(testbed, wait_seconds_for_reboot=60*5):
+    """
+    send `sudo reboot` on all DuTs in parallel then sleep some time (5 min by default)
+    """
+    testbed_info_dict = getTestbedInfoDict(testbed)
+
+    from functools import partial
+    from time import sleep
+    from concurrent.futures import as_completed
+    from concurrent.futures import ThreadPoolExecutor
+
+    static_params = {
+        "bastion_host": testbed_info_dict["ucs_host_name"],
+        "bastion_user": testbed_info_dict["ucs_username"],
+        "bastion_key": testbed_info_dict["ucs_password"],
+        "dut_username": DUT_USERNAME,
+        "dut_ssh_password": DUT_PASSWORD,
+        "cmd": "nohup sudo -n reboot >/dev/null 2>&1 &",
+        "timeout": 60,
+    }
+    reboot_dut = partial(execute_cmd_on_dut, **static_params)
+
+    success = True
+    with ThreadPoolExecutor(max_workers=len(testbed_info_dict["dut_ssh"])) as pool:
+        futures = [pool.submit(reboot_dut, dut_mgmt_ip=dut_mgmt_ip_addr)
+                   for dut_mgmt_ip_addr in testbed_info_dict["dut_ssh"]]
+
+        log.debug(f"Sleeping for {wait_seconds_for_reboot}...")
+        sleep(wait_seconds_for_reboot)
+
+        for future in as_completed(futures):
+            try:
+                log.info(future.result())
+            except Exception as e:
+                log.error(f"Exception {e} while trying to reboot a DUT")
+                success = False
+
+    if not success:
+        log.error(f"Couldn't reboot all DUTs successfully. ")
+        return 1
+    else:
+        return 0
+
+
+def cisco_system_health(testbed):
+    """
+    run cisco_system_health.py on each dut in the setup
+
+    param: testbed -  str identifier of the testbed in hw_cfg.json
+
+    return dict{dut_mgmt_ip: namedtuple(stdout, stderr, return_code)}
+    """
+    run_cisco_system_health_cmd = "python3 /opt/cisco/tools/bin/cisco_system_health.py"
+    log.info('Starting cisco_system_health. '
+             f'Will run `{run_cisco_system_health_cmd}` '
+             'on the DuT.')
+
+    testbed_info_dict = getTestbedInfoDict(testbed)
+    results = {}
+    for dut_mgmt_ip_addr in testbed_info_dict["dut_ssh"]:
+        log.debug(f'Now attempting cisco_system_health for dut with mgmt_ip {dut_mgmt_ip_addr}')
+        stdout, stderr, rc = execute_cmd_on_dut(testbed_info_dict["ucs_host_name"],
+                                                testbed_info_dict["ucs_username"],
+                                                testbed_info_dict["ucs_password"],
+                                                dut_mgmt_ip_addr,
+                                                DUT_USERNAME,
+                                                DUT_PASSWORD,
+                                                run_cisco_system_health_cmd,
+                                                timeout=60 * 5)
+        CiscoSystemHealthResults = namedtuple('CiscoSystemHealthResults', ['stdout', 'stderr', 'return_code'])
+        results[dut_mgmt_ip_addr] = CiscoSystemHealthResults(stdout=stdout,
+                                                             stderr=stderr,
+                                                             return_code=rc)
+        log.debug(f'Parsed results for cisco system health for dut {dut_mgmt_ip_addr}:'
+                  f'{results[dut_mgmt_ip_addr]}')
+    return results
 
 def debug_cmd_exec(channel):
     # timeout for 60 seconds

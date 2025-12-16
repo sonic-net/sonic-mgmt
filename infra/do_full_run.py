@@ -8,11 +8,21 @@ import yaml
 import os
 import json
 import paramiko
-from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, prep_special_run_commands, \
+import re
+from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, \
+    prep_special_run_commands, \
     run_scripts, sshUtil, allure_directory, UNSET_PROXY, runIndividualTests, getLatestValidAllureReport, \
-    checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, getSonicMgmtContainterName, getTechSupport, \
+    checkForExistingRuns, SSH_PORT, collect_spytest_results, upload_result, ALLURE_CONFIG_FILE_NAME, \
+    getSonicMgmtContainterName, getTechSupport, \
     nested_ssh_connection, DUT_USERNAME, DUT_PASSWORD, WORKSPACE, SANITY_LOGS_PATH, getLogsPath
-from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, upload_log_files_to_log_server, create_sanity_log_tarball, SANITY_LOG_TARBALL, print_folder_contents
+from utils import _run_cmd_in_ssh, _run_cmd_in_ssh_container, upload_log_files_to_log_server, create_sanity_log_tarball, \
+    SANITY_LOG_TARBALL, print_folder_contents
+from do_hw_setup import (precheck, remove_topo, add_topo, deploy_mg, extra_configuration_steps, cisco_system_health,
+                         reboot_all_DUTs)
+
+MAX_AUTORECOVERY_AND_RERUN_COUNT = 5
+REGRESSION_FAIL_MARKER = "Skip rest of the scripts if there is any"  # run_tests.sh produces this
+
 
 
 # Parse config file
@@ -206,7 +216,7 @@ def run_test(args):
         test_suites_array = get_testcases(testfile_full_path, test_tag, topo_type=topology, additional_tests='', device_type=platform, hw_or_sim='hw')
         with sftp.file(remote_file_path, mode='a') as remote_file:
             for test_suite in test_suites_array:
-                exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, "", "", local_log_dir, remote_file)
+                exit_code, _ = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, "", "", local_log_dir, remote_file)
                 if exit_code!=0:
                     time.sleep(30)
                     client.close()
@@ -216,19 +226,124 @@ def run_test(args):
         with sftp.file(remote_file_path, mode='r') as remote_file:
             content = remote_file.read().decode()  # decode bytes to string
             log.debug(content)
-        
         sftp.close()
 
-    elif test_suites_arg and "," in test_suites_arg:
-        test_suites_array = test_suites_arg.split(",")
+    elif test_suites_arg and "," in test_suites_arg: # multiple test suites passed as parameters
+        test_suites_array = test_suites_arg.split(",")  # ['bgp', 'monit']
         for test_suite in test_suites_array:
-            exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders_final, skip_tests_final, local_log_dir)
+            exit_code, _ = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suite, test_suite, skip_folders_final, skip_tests_final, local_log_dir)
             if exit_code!=0:
                 time.sleep(30)
                 client.close()
                 return exit_code
-    elif test_suites_arg:
-        exit_code = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites_arg, test_suites_arg, skip_folders_final, skip_tests_final, local_log_dir)
+
+    elif test_suites_arg == 'All':
+
+        exit_code, results = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name,
+                                                test_suites_arg, test_suites_arg, skip_folders_final, skip_tests_final,
+                                                local_log_dir)
+
+        log_file_contents, _, _ = _run_cmd_in_ssh_container(client,
+                                                            container_name,
+                                                            f"tail -n 50 /data/tests/{results.run_tests_log_file}")
+
+        # if there's "add_topo_cmd" -> we support topo redeploy for this testbed -> autorecovery is possible
+        # b2b testbeds, for example, do not use/support topo redeploy from cicd, so we won't attempt to autorecover
+        # those testbeds in an event of regression failure
+        if REGRESSION_FAIL_MARKER in log_file_contents and testbed_info_dict.get("add_topo_cmd"):
+
+            for autorecovery_and_rerun_attempt in range(1, MAX_AUTORECOVERY_AND_RERUN_COUNT + 1):
+                log.error(f"Regression fail marker found in test logs, resorting to testbed autorecovery. "
+                          f"Attempt number {autorecovery_and_rerun_attempt}.")
+
+                autorecovery_args = argparse.Namespace(testbed=testbed,
+                                                       full_link=full_link,
+                                                       install_mode='default',
+                                                       )
+
+                log.info("Autorecovery: check cisco_system_health before recovery")
+                cisco_system_health_results = cisco_system_health(testbed)
+                if any([x.return_code for x in cisco_system_health_results.values()]):
+                    log.info(f"cisco_system_health doesn't pass for all DuTs. "
+                             f"Will execute full autorecovery sequence"
+                             )
+                    log.info('Autorecovery started')
+                    rc = precheck(autorecovery_args)
+                    log.info(f"Autorecovery: precheck return code:{rc}; Continue.")
+                    rc = remove_topo(autorecovery_args)
+                    log.info(f"Autorecovery: remove-topo return code:{rc}; Continue.")
+                    rc = add_topo(autorecovery_args)
+                    log.info(f"Autorecovery: add-topo return code:{rc}; Continue.")
+
+                    rc = reboot_all_DUTs(testbed)
+                    if rc:
+                        raise Exception(f"DUT reboot unsuccessful. Autorecovery cannot continue.")
+                    else:
+                        log.info(f"Autorecovery: reboot_all_DUTs return code:{rc}; Continue")
+
+                    rc = deploy_mg(autorecovery_args)
+                    log.info(f"Autorecovery: deploy-mg return code:{rc}; Continue.")
+                    rc = extra_configuration_steps(autorecovery_args)
+                    log.info(f"Autorecovery: extra configuration steps return code:{rc}; Continue.")
+                else:
+                    log.info(f"cisco_system_health passed for all DuTs"
+                             f"Will execute light autorecovery: deploy-mg and continue testing.")
+                    rc = deploy_mg(autorecovery_args)
+                    log.info(f"Autorecovery: deploy-mg return code:{rc}; Continue.")
+
+                # expand skip list to avoid rerunning the same tests
+                xml_files_in_test_logs_dir_output, _, _ = _run_cmd_in_ssh_container(
+                    client,
+                    container_name,
+                    # fr'find {dut_log_dir} -type f -name "*.xml" -printf "%P\n"')
+                    f'find {dut_log_dir} -type f -name "*.xml" -printf "%T@ %P\\n" | sort -n | cut -d \' \' -f2-')
+                pattern = r'(^.*)_\d{4}-.*'
+                pattern_matches = re.findall(pattern,
+                                             xml_files_in_test_logs_dir_output,
+                                             re.MULTILINE)
+                pattern_matches = list(pattern_matches)[:-1]
+                # ^ ordered by last modified date so that when we slice [:-1] we skip all executed tests but the last
+                # the assumption is, test[-2] is the one that breaks the setup and test[-1] fails as a result of that
+                # but test[-1] is actually fine in isolation
+                exclusions = {"test_pretest", "test_posttest"}
+                filtered_pattern_matches = [m for m in pattern_matches if m not in exclusions]
+                py_test_files = [f"{x}.py" for x in filtered_pattern_matches]
+                extra_skip_tests_str = ' '.join(py_test_files)
+                log.info(f"extra_skip_tests_str defined: '{extra_skip_tests_str}'")
+
+                log.info("Autorecovery: check cisco_system_health after recovery")
+                cisco_system_health_results = cisco_system_health(testbed)
+                if any([x.return_code for x in cisco_system_health_results.values()]):
+                    log.error(f"cisco_system_health failed")
+                    log.error(f"{cisco_system_health_results}")
+                else:
+                    log.info(f"cisco_system_health passed for all DuTs")
+
+                log.info(f'Additional run of runIndividualTests: starting...')
+                exit_code, results = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client,
+                                                        container_name, test_suites_arg, test_suites_arg,
+                                                        skip_folders_final,
+                                                        skip_tests_final + " " + extra_skip_tests_str,
+                                                        local_log_dir)
+                log_file_contents, _, _ = _run_cmd_in_ssh_container(client,
+                                                                    container_name,
+                                                                    f"tail -n 50 /data/tests/{results.run_tests_log_file}")
+                still_failing = REGRESSION_FAIL_MARKER in log_file_contents
+                if not still_failing:
+                    log.info("Tests completed successfully after autorecovery.")
+                    break
+                else:
+                    log.error("Regression still failing after autorecovery and subsequent test execution. "
+                              "If retry count allows, will do another attempt.")
+        else:
+            log.info("Autorecovery not needed: either regression finished normally or "
+                     "the testbed doesn't support add-topo.")
+
+    elif test_suites_arg:  # test_suites provided, other than "All"
+        exit_code, results = runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name,
+                                                test_suites_arg, test_suites_arg, skip_folders_final, skip_tests_final,
+                                                local_log_dir)
+
     else:
         log.error(f"No tests found! TEST_SUITES: {test_suites_arg}, TESTFILE: {testfile}, TEST_TAG: {test_tag}")
         return -1
@@ -358,7 +473,7 @@ def collect_results(args):
     result["log_tarball_link"] = log_url
     with open(results_path, "w") as results_file:
         json.dump(result, results_file, indent=2)
-    log.info(f"Saved results.json at: {results_path}")   
+    log.info(f"Saved results.json at: {results_path}")
     return rc
 
 def kill_run(args, test_string="run_tests"):

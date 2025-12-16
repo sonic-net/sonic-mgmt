@@ -1,4 +1,6 @@
 import sys
+from collections import namedtuple
+
 import pexpect
 import time
 import os
@@ -1022,6 +1024,10 @@ def flushChannel(thread):
     log.debug("flush complete")
 
 def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, container_name, test_suites, test_name, skip_folders, skip_tests, local_log_dir, remote_file=None):
+    log.debug(f"runIndividualTests local scope")
+    local_scope = locals()
+    log.debug(local_scope)
+
     testcase_start = datetime.now()
     testcase_start_time = testcase_start.strftime("%Y-%m-%d %H-%M-%S") # Format the datetime object as a string
     log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
@@ -1121,9 +1127,13 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
 
     rc = copy_logfiles(client, container_name, run_tests_log_file, local_log_dir)
 
+    TestRunResults = namedtuple("TestRunResults", ["combined_output", "run_tests_log_file"])
+    results = TestRunResults(combined_output=combined_output,
+                             run_tests_log_file=run_tests_log_file)
+
     if remote_file:
         remote_file.write(output)
-    return rc
+    return rc, results
 
 def removeImageDir(thread, cmd, image, password):
     thread.sendline(f"cd ..")
