@@ -546,7 +546,7 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
         wl_portchannel_info = setup_portchannels(duthost, ptfhost, config_facts, port_indexes, ptf_ports_available_in_topo)
 
         # Set up subintfs
-        dut_ips, ptf_ips = generate_subintfs_ips(NUM_VNETS, start_ip_int=(10 << 24 + 11 << 16))
+        dut_ips, ptf_ips = generate_subintfs_ips(NUM_VNETS, start_ip_int=((10 << 24) + (11 << 16)))
         subintfs_info = setup_portchannel_subintfs(duthost, ptfhost, wl_portchannel_info, vnet_vnis, base_vlan=10, dut_ips=dut_ips, ptf_ips=ptf_ips)
 
         # Set up bgps
