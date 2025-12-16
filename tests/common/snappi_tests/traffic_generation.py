@@ -7,6 +7,7 @@ import logging
 import re
 import pandas as pd
 from datetime import datetime
+from tabulate import tabulate
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.snappi_tests.common_helpers import config_capture_settings, get_egress_queue_count, \
@@ -676,9 +677,12 @@ def run_traffic(duthost,
                 flow_names = [metric.name for metric in in_flight_flow_metrics if metric.name in data_flow_names]
                 tx_frames = [metric.frames_tx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
                 rx_frames = [metric.frames_rx for metric in in_flight_flow_metrics if metric.name in data_flow_names]
-                logger.info("In-flight traffic statistics for flows: {}".format(flow_names))
-                logger.info("In-flight TX frames: {}".format(tx_frames))
-                logger.info("In-flight RX frames: {}".format(rx_frames))
+                rows = list(zip(flow_names, tx_frames, rx_frames))
+                logger.info(
+                    "In-flight traffic statistics for flows:\n%s",
+                    tabulate(rows, headers=["Flow", "Tx", "Rx"], tablefmt="psql"),
+                    )
+
         logger.info("DUT polling complete")
     else:
         time.sleep(exp_dur_sec*(2/5))  # no switch polling required, only TGEN polling
@@ -1343,10 +1347,11 @@ def run_traffic_and_collect_stats(rx_duthost,
     api.set_control_state(cs)
 
     stormed = False
+    check_list = [[rx_duthost, [x['rx_port_config'].peer_port for x in snappi_extra_params.base_flow_config_list][0]]]
     if tx_duthost.facts["platform_asic"] == 'cisco-8000' and enable_pfcwd_drop:
         retry = 3
         while retry > 0 and not stormed:
-            for dut, port in dutport_list:
+            for dut, port in check_list:
                 for pri in switch_tx_lossless_prios:
                     stormed = clear_pfc_counter_after_storm(dut, port, pri)
                     if stormed:
@@ -1580,15 +1585,13 @@ def run_traffic_and_collect_stats(rx_duthost,
         f.write('Total DUT Loss Pkts:{} \n'.format(test_stats['dut_loss_pkts']))
         test_stats['dut_lossless_pkts'] = 0
         test_stats['dut_lossy_pkts'] = 0
-        prio_key = ['_prio_']
         for dut, port in dutport_list:
-            new_key = (dut.hostname + '_' + port).lower()
+            new_key = (dut.hostname + '_' + port).lower() + '_prio_'
             prio_dict = {}
             for item in results:
-                for key in prio_key:
-                    if (new_key in item and key in item.split(new_key)[1]):
-                        prio_dict[item.split(new_key)[1]] = df_t[item].max()
-            f.write('Egress Queue Count for {} : \n'.format(new_key))
+                if (new_key in item):
+                    prio_dict[item] = df_t[item].max()
+            f.write('Egress Queue Count for {} : \n'.format((dut.hostname + '_' + port).lower()))
             for key, val in prio_dict.items():
                 if val != 0:
                     # Checking for lossless priorities in the key.

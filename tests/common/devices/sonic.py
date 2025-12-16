@@ -27,7 +27,6 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
-
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
@@ -1929,9 +1928,11 @@ Totals               6450                 6449
                     vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
-    def get_interfaces_status(self):
+    def get_interfaces_status(self, namespace=None):
         '''
-        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Get interfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Can be called with namespace for multi-asic devices to get output on specific namespace. If no namespace
+        is provided, the output will be from all namespaces.
 
         Example output:
             {
@@ -1963,7 +1964,11 @@ Totals               6450                 6449
                 }
             }
         '''
-        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        if namespace is None:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        else:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status -n {}'
+                                                                       .format(namespace))}
 
     def show_ipv6_interfaces(self):
         '''
@@ -2405,7 +2410,18 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
+    def get_backplane_ports(self):
+        # get current interface data from config_db.json
+        config_facts = self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
+        config_db_ports = config_facts["PORT"]
+        # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
+        excluded_ports = set()
+        for port, val in config_db_ports.items():
+            if "role" in val:
+                excluded_ports.add(port)
+        return excluded_ports
+
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2415,22 +2431,32 @@ Totals               6450                 6449
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
-        config_facts_ports = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("PORT", {})
+        excluded_ports = self.get_backplane_ports()
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and config_facts_ports.get(k, {}).get("role", "") != "Dpc" and
+            if ((k.startswith("Ethernet") and (k not in excluded_ports) and
                  (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
-                # Ping for some time to get ARP Re-learnt.
-                # We might have to tune it further if needed.
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                   self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
-                    ip_ifaces[k] = {
-                        "ipv4": v["ipv4"],
-                        "peer_ipv4": v["peer_ipv4"],
-                        "bgp_neighbor": v["bgp_neighbor"]
-                    }
-                    active_ip_intf_cnt += 1
+                if ip_type == "ipv4":
+                    # Ping for some time to get ARP Re-learnt.
+                    # We might have to tune it further if needed.
+                    if (v["admin"] == "up" and v["oper_state"] == "up" and
+                            self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
+                        ip_ifaces[k] = {
+                            "ipv4": v["ipv4"],
+                            "peer_ipv4": v["peer_ipv4"],
+                            "bgp_neighbor": v["bgp_neighbor"]
+                        }
+                        active_ip_intf_cnt += 1
+                elif ip_type == "ipv6":
+                    if (v["admin"] == "up" and v["oper_state"] == "up" and
+                            self.ping_v6(v["peer_ipv6"], count=3, ns_arg=ns_arg)):
+                        ip_ifaces[k] = {
+                            "ipv6": v["ipv6"],
+                            "peer_ipv6": v["peer_ipv6"],
+                            "bgp_neighbor": v["bgp_neighbor"]
+                        }
+                        active_ip_intf_cnt += 1
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
@@ -2788,6 +2814,7 @@ Totals               6450                 6449
         counter_type_cli_map = {
             'QUEUE_STAT': 'queue',
             'PORT_STAT': 'port',
+            'SWITCH_STAT': 'switch',
             'PORT_BUFFER_DROP': 'port-buffer-drop',
             'RIF_STAT': 'rif',
             'QUEUE_WATERMARK_STAT': 'watermark',

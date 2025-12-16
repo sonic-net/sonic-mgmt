@@ -79,8 +79,6 @@ frr_cmds = [
     "vtysh{} -c 'show mpls table'",
     "vtysh{} -c 'show mpls fec'",
     "vtysh{} -c 'show nexthop-group rib'",
-    "vtysh{} -c 'show thread cpu'",
-    "vtysh{} -c 'show thread poll'",
     "vtysh{} -c 'show debugging hashtable'",
     "vtysh{} -c 'show work-queues'",
     "vtysh{} -c 'show memory'",

@@ -99,6 +99,9 @@ def verify_expected_loganalyzer_logs(
         ".*ERR.* api SAI_COMMON_API_BULK_CREATE failed in syncd mode.*",
         ".*ERR.* flush_creating_entries: EntityBulker.flush create entries failed.*",
         ".*ERR.* handleSaiFailure: Encountered failure in create operation.*",
+        ".*ERR.* Failed to add UC route .* Entry Already Exists.",
+        r".*ERR.* uc_route_set_async_pre_send_validate .* \[Entry Already Exists\].",
+        ".*ERR.* mlnx_create_route_async.* Entry Already Exists.",
         ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",  # TODO move to expectRegex
         ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
     ]
