@@ -374,7 +374,7 @@ def get_vlan_untag_ports(duthosts, duts_running_config_facts):
 
 
 @pytest.fixture(scope="module")
-def hash_keys(duthost):
+def hash_keys(duthost, tbinfo):
     # Copy from global var to avoid side effects of multiple iterations
     hash_keys = HASH_KEYS[:]
     if 'dst-mac' in hash_keys:
@@ -407,6 +407,11 @@ def hash_keys(duthost):
         if 'ingress-port' in hash_keys:
             hash_keys.remove('ingress-port')
     if duthost.facts['asic_type'] in ["marvell-teralynx", "cisco-8000"]:
+        if 'ip-proto' in hash_keys:
+            hash_keys.remove('ip-proto')
+    if 'ft2' in tbinfo['topo']['name']:
+        #  Remove ip-proto from hash_keys for FT2 as there is not enough entropy in ip-proto
+        #  to ensure packets are evenly distributed to all 64 egress ports
         if 'ip-proto' in hash_keys:
             hash_keys.remove('ip-proto')
     # remove the ingress port from multi asic platform
