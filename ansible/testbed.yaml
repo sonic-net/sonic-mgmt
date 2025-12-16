@@ -3976,15 +3976,15 @@
   auto_recover: 'True'
   comment: MattSoulsby
 
-- conf-name: vms73-ft2-7060x6-4
-  group-name: vms73-8
+- conf-name: vms13-ft2-7060x6-4
+  group-name: vms13-8
   topo: ft2-64
   ptf_image_name: docker-ptf
-  ptf: vms73-8
+  ptf: vms13-8
   ptf_ip: 10.64.247.129/23
   ptf_ipv6: 2a01:111:e210:b000::a40:f781/64
-  server: server_73
-  vm_base: VM73300
+  server: server_13
+  vm_base: VM13300
   dut:
   - str4-7060x6-512-4
   inv_name: str4
