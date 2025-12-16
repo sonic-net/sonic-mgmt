@@ -175,6 +175,10 @@ def test_system_health_state(duthosts, dpuhosts,
     logging.info("Shutting DOWN the DPUs in parallel")
     dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
+    """
+    Sleep time of 5 mins is added to get the system health state
+    is reflected in the cli after dpus are shutdown
+    """
     logging.info("5 minutes Cool off period after shutdown")
     time.sleep(COOL_OFF_TIME)
 
