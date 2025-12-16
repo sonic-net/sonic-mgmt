@@ -22,7 +22,42 @@
 
 ---
 
-## Test Case 1 – Congestion Control with PFC and ECN/CNP for AI Traffic
+## Test Case 1 – Basic dataplane traffic testing without congestion
+
+### Objective
+
+- Validate basic functionality for RoCEv2/RDMA AI traffic using:
+  - Priority Flow Control (PFC)
+  - ECN marking on the switch
+  - CNP/ACK behavior on the endpoints
+- Applicable roles: T0, T1, T2.
+
+### Topology
+
+- Uses Test Topology 1 (single DUT with four connected test ports).
+
+<p float="left">
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
+</p>
+
+### Test Steps
+
+1.	Configure DUT with 2 lossless traffic with queues 3 and 4 mapping to DSCP value 3 and 4. 
+2.	Configure 1:1 test traffic between rank 0-3 & 1-4, 1 rank (endpoint) per port.  
+3.	Configure 4GB bursty test traffic (RoCEv2 AI traffic) for 2 lossless queues: 2 QP per rank pair, DSCP value 3 and 4 respectively, 4K IB MTU, 1MB message size (250 packets in burst per message), 50% rate per Tx port.
+4.	Configure 4GB bursty test traffic (RoCEv2 AI traffic) for remaining lossy queues: 4 QP per rank pair, DSCP values mapped to priorities 0,1,2,5 and 6 respectively, 4K IB MTU, 1MB message size (250 packets in burst per message), 50% rate per Tx port.
+5.	Disable DCQCN on endpoints.
+6.	Make sure that overall Tx port capacity doesn't exceed 100% line-rate and should not have any congestion on egress port.
+7.	Send lossless and lossy traffic and verify the statistics.
+
+
+### Expected Results
+
+1.  In step 7, both lossless and lossy traffic should flow fine without any loss.
+2.	Verify that there are no PFC's received on tester side.
+3.	Successful test result indicates that DUT forward RoCEv2 AI traffic and control signaling as expected.
+
+## Test Case 2 – Congestion Control with PFC and ECN/CNP for AI Traffic
 
 ### Objective
 
@@ -67,7 +102,7 @@
 
 ---
 
-## Test Case 2 – Congestion Control with PFC and ECN/CNP for Storage Traffic
+## Test Case 3 – Congestion Control with PFC and ECN/CNP for Storage Traffic
 
 ### Objective
 
@@ -100,27 +135,6 @@
 3.	In step 7, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. PFC should be received on both priority 3 & 4 queue. Tx rate on port 1 & 2 should be reduced and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
 4.	In step 8, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. No PFC should be received on either priority queue 3 or 4. Tx rate on port 1 & 2 should be reduced (due to DCQCN) and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
 5.	Successful test result indicates that DUT forward RoCEv2 storage traffic and control signaling as expected. PFC and ECN/CNP congestion signaling and congestion control function as expected. 
-
----
-
-## Test Case 3 – Dynamic ECN
-
-### Objective
-
-- Validate that the switch can dynamically adjust ECN marking threshold and probability.
-
-### Topology
-
-- Uses Test Topology 1.
-
-<p float="left">
-  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
-</p>
-
-### Status
-
-- Steps and expected results are currently marked as TBD.
-- Note: Adaptive/dynamic ECN support in SONiC should be checked; this test may be skipped if not supported.
 
 ---
 
