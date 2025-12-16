@@ -14,9 +14,9 @@ from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.crm import get_used_percent, CRM_UPDATE_TIME, CRM_POLLING_INTERVAL, EXPECT_EXCEEDED, \
      EXPECT_CLEAR, THR_VERIFY_CMDS
-from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa F401
-from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa F401
-from tests.common.utilities import wait_until, get_data_acl
+from tests.common.fixtures.duthost_utils import disable_route_checker   # noqa: F401
+from tests.common.fixtures.duthost_utils import disable_fdb_aging       # noqa: F401
+from tests.common.utilities import wait_until, get_data_acl, is_ipv6_only_topology
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
 
@@ -319,17 +319,20 @@ def generate_neighbors(amount, ip_ver):
     return ip_addr_list
 
 
-def configure_nexthop_groups(amount, interface, asichost, test_name):
+def configure_nexthop_groups(amount, interface, asichost, test_name, chunk_size):
     """ Configure bunch of nexthop groups on DUT. Bash template is used to speedup configuration """
     # Template used to speedup execution many similar commands on DUT
     del_template = """
     %s
+    for s in {{neigh_ip_list}}
+    do
+        ip -4 {{ns_prefix}} route del ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
+    done
     ip -4 {{ns_prefix}} route del 2.0.0.0/8 dev {{iface}}
     ip {{ns_prefix}} neigh del 2.0.0.1 lladdr 11:22:33:44:55:66 dev {{iface}}
     for s in {{neigh_ip_list}}
     do
         ip {{ns_prefix}} neigh del ${s} lladdr 11:22:33:44:55:66 dev {{iface}}
-        ip -4 {{ns_prefix}} route del ${s}/32 nexthop via ${s} nexthop via 2.0.0.1
     done""" % (NS_PREFIX_TEMPLATE)
 
     add_template = """
@@ -346,15 +349,26 @@ def configure_nexthop_groups(amount, interface, asichost, test_name):
     add_template = Template(add_template)
 
     ip_addr_list = generate_neighbors(amount + 1, "4")
-    ip_addr_list = " ".join([str(item) for item in ip_addr_list[1:]])
-    # Store CLI command to delete all created neighbors if test case will fail
-    RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
-                                                       neigh_ip_list=ip_addr_list,
-                                                       namespace=asichost.namespace))
-    logger.info("Configuring {} nexthop groups".format(amount))
-    asichost.shell(add_template.render(iface=interface,
-                                       neigh_ip_list=ip_addr_list,
-                                       namespace=asichost.namespace))
+
+    # Split up the neighbors into chunks of size chunk_size to buffer kernel neighbor messages
+    batched_ip_addr_lists = [ip_addr_list[i:i + chunk_size]
+                             for i in range(0, len(ip_addr_list), chunk_size)]
+
+    logger.info("Configuring {} total nexthop groups".format(amount))
+    for ip_batch in batched_ip_addr_lists:
+        ip_addr_list_batch = " ".join([str(item) for item in ip_batch[1:]])
+        # Store CLI command to delete all created neighbors if test case will fail
+        RESTORE_CMDS[test_name].append(del_template.render(iface=interface,
+                                                           neigh_ip_list=ip_addr_list_batch,
+                                                           namespace=asichost.namespace))
+
+        logger.info("Configuring {} nexthop groups".format(len(ip_batch)))
+
+        asichost.shell(add_template.render(iface=interface,
+                                           neigh_ip_list=ip_addr_list_batch,
+                                           namespace=asichost.namespace))
+
+        time.sleep(1)
 
 
 def increase_arp_cache(duthost, max_value, ip_ver, test_name):
@@ -408,22 +422,29 @@ def configure_neighbors(amount, interface, ip_ver, asichost, test_name):
     del_neighbors_template = Template(del_template)
     add_neighbors_template = Template(add_template)
 
-    ip_addr_list = generate_neighbors(amount, ip_ver)
-    ip_addr_list = " ".join([str(item) for item in ip_addr_list])
-
-    # Store CLI command to delete all created neighbors
-    RESTORE_CMDS[test_name].append(del_neighbors_template.render(
-                            neigh_ip_list=ip_addr_list,
-                            iface=interface,
-                            namespace=asichost.namespace))
-
     # Increase default Linux configuration for ARP cache
     increase_arp_cache(asichost, amount, ip_ver, test_name)
 
-    asichost.shell(add_neighbors_template.render(
-                        neigh_ip_list=ip_addr_list,
-                        iface=interface,
-                        namespace=asichost.namespace))
+    # https://github.com/sonic-net/sonic-mgmt/issues/18624
+    # May need to batch the commands to avoid hitting "Argument list too long" error
+    # IPv4 will consume at most 14 characters: " 2.XXX.XXX.XXX"
+    # IPv6 will consume at most 11 characters: " 2001::XXXX"
+    # Assuming our argument character limit is 128KB (1310072)
+    # Our Max number of neighbors would be: 1310072 / 14 = 9362 (Using 9000 to leave room for other characters)
+    ip_addr_list = generate_neighbors(amount, ip_ver)
+    for ip_addr_batch in [ip_addr_list[i:i + 9000] for i in range(0, len(ip_addr_list), 9000)]:
+        ip_addr_str = " ".join([str(item) for item in ip_addr_batch])
+
+        # Store CLI command to delete all created neighbors
+        RESTORE_CMDS[test_name].append(del_neighbors_template.render(
+                                neigh_ip_list=ip_addr_str,
+                                iface=interface,
+                                namespace=asichost.namespace))
+
+        asichost.shell(add_neighbors_template.render(
+                            neigh_ip_list=ip_addr_str,
+                            iface=interface,
+                            namespace=asichost.namespace))
     # Make sure CRM counters updated
     time.sleep(CRM_UPDATE_TIME)
 
@@ -477,12 +498,14 @@ def get_nh_ip(duthost, asichost, crm_interface, ip_ver):
                                                                 "{} -6 route del 2001:{}::/126 via {}")],
                          ids=["ipv4", "ipv6"])
 def test_crm_route(duthosts, enum_rand_one_per_hwsku_frontend_hostname, enum_frontend_asic_index,
-                   crm_interface, ip_ver, route_add_cmd, route_del_cmd):
+                   crm_interface, ip_ver, route_add_cmd, route_del_cmd, tbinfo):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_route".format(ip_ver=ip_ver)
+    if is_ipv6_only_topology and ip_ver == "4":
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
 
     # Template used to speedup execution of many similar commands on DUT
     del_template = """
@@ -635,32 +658,61 @@ def get_expected_crm_stats_route_available(crm_stats_route_available, crm_stats_
     return crm_stats_route_available
 
 
+def _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts):
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    vm_neighbors = mg_facts['minigraph_neighbors']
+    if port_channel := mg_facts['minigraph_portchannels'].get(dut_interface):
+        dut_interface = port_channel['members'][0]
+    neighbor_name = vm_neighbors[dut_interface]
+    neighbor_name, neighbor_interface = neighbor_name['name'], neighbor_name['port']
+    neighbor = nbrhosts[neighbor_name]
+    lacp_num = neighbor['conf']['interfaces'][neighbor_interface].get('lacp')
+    neighbor_interface = f'po{lacp_num}' if lacp_num else neighbor_interface
+    return neighbor['host'], neighbor_interface
+
+
 @pytest.mark.parametrize("ip_ver,nexthop", [("4", "2.2.2.2"), ("6", "2001::1")])
 def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface):
+                     enum_frontend_asic_index, crm_interface, ip_ver, nexthop, ptfhost, cleanup_ptf_interface, tbinfo,
+                     nbrhosts):
+
+    if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
     skip_stats_check = True if asic_type == "vs" else False
     RESTORE_CMDS["crm_threshold_name"] = "ipv{ip_ver}_nexthop".format(ip_ver=ip_ver)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
-        if ip_ver == "4":
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/24')
-            ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2.2.2.1/24"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2.2.2.1/24"
-            nexthop_add_cmd = "config route add prefix 99.99.99.0/24 nexthop {}".format(nexthop)
-            nexthop_del_cmd = "config route del prefix 99.99.99.0/24 nexthop {}".format(nexthop)
+    # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
+    get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
+                            crm_stats_ipv{ip_ver}_nexthop_used \
+                            crm_stats_ipv{ip_ver}_nexthop_available"\
+                                .format(db_cli=asichost.sonic_db_cli,
+                                        ip_ver=ip_ver)
+    crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
+        dut_interface = crm_interface[0] if duthost.facts["asic_type"] == "mellanox" else "Ethernet1"
+        mask = "24" if ip_ver == "4" else "64"
+        dut_interface_ip = "2.2.2.1" if ip_ver == "4" else "2001::2"
+        route_prefix = "99.99.99.0" if ip_ver == "4" else "3001::0"
+
+        ip_add_cmd = f"config interface ip add {dut_interface} {dut_interface_ip}/{mask}"
+        ip_remove_cmd = f"config interface ip remove {dut_interface} {dut_interface_ip}/{mask}"
+        nexthop_add_cmd = f"config route add prefix {route_prefix}/{mask} nexthop {nexthop}"
+        nexthop_del_cmd = f"config route del prefix {route_prefix}/{mask} nexthop {nexthop}"
+
+        if duthost.facts["asic_type"] == "mellanox":
+            vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
+            vmhost.shell(f"ip addr add {nexthop}/{mask} dev {vm_interface}")
+            vmhost.shell(f"ip link set {vm_interface} up")
         else:
-            ptfhost.add_ip_to_dev('eth1', nexthop+'/96')
+            ptfhost.add_ip_to_dev('eth1', nexthop + '/' + mask)
             ptfhost.set_dev_up_or_down('eth1', 'is_up')
-            ip_add_cmd = "config interface ip add Ethernet1 2001::2/64"
-            ip_remove_cmd = "config interface ip remove Ethernet1 2001::2/64"
-            nexthop_add_cmd = "config route add prefix 3001::0/64 nexthop {}".format(nexthop)
-            nexthop_del_cmd = "config route del prefix 3001::0/64 nexthop {}".format(nexthop)
-        asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+            asichost.sonichost.del_member_from_vlan(1000, 'Ethernet1')
+
         asichost.shell(ip_add_cmd)
-        asichost.shell("config interface startup Ethernet1")
+        asichost.shell(f"config interface startup {dut_interface}")
     else:
         nexthop_add_cmd = "{ip_cmd} neigh replace {nexthop} \
                         lladdr 11:22:33:44:55:66 dev {iface}"\
@@ -672,13 +724,6 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                             .format(ip_cmd=asichost.ip_cmd,
                                     nexthop=nexthop,
                                     iface=crm_interface[0])
-    # Get "crm_stats_ipv[4/6]_nexthop" used and available counter value
-    get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
-                            crm_stats_ipv{ip_ver}_nexthop_used \
-                            crm_stats_ipv{ip_ver}_nexthop_available"\
-                                .format(db_cli=asichost.sonic_db_cli,
-                                        ip_ver=ip_ver)
-    crm_stats_nexthop_used, crm_stats_nexthop_available = get_crm_stats(get_nexthop_stats, duthost)
     # Add nexthop
     asichost.shell(nexthop_add_cmd)
 
@@ -694,10 +739,14 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
                   "\"crm_stats_ipv{}_nexthop_available\" counter was not decremented".format(ip_ver, ip_ver))
     # Remove nexthop
     asichost.shell(nexthop_del_cmd)
-    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell"]:
+    if duthost.facts["asic_type"] in ["marvell-prestera", "marvell", "mellanox"]:
         asichost.shell(ip_remove_cmd)
-        asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
-        ptfhost.remove_ip_addresses()
+        if duthost.facts["asic_type"] == "mellanox":
+            vmhost, vm_interface = _get_interface_neighbor_and_port(duthost, tbinfo, dut_interface, nbrhosts)
+            vmhost.shell(f"ip addr del {nexthop}/{mask} dev {vm_interface}")
+        else:
+            asichost.sonichost.add_member_to_vlan(1000, dut_interface, is_tagged=False)
+            ptfhost.remove_ip_addresses()
     crm_stats_checker = wait_until(60, 5, 0, check_crm_stats, get_nexthop_stats, duthost,
                                    crm_stats_nexthop_used, crm_stats_nexthop_available,
                                    skip_stats_check=skip_stats_check)
@@ -727,7 +776,11 @@ def test_crm_nexthop(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 
 @pytest.mark.parametrize("ip_ver,neighbor,host", [("4", "2.2.2.2", "2.2.2.1/8"), ("6", "2001::1", "2001::2/64")])
 def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                      enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host):
+                      enum_frontend_asic_index,  crm_interface, ip_ver, neighbor, host, tbinfo):
+
+    if ip_ver == "4" and is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     get_nexthop_stats = "{db_cli} COUNTERS_DB HMGET CRM:STATS \
@@ -807,7 +860,11 @@ def test_crm_neighbor(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
 @pytest.mark.usefixtures('disable_route_checker')
 @pytest.mark.parametrize("group_member,network", [(False, "2.2.2.0/24"), (True, "2.2.2.0/24")])
 def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                           enum_frontend_asic_index, crm_interface, group_member, network):
+                           enum_frontend_asic_index, crm_interface, group_member, tbinfo, network):
+
+    if is_ipv6_only_topology(tbinfo):
+        pytest.skip("Skipping IPv4 test on IPv6-only topology")
+
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     asic_type = duthost.facts['asic_type']
@@ -900,9 +957,17 @@ def test_crm_nexthop_group(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
         # Increase default Linux configuration for ARP cache
         increase_arp_cache(duthost, nexthop_group_num, 4, "test_crm_nexthop_group")
 
+        # Configure neighbors in batches of size chunk_size
+        # on sn4700 devices, kernel neighbor messages were being dropped due to volume.
+        if "msn4700" in asic_type:
+            chunk_size = 200
+        else:
+            chunk_size = nexthop_group_num
+
         # Add new neighbor entries to correctly calculate used CRM resources in percentage
         configure_nexthop_groups(amount=nexthop_group_num, interface=crm_interface[0],
-                                 asichost=asichost, test_name="test_crm_nexthop_group")
+                                 asichost=asichost, test_name="test_crm_nexthop_group",
+                                 chunk_size=chunk_size)
 
         logger.info("Waiting {} seconds for SONiC to update resources...".format(SONIC_RES_UPDATE_TIME))
         # Make sure SONIC configure expected entries

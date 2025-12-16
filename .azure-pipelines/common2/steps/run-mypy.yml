@@ -1,0 +1,16 @@
+steps:
+  - script: |
+      pip install mypy
+
+      # Source the shared script to get changed Python files
+      source .azure-pipelines/common2/scripts/get-changed-python-files.sh
+
+      if [ "$HAS_CHANGED_PYTHON_FILES" = "false" ]; then
+        echo "Skipping mypy."
+      else
+        echo "Running mypy on these files..."
+        # Pass the specific files to mypy
+        # mypy will use the pyproject.toml configuration for these files
+        mypy $CHANGED_PYTHON_FILES
+      fi
+    displayName: 'Run mypy static type checker (conditional on changed .py files)'

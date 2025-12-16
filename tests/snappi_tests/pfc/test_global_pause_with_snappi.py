@@ -11,6 +11,7 @@ from tests.common.snappi_tests.qos_fixtures import lossless_prio_list, prio_dscp
 from tests.snappi_tests.pfc.files.helper import run_pfc_test                      # noqa: F401
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 logger = logging.getLogger(__name__)
 

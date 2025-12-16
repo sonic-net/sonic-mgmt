@@ -21,7 +21,7 @@ from tests.common.gu_utils import (
     delete_checkpoint,
     rollback_or_reload,
 )
-from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 pytestmark = [pytest.mark.topology("t0")]
@@ -72,7 +72,7 @@ def lo_intfs(duthost, tbinfo):
 
 @pytest.fixture(autouse=True)
 def setup_env(
-    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m, # noqa F811
+    duthosts, rand_one_dut_hostname, toggle_all_simulator_ports_to_rand_selected_tor_m,     # noqa:F811
 ):
     """
     Setup/teardown fixture for bgp speaker config

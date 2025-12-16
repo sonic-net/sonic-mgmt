@@ -1,7 +1,7 @@
 {
     "CONSOLE_PORT": {
 {% set ns = namespace(first=true) %}
-{% for device, console_info in device_console_link.iteritems() %}
+{% for device, console_info in device_console_link.items() %}
 {% if "ConsolePort" in console_info and console_info["ConsolePort"]["peerdevice"] == inventory_hostname %}
 {% if ns.first != true %},
 {% endif %}

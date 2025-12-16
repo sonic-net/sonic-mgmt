@@ -8,8 +8,8 @@ import logging
 
 import pytest
 
-from tests.common import config_reload  # noqa F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa F401
+from tests.common import config_reload  # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.platform.processes_utils import check_critical_processes
@@ -76,10 +76,10 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
     interface_wait_time = 300
     if dut.facts["platform"] == "x86_64-cel_e1031-r0":
         interface_wait_time = 900
-    pytest_assert(wait_until(interface_wait_time, 20, 0, check_interface_information, dut,
-                  enum_frontend_asic_index, interfaces, xcvr_skip_list),
-                  "Not all interface information are detected within {} seconds".format(interface_wait_time))
-
+    if interfaces:
+        pytest_assert(wait_until(interface_wait_time, 20, 0, check_interface_information, dut,
+                                 enum_frontend_asic_index, interfaces, xcvr_skip_list),
+                      "Not all interface information are detected within {} seconds".format(interface_wait_time))
     logging.info("Check transceiver status on asic %s" % enum_frontend_asic_index)
     check_transceiver_basic(dut, enum_frontend_asic_index, interfaces, xcvr_skip_list)
 
@@ -99,7 +99,7 @@ def restart_service_and_check(localhost, dut, enum_frontend_asic_index, service,
 
 
 def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index,
-                      localhost, conn_graph_facts, xcvr_skip_list):            # noqa F811
+                      localhost, conn_graph_facts, xcvr_skip_list):            # noqa: F811
     """
     @summary: This test case is to restart the swss service and check platform status
     """
@@ -119,7 +119,7 @@ def test_restart_swss(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_
 
 
 def test_restart_syncd(duthosts, enum_rand_one_per_hwsku_hostname, enum_frontend_asic_index,
-                       localhost, conn_graph_facts, xcvr_skip_list):           # noqa F811
+                       localhost, conn_graph_facts, xcvr_skip_list):           # noqa: F811
     """
     @summary: This test case is to restart the syncd service and check platform status
     """

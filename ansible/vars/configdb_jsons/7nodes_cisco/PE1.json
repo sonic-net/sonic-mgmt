@@ -6,7 +6,8 @@
             "log_nbr_state_changes" : "true",
             "load_balance_mp_relax" : "true",
             "keepalive" : "10",
-            "holdtime" : "30"
+            "holdtime" : "30",
+            "sid_vpn_per_vrf_export_explicit": "fd00:201:201:1::"
         },
         "default" : {
             "local_asn" : "64600",
@@ -434,21 +435,26 @@
         "Vrf1": {},
         "Vrf2": {}
     },
+    "SRV6_MY_SOURCE": {
+        "tunnel-source" : {
+            "source-address" : "2064:100::1d"
+        }
+    },
     "SRV6_MY_LOCATORS": {
         "lsid1": {
             "argu_len": "48",
             "block_len": "32",
-            "func_len": "32",
+            "func_len": "16",
             "node_len": "16",
             "prefix": "fd00:201:201::/48"
         }
     },
     "SRV6_MY_SIDS": {
-        "lsid1|fd00:201:201:fff1:1::/80": {
+        "lsid1|fd00:201:201:1::/64": {
             "action": "uDT46",
             "decap_vrf": "Vrf1"
         },
-        "lsid1|fd00:201:201:fff1:11::/80": {
+        "lsid1|fd00:201:201:11::/64": {
             "action": "uDT46",
             "decap_vrf": "Vrf2"
         }

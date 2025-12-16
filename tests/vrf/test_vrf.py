@@ -5,6 +5,7 @@ import yaml
 import json
 import random
 import logging
+import os
 import tempfile
 import traceback
 
@@ -15,9 +16,9 @@ from six.moves import queue
 
 import pytest
 
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa F401
-from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses    # noqa: F401
+from tests.common.storage_backend.backend_utils import skip_test_module_over_backend_topologies     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_until
 from tests.common.reboot import reboot
@@ -274,8 +275,9 @@ def setup_vrf_cfg(duthost, localhost, cfg_facts):
     # get members from Vlan1000, and move half of them to Vlan2000 in vrf basic cfg
     ports = get_vlan_members('Vlan1000', cfg_facts)
 
-    vlan_ports = {'Vlan1000': ports[:len(ports)/2],
-                  'Vlan2000': ports[len(ports)/2:]}
+    # Use integer division for Python 3 compatibility
+    vlan_ports = {'Vlan1000': ports[:len(ports)//2],
+                  'Vlan2000': ports[len(ports)//2:]}
 
     extra_vars = {'cfg_t0': cfg_t0,
                   'vlan_ports': vlan_ports}
@@ -342,9 +344,11 @@ def setup_vlan_peer(duthost, ptfhost, cfg_facts):
     return vlan_peer_ips, vlan_peer_vrf2ns_map
 
 
-def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map):
+def cleanup_vlan_peer(ptfhost, vlan_peer_vrf2ns_map, vlan_peer_ips):
+    for _, vlan_peer_port in vlan_peer_ips.keys():
+        ptfhost.shell(f"ip link del e{vlan_peer_port}mv1 || true")
     for vrf, ns in list(vlan_peer_vrf2ns_map.items()):
-        ptfhost.shell("ip netns del {}".format(ns))
+        ptfhost.shell(f"ip netns del {ns}")
 
 
 def gen_vrf_fib_file(vrf, tbinfo, ptfhost, render_file, dst_intfs=None,
@@ -396,11 +400,19 @@ def gen_vrf_neigh_file(vrf, ptfhost, render_file):
 
 def gen_specific_neigh_file(dst_ips, dst_ports, render_file, ptfhost):
     dst_ports = [str(port) for port_list in dst_ports for port in port_list]
-    tmp_file = tempfile.NamedTemporaryFile()
-    for ip in dst_ips:
-        tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
-    tmp_file.flush()
-    ptfhost.copy(src=tmp_file.name, dest=render_file)
+
+    # Use NamedTemporaryFile with text mode
+    with tempfile.NamedTemporaryFile(mode='w+', encoding='utf-8', delete=False) as tmp_file:
+        for ip in dst_ips:
+            tmp_file.write('{} [{}]\n'.format(ip, ' '.join(dst_ports)))
+        tmp_file.flush()
+        tmp_filename = tmp_file.name
+
+    # Copy the file to the PTF host
+    ptfhost.copy(src=tmp_filename, dest=render_file)
+
+    # Clean up the temporary file
+    os.remove(tmp_filename)
 
 # For dualtor
 
@@ -465,13 +477,14 @@ def restore_config_db(localhost, duthost, ptfhost):
     duthost.shell("mv /etc/sonic/config_db.json.bak /etc/sonic/config_db.json")
     reboot(duthost, localhost)
 
-    if 'vlan_peer_vrf2ns_map' in g_vars:
-        cleanup_vlan_peer(ptfhost, g_vars['vlan_peer_vrf2ns_map'])
+    cleanup_vlan_peer(ptfhost,
+                      g_vars['vlan_peer_vrf2ns_map'] if 'vlan_peer_vrf2ns_map' in g_vars else {},
+                      g_vars['vlan_peer_ips'] if 'vlan_peer_ips' in g_vars else {})
 
 
 @pytest.fixture(scope="module", autouse=True)
 def setup_vrf(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, localhost,
-              skip_test_module_over_backend_topologies):        # noqa F811
+              skip_test_module_over_backend_topologies):        # noqa: F811
     duthost = duthosts[rand_one_dut_hostname]
 
     # backup config_db.json
@@ -620,9 +633,16 @@ class TestVrfCreateAndBind():
 
         for vrf, intfs in list(g_vars['vrf_intfs'].items()):
             for intf in intfs:
-                res = duthost.shell("ip link show %s" % intf)
-                assert vrf in res['stdout'], "The master dev of interface %s should be %s !" % (
-                    intf, vrf)
+                def check_intf_in_vrf():
+                    try:
+                        res = duthost.shell("ip link show %s" % intf)
+                        return vrf in res['stdout']
+                    except Exception:
+                        return False
+
+                # Wait up to 60 seconds for the interface to be bound to the VRF
+                pytest_assert(wait_until(60, 2, 0, check_intf_in_vrf),
+                              "The master dev of interface %s should be %s!" % (intf, vrf))
 
     def test_vrf_in_appl_db(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
@@ -1003,7 +1023,7 @@ class TestVrfLoopbackIntf():
                         "ping6 {} -I Vrf2 -I {} -c 3 -f -W2".format(neigh_ip6, ip.ip))
 
     @pytest.fixture
-    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts):
+    def setup_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, ptfhost, cfg_facts, tbinfo):
         duthost = duthosts[rand_one_dut_hostname]
 
         # ----------- Setup ----------------
@@ -1013,7 +1033,9 @@ class TestVrfLoopbackIntf():
         # When there are only vrf bgp sessions and
         # net.ipv4.tcp_l3mdev_accept=1, bgpd(7.0) does
         # not create bgp socket for sessions.
-        duthost.shell("vtysh -c 'config terminal' -c 'router bgp 65444'")
+
+        dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
+        duthost.shell("vtysh -c 'config terminal' -c 'router bgp {}'".format(dut_asn))
 
         # vrf1 args, vrf2 use the same as vrf1
         peer_range = IPNetwork(
@@ -1098,7 +1120,7 @@ class TestVrfLoopbackIntf():
                 ns, ptf_speaker_ip, vlan_peer_port))
 
         # FIXME workround to overcome the bgp socket issue
-        # duthost.shell("vtysh -c 'config terminal' -c 'no router bgp 65444'")
+        # duthost.shell("vtysh -c 'config terminal' -c 'no router bgp {}'".format(dut_asn))
 
     @pytest.mark.usefixtures('setup_bgp_with_loopback')
     def test_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, cfg_facts):
@@ -1279,9 +1301,9 @@ class TestVrfCapacity():
 
         Example:
         VRF         RIFs        Vlan_Member_Port    IP              Neighbor_IP(on PTF)     Static_Route
-        Vrf_Cap_1   Vlan2001    Ethernet2           192.1.1.0/31    192.1.1.1/31            ip route 200.200.200.0/24 192.2.1.1 vrf Vrf_Cap_1   # noqa E501
+        Vrf_Cap_1   Vlan2001    Ethernet2           192.1.1.0/31    192.1.1.1/31            ip route 200.200.200.0/24 192.2.1.1 vrf Vrf_Cap_1   # noqa: E501
                     Vlan3001    Ethernet14          192.2.1.0/31    192.2.1.1/31
-        Vrf_Cap_2   Vlan2002    Ethernet2           192.1.1.2/31    192.1.1.3/31            ip route 200.200.200.0/24 192.2.1.3 vrf Vrf_Cap_2   # noqa E501
+        Vrf_Cap_2   Vlan2002    Ethernet2           192.1.1.2/31    192.1.1.3/31            ip route 200.200.200.0/24 192.2.1.3 vrf Vrf_Cap_2   # noqa: E501
                     Vlan3002    Ethernet14          192.2.1.2/31    192.2.1.3/31
         ...
 

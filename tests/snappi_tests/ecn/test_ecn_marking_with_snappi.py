@@ -1,6 +1,6 @@
 import pytest
 import logging
-from tabulate import tabulate # noqa F401
+from tabulate import tabulate  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert, pytest_require     # noqa: F401
 from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts, \
     fanout_graph_facts_multidut         # noqa: F401
@@ -8,7 +8,7 @@ from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi
     snappi_api, snappi_dut_base_config, get_snappi_ports, get_snappi_ports_for_rdma, cleanup_config, \
     is_snappi_multidut, get_snappi_ports_multi_dut, get_snappi_ports_single_dut   # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, \
-    lossless_prio_list, disable_pfcwd   # noqa F401
+    lossless_prio_list, disable_pfcwd   # noqa: F401
 from tests.snappi_tests.files.helper import multidut_port_info, setup_ports_and_dut, enable_debug_shell  # noqa: F401
 from tests.snappi_tests.ecn.files.helper import run_ecn_marking_test, \
     run_ecn_marking_port_toggle_test, run_ecn_marking_ect_marked_pkts
@@ -47,20 +47,29 @@ def snappi_port_dut_info(snappi_ports):
     if (tx_dut_1 == tx_dut_2):
         input_ports_same_dut = True
 
-    cmd_part = f"-n {rx_asic}"
-    if rx_asic is None:
-        cmd_part = ""
-    cmd = 'sonic-db-cli ' + f'{cmd_part}' + ' CONFIG_DB hget "CABLE_LENGTH|AZURE" ' + rx_peer_port
+    def check_dut_short_link(dut_asic, dut, dut_port):
+        cmd_part = f"-n {dut_asic}"
+        if dut_asic is None:
+            cmd_part = ""
+        cmd = 'sonic-db-cli ' + f'{cmd_part}' + ' CONFIG_DB hget "CABLE_LENGTH|AZURE" ' + dut_port
 
-    len_str = rx_dut.shell(cmd)['stdout_lines']
-    cable_len = int(len_str[0][:-1])
-    # 120000m -> 120000
-    if cable_len < 1000:
-        egress_port_short_link = True
-    else:
-        egress_port_short_link = False
+        len_str = dut.shell(cmd)['stdout_lines']
+        cable_len = int(len_str[0][:-1])
+        # 120000m -> 120000
+        return True if cable_len < 1000 else False
 
-    return input_ports_same_asic, input_ports_same_dut, single_dut, egress_port_short_link
+    egress_port_short_link = check_dut_short_link(rx_asic, rx_dut, rx_peer_port)
+
+    # Check if ingress ports are short link
+    ingress_ports_1_short_link = check_dut_short_link(tx_asic_1, tx_dut_1, tx_peer_port_1)
+    ingress_ports_2_short_link = check_dut_short_link(tx_asic_2, tx_dut_2, tx_peer_port_2)
+
+    # ECN mark check on bp or fabric port only when both ingress are on short and egress is on long link
+    is_bp_fabric_ecn_check_required = ingress_ports_1_short_link and ingress_ports_2_short_link \
+        and not egress_port_short_link
+
+    return input_ports_same_asic, input_ports_same_dut, single_dut, \
+        is_bp_fabric_ecn_check_required, egress_port_short_link
 
 
 def validate_snappi_ports(snappi_ports):
@@ -91,7 +100,6 @@ def validate_snappi_ports(snappi_ports):
 
     # Retrieve ASIC namespace
     rx_asic = get_asic(rx_dut, rx_peer_port)
-    # print(rx_asic, rx_peer_port)
     tx_asic_1 = get_asic(tx_dut_1, tx_peer_port_1)
     tx_asic_2 = get_asic(tx_dut_2, tx_peer_port_2)
 
@@ -144,6 +152,12 @@ def test_ecn_marking_port_toggle(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
+    _, _, _, is_bp_fabric_ecn_check_required, _ = snappi_port_dut_info(snappi_ports)
+
+    supervisor_dut = None
+    if is_bp_fabric_ecn_check_required:
+        supervisor_dut = next((duthost for duthost in duthosts if duthost.is_supervisor_node()), None)
+
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -155,6 +169,8 @@ def test_ecn_marking_port_toggle(
                             dut_port=snappi_ports[0]['peer_port'],
                             test_prio_list=lossless_prio_list,
                             prio_dscp_map=prio_dscp_map,
+                            supervisor_dut=supervisor_dut,
+                            is_bp_fabric_ecn_check_required=is_bp_fabric_ecn_check_required,
                             snappi_extra_params=snappi_extra_params)
 
 
@@ -176,7 +192,6 @@ def test_ecn_marking_lossless_prio(
                                 setup_ports_and_dut):                    # noqa: F811
     """
     Verify ECN marking on lossless prio with same DWRR weight
-
     Args:
         request (pytest fixture): pytest request object
         snappi_api (pytest fixture): SNAPPI session
@@ -194,7 +209,8 @@ def test_ecn_marking_lossless_prio(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
-    input_port_same_asic, input_port_same_dut, single_dut, egress_port_short_link = snappi_port_dut_info(snappi_ports)
+    input_port_same_asic, input_port_same_dut, single_dut, _, \
+        egress_port_short_link = snappi_port_dut_info(snappi_ports)
     pytest_require(egress_port_short_link, "Egress port must be on short link")
 
     logger.info("Snappi Ports : {}".format(snappi_ports))
@@ -246,6 +262,12 @@ def test_ecn_marking_ect_marked_pkts(
 
     testbed_config, port_config_list, snappi_ports = setup_ports_and_dut
 
+    _, _, _, is_bp_fabric_ecn_check_required, _ = snappi_port_dut_info(snappi_ports)
+
+    supervisor_dut = None
+    if is_bp_fabric_ecn_check_required:
+        supervisor_dut = next((duthost for duthost in duthosts if duthost.is_supervisor_node()), None)
+
     logger.info("Snappi Ports : {}".format(snappi_ports))
     snappi_extra_params = SnappiTestParams()
     snappi_extra_params.multi_dut_params.multi_dut_ports = snappi_ports
@@ -257,4 +279,6 @@ def test_ecn_marking_ect_marked_pkts(
                             dut_port=snappi_ports[0]['peer_port'],
                             test_prio_list=lossless_prio_list,
                             prio_dscp_map=prio_dscp_map,
+                            supervisor_dut=supervisor_dut,
+                            is_bp_fabric_ecn_check_required=is_bp_fabric_ecn_check_required,
                             snappi_extra_params=snappi_extra_params)

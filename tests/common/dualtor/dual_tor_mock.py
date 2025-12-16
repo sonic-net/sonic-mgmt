@@ -8,7 +8,7 @@ import six
 from ipaddress import ip_interface, IPv4Interface, IPv6Interface, \
                       ip_address, IPv4Address
 from tests.common import config_reload
-from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa F401
+from tests.common.dualtor.dual_tor_utils import tor_mux_intfs       # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.utilities import wait_until
@@ -64,7 +64,7 @@ def _apply_config_to_swss(dut, swss_config_str, swss_filename='swss_config_file'
     dut.shell('docker exec swss sh -c "swssconfig {}"'.format(swss_filename))
 
 
-def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa F811
+def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa: F811
     """
     Helper function for setting active/standby state to orchagent
     """
@@ -104,7 +104,7 @@ def set_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):         # noqa F
     wait_until(120, 5, 5, check_config_applied, len(tor_mux_intfs))
 
 
-def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa F811
+def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa: F811
     """
     Helper function for deleting active/standby state to orchagent
     """
@@ -127,7 +127,7 @@ def del_dual_tor_state_from_orchagent(dut, state, tor_mux_intfs):       # noqa F
     _apply_config_to_swss(dut, swss_config_str, swss_filename)
 
 
-def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):      # noqa F811
+def _apply_dual_tor_state_to_orchagent(dut, state, tor_mux_intfs):      # noqa: F811
     '''
     Helper function to configure active/standby state in orchagent
 
@@ -158,7 +158,7 @@ def set_mux_state(dut, tbinfo, state, itfs, toggle_all_simulator_ports):
 
 
 @pytest.fixture(scope='module')
-def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):      # noqa F811
+def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):      # noqa: F811
     dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'active', tor_mux_intfs):
@@ -166,7 +166,7 @@ def apply_active_state_to_orchagent(rand_selected_dut, tor_mux_intfs):      # no
 
 
 @pytest.fixture(scope='module')
-def apply_standby_state_to_orchagent(rand_selected_dut, tor_mux_intfs):     # noqa F811
+def apply_standby_state_to_orchagent(rand_selected_dut, tor_mux_intfs):     # noqa: F811
     dut = rand_selected_dut
 
     for func in _apply_dual_tor_state_to_orchagent(dut, 'standby', tor_mux_intfs):
@@ -230,7 +230,7 @@ def mock_server_base_ip_addr(rand_selected_dut, tbinfo):
 
 @pytest.fixture(scope='module')
 def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
-                           mock_server_base_ip_addr, tor_mux_intfs):     # noqa F811
+                           mock_server_base_ip_addr, tor_mux_intfs):     # noqa: F811
     dut = rand_selected_dut
 
     server_ipv4_base_addr, _ = mock_server_base_ip_addr
@@ -257,7 +257,7 @@ def mock_server_ip_mac_map(rand_selected_dut, tbinfo, ptfadapter,
 
 @pytest.fixture(scope='module')
 def mock_server_ipv6_mac_map(rand_selected_dut, tbinfo, ptfadapter,
-                             mock_server_base_ip_addr, tor_mux_intfs):      # noqa F811
+                             mock_server_base_ip_addr, tor_mux_intfs):      # noqa: F811
     dut = rand_selected_dut
     _, server_ipv6_base_addr = mock_server_base_ip_addr
     server_ipv6_mac_map = {}
@@ -415,7 +415,7 @@ def apply_tunnel_table_to_dut(cleanup_mocked_configs, rand_selected_dut, mock_pe
 
 @pytest.fixture(scope='module')
 def apply_mux_cable_table_to_dut(cleanup_mocked_configs, rand_selected_dut,
-                                 mock_server_base_ip_addr, tor_mux_intfs):      # noqa F811
+                                 mock_server_base_ip_addr, tor_mux_intfs):      # noqa: F811
     '''
     Adds the MUX_CABLE table to config DB
     '''

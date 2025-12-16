@@ -29,6 +29,10 @@ class TaskRunner(object):
             try:
                 result = {'result': future.result()}
             except Exception as e:
+                import traceback
+                print(f"Exception caught in task '{name}': {repr(e)}")
+                print("Traceback:")
+                print(traceback.format_exc())
                 result = {'result': repr(e)}
 
             yield name, result

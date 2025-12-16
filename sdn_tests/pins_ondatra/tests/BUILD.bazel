@@ -64,6 +64,18 @@ ondatra_test(
     ],
 )
 
+# Gnoi Factory Reset tests
+ondatra_test(
+    name = "gnoi_factory_reset_test",
+    srcs = ["gnoi_factory_reset_test.go"],
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "//infrastructure/testhelper",
+        "@com_github_openconfig_gnoi//factory_reset:factory_reset_go_proto",
+        "@com_github_openconfig_ondatra//:go_default_library",
+    ],
+)
+
 #lacp time-out test
 ondatra_test(
     name = "lacp_timeout_test",
@@ -407,5 +419,34 @@ ondatra_test(
         "@com_github_openconfig_ygot//ygot",
         "@org_golang_google_grpc//:go_default_library",
         "@org_golang_google_protobuf//encoding/prototext",
+    ],
+)
+
+#To run all the testcase
+test_suite(
+    name = "all_tests",
+    tests = [
+        ":ethcounter_sw_dual_switch_test",
+        ":gnmi_long_stress_test",
+        ":gnoi_file_test",
+        ":lacp_timeout_test",
+        ":link_event_damping_test",
+        ":port_debug_data_test",
+        ":platforms_hardware_component_test",
+        ":module_reset_test",
+        ":installation_test",
+        ":inband_sw_interface_dual_switch_test",
+        ":gnmi_get_modes_test",
+        ":transceiver_test",
+        ":inband_sw_interface_test",
+        ":platforms_software_component_test",
+        ":gnoi_reboot_test",
+        ":cpu_sw_single_switch_test",
+        ":ethcounter_sw_single_switch_test",
+        ":gnmi_set_get_test",
+        ":lacp_test",
+        ":z_gnmi_stress_test",
+        ":system_paths_test",
+        ":gnmi_wildcard_subscription_test",
     ],
 )

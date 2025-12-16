@@ -16,6 +16,8 @@ from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.snappi_tests.traffic_generation import run_traffic, verify_pause_flow, \
      setup_base_traffic_config                                      # noqa: F401
 from tests.common.snappi_tests.variables import pfcQueueGroupSize, pfcQueueValueDict
+from tests.snappi_tests.files.helper import get_number_of_streams
+from tests.common.snappi_tests.snappi_fixtures import gen_data_flow_dest_ip
 
 logger = logging.getLogger(__name__)
 
@@ -107,9 +109,7 @@ def run_lossless_response_to_throttling_pause_storms_test(api,
 
     test_flow_rate_percent = int(TEST_FLOW_AGGR_RATE_PERCENT)
     bg_flow_rate_percent = int(BG_FLOW_AGGR_RATE_PERCENT)
-    no_of_bg_streams = 1
-    if duthost.facts['asic_type'] == "cisco-8000":
-        no_of_bg_streams = 10
+    no_of_bg_streams = get_number_of_streams(egress_duthost, tx_port, rx_port)
     port_id = 0
 
     # Generate base traffic config
@@ -370,23 +370,19 @@ def __gen_data_flow(testbed_config,
             elif 'Test Flow 2 -> 0' in flow.name:
                 eth.pfc_queue.value = flow_prio[1]
         else:
-            if 'Background Flow' in flow.name:
-                eth.pfc_queue.value = pfcQueueValueDict[1]
-            elif 'Test Flow 1 -> 0' in flow.name:
+            # Adding queue values based on flow_priorities for both test and background flows.
+            if 'Flow 1 -> 0' in flow.name:
                 eth.pfc_queue.value = pfcQueueValueDict[flow_prio[0]]
-            elif 'Test Flow 2 -> 0' in flow.name:
+            elif 'Flow 2 -> 0' in flow.name:
                 eth.pfc_queue.value = pfcQueueValueDict[flow_prio[1]]
 
         ipv4.src.value = tx_port_config.ip
-        ipv4.dst.value = rx_port_config.ip
+        ipv4.dst.value = gen_data_flow_dest_ip(rx_port_config.ip)
         ipv4.priority.choice = ipv4.priority.DSCP
         if 'Background Flow 1 -> 0' in flow.name:
-            ipv4.priority.dscp.phb.values = [
-                ipv4.priority.dscp.phb.CS2,
-            ]
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
         elif 'Background Flow 2 -> 0' in flow.name:
-            ipv4.priority.dscp.phb.value = ipv4.priority.dscp.phb.DEFAULT
-            ipv4.priority.dscp.phb.value = 5
+            ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[1]]
         elif 'Test Flow 1 -> 0' in flow.name:
             ipv4.priority.dscp.phb.values = prio_dscp_map[flow_prio[0]]
         elif 'Test Flow 2 -> 0' in flow.name:

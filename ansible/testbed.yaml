@@ -74,6 +74,7 @@
     - str-msn2700-01
   inv_name: lab
   auto_recover: 'True'
+  upstream_neighbor_groups: 1
   comment: Tests Mellanox SN2700 vms
 
 - conf-name: vms-s6000-t0

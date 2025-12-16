@@ -12,7 +12,7 @@
       timeout: "{{ timeout_threshold }}"
     register: ceos_reachability
     ignore_errors: yes
-    delegate_to: "localhost"
+    delegate_to: "{{ VM_host[0] }}"
 
   - name: restart cEOS container
     become: yes

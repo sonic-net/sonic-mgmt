@@ -24,6 +24,8 @@ import ptf
 from ptf.base_tests import BaseTest
 from ptf.mask import Mask
 import ptf.testutils as testutils
+import ptf.packet as scapy    # noqa: F401
+from scapy.arch.linux import attach_filter as attach_filter
 from device_connection import DeviceConnection
 from utilities import parse_show
 import ipaddress
@@ -222,6 +224,11 @@ class ArpTest(BaseTest):
     def setUp(self):
         self.dataplane = ptf.dataplane_instance
 
+        # Apply filters
+        for p in self.dataplane.ports.values():
+            port = p.get_packet_source()
+            attach_filter(port.socket, 'arp and not ether dst ff:ff:ff:ff:ff:ff', port.interface_name)
+
         config = self.get_param('config_file')
         self.ferret_ip = self.get_param('ferret_ip')
         self.advance = self.get_param('advance')
@@ -346,7 +353,7 @@ class ArpTest(BaseTest):
         self.warm_reboot()
 
         test_port_thr.join(timeout=self.how_long)
-        if test_port_thr.isAlive():
+        if test_port_thr.is_alive():
             self.log("Timed out waiting for traffic-sender (test_port_thr thread)")
             self.req_dut('quit')
             self.assertTrue(
@@ -429,7 +436,7 @@ class ArpTest(BaseTest):
             if wr_state is not False:
                 self.assertTrue(False, "CPA quit before warm reboot finished")
 
-            if test_non_broadcast_reply_thread.isAlive():
+            if test_non_broadcast_reply_thread.is_alive():
                 self.log("Timed out waiting for test_non_broadcast_reply_thread")
                 self.assertTrue(
                     False, "Timed out waiting for test_non_broadcast_reply_thread")

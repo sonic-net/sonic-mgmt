@@ -41,7 +41,41 @@ def ensure_dut_readiness(duthost):
         delete_checkpoint(duthost)
 
 
-def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles):
+def get_sample_ports_for_pg_profiles(duthost, pg_lossless_profiles, cli_namespace_prefix):
+    """
+    Retrieves sample ports for each pg_lossless buffer profile.
+
+    Args:
+        duthost: DUT host object
+        pg_lossless_profiles: list of pg_lossless buffer profiles
+        cli_namespace_prefix: fixture for the formatted cli namespace
+
+    Returns:
+        list: sample ports with pg_lossless_profile in format "port_name:queue_number"
+    """
+    sample_ports_with_pg_lossless_profile = []
+    for pg_lossless_profile in pg_lossless_profiles:
+        keys = duthost.shell('sonic-db-cli {} CONFIG_DB keys "BUFFER_PG|*"'
+                             .format(cli_namespace_prefix))["stdout_lines"]
+        for key in keys:
+            port_pg_profile = duthost.shell('sonic-db-cli {} CONFIG_DB hget "{}" profile'
+                                            .format(cli_namespace_prefix, key))["stdout"]
+            if port_pg_profile == pg_lossless_profile:
+                # Found port with pg_lossless_profile. key format - BUFFER_PG|EthernetX|X-X.
+                parts = key.split("|")
+                port_name = parts[1]
+                queue_number = parts[2].split("-")[0]
+
+                sample_ports_with_pg_lossless_profile.append(port_name + ":" + queue_number)
+                # Use only one port/queue pair per profile; validating every pair would increases test time.
+                break
+
+    return sample_ports_with_pg_lossless_profile
+
+
+def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles,
+                                         ip_netns_namespace_prefix,
+                                         cli_namespace_prefix):
     """
     Ensures application of the JSON patch config update by verifying dynamic threshold value presence in DB
 
@@ -49,51 +83,67 @@ def ensure_application_of_updated_config(duthost, value, pg_lossless_profiles):
         duthost: DUT host object
         value: expected value of dynamic threshold
         pg_lossless_profiles: all pg_lossless buffer profiles stored on the device
+        ip_netns_namespace_prefix: fixture for the formatted ip netns namespace
+        cli_namespace_prefix: fixture for the formatted cli namespace
     """
     def _confirm_value_in_appl_db_and_asic_db():
-
         for pg_lossless_profile in pg_lossless_profiles:
             # Retrieve dynamic_th from APPL_DB
-            dynamic_th_in_appl_db = duthost.shell("sonic-db-cli APPL_DB hget BUFFER_PROFILE_"
-                                                  "TABLE:{} dynamic_th".format(pg_lossless_profile))["stdout"]
+            dynamic_th_in_appl_db = duthost.shell("sonic-db-cli {} APPL_DB hget BUFFER_PROFILE_"
+                                                  "TABLE:{} dynamic_th"
+                                                  .format(cli_namespace_prefix,
+                                                          pg_lossless_profile))["stdout"]
             if dynamic_th_in_appl_db != value:
+                logger.error("Unexpected dynamic threshold value {} in APPL_DB for profile {}".format(
+                    dynamic_th_in_appl_db, pg_lossless_profile))
                 return False
 
-        # Retrieve dynamic_th from ASIC_DB
-        ingress_lossless_pool_oid = duthost.shell("sonic-db-cli COUNTERS_DB hget COUNTERS_BUFFER_POOL_NAME_MAP "
-                                                  "ingress_lossless_pool")["stdout"]
-        buffer_pool_keys = duthost.shell("redis-cli -n 1 KEYS ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_PROFILE:"
-                                         "oid*")["stdout_lines"]
+        sample_ports_with_pg_lossless_profile = get_sample_ports_for_pg_profiles(
+            duthost, pg_lossless_profiles, cli_namespace_prefix)
 
-        for buffer_pool in buffer_pool_keys:
-            pool_oid = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_"
-                                     "POOL_ID".format(buffer_pool))["stdout"]
+        if len(sample_ports_with_pg_lossless_profile) != len(pg_lossless_profiles):
+            logger.error("Ports with pg lossless profile(s) not found. profiles: {} number of ports found: {}"
+                         .format(len(pg_lossless_profiles), len(sample_ports_with_pg_lossless_profile)))
+            return False
 
-            if pool_oid == ingress_lossless_pool_oid:
-                xoff_val = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_ATTR_"
-                                         "XOFF_TH".format(buffer_pool))["stdout"]
-                dynamic_th_in_asic_db = duthost.shell("sonic-db-cli ASIC_DB hget {} SAI_BUFFER_PROFILE_"
-                                                      "ATTR_SHARED_DYNAMIC_TH".format(buffer_pool))["stdout"]
-                # Dynamic threshold values are a mismatch for pg_lossless profiles
-                if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
-                    return False
+        for port in sample_ports_with_pg_lossless_profile:
+            ingress_priority_group_oid = duthost.shell('sonic-db-cli {} COUNTERS_DB hget COUNTERS_PG_NAME_MAP "{}"'
+                                                       .format(cli_namespace_prefix, port))["stdout"]
+
+            buffer_profile_oid = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_INGRESS_"
+                                               "PRIORITY_GROUP:{} SAI_INGRESS_PRIORITY_GROUP_ATTR_BUFFER_PROFILE"
+                                               .format(cli_namespace_prefix, ingress_priority_group_oid))["stdout"]
+
+            xoff_val = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
+                                     "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
+                                     .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
+            dynamic_th_in_asic_db = duthost.shell("sonic-db-cli {} ASIC_DB hget ASIC_STATE:SAI_OBJECT_TYPE_BUFFER_"
+                                                  "PROFILE:{} SAI_BUFFER_PROFILE_ATTR_SHARED_DYNAMIC_TH"
+                                                  .format(cli_namespace_prefix, buffer_profile_oid))["stdout"]
+            if dynamic_th_in_asic_db != value and len(xoff_val) > 0:
+                logger.error("Unexpected dynamic threshold value {} or xoff_val {} in ASIC_DB for port {}".format(
+                    dynamic_th_in_asic_db, xoff_val, port))
+                return False
 
         return True
 
     pytest_assert(
         wait_until(READ_APPL_DB_TIMEOUT, READ_APPL_DB_INTERVAL, 0, _confirm_value_in_appl_db_and_asic_db),
-        "ASIC_DB or APPL_DB does not properly reflect new dynamic threshold expected value: {}".format(value)
+        "ASIC_DB or APPL_DB for namespace prefix {} does not properly reflect new dynamic threshold expected value: {}"
+        .format(cli_namespace_prefix, value)
     )
 
 
-def get_pg_lossless_profiles(duthost):
+def get_pg_lossless_profiles(duthost, cli_namespace_prefix):
     """
     Retrieves all pg_lossless buffer profiles that are present on the device. Ex. pg_lossless_100000_40m_profile
 
     Args:
     duthost: DUT host object
+    cli_namespace_prefix: fixture for the formatted cli namespace
     """
-    pg_lossless_profiles_str = duthost.shell("redis-cli -n 0 KEYS *BUFFER_PROFILE_TABLE:pg_lossless*")["stdout_lines"]
+    pg_lossless_profiles_str = duthost.shell("sonic-db-cli {} APPL_DB KEYS *BUFFER_PROFILE_TABLE:pg_lossless*"
+                                             .format(cli_namespace_prefix))["stdout_lines"]
     pg_lossless_profiles_lst = []
 
     for pg_lossless_profile_str in pg_lossless_profiles_str:
@@ -109,8 +159,14 @@ def get_pg_lossless_profiles(duthost):
 
 
 @pytest.mark.parametrize("operation", ["replace"])
-def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, skip_when_buffer_is_dynamic_model):
-    pg_lossless_profiles = get_pg_lossless_profiles(duthost)
+def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation,
+                                   skip_when_buffer_is_dynamic_model,
+                                   enum_rand_one_frontend_asic_index,
+                                   ip_netns_namespace_prefix,
+                                   cli_namespace_prefix):
+    namespace = duthost.get_namespace_from_asic_id(enum_rand_one_frontend_asic_index)
+
+    pg_lossless_profiles = get_pg_lossless_profiles(duthost, cli_namespace_prefix)
     pytest_require(pg_lossless_profiles, "DUT has no pg_lossless buffer profiles")
     new_dynamic_th = "2"
     json_patch = []
@@ -123,7 +179,9 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, ski
         }
         json_patch.append(individual_patch)
 
-    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch, is_asic_specific=True)
+    json_patch = format_json_patch_for_multiasic(duthost=duthost, json_data=json_patch,
+                                                 is_asic_specific=True, asic_namespaces=[namespace])
+
     tmpfile = generate_tmpfile(duthost)
     logger.info("tmpfile {} created for json patch of updating dynamic threshold and operation: {}"
                 .format(tmpfile, operation))
@@ -132,7 +190,8 @@ def test_dynamic_th_config_updates(duthost, ensure_dut_readiness, operation, ski
     try:
         output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
         expect_op_success(duthost, output)
-        ensure_application_of_updated_config(duthost, new_dynamic_th, pg_lossless_profiles)
+        ensure_application_of_updated_config(duthost, new_dynamic_th, pg_lossless_profiles,
+                                             ip_netns_namespace_prefix, cli_namespace_prefix)
         logger.info("Config successfully updated and verified.")
     finally:
         delete_tmpfile(duthost, tmpfile)

@@ -8,7 +8,7 @@ import ipaddress
 from test_crm import RESTORE_CMDS, get_nh_ip
 from tests.common.helpers.crm import CRM_POLLING_INTERVAL
 from tests.common.errors import RunAnsibleModuleFail
-from tests.common.utilities import wait_until, recover_acl_rule
+from tests.common.utilities import wait_until, recover_acl_rule, is_ipv6_only_topology
 from tests.common.platform.interface_utils import parse_intf_status
 from tests.common.mellanox_data import is_mellanox_device
 from tests.common.helpers.dut_utils import get_sai_sdk_dump_file
@@ -30,7 +30,7 @@ def pytest_runtest_teardown(item, nextitem):
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_high_threshold {high} \
     && sonic-db-cli CONFIG_DB hset 'CRM|Config' {threshold_name}_low_threshold {low}\""
     if item.rep_setup.passed and not item.rep_call.skipped:
-        # Restore CRM thresholds
+        # Restore CRM threshods
         if crm_threshold_name:
             crm_thresholds = item.funcargs["crm_thresholds"]
             cmd = restore_cmd.format(threshold_name=crm_threshold_name, high=crm_thresholds[crm_threshold_name]["high"],
@@ -55,6 +55,9 @@ def pytest_runtest_teardown(item, nextitem):
         # Restore DUT after specific test steps
         # Test case name is used to mitigate incorrect cleanup if some of tests was failed on cleanup step and list of
         # cleanup commands was not cleared
+        if test_name not in RESTORE_CMDS:
+            return
+
         for cmd in RESTORE_CMDS[test_name]:
             logger.info(cmd)
             try:
@@ -142,7 +145,7 @@ def crm_interface(duthosts, enum_rand_one_per_hwsku_frontend_hostname, tbinfo, e
                                                                                           asichost.asic_index))
 
 
-@pytest.fixture(scope="module", autouse=True)
+@pytest.fixture(scope="module", autouse=False)
 def set_polling_interval(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     wait_time = 2
@@ -191,7 +194,7 @@ def check_interface_status(duthost, intf_list, expected_oper='up'):
     return True
 
 
-def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinfo, crm_interface):
+def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinfo, crm_interface, ip_ver):
     """
     For mellanox device, the crm available counter is related to LPM tree.
     When shutdown all interfaces in vlan (e.g. vlan 1000),
@@ -202,55 +205,67 @@ def configure_a_route_with_same_prefix_as_vlan_for_mlnx(duthost, asichost, tbinf
     but we cannot estimate how long the change is ready.
     Therefore, it will lead the first case of test_crm_route fail occasionally
     because the expected available counter is not decreased.
-    So, we add another route with the same prefix(21) as the vlan's so that the LPM tree is not changed.
+    So, we add another route with the same prefix as the vlan's so that the LPM tree is not changed.
     """
     # Get NH IP
-    nh_ip = get_nh_ip(duthost, asichost, crm_interface, '4')
+    nh_ip = get_nh_ip(duthost, asichost, crm_interface, ip_ver)
+    prefix_len = get_vlan_prefix_len_per_ip_ver(asichost, tbinfo, ip_ver)
 
-    dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface = '21.21.21.21'
-    network_with_same_prefix_as_vlan_interface = str(
-        ipaddress.IPv4Interface(
-            f"{dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface}/"
-            f"{get_vlan_ipv4_prefix_len(asichost, tbinfo)}").network)
-    add_route_command = f"sudo ip route add {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
-    duthost.shell(add_route_command)
-    assert wait_until(30, 5, 0, check_route_exist, duthost, network_with_same_prefix_as_vlan_interface, nh_ip), \
-        f"Failed to add route {network_with_same_prefix_as_vlan_interface} via {nh_ip} "
+    if ip_ver == "4":
+        dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface = '21.21.21.21'
+        network_with_same_prefix_as_vlan_interface = str(
+            ipaddress.IPv4Interface(
+                f"{dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface}/{prefix_len}").network)
+    else:
+        dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface = '2021:21:21:21::21'
+        network_with_same_prefix_as_vlan_interface = str(
+            ipaddress.IPv6Interface(
+                f"{dump_ip_for_construct_test_route_with_same_prefix_as_vlan_interface}/{prefix_len}").network)
 
-    # Get sai sdk dump file in case test fail, we can get the LPM tree information
+    add_route_command = f"sudo ip {'-6' if ip_ver == '6' else ''} \
+                    route add {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
+    route_check_command = f"show {'ipv6' if ip_ver == '6' else 'ip'} route {network_with_same_prefix_as_vlan_interface}"
+    del_dump_route_with_same_prefix_as_vlan_interface_cmd = f"sudo ip {'-6' if ip_ver == '6' else ''} \
+                    route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
+
+    duthost.shell(add_route_command, module_ignore_errors=True)
+    assert wait_until(30, 5, 0, check_route_exist, duthost,
+                      network_with_same_prefix_as_vlan_interface, nh_ip, route_check_command), \
+           f"Failed to add route {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
+
     get_sai_sdk_dump_file(duthost, "sai_sdk_dump_before_shutdown_vlan_ports")
-
-    del_dump_route_with_same_prefix_as_vlan_interface_cmd = \
-        f" sudo ip route del {network_with_same_prefix_as_vlan_interface} via {nh_ip}"
 
     return del_dump_route_with_same_prefix_as_vlan_interface_cmd
 
 
-def check_route_exist(duthost, network_with_same_prefix_as_vlan_interface, nh_ip):
-    route_output = duthost.shell(f"show ip route {network_with_same_prefix_as_vlan_interface}")["stdout"]
+def check_route_exist(duthost, network_with_same_prefix_as_vlan_interface, nh_ip, route_check_command):
+    route_output = duthost.shell(route_check_command)["stdout"]
     return f"Routing entry for {network_with_same_prefix_as_vlan_interface}" in route_output and nh_ip in route_output
 
 
-def get_vlan_ipv4_prefix_len(asichost, tbinfo):
+def get_vlan_prefix_len_per_ip_ver(asichost, tbinfo, ip_ver):
     mg_facts = asichost.get_extended_minigraph_facts(tbinfo)
     for vlan_port_data in mg_facts["minigraph_vlan_interfaces"]:
-        if ipaddress.ip_interface(vlan_port_data['addr']).version == 4:
-            logger.info(f"vlan interface v4 prefix is :{vlan_port_data['prefixlen']}")
+        if ipaddress.ip_interface(vlan_port_data['addr']).version == int(ip_ver):
+            logger.info(f"vlan interface {ip_ver} prefix is :{vlan_port_data['prefixlen']}")
             return vlan_port_data['prefixlen']
-    assert False, "Not find v4 prefix for vlan interface config"
+    assert False, f"Not find {ip_ver} prefix for vlan interface config"
 
 
 @pytest.fixture(scope="module", autouse=True)
 def shutdown_unnecessary_intf(
-        duthosts, tbinfo, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname, crm_interface):
+        duthosts, tbinfo, enum_frontend_asic_index, enum_rand_one_per_hwsku_frontend_hostname, crm_interface, request):
     """ Shutdown unused interfaces to avoid fdb entry influenced by mac learning """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     asichost = duthost.asic_instance(enum_frontend_asic_index)
     intfs_connect_with_ptf = get_intf_list(duthost, tbinfo, enum_frontend_asic_index)
+    ip_ver = "4" if not is_ipv6_only_topology(tbinfo) else "6"
+
+    del_dump_route_with_same_prefix_as_vlan_interface_cmd = None
     if intfs_connect_with_ptf:
         if is_mellanox_device(duthost):
             del_dump_route_with_same_prefix_as_vlan_interface_cmd = configure_a_route_with_same_prefix_as_vlan_for_mlnx(
-                duthost, asichost, tbinfo, crm_interface)
+                duthost, asichost, tbinfo, crm_interface, ip_ver)
         logger.info("Shutdown interfaces: {}".format(intfs_connect_with_ptf))
         duthost.shutdown_multiple(intfs_connect_with_ptf)
         assert wait_until(300, 20, 0, check_interface_status, duthost, intfs_connect_with_ptf, 'down'), \
@@ -267,7 +282,7 @@ def shutdown_unnecessary_intf(
         duthost.no_shutdown_multiple(intfs_connect_with_ptf)
         assert wait_until(300, 20, 0, check_interface_status, duthost, intfs_connect_with_ptf), \
             "All interfaces should be up!"
-        if is_mellanox_device(duthost):
+        if is_mellanox_device(duthost) and del_dump_route_with_same_prefix_as_vlan_interface_cmd:
             duthost.shell(del_dump_route_with_same_prefix_as_vlan_interface_cmd)
 
 
@@ -303,3 +318,56 @@ def cleanup_ptf_interface(duthosts, ip_ver, enum_rand_one_per_hwsku_frontend_hos
         if "Ethernet1" not in output['stdout']:
             asichost.sonichost.add_member_to_vlan(1000, 'Ethernet1', is_tagged=False)
         ptfhost.remove_ip_addresses()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def crm_resources(duthosts, rand_one_dut_hostname, set_polling_interval):
+    """
+    Parse the CRM resource table from the 'crm show resources all' command output,
+    retrying if CRM counters are not ready.
+    Returns a dictionary of the form:
+    {
+        "ipv4_route": {"used": 6475, "available": 140981},
+    }
+    """
+    duthost = duthosts[rand_one_dut_hostname]
+    resources = {}
+
+    def get_crm_resources(resources_dict):
+        cmd_output = duthost.shell("crm show resources all")["stdout"]
+        if "CRM counters are not ready" in cmd_output:
+            return False
+
+        lines = cmd_output.splitlines()
+        started = False
+
+        for line in lines:
+            # Detect the start of the first resource table
+            if re.search(r"^Resource Name\s+Used Count\s+Available Count", line):
+                started = True
+                continue
+
+            if started:
+                # Once we hit an empty or non-data line, stop
+                if not line.strip() or re.search(r"^Stage\s+Bind Point", line):
+                    break
+                if re.match(r"^-+\s+-+\s+-+$", line):
+                    continue
+
+                parts = line.split()
+                if len(parts) >= 3:
+                    resource_name = parts[0].strip()
+                    used_count = int(parts[1])
+                    available_count = int(parts[2])
+                    resources_dict[resource_name] = {
+                        "used": used_count,
+                        "available": available_count
+                    }
+        return True if resources_dict else False
+
+    # Wait up to 360 seconds, checking every 5 seconds
+    wait_until(360, 5, 0, get_crm_resources, resources)
+    if not resources:
+        pytest.fail("CRM counters are not ready after multiple retries.")
+
+    return resources

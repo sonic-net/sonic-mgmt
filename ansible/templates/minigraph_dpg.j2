@@ -75,9 +75,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
@@ -109,7 +109,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(intf_names[vms[index]])  %}
         <PortChannel>
-          <Name>PortChannel{{ '10' + ((index+1)|string) }}</Name>
+          <Name>PortChannel{{ (100 + index + 1)|string }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -170,10 +170,10 @@
           <VlanID>{{ vlan_param['id'] }}</VlanID>
           <Tag>{{ vlan_param['tag'] }}</Tag>
 {% if 'prefix' in vlan_param %}
-          <Subnets>{{ vlan_param['prefix'] | ipaddr('network') }}/{{ vlan_param['prefix'] | ipaddr('prefix') }}</Subnets>
+          <Subnets>{{ vlan_param['prefix'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['prefix'] | ansible.utils.ipaddr('prefix') }}</Subnets>
 {% endif %}
 {% if 'secondary_subnet' in vlan_param %}
-          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ipaddr('prefix') }}</SecondarySubnets>
+          <SecondarySubnets>{{ vlan_param['secondary_subnet'] | ansible.utils.ipaddr('network') }}/{{ vlan_param['secondary_subnet'] | ansible.utils.ipaddr('prefix') }}</SecondarySubnets>
 {% endif %}
 {% if 'mac' in vlan_param %}
           <MacAddress>{{ vlan_param['mac'] }}</MacAddress>
@@ -191,7 +191,7 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
-          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
+          <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -202,7 +202,7 @@
         <IPInterface>
           <Name i:Name="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
-          <AttachTo>PortChannel{{ '10' + ((index+1) |string) }}</AttachTo>
+          <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           <AttachTo>{{ port_alias[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -293,7 +293,7 @@
 {%- set acl_intfs = [] -%}
 {%- for index in range(vms_number) %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
-{% set a_intf = 'PortChannel' + '10' + ((index+1) |string) %}
+{% set a_intf = 'PortChannel' ~ (100 + index + 1)|string %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endfor %}

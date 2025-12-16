@@ -31,12 +31,12 @@ DEFAULT_SUPPORTED_HASH_ALGORITHM = ['CRC', 'CRC_CCITT', 'RANDOM', 'XOR']
 MELLANOX_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
-    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
+    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC', 'IPV6_FLOW_LABEL'
 ]
 MELLANOX_LAG_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
-    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
+    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC', 'IPV6_FLOW_LABEL'
 ]
 CISCO_ECMP_HASH_FIELDS = [
     'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT', 'L4_DST_PORT'
@@ -47,12 +47,12 @@ CISCO_LAG_HASH_FIELDS = [
 DEFAULT_ECMP_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
-    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
+    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC', 'IPV6_FLOW_LABEL'
 ]
 DEFAULT_LAG_HASH_FIELDS = [
     'IN_PORT', 'SRC_MAC', 'DST_MAC', 'ETHERTYPE', 'VLAN_ID', 'IP_PROTOCOL', 'SRC_IP', 'DST_IP', 'L4_SRC_PORT',
     'L4_DST_PORT', 'INNER_SRC_IP', 'INNER_DST_IP', 'INNER_IP_PROTOCOL', 'INNER_ETHERTYPE', 'INNER_L4_SRC_PORT',
-    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC'
+    'INNER_L4_DST_PORT', 'INNER_SRC_MAC', 'INNER_DST_MAC', 'IPV6_FLOW_LABEL'
 ]
 HASH_CAPABILITIES = {'mellanox': {'ecmp': MELLANOX_ECMP_HASH_FIELDS,
                                   'lag': MELLANOX_LAG_HASH_FIELDS},
@@ -88,46 +88,46 @@ def get_supported_hash_algorithms(request):
 
 
 @pytest.fixture(scope="module", autouse=True)
-def skip_vs_setups(duthost):
+def skip_vs_setups(rand_selected_dut):
     """ Fixture to skip the test on vs setups. """
-    if duthost.facts['asic_type'] in ["vs"]:
+    if rand_selected_dut.facts['asic_type'] in ["vs"]:
         pytest.skip("Generic hash test only runs on physical setups.")
 
 
 @pytest.fixture(scope="module")
-def mg_facts(duthost, tbinfo):
+def mg_facts(rand_selected_dut, tbinfo):
     """ Fixture to get the extended minigraph facts """
-    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+    mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
     return mg_facts
 
 
 @pytest.fixture(scope='function', autouse=True)
-def restore_init_hash_config(duthost):
+def restore_init_hash_config(rand_selected_dut):
     """ Fixture to restore the initial generic hash configurations after the test. """
     logger.info("Store the initial generic hash configurations")
     init_ecmp_hash_fields, init_ecmp_hash_algo, init_lag_hash_fields, init_lag_hash_algo = \
-        get_global_hash_config(duthost)
+        get_global_hash_config(rand_selected_dut)
     yield
     if init_ecmp_hash_fields:
-        duthost.set_switch_hash_global('ecmp', init_ecmp_hash_fields)
+        rand_selected_dut.set_switch_hash_global('ecmp', init_ecmp_hash_fields)
     if init_lag_hash_fields:
-        duthost.set_switch_hash_global('lag', init_lag_hash_fields)
+        rand_selected_dut.set_switch_hash_global('lag', init_lag_hash_fields)
     if init_ecmp_hash_algo and init_ecmp_hash_algo != 'N/A':
-        duthost.set_switch_hash_global_algorithm('ecmp', init_ecmp_hash_algo)
+        rand_selected_dut.set_switch_hash_global_algorithm('ecmp', init_ecmp_hash_algo)
     if init_lag_hash_algo and init_lag_hash_algo != 'N/A':
-        duthost.set_switch_hash_global_algorithm('lag', init_lag_hash_algo)
+        rand_selected_dut.set_switch_hash_global_algorithm('lag', init_lag_hash_algo)
     logger.info("The initial generic hash configurations have been restored.")
 
 
 @pytest.fixture(scope='function')
-def reload(duthost):
+def reload(rand_selected_dut):
     """ Fixture to do the config reload after the test. """
     yield
-    config_reload(duthost, safe_reload=True)
+    config_reload(rand_selected_dut, safe_reload=True)
 
 
 @pytest.fixture(scope='function')
-def restore_configuration(duthost):
+def restore_configuration(rand_selected_dut):
     """ Fixture to restore the interface and vlan configurations after the L2 test.
         The configurations are restored from the global variables. """
 
@@ -137,18 +137,18 @@ def restore_configuration(duthost):
         # Remove vlans
         for vlan in vlans_to_remove:
             for interface in l2_ports:
-                duthost.shell(f'config vlan member del {vlan} {interface}')
-            duthost.shell(f'config vlan del {vlan}')
+                rand_selected_dut.shell(f'config vlan member del {vlan} {interface}')
+            rand_selected_dut.shell(f'config vlan del {vlan}')
         # Re-config ip interface
         for ip_interface in ip_interface_to_restore:
             formatted_ip_addr = format_ip_mask(f"{ip_interface['addr']}/{ip_interface['mask']}")
-            duthost.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr.upper()}")
+            rand_selected_dut.shell(f"config interface ip add {ip_interface['attachto']} {formatted_ip_addr.upper()}")
         # Re-config vlan interface
         if vlan_member_to_restore:
-            duthost.shell(f"config vlan member add {vlan_member_to_restore['vlan_id']} "
-                          f"{vlan_member_to_restore['interface']} --untagged")
+            rand_selected_dut.shell(f"config vlan member add {vlan_member_to_restore['vlan_id']} "
+                                    f"{vlan_member_to_restore['interface']} --untagged")
     except Exception as err:
-        config_reload(duthost, safe_reload=True)
+        config_reload(rand_selected_dut, safe_reload=True)
         logger.info("Exception occurred when restoring the configuration.")
         raise err
     finally:
@@ -159,45 +159,45 @@ def restore_configuration(duthost):
 
 
 @pytest.fixture(scope='function')
-def restore_interfaces(duthost):
+def restore_interfaces(rand_selected_dut):
     """ Fixture to startup interfaces after the flap test in case the test fails and some
         interfaces are shutdown during the test. The interfaces to start are from a global variable """
 
     yield
     logger.info("Startup the interfaces which were shutdown during the test")
     if interfaces_to_startup:
-        duthost.no_shutdown_multiple(interfaces_to_startup)
+        rand_selected_dut.no_shutdown_multiple(interfaces_to_startup)
     try:
         for interface in interfaces_to_startup:
-            pytest_assert(wait_until(30, 5, 0, duthost.check_intf_link_state, interface),
+            pytest_assert(wait_until(30, 5, 0, rand_selected_dut.check_intf_link_state, interface),
                           "Not all interfaces are restored to up after the flap test.")
     finally:
         del interfaces_to_startup[:]
 
 
 @pytest.fixture(scope='function')
-def restore_vxlan_port(duthost):
+def restore_vxlan_port(rand_selected_dut):
     """ Fixture to restore the vxlan port to default 4789 """
     global restore_vxlan
     yield
     if restore_vxlan:
         vxlan_ecmp_utils.Constants['DEBUG'] = False
         vxlan_ecmp_utils.Constants['KEEP_TEMP_FILES'] = False
-        vxlan_ecmp_utils.configure_vxlan_switch(duthost, 4789, duthost.facts['router_mac'])
+        vxlan_ecmp_utils.configure_vxlan_switch(rand_selected_dut, 4789, rand_selected_dut.facts['router_mac'])
         restore_vxlan = False
 
 
 @pytest.fixture(scope='module')
-def global_hash_capabilities(duthost):
+def global_hash_capabilities(rand_selected_dut):
     """
     Get the generic hash capabilities.
     Args:
-        duthost (AnsibleHost): Device Under Test (DUT)
+        rand_selected_dut (AnsibleHost): Device Under Test (DUT)
     Returns:
         ecmp_hash_fields: a list of supported ecmp hash fields
         lag_hash_fields: a list of supported lag hash fields
     """
-    global_hash_capabilities = duthost.get_switch_hash_capabilities()
+    global_hash_capabilities = rand_selected_dut.get_switch_hash_capabilities()
     return {'ecmp': global_hash_capabilities['ecmp'], 'ecmp_algo': global_hash_capabilities['ecmp_algo'],
             'lag': global_hash_capabilities['lag'], 'lag_algo': global_hash_capabilities['lag_algo']}
 
@@ -413,9 +413,12 @@ def get_interfaces_for_test(duthost, mg_facts, hash_field):
     # Find the uplink interfaces which are the nexthop interfaces of the default route
     for interface in get_ip_route_nexthops(duthost, "0.0.0.0/0"):
         uplink_interfaces[interface] = []
-        # All uplink interfaces are portchannels, need to find the members
-        portchannel_members = mg_facts['minigraph_portchannels'][interface]['members']
-        uplink_interfaces[interface].extend(portchannel_members)
+        if interface in mg_facts['minigraph_portchannels']:
+            # All uplink interfaces are portchannels, need to find the members
+            portchannel_members = mg_facts['minigraph_portchannels'][interface]['members']
+            uplink_interfaces[interface].extend(portchannel_members)
+        else:
+            uplink_interfaces[interface].append(interface)
     # Randomly choose a downlink interface
     downlink_interfaces = []
     if mg_facts['minigraph_vlan_interfaces']:
@@ -429,6 +432,7 @@ def get_interfaces_for_test(duthost, mg_facts, hash_field):
         for portchannel in portchannels.keys():
             if portchannel not in uplink_interfaces.keys():
                 downlink_interfaces.extend(portchannels[portchannel]['members'])
+    downlink_interfaces = [interface for interface in downlink_interfaces if interface not in uplink_interfaces]
     if hash_field != 'IN_PORT':
         downlink_interfaces = [random.choice(downlink_interfaces)]
     logger.info(

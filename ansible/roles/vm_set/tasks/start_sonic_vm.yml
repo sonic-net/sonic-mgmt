@@ -9,13 +9,17 @@
     - "{{ sonic_vm_storage_location }}/disks"
 
 - set_fact:
-    src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-vs.img"
     disk_image: "{{ sonic_vm_storage_location }}/disks/sonic_{{ dut_name }}.img"
     mgmt_ip_address: " {{ hostvars[dut_name]['ansible_host'] }}"
     mgmt_gw: "{{ vm_mgmt_gw | default(mgmt_gw) }}"
     serial_port: "{{ hostvars[dut_name]['serial_port'] }}"
     hwsku: "{{ hostvars[dut_name].hwsku }}"
     num_asic: "{{ hostvars[dut_name]['num_asics'] | default(1) }}"
+    card_type: "{{ hostvars[dut_name]['card_type'] | default('pizzabox') }}"
+    asic_type: "{{ hostvars[dut_name].asic_type | default('') }}"
+
+- set_fact:
+    src_disk_image: "{{ sonic_vm_storage_location }}/images/sonic-{{ 'vpp' if 'vpp' == asic_type else 'vs' }}.img"
 
 - name: Remove arp entry for {{ dut_name }}
   shell: arp -d {{ mgmt_ip_address }}
@@ -33,8 +37,18 @@
   copy: src={{ src_disk_image }} dest={{ disk_image }} remote_src=True
   when: not file_stat.stat.exists
 
+- name: determine whether to include internal ports
+  set_fact:
+    include_internal: true
+  when: is_vs_chassis is defined and is_vs_chassis == true
+
+- name: determine whether to sort port_alias by index
+  set_fact:
+    sort_by_index: false
+  when: is_vs_chassis is defined and is_vs_chassis == true
+
 - name: Get DUT port alias
-  port_alias: hwsku={{ hostvars[dut_name].hwsku }} num_asic={{ num_asic }}
+  port_alias: hwsku={{ hwsku }} num_asic={{ num_asic }} card_type={{ card_type }} include_internal={{ include_internal | default(false) }} sort_by_index={{ sort_by_index | default(true) }}
   delegate_to: localhost
 
 - name: Define SONiC vm {{ dut_name }}

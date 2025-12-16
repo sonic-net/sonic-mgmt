@@ -15,11 +15,15 @@ SUPPORTED_PLATFORMS = [
     "mlnx_msn",
     "8101_32fh",
     "8111_32eh",
-    "arista"
+    "arista",
+    "x86_64-nvidia",
+    "x86_64-88_lc0_36fh_m-r0",
+    "x86_64-nexthop_4010-r0",
+    "marvell"
 ]
 
 SUPPORTED_SPEEDS = [
-    "100G", "200G", "400G", "800G", "1600G"
+    "50G", "100G", "200G", "400G", "800G", "1600G"
 ]
 
 
@@ -40,6 +44,13 @@ def get_fec_oper_mode(duthost, interface):
     return fec_status[0].get('fec oper', '').lower()
 
 
+def check_intf_fec_mode(duthost, intf, exp_fec_mode):
+    post_fec = get_fec_oper_mode(duthost, intf)
+    if post_fec == exp_fec_mode:
+        return True
+    return False
+
+
 def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     """
     @Summary: Verify the FEC operational mode is valid, for all the interfaces with
@@ -52,6 +63,9 @@ def test_verify_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     # Get interfaces that are operationally up and have supported speeds.
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
 
     for intf in interfaces:
         # Verify the FEC operational mode is valid
@@ -73,20 +87,24 @@ def test_config_fec_oper_mode(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
     # Get interfaces that are operationally up and have supported speeds.
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
 
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
     for intf in interfaces:
         fec_mode = get_fec_oper_mode(duthost, intf)
         if fec_mode == "n/a":
             pytest.fail("FEC status is N/A for interface {}".format(intf))
 
-        config_status = duthost.command("sudo config interface fec {} {}"
-                                        .format(intf, fec_mode))
+        asic_cli_option = duthost.get_port_asic_instance(intf).cli_ns_option
+
+        config_status = duthost.command("sudo config interface {} fec {} {}"
+                                        .format(asic_cli_option, intf, fec_mode))
         if config_status:
             pytest_assert(wait_until(30, 2, 0, duthost.is_interface_status_up, intf),
                           "Interface {} did not come up after configuring FEC mode".format(intf))
             # Verify the FEC operational mode is restored
-            post_fec = get_fec_oper_mode(duthost, intf)
-            if not (post_fec == fec_mode):
-                pytest.fail("FEC status is not restored for interface {}".format(intf))
+            pytest_assert(wait_until(30, 2, 0, check_intf_fec_mode, duthost, intf, fec_mode),
+                          f"FEC status of Interface {intf} is not restored to {fec_mode}")
 
 
 def get_interface_speed(duthost, interface_name):
@@ -112,6 +130,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
 
+    # Get operationally up and interfaces with supported speeds
+    interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
+
     logging.info("Get output of 'show interfaces counters fec-stats'")
     intf_status = duthost.show_and_parse("show interfaces counters fec-stats")
 
@@ -129,7 +153,12 @@ def test_verify_fec_stats_counters(duthosts, enum_rand_one_per_hwsku_frontend_ho
     for intf in intf_status:
         intf_name = intf['iface']
         speed = duthost.get_speed(intf_name)
-        if speed not in SUPPORTED_SPEEDS:
+        # Speed is a empty string if the port isn't up
+        if speed == '':
+            continue
+        # Convert the speed to gbps format
+        speed_gbps = f"{int(speed) // 1000}G"
+        if speed_gbps not in SUPPORTED_SPEEDS:
             continue
 
         # Removes commas from "show interfaces counters fec-stats" (i.e. 12,354 --> 12354) to allow int conversion
@@ -177,7 +206,9 @@ def get_fec_histogram(duthost, intf_name):
     """
     try:
         logging.info("Get output of 'show interfaces counters fec-histogram {}'".format(intf_name))
-        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {}".format(intf_name))
+        asic_cli_option = duthost.get_port_asic_instance(intf_name).cli_ns_option
+        fec_hist = duthost.show_and_parse("show interfaces counters fec-histogram {} {}".format(asic_cli_option,
+                                                                                                intf_name))
     except Exception as e:
         logging.error("Failed to execute 'show interfaces counters fec-histogram {}': {}".format(intf_name, e))
         pytest.skip("Command 'show interfaces counters fec-histogram {}' not found \
@@ -225,6 +256,9 @@ def test_verify_fec_histogram(duthosts, enum_rand_one_per_hwsku_frontend_hostnam
 
     # Get operationally up and interfaces with supported speeds
     interfaces = get_fec_eligible_interfaces(duthost, SUPPORTED_SPEEDS)
+
+    if not interfaces:
+        pytest.skip("Skipping this test as there is no fec eligible interface")
 
     for intf_name in interfaces:
         for _ in range(3):

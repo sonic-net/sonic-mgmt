@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 
+import argparse
 import base64
 import json
-import time
 import sys
-import argparse
+import time
+
 from six.moves.urllib.request import urlopen, urlretrieve, Request, build_opener, install_opener
 
 _start_time = None
@@ -70,6 +71,8 @@ def get_download_url(buildid, artifact_name, url_prefix, access_token, token):
     artifact_req = Request("https://dev.azure.com/{}/_apis/build/builds/{}/artifacts?artifactName={}&api-version=5.0"
                            .format(url_prefix, buildid, artifact_name))
 
+    print(f"Try to get download url from {artifact_req.full_url}")
+
     # Here "access_token" indeed is Azure DevOps PAT token.
     # "token" should be the actual bearer token for Azure DevOps.
     # PAT should be deprecated. below logic is to handle both cases for smooth transition from PAT to bearer token.
@@ -104,6 +107,10 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                 filename = 'sonic-4asic-vs.img.gz'
             else:
                 filename = 'sonic-vs.img.gz'
+        elif platform == "vpp":
+            filename = 'sonic-vpp.img.gz'
+        elif platform == "ptf":
+            filename = 'docker-ptf.gz'
         else:
             filename = "sonic-{}.bin".format(platform)
 
@@ -154,13 +161,18 @@ def download_artifacts(url, content_type, platform, buildid, num_asic, access_to
                     sys.exit(1)
 
 
-def find_latest_build_id(branch, success_flag="succeeded"):
+def find_latest_build_id(branch, result_filter="succeeded", pipeline_id=None):
     """find latest successful build id for a branch"""
 
-    definition_id = 2511 if branch == "202412" else 1
+    if not pipeline_id:
+        # 1 is Azure.sonic-buildimage
+        # 2511 is Azure.sonic-buildimage-msft.PR
+        pipeline_id = 2511 if branch == "202412" else 1
 
-    builds_url = "https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={}&branchName=refs/heads/{}" \
-                 "&resultFilter={}&statusFilter=completed&api-version=6.0".format(definition_id, branch, success_flag)
+    builds_url = (f"https://dev.azure.com/mssonic/build/_apis/build/builds?definitions={pipeline_id}&"
+                  f"branchName=refs/heads/{branch}&resultFilter={result_filter}&statusFilter=completed&api-version=6.0")
+
+    print(f"Try to find latest {result_filter} build for branch {branch} from {builds_url}")
 
     resp = urlopen(builds_url)
 
@@ -186,7 +198,7 @@ def main():
     parser.add_argument('--branch', metavar='branch',
                         type=str, help='branch name')
     parser.add_argument('--platform', metavar='platform', type=str,
-                        choices=['broadcom', 'mellanox', 'vs'],
+                        choices=['broadcom', 'mellanox', 'vs', 'vpp', 'ptf'],
                         help='platform to download')
     parser.add_argument('--content', metavar='content', type=str,
                         choices=['all', 'image'], default='image',
@@ -200,13 +212,15 @@ def main():
                         default='', nargs='?', const='', required=False, help='access token (PAT)')
     parser.add_argument('--token', metavar='token', type=str,
                         default='', nargs='?', const='', required=False, help='bearer token')
+    parser.add_argument('--build_pipeline_id', metavar='build_pipeline_id', type=int,
+                        default=None, nargs='?', const=None, required=False, help='Build Pipeline ID (download image)')
 
     args = parser.parse_args()
 
     if args.buildid is None:
-        buildid_succ = find_latest_build_id(args.branch, "succeeded")
+        buildid_succ = find_latest_build_id(args.branch, "succeeded", args.build_pipeline_id)
         buildid_partial = find_latest_build_id(
-            args.branch, "partiallySucceeded")
+            args.branch, "partiallySucceeded", args.build_pipeline_id)
         print(('Succeeded buildId:{}, PartiallySucceeded buildId {}'.format(
             buildid_succ, buildid_partial)))
         if buildid_succ == NOT_FOUND_BUILD_ID and buildid_partial == NOT_FOUND_BUILD_ID:
@@ -216,7 +230,10 @@ def main():
     else:
         buildid = int(args.buildid)
 
-    artifact_name = "sonic-buildimage.{}".format(args.platform)
+    if args.platform == 'ptf':
+        artifact_name = "sonic-buildimage.vs"  # PTF images are typically built with VS platform
+    else:
+        artifact_name = "sonic-buildimage.{}".format(args.platform)
 
     (dl_url, artifact_size) = get_download_url(buildid, artifact_name,
                                                url_prefix=args.url_prefix,

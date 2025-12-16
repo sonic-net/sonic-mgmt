@@ -3,13 +3,13 @@ import logging
 import math
 import os
 import shutil
-import tempfile
 import signal
-import traceback
+import tempfile
 import time
-
+import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
+
 from psutil import wait_procs
 
 from tests.common.helpers.assertions import pytest_assert as pt_assert
@@ -27,8 +27,9 @@ class SonicProcess(Process):
     """
     def __init__(self, *args, **kwargs):
         Process.__init__(self, *args, **kwargs)
-        self._pconn, self._cconn = Pipe()
+        self._pconn, self._cconn = Pipe(duplex=False)  # unidirectional: child_conn can send, parent_conn can recv
         self._exception = None
+        self._exception_read = False  # Flag to track read status
 
     def run(self):
         try:
@@ -38,6 +39,8 @@ class SonicProcess(Process):
             tb = traceback.format_exc()
             self._cconn.send((e, tb))
             raise e
+        finally:
+            self._cconn.close()  # Close the child-side pipe
 
     # for wait_procs
     def wait(self, timeout):
@@ -49,8 +52,16 @@ class SonicProcess(Process):
 
     @property
     def exception(self):
-        if self._pconn.poll():
-            self._exception = self._pconn.recv()
+        """Read exception data once and close parent-side pipe."""
+        if not self._exception_read:
+            try:
+                if self._pconn.poll():
+                    self._exception = self._pconn.recv()
+            except (EOFError, OSError):
+                pass
+            finally:
+                self._pconn.close()
+                self._exception_read = True
         return self._exception
 
 
@@ -162,6 +173,19 @@ def parallel_run(
             len(gone), len(alive)
         ))
 
+        # Sometimes the child processes finished run but still alive, causing exception hidden.
+        # It mainly caused by child processes hang on send() if parent doesn't read from the pipe.
+        # Therefore, explicitly check the processes exception to prevent any error miss.
+        logger.info("Force read exception regardless of whether the process exited normally.")
+        for worker in gone + alive:
+            worker_exception = worker.exception  # Force-read to prevent pipe hangs
+            if worker_exception is not None:
+                logger.info(f"Process {worker.name} has exception, is_alive={worker.is_running()}, record the error.")
+                failed_processes[worker.name] = {
+                    'exit_code': worker.exitcode,
+                    'exception': worker_exception
+                }
+
         if len(gone) == 0:
             logger.debug("all processes have timedout")
             tasks_running -= len(workers)
@@ -171,13 +195,6 @@ def parallel_run(
         else:
             tasks_running -= len(gone)
             tasks_done += len(gone)
-
-        # check if we have any processes that failed - have exitcode non-zero
-        for worker in gone:
-            if worker.exitcode != 0:
-                failed_processes[worker.name] = {}
-                failed_processes[worker.name]['exit_code'] = worker.exitcode
-                failed_processes[worker.name]['exception'] = worker.exception
 
     # In case of timeout force terminate spawned processes
     for worker in workers:
@@ -211,12 +228,15 @@ def parallel_run(
                 p_exception = process['exception'][0]
                 p_traceback = process['exception'][1]
                 p_exitcode = process['exit_code']
-            pt_assert(
-                False,
-                'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
-                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback
+            # For analyzed matched syslog, don't need to log the traceback
+            if "analyze_logs" in process_name and "Match Messages" in str(p_exception):
+                failure_message = 'Got matched syslog in processes "{}" exit code:"{}"\n{}'.format(
+                    process_name, p_exitcode, p_exception
                 )
-            )
+            else:
+                failure_message = 'Processes "{}" failed with exit code "{}"\nException:\n{}\nTraceback:\n{}'.format(
+                    list(failed_processes.keys()), p_exitcode, p_exception, p_traceback)
+            pt_assert(False, failure_message)
 
     logger.info(
         'Completed running processes for target "{}" in {} seconds'.format(

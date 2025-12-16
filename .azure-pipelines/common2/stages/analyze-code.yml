@@ -1,0 +1,33 @@
+parameters:
+  - name: dependsOn
+    type: object
+    default: []
+    displayName: 'Depends On'
+
+stages:
+  - stage: analyze_code
+    displayName: 'Analyze Code and Detect Changes'
+    jobs:
+    - job: check_common2_changes
+      displayName: 'Check if changes are in tests/common2'
+      steps:
+      - checkout: self
+      - script: |
+          git fetch origin
+          echo "Fetching changes from origin rc = $?"
+          CHANGED_FILES=$(git diff --name-only origin/master)
+          echo "Changed files:"
+          echo "$CHANGED_FILES"
+          if echo "$CHANGED_FILES" | grep -q "^tests/common2"; then
+            echo "Changes detected in tests/common2"
+            echo "##vso[task.setvariable variable=common2_changes;isOutput=true]true"
+          else
+            echo "No changes detected in tests/common2"
+            echo "##vso[task.setvariable variable=common2_changes;isOutput=true]false"
+          fi
+        name: set_var
+
+    - template: /.azure-pipelines/common2/jobs/run-analyze-code.yml
+      parameters:
+        dependsOn: [check_common2_changes]
+        condition: eq(dependencies.check_common2_changes.outputs['set_var.common2_changes'], 'true')

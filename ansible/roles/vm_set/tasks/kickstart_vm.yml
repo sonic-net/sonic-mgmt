@@ -30,9 +30,9 @@
   - name: Respin failed vm
     include_tasks: respin_vm.yml
     vars:
-      src_disk_image: "{{ root_path }}/images/{{ hdd_image_filename }}"
+      src_disk_image: "{{ root_path }}/images/{{ veos_hdd_image_filename }}"
       disk_image: "{{ root_path }}/disks/{{ vm_name }}_hdd.vmdk"
-      cdrom_image: "{{ root_path }}/images/{{ cd_image_filename }}"
+      cdrom_image: "{{ root_path }}/images/{{ veos_cd_image_filename }}"
     when: '"kickstart_code" in kickstart_output and kickstart_output.kickstart_code != 0'
     ignore_errors: true
 
@@ -151,8 +151,8 @@
       commands: show version
       wait_for: result[0] contains IOS-XR
     vars:
-      - ansible_connection: 'network_cli'
-      - ansible_network_os: 'iosxr'
+      ansible_connection: 'network_cli'
+      ansible_network_os: 'iosxr'
     register: version
     delegate_to: "{{ cisco_vmhost }}"
     ignore_errors: yes
@@ -169,8 +169,8 @@
         commands: show version
         wait_for: result[0] contains IOS-XR
       vars:
-        - ansible_connection: 'network_cli'
-        - ansible_network_os: 'iosxr'
+        ansible_connection: 'network_cli'
+        ansible_network_os: 'iosxr'
       register: respin_version
       delegate_to: "{{ cisco_vmhost }}"
       ignore_errors: yes

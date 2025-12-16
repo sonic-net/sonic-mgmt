@@ -7,15 +7,16 @@ import ipaddress
 import json
 
 from tests.common import constants
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
-from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode # noqa F401
-from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
-from tests.common.fixtures.ptfhost_utils import remove_ip_addresses       # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa:F401
+from tests.common.fixtures.ptfhost_utils import set_ptf_port_mapping_mode   # noqa:F401
+from tests.common.fixtures.ptfhost_utils import change_mac_addresses        # noqa:F401
+from tests.common.fixtures.ptfhost_utils import remove_ip_addresses         # noqa:F401
 from tests.ptf_runner import ptf_runner
 from tests.common.utilities import wait_tcp_connection
 from tests.common.helpers.assertions import pytest_require
 from tests.common.utilities import wait_until
-from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa F401
+from tests.common.flow_counter.flow_counter_utils import RouteFlowCounterTestContext, \
+    is_route_flow_counter_supported  # noqa:F401
 from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 
@@ -60,7 +61,9 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port):
     url = "http://%s:%d" % (ptfip, port)
     data = {"command": "neighbor %s %s route %s next-hop %s" % (neighbor, operation, route, nexthop)}
     r = requests.post(url, data=data, proxies={"http": None, "https": None})
-    assert r.status_code == 200
+    assert r.status_code == 200, (
+        "Request failed with status code {}. Expected 200. "
+    ).format(r.status_code)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -204,14 +207,27 @@ def test_bgp_speaker_bgp_sessions(common_setup_teardown, duthosts, rand_one_dut_
     """
     duthost = duthosts[rand_one_dut_hostname]
     ptfip, mg_facts, interface_facts, vlan_ips, _, _, speaker_ips, port_num, http_ready = common_setup_teardown
-    assert http_ready
+    assert http_ready, (
+        "HTTP is not ready. "
+        "HTTP Ready: {}"
+    ).format(http_ready)
 
     logger.info("Wait some time to verify that bgp sessions are established")
     time.sleep(20)
     bgp_facts = duthost.bgp_facts()['ansible_facts']
-    assert all([v["state"] == "established" for _, v in list(bgp_facts["bgp_neighbors"].items())]), \
-        "Not all bgp sessions are established"
-    assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], "No bgp session with PTF"
+    assert all([v["state"] == "established" for _, v in list(bgp_facts["bgp_neighbors"].items())]), (
+        "Not all BGP sessions are established. "
+        "Current state: {} "
+        "BGP neighbors items: {} "
+    ).format(
+        (v["state"] for _, v in list(bgp_facts["bgp_neighbors"].items())),
+        list(bgp_facts["bgp_neighbors"].items())
+    )
+
+    assert str(speaker_ips[2].ip) in bgp_facts["bgp_neighbors"], (
+        "No BGP session with PTF. "
+        "Speaker IP: {} "
+    ).format(str(speaker_ips[2].ip))
 
 
 # For dualtor
@@ -263,13 +279,17 @@ def is_all_neighbors_learned(duthost, speaker_ips):
 def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
                                        ptfhost, ipv4, ipv6, mtu,
                                        family, prefix, nexthop_ips, vlan_mac,
-                                       is_route_flow_counter_supported):    # noqa F811
+                                       is_route_flow_counter_supported):    # noqa:F811
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
     ptfip, mg_facts, interface_facts, vlan_ips, _, vlan_if_name, \
         speaker_ips, port_num, http_ready = common_setup_teardown
-    assert http_ready
+    assert http_ready, (
+        "HTTP is not ready. "
+        "HTTP Ready: {}"
+    ).format(http_ready)
+
     asic_type = duthost.facts["asic_type"]
 
     logger.info("announce route")
@@ -282,16 +302,35 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
     announce_route(ptfip, lo_addr, peer_range, vlan_ips[0].ip, port_num[2])
 
     logger.info("Wait some time to make sure routes announced to dynamic bgp neighbors")
-    assert wait_until(120, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), \
-        "Not all dynamic neighbors were learned"
+    assert wait_until(120, 10, 0, is_all_neighbors_learned, duthost, speaker_ips), (
+        "Not all dynamic neighbors were learned. "
+        "DUT Host: {}"
+        "Speaker IPs: {}"
+    ).format(duthost, speaker_ips)
 
     logger.info("Verify nexthops and nexthop interfaces for accepted prefixes of the dynamic neighbors")
     rtinfo = duthost.get_ip_route_info(ipaddress.ip_network(prefix.encode().decode()))
     nexthops_ip_set = {str(nexthop.ip) for nexthop in nexthop_ips}
-    assert len(rtinfo["nexthops"]) == 2
+    assert len(rtinfo["nexthops"]) == 2, (
+        "Number of nexthops is not 2. "
+        "Actual number of nexthops: {}"
+        "Nexthops: {}"
+    ).format(len(rtinfo["nexthops"]), rtinfo["nexthops"])
+
     for i in [0, 1]:
-        assert str(rtinfo["nexthops"][i][0]) in nexthops_ip_set
-        assert rtinfo["nexthops"][i][1] == vlan_if_name.encode().decode()
+        assert str(rtinfo["nexthops"][i][0]) in nexthops_ip_set, (
+            "Nexthop IP not found in expected set. "
+            "Actual nexthop IP: {}"
+            "Expected nexthop IP set: {}"
+            "Nexthops: {}"
+        ).format(str(rtinfo["nexthops"][i][0]), nexthops_ip_set, rtinfo["nexthops"])
+
+        assert rtinfo["nexthops"][i][1] == vlan_if_name.encode().decode(), (
+            "Nexthop interface name does not match expected value. "
+            "Actual nexthop interface name: {}"
+            "Expected nexthop interface name: {}"
+            "Nexthops: {}"
+        ).format(rtinfo["nexthops"][i][1], vlan_if_name.encode().decode(), rtinfo["nexthops"])
 
     logger.info("Generate route-port map information")
     extra_vars = {'announce_prefix': prefix,
@@ -354,7 +393,7 @@ def bgp_speaker_announce_routes_common(common_setup_teardown, tbinfo, duthost,
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(True, False, 9114)])
 def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts,
                                      rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu,
-                                     vlan_mac, is_route_flow_counter_supported):        # noqa F811
+                                     vlan_mac, is_route_flow_counter_supported):        # noqa:F811
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """
@@ -367,7 +406,7 @@ def test_bgp_speaker_announce_routes(common_setup_teardown, tbinfo, duthosts,
 @pytest.mark.parametrize("ipv4, ipv6, mtu", [pytest.param(False, True, 9114)])
 def test_bgp_speaker_announce_routes_v6(common_setup_teardown, tbinfo, duthosts,
                                         rand_one_dut_hostname, ptfhost, ipv4, ipv6, mtu,
-                                        vlan_mac, is_route_flow_counter_supported):     # noqa F811
+                                        vlan_mac, is_route_flow_counter_supported):     # noqa:F811
     """Setup bgp speaker on T0 topology and verify routes advertised by bgp speaker is received by T0 TOR
 
     """

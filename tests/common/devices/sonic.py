@@ -27,7 +27,6 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
-
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
@@ -86,8 +85,13 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-        if 'router_type' in self.facts and self.facts['router_type'] == 'spinerouter':
+
+        device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
+        device_type = device_metadata.get('type')
+        device_subtype = device_metadata.get('subtype')
+        if (device_type == 'UpperSpineRouter') or (device_subtype in ['UpstreamLC', 'DownstreamLC']):
             self.DEFAULT_ASIC_SERVICES.append("macsec")
+
         feature_status = self.get_feature_status(disable_cache=False)
         # Append gbsyncd only for non-VS to avoid pretest check for gbsyncd
         # e.g. in test_feature_status, test_disable_rsyslog_rate_limit
@@ -210,7 +214,7 @@ class SonicHost(AnsibleHostBase):
                 self.get_asics_present_from_inventory,
                 lambda: self._get_platform_asic(facts["platform"])
             ],
-            timeout=120,
+            timeout=180,
             thread_count=5
         )
 
@@ -713,7 +717,7 @@ class SonicHost(AnsibleHostBase):
         for service in self.critical_services:
             cmd = 'docker exec {} supervisorctl status'.format(service)
             cmds.append(cmd)
-        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=30)['results']
+        results = self.shell_cmds(cmds=cmds, continue_on_fail=True, module_ignore_errors=True, timeout=60)['results']
 
         # Extract service name of each command result, transform results list to a dict keyed by service name
         service_results = {}
@@ -1465,7 +1469,7 @@ Totals               6450                 6449
                     ret[key] = val
         return ret
 
-    def get_ip_route_summary(self, skip_kernel_tunnel=False):
+    def get_ip_route_summary(self, skip_kernel_tunnel=False, skip_kernel_linkdown=False):
         """
         @summary: issue "show ip[v6] route summary" and parse output into dicitionary.
                   Going forward, this show command should use tabular output so that
@@ -1488,6 +1492,20 @@ Totals               6450                 6449
                 ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_count
                 ipv4_summary['Totals']['FIB'] -= ipv4_route_kernel_count
 
+        if skip_kernel_linkdown is True:
+            output = self.shell("show ip route kernel")["stdout_lines"]
+            ipv4_route_kernel_skip_count = 0
+            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+
+            for line in output:
+                if pattern.search(line):
+                    ipv4_route_kernel_skip_count += 1
+                    logging.debug("skip IPv4 route kernel for linkdown: {}".format(line))
+
+            if ipv4_route_kernel_skip_count > 0:
+                ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_skip_count
+                ipv4_summary['Totals']['routes'] -= ipv4_route_kernel_skip_count
+
         ipv6_output = self.shell("show ipv6 route sum")["stdout_lines"]
         ipv6_summary = self._parse_route_summary(ipv6_output)
 
@@ -1505,7 +1523,35 @@ Totals               6450                 6449
                 ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_count
                 ipv6_summary['Totals']['FIB'] -= ipv6_route_kernel_count
 
+        if skip_kernel_linkdown is True:
+            output = self.shell("show ipv6 route kernel")["stdout_lines"]
+            ipv6_route_kernel_skip_count = 0
+            pattern = re.compile(r'^K\s+.*directly connected.*linkdown')
+
+            for line in output:
+                if pattern.search(line):
+                    ipv6_route_kernel_skip_count += 1
+                    logging.debug("skip IPv6 route kernel for linkdown: {}".format(line))
+
+            if ipv6_route_kernel_skip_count > 0:
+                ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_skip_count
+                ipv6_summary['Totals']['routes'] -= ipv6_route_kernel_skip_count
+
         return ipv4_summary, ipv6_summary
+
+    def get_route(self, prefix, namespace=DEFAULT_NAMESPACE):
+        ns_prefix = ''
+        if self.is_multi_asic:
+            ns_prefix = '-n {}'.format(self.get_asic_id_from_namespace(namespace))
+
+        if ipaddress.ip_network(prefix.encode().decode()).version == 4:
+            out = self.command("vtysh {} -c \"show bgp ipv4 unicast {} json\"".format(ns_prefix, prefix))
+        else:
+            out = self.command("vtysh {} -c \"show bgp ipv6 unicast {} json\"".format(ns_prefix, prefix))
+
+        prefix_info = json.loads(re.sub(r"\\\"", '"', re.sub(r"\\n", "", out['stdout'])))
+        logging.info("bgp {} info {}".format(prefix, prefix_info))
+        return prefix_info
 
     def get_dut_iface_mac(self, iface_name):
         """
@@ -1550,6 +1596,9 @@ Totals               6450                 6449
         for line in show_cmd_output["stdout_lines"]:
             container_name = line.split()[0].strip()
             container_state = line.split()[1].strip()
+            if container_name == "frr_bmp":
+                continue
+
             if container_state in ["enabled", "disabled"]:
                 container_autorestart_states[container_name] = container_state
 
@@ -1666,11 +1715,11 @@ Totals               6450                 6449
         For example, part of the output of command 'show interface status':
 
         admin@str-msn2700-02:~$ show interface status
-              Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa E501
-        ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa E501
-              Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
-              Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa E501
-              Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa E501
+              Interface            Lanes    Speed    MTU    FEC    Alias             Vlan    Oper    Admin             Type    Asym PFC     # noqa: E501
+        ---------------  ---------------  -------  -----  -----  -------  ---------------  ------  -------  ---------------  ----------     # noqa: E501
+              Ethernet0          0,1,2,3      40G   9100    N/A     etp1  PortChannel0002      up       up   QSFP+ or later         off     # noqa: E501
+              Ethernet4          4,5,6,7      40G   9100    N/A     etp2  PortChannel0002      up       up   QSFP+ or later         off     # noqa: E501
+              Ethernet8        8,9,10,11      40G   9100    N/A     etp3  PortChannel0005      up       up   QSFP+ or later         off     # noqa: E501
         ...
 
         The parsed example will be like:
@@ -1782,6 +1831,7 @@ Totals               6450                 6449
         search_sets = {
             "td2": {"b85", "BCM5685"},
             "td3": {"b87", "BCM5687"},
+            "td4": {"b78", "BCM5678"},
             "th":  {"b96", "BCM5696"},
             "th2": {"b97", "BCM5697"},
             "th3": {"b98", "BCM5698"},
@@ -1803,6 +1853,8 @@ Totals               6450                 6449
             asic = "gb"
         elif "Mellanox Technologies" in output:
             asic = "spc"
+        elif "Marvell Technology" in output:
+            asic = "marvell-teralynx"
 
         logger.info("asic: {}".format(asic))
 
@@ -1876,9 +1928,11 @@ Totals               6450                 6449
                     vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
-    def get_interfaces_status(self):
+    def get_interfaces_status(self, namespace=None):
         '''
-        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Get interfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Can be called with namespace for multi-asic devices to get output on specific namespace. If no namespace
+        is provided, the output will be from all namespaces.
 
         Example output:
             {
@@ -1910,7 +1964,11 @@ Totals               6450                 6449
                 }
             }
         '''
-        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        if namespace is None:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        else:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status -n {}'
+                                                                       .format(namespace))}
 
     def show_ipv6_interfaces(self):
         '''
@@ -2078,8 +2136,15 @@ Totals               6450                 6449
             logging.warning("CRM counters are not ready yet, will retry after 10 seconds")
             time.sleep(10)
             timeout -= 10
-        assert (timeout >= 0)
-
+        assert (timeout >= 0), (
+            "Timeout expired while waiting for CRM counters to become ready. "
+            "CRM resource data was not available within the allotted time. "
+            "- Timeout value: {}\n"
+            "- Polling interval: {}\n"
+        ).format(
+            timeout,
+            crm_facts.get('polling_interval', 'N/A')
+        )
         return crm_facts
 
     def start_service(self, service_name, docker_name):
@@ -2112,9 +2177,6 @@ Totals               6450                 6449
         self.command(
             "docker rm {}".format(service), module_ignore_errors=True
         )
-
-    def start_bgpd(self):
-        return self.command("sudo config feature state bgp enabled")
 
     def no_shutdown_bgp(self, asn):
         command = "vtysh -c 'config' -c 'router bgp {}'".format(asn)
@@ -2255,7 +2317,10 @@ Totals               6450                 6449
         if not auto_neg_mode:
             cmd = 'config interface speed {} {}'.format(interface_name, speed)
         else:
-            cmd = 'config interface advertised-speeds {} {}'.format(interface_name, speed)
+            if speed:
+                cmd = 'config interface advertised-speeds {} {}'.format(interface_name, speed)
+            else:
+                cmd = f'config interface advertised-speeds {interface_name} all'
         self.shell(cmd)
         return True
 
@@ -2268,7 +2333,7 @@ Totals               6450                 6449
         Returns:
             str: SONiC style interface speed value. E.g, 1G=1000, 10G=10000, 100G=100000.
         """
-        cmd = 'sonic-db-cli APPL_DB HGET \"PORT_TABLE:{}\" \"{}\"'.format(interface_name, 'speed')
+        cmd = 'sonic-db-cli STATE_DB HGET \"PORT_TABLE|{}\" \"{}\"'.format(interface_name, 'speed')
         speed = self.shell(cmd)['stdout'].strip()
         return speed
 
@@ -2345,7 +2410,18 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
-    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all"):
+    def get_backplane_ports(self):
+        # get current interface data from config_db.json
+        config_facts = self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
+        config_db_ports = config_facts["PORT"]
+        # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
+        excluded_ports = set()
+        for port, val in config_db_ports.items():
+            if "role" in val:
+                excluded_ports.add(port)
+        return excluded_ports
+
+    def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -2355,21 +2431,32 @@ Totals               6450                 6449
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
+        excluded_ports = self.get_backplane_ports()
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
-               (k.startswith("PortChannel") and not
-               self.is_backend_portchannel(k, mg_facts))):
-                # Ping for some time to get ARP Re-learnt.
-                # We might have to tune it further if needed.
-                if (v["admin"] == "up" and v["oper_state"] == "up" and
-                   self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
-                    ip_ifaces[k] = {
-                        "ipv4": v["ipv4"],
-                        "peer_ipv4": v["peer_ipv4"],
-                        "bgp_neighbor": v["bgp_neighbor"]
-                    }
-                    active_ip_intf_cnt += 1
+            if ((k.startswith("Ethernet") and (k not in excluded_ports) and
+                 (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
+               (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
+                if ip_type == "ipv4":
+                    # Ping for some time to get ARP Re-learnt.
+                    # We might have to tune it further if needed.
+                    if (v["admin"] == "up" and v["oper_state"] == "up" and
+                            self.ping_v4(v["peer_ipv4"], count=3, ns_arg=ns_arg)):
+                        ip_ifaces[k] = {
+                            "ipv4": v["ipv4"],
+                            "peer_ipv4": v["peer_ipv4"],
+                            "bgp_neighbor": v["bgp_neighbor"]
+                        }
+                        active_ip_intf_cnt += 1
+                elif ip_type == "ipv6":
+                    if (v["admin"] == "up" and v["oper_state"] == "up" and
+                            self.ping_v6(v["peer_ipv6"], count=3, ns_arg=ns_arg)):
+                        ip_ifaces[k] = {
+                            "ipv6": v["ipv6"],
+                            "peer_ipv6": v["peer_ipv6"],
+                            "bgp_neighbor": v["bgp_neighbor"]
+                        }
+                        active_ip_intf_cnt += 1
 
                 if isinstance(intf_num, int) and intf_num > 0 and active_ip_intf_cnt == intf_num:
                     break
@@ -2421,7 +2508,11 @@ Totals               6450                 6449
         Return:
             packets_count (int): count of packets hit the specific ACL rule.
         """
-        assert timeout >= 0 and interval > 0  # Validate arguments to avoid infinite loop
+        assert timeout >= 0 and interval > 0, (
+            "Invalid arguments for ACL counter polling: timeout={}, interval={}. "
+            "Timeout must be non-negative and interval must be positive."
+        ).format(timeout, interval)
+        # Validate arguments to avoid infinite loop
         while timeout >= 0:
             time.sleep(interval)  # Wait for orchagent to update the ACL counters
             timeout -= interval
@@ -2637,7 +2728,7 @@ Totals               6450                 6449
     def get_port_fec(self, portname):
         out = self.shell('redis-cli -n 4 HGET "PORT|{}" "fec"'.format(portname))
         assert_exit_non_zero(out)
-        if out["stdout_lines"]:
+        if out["stdout_lines"] and out["stdout_lines"][0] != "(nil)":
             return out["stdout_lines"][0]
         else:
             return None
@@ -2714,6 +2805,161 @@ Totals               6450                 6449
             result_dict[counter_type]['interval'] = interval
             result_dict[counter_type]['status'] = status
         return result_dict
+
+    def set_counter_poll_interval(self, counter_type, interval, wait_for_new_interval=True):
+        """
+        A function to config the interval of counterpoll. The counter type should be a key of
+        the 'counterpoll show' cli output.
+        """
+        counter_type_cli_map = {
+            'QUEUE_STAT': 'queue',
+            'PORT_STAT': 'port',
+            'SWITCH_STAT': 'switch',
+            'PORT_BUFFER_DROP': 'port-buffer-drop',
+            'RIF_STAT': 'rif',
+            'QUEUE_WATERMARK_STAT': 'watermark',
+            'PG_WATERMARK_STAT': 'watermark',
+            'BUFFER_POOL_WATERMARK_STAT': 'watermark',
+            'ACL': 'acl',
+            'TUNNEL_STAT': 'tunnel',
+            'FLOW_CNT_TRAP_STAT': 'flowcnt-trap',
+            'FLOW_CNT_ROUTE_STAT': 'flowcnt-route'
+        }
+        origin_interval = self.get_counter_poll_status()[counter_type]['interval']
+        cmd = 'counterpoll {} interval {}'.format(counter_type_cli_map[counter_type], interval)
+        self.shell(cmd)
+        # Sleep for the old interval for the new interval to take effect
+        if wait_for_new_interval:
+            time.sleep(origin_interval / 1000 + 1)
+
+    def config(self, lines=None, parents=None, module_ignore_errors=False, asic_id=DEFAULT_ASIC_ID):
+        # Convert string inputs to lists
+        if isinstance(lines, str):
+            lines = [lines]
+        if isinstance(parents, str):
+            parents = [parents]
+
+        lines = lines or []
+        parents = parents or []
+        # conf t, add parent commands, add lines, exit for all config contexts
+        commands = ['configure terminal'] + parents + lines + ['exit'] * (len(parents) + 1)
+        try:
+            vtysh = "vtysh"
+            if asic_id is not None:
+                vtysh = "vtysh -n {}".format(asic_id)
+
+            vtysh_cmd = "\n".join(commands)
+            logger.info("sonic.config Executing vtysh commands: {}".format(vtysh_cmd))
+            result = self.shell(f'{vtysh} -c "{vtysh_cmd}"')
+            logger.info("sonic.config vtysh command result: {}".format(result))
+            stderr, stdout = result.get('stderr', ''), result.get('stdout', '')
+            if any(err in (stderr + stdout).lower() for err in ['error', 'invalid']):
+                return {
+                    'changed': False,
+                    'failed': not module_ignore_errors,
+                    'msg': 'Configuration error detected' if not module_ignore_errors
+                    else 'Configuration error ignored',
+                    'stderr': stderr,
+                    'stdout': stdout
+                }
+            return {
+                'changed': True,
+                'failed': False,
+                'msg': 'Configuration successfully applied',
+                'stderr': stderr,
+                'stdout': stdout
+            }
+        except Exception as e:
+            return {
+                'changed': False,
+                'failed': not module_ignore_errors,
+                'msg': str(e),
+                'stderr': str(e),
+                'stdout': ''
+            }
+
+    def check_bgp_session_state(self, neigh_ips, neigh_desc, state="established"):
+        neigh_ips = [ip.lower() for ip in neigh_ips]
+        neigh_ips_ok, neigh_desc_ok = [], []
+        neigh_desc_available = False
+        num_asics = int(self.facts["num_asic"])
+        for neighbor_ip in neigh_ips:
+            if num_asics == 1:
+                nbinfo = self.get_bgp_neighbor_info(neighbor_ip, None)
+                if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Established".lower():
+                    neigh_ips_ok.append(neighbor_ip)
+                if 'nbrDesc' in nbinfo:
+                    neigh_desc_available = True
+                    neigh_desc_ok.append(nbinfo['nbrDesc'])
+            else:
+                for asic in range(0, num_asics):
+                    nbinfo = self.get_bgp_neighbor_info(neighbor_ip, asic)
+                    if 'bgpState' in nbinfo and nbinfo['bgpState'].lower() == "Established".lower():
+                        neigh_ips_ok.append(neighbor_ip)
+                    if 'nbrDesc' in nbinfo:
+                        neigh_desc_available = True
+                        neigh_desc_ok.append(nbinfo['nbrDesc'])
+
+        logging.info(
+            f"neigh_ips_ok={neigh_ips_ok} neigh_desc_available={neigh_desc_available} "
+            f"neigh_desc_ok={neigh_desc_ok}")
+        if neigh_desc_available:
+            return len(neigh_ips) == len(neigh_ips_ok) and len(neigh_desc) == len(neigh_desc_ok)
+        return len(neigh_ips) == len(neigh_ips_ok)
+
+    def get_frr_mgmt_framework_config(self):
+        frr_config = self.shell(
+            'sudo sonic-db-cli CONFIG_DB HGET "DEVICE_METADATA|localhost" '
+            '"frr_mgmt_framework_config"'
+        )['stdout'].strip()
+        return frr_config == "true"
+
+    def get_bgp_docker_names(self):
+        bgp_docker_names = []
+        if self.facts["num_asic"] == 1:
+            bgp_docker_names.append("bgp")
+        else:
+            num_asics = self.facts["num_asic"]
+            for asic in range(0, num_asics):
+                bgp_docker_names.append("bgp{}".format(asic))
+        return bgp_docker_names
+
+    def kill_bgpd(self):
+        bgp_names = self.get_bgp_docker_names()
+        for bgp_name in bgp_names:
+            try:
+                result = self.command(f"sudo docker exec {bgp_name} supervisorctl stop bgpd")
+                if result['rc'] == 0:
+                    logging.info("Successfully stopped bgpd process on {}".format(self.hostname))
+                else:
+                    logging.error("Failed to stop bgpd process on {}: {}".format(self.hostname, result['stderr']))
+                return result
+            except Exception as e:
+                logging.error(f"Error stopping bgpd process: {str(e)}")
+                return {'rc': 1, 'stdout': '', 'stderr': str(e)}
+
+    def start_bgpd(self):
+        """Start the BGP daemon (bgpd) on the SONiC device."""
+        bgp_names = self.get_bgp_docker_names()
+        frr_config_mode = self.get_frr_mgmt_framework_config()
+        for bgp_name in bgp_names:
+            try:
+                result = self.command(f"sudo docker exec {bgp_name} supervisorctl start bgpd")
+                if result['rc'] != 0:
+                    logging.error(f"Failed to start bgpd process on {self.hostname}: {result['stderr']}")
+                    return result
+                # restart bgpcfgd to apply back config (for non frr-mgmt-framework mode)
+                if frr_config_mode is False:
+                    time.sleep(10)
+                    result = self.command(f"docker exec {bgp_name} supervisorctl restart bgpcfgd")
+                    if result['rc'] != 0:
+                        logging.error(f"Failed to restart bgpcfgd on {self.hostname}: {result['stderr']}")
+                        return result
+
+                return {'rc': 0, 'stdout': 'bgpd process started successfully', 'stderr': ''}
+            except Exception as e:
+                logging.error(f"Error starting bgpd process: {str(e)}")
+                return {'rc': 1, 'stdout': '', 'stderr': str(e)}
 
 
 def assert_exit_non_zero(shell_output):
