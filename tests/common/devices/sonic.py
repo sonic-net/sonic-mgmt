@@ -27,7 +27,6 @@ from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
 
 logger = logging.getLogger(__name__)
-
 PROCESS_TO_CONTAINER_MAP = {
     "orchagent": "swss",
     "syncd": "syncd"
@@ -1929,9 +1928,11 @@ Totals               6450                 6449
                     vlan_brief[vlan_name]["interface_ipv6"].append(prefix)
         return vlan_brief
 
-    def get_interfaces_status(self):
+    def get_interfaces_status(self, namespace=None):
         '''
-        Get intnerfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Get interfaces status by running 'show interfaces status' on the DUT, and parse the result into a dict.
+        Can be called with namespace for multi-asic devices to get output on specific namespace. If no namespace
+        is provided, the output will be from all namespaces.
 
         Example output:
             {
@@ -1963,7 +1964,11 @@ Totals               6450                 6449
                 }
             }
         '''
-        return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        if namespace is None:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status')}
+        else:
+            return {x.get('interface'): x for x in self.show_and_parse('show interfaces status -n {}'
+                                                                       .format(namespace))}
 
     def show_ipv6_interfaces(self):
         '''
@@ -2405,6 +2410,17 @@ Totals               6450                 6449
     def is_backend_port(self, port, mg_facts):
         return True if "Ethernet-BP" in port else False
 
+    def get_backplane_ports(self):
+        # get current interface data from config_db.json
+        config_facts = self.config_facts(host=self.hostname, source='running', verbose=False)['ansible_facts']
+        config_db_ports = config_facts["PORT"]
+        # Build set of Ethernet ports with 18.x.202.0/31 IPs to exclude
+        excluded_ports = set()
+        for port, val in config_db_ports.items():
+            if "role" in val:
+                excluded_ports.add(port)
+        return excluded_ports
+
     def active_ip_interfaces(self, ip_ifs, tbinfo, ns_arg=DEFAULT_NAMESPACE, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
@@ -2415,10 +2431,10 @@ Totals               6450                 6449
         """
         active_ip_intf_cnt = 0
         mg_facts = self.get_extended_minigraph_facts(tbinfo, ns_arg)
-        config_facts_ports = self.config_facts(host=self.hostname, source="running")["ansible_facts"].get("PORT", {})
+        excluded_ports = self.get_backplane_ports()
         ip_ifaces = {}
         for k, v in list(ip_ifs.items()):
-            if ((k.startswith("Ethernet") and config_facts_ports.get(k, {}).get("role", "") != "Dpc" and
+            if ((k.startswith("Ethernet") and (k not in excluded_ports) and
                  (not k.startswith("Ethernet-BP")) and not is_inband_port(k)) or
                (k.startswith("PortChannel") and not self.is_backend_portchannel(k, mg_facts))):
                 if ip_type == "ipv4":

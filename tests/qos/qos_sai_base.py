@@ -50,10 +50,11 @@ class QosBase:
         "dualtor-120", "dualtor", "dualtor-64-breakout", "dualtor-aa", "dualtor-aa-56", "dualtor-aa-64-breakout",
         "t0-120", "t0-80", "t0-backend", "t0-56-o8v48", "t0-8-lag", "t0-standalone-32", "t0-standalone-64",
         "t0-standalone-128", "t0-standalone-256", "t0-28", "t0-isolated-d16u16s1", "t0-isolated-d16u16s2",
-        "t0-isolated-d96u32s2",
-        "t0-88-o8c80"
+        "t0-isolated-d96u32s2",  "t0-isolated-d32u32s2",
+        "t0-88-o8c80", "t0-f2-d40u8"
     ]
     SUPPORTED_T1_TOPOS = ["t1-lag", "t1-64-lag", "t1-56-lag", "t1-backend", "t1-28-lag", "t1-32-lag", "t1-48-lag",
+                          "t1-f2-d10u8",
                           "t1-isolated-d28u1", "t1-isolated-v6-d28u1", "t1-isolated-d56u2", "t1-isolated-v6-d56u2",
                           "t1-isolated-d56u1-lag", "t1-isolated-v6-d56u1-lag", "t1-isolated-d128", "t1-isolated-d32",
                           "t1-isolated-d448u15-lag", "t1-isolated-v6-d448u15-lag"]
@@ -137,7 +138,7 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False, skip_pcap=False):
         """
             Runs QoS SAI test case on PTF host
 
@@ -146,6 +147,7 @@ class QosBase:
                 testCase (str): SAI tests test case name
                 testParams (dict): Map of test params required by testCase
                 relax (bool): Relax ptf verify packet requirements (default: False)
+                skip_pcap (bool): Skip pcap file generation to avoid OOM with high packet counts (default: False)
 
             Returns:
                 None
@@ -162,13 +164,15 @@ class QosBase:
         log_suffix = testParams.get("log_suffix", "")
         logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
 
+        # Skip log_file (and thus pcap generation) if skip_pcap is True
+        log_file = None if skip_pcap else "/tmp/{0}{1}.log".format(testCase, logfile_suffix)
         ptf_runner(
             ptfhost,
             "saitests",
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
+            log_file=log_file,
             qlen=10000,
             is_python3=True,
             relax=relax,
@@ -1002,16 +1006,23 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
-        src_mgFacts['minigraph_ptf_indices'] = {
+
+        # Build a set of Ethernet ports to exclude (with 18.x.202.0/31 IPs)
+        excluded_ports = set()
+        excluded_ports.update(duthosts[0].get_backplane_ports())
+        # Filter minigraph_ptf_indices to exclude dynamic ports
+        src_mgFacts["minigraph_ptf_indices"] = {
             key: value
-            for key, value in src_mgFacts['minigraph_ptf_indices'].items()
-            if not key.startswith("Ethernet-BP")
-            }
-        src_mgFacts['minigraph_ports'] = {
+            for key, value in src_mgFacts["minigraph_ptf_indices"].items()
+            if key not in excluded_ports
+        }
+
+        # Filter minigraph_ports to exclude dynamic ports
+        src_mgFacts["minigraph_ports"] = {
             key: value
-            for key, value in src_mgFacts['minigraph_ports'].items()
-            if not key.startswith("Ethernet-BP")
-            }
+            for key, value in src_mgFacts["minigraph_ports"].items()
+            if key not in excluded_ports
+        }
         bgp_peer_ip_key = "peer_ipv6" if ip_type == "ipv6" else "peer_ipv4"
         ip_version = 6 if ip_type == "ipv6" else 4
         vlan_info = {}
