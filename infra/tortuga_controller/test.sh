@@ -7,8 +7,15 @@
 #
 # Take a look at config-gen.pptx for more details on tests.
 #
-# Running test.sh using command line arguments.
+# Commandline arguments for single fabric tests.
 #  ./test.sh -n <fabric-name> -p <pyvxr-host> -s <spine-ports> -l <leaf-ports> -h <host-ports>
+#  ./test.sh -n <fabric-name> -p <pyvxr-host> --spines <spine-ports> --leaves <leaf-ports> --hosts <host-ports>
+#
+# Commandline arguments for DCI tests. Specify "-c" for number of fabrics in the DCI.
+# For example, "-c 3" for dci1x2-3-static-sim.yaml, and "-c 2" for both dci1x2-2-bgp-sim.yaml
+# and dci2x2-2-bgp-sim.yaml
+#  ./test.sh -n <fabric-name> -p <pyvxr-host> -c 2 -s <spine-ports> -l <leaf-ports> -h <host-ports>
+#  ./test.sh -n <fabric-name> -p <pyvxr-host> -c 3 --spines <spine-ports> --leaves <leaf-ports> --hosts <host-ports>
 #
 set -euo pipefail
 
@@ -51,7 +58,7 @@ TIMEOUT="15m"
 BULK_MODE=true   # Enable bulk config load.
 BULK_PATCH=false # Enable bulk config patch.
 LLDP_CHECK=true  # Check and assert for LLDP system description.
-IPSLA=false      # Enable IpSla tests.
+IPSLA=true       # Enable IpSla tests.
 SB_PEER=true     # Add southbound peers.
 SB_SPINE=true    # Use spine as southbound peer.
 DSCP="no-dscp"   # Enable DSCP/QoS tests.
@@ -144,8 +151,8 @@ do
   -no-breakout)
     BREAKOUT="no-breakout"
     shift;;
-  -ipsla)
-    IPSLA=true
+  -no-ipsla)
+    IPSLA=false
     shift;;
   -no-bulk-mode)
     BULK_MODE=false
@@ -175,7 +182,7 @@ done
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 LENGTH=$((LENGTH + 1))
 LENGTH=$((LENGTH / FABRIC_COUNT))
-if [[ ${LENGTH} -eq 1 ]]; then
+if [[ ${LENGTH} -eq 1 ]] || [[ "${SPINE_PORTS}" == "0" ]]; then
   SB_SPINE=false
 fi
 
@@ -360,7 +367,6 @@ if [[ "${IPSLA}" == true ]]; then
   fi
 
   PYVXR_IPSLAS="Vrf40000|ip-sla-1#TCP#9100#10#3#20.20.20.2/32"
-  TEST_TAGS="${TEST_TAGS},ip-sla"
 else
   PYVXR_IPSLAS="*"
 fi

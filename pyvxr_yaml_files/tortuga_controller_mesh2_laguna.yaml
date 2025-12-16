@@ -1,0 +1,293 @@
+simulation:
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  skip_auto_bringup: false
+  slurm_flags:
+    pending_timeout: 60
+    hours: 30
+    partition: regression
+
+
+devices:
+  trex1: &host
+    data_ports:
+      - eth1
+      - eth2
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    disks:
+      - hda_ref:
+          file: /auto/vxr1/sonic-images/yadeng/ubuntu22.qcow2
+          type: reference
+    memory: 4GB
+    platform: linux
+    vcpu: 2
+    xr_port_redir:
+      - 22
+
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+
+  L0: &switch
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0-2020.11br.iso
+    linecard_types:
+      - HF6100-64ED
+    port_breakout:
+      lc0:
+        0..63: 1x800
+    vxr_sim_config:
+      shelf:
+        # Following config prevents packet from reaching nsim before it is initialized.
+        # Sometimes, dsim crashes when the packets are sent before it is initialized.
+        ConfigS1EgressSeen: 'true'
+        ConfigS1DelayAfterEgressSeen: '60'
+        ConfigEnableNgdp: 'true'
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/images/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 32GB
+    vcpu: 12
+    platform: spitfire_f
+    data_ports:
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
+      - Ethernet1_13
+      - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
+      - Ethernet1_22
+      - Ethernet1_23
+      - Ethernet1_24
+      - Ethernet1_25
+      - Ethernet1_26
+      - Ethernet1_27
+      - Ethernet1_28
+      - Ethernet1_29
+      - Ethernet1_30
+      - Ethernet1_31
+      - Ethernet1_32
+      - Ethernet1_33
+      - Ethernet1_34
+      - Ethernet1_35
+      - Ethernet1_36
+      - Ethernet1_37
+      - Ethernet1_38
+      - Ethernet1_39
+      - Ethernet1_40
+      - Ethernet1_41
+      - Ethernet1_42
+      - Ethernet1_43
+      - Ethernet1_44
+      - Ethernet1_45
+      - Ethernet1_46
+      - Ethernet1_47
+      - Ethernet1_48
+      - Ethernet1_49
+      - Ethernet1_50
+      - Ethernet1_51
+      - Ethernet1_52
+      - Ethernet1_53
+      - Ethernet1_54
+      - Ethernet1_55
+      - Ethernet1_56
+      - Ethernet1_57
+      - Ethernet1_58
+      - Ethernet1_59
+      - Ethernet1_60
+      - Ethernet1_61
+      - Ethernet1_62
+      - Ethernet1_63
+      - Ethernet1_64
+    xr_port_redir:
+      - 22
+    pre_cli: |
+      sudo bash -c "echo 'net.core.rmem_default = 16777216' >> /etc/sysctl.conf"
+      sudo bash -c "echo 'net.core.wmem_default = 16777216' >> /etc/sysctl.conf"
+      sudo sysctl -p
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-mesh2-leaf0
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  L1:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-mesh2-leaf1
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+connections:
+  hubs:
+    L0_trex1_1:
+      - L0.Ethernet1_9
+      - trex1.eth1
+    L0_trex5_2:
+      - L0.Ethernet1_13
+      - trex5.eth2
+    L0_trex2_1:
+      - L0.Ethernet1_10
+      - trex2.eth1
+    L0_trex3_1:
+      - L0.Ethernet1_11
+      - trex3.eth1
+    L0_trex4_1:
+      - L0.Ethernet1_12
+      - trex4.eth1
+    L0_trex4_2:
+      - L0.Ethernet1_14
+      - trex4.eth2
+    L0_LOOP:
+      - L0.Ethernet1_16
+      - L0.Ethernet1_17
+    L1_trex5_1:
+      - L1.Ethernet1_9
+      - trex5.eth1
+    L1_trex1_2:
+      - L1.Ethernet1_13
+      - trex1.eth2
+    L1_trex6_1:
+      - L1.Ethernet1_10
+      - trex6.eth1
+    L1_trex7_1:
+      - L1.Ethernet1_11
+      - trex7.eth1
+    L1_trex7_2:
+      - L1.Ethernet1_14
+      - trex7.eth2
+
+    # Add 32 ECMP connections between L0 and L1.
+    L0_L1_conn1:
+      - L0.Ethernet1_33
+      - L1.Ethernet1_33
+    L0_L1_conn2:
+      - L0.Ethernet1_34
+      - L1.Ethernet1_34
+    L0_L1_conn3:
+      - L0.Ethernet1_35
+      - L1.Ethernet1_35
+    L0_L1_conn4:
+      - L0.Ethernet1_36
+      - L1.Ethernet1_36
+    L0_L1_conn5:
+      - L0.Ethernet1_37
+      - L1.Ethernet1_37
+    L0_L1_conn6:
+      - L0.Ethernet1_38
+      - L1.Ethernet1_38
+    L0_L1_conn7:
+      - L0.Ethernet1_39
+      - L1.Ethernet1_39
+    L0_L1_conn8:
+      - L0.Ethernet1_40
+      - L1.Ethernet1_40
+    L0_L1_conn9:
+      - L0.Ethernet1_41
+      - L1.Ethernet1_41
+    L0_L1_conn110:
+      - L0.Ethernet1_42
+      - L1.Ethernet1_42
+    L0_L1_conn11:
+      - L0.Ethernet1_43
+      - L1.Ethernet1_43
+    L0_L1_conn12:
+      - L0.Ethernet1_44
+      - L1.Ethernet1_44
+    L0_L1_conn13:
+      - L0.Ethernet1_45
+      - L1.Ethernet1_45
+    L0_L1_conn14:
+      - L0.Ethernet1_46
+      - L1.Ethernet1_46
+    L0_L1_conn15:
+      - L0.Ethernet1_47
+      - L1.Ethernet1_47
+    L0_L1_conn16:
+      - L0.Ethernet1_48
+      - L1.Ethernet1_48
+    L0_L1_conn17:
+      - L0.Ethernet1_49
+      - L1.Ethernet1_49
+    L0_L1_conn18:
+      - L0.Ethernet1_50
+      - L1.Ethernet1_50
+    L0_L1_conn19:
+      - L0.Ethernet1_51
+      - L1.Ethernet1_51
+    L0_L1_conn20:
+      - L0.Ethernet1_52
+      - L1.Ethernet1_52
+    L0_L1_conn21:
+      - L0.Ethernet1_53
+      - L1.Ethernet1_53
+    L0_L1_conn22:
+      - L0.Ethernet1_54
+      - L1.Ethernet1_54
+    L0_L1_conn23:
+      - L0.Ethernet1_55
+      - L1.Ethernet1_55
+    L0_L1_conn24:
+      - L0.Ethernet1_56
+      - L1.Ethernet1_56
+    L0_L1_conn25:
+      - L0.Ethernet1_57
+      - L1.Ethernet1_57
+    L0_L1_conn26:
+      - L0.Ethernet1_58
+      - L1.Ethernet1_58
+    L0_L1_conn27:
+      - L0.Ethernet1_59
+      - L1.Ethernet1_59
+    L0_L1_conn28:
+      - L0.Ethernet1_60
+      - L1.Ethernet1_60
+    L0_L1_conn29:
+      - L0.Ethernet1_61
+      - L1.Ethernet1_61
+    L0_L1_conn30:
+      - L0.Ethernet1_62
+      - L1.Ethernet1_62
+    L0_L1_conn31:
+      - L0.Ethernet1_63
+      - L1.Ethernet1_63
+    L0_L1_conn32:
+      - L0.Ethernet1_64
+      - L1.Ethernet1_64

@@ -1,0 +1,441 @@
+simulation:
+  no_image_copy: true
+  pyvxr_flags:
+    port_file_timeout: 1200
+  sim_dir: /nobackup/sim
+  sim_host: localhost
+  skip_auto_bringup: false
+
+devices:
+  trex1: &host
+    data_ports:
+      - eth1
+      - eth2
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu22:~\$
+    disks:
+      - hda_ref:
+          file: /nobackup/images/ubuntu22.qcow2
+          type: reference
+    memory: 3GB
+    platform: linux
+    vcpu: 2
+    xr_port_redir:
+      - 22
+
+  trex2:
+    <<: *host
+  trex3:
+    <<: *host
+  trex4:
+    <<: *host
+  trex5:
+    <<: *host
+  trex6:
+    <<: *host
+  trex7:
+    <<: *host
+  trex8:
+    <<: *host
+  trex9:
+    <<: *host
+  trex10:
+    <<: *host
+  trex11:
+    <<: *host
+  trex12:
+    <<: *host
+  trex13:
+    <<: *host
+  trex14:
+    <<: *host
+  trex15:
+    <<: *host
+  trex16:
+    <<: *host
+  trex17:
+    <<: *host
+  trex18:
+    <<: *host
+  trex19:
+    <<: *host
+  trex20:
+    <<: *host
+  trex21:
+    <<: *host
+  trex22:
+    <<: *host
+  trex23:
+    <<: *host
+  trex24:
+    <<: *host
+  trex25:
+    <<: *host
+  trex26:
+    <<: *host
+  trex27:
+    <<: *host
+  trex28:
+    <<: *host
+
+  L0: &switch
+    image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
+    linecard_types:
+      - 8101-32FH
+    port_breakout:
+      lc0:
+        0..31: 1x400
+    vxr_sim_config:
+      shelf:
+        ConfigCardPidOverride: HF6100-32D
+    linux_password: cisco123
+    linux_username: cisco
+    onie-install: /nobackup/images/sonic-cisco-8000.bin
+    os_type: sonic
+    memory: 12GB
+    vcpu: 8
+    platform: spitfire_f
+    data_ports:
+      - Ethernet1_1
+      - Ethernet1_2
+      - Ethernet1_3
+      - Ethernet1_4
+      - Ethernet1_5
+      - Ethernet1_6
+      - Ethernet1_7
+      - Ethernet1_8
+      - Ethernet1_9
+      - Ethernet1_10
+      - Ethernet1_11
+      - Ethernet1_12
+      - Ethernet1_13
+      - Ethernet1_14
+      - Ethernet1_15
+      - Ethernet1_16
+      - Ethernet1_17
+      - Ethernet1_18
+      - Ethernet1_19
+      - Ethernet1_20
+      - Ethernet1_21
+      - Ethernet1_22
+      - Ethernet1_23
+      - Ethernet1_24
+      - Ethernet1_25
+      - Ethernet1_26
+      - Ethernet1_27
+      - Ethernet1_28
+      - Ethernet1_29
+      - Ethernet1_30
+      - Ethernet1_31
+      - Ethernet1_32
+    xr_port_redir:
+      - 22
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf0
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo curl http://ramius-fs1.cisco.com/cdi-images/tortuga/drake-config-pradeep1.yml -o /opt/cisco/etc/tortuga/drake-config.yml
+      sudo systemctl daemon-reload
+      sudo systemctl restart drake
+      sudo systemctl restart lira
+      sudo systemctl restart azimuth
+
+  L1:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf1
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L2:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf2
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L3:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf3
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L4:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf4
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L5:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf5
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L6:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf6
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L7:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf7
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  L8:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-leaf8
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  S0:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-spine0
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+  S1:
+    <<: *switch
+    cli_commands: |
+      sleep 60
+      sudo config hostname tortuga-2x9-spine1
+      sudo config save -y
+      curl http://ramius-fs1.cisco.com/cdi-images/tortuga/tortuga-agents_0.1-1_amd64.deb -o /home/cisco/tortuga-agents_0.1-1_amd64.deb
+      sudo dpkg -i /home/cisco/tortuga-agents_0.1-1_amd64.deb
+
+connections:
+  hubs:
+    # Group 1
+    L0_trex1_1:
+      - L0.Ethernet1_9
+      - trex1.eth1
+    L0_trex5_2:
+      - L0.Ethernet1_13
+      - trex5.eth2
+    L0_trex2_1:
+      - L0.Ethernet1_10
+      - trex2.eth1
+    L0_trex3_1:
+      - L0.Ethernet1_11
+      - trex3.eth1
+    L0_trex4_1:
+      - L0.Ethernet1_12
+      - trex4.eth1
+    L0_trex4_2:
+      - L0.Ethernet1_14
+      - trex4.eth2
+    L0_LOOP:
+      - L0.Ethernet1_16
+      - L0.Ethernet1_17
+    L1_trex5_1:
+      - L1.Ethernet1_9
+      - trex5.eth1
+    L1_trex1_2:
+      - L1.Ethernet1_13
+      - trex1.eth2
+    L1_trex6_1:
+      - L1.Ethernet1_10
+      - trex6.eth1
+    L1_trex7_1:
+      - L1.Ethernet1_11
+      - trex7.eth1
+    L1_trex7_2:
+      - L1.Ethernet1_14
+      - trex7.eth2
+    L2_trex8_1:
+      - L2.Ethernet1_9
+      - trex8.eth1
+    L2_trex8_2:
+      - L2.Ethernet1_13
+      - trex8.eth2
+    L2_trex9_1:
+      - L2.Ethernet1_10
+      - trex9.eth1
+    L2_trex10_1:
+      - L2.Ethernet1_11
+      - trex10.eth1
+    L2_trex10_2:
+      - L2.Ethernet1_14
+      - trex10.eth2
+
+    # Group 2 -- does not have fourth host one first leaf.
+    L3_trex11_1:
+      - L3.Ethernet1_9
+      - trex11.eth1
+    L3_trex14_2:
+      - L3.Ethernet1_13
+      - trex14.eth2
+    L3_trex12_1:
+      - L3.Ethernet1_10
+      - trex12.eth1
+    L3_trex13_1:
+      - L3.Ethernet1_11
+      - trex13.eth1
+    L3_trex13_2:
+      - L3.Ethernet1_14
+      - trex13.eth2
+    L4_trex14_1:
+      - L4.Ethernet1_9
+      - trex14.eth1
+    L4_trex11_2:
+      - L4.Ethernet1_13
+      - trex11.eth2
+    L4_trex15_1:
+      - L4.Ethernet1_10
+      - trex15.eth1
+    L4_trex16_1:
+      - L4.Ethernet1_11
+      - trex16.eth1
+    L4_trex16_2:
+      - L4.Ethernet1_14
+      - trex16.eth2
+    L5_trex17_1:
+      - L5.Ethernet1_9
+      - trex17.eth1
+    L5_trex17_2:
+      - L5.Ethernet1_13
+      - trex17.eth2
+    L5_trex18_1:
+      - L5.Ethernet1_10
+      - trex18.eth1
+    L5_trex19_1:
+      - L5.Ethernet1_11
+      - trex19.eth1
+    L5_trex19_2:
+      - L5.Ethernet1_14
+      - trex19.eth2
+
+    # Group 3 -- does not have fourth host on first leaf.
+    L6_trex20_1:
+      - L6.Ethernet1_9
+      - trex20.eth1
+    L6_trex23_2:
+      - L6.Ethernet1_13
+      - trex23.eth2
+    L6_trex21_1:
+      - L6.Ethernet1_10
+      - trex21.eth1
+    L6_trex22_1:
+      - L6.Ethernet1_11
+      - trex22.eth1
+    L6_trex22_2:
+      - L6.Ethernet1_14
+      - trex22.eth2
+    L7_trex23_1:
+      - L7.Ethernet1_9
+      - trex23.eth1
+    L7_trex20_2:
+      - L7.Ethernet1_13
+      - trex20.eth2
+    L7_trex24_1:
+      - L7.Ethernet1_10
+      - trex24.eth1
+    L7_trex25_1:
+      - L7.Ethernet1_11
+      - trex25.eth1
+    L7_trex25_2:
+      - L7.Ethernet1_14
+      - trex25.eth2
+    L8_trex26_1:
+      - L8.Ethernet1_9
+      - trex26.eth1
+    L8_trex26_2:
+      - L8.Ethernet1_13
+      - trex26.eth2
+    L8_trex27_1:
+      - L8.Ethernet1_10
+      - trex27.eth1
+    L8_trex28_1:
+      - L8.Ethernet1_11
+      - trex28.eth1
+    L8_trex28_2:
+      - L8.Ethernet1_14
+      - trex28.eth2
+
+    # Fabric connections.
+    S0_L0_conn1:
+      - S0.Ethernet1_1
+      - L0.Ethernet1_1
+    S0_L1_conn1:
+      - S0.Ethernet1_2
+      - L1.Ethernet1_1
+    S0_L2_conn1:
+      - S0.Ethernet1_3
+      - L2.Ethernet1_1
+    S0_L3_conn1:
+      - S0.Ethernet1_4
+      - L3.Ethernet1_1
+    S0_L4_conn1:
+      - S0.Ethernet1_5
+      - L4.Ethernet1_1
+    S0_L5_conn1:
+      - S0.Ethernet1_6
+      - L5.Ethernet1_1
+    S0_L6_conn1:
+      - S0.Ethernet1_7
+      - L6.Ethernet1_1
+    S0_L7_conn1:
+      - S0.Ethernet1_8
+      - L7.Ethernet1_1
+    S0_L8_conn1:
+      - S0.Ethernet1_9
+      - L8.Ethernet1_1
+    S1_L0_conn1:
+      - S1.Ethernet1_1
+      - L0.Ethernet1_2
+    S1_L1_conn1:
+      - S1.Ethernet1_2
+      - L1.Ethernet1_2
+    S1_L2_conn1:
+      - S1.Ethernet1_3
+      - L2.Ethernet1_2
+    S1_L3_conn1:
+      - S1.Ethernet1_4
+      - L3.Ethernet1_2
+    S1_L4_conn1:
+      - S1.Ethernet1_5
+      - L4.Ethernet1_2
+    S1_L5_conn1:
+      - S1.Ethernet1_6
+      - L5.Ethernet1_2
+    S1_L6_conn1:
+      - S1.Ethernet1_7
+      - L6.Ethernet1_2
+    S1_L7_conn1:
+      - S1.Ethernet1_8
+      - L7.Ethernet1_2
+    S1_L8_conn1:
+      - S1.Ethernet1_9
+      - L8.Ethernet1_2

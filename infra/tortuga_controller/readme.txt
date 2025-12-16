@@ -2,8 +2,7 @@ Using Tortuga cloud to configure PyVxr fabric.
 
 NOTES:
   a. DO NOT USE tortuga-1x3 as fabric name in the PyVxr reference file.
-  b. MUST SET correct pyvxr hostname in the reference file.
-  c. Shell scripts (reset_sim.sh and get_ports.sh) are either in your current directory or in ../pyvxr directory.
+  b. Shell scripts (reset_sim.sh and get_ports.sh) are either in your current directory or in ../pyvxr directory.
 
 1) Create a PyVxr setup.
     - Create /nobackup directory. SIM and SONiC images are going to be
@@ -11,9 +10,9 @@ NOTES:
     - Create /nobackup/images and copy SONiC and Ubuntu images to it.
        - ubuntu22.qcow2 (for hosts). You may download ubuntu22.qcow2 from following locations.
             - cp /auto/vxr/images/linux/ubuntu22_tortuga.qcow2 /nobackup/images/ubuntu22.qcow2
-            - scp cisco@ccni-pgdb1.cisco.com:~/ubuntu22.qcow2 /nobackup/images/ubuntu22.qcow2 (password = spnaa123)
+            - scp tortuga@sf-fab2-host1.cisco.com:~/images/ubuntu22.qcow2 /nobackup/images/ubuntu22.qcow2 (password = cisco123)
        - sonic-cisco-8000.bin (for switches)
-            - scp cisco@ccni-pgdb1.cisco.com:~/pyvxr/sonic-cisco-8000.bin /nobackup/images/sonic-cisco-8000.bin (password = spnaa123)
+            - scp tortuga@sf-fab2-host1.cisco.com:~/pyvxr/sonic-cisco-8000.bin /nobackup/images/sonic-cisco-8000.bin (password = cisco123)
     - Copy reset_sim.sh to /nobackup directory.
     - Copy get_ports.sh to /nobackup directory.
     - Create /nobackup/cfg directory.
@@ -23,10 +22,8 @@ NOTES:
    copy sl1x3-ref-sim.yaml to /nobackup/cfg/sonic-ref-sim.yaml
 
 3) Customize /nobackup/cfg/sonic-ref-sim.yaml to match your PyVxr setup
-    - Change hostname to your PyVxr hostname.
-    - Rename 'tortuga-1x3' to match your PyVxr hostname.
-    - DO NOT add cisco.com in the hostname.
-    - DO NOT use "tortuga" as hostname. Why? Because we have a number of fabrics
+    - Rename 'tortuga-1x3' to match your fabric name (E.g. bob-1x3).
+    - DO NOT use "tortuga" as fabric name. Why? Because we have a number of fabrics
       that use tortuga as prefix. It may confuse UI developers, and they may end
       up deleting or modifying your fabric.
 

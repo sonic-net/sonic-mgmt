@@ -3,7 +3,7 @@ simulation:
   pyvxr_flags:
     port_file_timeout: 1200
   sim_dir: /nobackup/sim
-  sim_host: tortuga-mesh3
+  sim_host: localhost
   skip_auto_bringup: false
 
 devices:

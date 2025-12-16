@@ -21,8 +21,6 @@ env GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -o "${DIR}/config-gen"
 popd || exit
 
 # Copy binary to ramius-fs1 in non-jenkins mode.
-# FIXME: We may have to make this the default mode. For now, file copy is enabled
-# only when run from Mac.
 os=$(uname)
 if [[ "${os}" == "Darwin" ]]; then
   curl -i -X PUT -T "${DIR}/config-gen" http://ramius-fs1.cisco.com/cdi-images/config-gen
@@ -42,7 +40,9 @@ cp "${WS_ROOT}/cloud/tests/pyvxr/g200-1x3-ref-sim.yaml" "${DIR}/g200-1x3-ref-sim
 cp "${WS_ROOT}/cloud/tests/pyvxr/g200-16-1x3-ref-sim.yaml" "${DIR}/g200-16-1x3-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/g200-mesh2-ref-sim.yaml" "${DIR}/g200-mesh2-ref-sim.yaml"
 cp "${WS_ROOT}/cloud/tests/pyvxr/switch-ref-sim.yaml" "${DIR}/switch-ref-sim.yaml"
-cp "${WS_ROOT}/cloud/tests/pyvxr/dci1x2-ref-sim.yaml" "${DIR}/dci1x2-ref-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/dci1x2-2-bgp-sim.yaml" "${DIR}/dci1x2-2-bgp-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/dci1x2-3-static-sim.yaml" "${DIR}/dci1x2-3-static-sim.yaml"
+cp "${WS_ROOT}/cloud/tests/pyvxr/dci2x2-2-bgp-sim.yaml" "${DIR}/dci2x2-2-bgp-sim.yaml"
 cp "${WS_ROOT}/sandbox/certs/cloud.crt" "${DIR}/sandbox/certs/cloud.crt"
 cp "${WS_ROOT}/sandbox/certs/service.key" "${DIR}/sandbox/certs/service.key"
 

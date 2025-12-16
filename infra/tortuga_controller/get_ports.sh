@@ -15,6 +15,8 @@ popd || exit >& /dev/null
 
 s0=$(echo "${ports}" | jq .S0.xr_redir22)
 s1=$(echo "${ports}" | jq .S1.xr_redir22)
+s2=$(echo "${ports}" | jq .S2.xr_redir22)
+s3=$(echo "${ports}" | jq .S3.xr_redir22)
 l0=$(echo "${ports}" | jq .L0.xr_redir22)
 l1=$(echo "${ports}" | jq .L1.xr_redir22)
 l2=$(echo "${ports}" | jq .L2.xr_redir22)
@@ -73,7 +75,10 @@ c225s6=$(echo "${ports}" | jq .c225s6.xr_redir22)
 c225s7=$(echo "${ports}" | jq .c225s7.xr_redir22)
 c225s8=$(echo "${ports}" | jq .c225s8.xr_redir22)
 c225s9=$(echo "${ports}" | jq .c225s9.xr_redir22)
+nexus1=$(echo "${ports}" | jq .nexus1.xr_redir22)
+nexus2=$(echo "${ports}" | jq .nexus2.xr_redir22)
 
+hosts=
 if [[ "${h1}" != "null" ]]; then
     hosts="--hosts ${h1}"
 fi
@@ -170,6 +175,12 @@ fi
 if [[ "${s1}" != "null" ]]; then
   spines="${spines},${s1}"
 fi
+if [[ "${s2}" != "null" ]]; then
+  spines="${spines},${s2}"
+fi
+if [[ "${s3}" != "null" ]]; then
+  spines="${spines},${s3}"
+fi
 
 leaves="${l0},${l1}"
 if [[ "${l2}" != "null" ]]; then
@@ -194,75 +205,80 @@ if [[ "${l8}" != "null" ]]; then
   leaves="${leaves},${l8}"
 fi
 
-broncos=
 if [[ "${bronco0}" != "null" ]]; then
-  broncos="--bronco ${bronco0}"
+  hosts="${hosts} --bronco ${bronco0}"
 fi
 if [[ "${bronco1}" != "null" ]]; then
-  broncos="${broncos},${bronco1}"
+  hosts="${hosts},${bronco1}"
 fi
 if [[ "${bronco2}" != "null" ]]; then
-  broncos="${broncos},${bronco2}"
+  hosts="${hosts},${bronco2}"
 fi
 if [[ "${bronco3}" != "null" ]]; then
-  broncos="${broncos},${bronco3}"
+  hosts="${hosts},${bronco3}"
 fi
 if [[ "${bronco4}" != "null" ]]; then
-  broncos="${broncos},${bronco4}"
+  hosts="${hosts},${bronco4}"
 fi
 if [[ "${bronco5}" != "null" ]]; then
-  broncos="${broncos},${bronco5}"
+  hosts="${hosts},${bronco5}"
 fi
 if [[ "${bronco6}" != "null" ]]; then
-  broncos="${broncos},${bronco6}"
+  hosts="${hosts},${bronco6}"
 fi
 if [[ "${bronco7}" != "null" ]]; then
-  broncos="${broncos},${bronco7}"
+  hosts="${hosts},${bronco7}"
 fi
 if [[ "${bronco8}" != "null" ]]; then
-  broncos="${broncos},${bronco8}"
+  hosts="${hosts},${bronco8}"
 fi
 if [[ "${bronco9}" != "null" ]]; then
-  broncos="${broncos},${bronco9}"
+  hosts="${hosts},${bronco9}"
 fi
 
-c225s=
 if [[ "${c225s0}" != "null" ]]; then
-  c225s="--c225s ${c225s0}"
+  hosts="${hosts} --c225s ${c225s0}"
 fi
 if [[ "${c225s1}" != "null" ]]; then
-  c225s="${c225s},${c225s1}"
+  hosts="${hosts},${c225s1}"
 fi
 if [[ "${c225s2}" != "null" ]]; then
-  c225s="${c225s},${c225s2}"
+  hosts="${hosts},${c225s2}"
 fi
 if [[ "${c225s3}" != "null" ]]; then
-  c225s="${c225s},${c225s3}"
+  hosts="${hosts},${c225s3}"
 fi
 if [[ "${c225s4}" != "null" ]]; then
-  c225s="${c225s},${c225s4}"
+  hosts="${hosts},${c225s4}"
 fi
 if [[ "${c225s5}" != "null" ]]; then
-  c225s="${c225s},${c225s5}"
+  hosts="${hosts},${c225s5}"
 fi
 if [[ "${c225s6}" != "null" ]]; then
-  c225s="${c225s},${c225s6}"
+  hosts="${hosts},${c225s6}"
 fi
 if [[ "${c225s7}" != "null" ]]; then
-  c225s="${c225s},${c225s7}"
+  hosts="${hosts},${c225s7}"
 fi
 if [[ "${c225s8}" != "null" ]]; then
-  c225s="${c225s},${c225s8}"
+  hosts="${hosts},${c225s8}"
 fi
 if [[ "${c225s9}" != "null" ]]; then
-  c225s="${c225s},${c225s9}"
+  hosts="${hosts},${c225s9}"
+fi
+
+if [[ "${nexus1}" != "null" ]]; then
+  hosts="${hosts} --nexus ${nexus1}"
+fi
+if [[ "${nexus2}" != "null" ]]; then
+  hosts="${hosts},${nexus2}"
 fi
 
 if [[ "${n1}" != "null" ]] && [[ "${l0}" != "null" ]]; then
-  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} ${hosts} ${broncos} ${c225s}"
-  echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${h11},${h12},${h13},${h14} ${broncos} ${c225s}"
+  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} ${hosts}"
+  echo "--pyvxr ${host} --spines 0 --leaves ${n1} --hosts ${h11},${h12},${h13},${h14}"
 elif [[ "${n1}" != "null" ]]; then
-   echo "--pyvxr ${host} --spines 0 --leaves ${n1} ${hosts} ${broncos} ${c225s}"
+   echo "--pyvxr ${host} --spines 0 --leaves ${n1} ${hosts}"
 else
-  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} ${hosts} ${broncos} ${c225s}"
+  echo "--pyvxr ${host} --spines ${spines} --leaves ${leaves} ${hosts}"
 fi
