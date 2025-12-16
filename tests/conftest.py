@@ -180,6 +180,8 @@ def pytest_addoption(parser):
     ############################
     parser.addoption("--skip_sanity", action="store_true", default=False,
                      help="Skip sanity check")
+    parser.addoption("--skip_pre_sanity", action="store_true", default=False,
+                     help="Skip pre-test sanity check")
     parser.addoption("--allow_recover", action="store_true", default=False,
                      help="Allow recovery attempt in sanity check in case of failure")
     parser.addoption("--check_items", action="store", default=False,
@@ -3020,8 +3022,10 @@ def temporarily_disable_route_check(request, tbinfo, duthosts):
             check_flag = True
             break
 
-    if 't2' not in tbinfo['topo']['name']:
-        logger.info("Topology is not T2, skipping temporarily_disable_route_check fixture")
+    allowed_topologies = {"t2", "ut2", "lt2"}
+    topo_name = tbinfo['topo']['name']
+    if check_flag and topo_name not in allowed_topologies:
+        logger.info("Topology {} is not allowed for temporarily_disable_route_check fixture".format(topo_name))
         check_flag = False
 
     def wait_for_route_check_to_pass(dut):
@@ -3046,7 +3050,7 @@ def temporarily_disable_route_check(request, tbinfo, duthosts):
 
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(stop_route_checker_on_duthost, duthost)
+                    executor.submit(stop_route_checker_on_duthost, duthost, wait_for_status=True)
 
             yield
 
@@ -3056,7 +3060,7 @@ def temporarily_disable_route_check(request, tbinfo, duthosts):
         finally:
             with SafeThreadPoolExecutor(max_workers=8) as executor:
                 for duthost in duthosts.frontend_nodes:
-                    executor.submit(start_route_checker_on_duthost, duthost)
+                    executor.submit(start_route_checker_on_duthost, duthost, wait_for_status=True)
     else:
         logger.info("Skipping temporarily_disable_route_check fixture")
         yield
