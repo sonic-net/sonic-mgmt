@@ -26,7 +26,7 @@ allure.logger = logger
 
 EXABGP_BASE_PORT = 5000
 NHIPV4 = '10.10.246.254'
-STATIC_DST_IP = '192.162.0.128'
+STATIC_DST_IP = '1.1.1.1'
 
 ACL_TABLE_NAME = "L3_TRANSPORT_TEST"
 ACL_TABLE_STAGE_EGRESS = "egress"
@@ -198,13 +198,13 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                       f"sudo sonic-db-cli CONFIG_DB del 'INTERFACE|{iface}'",
                       f"Deleting localhost INTERFACE {iface}")
     # PORTCHANNEL_INTERFACE
-    for entry in config_facts["PORTCHANNEL_INTERFACE"].keys():
+    for entry in config_facts.get("PORTCHANNEL_INTERFACE", {}).keys():
         run_and_check("localhost",
                       f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL_INTERFACE|{entry}'",
                       f"Deleting localhost PORTCHANNEL_INTERFACE {entry}")
     # PORTCHANNEL_MEMBER
-    pc_keys = config_facts["PORTCHANNEL"].keys()
-    localhost_pc_member_dict = config_facts_localhost["PORTCHANNEL_MEMBER"]
+    pc_keys = config_facts.get("PORTCHANNEL", {}).keys()
+    localhost_pc_member_dict = config_facts_localhost.get("PORTCHANNEL_MEMBER", {})
     localhost_pc_member_keys = []
     for pc_key in pc_keys:
         if pc_key in localhost_pc_member_dict:
@@ -221,7 +221,7 @@ def remove_cluster_via_sonic_db_cli(config_facts,
                       f"sudo sonic-db-cli CONFIG_DB hdel 'ACL_TABLE|{acl_table}' ports@",
                       f"Removing localhost ACL_TABLE {acl_table} ports")
     # PORTCHANNEL
-    for entry in config_facts["PORTCHANNEL"].keys():
+    for entry in config_facts("PORTCHANNEL", {}).keys():
         run_and_check("localhost",
                       f"sudo sonic-db-cli CONFIG_DB del 'PORTCHANNEL|{entry}'",
                       f"Deleting localhost PORTCHANNEL {entry}")
@@ -318,38 +318,45 @@ def apply_patch_remove_cluster(config_facts,
         },
         {
             "op": "remove",
-            "path": f"{json_namespace}/PORTCHANNEL_MEMBER"
-        },
-        {
-            "op": "remove",
-            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE"
-        },
-        {
-            "op": "remove",
             "path": f"{json_namespace}/BUFFER_PG"
         }
     ]
 
+    if 'PORTCHANNEL' in config_facts:
+        json_patch_asic.append(
+            {
+                "op": "remove",
+                "path": f"{json_namespace}/PORTCHANNEL_MEMBER"
+            }
+        )
+        json_patch_asic.append(
+            {
+                "op": "remove",
+                "path": f"{json_namespace}/PORTCHANNEL_INTERFACE"
+            }
+        )
+
     # table INTERFACE
-    asic_interface_dict = config_facts["INTERFACE"]
-    asic_interface_keys = []
-    asic_interface_ip_prefix_keys = []
-    for interface_key in asic_interface_dict.keys():
-        if interface_key.startswith("Ethernet-Rec"):
-            continue
-        for key, _value in asic_interface_dict[interface_key].items():
-            key_to_remove = interface_key + '|' + key.replace("/", "~1")
-            asic_interface_ip_prefix_keys.append(key_to_remove)
-        asic_interface_keys.append(interface_key)
+    if 'INTERFACE' in config_facts:
+        asic_interface_dict = config_facts["INTERFACE"]
+        asic_interface_keys = []
+        asic_interface_ip_prefix_keys = []
+        for interface_key in asic_interface_dict.keys():
+            if interface_key.startswith("Ethernet-Rec"):
+                continue
+            for key, _value in asic_interface_dict[interface_key].items():
+                key_to_remove = interface_key + '|' + key.replace("/", "~1")
+                asic_interface_ip_prefix_keys.append(key_to_remove)
+            asic_interface_keys.append(interface_key)
 
-    for key in asic_interface_ip_prefix_keys:
-        asic_paths_list.append(f"{json_namespace}/INTERFACE/" + key)
+        for key in asic_interface_ip_prefix_keys:
+            asic_paths_list.append(f"{json_namespace}/INTERFACE/" + key)
 
-    for path in asic_paths_list:
-        json_patch_asic.append({
-            "op": "remove",
-            "path": path
-        })
+        for path in asic_paths_list:
+            json_patch_asic.append({
+                "op": "remove",
+                "path": path
+            })
 
     # table PORT_QOS_MAP changes
     for interface in active_interfaces:
@@ -384,40 +391,43 @@ def apply_patch_remove_cluster(config_facts,
 
     # INTERFACE TABLE: in localhost replace the interface name with the interface alias
     # INTERFACE ip-prefix
-    localhost_ip_prefix_interface_keys = []
-    for key in asic_interface_ip_prefix_keys:
-        parts = key.split('|')
-        port = parts[0]
-        alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
-        key_to_remove = "{}|{}".format(alias, parts[1])
-        key_to_remove = key_to_remove.replace("/", "~1")
-        localhost_ip_prefix_interface_keys.append(key_to_remove)
-    # INTERFACE name
-    localhost_interface_keys = []
-    for key in asic_interface_keys:
-        key_to_remove = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
-        key_to_remove = key_to_remove.replace("/", "~1")
-        localhost_interface_keys.append(key_to_remove)
+    if 'INTERFACE' in config_facts:
+        localhost_ip_prefix_interface_keys = []
+        for key in asic_interface_ip_prefix_keys:
+            parts = key.split('|')
+            port = parts[0]
+            alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
+            key_to_remove = "{}|{}".format(alias, parts[1])
+            key_to_remove = key_to_remove.replace("/", "~1")
+            localhost_ip_prefix_interface_keys.append(key_to_remove)
+        # INTERFACE name
+        localhost_interface_keys = []
+        for key in asic_interface_keys:
+            key_to_remove = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
+            key_to_remove = key_to_remove.replace("/", "~1")
+            localhost_interface_keys.append(key_to_remove)
 
     # PORTCHANNEL_MEMBER keys
-    pc_keys = config_facts["PORTCHANNEL"].keys()
+    if 'PORTCHANNEL' in config_facts:
+        pc_keys = config_facts.get("PORTCHANNEL", {}).keys()
 
-    localhost_pc_member_dict = config_facts_localhost["PORTCHANNEL_MEMBER"]
-    localhost_pc_member_keys = []
-    for pc_key in pc_keys:
-        if pc_key in localhost_pc_member_dict:
-            for key, _value in localhost_pc_member_dict[pc_key].items():
-                key_to_remove = pc_key + '|' + key.replace("/", "~1")
-                localhost_pc_member_keys.append(key_to_remove)
-    # PORTCHANNEL_INTERFACE keys
-    localhost_pc_interface_dict = config_facts_localhost["PORTCHANNEL_INTERFACE"]
-    localhost_pc_interface_keys = []
-    for pc_key in pc_keys:
-        if pc_key in localhost_pc_interface_dict:
-            for key, _value in localhost_pc_interface_dict[pc_key].items():
-                key_to_remove = pc_key + '|' + key.replace("/", "~1")
-                localhost_pc_interface_keys.append(key_to_remove)
-            localhost_pc_interface_keys.append(pc_key)
+        localhost_pc_member_dict = config_facts_localhost.get("PORTCHANNEL_MEMBER", {})
+        localhost_pc_member_keys = []
+        for pc_key in pc_keys:
+            if pc_key in localhost_pc_member_dict:
+                for key, _value in localhost_pc_member_dict[pc_key].items():
+                    key_to_remove = pc_key + '|' + key.replace("/", "~1")
+                    localhost_pc_member_keys.append(key_to_remove)
+        # PORTCHANNEL_INTERFACE keys
+        localhost_pc_interface_dict = config_facts_localhost.get("PORTCHANNEL_INTERFACE", {})
+        localhost_pc_interface_keys = []
+        for pc_key in pc_keys:
+            if pc_key in localhost_pc_interface_dict:
+                for key, _value in localhost_pc_interface_dict[pc_key].items():
+                    key_to_remove = pc_key + '|' + key.replace("/", "~1")
+                    localhost_pc_interface_keys.append(key_to_remove)
+                localhost_pc_interface_keys.append(pc_key)
+
     # ACL TABLE
     acl_ports_localhost = config_facts_localhost["ACL_TABLE"]["DATAACL"]["ports"]
     acl_ports_asic = config_facts["ACL_TABLE"]["DATAACL"]["ports"]
@@ -442,19 +452,20 @@ def apply_patch_remove_cluster(config_facts,
         ]
     localhost_paths_list = []
     localhost_paths_to_remove = ["/localhost/BGP_NEIGHBOR/",
-                                 "/localhost/DEVICE_NEIGHBOR_METADATA/",
-                                 "/localhost/INTERFACE/",
-                                 "/localhost/PORTCHANNEL_MEMBER/",
-                                 "/localhost/PORTCHANNEL_INTERFACE/"
+                                 "/localhost/DEVICE_NEIGHBOR_METADATA/"
                                  ]
-
     localhost_keys_to_remove = [
         config_facts["BGP_NEIGHBOR"].keys() if config_facts.get("BGP_NEIGHBOR") else [],
         config_facts["DEVICE_NEIGHBOR_METADATA"].keys() if config_facts.get("DEVICE_NEIGHBOR_METADATA") else [],
-        localhost_ip_prefix_interface_keys,
-        localhost_pc_member_keys,
-        localhost_pc_interface_keys
     ]
+    if 'INTERFACE' in config_facts:
+        localhost_paths_to_remove.append("/localhost/INTERFACE/")
+        localhost_keys_to_remove.append(localhost_ip_prefix_interface_keys)
+    if 'PORTCHANNEL' in config_facts:
+        localhost_paths_to_remove.append("/localhost/PORTCHANNEL_MEMBER/")
+        localhost_paths_to_remove.append("/localhost/PORTCHANNEL_INTERFACE/")
+        localhost_keys_to_remove.append(localhost_pc_member_keys)
+        localhost_keys_to_remove.append(localhost_pc_interface_keys)
 
     for path, keys in zip(localhost_paths_to_remove, localhost_keys_to_remove):
         for k in keys:
@@ -480,17 +491,19 @@ def apply_patch_remove_cluster(config_facts,
 
     # W/A TABLE:PORTCHANNEL, INTERFACE names needs to be removed in separate gcu apply operation
     # https://github.com/sonic-net/sonic-buildimage/issues/24338
-    json_patch_extra = [
-        {
-            "op": "remove",
-            "path": f"{json_namespace}/PORTCHANNEL"
-        }
-    ]
-    for key, _value in config_facts["PORTCHANNEL"].items():
-        json_patch_extra.append({
-            "op": "remove",
-            "path": "/localhost/PORTCHANNEL/{}".format(key),
-        })
+    json_patch_extra = []
+    if 'PORTCHANNEL' in config_facts:
+        json_patch_extra = [
+            {
+                "op": "remove",
+                "path": f"{json_namespace}/PORTCHANNEL"
+            }
+        ]
+        for key, _value in config_facts.get("PORTCHANNEL", {}).items():
+            json_patch_extra.append({
+                "op": "remove",
+                "path": "/localhost/PORTCHANNEL/{}".format(key),
+            })
     interface_paths_list = []
     interface_paths_to_remove = [f"{json_namespace}/INTERFACE/", "/localhost/INTERFACE/"]
     interface_keys_to_remove = [asic_interface_keys, localhost_interface_keys]
@@ -543,12 +556,16 @@ def apply_patch_add_cluster(config_facts,
     ######################
     json_patch_asic = []
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
-
-    interface_dict = format_sonic_interface_dict(config_facts["INTERFACE"])
-    portchannel_interface_dict = format_sonic_interface_dict(config_facts["PORTCHANNEL_INTERFACE"])
-    portchannel_member_dict = format_sonic_interface_dict(config_facts["PORTCHANNEL_MEMBER"], single_entry=False)
-    buffer_pg_dict = format_sonic_buffer_pg_dict(config_facts["BUFFER_PG"])
-    pc_dict = {k: {ik: iv for ik, iv in v.items() if ik != "members"} for k, v in config_facts["PORTCHANNEL"].items()}
+    pc_dict = {}
+    interface_dict = format_sonic_interface_dict(config_facts.get("INTERFACE", {}))
+    portchannel_interface_dict = format_sonic_interface_dict(config_facts.get("PORTCHANNEL_INTERFACE", {}))
+    portchannel_member_dict = format_sonic_interface_dict(config_facts.get("PORTCHANNEL_MEMBER", {}),
+                                                          single_entry=False)
+    buffer_pg_dict = format_sonic_buffer_pg_dict(config_facts.get("BUFFER_PG", {}))
+    pc_dict = {
+        k: {ik: iv for ik, iv in v.items() if ik != "members"}
+        for k, v in config_facts.get("PORTCHANNEL", {}).items()
+    }
 
     # find active ports
     active_interfaces = get_active_interfaces(config_facts)
@@ -599,21 +616,6 @@ def apply_patch_add_cluster(config_facts,
             "path": f"{json_namespace}/INTERFACE",
             "value": interface_dict
         },
-        # {
-        #     "op": "add",
-        #     "path": f"{json_namespace}/PORTCHANNEL",
-        #     "value": pc_dict
-        # },
-        {
-            "op": "add",
-            "path": f"{json_namespace}/PORTCHANNEL_MEMBER",
-            "value": portchannel_member_dict
-        },
-        {
-            "op": "add",
-            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE",
-            "value": portchannel_interface_dict
-        },
         {
             "op": "add",
             "path": f"{json_namespace}/BUFFER_PG",
@@ -625,6 +627,18 @@ def apply_patch_add_cluster(config_facts,
             "value": config_facts["PORT_QOS_MAP"]
         }
     ]
+
+    if 'PORTCHANNEL' in config_facts:
+        json_patch_asic.append({
+            "op": "add",
+            "path": f"{json_namespace}/PORTCHANNEL_MEMBER",
+            "value": portchannel_member_dict
+        })
+        json_patch_asic.append({
+            "op": "add",
+            "path": f"{json_namespace}/PORTCHANNEL_INTERFACE",
+            "value": portchannel_interface_dict
+        })
 
     # table PORT changes
     for interface in active_interfaces:
@@ -684,49 +698,50 @@ def apply_patch_add_cluster(config_facts,
         updated_key = updated_key.replace("/", "~1")
         localhost_interface_dict[updated_key] = value
 
-    # PORTCHANNEL INTERFACE
-    localhost_pc_interface_dict = {}
-    for key, value in portchannel_interface_dict.items():
-        updated_key = key.replace('/', '~1')
-        localhost_pc_interface_dict[updated_key] = value
-
-    # PORTCHANNEL_MEMBER keys
-    localhost_pc_member_dict = {}
-    for key, value in portchannel_member_dict.items():
-        parts = key.split('|')
-        updated_key = key
-        if len(parts) == 2:
-            port = parts[1]
-            alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
-            updated_key = "{}|{}".format(parts[0], alias)
-        updated_key = updated_key.replace("/", "~1")
-        localhost_pc_member_dict[updated_key] = value
-
     # identify the keys to add
-    localost_add_paths_list = []
-    localost_add_values_list = []
+    localhost_add_paths_list = []
+    localhost_add_values_list = []
     for k, v in list(config_facts["BGP_NEIGHBOR"].items()):
-        localost_add_paths_list.append('/localhost/BGP_NEIGHBOR/{}'.format(k))
-        localost_add_values_list.append(v)
+        localhost_add_paths_list.append('/localhost/BGP_NEIGHBOR/{}'.format(k))
+        localhost_add_values_list.append(v)
     for k, v in list(config_facts["DEVICE_NEIGHBOR"].items()):
-        localost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR/{}'.format(k))
-        localost_add_values_list.append(v)
+        localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR/{}'.format(k))
+        localhost_add_values_list.append(v)
     for k, v in list(config_facts["DEVICE_NEIGHBOR_METADATA"].items()):
-        localost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR_METADATA/{}'.format(k))
-        localost_add_values_list.append(v)
+        localhost_add_paths_list.append('/localhost/DEVICE_NEIGHBOR_METADATA/{}'.format(k))
+        localhost_add_values_list.append(v)
     for k, v in list(localhost_interface_dict.items()):
-        localost_add_paths_list.append("/localhost/INTERFACE/{}".format(k))
-        localost_add_values_list.append(v)
-    # for k, v in list(pc_dict.items()):
-    #     localost_add_paths_list.append("/localhost/PORTCHANNEL/{}".format(k))
-    #     localost_add_values_list.append(v)
-    for k, v in list(localhost_pc_interface_dict.items()):
-        localost_add_paths_list.append("/localhost/PORTCHANNEL_INTERFACE/{}".format(k))
-        localost_add_values_list.append(v)
-    for k, v in list(localhost_pc_member_dict.items()):
-        localost_add_paths_list.append("/localhost/PORTCHANNEL_MEMBER/{}".format(k))
-        localost_add_values_list.append(v)
-    for path, value in zip(localost_add_paths_list, localost_add_values_list):
+        localhost_add_paths_list.append("/localhost/INTERFACE/{}".format(k))
+        localhost_add_values_list.append(v)
+
+    if 'PORTCHANNEL' in config_facts:
+        # PORTCHANNEL INTERFACE
+        localhost_pc_interface_dict = {}
+        for key, value in portchannel_interface_dict.items():
+            updated_key = key.replace('/', '~1')
+            localhost_pc_interface_dict[updated_key] = value
+        # PORTCHANNEL_MEMBER keys
+        localhost_pc_member_dict = {}
+        for key, value in portchannel_member_dict.items():
+            parts = key.split('|')
+            updated_key = key
+            if len(parts) == 2:
+                port = parts[1]
+                alias = mg_facts['minigraph_port_name_to_alias_map'].get(port, port)
+                updated_key = "{}|{}".format(parts[0], alias)
+            updated_key = updated_key.replace("/", "~1")
+            localhost_pc_member_dict[updated_key] = value
+        # for k, v in list(pc_dict.items()):
+        #     localhost_add_paths_list.append("/localhost/PORTCHANNEL/{}".format(k))
+        #     localhost_add_values_list.append(v)
+        for k, v in list(localhost_pc_interface_dict.items()):
+            localhost_add_paths_list.append("/localhost/PORTCHANNEL_INTERFACE/{}".format(k))
+            localhost_add_values_list.append(v)
+        for k, v in list(localhost_pc_member_dict.items()):
+            localhost_add_paths_list.append("/localhost/PORTCHANNEL_MEMBER/{}".format(k))
+            localhost_add_values_list.append(v)
+
+    for path, value in zip(localhost_add_paths_list, localhost_add_values_list):
         json_patch_localhost.append({
             "op": "add",
             "path": path,
@@ -933,6 +948,11 @@ def setup_add_cluster(tbinfo,
         )
     )
     initial_buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
+    initial_bgp_neighbors = duthost.get_bgp_neighbors(namespace=enum_rand_one_asic_namespace).keys()
+    pytest_assert(
+        wait_until(300, 10, 0, duthost.check_bgp_session_state, initial_bgp_neighbors),
+        "Not all bgp sessions are established before beginning setup",
+    )
     with allure.step("Data Verification before removing cluster"):
         send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
                                 ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
@@ -999,6 +1019,11 @@ def setup_add_cluster(tbinfo,
         buffer_pg_info_add_interfaces = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
         pytest_assert(buffer_pg_info_add_interfaces == initial_buffer_pg_info,
                       "Didn't find expected BUFFER_PG info in CONFIG_DB after adding back the interfaces.")
+        # Verify bgp
+        pytest_assert(
+            wait_until(300, 10, 0, duthost.check_bgp_session_state, initial_bgp_neighbors),
+            "Not all bgp sessions are established after adding cluster.",
+        )
 
     if acl_config_scenario:
         setup_acl_config(duthost, ip_netns_namespace_prefix)
