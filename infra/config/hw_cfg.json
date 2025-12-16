@@ -1984,7 +1984,8 @@
             "cisco.master.1.1.release",
             "cisco.master.signed",
             "cisco.202405cz.2.1.ztp.release",
-            "cisco.202405c.2"
+            "cisco.202405c.2",
+            "cisco.202511.signed"
         ],
         "t1-m6-27-m64": "None",
         "t1-m3-4-cmono": "None",
