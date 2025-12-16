@@ -197,10 +197,19 @@ def check_bgp(duthosts, tbinfo):
         results = kwargs['results']
 
         def _check_default_route(version, dut):
-            # Return True if successfully get default route
-            res = dut.shell("ip {} route show default".format("" if version == 4 else "-6"),
-                            module_ignore_errors=True)
-            return not res["rc"] and len(res["stdout"].strip()) != 0
+            """
+            Check default route via FRR instead of Linux iproute2.
+            FRR is unaffected by kernel netlink buffer issues.
+            """
+            if version == 4:
+                cmd = "vtysh -c 'show ip route 0.0.0.0'"
+            else:
+                cmd = "vtysh -c 'show ipv6 route ::/0'"
+            res = dut.shell(cmd, module_ignore_errors=True)
+            # Successful if:
+            #   - no shell error (rc == 0)
+            #   - stdout contains at least one next-hop line
+            return res.get("rc", 1) == 0 and len(res.get("stdout", "").strip()) > 0
 
         def _restart_bgp(dut):
             # Restart BGP service
