@@ -56,7 +56,7 @@ devices:
        chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
        load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
      data_ports:
-       - data[0..7]
+       - data[0..9]
 
   sonic_mgmt :
     platform: linux
@@ -91,3 +91,9 @@ connections:
     hub6_0:
       - SD4.Ethernet1_[5..8]
       - ixia.data[4..7]
+    hub7_0:
+      - SD4.Ethernet1_[9..12]
+      - SD5.Ethernet1_[9..12]
+    hub8_0:
+      - SD5.Ethernet1_[1..2]
+      - ixia.data[8..9]

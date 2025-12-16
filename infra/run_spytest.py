@@ -56,7 +56,8 @@ elif is_mh:
         "leaf0": "SD2",
         "leaf1": "SD3",
         "leaf2": "SD4",
-        "leaf3": "SD5"
+        "leaf3": "SD5",
+        "client": "client"
     }   
 else:
     TOPO_DEVICE_NAME_TO_PYVXR_DEVICE_NAME_MAPPING = {
@@ -879,7 +880,6 @@ def main():
         if rc != 0:
             print(f"error at start_vxr! msg: {msg}")
             sys.exit(rc)
-        
         rc, msg = configure_vxr(topology, platform, tar_ball, script_file)
         if rc != 0:
             print(f"error at configure_vxr! msg: {msg}")
