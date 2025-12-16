@@ -1,3 +1,3 @@
 StartDevice,StartPort,EndDevice,Console_type,Console_menu_type,Proxy
 console-185,31,str43-C93180YC-C13-U25,ssh,,
-console-175,22,STR-IXIA-UHD400-C19-U36,ssh,,
+str43-0101-0400-06c0,27,STR-IXIA-UHD400-C19-U36,ssh,cisco_config,

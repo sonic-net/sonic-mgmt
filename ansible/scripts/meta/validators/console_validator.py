@@ -196,6 +196,9 @@ class ConsoleValidator(GlobalValidator):
                 if port_key in console_port_usage:
                     # Console port conflict detected
                     existing_device = console_port_usage[port_key]
+                    if existing_device == device_name:
+                        continue  # Same device, no conflict
+
                     # console_port_conflict: Console port is used by multiple devices
                     self.result.add_issue(
                         'E3005',
