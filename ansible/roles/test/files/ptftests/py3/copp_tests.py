@@ -191,7 +191,7 @@ class ControlPlaneBaseTest(BaseTest):
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
         recv_count = testutils.count_matched_packets_all_ports(
-             self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
+            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" % (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
         ptf_tx_count = int(post_test_ptf_tx_counter[1] - pre_test_ptf_tx_counter[1])
