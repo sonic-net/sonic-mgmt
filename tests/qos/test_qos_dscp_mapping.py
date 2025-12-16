@@ -235,7 +235,6 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
                            tbinfo,
                            downstream_links,  # noqa F811
                            upstream_links,  # noqa F811
-                           loganalyzer
                            ):
         """
         Set up test parameters for the DSCP to Queue mapping test for IP-IP packets.
@@ -248,36 +247,44 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             downstream_links (fixture): Dictionary of downstream links info for DUT
             upstream_links (fixture): Dictionary of upstream links info for DUT
         """
-        test_params = {}
-        downlink = select_random_link(downstream_links)
-        uplink_ptf_ports = get_stream_ptf_ports(upstream_links)
-        loopback_ip = get_ipv4_loopback_ip(duthost)
-        ptf_downlink_port_id = downlink.get("ptf_port_id")
+        links = {**downstream_links, **upstream_links}
 
-        src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_downlink_port_id)
-        pytest_assert(src_port_name, "No port on DUT found for ptf downlink port {}".format(ptf_downlink_port_id))
+        loopback_ip = get_ipv4_loopback_ip(duthost)
+        pytest_assert(loopback_ip is not None, "No loopback IP found")
+
+        src_link = select_random_link(links)
+        pytest_assert(src_link is not None, "src_link is None")
+
+        ptf_src_port_id = src_link.get("ptf_port_id")
+        pytest_assert(src_link is not None, "ptf_src_port_id is None")
+
+        src_port_name = get_dut_pair_port_from_ptf_port(duthost, tbinfo, ptf_src_port_id)
+        pytest_assert(src_port_name, "No port on DUT found for ptf src port {}".format(ptf_src_port_id))
+
         vlan_name = get_vlan_from_port(duthost, src_port_name)
         logger.debug("Found VLAN {} on port {}".format(vlan_name, src_port_name))
-        vlan_mac = None if vlan_name is None else duthost.get_dut_iface_mac(vlan_name)
-        if vlan_mac is not None:
-            logger.info("Using VLAN mac {} instead of router mac".format(vlan_mac))
-            dst_mac = vlan_mac
-        else:
+
+        if vlan_name is None or (vlan_mac := duthost.get_dut_iface_mac(vlan_name)) is None:
             logger.info("VLAN mac not found, falling back to router mac")
             dst_mac = duthost.facts["router_mac"]
+        else:
+            logger.info("Using VLAN mac {} instead of router mac".format(vlan_mac))
+            dst_mac = vlan_mac
 
-        pytest_assert(downlink is not None, "No downlink found")
-        pytest_assert(uplink_ptf_ports is not None, "No uplink found")
-        pytest_assert(loopback_ip is not None, "No loopback IP found")
         pytest_assert(dst_mac is not None, "No router/vlan MAC found")
 
-        test_params["ptf_downlink_port"] = ptf_downlink_port_id
-        test_params["ptf_uplink_ports"] = uplink_ptf_ports
-        test_params["outer_src_ip"] = '8.8.8.8'
-        test_params["outer_dst_ip"] = loopback_ip
-        test_params["dst_mac"] = dst_mac
+        ptf_dst_port_ids = get_stream_ptf_ports(links)
+        pytest_assert(ptf_dst_port_ids, f"ptf_dst_port_ids is {ptf_dst_port_ids}")
 
-        return test_params
+        ptf_dst_port_ids.remove(ptf_src_port_id)
+
+        return {
+            'ptf_src_port_id': ptf_src_port_id,
+            'ptf_dst_port_ids': ptf_dst_port_ids,
+            'outer_src_ip': '8.8.8.8',
+            'outer_dst_ip': loopback_ip,
+            'dst_mac': dst_mac,
+        }
 
     def _run_test(self,
                   ptfadapter,
@@ -307,8 +314,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
 
         asic_type = duthost.facts['asic_type']
         dst_mac = test_params['dst_mac']
-        ptf_src_port_id = test_params['ptf_downlink_port']
-        ptf_dst_port_ids = test_params['ptf_uplink_ports']
+        ptf_src_port_id = test_params['ptf_src_port_id']
+        ptf_dst_port_ids = test_params['ptf_dst_port_ids']
         outer_dst_pkt_ip = test_params['outer_dst_ip']
         outer_src_pkt_ip = DUMMY_OUTER_SRC_IP
         inner_dst_pkt_ip_list = inner_dst_ip_list
