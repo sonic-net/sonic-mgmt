@@ -3474,7 +3474,7 @@ mvrf/test_mgmtvrf.py:
       - "asic_type in ['vs', 'mellanox', 'nvidia', 'broadcom']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
-      -  https://github.com/sonic-net/sonic-mgmt/issues/3589
+      - "https://github.com/sonic-net/sonic-mgmt/issues/3589"
 
 mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
   skip:
@@ -4375,10 +4375,8 @@ scripts:
 #######################################
 sflow/test_sflow.py:
   skip:
-    reason: "It is not supported on this DUT topology  and skipped due to github issue #21701"
-    conditions_logical_operator: or
+    reason: "The testcase is skipped due to github issue #21701"
     conditions:
-      - "'t0', 'm0', 'mx' not in topo_name"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21701"
 
 sflow/test_sflow.py::TestReboot::testFastreboot:
