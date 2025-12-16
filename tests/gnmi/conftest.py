@@ -3,6 +3,7 @@ import logging
 import os
 import glob
 import grpc
+import ipaddress
 
 from grpc_tools import protoc
 
@@ -223,10 +224,14 @@ def grpc_channel(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
 
     # Get DUT gRPC server address and port
-    if ":" in duthost.mgmt_ip and not duthost.mgmt_ip.startswith('['):
-        ip = f"[{duthost.mgmt_ip}]"
-    else:
-        ip = duthost.mgmt_ip
+    ip = duthost.mgmt_ip
+    # Format IPv6 addresses with brackets for URL
+    try:
+        if isinstance(ipaddress.ip_address(ip), ipaddress.IPv6Address):
+            ip = f"[{ip}]"
+    except ValueError:
+        # If parsing fails, use the address as-is
+        pass
     env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
     port = env.gnmi_port
     target = f"{ip}:{port}"
