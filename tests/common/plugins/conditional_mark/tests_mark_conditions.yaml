@@ -202,6 +202,16 @@ arp/test_wr_arp.py:
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
 
+########################################
+######        autorestart          #####
+########################################
+autorestart/test_container_autorestart.py::test_containers_autorestart.*teamd.*:
+  regex: true
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -1294,6 +1304,12 @@ dualtor_io/test_normal_op.py:
     reason: "KVM do not support dualtor tunnel functionality, verify DB status would fail. Temporarily skip in PR testing"
     conditions:
       - "asic_type in ['vs']"
+
+dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream:
+  xfail:
+    reason: "Xfail the case on dualtor-aa setup due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/21139"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21139 and 'dualtor-aa' in topo_name"
 
 dualtor_io/test_tor_bgp_failure.py:
   skip:
@@ -3804,6 +3820,12 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
 #######################################
 #####     process_monitoring      #####
 #######################################
+process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
@@ -4280,6 +4302,12 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+route/test_duplicate_route.py::test_duplicate_routes:
+  xfail:
+    reason: "xfail due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
