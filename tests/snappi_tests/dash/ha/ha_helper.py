@@ -42,13 +42,6 @@ def run_ha_test(duthosts, localhost, tbinfo, ha_test_case, config_npu_dpu, confi
             api = run_cps_search(api, file_name, initial_cps_value, passing_dpus)
             logger.info("Test Ending")
         elif ha_test_case == 'planned_switchover':
-            '''
-            # Configure SmartSwitch
-            if static_ipmacs_dict:
-                dpu_if_ips = duthost_ha_config(duthost, tbinfo, static_ipmacs_dict, ha_test_case)
-            else:
-                dpu_if_ips = {}
-            '''
             api = run_planned_switchover(duthosts, tbinfo, file_name, api, initial_cps_value)
     else:
         logger.info("Skipping running an HA test")
