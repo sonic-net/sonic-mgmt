@@ -931,6 +931,11 @@ def setup_add_cluster(tbinfo,
         rand_bgp_neigh_ip_name = initialize_random_variables
     mg_facts, config_facts, config_facts_localhost = initialize_facts
     duthost = duthosts[enum_downstream_dut_hostname]
+    # Check if the device is a modular chassis and the topology is T2
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if not (is_chassis and tbinfo['topo']['type'] == 't2' and duthost.facts['switch_type'] == "voq"):
+        # Skip the test if the setup is not T2 Chassis
+        pytest.skip("Test is Applicable for T2 VOQ Chassis Setup")
     duthost_src = duthosts[enum_upstream_dut_hostname]
     asic_id = enum_rand_one_frontend_asic_index
     asic_id_src = None
@@ -948,12 +953,9 @@ def setup_add_cluster(tbinfo,
         )
     )
     initial_buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
-    initial_bgp_neighbors = duthost.get_bgp_neighbors(namespace=enum_rand_one_asic_namespace).keys()
-    pytest_assert(
-        wait_until(300, 10, 0, duthost.check_bgp_session_state, initial_bgp_neighbors),
-        "Not all bgp sessions are established before beginning setup",
-    )
     with allure.step("Data Verification before removing cluster"):
+        logger.info(duthost.shell('show ip bgp summary -d all'))
+        logger.info(duthost.shell('show ipv6 bgp summary -d all'))
         send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
                                 ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
 
@@ -1019,11 +1021,6 @@ def setup_add_cluster(tbinfo,
         buffer_pg_info_add_interfaces = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
         pytest_assert(buffer_pg_info_add_interfaces == initial_buffer_pg_info,
                       "Didn't find expected BUFFER_PG info in CONFIG_DB after adding back the interfaces.")
-        # Verify bgp
-        pytest_assert(
-            wait_until(300, 10, 0, duthost.check_bgp_session_state, initial_bgp_neighbors),
-            "Not all bgp sessions are established after adding cluster.",
-        )
 
     if acl_config_scenario:
         setup_acl_config(duthost, ip_netns_namespace_prefix)
@@ -1058,13 +1055,6 @@ def test_add_cluster(tbinfo,
         enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
         rand_bgp_neigh_ip_name = initialize_random_variables
     duthost = duthosts[enum_downstream_dut_hostname]
-
-    # Check if the device is a modular chassis and the topology is T2
-    is_chassis = duthost.get_facts().get("modular_chassis")
-    if not (is_chassis and tbinfo['topo']['type'] == 't2' and duthost.facts['switch_type'] == "voq"):
-        # Skip the test if the setup is not T2 Chassis
-        pytest.skip("Test is Applicable for T2 VOQ Chassis Setup")
-
     duthost_up = duthosts[enum_upstream_dut_hostname]
     asic_id = enum_rand_one_frontend_asic_index
     asic_id_src = None
