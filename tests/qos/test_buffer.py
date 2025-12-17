@@ -2600,7 +2600,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
                 f'redis-cli hget "BUFFER_PROFILE_TABLE:test-headroom" {param_name}')['stdout']
             pytest_assert(size_in_appldb == maximum_profile[param_name],
                           f'The profile with a large size was applied to APPL_DB, which can make headroom exceeding. '
-                          f'size_in_appldb:{size_in_appldb}, '
+                          f'size_in_appldb: {size_in_appldb}, '
                           f'maximum_profile_{param_name}: {maximum_profile[param_name]}')
 
         param_name = "size" if disable_shp else "xoff"
@@ -2636,7 +2636,7 @@ def test_exceeding_headroom(duthosts, rand_one_dut_hostname,
         excepted_pg_table = 'BUFFER_PG_TABLE:{}:3-4'.format(port_to_test)
         pg_table_in_app_db = check_pg_profile(
             duthost, excepted_pg_table, expected_profile, fail_test=False)
-        assert not pg_table_in_app_db, f"{expected_profile} should not exist in {excepted_pg_table} in app db"
+        assert pg_table_in_app_db is None, f"{expected_profile} should not exist in {excepted_pg_table} in app db"
         # Check syslog includes relevant error log
         check_log_analyzer(loganalyzer, marker)
     finally:
@@ -3089,11 +3089,12 @@ def test_buffer_deployment(duthosts, rand_one_dut_hostname, conn_graph_facts, tb
                         if not lossless_pool_oid:
                             lossless_pool_oid = buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID']
                         else:
-                            pytest_assert(lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
-                                        "Buffer profile {} has different buffer pool id {} from others {}"
-                                        .format(expected_profile,
-                                                buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
-                                                lossless_pool_oid))
+                            pytest_assert(
+                                lossless_pool_oid == buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
+                                "Buffer profile {} has different buffer pool id {} from others {}"
+                                .format(expected_profile,
+                                        buffer_profile_asic_info['SAI_BUFFER_PROFILE_ATTR_POOL_ID'],
+                                        lossless_pool_oid))
                 profiles_checked[expected_profile] = buffer_profile_oid
             else:
                 pytest_assert(profiles_checked[expected_profile] == buffer_profile_oid,
