@@ -68,6 +68,11 @@ acl/null_route/test_null_route_helper.py:
       - "'m1' in topo_type"
 
 acl/test_acl.py:
+  skip:
+    reason: "Skip acl for isolated-v6 topology"
+    conditions:
+      - "'isolated-v6' in topo_name and https://github.com/sonic-net/sonic-mgmt/issues/18077"
+      - "asic_type in ['broadcom']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
