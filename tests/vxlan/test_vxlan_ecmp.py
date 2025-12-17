@@ -185,7 +185,7 @@ def fixture_setUp(duthosts,
 
     data = {}
     asic_type = duthosts[rand_one_dut_hostname].facts["asic_type"]
-    if asic_type in ["cisco-8000", "mellanox", "vs", "vpp"]:
+    if asic_type in ["cisco-8000", "mellanox", "vs", "vpp", "marvell-teralynx"]:
         data['tolerance'] = 0.03
         data['underlay_tolerance'] = 0.25  # Comes from DEFAULT_BALANCING_RANGE in ptftests/fib_test.py
         data['underlay_tolerance_within_lag'] = 0.25  # Comes from DEFAULT_BALANCING_RANGE in ptftests/fib_test.py
