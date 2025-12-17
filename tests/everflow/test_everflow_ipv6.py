@@ -185,6 +185,14 @@ class EverflowIPv6Tests(BaseEverflowTest):
     @pytest.fixture(scope='class',  autouse=True)
     def setup_acl_table(self, setup_info, setup_mirror_session, config_method, setup_mirror_session_dest_ip_route):         # noqa F811
 
+        # Capability check; skips when unsupported
+        if not setup_info[self.acl_stage()][self.mirror_type()]:
+            pytest.skip("{} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
+        if MACSEC_INFO and self.mirror_type() == "egress":
+            pytest.skip("With MACSEC {} ACL w/ {} Mirroring not supported, skipping"
+                        .format(self.acl_stage(), self.mirror_type()))
+                        
         if setup_info['topo'] in ['t0', 'm0_vlan']:
             everflow_dut = setup_info[UP_STREAM]['everflow_dut']
             remote_dut = setup_info[UP_STREAM]['remote_dut']
