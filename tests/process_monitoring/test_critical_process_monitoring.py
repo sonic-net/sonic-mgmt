@@ -62,7 +62,8 @@ def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     for container_name, state in list(containers_autorestart_states.items()):
         # Skip database container - it will be handled by test_database_critical_processes
         if container_name == "database":
-            logger.info("Skipping autorestart disable for '{}' container (handled by dedicated test)".format(container_name))
+            logger.info("Skipping autorestart disable for '{}' container (handled by dedicated test)"
+                        .format(container_name))
             continue
 
         if "enabled" in state:
