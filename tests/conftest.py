@@ -935,12 +935,13 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
     logger.info("Fixture nbrhosts finished")
     return devices
 
+
 @pytest.fixture(scope="module")
 def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, creds, duthosts):      # noqa: F811
     """
     Shortcut fixture for getting Fanout hosts
     Supports both Ethernet connections and Serial connections
-    
+
     For Ethernet connections: Uses device_conn from conn_graph_facts
     For Serial connections: Uses device_serial_link from conn_graph_facts
     """
@@ -949,12 +950,12 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         """
         Create FanoutHost if not exists, or return existing one.
         This centralizes fanout creation logic for both Ethernet and Serial connections.
-        
+
         Args:
             fanout_hosts (dict): Dictionary of existing fanout hosts
             fanout_name (str): Fanout device hostname
             dut_host (str): DUT hostname that connects to this fanout
-            
+
         Returns:
             FanoutHost: Fanout host object
         """
@@ -964,16 +965,16 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             if dut_host not in fanout.dut_hostnames:
                 fanout.dut_hostnames.append(dut_host)
             return fanout
-        
+
         # Get fanout device info from inventory
         try:
             host_vars = ansible_adhoc().options['inventory_manager'].get_host(fanout_name).vars
         except Exception as e:
             logging.warning(f"Cannot get inventory for fanout {fanout_name}: {e}")
             return None
-            
+
         os_type = host_vars.get('os', 'eos')
-        
+
         # Get credentials based on OS type
         if 'fanout_tacacs_user' in creds:
             fanout_user = creds['fanout_tacacs_user']
@@ -997,7 +998,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         else:
             logging.warning(f"Unsupported fanout OS type: {os_type}")
             return None
-        
+
         # EOS specific shell credentials
         eos_shell_user = None
         eos_shell_password = None
@@ -1006,7 +1007,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             admin_password = creds['fanout_admin_password']
             eos_shell_user = creds.get('fanout_shell_user', admin_user)
             eos_shell_password = creds.get('fanout_shell_password', admin_password)
-        
+
         # Create FanoutHost object
         fanout = FanoutHost(
             ansible_adhoc,
@@ -1020,48 +1021,48 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         )
         fanout.dut_hostnames = [dut_host]
         fanout_hosts[fanout_name] = fanout
-        
+
         # For SONiC fanout, get port alias to name mapping
         if fanout.os == 'sonic':
             ifs_status = fanout.host.get_interfaces_status()
             for key, interface_info in list(ifs_status.items()):
                 fanout.fanout_port_alias_to_name[interface_info['alias']] = interface_info['interface']
             logging.info(f"fanout {fanout_name} fanout_port_alias_to_name {fanout.fanout_port_alias_to_name}")
-        
+
         return fanout
-    
+
     # Main fixture logic
     fanout_hosts = {}
-    
+
     # Skip NUT topologies that have no fanout
     if tbinfo['topo']['name'].startswith('nut-'):
         logging.info("Nut topology has no fanout")
         return fanout_hosts
-    
+
     # Process Ethernet connections
     dev_conn = conn_graph_facts.get('device_conn', {})
 
     for dut_host, ethernet_ports in dev_conn.items():
-            
+
         duthost = duthosts[dut_host]
-        
+
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             logging.info(f"Skipping kvm platform {dut_host}")
             continue
-        
+
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
-        
+
         # Process each Ethernet port connection
         for dut_port, fanout_rec in ethernet_ports.items():
             fanout_host = str(fanout_rec['peerdevice'])
             fanout_port = str(fanout_rec['peerport'])
-            
+
             # Create or get fanout object
             fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
             if fanout is None:
                 continue
-            
+
             # Add Ethernet port mapping: DUT port -> Fanout port
             fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
 
@@ -1076,30 +1077,30 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
                 # Ethernet32    Ethernet13/1
                 if mapped_port not in list(ethernet_ports.keys()):
                     fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
-    
+
     # Process Serial connections
 
     dev_serial_link = conn_graph_facts.get('device_serial_link', {})
 
     for dut_host, serial_ports in dev_serial_link.items():
-            
+
         duthost = duthosts[dut_host]
-        
+
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
             logging.info(f"Skipping kvm platform {dut_host} for serial links")
             continue
-        
+
         # Process each Serial port connection
         for serial_port_num, link_info in serial_ports.items():
             fanout_host = str(link_info['peerdevice'])
             fanout_port = str(link_info['peerport'])
-            
+
             # Create or get fanout object (reuses same function as Ethernet)
             fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
             if fanout is None:
                 continue
-            
+
             # Add Serial port mapping with Console prefix
             serial_port_key = f"C0_{serial_port_num}"
             fanout.add_port_map(encode_dut_port_name(dut_host, serial_port_key), fanout_port)

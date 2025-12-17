@@ -370,12 +370,12 @@ class LabGraph(object):
             start_port = entry["StartPort"]
             end_device = entry["EndDevice"]
             end_port = entry["EndPort"]
-            
+
             if start_device not in serial_links:
                 serial_links[start_device] = {}
             if end_device not in serial_links:
                 serial_links[end_device] = {}
-            
+
             serial_links[start_device][start_port] = {
                 "peerdevice": end_device,
                 "peerport": end_port,
@@ -388,7 +388,7 @@ class LabGraph(object):
                 "baud_rate": entry.get("BaudRate", "9600"),
                 "flow_control": entry.get("FlowControl", "0"),
             }
-        
+
         logging.debug("Found serial links: {}".format(serial_links))
         self.graph_facts["serial_links"] = serial_links
 
