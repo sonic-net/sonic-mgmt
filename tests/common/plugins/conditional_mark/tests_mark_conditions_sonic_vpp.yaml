@@ -1632,7 +1632,7 @@ vxlan/test_vxlan_ecmp.py::Test_VxLAN_entropy:
     conditions:
       - "asic_type in ['vpp']"
 
-vxlan/test_vxlan_ecmp.py::Test_VxLAN_underlay_ecmp:
+vxlan/test_vxlan_underlay_ecmp.py::Test_VxLAN_underlay_ecmp:
   skip:
     reason: >
             Failed/Errored: To be included

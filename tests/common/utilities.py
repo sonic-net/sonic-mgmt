@@ -963,16 +963,21 @@ def get_all_upstream_neigh_type(topo_type, is_upper=True):
     return UPSTREAM_ALL_NEIGHBOR_MAP.get(topo_type, [])
 
 
-def get_downstream_neigh_type(topo_type, is_upper=True):
+def get_downstream_neigh_type(tbinfo, is_upper=True):
     """
     @summary: Get neighbor type by topo type
-    @param topo_type: topo type
+    @param tbinfo: testbed info
     @param is_upper: if is_upper is True, return uppercase str, else return lowercase str
     @return a str
         Sample output: "mx"
     """
-    if topo_type in DOWNSTREAM_NEIGHBOR_MAP:
-        return DOWNSTREAM_NEIGHBOR_MAP[topo_type].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_type]
+    topo_name = tbinfo["topo"]["name"]
+    topo_type = tbinfo["topo"]["type"]
+    topo_attrs = [topo_name, topo_type]
+
+    for topo_attr in topo_attrs:
+        if topo_attr in DOWNSTREAM_NEIGHBOR_MAP:
+            return DOWNSTREAM_NEIGHBOR_MAP[topo_attr].upper() if is_upper else DOWNSTREAM_NEIGHBOR_MAP[topo_attr]
 
     return None
 
@@ -1446,9 +1451,10 @@ def restore_config(duthost, config, config_backup):
     duthost.shell("mv {} {}".format(config_backup, config))
 
 
-def get_running_config(duthost, asic=None):
+def get_running_config(duthost, asic=None, filter=None):
     ns = "-n " + asic if asic else ""
-    return json.loads(duthost.shell("sonic-cfggen {} -d --print-data".format(ns))['stdout'])
+    fil = f"| jq {filter}" if filter else ""
+    return json.loads(duthost.shell(f"sonic-cfggen {ns} -d --print-data {fil}")['stdout'])
 
 
 def reload_minigraph_with_golden_config(duthost, json_data, safe_reload=True):
