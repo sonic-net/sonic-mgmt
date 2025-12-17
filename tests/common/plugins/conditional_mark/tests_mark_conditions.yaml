@@ -272,10 +272,6 @@ bgp/test_bgp_allow_list.py:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
       - "'isolated' in topo_name"
-  xfail:
-    reason: "xfail for IPv6-only topologies, with issue it try to parse with IPv4 style"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20217 and '-v6-' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
