@@ -12,6 +12,7 @@ import random
 # Module-level fixtures
 from .everflow_test_utilities import setup_info, skip_ipv6_everflow_tests                                 # noqa: F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor    # noqa: F401
+from tests.common.macsec.macsec_helper import MACSEC_INFO
 
 pytestmark = [
     pytest.mark.topology("t0", "t1", "t2", "lt2", "ft2", "m0", "m1")
@@ -192,7 +193,7 @@ class EverflowIPv6Tests(BaseEverflowTest):
         if MACSEC_INFO and self.mirror_type() == "egress":
             pytest.skip("With MACSEC {} ACL w/ {} Mirroring not supported, skipping"
                         .format(self.acl_stage(), self.mirror_type()))
-                        
+
         if setup_info['topo'] in ['t0', 'm0_vlan']:
             everflow_dut = setup_info[UP_STREAM]['everflow_dut']
             remote_dut = setup_info[UP_STREAM]['remote_dut']
