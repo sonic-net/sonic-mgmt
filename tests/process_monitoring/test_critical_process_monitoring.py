@@ -45,6 +45,10 @@ def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     """Changes the autorestart of containers from `enabled` to `disabled` before testing.
        and Rolls them back after testing.
 
+    Note: Database container autorestart is NOT disabled here since it's a critical dependency
+    for the system. The test_database_critical_processes test will disable it explicitly
+    within its own test scope with proper recovery handling.
+
     Args:
         duthost: Hostname of DUT.
 
@@ -56,6 +60,11 @@ def disable_and_enable_autorestart(duthosts, rand_one_dut_hostname):
     disabled_autorestart_containers = []
 
     for container_name, state in list(containers_autorestart_states.items()):
+        # Skip database container - it will be handled by test_database_critical_processes
+        if container_name == "database":
+            logger.info("Skipping autorestart disable for '{}' container (handled by dedicated test)".format(container_name))
+            continue
+
         if "enabled" in state:
             logger.info("Disabling the autorestart of container '{}'.".format(container_name))
             command_disable_autorestart = "sudo config feature autorestart {} disabled".format(container_name)
