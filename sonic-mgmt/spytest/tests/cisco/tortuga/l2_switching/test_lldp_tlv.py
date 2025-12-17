@@ -105,7 +105,7 @@ def setup_teardown_basic():
     st.log("LLDP test teardown completed.")
 
 def check_lldp_tlv_support(node):
-    cmd = "config lldp custom-tlv add tlv_table oui 00,20,2C subtype 1 oui-info A1,B2,C3,D4,E5,F6"
+    cmd = "sudo config lldp custom-tlv -h"
     output = st.config(node, cmd, skip_error_check=True)
     st.log("checking support for lldp tlv:\n{}".format(output))
     return "Error: No such command" in output
@@ -485,28 +485,68 @@ def test_lldp_tlv_with_breakout(setup_teardown_basic, lldp_func_hooks):
     """
     st.log("Starting test_lldp_tlv_with_breakout")
 
+    # Runtime platform check
+    platform_output = st.show(vars.D3, "show platform summary")
+    hwsku = platform_output[0].get('hwsku', '') or platform_output[0].get('HwSKU', '')
+    st.log("Detected HwSKU: {}".format(hwsku))
+    if 'HF6100' not in hwsku:
+        st.log("Test is only applicable for HF6100 platforms. Current: {}".format(hwsku))
+        return st.report_pass('test_case_passed', "Test is only applicable for HF6100 platforms")
+
+    output = st.config(vars.D3, "show interfaces status | grep '{}' | awk '{{print $3}}'".format(vars.D3D1P1))
+    speed = output.strip().splitlines()[0].strip()
+    if speed not in ["800G", "400G", "100G"]:
+        st.error("Unsupported speed {} on {}".format(speed, vars.D3D1P1))
+
     if check_lldp_tlv_support(data_glob.dut1):
         st.log("Skipping: lldp custom tlv new design not supported - gracefully passing.")
         return st.report_pass("test_case_passed", "lldp custom tlv new design is not there. so gracefully passing")
 
-    Breakout_dut1 = "sudo config interface breakout {} 2x100G -yfl".format(data_glob.dut1_port)
-    st.config(data_glob.dut1, Breakout_dut1, skip_error_check=True, timeout=10)
-    Breakout_dut2 = "sudo config interface breakout {} 2x100G -yfl".format(data_glob.dut2_port)
-    st.config(data_glob.dut2, Breakout_dut2, skip_error_check=True, timeout=10)
-     
-    st.wait(90)   
-    new_intfs_dut1 = [vars.D1D3P1 + '_' + str(index) for index in range(1,3)] 
-    new_intfs_dut2 = [vars.D3D1P1 + '_' + str(index) for index in range(1,3)]
- 
-    port_start_dut1 = "sudo config interface startup {}".format(new_intfs_dut1[0])
-    port_start_dut2 = "sudo config interface startup {}".format(new_intfs_dut2[0])
-    st.config(data_glob.dut1, port_start_dut1, skip_error_check=True, timeout=10)
-    st.config(data_glob.dut2, port_start_dut2, skip_error_check=True, timeout=10)
+    try:
+        if speed in ["800G", "400G"]:
+            breakout = "2x200G"
+        else:
+            breakout = "4x25G"
+        Breakout_dut1 = "sudo config interface breakout {} \"{}\" -yfl".format(data_glob.dut1_port, breakout)
+        st.config(data_glob.dut1, Breakout_dut1, skip_error_check=True, timeout=10)
+        Breakout_dut2 = "sudo config interface breakout {} \"{}\" -yfl".format(data_glob.dut2_port, breakout)
+        st.config(data_glob.dut2, Breakout_dut2, skip_error_check=True, timeout=10)
+
+        st.wait(90)
+        if '_' in vars.D1D3P1:
+            new_intfs_dut1 = [vars.D1D3P1 + '_' + str(index) for index in range(1,3)]
+            new_intfs_dut2 = [vars.D3D1P1 + '_' + str(index) for index in range(1,3)]
+        else:
+            base_num1 = int(re.findall(r'\d+', vars.D1D3P1)[0])
+            new_intfs_dut1 = ["Ethernet{}".format(base_num1 + idx) for idx in range(2)]
+            base_num2 = int(re.findall(r'\d+', vars.D3D1P1)[0])
+            new_intfs_dut2 = ["Ethernet{}".format(base_num2 + idx) for idx in range(2)]
+
+        port_start_dut1 = "sudo config interface startup {}".format(new_intfs_dut1[0])
+        port_start_dut2 = "sudo config interface startup {}".format(new_intfs_dut2[0])
+        st.config(data_glob.dut1, port_start_dut1, skip_error_check=True, timeout=10)
+        st.config(data_glob.dut2, port_start_dut2, skip_error_check=True, timeout=10)
     
-    data_glob.dut1_port = new_intfs_dut1[0]
-    data_glob.dut2_port = new_intfs_dut2[0]
-    data_glob.single_lldp = True
-    if configure_and_verify_all_tlvs():
-        st.report_pass("test_case_passed")
-    else:
-        st.report_fail("msg", "One or more custom TLVs were not found or did not match on peer device.")
+        data_glob.dut1_port = new_intfs_dut1[0]
+        data_glob.dut2_port = new_intfs_dut2[0]
+        data_glob.single_lldp = True
+        if configure_and_verify_all_tlvs():
+            st.report_pass("test_case_passed")
+        else:
+            st.report_fail("msg", "One or more custom TLVs were not found or did not match on peer device.")
+    finally:
+        if speed == "800G":
+            breakout = "1x800G"
+        elif speed == "400G":
+            breakout = "1x400G"
+        else:
+            breakout = "1x100G"
+        Breakout_dut1 = "sudo config interface breakout {} \"{}\" -yfl".format(vars.D1D3P1, breakout)
+        st.config(data_glob.dut1, Breakout_dut1, skip_error_check=True)
+        Breakout_dut2 = "sudo config interface breakout {} \"{}\" -yfl".format(vars.D3D1P1, breakout)
+        st.config(data_glob.dut2, Breakout_dut2, skip_error_check=True)
+
+        port_start_dut1 = "sudo config interface startup {}".format(vars.D1D3P1)
+        port_start_dut2 = "sudo config interface startup {}".format(vars.D3D1P1)
+        st.config(data_glob.dut1, port_start_dut1, skip_error_check=True)
+        st.config(data_glob.dut2, port_start_dut2, skip_error_check=True)
