@@ -198,6 +198,16 @@ arp/test_wr_arp.py:
       - "topo_type not in ['t0']"
       - "'f2' in topo_name"
 
+########################################
+######        autorestart          #####
+########################################
+autorestart/test_container_autorestart.py::test_containers_autorestart.*teamd.*:
+  regex: true
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+
 #######################################
 #####            bfd              #####
 #######################################
@@ -1255,6 +1265,12 @@ dualtor_io/test_normal_op.py:
     conditions:
       - "asic_type in ['vs']"
 
+dualtor_io/test_normal_op.py::test_upper_tor_config_reload_upstream:
+  xfail:
+    reason: "Xfail the case on dualtor-aa setup due to github issue: https://github.com/sonic-net/sonic-mgmt/issues/21139"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21139 and 'dualtor-aa' in topo_name"
+
 dualtor_io/test_tor_bgp_failure.py:
   skip:
     reason: "Skip on kvm due to an issue."
@@ -2287,11 +2303,6 @@ fib/test_fib.py::test_ipinip_hash:
     conditions:
       - "asic_type in ['mellanox']"
       - "topo_name in ['t1-isolated-d128', 't1-isolated-d32']"
-
-fib/test_fib.py::test_ipinip_hash[ipv4:
-  skip:
-    reason: "Skip for IPv6-only topologies"
-    conditions:
       - "'-v6-' in topo_name"
 
 fib/test_fib.py::test_ipinip_hash_negative[ipv4:
@@ -2430,7 +2441,7 @@ generic_config_updater:
   skip:
     reason: 'generic_config_updater is not a supported feature for T2 platform on older releases than 202405.'
     conditions:
-      - "('t2' in topo_name) and (release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311'])"
+      - "('t2' == topo_type) and (release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311'])"
 
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
@@ -2560,6 +2571,7 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py::test_dynamic
     conditions_logical_operator: "OR"
     conditions:
       - "asic_type in ['broadcom', 'cisco-8000'] and release in ['202211']"
+      - "'t2' in topo_name"
 
 generic_config_updater/test_monitor_config.py::test_monitor_config_tc1_suite:
   skip:
@@ -3271,7 +3283,7 @@ ipfwd/test_dip_sip.py:
     conditions_logical_operator: or
     conditions:
       - "platform in ['x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
-      - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx', 'm1']"
+      - "topo_type not in ['t0', 't1', 't2', 'm0', 'mx', 'm1', 'lt2', 'ft2']"
 
 ipfwd/test_dir_bcast.py:
   skip:
@@ -3295,7 +3307,7 @@ ipfwd/test_mtu.py:
   skip:
     reason: "Unsupported topology."
     conditions:
-      - "topo_type not in ['t1', 't2']"
+      - "topo_type not in ['t1', 't2', 'lt2', 'ft2']"
 
 ipfwd/test_nhop_group.py::test_nhop_group_interface_flap:
   xfail:
@@ -3764,6 +3776,12 @@ platform_tests/test_reload_config.py::test_reload_configuration_checks:
 #######################################
 #####     process_monitoring      #####
 #######################################
+process_monitoring/test_critical_process_monitoring.py::test_monitoring_critical_processes:
+  xfail:
+    reason: "Testcase ignored due to issue: https://github.com/sonic-net/sonic-buildimage/issues/10336"
+    conditions:
+    - "https://github.com/sonic-net/sonic-buildimage/issues/10336"
+
 process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat:
   skip:
     reason: This test is intended for Orchagent freeze scenario during warm-reboot. It is not required for T1 devices, and not supported on 202412 release.
@@ -4018,7 +4036,7 @@ qos/test_qos_sai.py::TestQosSai::testQosSaiHeadroomPoolWatermark:
   xfail:
     reason: "Headroom pool size not supported."
     conditions:
-      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8']"
+      - "hwsku not in ['Arista-7060CX-32S-C32', 'Celestica-DX010-C32', 'Arista-7260CX3-D108C8', 'Arista-7260CX3-D108C10', 'Force10-S6100', 'Arista-7260CX3-Q64', 'Arista-7050CX3-32S-C32', 'Arista-7050CX3-32S-C28S4', 'Arista-7050CX3-32S-D48C8', 'Arista-7060X6-16PE-384C-B-O128S2', 'Arista-7060X6-64PE-B-O128']"
 
 qos/test_qos_sai.py::TestQosSai::testQosSaiLosslessVoq:
   skip:
@@ -4240,6 +4258,12 @@ route/test_default_route.py::test_default_route_with_bgp_flap:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19925 and '-v6-' in topo_name"
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+
+route/test_duplicate_route.py::test_duplicate_routes:
+  xfail:
+    reason: "xfail due to GH issue https://github.com/sonic-net/sonic-mgmt/issues/20231"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20231"
 
 route/test_duplicate_route.py::test_duplicate_routes[4:
   skip:
