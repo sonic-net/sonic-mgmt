@@ -575,12 +575,6 @@ def run_cps_search(api, file_name, initial_cps_value, passing_dpus):
         err_maxname, err_maxvalue = max(ret_rst_pairs, key=lambda p: p[1])
         error_percent = err_maxvalue/cps_objective_value  # noqa: F841
 
-        """
-        if (err_maxvalue < cps_max) and (error_percent <= error_threshold):
-            test = True
-        else:
-            test = False
-        """
         if cps_max < test_value:
             test = False
         else:
