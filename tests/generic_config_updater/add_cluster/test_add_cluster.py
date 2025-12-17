@@ -1058,6 +1058,13 @@ def test_add_cluster(tbinfo,
         enum_rand_one_asic_namespace, ip_netns_namespace_prefix, cli_namespace_prefix, \
         rand_bgp_neigh_ip_name = initialize_random_variables
     duthost = duthosts[enum_downstream_dut_hostname]
+
+    # Check if the device is a modular chassis and the topology is T2
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if not (is_chassis and tbinfo['topo']['type'] == 't2' and duthost.facts['switch_type'] == "voq"):
+        # Skip the test if the setup is not T2 Chassis
+        pytest.skip("Test is Applicable for T2 VOQ Chassis Setup")
+
     duthost_up = duthosts[enum_upstream_dut_hostname]
     asic_id = enum_rand_one_frontend_asic_index
     asic_id_src = None
