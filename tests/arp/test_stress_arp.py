@@ -36,12 +36,12 @@ LOOP_TIMES_LEVEL_MAP = {
 
 
 @pytest.fixture(autouse=True)
-def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
+def arp_cache_fdb_cleanup(duthosts, tbinfo):
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
-    duthost = duthosts[rand_one_dut_hostname]
     try:
-        clear_dut_arp_cache(duthost, is_ipv6=is_ipv6_only)
-        fdb_cleanup(duthost)
+        for dut in duthosts:
+            clear_dut_arp_cache(dut, is_ipv6=is_ipv6_only)
+            fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
         if 'Failed to send flush request: No such file or directory' in str(e):
             logger.warning("Failed to clear arp cache or cleanup fdb table, file may not exist yet")
@@ -54,8 +54,7 @@ def arp_cache_fdb_cleanup(duthosts, rand_one_dut_hostname, tbinfo):
 
     # Ensure clean test environment even after failing
     try:
-        dut_list = duthosts if "dualtor-aa" in tbinfo["topo"]["name"] else [duthost]
-        for dut in dut_list:
+        for dut in duthosts:
             clear_dut_arp_cache(dut, is_ipv6=is_ipv6_only)
             fdb_cleanup(dut)
     except RunAnsibleModuleFail as e:
@@ -260,8 +259,10 @@ def send_ipv6_echo_request(ptfadapter, dut_mac, ip_and_intf_info, ptf_intf_index
         testutils.send_packet(ptfadapter, ptf_intf_index, er_pkt)
 
 
-def test_ipv6_nd_incomplete(duthost, ptfhost, config_facts, tbinfo, ip_and_intf_info,
+def test_ipv6_nd_incomplete(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
+                            ptfhost, config_facts, tbinfo, ip_and_intf_info,
                             ptfadapter, get_function_completeness_level, proxy_arp_enabled):
+    duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     _, _, ptf_intf_ipv6_addr, _, ptf_intf_index = ip_and_intf_info
     ptf_intf_ipv6_addr = increment_ipv6_addr(ptf_intf_ipv6_addr)
     is_ipv6_only = is_ipv6_only_topology(tbinfo)
