@@ -64,6 +64,84 @@ def get_autoneg_fec(duthosts, get_snappi_ports):
     return get_snappi_ports
 
 
+def get_duthost_interface_details(duthosts, get_snappi_ports, subnet_type, protocol_type):    # noqa F811
+    """
+    Depending on the protocol type, call the respective function to get the interface details
+
+    Args:
+        duthosts: List of duthost objects
+        get_snappi_ports: List of snappi port details
+        subnet_type: 'ipv4' or 'ipv6'
+        protocol_type: 'ip' or 'bgp' or 'vlan'
+
+    Returns:
+        List of snappi port details with interface information populated
+    """
+    if protocol_type.lower() == 'ip':
+        return get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type)
+    elif protocol_type.lower() == 'bgp':
+        return get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type)
+    elif protocol_type.lower() == 'vlan':
+        return get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type)
+    else:
+        pytest_assert(False, f"Unsupported protocol type: {protocol_type}")
+
+
+def get_duthost_ip_details(duthosts, get_snappi_ports, subnet_type):  # noqa F811
+    """
+    Example:
+    {
+        'ip': '10.36.84.32',
+        'port_id': '3',
+        'peer_port': 'Ethernet64',
+        'peer_device': 'sonic-s6100-dut2',
+        'speed': '100000',
+        'location': '10.36.84.32/1.1',
+        'intf_config_changed': False,
+        'api_server_ip': '10.36.78.134',
+        'asic_type': 'broadcom',
+        'duthost': <MultiAsicSonicHost sonic-s6100-dut2>,
+        'snappi_speed_type': 'speed_100_gbps',
+        'asic_value': None,
+        'autoneg': False,
+        'fec': True,
+        'ipAddress': '400::2',
+        'ipGateway': '400::1',
+        'prefix': '126',
+        'src_mac_address': '10:17:00:00:00:13',
+        'subnet': '400::1/126'
+    }
+    """
+    get_autoneg_fec(duthosts, get_snappi_ports)
+    mac_address_generator = get_macs("101700000011", len(get_snappi_ports))
+    for duthost in duthosts:
+        config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+        doOnce = True
+        for index, port in enumerate(get_snappi_ports):
+            if port['duthost'] == duthost:
+                if doOnce:
+                    # Note: Just get the dut mac address once
+                    mac = duthost.get_dut_iface_mac(port['peer_port'])
+                    doOnce = False
+                peer_port = port['peer_port']
+                int_addrs = list(config_facts['INTERFACE'][peer_port].keys())
+                if subnet_type.lower() == 'ipv4':
+                    subnet = [ele for ele in int_addrs if "." in ele]
+                    port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                elif subnet_type.lower() == 'ipv6':
+                    subnet = [ele for ele in int_addrs if ":" in ele]
+                    port['ipAddress'] = get_addrs_in_subnet(subnet[0], 1, exclude_ips=[subnet[0].split("/")[0]])[0]
+                else:
+                    pytest.fail(f'Invalid subnet type: {subnet_type}')
+                if not subnet:
+                    pytest_assert(False, "No IP address found for peer port {}".format(peer_port))
+                port['ipGateway'], port['prefix'] = subnet[0].split("/")
+                port['router_mac_address'] = mac
+                port['src_mac_address'] = mac_address_generator[index]
+                port['subnet'] = subnet[0]
+    return get_snappi_ports
+
+
 def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa F811
     """
     Example:
@@ -130,7 +208,7 @@ def get_duthost_bgp_details(duthosts, get_snappi_ports, subnet_type):    # noqa 
     return get_snappi_ports
 
 
-def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
+def get_duthost_vlan_details(duthosts, get_snappi_ports, subnet_type):   # noqa F811
     """
     Loop through each duthosts to get its vlan details
 
@@ -147,9 +225,6 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
        duthost_vlan_interface, subnet_tracker, all_vlan_gateway_ip
     """
     get_autoneg_fec(duthosts, get_snappi_ports)
-
-    duthost_vlan_interface = {}
-
     duthost_vlan_interface = {
         dut.hostname: {"vlan_id": "", "vlan_ip": "", "subnet": "", "ip_prefix": ""}
         for dut in duthosts
@@ -164,7 +239,17 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
         facts = dut.config_facts(host=dut.hostname, source="running")['ansible_facts']
         duthost_configdb_vlan_interface = facts["VLAN_INTERFACE"]
         vlan_id = list(duthost_configdb_vlan_interface.keys())[0]
-        vlan_ipprefix = list(duthost_configdb_vlan_interface[vlan_id].keys())[0]
+        vlan_ip_dict = duthost_configdb_vlan_interface[vlan_id]
+        if subnet_type.lower() == 'ipv4':
+            for subnet in vlan_ip_dict.keys():
+                if '.' in subnet:
+                    vlan_ipprefix = subnet
+                    break
+        elif subnet_type.lower() == 'ipv6':
+            for subnet in vlan_ip_dict.keys():
+                if ':' in subnet:
+                    vlan_ipprefix = subnet
+                    break
         ipn = IPNetwork(vlan_ipprefix)
         vlan_ipaddr, prefix_len = str(ipn.ip), ipn.prefixlen
         subnet = str(IPNetwork(str(ipn.network) + '/' + str(prefix_len)))
@@ -203,6 +288,7 @@ def get_duthost_vlan_details(duthosts, get_snappi_ports):   # noqa F811
                         "ipGateway": vlan_details["vlan_ip"],
                         "prefix": vlan_details["ip_prefix"],
                         "subnet": vlan_details["subnet"],
+                        "peer_device": port["peer_device"],
                         "src_mac_address": src_mac_address,
                         "router_mac_address": router_mac_address,
                         "speed": speed,
@@ -281,6 +367,7 @@ def create_snappi_config(snappi_api, get_snappi_ports):
         config = create_snappi_l1config(snappi_api, get_snappi_ports, snappi_extra_params)
         pytest_assert(snappi_extra_params.protocol_config, "No protocol configuration provided in snappi_extra_params")
         snappi_obj_handles = {k: {"ip": [], "network_group": []} for k in snappi_extra_params.protocol_config}
+        count = 0
         for role, pconfig in snappi_extra_params.protocol_config.items():
             is_ipv4 = True if pconfig['subnet_type'] == 'IPv4' else False
             for index, port_data in enumerate(pconfig['ports']):
@@ -313,12 +400,13 @@ def create_snappi_config(snappi_api, get_snappi_ports):
                             routes = peer.v4_routes.add(name=f"{role}_Network_Group_{index}")
                         else:
                             routes = peer.v6_routes.add(name=f"{role}_Network_Group_{index}")
-                        for rr in pconfig['route_ranges']:
+                        for rr in pconfig['route_ranges'][count]:
                             routes.addresses.add(
                                 address=rr[0],
                                 prefix=rr[1],
                                 count=rr[2],
                             )
+                        count += 1
                         snappi_obj_handles[role]["network_group"].append(routes.name)
         return config, snappi_obj_handles
     return _create_snappi_config
@@ -531,11 +619,11 @@ def wait_for(func, condition_str, interval_seconds=None, timeout_seconds=None):
         timeout_seconds = settings.timeout_seconds
     start_seconds = int(time.time())
 
-    print("\n\nWaiting for %s ..." % condition_str)
+    logger.info("Waiting for %s ..." % condition_str)
     while True:
         res = func()
         if res:
-            print("Done waiting for %s" % condition_str)
+            logger.info("Done waiting for %s" % condition_str)
             break
         if res is None:
             raise Exception("Wait aborted for %s" % condition_str)
@@ -546,6 +634,40 @@ def wait_for(func, condition_str, interval_seconds=None, timeout_seconds=None):
         time.sleep(interval_seconds)
 
 
+def get_all_port_names(duthost):
+    """
+    Get all port names on the DUT as a list
+    """
+    result = duthost.command("show interfaces status")
+    output = result["stdout"]
+    interfaces = []
+    for line in output.splitlines():
+        if line.lstrip().startswith("Ethernet"):
+            iface = line.split()[0]
+            interfaces.append(iface)
+    return interfaces
+
+
+def all_ports_startup(duthost):
+    """
+    Startup all interfaces on the DUT
+    """
+    interfaces = get_all_port_names(duthost)
+    logger.info("Starting up all interfaces on DUT {} ".format(duthost.hostname))
+    duthost.command("sudo config interface startup {} \n".format(','.join(interfaces)))
+    wait(60, "For links to come up")
+
+
+def all_ports_shutdown(duthost):
+    """
+    Shutdown all interfaces on the DUT
+    """
+    interfaces = get_all_port_names(duthost)
+    logger.info("Shutting down all interfaces on DUT {} ".format(duthost.hostname))
+    duthost.command("sudo config interface shutdown {} \n".format(','.join(interfaces)))
+    wait(60, "For links to come up")
+
+
 def is_traffic_running(snappi_api, flow_names=[]):
     """
     Returns true if traffic in start state
@@ -553,7 +675,7 @@ def is_traffic_running(snappi_api, flow_names=[]):
     request = snappi_api.metrics_request()
     request.flow.flow_names = flow_names
     flow_stats = snappi_api.get_metrics(request).flow_metrics
-    return all([int(fs.frames_rx_rate) > 0 for fs in flow_stats])
+    return all([int(fs.frames_tx_rate) > 0 for fs in flow_stats])
 
 
 def is_traffic_stopped(snappi_api, flow_names=[]):
@@ -564,6 +686,24 @@ def is_traffic_stopped(snappi_api, flow_names=[]):
     fq.flow.flow_names = flow_names
     metrics = snappi_api.get_metrics(fq).flow_metrics
     return all([m.transmit == "stopped" for m in metrics])
+
+
+def is_traffic_converged(snappi_api, flow_names=[], threshold=0.1):
+    """
+    Returns true if traffic has converged within the threshold
+    """
+    request = snappi_api.metrics_request()
+    request.flow.flow_names = flow_names
+    flow_stats = snappi_api.get_metrics(request).flow_metrics
+    for fs in flow_stats:
+        tx_rate = float(fs.frames_tx_rate)
+        rx_rate = float(fs.frames_rx_rate)
+        if tx_rate == 0:
+            return False
+        loss_percentage = ((tx_rate - rx_rate) / tx_rate) * 100
+        if loss_percentage > threshold:
+            return False
+    return True
 
 
 def start_stop(snappi_api, operation="start", op_type="protocols", waittime=20):
