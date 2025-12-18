@@ -204,6 +204,7 @@ arp/test_stress_arp.py::test_ipv4_arp:
     reason: "skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
 
 arp/test_unknown_mac.py:
   skip:
@@ -1169,6 +1170,13 @@ drop_packets:
     reason: "M0/MX topo does not support drop_packets"
     conditions:
       - "topo_type in ['m0', 'mx']"
+
+drop_packets/test_drop_counters.py:
+  xfail:
+    reason: "xfail for scale topology, PTF is not stable at the scale testbed"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21571 and 't0-isolated-d256u256s2' in topo_name"
+
 
 drop_packets/test_drop_counters.py:
   xfail:
@@ -4365,6 +4373,7 @@ route/test_default_route.py:
 route/test_default_route.py::test_default_route_set_src:
   xfail:
     reason: "xfail for IPv6-only topologies, need add support for IPv6-only"
+    conditions_logical_operator: or
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
