@@ -491,12 +491,12 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces, pri
         None.
     """
     container_list = list(containers_in_namespaces.keys())
-    
+
     # If prioritize_database is True, ensure database container is processed first
     if prioritize_database and 'database' in container_list:
         container_list.remove('database')
         container_list.insert(0, 'database')
-    
+
     for container_name in container_list:
         namespace_ids = containers_in_namespaces[container_name]
         container_name_in_namespace = container_name
