@@ -1,0 +1,16 @@
+- name: Create VMs network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- name: Add OVS flow rules for VM bridges
+  become: yes
+  command: "ovs-ofctl add-flow br-{{ item }}-{{ topology.VMs[item].vm_offset }} action=normal"
+  with_items: "{{ VM_targets }}"
+  failed_when: false
+
+- include_tasks: add_csonic.yml
+  with_items: "{{ VM_targets }}"
