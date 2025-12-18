@@ -25,6 +25,19 @@ from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
+from typing import TypedDict
+
+
+class ShellResult(TypedDict):
+    cmd: str
+    rc: int
+    stdout: str
+    stderr: str
+    stdout_lines: list
+    stderr_lines: list
+    failed: bool
+    changed: bool
+
 
 logger = logging.getLogger(__name__)
 PROCESS_TO_CONTAINER_MAP = {
@@ -48,7 +61,7 @@ class SonicHost(AnsibleHostBase):
     """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
-                 ssh_user=None, ssh_passwd=None):
+                 ssh_user=None, ssh_passwd=None, is_console_switch=False):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
         self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
@@ -85,6 +98,7 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
+        self.is_console_switch = is_console_switch
 
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
         device_type = device_metadata.get('type')
@@ -2960,6 +2974,97 @@ Totals               6450                 6449
             except Exception as e:
                 logging.error(f"Error starting bgpd process: {str(e)}")
                 return {'rc': 1, 'stdout': '', 'stderr': str(e)}
+
+    def set_loopback(self, port: str, baud_rate: str) -> tuple[int, str]:
+        # Check if device path exists
+        device_path = f"/dev/C0-{port}"
+
+        res: ShellResult = self.shell(f"test -e {device_path}", module_ignore_errors=True)
+        if res['rc'] != 0:
+            log_message = f"Device path {device_path} does not exist: {res.get('stderr', '')}"
+            logging.error(log_message)
+            return 1, log_message
+
+        # Check if device path is already in use
+        res: ShellResult = self.shell(f"sudo lsof {device_path}", module_ignore_errors=True)
+        if res['stdout'] or res['stderr']:
+            log_message = f"Device path {device_path} is already in use: {res.get('stdout', '')}"
+            logging.error(log_message)
+            return 1, log_message
+
+        # Excute loopback command
+        command = (
+            f"sudo socat -d -d "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts=0,icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"EXEC:'/bin/cat' "
+            f"& echo $! "
+        )
+
+        res: ShellResult = self.shell(command, module_ignore_errors=True)
+        if res['failed']:
+            log_message = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
+            logging.error(log_message)
+            return 1, log_message
+
+        logging.info(f"Successfully started socat loopback on port {port}")
+
+        return 0, f"Loopback started on {device_path}"
+
+    def unset_loopback(self, port: str) -> tuple[int, str]:
+        # Find all related socat processes
+        device_path = f"/dev/C0-{port}"
+
+        res: ShellResult = self.shell(f"pgrep -f 'socat .*{device_path}'", module_ignore_errors=True)
+        pids = res['stdout'].strip().split('\n')
+
+        # Kill all related socat processes
+        for pid in pids:
+            self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        # Confirm all related processes for the port have stopped
+        res: ShellResult = \
+            self.shell(f"ps aux | grep 'socat .*{device_path}' | grep -v grep", module_ignore_errors=True)
+
+        if res['stdout'].strip():
+            log_message = f"Failed to stop socat process for device path {device_path}"
+            logging.error(log_message)
+            return 1, log_message
+
+        logging.info(f"Successfully stopped socat loopback on port {port}")
+
+        return 0, f"Loopback stopped on {device_path}"
+
+    def bridge(self, port1: str, port2: str):
+        raise NotImplementedError("Bridge method is not implemented yet")
+
+    def unbridge(self, port1: str, port2: str):
+        raise NotImplementedError("Bridge method is not implemented yet")
+
+    def bridge_remote(self, port: str, remote_host: str, remote_port: str):
+        raise NotImplementedError("Bridge method is not implemented yet")
+
+    def unbridge_remote(self, port: str):
+        raise NotImplementedError("Bridge method is not implemented yet")
+
+    def cleanup_all_console_sessions(self):
+        # Find all related serial port processes
+        res: ShellResult = self.shell("sudo lsof -t /dev/C0-*", module_ignore_errors=True)
+        pids = res['stdout'].strip().split('\n')
+
+        # Kill all related processes
+        for pid in pids:
+            self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        # Check that no serial ports are in use
+        res: ShellResult = self.shell("sudo lsof /dev/C0-*", module_ignore_errors=True)
+        if res['stdout'].strip() or res['stderr'].strip():
+            log_message = "Failed to clean up all console sessions: some ports are still in use"
+            logging.error(log_message)
+            return 1, log_message
+
+        logging.info("Successfully cleaned up all console sessions")
+        return 0, "All console sessions cleaned up successfully"
 
 
 def assert_exit_non_zero(shell_output):
