@@ -1123,7 +1123,7 @@ def runIndividualTests(image_id, build_id, testbed, dut_log_dir, client, contain
     log.debug(f'Testcase - {test_name} start time {testcase_start_time}')
     log.debug(f'Testcase - {test_name} end time {testcase_end_time}')
     log.debug(f'Time elapsed - {now-testcase_start}')
-    output = f'Testcase - {test_name}'+'\n'+f'start time - {testcase_start_time}'+'\n'+f'end time - {testcase_end_time}'+'\n'+f'Time elapsed - {now-testcase_start}'+'\n'
+    output = f'Testcase - {test_name}'+'\n'+f'start time - {testcase_start_time}'+'\n'+f'end time - {testcase_end_time}'+'\n'+f'Time elapsed - {test_name} - {now-testcase_start}'+'\n'
 
     rc = copy_logfiles(client, container_name, run_tests_log_file, local_log_dir)
 

@@ -217,6 +217,55 @@ def get_testcases_yaml(yaml_file, test_categories_str, topology=None, device_typ
 
     return unique_tests
 
+def get_test_tag_map(yaml_file, test_categories_str, topology=None, device_type=None, hw_or_sim='sim'):
+    if hw_or_sim not in ['hw', 'sim']:
+        err_msg = f"ERROR! Invalid choice for parameter hw_or_sim. choices are 'sim' or 'hw', given: '{hw_or_sim}'"
+        print(err_msg)
+        raise ValueError(err_msg)
+
+    with open(yaml_file, 'r') as f:
+        data = yaml.safe_load(f)
+
+    data = convert_keys_to_strings_and_lower(data)
+
+    tag_tests_dict = {}
+
+    if not test_categories_str:
+        raise ValueError("test_category must be specified!")
+
+    category_list = []
+    if test_categories_str:
+        category_list = [cat.strip().lower() for cat in test_categories_str.split(',') if cat.strip()]
+
+    # 2. If we have categories, add all_topo/<category> if it exists
+    for category in category_list:
+        if category not in data:
+            logging.error(f"Could not find category '{category}' in yaml file '{yaml_file}'! Skipping...")
+            continue
+
+        if 'all_topo' in data[category]:
+            if 'all_pids' in data[category]['all_topo']:
+                if hw_or_sim in data[category]['all_topo']['all_pids']:
+                    tag_tests_dict.setdefault(category, []).append(data[category]['all_topo']['all_pids'][hw_or_sim])
+
+            if device_type is not None and device_type in data[category]['all_topo']:
+                if hw_or_sim in data[category]['all_topo'][device_type]:
+                    tag_tests_dict.setdefault(category, []).append(data[category]['all_topo'][device_type][hw_or_sim])
+
+        if topology and topology in data[category]:
+            if 'all_pids' in data[category][topology]:
+                if hw_or_sim in data[category][topology]['all_pids']:
+                    tag_tests_dict.setdefault(category, []).append(data[category][topology]['all_pids'][hw_or_sim])
+            for pid_list in data[category][topology].keys():
+                if isinstance(pid_list, str):
+                    # Split the string by commas and strip whitespace
+                    pids_list = [item.strip() for item in pid_list.split(",")]
+                if device_type is not None and device_type in pids_list:
+                    if hw_or_sim in data[category][topology][pid_list]:
+                        tag_tests_dict.setdefault(category, []).append(data[category][topology][pid_list][hw_or_sim])
+
+    return tag_tests_dict
+
 def get_testcases(script_file, test_tag, topo_type, additional_tests='', device_type=None, hw_or_sim='sim'):
     #adding all testcases from all files into one list, ordered
     tcs_dict = {}

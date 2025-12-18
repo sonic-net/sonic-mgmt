@@ -3,11 +3,12 @@ import sys
 import time
 import argparse
 from run_scripts_remote import FAILURE_RESONS, SUCCESS_STATUS, FAILURE_STATUS
-from run_scripts import get_testcases
+from run_scripts import get_testcases, get_test_tag_map
 import yaml
 import os
 import json
 import paramiko
+from datetime import timedelta
 import re
 from hw_setup_utils import log, extractFromImageName, getTestbedInfoDict, getDockerExecCommand, \
     prep_special_run_commands, \
@@ -198,7 +199,7 @@ def run_test(args):
         username=testbed_info_dict['ucs_username'],
         password=testbed_info_dict['ucs_password']
     )
-    stdout, stderr, status_code= _run_cmd_in_ssh(client, "docker ps -a")
+    stdout, stderr, status_code = _run_cmd_in_ssh(client, "docker ps -a")
     log.debug(f"'docker ps -a' output:\n{stdout}")
     log.debug(rerun)
     # Clean up allure results directory if not a rerun
@@ -221,11 +222,34 @@ def run_test(args):
                     time.sleep(30)
                     client.close()
                     return exit_code
+        test_tag_dict = get_test_tag_map(testfile_full_path, test_tag, topology=topology, device_type=platform, hw_or_sim='hw')
+        log.debug(f"Output of the test_tag_dict - {test_tag_dict}")
+        time_tag_dict = {}
         # Output contents of the file
         log.debug(f"Output contents of the file - {remote_file_path}")
-        with sftp.file(remote_file_path, mode='r') as remote_file:
-            content = remote_file.read().decode()  # decode bytes to string
-            log.debug(content)
+        try:
+            with sftp.open(remote_file_path, mode='r') as remote_file:
+                for line in remote_file:
+                    content = line.strip()
+                    log.debug(f"Output of the line - {content}")
+                    if 'Time elapsed' in content:
+                        parts = content.split('-')
+                        log.debug(parts)
+                        if len(parts) == 3:
+                            testcase = parts[1].strip()
+                            time_taken = parts[2].strip()
+                            test_tag = ""
+                            for tag, testcase_array in test_tag_dict.items():
+                                if testcase in testcase_array[0]:
+                                    test_tag = tag
+                                    break
+                            time_tag_dict.setdefault(test_tag, 0)
+                            time_taken_parsed = parse_result_time(time_taken)
+                            time_tag_dict[test_tag] += int(time_taken_parsed.total_seconds() // 60)
+                            log.debug(f"Output of the time taken for test_tag - {test_tag}, time taken - {time_tag_dict[test_tag]} minutes")
+        except IOError as e:
+            log.error(f"Error opening or reading file: {e}")
+        log.debug(f"Output of the time taken per test_tag - {time_tag_dict} minutes")
         sftp.close()
 
     elif test_suites_arg and "," in test_suites_arg: # multiple test suites passed as parameters
@@ -366,6 +390,22 @@ def run_test(args):
     create_sanity_log_tarball(local_log_parent_dir)
     print_folder_contents(local_log_parent_dir)
     return exit_code
+
+def parse_result_time(x):
+    # Already timedelta → return as-is
+    if isinstance(x, timedelta):
+        return x
+    
+    # Numeric seconds → convert to timedelta
+    if isinstance(x, (int, float)):
+        return timedelta(seconds=float(x))
+    
+    # String format "H:MM:SS.micro"
+    if isinstance(x, str):
+        h, m, s = x.split(":")
+        return timedelta(hours=int(h), minutes=int(m), seconds=float(s))
+    
+    raise TypeError(f"Unsupported type: {type(x)}")
 
 def collect_results(args):
     full_link = args.full_link
