@@ -1,0 +1,11 @@
+# Minimal testbed configuration for sample tests
+# This allows the conditional_mark plugin to load basic facts without
+# requiring a real testbed infrastructure
+
+sample-testbed:
+  topo:
+    name: t0
+    type: t0
+  duts:
+    - localhost
+  inv_name: lab

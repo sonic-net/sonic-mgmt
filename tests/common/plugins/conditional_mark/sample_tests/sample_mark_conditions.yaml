@@ -1,0 +1,242 @@
+# Sample Mark Conditions File with Category Support
+#
+# This file demonstrates the new category-based skip management system.
+# It includes examples of:
+# - Skip categories configuration (permanent and temporary)
+# - Permanent skips (no expiry date required)
+# - Temporary skips (expiry date required)
+# - Backward compatibility (old format without categories)
+# - Validation error examples (commented out - uncomment to test validation)
+
+# ============================================================================
+# SKIP CATEGORIES CONFIGURATION
+# ============================================================================
+# Define the two categories of skips: permanent and temporary
+# This section is optional - if omitted, backward compatibility mode is used
+
+skip_categories:
+  permanent:
+    description: "Skips are indefinite and do not require expiry dates"
+    requires_expiry_date: false
+    allowed_reasons:
+      - "ASIC_NOT_SUPPORTED"
+      - "TOPO_NOT_SUPPORTED"
+      - "FEATURE_NOT_APPLICABLE"
+
+  temporary:
+    description: "Skips must have expiry date"
+    requires_expiry_date: true
+    max_expiry_days: 180  # Maximum 6 months from today
+    allowed_reasons:
+      - "BUG_FIX_IN_PROGRESS"
+      - "NEW_FEATURE_UNDER_DEVELOPMENT"
+      - "INFRASTRUCTURE_ISSUE"
+
+# ============================================================================
+# PERMANENT SKIP EXAMPLES
+# ============================================================================
+# These tests are skipped due to fundamental limitations that won't change
+
+sample_tests/test_category_permanent.py::test_feature_not_supported_on_vs:
+  skip:
+    reason: "VS platform does not support hardware-specific features"
+    category: "ASIC_NOT_SUPPORTED"
+    conditions:
+      - "asic_type in ['vs']"
+
+sample_tests/test_category_permanent.py::test_topology_specific_feature:
+  skip:
+    reason: "Feature only applicable to T1 topologies"
+    category: "TOPO_NOT_SUPPORTED"
+    conditions:
+      - "topo_type not in ['t1', 't1-lag']"
+
+sample_tests/test_category_permanent.py::test_asic_hardware_limitation:
+  skip:
+    reason: "Test requires specific ASIC generation capabilities"
+    category: "ASIC_NOT_SUPPORTED"
+    conditions:
+      - "asic_gen not in ['td3', 'td4', 'th3', 'th4']"
+
+sample_tests/test_category_permanent.py::TestPermanentSkips::test_platform_limitation:
+  skip:
+    reason: "Platform does not have required hardware capabilities"
+    category: "ASIC_NOT_SUPPORTED"
+    conditions:
+      - "platform in ['x86_64-kvm_x86_64-r0']"
+
+sample_tests/test_category_permanent.py::TestPermanentSkips::test_feature_not_applicable:
+  skip:
+    reason: "MACSEC feature not applicable when disabled"
+    category: "FEATURE_NOT_APPLICABLE"
+    conditions:
+      - "macsec_en == False"
+
+# ============================================================================
+# TEMPORARY SKIP EXAMPLES
+# ============================================================================
+# These tests are skipped temporarily due to bugs or ongoing work
+# All temporary skips MUST have an expiry_date
+
+sample_tests/test_category_temporary.py::test_bug_fix_in_progress:
+  skip:
+    reason: "Test disabled due to bug #12345 being fixed"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-06-15"  # Required for temporary category
+    conditions:
+      - "release in ['202411', '202405']"
+
+sample_tests/test_category_temporary.py::test_infrastructure_issue:
+  skip:
+    reason: "Testbed infrastructure upgrade in progress"
+    category: "INFRASTRUCTURE_ISSUE"
+    expiry_date: "2026-03-01"
+    expiry_action: "fail"  # Default: test fails when expired to force attention
+    conditions:
+      - "testbed in ['testbed-01', 'testbed-02']"
+
+sample_tests/test_category_temporary.py::test_new_feature_under_development:
+  skip:
+    reason: "Feature X is still under development"
+    category: "NEW_FEATURE_UNDER_DEVELOPMENT"
+    expiry_date: "2026-04-30"
+    conditions:
+      - "True"  # Always skip for now
+
+sample_tests/test_category_temporary.py::test_expired_skip:
+  skip:
+    reason: "This skip has already expired"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2025-01-01"  # Already expired
+    expiry_action: "fail"  # Will show as skipped with expired message
+    conditions:
+      - "True"
+
+sample_tests/test_category_temporary.py::TestTemporarySkips::test_known_issue:
+  skip:
+    reason: "Known issue causing test failures"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-05-15"
+    conditions:
+      - "platform in ['x86_64-mlnx_msn4700-r0']"
+
+sample_tests/test_category_temporary.py::TestTemporarySkips::test_flaky_test:
+  xfail:
+    reason: "Test is flaky, investigation ongoing"
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-04-01"
+    strict: false
+    conditions:
+      - "True"
+
+sample_tests/test_category_temporary.py::TestTemporarySkips::test_soon_to_expire:
+  skip:
+    reason: "Temporary skip expiring soon"
+    category: "INFRASTRUCTURE_ISSUE"
+    expiry_date: "2026-02-01"
+    expiry_action: "warn"  # Log warning but let test run when expired
+    conditions:
+      - "True"
+
+# ============================================================================
+# BACKWARD COMPATIBILITY EXAMPLES
+# ============================================================================
+# These tests use the old format without categories - should still work
+
+sample_tests/test_backward_compat.py::test_legacy_skip_no_category:
+  skip:
+    reason: "Legacy skip format without category field"
+    conditions:
+      - "asic_type in ['vs']"
+
+sample_tests/test_backward_compat.py::test_legacy_xfail:
+  xfail:
+    reason: "Legacy xfail format"
+    conditions:
+      - "release in ['201911']"
+
+sample_tests/test_backward_compat.py::TestBackwardCompatibility::test_old_format_skip:
+  skip:
+    reason: "Old format skip - no category, no expiry"
+    conditions:
+      - "platform == 'x86_64-kvm_x86_64-r0'"
+
+# ============================================================================
+# VALIDATION ERROR EXAMPLES (Commented Out)
+# ============================================================================
+# Uncomment these to test validation error handling
+# Each should produce a specific validation error
+
+# Example 1: Invalid category name
+# sample_tests/test_validation_errors.py::test_invalid_category:
+#   skip:
+#     reason: "This will fail validation"
+#     category: "INVALID_CATEGORY_NAME"  # Not in allowed_reasons
+#     conditions:
+#       - "True"
+
+# Example 2: Temporary category without expiry_date
+# sample_tests/test_validation_errors.py::test_missing_expiry_for_temporary:
+#   skip:
+#     reason: "This will fail validation"
+#     category: "BUG_FIX_IN_PROGRESS"  # Temporary category
+#     # Missing expiry_date - validation error!
+#     conditions:
+#       - "True"
+
+# Example 3: Permanent category with expiry_date
+# sample_tests/test_validation_errors.py::test_expiry_on_permanent:
+#   skip:
+#     reason: "This will fail validation"
+#     category: "ASIC_NOT_SUPPORTED"  # Permanent category
+#     expiry_date: "2026-06-01"  # Should not have expiry!
+#     conditions:
+#       - "True"
+
+# Example 4: Expiry date beyond max_expiry_days (180 days)
+# sample_tests/test_validation_errors.py::test_expiry_too_far:
+#   skip:
+#     reason: "This will fail validation"
+#     category: "BUG_FIX_IN_PROGRESS"
+#     expiry_date: "2027-12-31"  # More than 180 days from today
+#     conditions:
+#       - "True"
+
+# Example 5: Invalid date format
+# sample_tests/test_validation_errors.py::test_invalid_date_format:
+#   skip:
+#     reason: "This will fail validation"
+#     category: "INFRASTRUCTURE_ISSUE"
+#     expiry_date: "12/31/2026"  # Wrong format, should be YYYY-MM-DD
+#     conditions:
+#       - "True"
+
+# ============================================================================
+# NOTES
+# ============================================================================
+#
+# 1. Category Field:
+#    - Optional for backward compatibility
+#    - If specified, must be from allowed_reasons in skip_categories
+#    - Case-sensitive
+#
+# 2. Expiry Date:
+#    - Format: YYYY-MM-DD (ISO 8601)
+#    - Interpreted as UTC midnight
+#    - Required for temporary categories
+#    - Not allowed for permanent categories
+#    - Max 180 days from today for temporary categories
+#
+# 3. Expiry Action (optional):
+#    - fail: Test fails with expired message (default)
+#    - warn: Log warning, let test run
+#    - run: Silently let test run
+#
+# 4. Multiple Marks:
+#    - Same test can have both skip and xfail with different categories
+#    - Each mark evaluated independently
+#
+# 5. Validation:
+#    - Happens at test collection time
+#    - All validation errors reported together
+#    - Tests fail to collect if validation errors found
