@@ -1,0 +1,49 @@
+{% set host = configuration[hostname] %}
+{
+    "PORT": {
+{% set port_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and not name.startswith('Ethernet-') %}
+{{ port_comma() }}
+        "{{ name }}": {
+            "admin_status": "up",
+            "mtu": "9100"
+        }
+{% endif %}
+{% endfor %}
+    },
+    "INTERFACE": {
+{% set iface_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Ethernet') and not name.startswith('Ethernet-') %}
+{{ iface_comma() }}
+        "{{ name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ iface_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+    },
+    "LOOPBACK_INTERFACE": {
+{% set loopback_comma = joiner(",") %}
+{% for name, iface in host['interfaces'].items() %}
+{% if name.startswith('Loopback') %}
+{{ loopback_comma() }}
+        "{{ name }}": {}
+{% if iface['ipv4'] is defined %}
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv4'] }}": {}
+{% endif %}
+{% if iface['ipv6'] is defined %}
+{{ loopback_comma() }}
+        "{{ name }}|{{ iface['ipv6'] }}": {}
+{% endif %}
+{% endif %}
+{% endfor %}
+    }
+}

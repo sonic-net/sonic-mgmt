@@ -1,0 +1,2 @@
+- include_tasks: remove_csonic.yml
+  with_items: "{{ VM_targets }}"
