@@ -111,7 +111,7 @@ class TSReporter(Reporter):
         else:
             self._export_metrics(metrics_data)
 
-    def _create_metrics_data(self, timestamp: float) -> Optional[MetricsData]:
+    def _create_metrics_data(self, timestamp: float) -> Optional["MetricsData"]:
         """
         Create MetricsData using SDK objects from current measurements.
 
@@ -168,7 +168,7 @@ class TSReporter(Reporter):
 
         return MetricsData(resource_metrics=[resource_metrics])
 
-    def _create_resource(self) -> Resource:
+    def _create_resource(self) -> "Resource":
         """
         Create SDK Resource with attributes.
         """
@@ -182,7 +182,7 @@ class TSReporter(Reporter):
         return Resource.create(all_attrs)
 
     def _create_sdk_metric(self, metric, records: List[MetricRecord],
-                           timestamp: float) -> Optional[Metric]:
+                           timestamp: float) -> Optional["Metric"]:
         """
         Create SDK Metric from metric records.
 
@@ -246,7 +246,7 @@ class TSReporter(Reporter):
         else:
             return None
 
-    def _export_metrics(self, metrics_data: MetricsData):
+    def _export_metrics(self, metrics_data: "MetricsData"):
         """
         Export MetricsData using the configured OTLP exporter.
 
