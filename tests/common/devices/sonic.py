@@ -1500,7 +1500,7 @@ Totals               6450                 6449
             for line in output:
                 if pattern.search(line):
                     ipv4_route_kernel_skip_count += 1
-                    logging.debug("skip IPv4 route kernel for directly connected: {}".format(line))
+                    logging.debug("skip IPv4 route kernel for directly connected but not selected: {}".format(line))
 
             if ipv4_route_kernel_skip_count > 0:
                 ipv4_summary['kernel']['routes'] -= ipv4_route_kernel_skip_count
@@ -1531,7 +1531,7 @@ Totals               6450                 6449
             for line in output:
                 if pattern.search(line):
                     ipv6_route_kernel_skip_count += 1
-                    logging.debug("skip IPv6 route kernel for directly connected: {}".format(line))
+                    logging.debug("skip IPv6 route kernel for directly connected but not selected: {}".format(line))
 
             if ipv6_route_kernel_skip_count > 0:
                 ipv6_summary['kernel']['routes'] -= ipv6_route_kernel_skip_count
