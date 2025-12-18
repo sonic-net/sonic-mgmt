@@ -27,4 +27,3 @@ sonic-dump/
 **/common/sai_validation/github.com/
 tests/pfc_headroom_test_params/*.json
 tests/priority/*.json
-ansible/group_vars/vm_host/creds.yml
