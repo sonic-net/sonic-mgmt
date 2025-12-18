@@ -13,22 +13,22 @@ all:
     ptf:
       hosts:
         msr-ixia-api-serv-1:
-          ansible_host: 10.64.246.189
+          ansible_host: 10.64.246.227
           version: ixnetworkweb_9.30
         ixia-apiserver3:
-          ansible_host: 10.64.246.190
+          ansible_host: 10.64.246.228
           version: ixnetworkweb_10.25.2405.106
         ixia-apiserver4:
-          ansible_host: 10.64.246.29
+          ansible_host: 10.64.246.229
           version: ixnetworkweb_10.80.2412.123
         str-aresone-api-serv-01:
-          ansible_host: 10.64.246.191
+          ansible_host: 10.64.246.230
           version: ixnetworkweb_10.25.2405.106
         str-aresone-api-serv-02:
-          ansible_host: 10.64.246.192
+          ansible_host: 10.64.246.231
           version: ixnetworkweb_10.25.2405.106
         str-aresone-api-serv-03:
-          ansible_host: 10.64.246.193
+          ansible_host: 10.64.246.232
           version: ixnetworkweb_10.25.2405.106
       vars:
         ansible_ssh_user: admin
@@ -573,10 +573,10 @@ sonic_nvidia_sn5600_stress:
 sonic_nvidia_sn5640_stress:
   hosts:
     str-sn5640-stress-t0-1:
-      ansible_host: 10.64.246.113
+      ansible_host: 10.64.247.24
       hwsku: Mellanox-SN5640-C512S2
     str-sn5640-stress-t0-2:
-      ansible_host: 10.64.246.115
+      ansible_host: 10.64.247.39
       hwsku: Mellanox-SN5640-C512S2
     str-sn5640-stress-t0-3:
       ansible_host: 10.64.246.86
@@ -591,7 +591,7 @@ sonic_nvidia_sn5640_stress:
       ansible_host: 10.64.246.89
       hwsku: Mellanox-SN5640-C448O16
     str-sn5640-snake-1:
-      ansible_host: 10.64.246.106
+      ansible_host: 10.64.247.12
       hwsku: Mellanox-SN5640-C512S2
     STR-SN5640-RDMA-1:
       ansible_host: 10.3.146.15
@@ -603,7 +603,7 @@ sonic_nvidia_sn5640_stress:
 sonic_arista_7060x6_512_stress:
   hosts:
     str-7060x6-512-snake-1:
-      ansible_host: 10.64.246.116
+      ansible_host: 10.64.247.40
       hwsku: Arista-7060X6-64PE-B-C512S2
     str-7060x6-512-stress-t0-1:
       ansible_host: 10.64.246.187
@@ -659,7 +659,7 @@ ixia_chassis:
       ansible_host: 10.3.145.18
       os: ixia
     t2-aresone-ixia-2:
-      ansible_host: 10.3.155.73
+      ansible_host: 10.64.247.89
       os: ixia
 
 l1_switch:
@@ -675,15 +675,15 @@ l1_switch:
     str-ocs-dlx64-acs-03:
       ansible_host: 10.64.246.135
     str-ocs-dlx64-acs-04:
-      ansible_host: 10.64.246.121
+      ansible_host: 10.64.247.47
     str-ocs-dlx64-acs-05:
       ansible_host: 10.64.246.183
     str-ocs-dlx64-acs-06:
-      ansible_host: 10.64.246.211
+      ansible_host: 10.64.247.51
     str-ocs-dlx64-acs-10:
-      ansible_host: 10.64.246.185
+      ansible_host: 10.64.247.52
     str-ocs-dlx64-acs-11:
-      ansible_host: 10.64.246.186
+      ansible_host: 10.64.247.53
     str-ocs-dlx64-acs-12:
       ansible_host: 10.64.246.53
     str-ocs-dlx64-acs-13:
