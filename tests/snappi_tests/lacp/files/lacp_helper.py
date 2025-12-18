@@ -645,4 +645,3 @@ def get_lacp_add_remove_link_from_dut(snappi_api,
             tgen_port_name, dut_port_name))
     columns = ['Event Name', 'No. of Routes', 'Iterations', 'Frames Delta', 'Avg Convergence Time (ms)']
     logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
-

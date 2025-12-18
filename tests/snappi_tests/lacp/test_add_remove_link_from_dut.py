@@ -58,4 +58,3 @@ def test_lacp_add_remove_link_from_dut(snappi_api,                      # noqa: 
                                       iterations,
                                       port_count,
                                       number_of_routes,)
-

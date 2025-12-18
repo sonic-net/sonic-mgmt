@@ -69,4 +69,3 @@ def test_lacp_timers(snappi_api,                       # noqa: F811
                            number_of_routes,
                            lacpdu_interval_period,
                            lacpdu_timeout,)
-
