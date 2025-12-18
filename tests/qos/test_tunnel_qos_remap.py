@@ -677,7 +677,6 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
     src_port = _last_port_in_last_lag(t1_ports)
     active_tor_mac = rand_selected_dut.facts['router_mac']
     mg_facts = rand_unselected_dut.get_extended_minigraph_facts(tbinfo)
-    ptfadapter.dataplane.flush()
     failures = []
     for inner_dscp, outer_dscp, prio, queue in TEST_DATA:
         pkt, tunnel_pkt = build_testing_packet(src_ip=DUMMY_IP,
@@ -689,6 +688,7 @@ def test_pfc_watermark_extra_lossless_active(ptfhost, fanouthosts, rand_selected
                                                inner_dscp=inner_dscp,
                                                outer_dscp=outer_dscp,
                                                ecn=1)
+        ptfadapter.dataplane.flush()
         # Ingress packet from uplink port
         testutils.send(ptfadapter, src_port, tunnel_pkt.exp_pkt, 1)
         pkt.ttl -= 2  # TTL is decreased by 1 at tunnel forward and decap
