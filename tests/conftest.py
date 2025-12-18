@@ -958,11 +958,13 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request, localhost
                     vmhost_var_vm_host_user = vmhost_visible_vars.get('vm_host_user', '')
 
                     ssh_proxy_user = jinja2.Template(vmhost_var_vm_host_user).render(**vmhost_visible_vars)
-                    # When variable `ansible_ssh_proxy_host` is defined, use it as the proxy host. Else use `ansible_host`.
+                    # When variable `ansible_ssh_proxy_host` is defined, use it as the proxy host.
+                    # Else use `ansible_host`.
                     # Variable `ansible_ssh_proxy_host` can use value of `ansible_host` or `ansibl_hostv6`.
                     # Some vmhosts may only be accessible by IPv4, while others may only be accessible by IPv6.
                     # There is no standard way to know which one to use, so we let user to define it in inventory.
-                    ssh_proxy_host = vmhost_var_ansible_ssh_proxy_host if vmhost_var_ansible_ssh_proxy_host else vmhost_var_ansible_host
+                    ssh_proxy_host = vmhost_var_ansible_ssh_proxy_host \
+                        if vmhost_var_ansible_ssh_proxy_host else vmhost_var_ansible_host
 
                     if ssh_proxy_user and ssh_proxy_host:
                         # Enable SSH key authentication on vmhost using authorized_key module
