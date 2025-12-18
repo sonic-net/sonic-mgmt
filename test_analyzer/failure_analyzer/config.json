@@ -116,6 +116,13 @@
                     "testbed_branch": ["202509"],
                     "included": true,
                     "threshold": 51
+                },
+                {
+                    "id": "202511",
+                    "name": "202511",
+                    "testbed_branch": ["202511"],
+                    "included": true,
+                    "threshold": 51
                 }
             ]
         },
@@ -298,13 +305,14 @@
         "icm_202503_limit": 50,
         "icm_202505_limit": 50,
         "icm_202509_limit": 5,
+        "icm_202511_limit": 50,
         "new_icm_number_limit": 30,
         "max_icm_count_per_module": 40,
         "max_ai_flaky_icm_limit": 3,
         "max_flaky_icm_limit": 3
     },
     "auto_blame_branch": {
-        "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110", "20240531", "20240510", "20241110", "20241211", "20250505", "20250510"],
+        "branches": ["master", "internal", "20201231", "20220531", "20230531", "20231110", "20240531", "20240510", "20241110", "20241211", "20250505", "20250510", "20251105", "20251110"],
         "master": ["master"],
         "internal": ["internal", "master"],
         "20201231": ["202012", "internal-202012", "master"],
@@ -316,7 +324,9 @@
         "20241110": ["202411", "internal-202411", "internal", "master"],
         "20241211": ["202412", "internal-202412", "internal", "master"],
         "20250510": ["202505", "internal-202505", "internal", "master"],
-        "20250505": ["202505", "internal-202505", "internal", "master"]
+        "20250505": ["202505", "internal-202505", "internal", "master"],
+        "20251105": ["202511", "internal-202511", "internal", "master"],
+        "20251110": ["202511", "internal-202511", "internal", "master"]
     },
     "auto_blame_repo": {
         "master": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage"],
@@ -330,6 +340,8 @@
         "20241110": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
         "20250510": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
         "20241211": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
-        "20250505": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
+        "20250505": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
+        "20251105": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"],
+        "20251110": ["sonic-net/sonic-mgmt", "sonic-net/sonic-buildimage", "Mssonic/internal/_git/sonic-mgmt-int", "Defaultcollection/one/_git/networking-acs-buildimage"]
     }
 }
