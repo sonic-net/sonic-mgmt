@@ -11,12 +11,12 @@ CODEOWNERS_SCRIPTS="/labhome/nmirin/workspace/repo/sonic-pipelines/scripts/code-
 
 
 CURRENT_SCRIPT=$(readlink -f "$0")
-CODEOWNERS_METADIR=$(dirname "${CURRENT_SCRIPT}")
-REPO_DIR=$(dirname "${CODEOWNERS_METADIR}")
+CODEREVIEWERS_METADIR=$(dirname "${CURRENT_SCRIPT}")
+DOT_GITHUB_DIR=$(dirname "${CODEREVIEWERS_METADIR}")
+REPO_DIR=$(dirname "${DOT_GITHUB_DIR}")
 
-cat "${CODEOWNERS_METADIR}/CODEOWNERS.header"
 # Example command
 uv --project "${CODEOWNERS_SCRIPTS}" \
       	run codeowners-cli --repo "${REPO_DIR}" \
-                      	   --contributors_file "${CODEOWNERS_METADIR}/contributors.yaml" \
-			   --folder_presets_file "${CODEOWNERS_METADIR}/folder_presets.yaml"
+                      	   --contributors_file "${CODEREVIEWERS_METADIR}/contributors.yaml" \
+			   --folder_presets_file "${CODEREVIEWERS_METADIR}/folder_presets.yaml" | tee "${REPO_DIR}/.github/pr_reviewer-by-files.yml"

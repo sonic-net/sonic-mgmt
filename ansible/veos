@@ -379,6 +379,8 @@ all:
           - m1-44
           - m1-108
           - m1-128
+          - c0
+          - c0-lo
           - dpu-1
           - smartswitch-t1
           - t1-smartswitch-ha

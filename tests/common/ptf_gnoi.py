@@ -7,8 +7,6 @@ gRPC complexity behind clean, Pythonic method interfaces.
 """
 import logging
 from typing import Dict
-import grpc
-from tests.common.ptf_grpc import GrpcCallError
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +59,8 @@ class PtfGnoi:
         return response
 
     # File service operations
+    # TODO: Add file_get(), file_put(), file_remove() methods
+    # These are left for future implementation when gNOI File service is stable
 
     def file_stat(self, remote_file: str) -> Dict:
         """
@@ -99,72 +99,9 @@ class PtfGnoi:
             logger.info(f"Successfully got file stats: {remote_file}")
             return response
 
-        except GrpcCallError as e:
-            if e.code() == grpc.StatusCode.NOT_FOUND:
-                raise FileNotFoundError(f"File not found: {remote_file}") from e
-            raise
-
-    def file_transfer_to_remote(self, local_path: str, remote_url: str, protocol: str = "HTTP",
-                                username: str = None, password: str = None) -> Dict:
-        """
-        Transfer a file from a remote URL to a local path on the device.
-
-        Args:
-            local_path: Destination path on the device where file should be saved
-            remote_url: Source URL to download the file from
-            protocol: Transfer protocol ("HTTP", "HTTPS", "SFTP", "SCP")
-            username: Username for authentication (optional)
-            password: Password for authentication (optional)
-
-        Returns:
-            Dictionary containing:
-            - hash: Hash information of the transferred file
-
-        Raises:
-            GrpcConnectionError: If connection fails
-            GrpcCallError: If the gRPC call fails
-            GrpcTimeoutError: If the call times out
-            ValueError: If protocol is not supported
-        """
-        logger.debug(f"Transferring file from {remote_url} to {local_path}")
-
-        # Map protocol strings to enum values
-        protocol_map = {
-            "UNKNOWN": 0,
-            "SFTP": 1,
-            "HTTP": 2,
-            "HTTPS": 3,
-            "SCP": 4
-        }
-
-        if protocol.upper() not in protocol_map:
-            raise ValueError(f"Unsupported protocol: {protocol}. "
-                             f"Supported protocols: {list(protocol_map.keys())}")
-
-        # Build the request
-        request = {
-            "localPath": local_path,
-            "remoteDownload": {
-                "path": remote_url,
-                "protocol": protocol_map[protocol.upper()]
-            }
-        }
-
-        # Add credentials if provided
-        if username and password:
-            request["remoteDownload"]["credentials"] = {
-                "username": username,
-                "cleartext": password
-            }
-
-        try:
-            response = self.grpc_client.call_unary("gnoi.file.File", "TransferToRemote", request)
-
-            logger.info(f"Successfully transferred file from {remote_url} to {local_path}")
-            return response
-
         except Exception as e:
-            logger.error(f"Failed to transfer file from {remote_url} to {local_path}: {e}")
+            if "not found" in str(e).lower() or "no such file" in str(e).lower():
+                raise FileNotFoundError(f"File not found: {remote_file}") from e
             raise
 
     def __str__(self):

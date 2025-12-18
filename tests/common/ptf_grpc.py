@@ -253,7 +253,7 @@ class PtfGrpc:
             client_cert=ptf_cert_paths['client_cert'],
             client_key=ptf_cert_paths['client_key']
         )
-        logger.debug("Auto-configured TLS certificates using centralized config")
+        logger.debug("Auto-configured TLS certificates with standard paths")
 
     def test_connection(self) -> bool:
         """
