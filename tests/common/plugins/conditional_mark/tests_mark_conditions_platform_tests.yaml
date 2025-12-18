@@ -1409,6 +1409,10 @@ platform_tests/test_secure_upgrade.py:
     conditions:
       - "topo_type in ['m0', 'mx'] and release in ['202305']"
       - "'sn2' in platform or 'sn3' in platform or 'sn4' in platform"
+  xfail:
+    reason: "xfail for scale topology, issue https://github.com/sonic-net/sonic-buildimage/issues/24537"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24537 and 't0-isolated-d256u256s2' in topo_name"
 
 #######################################
 #########  test_sensors.py  ###########
