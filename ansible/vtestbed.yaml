@@ -15,6 +15,21 @@
   auto_recover: 'False'
   comment: Tests virtual switch vm
 
+- conf-name: vms-kvm-t0-csonic
+  group-name: vms6-1
+  topo: t0_csonic
+  ptf_image_name: docker-ptf
+  ptf: ptf-01
+  ptf_ip: 10.250.0.102/24
+  ptf_ipv6: fec0::ffff:afa:2/64
+  server: server_1
+  vm_base: VM0100
+  dut:
+    - vlab-01
+  inv_name: veos_vtb
+  auto_recover: 'False'
+  comment: Tests cSONiC virtual switch VMs without PortChannels
+
 - conf-name: vms-kvm-t0-64
   group-name: vms6-1
   topo: t0-64
