@@ -954,8 +954,9 @@ def setup_add_cluster(tbinfo,
     )
     initial_buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
     with allure.step("Data Verification before removing cluster"):
-        logger.info(duthost.shell('show ip bgp summary -d all'))
-        logger.info(duthost.shell('show ipv6 bgp summary -d all'))
+        for host_device in duthosts:
+            logger.info(host_device.shell('show ip bgp summary -d all'))
+            logger.info(host_device.shell('show ipv6 bgp summary -d all'))
         send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
                                 ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
 
