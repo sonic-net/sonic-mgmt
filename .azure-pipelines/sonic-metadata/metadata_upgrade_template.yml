@@ -6,6 +6,13 @@ parameters:
 - name: UPGRADE_TYPE
   type: string
   displayName: "Type of upgrade"
+- name: UPGRADE_STRATEGY
+  type: string
+  displayName: "Upgrade Strategy"
+  default: script
+  values:
+  - script
+  - gnoi
 - name: VM_TYPE
   type: string
   displayName: "VM type of neighbor devices"
@@ -291,6 +298,7 @@ stages:
       parameters:
         TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
         UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+        UPGRADE_STRATEGY: ${{ parameters.UPGRADE_STRATEGY }}
         VM_TYPE: ${{ parameters.VM_TYPE }}
         UPGRADE_TEST_TYPE: ${{ parameters.UPGRADE_TEST_TYPE }}
         FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
@@ -370,6 +378,7 @@ stages:
         parameters:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+          UPGRADE_STRATEGY: ${{ parameters.UPGRADE_STRATEGY }}
           VM_TYPE: ${{ parameters.VM_TYPE }}
           UPGRADE_TEST_TYPE: A->B
           FROM_IMAGE_LIST: ${{ parameters.FROM_IMAGE_LIST }}
@@ -404,6 +413,7 @@ stages:
         parameters:
           TESTBED_NAME: ${{ parameters.TESTBED_NAME }}
           UPGRADE_TYPE: ${{ parameters.UPGRADE_TYPE }}
+          UPGRADE_STRATEGY: ${{ parameters.UPGRADE_STRATEGY }}
           VM_TYPE: ${{ parameters.VM_TYPE }}
           UPGRADE_TEST_TYPE: multi-hop
           FROM_IMAGE_LIST: ""

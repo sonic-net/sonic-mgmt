@@ -4,6 +4,9 @@ parameters:
 - name: UPGRADE_TYPE
   type: string
   default: warm
+- name: UPGRADE_STRATEGY
+  type: string
+  default: script
 - name: ENABLE_CPA
   type: boolean
   default: true
@@ -245,7 +248,7 @@ steps:
                 echo From URL is $from_url
                 echo To URL is $to_url
 
-                EXTRA_PARAMS="--showlocals --assert plain -rav $cpa_option --upgrade_type=$UPGRADE_TYPE --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
+                EXTRA_PARAMS="--showlocals --assert plain -rav $cpa_option --upgrade_type=$UPGRADE_TYPE --upgrade_strategy=${{ parameters.UPGRADE_STRATEGY }} --skip_sanity --base_image_list=$from_url --target_image_list=$to_url --sad_case_list=$select_sad_cases $skip_postupgrade_actions_option $metadata_process_option $tcam_hole_option $ceos_lacp_multiplier_option $CONSISTENCY_CHECKER_ARGS"
 
                 if [[ "${{ parameters.VM_TYPE }}" == "vsonic" ]]; then
                     EXTRA_PARAMS="$EXTRA_PARAMS --neighbor_type=sonic"
