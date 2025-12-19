@@ -138,7 +138,7 @@ class QosBase:
 
         yield dut_test_params_qos
 
-    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False):
+    def runPtfTest(self, ptfhost, testCase='', testParams={}, relax=False, pdb=False, skip_pcap=False):
         """
             Runs QoS SAI test case on PTF host
 
@@ -147,6 +147,7 @@ class QosBase:
                 testCase (str): SAI tests test case name
                 testParams (dict): Map of test params required by testCase
                 relax (bool): Relax ptf verify packet requirements (default: False)
+                skip_pcap (bool): Skip pcap file generation to avoid OOM with high packet counts (default: False)
 
             Returns:
                 None
@@ -163,13 +164,15 @@ class QosBase:
         log_suffix = testParams.get("log_suffix", "")
         logfile_suffix = "_{0}".format(log_suffix) if log_suffix else ""
 
+        # Skip log_file (and thus pcap generation) if skip_pcap is True
+        log_file = None if skip_pcap else "/tmp/{0}{1}.log".format(testCase, logfile_suffix)
         ptf_runner(
             ptfhost,
             "saitests",
             testCase,
             platform_dir="ptftests",
             params=testParams,
-            log_file="/tmp/{0}{1}.log".format(testCase, logfile_suffix),  # Include suffix in the logfile name,
+            log_file=log_file,
             qlen=10000,
             is_python3=True,
             relax=relax,
@@ -1003,16 +1006,23 @@ class QosSaiBase(QosBase):
         dst_dut = get_src_dst_asic_and_duts['dst_dut']
         src_mgFacts = src_dut.get_extended_minigraph_facts(tbinfo)
         topo = tbinfo["topo"]["name"]
-        src_mgFacts['minigraph_ptf_indices'] = {
+
+        # Build a set of Ethernet ports to exclude (with 18.x.202.0/31 IPs)
+        excluded_ports = set()
+        excluded_ports.update(duthosts[0].get_backplane_ports())
+        # Filter minigraph_ptf_indices to exclude dynamic ports
+        src_mgFacts["minigraph_ptf_indices"] = {
             key: value
-            for key, value in src_mgFacts['minigraph_ptf_indices'].items()
-            if not key.startswith("Ethernet-BP")
-            }
-        src_mgFacts['minigraph_ports'] = {
+            for key, value in src_mgFacts["minigraph_ptf_indices"].items()
+            if key not in excluded_ports
+        }
+
+        # Filter minigraph_ports to exclude dynamic ports
+        src_mgFacts["minigraph_ports"] = {
             key: value
-            for key, value in src_mgFacts['minigraph_ports'].items()
-            if not key.startswith("Ethernet-BP")
-            }
+            for key, value in src_mgFacts["minigraph_ports"].items()
+            if key not in excluded_ports
+        }
         bgp_peer_ip_key = "peer_ipv6" if ip_type == "ipv6" else "peer_ipv4"
         ip_version = 6 if ip_type == "ipv6" else 4
         vlan_info = {}

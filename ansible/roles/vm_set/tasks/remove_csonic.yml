@@ -1,0 +1,11 @@
+- name: Remove cSONiC container csonic_{{ vm_set_name }}_{{ item }}
+  become: yes
+  docker_container:
+    name: csonic_{{ vm_set_name }}_{{ item }}
+    state: absent
+
+- name: Remove net base container net_{{ vm_set_name }}_{{ item }}
+  become: yes
+  docker_container:
+    name: net_{{ vm_set_name }}_{{ item }}
+    state: absent
