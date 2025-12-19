@@ -55,6 +55,9 @@ class VxlanEcmpTest(BaseTest):
         self.send_port = int(params.get("ptf_ingress_port", 0))
         self.mac_vni_verify = params.get("mac_vni_verify", "") == "yes"
         self.vni = params.get("vni")
+        self.deleted_endpoints = params.get("deleted_endpoints", [])
+        self.modified_mac_index = params.get("modified_mac_index")
+        self.modified_mac_value = params.get("modified_mac_value")
         self.random_mac = "00:aa:bb:cc:dd:ee"
         self.tcp_sport = 1234
         self.tcp_dport = 5000
@@ -127,6 +130,8 @@ class VxlanEcmpTest(BaseTest):
         src_mac = self.dataplane.get_mac(0, self.send_port)
         endpoint_hits = {ep: 0 for ep in self.endpoints}
         mismatch_count = 0
+        if self.modified_mac_index is not None:
+            self.mac_list[self.modified_mac_index] = self.modified_mac_value
 
         for _ in range(self.num_packets):
 
@@ -232,6 +237,8 @@ class VxlanEcmpTest(BaseTest):
                     vtep_dst = ether[scapy.IP].dst
                     if vtep_dst in self.endpoints:
                         counts[vtep_dst] = counts.get(vtep_dst, 0) + 1
+                    if vtep_dst in self.deleted_endpoints:
+                        raise AssertionError(f"Received packet for deleted endpoint {vtep_dst}")
 
             logger.info(f"Completed batch {total_sent}/{self.num_packets}.")
             time.sleep(0.3)  # small pause before next burst
