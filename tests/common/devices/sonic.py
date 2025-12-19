@@ -1,4 +1,3 @@
-
 import ipaddress
 import json
 import logging
@@ -2975,45 +2974,55 @@ Totals               6450                 6449
                 logging.error(f"Error starting bgpd process: {str(e)}")
                 return {'rc': 1, 'stdout': '', 'stderr': str(e)}
 
-    def set_loopback(self, port: str, baud_rate: str) -> tuple[int, str]:
-        # Check if device path exists
-        device_path = f"/dev/C0-{port}"
-
+    def _check_device_path_exists(self, device_path: str) -> None:
+        """Check if device path exists. Raises RuntimeError if check fails."""
         res: ShellResult = self.shell(f"test -e {device_path}", module_ignore_errors=True)
         if res['rc'] != 0:
-            log_message = f"Device path {device_path} does not exist: {res.get('stderr', '')}"
-            logging.error(log_message)
-            return 1, log_message
+            error_msg = f"Device path {device_path} does not exist: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
-        # Check if device path is already in use
+    def _check_device_path_not_in_use(self, device_path: str) -> None:
+        """Check if device path is not in use. Raises RuntimeError if check fails."""
         res: ShellResult = self.shell(f"sudo lsof {device_path}", module_ignore_errors=True)
         if res['stdout'] or res['stderr']:
-            log_message = f"Device path {device_path} is already in use: {res.get('stdout', '')}"
-            logging.error(log_message)
-            return 1, log_message
+            error_msg = f"Device path {device_path} is already in use: {res.get('stdout', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
-        # Excute loopback command
+    def set_loopback(self, port: str, baud_rate: str = '9600', flow_control: bool = False) -> None:
+        """Set loopback on the specified port. Raises RuntimeError on failure."""
+        device_path = f"/dev/C0-{port}"
+
+        # Check if device path exists and is not in use or raise error
+        self._check_device_path_exists(device_path)
+        self._check_device_path_not_in_use(device_path)
+
+        # Set hardware flow control option
+        crtscts_val = "1" if flow_control else "0"
+
+        # Execute loopback command
         command = (
             f"sudo socat -d -d "
             f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
-            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts=0,icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
             f"EXEC:'/bin/cat' "
             f"& echo $! "
         )
 
         res: ShellResult = self.shell(command, module_ignore_errors=True)
         if res['failed']:
-            log_message = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
-            logging.error(log_message)
-            return 1, log_message
+            error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
         logging.info(f"Successfully started socat loopback on port {port}")
 
-        return 0, f"Loopback started on {device_path}"
-
-    def unset_loopback(self, port: str) -> tuple[int, str]:
+    def unset_loopback(self, port: str) -> None:
+        """Unset loopback on the specified port. Raises RuntimeError on failure."""
         # Find all related socat processes
         device_path = f"/dev/C0-{port}"
+        self._check_device_path_exists(device_path)
 
         res: ShellResult = self.shell(f"pgrep -f 'socat .*{device_path}'", module_ignore_errors=True)
         pids = res['stdout'].strip().split('\n')
@@ -3027,19 +3036,82 @@ Totals               6450                 6449
             self.shell(f"ps aux | grep 'socat .*{device_path}' | grep -v grep", module_ignore_errors=True)
 
         if res['stdout'].strip():
-            log_message = f"Failed to stop socat process for device path {device_path}"
-            logging.error(log_message)
-            return 1, log_message
+            error_msg = f"Failed to stop socat process for device path {device_path}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
         logging.info(f"Successfully stopped socat loopback on port {port}")
 
-        return 0, f"Loopback stopped on {device_path}"
+    def bridge(self, port1: str, port2: str, baud_rate: str = "9600", flow_control: bool = False) -> None:
+        """Bridge two ports together. Raises RuntimeError on failure."""
+        device_path1 = f"/dev/C0-{port1}"
+        device_path2 = f"/dev/C0-{port2}"
 
-    def bridge(self, port1: str, port2: str):
-        raise NotImplementedError("Bridge method is not implemented yet")
+        # Check if both device paths exist and are not in use or rasie error
+        self._check_device_path_exists(device_path1)
+        self._check_device_path_exists(device_path2)
+        self._check_device_path_not_in_use(device_path1)
+        self._check_device_path_not_in_use(device_path2)
 
-    def unbridge(self, port1: str, port2: str):
-        raise NotImplementedError("Bridge method is not implemented yet")
+        # Set hardware flow control option
+        crtscts_val = "1" if flow_control else "0"
+
+        # Execute bridge command
+        command = (
+            f"sudo socat -d -d "
+            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"& echo $! "
+        )
+
+        res: ShellResult = self.shell(command, module_ignore_errors=True)
+        if res['failed']:
+            error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully bridged ports {port1} and {port2}")
+
+    def unbridge(self, port1: str, port2: str) -> None:
+        """Remove bridge between two ports. Raises RuntimeError on failure."""
+        device_path1 = f"/dev/C0-{port1}"
+        device_path2 = f"/dev/C0-{port2}"
+
+        self._check_device_path_exists(device_path1)
+        self._check_device_path_exists(device_path2)
+
+        # Find all related socat processes for both ports
+        res: ShellResult = self.shell(
+            f"pgrep -f 'socat .*{device_path1}.*{device_path2}|socat .*{device_path2}.*{device_path1}'",
+            module_ignore_errors=True
+        )
+        pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
+
+        if not pids or pids == ['']:
+            error_msg = f"No bridge found between {device_path1} and {device_path2}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Kill all related socat processes
+        for pid in pids:
+            if pid:  # Skip empty strings
+                self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        # Confirm all related processes have stopped
+        res: ShellResult = self.shell(
+            f"ps aux | grep -E 'socat.*{device_path1}.*{device_path2}|socat.*{device_path2}.*{device_path1}' "
+            f"| grep -v grep",
+            module_ignore_errors=True,
+        )
+
+        if res['stdout'].strip():
+            error_msg = f"Failed to stop bridge process between {device_path1} and {device_path2}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully unbridged ports {port1} and {port2}")
 
     def bridge_remote(self, port: str, remote_host: str, remote_port: str):
         raise NotImplementedError("Bridge method is not implemented yet")
@@ -3047,7 +3119,8 @@ Totals               6450                 6449
     def unbridge_remote(self, port: str):
         raise NotImplementedError("Bridge method is not implemented yet")
 
-    def cleanup_all_console_sessions(self):
+    def cleanup_all_console_sessions(self) -> None:
+        """Clean up all console sessions. Raises RuntimeError on failure."""
         # Find all related serial port processes
         res: ShellResult = self.shell("sudo lsof -t /dev/C0-*", module_ignore_errors=True)
         pids = res['stdout'].strip().split('\n')
@@ -3059,12 +3132,11 @@ Totals               6450                 6449
         # Check that no serial ports are in use
         res: ShellResult = self.shell("sudo lsof /dev/C0-*", module_ignore_errors=True)
         if res['stdout'].strip() or res['stderr'].strip():
-            log_message = "Failed to clean up all console sessions: some ports are still in use"
-            logging.error(log_message)
-            return 1, log_message
+            error_msg = "Failed to clean up all console sessions: some ports are still in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
         logging.info("Successfully cleaned up all console sessions")
-        return 0, "All console sessions cleaned up successfully"
 
 
 def assert_exit_non_zero(shell_output):
