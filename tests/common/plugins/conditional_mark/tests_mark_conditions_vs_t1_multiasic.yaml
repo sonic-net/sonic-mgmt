@@ -183,6 +183,11 @@ generic_config_updater/test_mmu_dynamic_threshold_config_update.py:
     conditions:
     - asic_type in ['vs'] and 't1-8-lag' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
+generic_config_updater/test_monitor_config.py:
+  skip:
+    conditions:
+    - asic_type in ['vs'] and 't1-8-lag' in topo_name
+    reason: This test case either cannot pass or should be skipped on virtual chassis
 generic_config_updater/test_packet_trimming_config_asymmetric.py:
   skip:
     conditions:
