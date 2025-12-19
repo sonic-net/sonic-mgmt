@@ -2,8 +2,8 @@ import pytest
 import logging
 import json
 
-from .helper import gnoi_request
-from tests.common.helpers.assertions import pytest_assert
+#from .helper import gnoi_request
+#from tests.common.helpers.assertions import pytest_assert
 import re
 
 pytestmark = [
