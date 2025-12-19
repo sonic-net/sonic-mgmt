@@ -404,7 +404,7 @@ vm_host_3:
 vm_host_6:
   hosts:
     STR-ACS-SERV-06:
-      ansible_host: 10.64.247.1
+      ansible_host: 10.64.247.42
 vm_host_7:
   hosts:
     STR-ACS-SERV-07:
@@ -444,7 +444,7 @@ vm_host_64:
 vm_host_66:
   hosts:
     STR3-ACS-SERV-66:
-      ansible_host: 10.64.247.65
+      ansible_host: 10.64.247.118
 vm_host_67:
   hosts:
     STR3-ACS-SERV-67:
@@ -548,7 +548,7 @@ vm_host_20:
 vm_host_21:
   hosts:
     STR2-ACS-SERV-21:
-      ansible_host: 10.64.246.133
+      ansible_host: 10.64.246.115
 vm_host_24:
   hosts:
     STR2-ACS-SERV-24:

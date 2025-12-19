@@ -675,7 +675,7 @@ l1_switch:
     str-ocs-dlx64-acs-03:
       ansible_host: 10.64.246.135
     str-ocs-dlx64-acs-04:
-      ansible_host: 10.64.247.47
+      ansible_host: 10.64.247.27
     str-ocs-dlx64-acs-05:
       ansible_host: 10.64.246.183
     str-ocs-dlx64-acs-06:
