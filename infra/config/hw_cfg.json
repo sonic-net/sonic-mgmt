@@ -740,7 +740,7 @@
             "skip_folder":"",
             "custom_result_url":"http://172.27.146.35/run_logs/cicd_runs/",
             "external_ucs": "none",
-            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "run_type_check": "/data/spytest_tb_files/combined_m64_optics.yaml",
             "extra_onie_check": [
                 "show lldp table"
             ],
@@ -785,7 +785,7 @@
             "tests_list": ["/data/sonic-mgmt/spytest/tests/optics/test_optics.py"],
             "custom_result_url": "http://172.27.146.35/run_logs/cicd_runs/",
             "external_ucs": "none",
-            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "run_type_check": "/data/spytest_tb_files/crocodile_b2b.yaml",
             "extra_onie_check": [
                 "show lldp table"
             ],
@@ -979,7 +979,7 @@
             "custom_result_url":"http://172.27.146.35/run_logs/cicd_runs/",
             "lldp_count": 7,
             "external_ucs": "none",
-            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "run_type_check": "/data/spytest_tb_files/comcast_cmono_b2b.yaml",
             "optional_run_params": {
                 "testbed_yaml": {
                     "default": "/data/spytest_tb_files/comcast_cmono_b2b.yaml"
@@ -2021,7 +2021,7 @@
             "cisco.202511.signed"
         ],
         "t1-m6-27-m64": "None",
-        "t1-m3-4-cmono": "None",
+        "t1-m3-4-cmono": ["cisco.202511.signed"],
         "t0-m6-28-superbolt": "None",
         "t0-m6-24-lightning": "None",
         "t0-m6-20-lightning": "None",

@@ -494,6 +494,15 @@ def remove_topo(args):
     [_, _, stream] = extractFromImageName(full_link)
     testbed_info_dict = getTestbedInfoDict(testbed)
 
+    remove_topo_cmd = testbed_info_dict.get('remove_topo_cmd')
+    if remove_topo_cmd is None:
+        log.warning(f"cannot get cmd for remove_topo from testbed_info_dict for testbed {testbed}")
+        log.warning(f"Will continue the execution skipping remove-topo step entirely. Make sure it is intended (e.g. "
+                    f"b2b testbed is used), otherwise update the info in hw_cfg.json")
+        return 0
+    else:
+        log.debug(f'got cmd for remove_topo: "{remove_topo_cmd}"')
+
     with paramiko.SSHClient() as client:
         client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
         client.connect(
@@ -502,19 +511,13 @@ def remove_topo(args):
             password=testbed_info_dict['ucs_password']
         )
 
-        remove_topo_cmd = testbed_info_dict.get('remove_topo_cmd')
-        if remove_topo_cmd is None:
-            log.warning(f"cannot get cmd for remove_topo from testbed_info_dict for testbed {testbed}")
-            return 1
-        else:
-            log.debug(f'got cmd for remove_topo: "{remove_topo_cmd}"')
         remove_topo_outside_docker_cmd = getDockerExecCommand(stream,
                                                               testbed,
                                                               flags='',
                                                               suffix=f'-c "cd /data/ansible; {remove_topo_cmd}"')
         log.info(f"One-liner to remove topo from outside sonic-mgmt docker container:\n{remove_topo_outside_docker_cmd}")
         _, _, rc = _run_cmd_in_ssh(client, remove_topo_outside_docker_cmd, timeout=REMOVE_TOPO_TIMEOUT_SEC)
-    return
+    return 0
 
 def load_docker_ptf_image(stream, docker_ptf_url=None):
     log.info('start load_docker_ptf_image')
@@ -575,6 +578,15 @@ def add_topo(args):
     [_, _, stream] = extractFromImageName(full_link)
     testbed_info_dict = getTestbedInfoDict(testbed)
 
+    add_topo_cmd = testbed_info_dict.get('add_topo_cmd')
+    if add_topo_cmd is None:
+        log.warning(f"Cannot get cmd for add_topo from testbed_info_dict for testbed {testbed}")
+        log.warning(f"Will continue the execution skipping add-topo step entirely. Make sure it is intended (e.g. "
+                    f"b2b testbed is used), otherwise update the info in hw_cfg.json")
+        return 0
+    else:
+        log.debug(f'got cmd for add_topo: "{add_topo_cmd}"')
+
     load_docker_ptf_image(getBranchFromStream(stream), os.getenv("DOCKER_PTF_IMAGE_OVERRIDE"))
 
     with paramiko.SSHClient() as client:
@@ -585,19 +597,56 @@ def add_topo(args):
             password=testbed_info_dict['ucs_password']
         )
 
-        add_topo_cmd = testbed_info_dict.get('add_topo_cmd')
-        if add_topo_cmd is None:
-            log.warning(f"cannot get cmd for add_topo from testbed_info_dict for testbed {testbed}")
-            return 1
-        else:
-            log.debug(f'got cmd for add_topo: "{add_topo_cmd}"')
         add_topo_outside_docker_cmd = getDockerExecCommand(stream,
                                                            testbed,
                                                            flags='',
                                                            suffix=f'-c "cd /data/ansible; {add_topo_cmd}"')
         log.info(f"One-liner to add topo from outside sonic-mgmt docker container:\n{add_topo_outside_docker_cmd}")
         _, _, rc = _run_cmd_in_ssh(client, add_topo_outside_docker_cmd, timeout=ADD_TOPO_TIMEOUT_SEC)
-    return
+        #todo handle rc: MIGSOFTWAR-32271
+
+    # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
+    SAITHRIFT_DEB_FILENAME = "python-saithrift_1.13.0_amd64.deb"
+    SAITHRIFT_DEB_URL = f"http://172.26.235.76/MISC/{SAITHRIFT_DEB_FILENAME}"
+
+    with paramiko.SSHClient() as client:
+        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        client.connect(
+            hostname=testbed_info_dict['ucs_host'],
+            username=testbed_info_dict['ucs_username'],
+            password=testbed_info_dict['ucs_password']
+        )
+
+        container_name = getSonicMgmtContainterName(stream, testbed)
+        destination_path = "/data"
+        testbed_mount_dir = get_container_local_mount_dir(client, container_name, destination_path)
+
+        # grep 'group-name:' ansible/testbed.yaml | awk -F': ' '{print $2}'
+        group_name, _, _ = _run_cmd_in_ssh(client, cmd=f"grep 'group-name:' {testbed_mount_dir}/ansible/testbed.yaml | awk -F': ' '{{print $2}}'")
+        group_name = group_name.strip()
+        docker_ptf_container_name = f"ptf_{group_name}"
+
+        log.info(f"Installing {SAITHRIFT_DEB_FILENAME} inside {docker_ptf_container_name} container")
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {SAITHRIFT_DEB_URL}', timeout=60 * 5)
+        if status_code:
+            raise Exception(f"Download {SAITHRIFT_DEB_FILENAME} failed: \n{stderr}")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker cp {SAITHRIFT_DEB_FILENAME} {docker_ptf_container_name}:/root")
+        if status_code != 0:
+            raise Exception(f"Copy {SAITHRIFT_DEB_FILENAME} to {docker_ptf_container_name} failed: \n{stderr}")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg -i {SAITHRIFT_DEB_FILENAME}'")
+        if status_code != 0:
+            raise Exception(f"Install {SAITHRIFT_DEB_FILENAME} in {docker_ptf_container_name} failed: \n{stderr}")
+
+        _, _, _ = _run_cmd_in_ssh(client, f"rm {SAITHRIFT_DEB_FILENAME}")
+
+        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg --list | grep saithrift'")
+        log.debug(f"Verify {SAITHRIFT_DEB_FILENAME} installation output:\n{stdout}")
+
+        log.info(f"{SAITHRIFT_DEB_FILENAME} installed successfully inside {docker_ptf_container_name} container")
+
+    return 0
 
 def deploy_mg(args):
     testbed = args.testbed.strip()
@@ -711,46 +760,8 @@ def extra_configuration_steps(args):
         else:
             log.error("Unable to read `vms_count` from TB dict `mtu_hack` section. Skipping this step.")
 
-    # install python-saithrift_1.13.0_amd64.deb inside docker ptf container
-    SAITHRIFT_DEB_FILENAME = "python-saithrift_1.13.0_amd64.deb"
-    SAITHRIFT_DEB_URL = f"http://172.26.235.76/MISC/{SAITHRIFT_DEB_FILENAME}"
-
-    with paramiko.SSHClient() as client:
-        client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        client.connect(
-            hostname=testbed_info_dict['ucs_host'],
-            username=testbed_info_dict['ucs_username'],
-            password=testbed_info_dict['ucs_password']
-        )
-
-        container_name = getSonicMgmtContainterName(stream, testbed)
-        destination_path = "/data"
-        testbed_mount_dir = get_container_local_mount_dir(client, container_name, destination_path)
-
-        # grep 'group-name:' ansible/testbed.yaml | awk -F': ' '{print $2}'
-        group_name, _, _ = _run_cmd_in_ssh(client, cmd=f"grep 'group-name:' {testbed_mount_dir}/ansible/testbed.yaml | awk -F': ' '{{print $2}}'")
-        group_name = group_name.strip()
-        docker_ptf_container_name = f"ptf_{group_name}"
-
-        log.info(f"Installing {SAITHRIFT_DEB_FILENAME} inside {docker_ptf_container_name} container")
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f'{UNSET_HTTP_PROXY}; wget -nc {SAITHRIFT_DEB_URL}', timeout=60 * 5)
-        if status_code:
-            raise Exception(f"Download {SAITHRIFT_DEB_FILENAME} failed: \n{stderr}")
-
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker cp {SAITHRIFT_DEB_FILENAME} {docker_ptf_container_name}:/root")
-        if status_code != 0:
-            raise Exception(f"Copy {SAITHRIFT_DEB_FILENAME} to {docker_ptf_container_name} failed: \n{stderr}")
-
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg -i {SAITHRIFT_DEB_FILENAME}'")
-        if status_code != 0:
-            raise Exception(f"Install {SAITHRIFT_DEB_FILENAME} in {docker_ptf_container_name} failed: \n{stderr}")
-
-        _, _, _ = _run_cmd_in_ssh(client, f"rm {SAITHRIFT_DEB_FILENAME}")
-
-        stdout, stderr, status_code = _run_cmd_in_ssh(client, f"docker exec {docker_ptf_container_name} bash -c 'dpkg --list | grep saithrift'")
-        log.debug(f"Verify {SAITHRIFT_DEB_FILENAME} installation output:\n{stdout}")
-
-        log.info(f"{SAITHRIFT_DEB_FILENAME} installed successfully inside {docker_ptf_container_name} container")
+    log.info("End of extra_configuration_steps")
+    return 0
 
 
 def install_allure(args):
