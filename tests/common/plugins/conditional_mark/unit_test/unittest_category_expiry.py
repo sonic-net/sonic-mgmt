@@ -277,7 +277,7 @@ class TestCheckExpiryAndFormatReason(unittest.TestCase):
         self.assertEqual(len(errors), 0)
 
     def test_expired_skip(self):
-        """Test expired skip mark."""
+        """Test expired skip mark with default expiry_action (fail)."""
         past_date = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
         mark_details = {
             'reason': 'Bug being fixed',
@@ -290,9 +290,73 @@ class TestCheckExpiryAndFormatReason(unittest.TestCase):
             'test.py::test_case',
             self.skip_categories
         )
-        # Expired skips should not be applied, but no validation errors
+        # Default expiry_action is 'fail', so mark should be applied with expired message
+        self.assertTrue(apply_mark)
+        self.assertIn('EXPIRED', formatted_reason)
+        self.assertIn('Bug being fixed', formatted_reason)
+        self.assertEqual(len(errors), 0)
+
+    def test_expired_skip_action_fail(self):
+        """Test expired skip with expiry_action='fail'."""
+        past_date = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+        mark_details = {
+            'reason': 'Bug being fixed',
+            'category': 'BUG_FIX_IN_PROGRESS',
+            'expiry_date': past_date,
+            'expiry_action': 'fail'
+        }
+        apply_mark, formatted_reason, errors = check_expiry_and_format_reason(
+            mark_details,
+            'skip',
+            'test.py::test_case',
+            self.skip_categories
+        )
+        # With 'fail', mark should be applied with expired message
+        self.assertTrue(apply_mark)
+        self.assertIn('EXPIRED', formatted_reason)
+        self.assertIn('Action required', formatted_reason)
+        self.assertEqual(len(errors), 0)
+
+    def test_expired_skip_action_warn(self):
+        """Test expired skip with expiry_action='warn'."""
+        past_date = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+        mark_details = {
+            'reason': 'Bug being fixed',
+            'category': 'BUG_FIX_IN_PROGRESS',
+            'expiry_date': past_date,
+            'expiry_action': 'warn'
+        }
+        apply_mark, formatted_reason, errors = check_expiry_and_format_reason(
+            mark_details,
+            'skip',
+            'test.py::test_case',
+            self.skip_categories
+        )
+        # With 'warn', mark should not be applied (test will run)
         self.assertFalse(apply_mark)
-        self.assertIsNone(formatted_reason)
+        self.assertIn('Bug being fixed', formatted_reason)
+        self.assertNotIn('EXPIRED', formatted_reason)
+        self.assertEqual(len(errors), 0)
+
+    def test_expired_skip_action_run(self):
+        """Test expired skip with expiry_action='run'."""
+        past_date = (datetime.now(timezone.utc) - timedelta(days=30)).date().isoformat()
+        mark_details = {
+            'reason': 'Bug being fixed',
+            'category': 'BUG_FIX_IN_PROGRESS',
+            'expiry_date': past_date,
+            'expiry_action': 'run'
+        }
+        apply_mark, formatted_reason, errors = check_expiry_and_format_reason(
+            mark_details,
+            'skip',
+            'test.py::test_case',
+            self.skip_categories
+        )
+        # With 'run', mark should not be applied (test will run silently)
+        self.assertFalse(apply_mark)
+        self.assertIn('Bug being fixed', formatted_reason)
+        self.assertNotIn('EXPIRED', formatted_reason)
         self.assertEqual(len(errors), 0)
 
     def test_invalid_category(self):

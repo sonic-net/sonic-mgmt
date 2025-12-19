@@ -89,7 +89,7 @@ class TestSkipCategoriesFromYAML(unittest.TestCase):
         self.assertIn('2026-06-15', formatted_reason)
 
     def test_expired_skip_from_yaml(self):
-        """Test expired skip is not applied."""
+        """Test expired skip with default action (fail) from YAML."""
         test_key = 'test_expired.py::test_expired_bug'
         test_config = self.config[test_key]
         mark_details = test_config['skip']
@@ -101,8 +101,64 @@ class TestSkipCategoriesFromYAML(unittest.TestCase):
             self.skip_categories
         )
 
-        # Expired skips should not be applied
+        # Default expiry_action is 'fail', so skip should be applied with expired message
+        self.assertTrue(apply_mark)
+        self.assertIn('EXPIRED', formatted_reason)
+        self.assertEqual(len(errors), 0)
+
+    def test_expired_action_fail_from_yaml(self):
+        """Test expired skip with expiry_action='fail' from YAML."""
+        test_key = 'test_expired_action_fail.py::test_case'
+        test_config = self.config[test_key]
+        mark_details = test_config['skip']
+
+        apply_mark, formatted_reason, errors = check_expiry_and_format_reason(
+            mark_details,
+            'skip',
+            test_key,
+            self.skip_categories
+        )
+
+        # With 'fail', skip should be applied with expired message
+        self.assertTrue(apply_mark)
+        self.assertIn('EXPIRED', formatted_reason)
+        self.assertIn('Bug fix was supposed to be done', formatted_reason)
+        self.assertEqual(len(errors), 0)
+
+    def test_expired_action_warn_from_yaml(self):
+        """Test expired skip with expiry_action='warn' from YAML."""
+        test_key = 'test_expired_action_warn.py::test_case'
+        test_config = self.config[test_key]
+        mark_details = test_config['skip']
+
+        apply_mark, formatted_reason, errors = check_expiry_and_format_reason(
+            mark_details,
+            'skip',
+            test_key,
+            self.skip_categories
+        )
+
+        # With 'warn', skip should not be applied (test will run)
         self.assertFalse(apply_mark)
+        self.assertNotIn('EXPIRED', formatted_reason)
+        self.assertEqual(len(errors), 0)
+
+    def test_expired_action_run_from_yaml(self):
+        """Test expired skip with expiry_action='run' from YAML."""
+        test_key = 'test_expired_action_run.py::test_case'
+        test_config = self.config[test_key]
+        mark_details = test_config['skip']
+
+        apply_mark, formatted_reason, errors = check_expiry_and_format_reason(
+            mark_details,
+            'skip',
+            test_key,
+            self.skip_categories
+        )
+
+        # With 'run', skip should not be applied (test will run silently)
+        self.assertFalse(apply_mark)
+        self.assertNotIn('EXPIRED', formatted_reason)
         self.assertEqual(len(errors), 0)
 
     def test_invalid_permanent_with_expiry_from_yaml(self):

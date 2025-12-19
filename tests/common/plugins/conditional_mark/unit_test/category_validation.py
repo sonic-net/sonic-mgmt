@@ -154,9 +154,26 @@ def check_expiry_and_format_reason(mark_details, mark_name, test_path, skip_cate
     if validation_errors:
         return False, None, validation_errors
 
-    # If expired, don't apply the mark
+    # If expired, handle based on expiry_action
     if is_expired:
-        return False, None, []
+        expiry_action = mark_details.get('expiry_action', 'fail')
+        expired_reason = (
+            f"EXPIRED - {mark_name.capitalize()} for test '{test_path}' expired on {expiry_date}.\n"
+            f"Original reason: {reason}\n"
+        )
+        if category:
+            expired_reason += f"Category: {category} ({category_type})\n"
+        expired_reason += "Action required: Update with new expiry date or fix the underlying issue."
+
+        if expiry_action == 'fail':
+            # Keep the skip/xfail but with expired message
+            return True, expired_reason, []
+        elif expiry_action == 'warn':
+            # Log warning but let test run
+            return False, reason, []
+        else:  # 'run'
+            # Don't apply the mark, let test run
+            return False, reason, []
 
     # Format reason with expiry date if present
     if expiry_date:
