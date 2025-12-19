@@ -229,7 +229,7 @@ fanout:
       ansible_host: 10.64.246.30
       ansible_hostv6:
     str4-7060x6-64pe-fan-2:
-      ansible_host: 10.64.247.58
+      ansible_host: 10.64.246.8
       ansible_hostv6:
       os: sonic
     str4-7060x6-64pe-fan-3:
@@ -333,7 +333,7 @@ sonic:
 sonic_arista_7060x6:
   hosts:
     str4-7060x6-64pe-2:
-      ansible_host: 10.64.246.8
+      ansible_host: 10.64.247.58
       ansible_hostv6: 2a01:111:e210:b000::a40:f608
       mgmt_subnet_mask_length: 23
       hwsku: Arista-7060X6-64PE-P64
