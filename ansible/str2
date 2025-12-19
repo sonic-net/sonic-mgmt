@@ -15,167 +15,167 @@ all:
         ansible_ssh_pass: root
       hosts:
         vms18-1:
-          ansible_host: 10.64.246.141
-          ansible_hostv6: 2a01:111:e210:b000::a40:f68d
+          ansible_host: 10.64.246.106
+          ansible_hostv6: 2a01:111:e210:b000::a40:f66a
         vms18-2:
-          ansible_host: 10.64.246.143
-          ansible_hostv6: 2a01:111:e210:b000::a40:f68f
+          ansible_host: 10.64.246.21
+          ansible_hostv6: 2a01:111:e210:b000::a40:f615
         vms18-3:
-          ansible_host: 10.64.246.235
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6eb
+          ansible_host: 10.64.246.22
+          ansible_hostv6: 2a01:111:e210:b000::a40:f616
         vms18-4:
-          ansible_host: 10.64.246.129
-          ansible_hostv6: 2a01:111:e210:b000::a40:f671
+          ansible_host: 10.64.246.23
+          ansible_hostv6: 2a01:111:e210:b000::a40:f617
         vms18-6:
-          ansible_host: 10.64.246.158
-          ansible_hostv6: 2a01:111:e210:b000::a40:f69e
+          ansible_host: 10.64.246.24
+          ansible_hostv6: 2a01:111:e210:b000::a40:f618
         vms18-7:
-          ansible_host: 10.64.246.159
-          ansible_hostv6: 2a01:111:e210:b000::a40:f69f
+          ansible_host: 10.64.246.25
+          ansible_hostv6: 2a01:111:e210:b000::a40:f619
         vms18-8:
-          ansible_host: 10.64.246.60
-          ansible_hostv6: 2a01:111:e210:b000::a40:f63c
+          ansible_host: 10.64.246.26
+          ansible_hostv6: 2a01:111:e210:b000::a40:f61a
         vms20-6:
-          ansible_host: 10.64.246.120
-          ansible_hostv6: 2a01:111:e210:b000::a40:f678
+          ansible_host: 10.64.246.27
+          ansible_hostv6: 2a01:111:e210:b000::a40:f61b
         vms20-8:
-          ansible_host: 10.64.246.126
-          ansible_hostv6: 2a01:111:e210:b000::a40:f67e
+          ansible_host: 10.64.246.113
+          ansible_hostv6: 2a01:111:e210:b000::a40:f671
         vms20-5:
-          ansible_host: 10.64.246.118
-          ansible_hostv6: 2a01:111:e210:b000::a40:f676
+          ansible_host: 10.64.246.31
+          ansible_hostv6: 2a01:111:e210:b000::a40:f61f
         vms20-7:
-          ansible_host: 10.64.246.125
-          ansible_hostv6: 2a01:111:e210:b000::a40:f67d
+          ansible_host: 10.64.246.34
+          ansible_hostv6: 2a01:111:e210:b000::a40:f622
         vms20-1:
-          ansible_host: 10.64.246.105
-          ansible_hostv6: 2a01:111:e210:b000::a40:f669
+          ansible_host: 10.64.246.36
+          ansible_hostv6: 2a01:111:e210:b000::a40:f624
         vms20-2:
-          ansible_host: 10.64.246.58
-          ansible_hostv6: 2a01:111:e210:b000::a40:f63a
-        vms20-3:
-          ansible_host: 10.64.246.144
-          ansible_hostv6: 2a01:111:e210:b000::a40:f690
-        vms20-9:
-          ansible_host: 10.64.246.134
-          ansible_hostv6: 2a01:111:e210:b000::a40:f686
-        vms21-1:
-          ansible_host: 10.64.246.145
-          ansible_hostv6: 2a01:111:e210:b000::a40:f691
-        vms21-2:
-          ansible_host: 10.64.246.146
-          ansible_hostv6: 2a01:111:e210:b000::a40:f692
-        vms21-4:
-          ansible_host: 10.64.246.148
-          ansible_hostv6: 2a01:111:e210:b000::a40:f694
-        vms21-5:
-          ansible_host: 10.64.246.149
-          ansible_hostv6: 2a01:111:e210:b000::a40:f695
-        vms21-7:
-          ansible_host: 10.64.246.229
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6e5
-        vms21-8:
-          ansible_host: 10.64.246.231
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6e7
-        vms21-9:
-          ansible_host: 10.64.246.236
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6ec
-        vms21-10:
-          ansible_host: 10.64.247.29
-          ansible_hostv6: 2a01:111:e210:b000::a40:f71d
-        vms21-11:
-          ansible_host: 10.64.247.241
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7f1
-        vms24-1:
-          ansible_host: 10.64.247.53
-          ansible_hostv6: 2a01:111:e210:b000::a40:f735
-        vms24-3:
           ansible_host: 10.64.246.107
           ansible_hostv6: 2a01:111:e210:b000::a40:f66b
-        vms24-4:
-          ansible_host: 10.64.246.110
-          ansible_hostv6: 2a01:111:e210:b000::a40:f66e
-        vms24-5:
+        vms20-3:
+          ansible_host: 10.64.246.37
+          ansible_hostv6: 2a01:111:e210:b000::a40:f625
+        vms20-9:
+          ansible_host: 10.64.246.38
+          ansible_hostv6: 2a01:111:e210:b000::a40:f626
+        vms21-1:
+          ansible_host: 10.64.246.112
+          ansible_hostv6: 2a01:111:e210:b000::a40:f670
+        vms21-2:
+          ansible_host: 10.64.246.41
+          ansible_hostv6: 2a01:111:e210:b000::a40:f629
+        vms21-4:
+          ansible_host: 10.64.246.42
+          ansible_hostv6: 2a01:111:e210:b000::a40:f62a
+        vms21-5:
+          ansible_host: 10.64.246.43
+          ansible_hostv6: 2a01:111:e210:b000::a40:f62b
+        vms21-7:
+          ansible_host: 10.64.246.44
+          ansible_hostv6: 2a01:111:e210:b000::a40:f62c
+        vms21-8:
+          ansible_host: 10.64.246.45
+          ansible_hostv6: 2a01:111:e210:b000::a40:f62d
+        vms21-9:
+          ansible_host: 10.64.246.47
+          ansible_hostv6: 2a01:111:e210:b000::a40:f62f
+        vms21-10:
+          ansible_host: 10.64.246.49
+          ansible_hostv6: 2a01:111:e210:b000::a40:f631
+        vms21-11:
+          ansible_host: 10.64.246.50
+          ansible_hostv6: 2a01:111:e210:b000::a40:f632
+        vms24-1:
           ansible_host: 10.64.246.137
           ansible_hostv6: 2a01:111:e210:b000::a40:f689
-        vms24-6:
+        vms24-3:
           ansible_host: 10.64.246.138
           ansible_hostv6: 2a01:111:e210:b000::a40:f68a
-        vms24-7:
+        vms24-4:
           ansible_host: 10.64.246.139
           ansible_hostv6: 2a01:111:e210:b000::a40:f68b
-        vms24-8:
+        vms24-5:
           ansible_host: 10.64.246.140
           ansible_hostv6: 2a01:111:e210:b000::a40:f68c
-        vms24-9:
+        vms24-6:
+          ansible_host: 10.64.246.141
+          ansible_hostv6: 2a01:111:e210:b000::a40:f68d
+        vms24-7:
           ansible_host: 10.64.246.142
           ansible_hostv6: 2a01:111:e210:b000::a40:f68e
+        vms24-8:
+          ansible_host: 10.64.246.143
+          ansible_hostv6: 2a01:111:e210:b000::a40:f68f
+        vms24-9:
+          ansible_host: 10.64.246.144
+          ansible_hostv6: 2a01:111:e210:b000::a40:f690
         vms24-10:
-          ansible_host: 10.64.246.180
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6b4
+          ansible_host: 10.64.246.145
+          ansible_hostv6: 2a01:111:e210:b000::a40:f691
         vms25-1:
-          ansible_host: 10.64.246.244
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f4
+          ansible_host: 10.64.246.146
+          ansible_hostv6: 2a01:111:e210:b000::a40:f692
         vms25-2:
-          ansible_host: 10.64.246.247
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f7
-        vms25-3:
-          ansible_host: 10.64.246.181
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6b5
-        vms26-1:
-          ansible_host: 10.64.246.230
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6e6
-        vms26-2:
-          ansible_host: 10.64.247.71
-          ansible_hostv6: 2a01:111:e210:b000::a40:f747
-        vms26-3:
           ansible_host: 10.64.246.147
           ansible_hostv6: 2a01:111:e210:b000::a40:f693
+        vms25-3:
+          ansible_host: 10.64.246.148
+          ansible_hostv6: 2a01:111:e210:b000::a40:f694
+        vms26-1:
+          ansible_host: 10.64.246.149
+          ansible_hostv6: 2a01:111:e210:b000::a40:f695
+        vms26-2:
+          ansible_host: 10.64.246.150
+          ansible_hostv6: 2a01:111:e210:b000::a40:f696
+        vms26-3:
+          ansible_host: 10.64.246.151
+          ansible_hostv6: 2a01:111:e210:b000::a40:f697
         vms26-4:
           ansible_host: 10.64.246.152
           ansible_hostv6: 2a01:111:e210:b000::a40:f698
         vms27-1:
-          ansible_host: 10.64.246.234
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6ea
+          ansible_host: 10.64.246.153
+          ansible_hostv6: 2a01:111:e210:b000::a40:f699
         vms28-1:
-          ansible_host: 10.64.246.238
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6ee
+          ansible_host: 10.64.246.158
+          ansible_hostv6: 2a01:111:e210:b000::a40:f69e
         vms28-2:
-          ansible_host: 10.64.246.239
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6ef
+          ansible_host: 10.64.246.159
+          ansible_hostv6: 2a01:111:e210:b000::a40:f69f
         vms28-3:
-          ansible_host: 10.64.246.240
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f0
+          ansible_host: 10.64.246.161
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6a1
         vms28-4:
-          ansible_host: 10.64.246.241
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f1
+          ansible_host: 10.64.246.162
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6a2
         vms28-5:
-          ansible_host: 10.64.246.242
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f2
+          ansible_host: 10.64.246.163
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6a3
         vms28-6:
-          ansible_host: 10.64.246.243
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f3
+          ansible_host: 10.64.246.164
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6a4
         vms28-7:
-          ansible_host: 10.64.246.246
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f6
+          ansible_host: 10.64.246.165
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6a5
         vms28-8:
-          ansible_host: 10.64.247.9
-          ansible_hostv6: 2a01:111:e210:b000::a40:f709
+          ansible_host: 10.64.246.166
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6a6
         vms28-9:
-          ansible_host: 10.64.246.127
-          ansible_hostv6: 2a01:111:e210:b000::a40:f67f
+          ansible_host: 10.64.246.218
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6da
         vms28-10:
-          ansible_host: 10.64.246.128
-          ansible_hostv6: 2a01:111:e210:b000::a40:f680
+          ansible_host: 10.64.246.179
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6b3
         vms29-2:
-          ansible_host: 10.64.246.245
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6f5
+          ansible_host: 10.64.246.180
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6b4
         vms29-4:
-          ansible_host: 10.64.246.71
-          ansible_hostv6: 2a01:111:e210:b000::a40:f647
+          ansible_host: 10.64.246.181
+          ansible_hostv6: 2a01:111:e210:b000::a40:f6b5
         vms20-10:
-          ansible_host: 10.64.246.250
-          ansible_hostv6: 2a01:111:e210:b000::a40:f6fa
+          ansible_host: 10.64.246.39
+          ansible_hostv6: 2a01:111:e210:b000::a40:f627
 
     pdu:
       hosts:
