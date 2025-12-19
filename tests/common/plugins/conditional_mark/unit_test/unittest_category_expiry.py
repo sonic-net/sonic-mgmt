@@ -1,9 +1,13 @@
 import logging
+import os
+import sys
 import unittest
 from datetime import datetime, timedelta, timezone
 
-# Import validation functions from helper module (no external dependencies)
-from category_validation import (
+# Add parent directory to import skip_category_validator module
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from skip_category_validator import (  # noqa: E402
     validate_skip_category,
     validate_expiry_date,
     check_expiry_and_format_reason

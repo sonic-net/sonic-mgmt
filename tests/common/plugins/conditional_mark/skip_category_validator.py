@@ -1,9 +1,14 @@
 """
-Helper module to extract only the category/expiry validation functions
-without importing the entire conditional_mark plugin with its dependencies.
+Skip category validation functions for conditional_mark plugin.
+
+This module provides validation for skip categories (permanent vs temporary)
+and expiry date handling for test skip marks.
 """
 
+import logging
 from datetime import datetime, timedelta, timezone
+
+logger = logging.getLogger(__name__)
 
 
 def validate_skip_category(category, skip_categories, mark_name, test_path):
@@ -137,18 +142,18 @@ def check_expiry_and_format_reason(mark_details, mark_name, test_path, skip_cate
     reason = mark_details.get('reason', '')
 
     # Validate category
-    is_valid, category_type, error = validate_skip_category(
+    is_valid, category_type, error_msg = validate_skip_category(
         category, skip_categories, mark_name, test_path
     )
     if not is_valid:
-        validation_errors.append(error)
+        validation_errors.append(error_msg)
 
     # Validate expiry date
-    is_valid, error, is_expired = validate_expiry_date(
+    is_valid, error_msg, is_expired = validate_expiry_date(
         expiry_date, category, category_type, skip_categories, mark_name, test_path
     )
     if not is_valid:
-        validation_errors.append(error)
+        validation_errors.append(error_msg)
 
     # If there are validation errors, don't apply the mark
     if validation_errors:
@@ -170,6 +175,7 @@ def check_expiry_and_format_reason(mark_details, mark_name, test_path, skip_cate
             return True, expired_reason, []
         elif expiry_action == 'warn':
             # Log warning but let test run
+            logger.warning(expired_reason)
             return False, reason, []
         else:  # 'run'
             # Don't apply the mark, let test run

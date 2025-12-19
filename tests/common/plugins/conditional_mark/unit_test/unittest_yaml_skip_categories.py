@@ -4,13 +4,16 @@ Developers can edit tests_skip_categories.yaml to test different scenarios.
 """
 
 import logging
+import os
+import sys
 import unittest
 import yaml
-import os
 from datetime import datetime, timedelta, timezone
 
-# Import validation functions from helper module
-from category_validation import (
+# Add parent directory to import skip_category_validator module
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from skip_category_validator import (  # noqa: E402
     validate_skip_category,
     check_expiry_and_format_reason
 )
