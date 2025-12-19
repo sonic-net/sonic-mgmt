@@ -1,15 +1,26 @@
-import pytest
+import logging
 from pathlib import Path
 from collections import defaultdict
+import re
+import os
+import json
+
+import pytest
+
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
-from common.ha.smartswitch_ha_helper import PtfTcpTestAdapter
-from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
+
 from common.ha.smartswitch_ha_helper import (
+    PtfTcpTestAdapter,
     add_port_to_namespace,
     remove_namespace,
     add_static_route_to_ptf,
-    add_static_route_to_dut
+    add_static_route_to_dut,
 )
+
+from common.ha.smartswitch_ha_io import SmartSwitchHaTrafficTest
+
+
+logger = logging.getLogger(__name__)
 
 
 @pytest.fixture(scope="module")
@@ -122,3 +133,175 @@ def setup_namespaces_with_routes(ptfhost, duthosts, get_t2_info):
         if ns["namespace"] not in visited_namespaces:
             remove_namespace(ptfhost, ns["namespace"])
             visited_namespaces.add(ns["namespace"])
+
+
+def build_dash_ha_set_args(fields):
+    """
+    Build args for DASH_HA_SET_CONFIG_TABLE
+    EXACTLY following the working CLI
+    """
+
+    version = str(fields["version"])
+    if version.endswith(".0"):
+        version = version[:-2]
+
+    return (
+        f'version \\"{version}\\" '
+        f'vip_v4 "{fields["vip_v4"]}" '
+        f'vip_v6 "{fields["vip_v6"]}" '
+        f'scope "{fields["scope"]}" '
+        f'preferred_vdpu_id "{fields["preferred_vdpu_id"]}" '
+        f'preferred_standalone_vdpu_index 0 '
+        f'vdpu_ids \'["vdpu0_0","vdpu1_0"]\''
+    )
+
+
+def build_dash_ha_scope_args(fields):
+    """
+    Build args for DASH_HA_SCOPE_CONFIG_TABLE
+    EXACTLY following the working CLI
+    """
+
+    version = str(fields["version"])
+    if version.endswith(".0"):
+        version = version[:-2]
+
+    return (
+        f'version \\"{version}\\" '
+        f'disabled "true" '
+        f'desired_ha_state "{fields["desired_ha_state"]}" '
+        f'ha_set_id "{fields["ha_set_id"]}" '
+        f'owner "dpu"'
+    )
+
+
+def extract_pending_operation_id(text):
+    """
+    Extract pending_operation_ids UUID from swbus-cli output
+    """
+    match = re.search(
+        r'pending_operation_ids\s+\|\s+([0-9a-fA-F-]+)',
+        text
+    )
+    return match.group(1) if match else None
+
+
+def get_pending_operation_id(duthost, scope_key):
+    """
+    scope_key example: vdpu0_0:haset0_0
+    """
+    cmd = (
+        "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
+        f"/hamgrd/0/ha-scope/{scope_key}"
+    )
+    res = duthost.shell(cmd)
+    return extract_pending_operation_id(res["stdout"])
+
+
+def build_dash_ha_scope_activate_args(fields, pending_id):
+    return (
+        f'version \\"{fields["version"]}\\" '
+        f'disabled "{fields["disabled"]}" '
+        f'desired_ha_state "{fields["desired_ha_state"]}" '
+        f'ha_set_id "{fields["ha_set_id"]}" '
+        f'owner "{fields["owner"]}" '
+        f'approved_pending_operation_ids '
+        f'[\"{pending_id}\"]'
+    )
+
+
+@pytest.fixture(scope="module")
+def setup_dash_ha_from_json(duthosts):
+    base_dir = "/data/tests/common/ha"
+    ha_set_file = os.path.join(base_dir, "dash_ha_set_dpu_config_table.json")
+
+    with open(ha_set_file) as f:
+        ha_set_data = json.load(f)["DASH_HA_SET_CONFIG_TABLE"]
+
+    # -------------------------------------------------
+    # Step 1: Program HA SET on BOTH DUTs
+    # -------------------------------------------------
+    for duthost in duthosts:
+        for key, fields in ha_set_data.items():
+            cmd = (
+                "docker exec swss python /etc/sonic/proto_utils.py hset "
+                f"DASH_HA_SET_CONFIG_TABLE:{key} "
+                f"{build_dash_ha_set_args(fields)}"
+            )
+            duthost.shell(cmd)
+
+    # -------------------------------------------------
+    # Step 2: Initial HA SCOPE per DUT
+    # -------------------------------------------------
+    ha_scope_per_dut = [
+        (
+            "vdpu0_0:haset0_0",
+            {
+                "version": "1",
+                "disabled": "false",
+                "desired_ha_state": "active",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+        (
+            "vdpu1_0:haset0_0",
+            {
+                "version": "1",
+                "disabled": "false",
+                "desired_ha_state": "unspecified",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+    ]
+
+    for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
+        cmd = (
+            "docker exec swss python /etc/sonic/proto_utils.py hset "
+            f'"DASH_HA_SCOPE_CONFIG_TABLE:{key}" '
+            f"{build_dash_ha_scope_args(fields)}"
+        )
+        duthost.shell(cmd)
+
+    # -------------------------------------------------
+    # Step 4: Activate Role (using pending_operation_ids)
+    # -------------------------------------------------
+    activate_scope_per_dut = [
+        # DUT-1
+        (
+            "vdpu0_0:haset0_0",
+            {
+                "version": "3",
+                "disabled": "false",
+                "desired_ha_state": "active",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+        # DUT-2
+        (
+            "vdpu1_0:haset0_0",
+            {
+                "version": "3",
+                "disabled": "false",
+                "desired_ha_state": "unspecified",
+                "ha_set_id": "haset0_0",
+                "owner": "dpu",
+            },
+        ),
+    ]
+
+    for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
+        pending_id = get_pending_operation_id(duthost, key)
+        assert pending_id, f"No pending_operation_id found for {key}"
+
+        cmd = (
+            "docker exec swss python /etc/sonic/proto_utils.py hset "
+            f'"DASH_HA_SCOPE_CONFIG_TABLE:{key}" '
+            f"{build_dash_ha_scope_activate_args(fields, pending_id)}"
+        )
+        duthost.shell(cmd)
+
+    print("DASH HA Step-4 Activate Role completed")
+    yield
