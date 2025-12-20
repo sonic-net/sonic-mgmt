@@ -23,6 +23,9 @@ enable password zebra
 route-map TO_TIER0_V4 permit 50
  set community no-export additive
 !
+route-map TO_TIER0_V6 permit 50
+ set community no-export additive
+!
 {% endif %}
 route-map FROM_BGP_SPEAKER_V4 permit 10
 !
@@ -92,6 +95,13 @@ router bgp {{ DEVICE_METADATA['localhost']['bgp_asn'] }}
   address-family ipv6
     neighbor {{ neighbor_addr }} activate
     maximum-paths 64
+{% if 'LeafRouter' in DEVICE_METADATA['localhost']['type'] %}
+ {%- if 'ToRRouter' in DEVICE_NEIGHBOR_METADATA[bgp_session['name']]['type'] %}
+    neighbor {{ neighbor_addr }} route-map TO_TIER0_V6 out
+    neighbor {{ neighbor_addr }} send-community
+    neighbor {{ neighbor_addr }} allowas-in 1
+ {% endif %}
+{% endif %}
   exit-address-family
 {% endif %}
 {% endif %}
