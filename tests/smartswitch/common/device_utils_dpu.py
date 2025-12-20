@@ -639,10 +639,24 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
     Returns:
        Returns Nothing
     """
+    results = []
+
+    def collect_result(dpu_name):
+        result = wait_until(DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
+                            check_dpu_reboot_cause, duthost, dpu_name, reason)
+        results.append((dpu_name, result))
+
     with SafeThreadPoolExecutor(max_workers=num_dpu_modules) as executor:
-        logging.info("Checking reboot cause of DPUs in parallel")
         for dpu_name in dpu_list:
-            executor.submit(
-                wait_until, DPU_MAX_ONLINE_TIMEOUT, DPU_TIME_INT, 0,
-                check_dpu_reboot_cause, duthost, dpu_name, reason
-            )
+            executor.submit(collect_result, dpu_name)
+
+    # Wait for all threads to finish
+    executor.shutdown(wait=True)
+
+    # Assert all DPUs passed
+    failed = [dpu for dpu, res in results if not res]
+    if failed:
+        pytest.fail(f"DPUs {failed} did not reboot due to '{reason}'")
+    else:
+        logging.info(f"All DPUs rebooted due to '{reason}' as expected")
+

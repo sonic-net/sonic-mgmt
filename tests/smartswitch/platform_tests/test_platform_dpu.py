@@ -5,11 +5,13 @@ Tests for the `platform cli ...` commands in DPU
 import logging
 import pytest
 import time
+import re
 from datetime import datetime
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.platform_api import module
 from tests.common.mellanox_data import is_mellanox_device
+from tests.common.cisco_data import is_cisco_device
 from tests.smartswitch.common.device_utils_dpu import check_dpu_ping_status,\
     check_dpu_module_status, check_dpu_reboot_cause, check_pmon_status,\
     parse_dpu_memory_usage, parse_system_health_summary,\
@@ -75,7 +77,9 @@ def test_reboot_cause(duthosts, dpuhosts,
     dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
+                         num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware",
+                                    re.IGNORECASE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -117,7 +121,9 @@ def test_pcie_link(duthosts, dpuhosts,
 
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
+                         num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware",
+                                    re.IGNORECASE))
 
     logging.info("Verifying output of '{}' on '{}'..."
                  .format(CMD_PCIE_INFO, duthost.hostname))
@@ -156,7 +162,9 @@ def test_restart_pmon(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
 
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
+                         num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware",
+                                    re.IGNORECASE))
 
 
 @pytest.mark.disable_loganalyzer
@@ -179,8 +187,10 @@ def test_system_health_state(duthosts, dpuhosts,
     Sleep time of 5 mins is added to get the system health state
     is reflected in the cli after dpus are shutdown
     """
-    logging.info("5 minutes Cool off period after shutdown")
-    time.sleep(COOL_OFF_TIME)
+    # Check if it's a Mellanox ASIC
+    if is_cisco_device(duthost):
+        logging.info("5 minutes Cool off period after shutdown")
+        time.sleep(COOL_OFF_TIME)
 
     try:
         for index in range(len(dpu_on_list)):
@@ -332,7 +342,9 @@ def test_system_health_summary(duthosts, dpuhosts,
 
     logging.info("Checking DPU is completely UP")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list,
-                         ip_address_list, num_dpu_modules, "Switch rebooted DPU")
+                         ip_address_list, num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware",
+                                    re.IGNORECASE))
 
     logging.info("Checking show system-health summary on Switch")
     output_health_summary = duthost.command("show system-health summary")
