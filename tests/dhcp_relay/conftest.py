@@ -1,4 +1,5 @@
 import pytest
+import time
 
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert as py_assert
@@ -39,14 +40,29 @@ def pytest_addoption(parser):
         type=int,
         help="Set maximum packets per second for stress test",
     )
+    parser.addoption(
+        "--enable_dhcp_relay_feature",
+        action="store_true",
+        default=False,
+        help="Enable dhcp_relay feature on DUT"
+    )
 
 
 @pytest.fixture(scope="module", autouse=True)
-def check_dhcp_feature_status(duthost):
+def check_dhcp_feature_status(request, duthost):
     feature_status_output = duthost.show_and_parse("show feature status")
     for feature in feature_status_output:
         if feature["feature"] == "dhcp_relay" and feature["state"] != "enabled":
-            pytest.skip("dhcp_relay is not enabled")
+            # Enable dhcp_relay feature on DUT if enable_dhcp_relay_feature argument was passed
+            if request.config.getoption("--enable_dhcp_relay_feature"):
+                duthost.shell("sudo config feature state dhcp_relay enabled")
+                time.sleep(2)
+                yield
+                duthost.shell("sudo config feature state dhcp_relay disabled")
+                return
+            else:
+                pytest.skip("dhcp_relay is not enabled")
+    yield
 
 
 @pytest.fixture(scope="module")
