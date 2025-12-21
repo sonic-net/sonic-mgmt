@@ -1033,6 +1033,86 @@ class DHCPTest(DataplaneBaseTest):
                 self.dest_mac_address, self.client_udp_src_port)
 
 
+class DHCPlargePacketSizeTest(DHCPTest):
+    """
+    Test DHCP packets with the size bigger than expected and expect to count the packets as malformed.
+    """
+    def create_dhcp_discover_packet(self, dst_mac=DHCPTest.BROADCAST_MAC, src_port=DHCPTest.DHCP_CLIENT_PORT):
+        pkt = super().create_dhcp_discover_packet(dst_mac, src_port)
+        dhcp_options = [
+            ("message-type", "discover"),
+            ("param_req_list", list(range(1, 255))),
+            ("vendor_specific", os.urandom(250)),
+            ("end")
+        ]
+        dhcp = scapy.DHCP(options=dhcp_options)
+        pkt[scapy.DHCP].options = dhcp.options
+        return pkt
+
+    def create_dhcp_request_packet(self, dst_mac=DHCPTest.BROADCAST_MAC, src_port=DHCPTest.DHCP_CLIENT_PORT):
+        pkt = super().create_dhcp_request_packet(dst_mac, src_port)
+        dhcp_options = [
+            ("message-type", "request"),
+            ("requested_addr", self.client_ip),
+            ("server_id", self.server_ip[0]),
+            ("lease_time", 86400),
+            ("vendor_class_id", "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
+            ("param_req_list", list(range(1, 255))),
+            ("vendor_specific", os.urandom(250)),
+            ("end")
+        ]
+        dhcp = scapy.DHCP(options=dhcp_options)
+        pkt[scapy.DHCP].options = dhcp.options
+        return pkt
+
+    def create_dhcp_offer_packet(self):
+        pkt = super().create_dhcp_offer_packet()
+        dhcp_options = [
+            ("message-type", "offer"),
+            ("server_id", self.server_ip[0]),
+            ("lease_time", 86400),
+            ("subnet_mask", self.client_subnet),
+            (82, self.option82),
+            ("vendor_class_id", "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
+            ("param_req_list", list(range(1, 255))),
+            ("vendor_specific", os.urandom(250)),
+            ("end")
+        ]
+        dhcp = scapy.DHCP(options=dhcp_options)
+        pkt[scapy.DHCP].options = dhcp.options
+        return pkt
+
+    def create_dhcp_ack_packet(self):
+        pkt = super().create_dhcp_ack_packet()
+        dhcp_options = [
+            ("message-type", "ack"),
+            ("subnet_mask", self.client_subnet),
+            ("server_id", self.server_ip[0]),
+            ("lease_time", 86400),
+            (82, self.option82),
+            ("vendor_class_id", "http://0.0.0.0/this_is_a_very_very_long_path/test.bin".encode('utf-8')),
+            ("param_req_list", list(range(1, 255))),
+            ("vendor_specific", os.urandom(250)),
+            ("end")
+        ]
+        dhcp = scapy.DHCP(options=dhcp_options)
+        pkt[scapy.DHCP].options = dhcp.options
+        return pkt
+
+    def runTest(self):
+        for interface_index in self.server_port_indices:
+            t1 = Thread(target=self.Sniffer, args=(
+                "eth"+str(interface_index),))
+            t1.start()
+
+        self.client_send_discover(
+            self.dest_mac_address, self.client_udp_src_port)
+        self.server_send_offer()
+        self.client_send_request(
+            self.dest_mac_address, self.client_udp_src_port)
+        self.server_send_ack()
+
+
 class DHCPPacketsServerToClientTest(DHCPTest):
     """
     Only Test DHCP packets from server to client, including offer, ack, nak and unknown.
