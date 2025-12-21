@@ -1976,7 +1976,7 @@ def setup_standby_ports_on_non_enum_rand_one_per_hwsku_frontend_host_m(
 
 @pytest.fixture
 def setup_standby_ports_on_non_enum_rand_one_per_hwsku_host_m(
-    active_active_ports,                                                   # noqa F811
+    active_active_ports,                                                   # noqa: F811
     enum_rand_one_per_hwsku_hostname,
     config_active_active_dualtor_active_standby,
     validate_active_active_dualtor_setup,
