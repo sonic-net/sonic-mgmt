@@ -477,8 +477,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
             mux_cable_table = {}
             server_ipv4_base_addr, server_ipv6_base_addr = request.getfixturevalue('mock_server_base_ip_addr')
             for i, intf in enumerate(request.getfixturevalue('tor_mux_intfs')):
-                server_ipv4 = str(server_ipv4_base_addr + i)
-                server_ipv6 = str(server_ipv6_base_addr + i)
+                server_ipv4 = str(server_ipv4_base_addr + i) if server_ipv4_base_addr else ''
+                server_ipv6 = str(server_ipv6_base_addr + i) if server_ipv6_base_addr else ''
                 mux_cable_table[intf] = {}
                 mux_cable_table[intf]['server_ipv4'] = six.text_type(server_ipv4)    # noqa: F821
                 mux_cable_table[intf]['server_ipv6'] = six.text_type(server_ipv6)    # noqa: F821
@@ -490,8 +490,8 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         for vlan_intf, config in list(mux_cable_table.items()):
             ptf_port_index = ptf_indices[vlan_intf]
-            server_ip = ip_interface(config['server_ipv4']).ip
-            server_ipv6 = ip_interface(config['server_ipv6']).ip
+            server_ip = ip_interface(config['server_ipv4']).ip if config['server_ipv4'] else ''
+            server_ipv6 = ip_interface(config['server_ipv6']).ip if config['server_ipv6'] else ''
 
             garp_config[ptf_port_index] = {
                                             'dut_mac': '{}'.format(dut_mac),
