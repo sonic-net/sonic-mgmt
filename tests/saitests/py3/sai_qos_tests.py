@@ -2220,7 +2220,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2261,7 +2262,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -2303,7 +2305,8 @@ class PFCtest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly RX drop counter increase, {}'.format(test_stage))
@@ -3114,7 +3117,7 @@ class PFCXonTest(sai_base_test.ThriftInterfaceDataPlane):
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
                 if (platform_asic and
-                        platform_asic in ["broadcom-dnx", "cisco-8000"]):
+                        platform_asic in ["broadcom-dnx", "cisco-8000", "marvell-teralynx"]):
                     qos_test_assert(
                         self, recv_counters[cntr] <= recv_counters_base[cntr] + COUNTER_MARGIN,
                         'unexpectedly ingress drop on recv port (counter: {}), at step {} {}'.format(
@@ -3727,6 +3730,14 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
         else:
             self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [self.dst_port_id])
 
+        def get_hdrm_pool_wm():
+            if 'Arista-7060X6' in hwsku:
+                return sai_thrift_read_headroom_pool_watermark(
+                    self.src_client, self.buf_pool_roid) * self.cell_size
+            else:
+                return sai_thrift_read_headroom_pool_watermark(
+                    self.src_client, self.buf_pool_roid)
+
         try:
             # send packets to leak out
             sidx = 0
@@ -3853,13 +3864,13 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             sys.stderr.flush()
 
             upper_bound = 2 * margin + 1
-            if (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120')) \
-                    or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118')) \
-                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag')):
+            if ('Arista-7060X6' in hwsku
+                    or (hwsku == 'Arista-7260CX3-D108C8' and self.testbed_type in ('t0-116', 'dualtor-120'))
+                    or (hwsku == 'Arista-7260CX3-D108C10' and self.testbed_type in ('t0-118'))
+                    or (hwsku == 'Arista-7260CX3-C64' and self.testbed_type in ('dualtor-aa-56', 't1-64-lag'))):
                 upper_bound = 2 * margin + self.pgs_num
             if self.wm_multiplier:
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 print("Actual headroom pool watermark value to start: %d" %
                       hdrm_pool_wm, file=sys.stderr)
                 assert (hdrm_pool_wm <= (upper_bound *
@@ -3912,8 +3923,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 if self.wm_multiplier:
                     wm_pkt_num += (self.pkts_num_hdrm_full if i !=
                                    self.pgs_num - 1 else self.pkts_num_hdrm_partial)
-                    hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                        self.src_client, self.buf_pool_roid)
+                    hdrm_pool_wm = get_hdrm_pool_wm()
                     expected_wm = wm_pkt_num * self.cell_size * self.wm_multiplier
                     upper_bound_wm = expected_wm + \
                         (upper_bound * self.cell_size * self.wm_multiplier)
@@ -3983,8 +3993,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
             print("pg hdrm filled", file=sys.stderr)
             if self.wm_multiplier:
                 # assert hdrm pool wm still remains the same
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 sys.stderr.write('After PG headroom filled, actual headroom pool watermark {}, upper_bound {}\n'.format(
                     hdrm_pool_wm, upper_bound_wm))
                 if 'marvell-teralynx' not in self.asic_type:
@@ -3993,8 +4002,7 @@ class HdrmPoolSizeTest(sai_base_test.ThriftInterfaceDataPlane):
                 # at this point headroom pool should be full. send few more packets to continue causing drops
                 print("overflow headroom pool", file=sys.stderr)
                 send_packet(self, self.src_port_ids[sidx_dscp_pg_tuples[i][0]], pkt, 10)
-                hdrm_pool_wm = sai_thrift_read_headroom_pool_watermark(
-                    self.src_client, self.buf_pool_roid)
+                hdrm_pool_wm = get_hdrm_pool_wm()
                 assert (hdrm_pool_wm <= self.max_headroom)
             sys.stderr.flush()
 
@@ -4822,7 +4830,8 @@ class LossyQueueTest(sai_base_test.ThriftInterfaceDataPlane):
             # & may give inconsistent test results
             # Adding COUNTER_MARGIN to provide room to 2 pkt incase, extra traffic received
             for cntr in ingress_counters:
-                if platform_asic and platform_asic == "broadcom-dnx":
+                if (platform_asic and
+                        platform_asic in ["broadcom-dnx", "marvell-teralynx"]):
                     if cntr == 1:
                         log_message("recv_counters_base: {}, recv_counters: {}".format(
                             recv_counters_base[cntr], recv_counters[cntr]), to_stderr=True)
