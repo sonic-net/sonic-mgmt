@@ -2111,8 +2111,14 @@ class ReloadTest(BaseTest):
                         received_but_not_sent_packets.add(received_payload)
                         continue
                     # Packets in a row are missing, a potential disruption.
-                    self.log("received_payload: {}, prev_payload: {}, sent_counter: {}, received_counter: {}".format(
-                        received_payload, prev_payload, sent_counter, received_counter))
+                    self.log(
+                        "received_payload: {} (at {}), prev_payload: {} (at {}), "
+                        "sent_counter: {}, received_counter: {}".format(
+                            received_payload, datetime.datetime.fromtimestamp(received_time),
+                            prev_payload, datetime.datetime.fromtimestamp(prev_time),
+                            sent_counter, received_counter
+                        )
+                    )
                     # How many packets lost in a row.
                     lost_id = (received_payload - 1) - prev_payload
 
@@ -2184,8 +2190,16 @@ class ReloadTest(BaseTest):
                 [item[0] for item in self.lost_packets.values()])
             self.total_disrupt_time = sum(
                 [item[1] for item in self.lost_packets.values()])
-            self.log("Disruptions happen between %s and %s after the reboot." %
-                     (str(self.disruption_start - self.reboot_start), str(self.disruption_stop - self.reboot_start)))
+            time_from_reboot_disrupt_start = self.disruption_start - self.reboot_start
+            time_from_reboot_disrupt_stop = self.disruption_stop - self.reboot_start
+            self.log(
+                "Disruptions happen between {} and {} ({} and {} after the reboot).".format(
+                    self.disruption_start,
+                    self.disruption_stop,
+                    time_from_reboot_disrupt_start,
+                    time_from_reboot_disrupt_stop
+                )
+            )
         else:
             self.max_lost_id = 0
             self.max_disrupt_time = 0
