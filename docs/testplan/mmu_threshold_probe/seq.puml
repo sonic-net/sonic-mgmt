@@ -1,0 +1,58 @@
+@startuml MmuThresholdProbingPhase3
+!theme plain
+
+participant "algorithm : ThresholdRangeProbingAlgorithm" as Algorithm
+participant "executor : PfcXoffThresholdProbingExecutor" as Executor  
+participant "observer : DefaultThresholdProbingObserver" as Observer
+
+-> Algorithm : probe(lower_bound, upper_bound)
+
+' Search start notification
+Algorithm -> Observer : on_execution_start(phase=3, lower_bound, upper_bound, precision_target=5%)
+note over Observer : Initializes execution tracking:\n• Records phase type and input parameters\n• Sets up performance baseline timestamps\n• Initializes report structure and metrics
+
+' Binary search loop starts
+loop while not converged and range_stack not empty
+
+    note over Algorithm: Calculate candidate_threshold from current range\nCheck precision target (range_size ≤ candidate_threshold × 5%)
+
+    alt precision target achieved
+        note over Algorithm: converged = True, break loop
+
+    else continue probing
+        ' Iteration start notification  
+        Algorithm -> Observer : on_iteration_start(range_start, range_end, candidate_threshold)
+        note over Observer : Logs iteration start:\n• Current search range and candidate\n• Iteration count and progress\n• Timestamp for performance tracking
+
+        ' Multi-attempt threshold verification
+        Algorithm -> Executor : VerificationResult = verify_threshold(candidate_threshold, attempts=5)
+        activate Executor
+
+        note over Executor: Perform 5-attempt verification:\n• Port preparation (enable/disable TX)\n• Traffic injection\n• PFC counter monitoring\n• Statistical consensus validation
+
+        Executor --> Algorithm : return VerificationResult(success, threshold_detected)
+        deactivate Executor
+
+        ' Update search range based on verification result
+        alt verification failed (not success)
+            note over Algorithm: Backtrack: range_stack.pop()
+        else verification successful
+            alt threshold detected (threshold_detected=True)
+                note over Algorithm: Search left half: range_end = candidate_threshold
+            else threshold not detected (threshold_detected=False)
+                note over Algorithm: Search right half: range_start = candidate_threshold + 1
+            end
+            note over Algorithm: range_stack.append((range_start, range_end))
+        end
+        
+        ' Unified iteration complete notification
+        Algorithm -> Observer : on_iteration_complete(action, VerificationResult, range_stack)
+        note over Observer : Records iteration outcome:\n• action: "backtrack"/"search_left"/"search_right"\n• verification details and updated range\n• performance metrics
+    end
+end
+
+' Search complete notification
+Algorithm -> Observer : on_execution_complete(converged, final_range, total_iterations, convergence_time)
+note over Observer : Finalizes execution report:\n• Records final results and convergence status\n• Calculates performance metrics and statistics\n• Generates comprehensive test report
+
+@enduml
