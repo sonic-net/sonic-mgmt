@@ -16,53 +16,53 @@ all:
         ansible_ssh_pass: root
       hosts:
         vms91-1:
-          ansible_host: 10.64.247.143
-          ansible_hostv6: 2a01:111:e210:b000::a40:f78f
+          ansible_host: 10.64.247.178
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7b2
         vms91-4:
-          ansible_host: 10.64.247.157
-          ansible_hostv6: 2a01:111:e210:b000::a40:f79d
+          ansible_host: 10.64.247.188
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7bc
         vms91-5:
-          ansible_host: 10.64.247.174
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7ae
+          ansible_host: 10.64.247.182
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7b6
         vms91-6:
-          ansible_host: 10.64.247.176
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7b0
-        vms91-7:
-          ansible_host: 10.64.247.177
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7b1
-        vms92-2:
-          ansible_host: 10.64.247.152
-          ansible_hostv6: 2a01:111:e210:b000::a40:f798
-        vms92-3:
-          ansible_host: 10.64.247.175
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7af
-        vms92-4:
           ansible_host: 10.64.247.156
           ansible_hostv6: 2a01:111:e210:b000::a40:f79c
+        vms91-7:
+          ansible_host: 10.64.247.157
+          ansible_hostv6: 2a01:111:e210:b000::a40:f79d
+        vms92-2:
+          ansible_host: 10.64.247.187
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7bb
+        vms92-3:
+          ansible_host: 10.64.247.200
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7c8
+        vms92-4:
+          ansible_host: 10.64.247.203
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7cb
         vms93-2:
-          ansible_host: 10.64.247.139
-          ansible_hostv6: 2a01:111:e210:b000::a40:f78b
+          ansible_host: 10.64.247.190
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7be
         vms93-3:
           ansible_host: 10.64.247.168
           ansible_hostv6: 2a01:111:e210:b000::a40:f7a8
         vms93-5:
-          ansible_host: 10.64.247.141
-          ansible_hostv6: 2a01:111:e210:b000::a40:f78d
-        vms94-1-a:
-          ansible_host: 10.64.247.148
-          ansible_hostv6: 2a01:111:e210:b000::a40:f794
-        vms94-1-b:
-          ansible_host: 10.64.247.153
-          ansible_hostv6: 2a01:111:e210:b000::a40:f799
-        vms94-2-a:
-          ansible_host: 10.64.247.149
-          ansible_hostv6: 2a01:111:e210:b000::a40:f795
-        vms94-2-b:
-          ansible_host: 10.64.247.167
-          ansible_hostv6: 2a01:111:e210:b000::a40:f7a7
-        vms95-1:
           ansible_host: 10.64.247.171
           ansible_hostv6: 2a01:111:e210:b000::a40:f7ab
+        vms94-1-a:
+          ansible_host: 10.64.247.189
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7bd
+        vms94-1-b:
+          ansible_host: 10.64.247.173
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7ad
+        vms94-2-a:
+          ansible_host: 10.64.247.174
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7ae
+        vms94-2-b:
+          ansible_host: 10.64.247.175
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7af
+        vms95-1:
+          ansible_host: 10.64.247.176
+          ansible_hostv6: 2a01:111:e210:b000::a40:f7b0
 
     pdu:
       hosts:
@@ -239,18 +239,18 @@ fanout:
       ansible_hostv6: 2a01:111:e210:b000::a40:f620
       os: sonic
     str5-7260cx3-acs-fan-20:
-      ansible_host: 10.3.155.81
-      ansible_hostv6: 2a01:111:e210:8a::a03:9b51
+      ansible_host: 10.64.247.109
+      ansible_hostv6: 2a01:111:e210:b000::a40:f76d
     str5-7260cx3-acs-fan-21:
-      ansible_host: 10.3.155.82
-      ansible_hostv6: 2a01:111:e210:8a::a03:9b52
+      ansible_host: 10.64.247.110
+      ansible_hostv6: 2a01:111:e210:b000::a40:f76e
     str5-z9332f-01:
-      ansible_host: 10.3.155.83
-      ansible_hostv6: 2a01:111:e210:8a::a03:9b53
+      ansible_host: 10.64.247.112
+      ansible_hostv6: 2a01:111:e210:b000::a40:f770
       os: sonic
     str5-z9332f-02:
-      ansible_host: 10.3.155.84
-      ansible_hostv6: 2a01:111:e210:8a::a03:9b54
+      ansible_host: 10.64.247.115
+      ansible_hostv6: 2a01:111:e210:b000::a40:f773
       os: sonic
 
 
@@ -478,6 +478,8 @@ sonic_arista_7280dr3_400G:
     mgmt_subnet_mask_length: 26
   hosts:
     str5-7280dr3-2:
+      ansible_host: 10.64.247.74
+      ansible_hostv6: 2a01:111:e210:b000::a40:f74a
       hwsku: Arista-7280DR3AM-36
       sonic_hwsku: Arista-7280DR3AM-36
       sonic_hw_platform: x86_64-arista_7280dr3am_36
@@ -488,8 +490,6 @@ sonic_arista_7280dr3_400G:
       loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
       serial: FGN235007EM
       base_mac:  a4:3f:68:11:c5:86
-      ansible_host: 10.3.155.69
-      ansible_hostv6: 2a01:111:e210:8a::a03:9b45
       model: 'DCS-7280DR3AM-36'
       syseeprom_info:
         "0x21": "DCS-7280DR3AM-36"
@@ -504,6 +504,8 @@ sonic_arista_7280dr3_400G:
         "0x2E": "Aboot-norcal10-10.0.6-udimm-36482749"
         "0x2F": "FGN235007EM"
     str5-7280dr3-3:
+      ansible_host: 10.64.247.78
+      ansible_hostv6: 2a01:111:e210:b000::a40:f74e
       hwsku: Arista-7280DR3AM-36
       sonic_hwsku: Arista-7280DR3AM-36
       sonic_hw_platform: x86_64-arista_7280dr3am_36
@@ -514,8 +516,6 @@ sonic_arista_7280dr3_400G:
       loopback4096_ipv6: [2603:10e2:400::1/128,2603:10e2:400::2/128]
       serial: FGN2340026T
       base_mac: 38:38:a6:a4:53:04
-      ansible_host: 10.3.155.70
-      ansible_hostv6: 2a01:111:e210:8a::a03:9b46
       model: 'DCS-7280DR3AM-36'
       syseeprom_info:
         "0x21": "DCS-7280DR3AM-36"
