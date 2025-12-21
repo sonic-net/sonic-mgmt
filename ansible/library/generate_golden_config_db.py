@@ -67,6 +67,30 @@ class GenerateGoldenConfigDBModule(object):
         self.hwsku = self.module.params['hwsku']
         self.is_light_mode = self.module.params['is_light_mode']
 
+    def generate_smartswitch_darkmode_config_db(self):
+        rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
+        if rc != 0:
+            self.module.fail_json(msg="Failed to get config from minigraph: {}".format(err))
+
+        # Generate FEATURE table from init_cfg.ini
+        ori_config_db = json.loads(out)
+        hwsku = ori_config_db["DEVICE_METADATA"]["localhost"].get("hwsku", None)
+
+        hwsku_config = smartswitch_hwsku_config[hwsku]
+        for i in range(smartswitch_hwsku_config[hwsku]["dpu_num"]):
+            if "base" in hwsku_config and "step" in hwsku_config:
+                port_key = hwsku_config["port_key"].format(hwsku_config["base"] + i * hwsku_config["step"])
+            else:
+                port_key = hwsku_config["port_key"].format(i)
+
+            if port_key in ori_config_db["PORT"]:
+                ori_config_db["PORT"][port_key]["admin_status"] = "down"
+                ori_config_db["PORT"][port_key]["role"] = "Dpc"
+        gold_config_db = {
+            "PORT": copy.deepcopy(ori_config_db["PORT"])
+        }
+        return json.dumps(gold_config_db, indent=4)
+
     def generate_mgfx_golden_config_db(self):
         rc, out, err = self.module.run_command("sonic-cfggen -H -m -j /etc/sonic/init_cfg.json --print-data")
         if rc != 0:
@@ -428,6 +452,8 @@ class GenerateGoldenConfigDBModule(object):
 
         # update dns config
         config = self.update_dns_config(config)
+        if not self.is_light_mode:
+            config = self.generate_smartswitch_darkmode_config_db()
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
