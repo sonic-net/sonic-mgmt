@@ -306,7 +306,11 @@ def pytest_addoption(parser):
     #################################
     parser.addoption("--skip_yang", action="store_true", default=False,
                      help="Skip YANG validation")
-
+    #################################
+    #   Port error test options     #
+    #################################
+    parser.addoption("--collected-ports-num", action="store", default=5, type=int,
+                     help="Number of ports to collect for testing (default: 5)")
 
 def pytest_configure(config):
     if config.getoption("enable_macsec"):
