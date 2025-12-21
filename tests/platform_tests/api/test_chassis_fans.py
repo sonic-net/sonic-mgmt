@@ -206,7 +206,12 @@ class TestChassisFans(PlatformApiTestBase):
             if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
                 speed_target_val = random.randint(speed_minimum, speed_maximum)
 
-            speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)       # noqa: F841
+            speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)       # noqa F841
+            # For x3b platform fan, the corresponding kernel driver (Max31790) ramps up the duty cycle to new value
+            # at a controlled rate and it's not instant. So,for large delta between current and target speed, it could
+            # take some seconds to reach the new value
+            if duthost.facts['platform'] in ['x86_64-nokia_ixr7250_x3b-r0']:
+                time.sleep(4)
             target_speed = fan.get_target_speed(platform_api_conn, i)
             if self.expect(target_speed is not None, "Unable to retrieve Fan {} target speed".format(i)):
                 if self.expect(isinstance(target_speed, int), "Fan {} target speed appears incorrect".format(i)):
