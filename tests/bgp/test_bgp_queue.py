@@ -58,6 +58,9 @@ def test_bgp_queues(duthosts, enum_frontend_dut_hostname, enum_asic_index, tbinf
         ndp_dict[ip] = iface
 
     for k, v in list(bgp_facts['bgp_neighbors'].items()):
+        if 'chassis-packet' in duthosts[0].facts.get('switch_type'):
+            if 'ARISTA' not in v['description']:
+                break
         # Only consider established bgp sessions
         if v['state'] == 'established':
             # For "peer group" if it's internal it will be "INTERNAL_PEER_V4" or "INTERNAL_PEER_V6"
