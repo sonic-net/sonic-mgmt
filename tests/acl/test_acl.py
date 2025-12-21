@@ -548,7 +548,7 @@ def ip_version(request, tbinfo, duthosts, rand_one_dut_hostname):
     return request.param
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="class")
 def populate_vlan_arp_entries(setup, ptfhost, duthosts, rand_one_dut_hostname, ip_version):
     """Set up the ARP responder utility in the PTF container."""
     global DOWNSTREAM_IP_PORT_MAP
