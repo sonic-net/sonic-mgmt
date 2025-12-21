@@ -6780,6 +6780,245 @@ class LossyQueueVoqMultiSrcTest(sai_base_test.ThriftInterfaceDataPlane):
             self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [self.dst_port_id])
 
 
+def tprint(msg, *args, header_level=0, **kwargs):
+    ''' Commonized test print utility for PTF tests, with optional header line styling '''
+    if header_level == 1:
+        underline_char = '-'
+    elif header_level == 2:
+        underline_char = '='
+    else:
+        underline_char = ''
+    underline = '\n' + (underline_char * len(msg)) if underline_char != '' else ''
+    print(msg + underline, *args, **kwargs, file=sys.stderr)
+    sys.stderr.flush()
+
+
+class TrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
+    def setUp(self):
+        sai_base_test.ThriftInterfaceDataPlane.setUp(self)
+        time.sleep(5)
+        switch_init(self.clients)
+
+        # Parse input parameters
+        self.testbed_type = self.test_params['testbed_type']
+        self.router_mac = self.test_params['router_mac']
+        self.sonic_version = self.test_params['sonic_version']
+        self.dscps = [3]
+        self.pgs = [3]
+        self.queues = [3]
+        self.all_port_id_to_ip = self.test_params['all_port_id_to_ip']
+        self.all_port_id_to_name = self.test_params['all_port_id_to_name']
+        self.all_port_ids = list(self.all_port_id_to_ip.keys())
+        tprint("Port IDs to IPs:")
+        for key in self.all_port_id_to_ip:
+            tprint("{} -> {}".format(key, self.all_port_id_to_ip[key]))
+        tprint("Port IDs to names:")
+        for key in self.all_port_id_to_name:
+            tprint("{} -> {}".format(key, self.all_port_id_to_name[key]))
+        # get counter names to query
+        self.ingress_counters, self.egress_counters = get_counter_names(self.sonic_version)
+
+        self.asic_type = self.test_params['sonic_asic_type']
+        if self.asic_type == 'cisco-8000':
+            self.packet_size = 1350
+        else:
+            self.packet_size = 64
+        tprint("Using packet size", self.packet_size)
+
+        self.all_port_id_to_mac = {port_id: self.dataplane.get_mac(0, port_id)
+                                   for port_id in self.all_port_id_to_ip.keys()}
+
+    def tearDown(self):
+        sai_base_test.ThriftInterfaceDataPlane.tearDown(self)
+
+    def config_traffic(self, src_port_id, dst_port_id, dscp, pg, ecn_bit):
+        if type(ecn_bit) == bool:
+            ecn_bit = 1 if ecn_bit else 0
+        self.dscp = dscp
+        self.pg = pg
+        self.src_port_id = src_port_id
+        self.dst_port_id = dst_port_id
+        self.src_port_mac = self.all_port_id_to_mac[src_port_id]
+        dst_port_mac = self.all_port_id_to_mac[dst_port_id]
+        self.dst_port_mac = self.router_mac if self.router_mac != '' else dst_port_mac
+        self.src_port_ip = self.all_port_id_to_ip[src_port_id]
+        self.dst_port_ip = self.all_port_id_to_ip[dst_port_id]
+        self.tos = (dscp << 2) | ecn_bit
+        self.ttl = 64
+        self.pkt = simple_ip_packet(pktlen=self.packet_size,
+                                    eth_dst=self.dst_port_mac,
+                                    eth_src=self.src_port_mac,
+                                    ip_src=self.src_port_ip,
+                                    ip_dst=self.dst_port_ip,
+                                    ip_tos=self.tos,
+                                    ip_ttl=self.ttl)
+        tprint("Config traffic: {:>2} -> {:>2}, dscp={}, pg={}, src_ip={}, dst_ip={}".format(
+            self.src_port_id, self.dst_port_id, self.dscp, self.pg, self.src_port_ip, self.dst_port_ip))
+
+    def runTest(self):
+        # get a snapshot of counter values on all ports
+        port_cntrs_bases_map = {sid: sai_thrift_read_port_counters(self.src_client, self.asic_type,
+                                                                   port_list['src'][sid]) for sid in self.all_port_ids}
+        try:
+            leakout_successes = []
+            leakout_fails = []
+            lag_redirections = []
+            failures = []
+
+            src_dst_pairs = []
+            do_all_to_all = False
+            if do_all_to_all:
+                for src_port_id in self.all_port_ids:
+                    for dst_port_id in self.all_port_ids:
+                        if src_port_id != dst_port_id:
+                            src_dst_pairs.append((src_port_id, dst_port_id))
+            else:
+                # All-to-all can take a while. Alternatively, do:
+                # first-to-all
+                for dst_port_id in self.all_port_ids[1:]:
+                    src_dst_pairs.append((self.all_port_ids[0], dst_port_id))
+                # all-to-last
+                for src_port_id in self.all_port_ids[:-1]:
+                    src_dst_pairs.append((src_port_id, self.all_port_ids[-1]))
+            tprint("Total traffic src/dst pairings being tested:", len(src_dst_pairs))
+            pkt_count = 500
+            for src_port_id, dst_port_id in src_dst_pairs:
+                for i, dscp in enumerate(self.dscps):
+                    pg = self.pgs[i]
+                    queue = self.queues[i]  # Need queue for occupancy verification
+                    ecn_bit = 1 if dscp in [3, 4] else 0
+                    self.config_traffic(src_port_id, dst_port_id, dscp, pg, ecn_bit)
+                    # Check for LAG interference
+                    real_dst_port_id = dst_port_id
+                    try:
+                        new_dst_port_id = get_rx_port(self, 0, src_port_id, self.dst_port_mac,
+                                                      self.dst_port_ip, self.src_port_ip)
+                        if new_dst_port_id != dst_port_id:
+                            tprint("LAG redirection: Original dst port id {}, rewriting to id {}".format(
+                                dst_port_id, new_dst_port_id))
+                            lag_redirections.append((src_port_id, dst_port_id, new_dst_port_id))
+                            real_dst_port_id = new_dst_port_id
+                    except Exception:
+                        msg = "Failed to check for get_rx_port"
+                        tprint(msg)
+                        failures.append(msg)
+                    all_recv_counters_base = {port_id: sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][port_id])[0] for port_id in self.all_port_ids}
+                    self.sai_thrift_port_tx_disable(self.dst_client, self.asic_type, [real_dst_port_id])
+                    # Test fill leakout algorithm here, since this tends to be a common
+                    # failure point in other more complex tests.
+                    if 'cisco-8000' in self.asic_type:
+                        try:
+                            fill_leakout_plus_one(self, self.src_port_id, real_dst_port_id,
+                                                  self.pkt, queue, self.asic_type)
+                            leakout_successes.append((self.src_port_id, real_dst_port_id,
+                                                      self.dscp, self.pg, queue, ecn_bit))
+                        except RuntimeError:
+                            tprint("Failed to fill leakout")
+                            leakout_fails.append((self.src_port_id, real_dst_port_id, self.dscp, self.pg, ecn_bit))
+                    tprint("Sending {} packets".format(pkt_count))
+                    q_cntrs_base = sai_thrift_read_port_counters(self.src_client, self.asic_type,
+                                                                 port_list['dst'][self.dst_port_id])[1]
+                    send_packet(self, self.src_port_id, self.pkt, pkt_count)
+                    self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, [real_dst_port_id])
+                    time.sleep(1)
+                    # Queue counters
+                    q_cntrs = sai_thrift_read_port_counters(self.src_client, self.asic_type,
+                                                            port_list['dst'][real_dst_port_id])[1]
+                    pkts_enqueued = q_cntrs[QUEUE_3] - q_cntrs_base[QUEUE_3]
+                    tprint("Q count: {}".format(pkts_enqueued))
+                    tprint("")
+                    assert pkts_enqueued >= pkt_count
+                    # All port counters
+                    tprint("Checking all port counters for pair {} -> {}".format(src_port_id, dst_port_id), header_level=1)
+                    all_recv_counters = {port_id: sai_thrift_read_port_counters(self.src_client, self.asic_type, port_list['src'][port_id])[0] for port_id in self.all_port_ids}
+                    for port_id in self.all_port_ids:
+                        # RX Port counter
+                        for cntr in [RECEIVED_PKTS, TRANSMITTED_PKTS]:
+                            is_rx = cntr == RECEIVED_PKTS
+                            cntr_str = "RX" if is_rx else "TX"
+                            base = all_recv_counters_base[port_id][cntr]
+                            new = all_recv_counters[port_id][cntr]
+                            change = new - base
+                            expected = pkt_count if port_id == (src_port_id if is_rx else dst_port_id) else 0
+                            error = abs(change - expected)
+                            if error > 100:
+                                msg = "During {} -> {} traffic, port {} {} counter error {} > 100, expected {} but got {}".format(src_port_id, dst_port_id, port_id, cntr_str, error, expected, change)
+                                tprint(msg)
+                                failures.append(msg)
+
+            # Print organized summary of observations, then print observations that are
+            # considered failure conditions
+            tprint("Traffic Sanity Summary", header_level=2)
+            tprint("")
+            tprint("Leakout fill successes", header_level=1)
+            if len(leakout_successes) == 0:
+                tprint("None")
+            else:
+                for leakout_success in leakout_successes:
+                    tprint("{:>2} -> {:>2}, dscp={}, pg={}, queue={}, ecn={}".format(*leakout_success))
+            tprint("")
+
+            tprint("Leakout fill failures", header_level=1)
+            if len(leakout_fails) == 0:
+                tprint("None")
+            else:
+                for leakout_fail in leakout_fails:
+                    msg = "{:>2} -> {:>2}, dscp={}, pg={}, ecn={}".format(*leakout_fail)
+                    tprint(msg)
+                    failures.append("Leakout fill failure: {}".format(msg))
+            tprint("")
+
+            tprint("Lag redirections", header_level=1)
+            if len(lag_redirections) == 0:
+                tprint("None")
+            else:
+                for lag_redir in lag_redirections:
+                    tprint("src {:>2} -> dst {:>2}, changed to dst {:>2}".format(*lag_redir))
+            tprint("")
+
+            # Verify no ingress/egress drops for all ports exceeded the pkt count sent.
+            # Only failing for cases where all packets get dropped, to sanitize other tests.
+            tprint("Traffic drops (only fails when drops >= {})".format(pkt_count), header_level=1)
+            traffic_dropped = False
+            port_cntrs_map = {port_id: sai_thrift_read_port_counters(self.dst_client, self.asic_type,
+                                                                     port_list['dst'][port_id])
+                              for port_id in self.all_port_ids}
+            for port_id in self.all_port_ids:
+                port_cntrs_bases, _ = port_cntrs_bases_map[port_id]
+                port_cntrs, _ = port_cntrs_map[port_id]
+                for cntr in self.ingress_counters:
+                    drops = port_cntrs[cntr] - port_cntrs_bases[cntr]
+                    if drops != 0:
+                        msg = "Detected {} ingress drops on port id {}".format(drops, port_id)
+                        tprint(msg)
+                        traffic_dropped = True
+                        if drops >= pkt_count:
+                            failures.append(msg)
+                for cntr in self.egress_counters:
+                    drops = port_cntrs[cntr] - port_cntrs_bases[cntr]
+                    if drops != 0:
+                        msg = "Detected {} egress drops on port id {}".format(drops, port_id)
+                        tprint(msg)
+                        traffic_dropped = True
+                        if drops >= pkt_count:
+                            failures.append(msg)
+            if not traffic_dropped:
+                tprint("None")
+            tprint("")
+
+            passed = len(failures) == 0
+            if passed:
+                tprint("No failure conditions detected")
+            else:
+                tprint("FAILED, issues below", header_level=2)
+                for f in failures:
+                    tprint(f)
+            assert passed
+
+        finally:
+            self.sai_thrift_port_tx_enable(self.dst_client, self.asic_type, self.all_port_id_to_ip.keys())
+
+
 class FullMeshTrafficSanity(sai_base_test.ThriftInterfaceDataPlane):
     def setUp(self):
         sai_base_test.ThriftInterfaceDataPlane.setUp(self)
