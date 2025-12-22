@@ -1,0 +1,65 @@
+/*{ "//": [
+  "(C) Copyright Broadcom Corporation 2019",
+  "",
+  "Licensed under the Apache License, Version 2.0 (the "License");",
+  "you may not use this file except in compliance with the License.",
+  "You may obtain a copy of the License at",
+  "",
+  "    http://www.apache.org/licenses/LICENSE-2.0",
+  "",
+  "Unless required by applicable law or agreed to in writing, software",
+  "distributed under the License is distributed on an "AS IS" BASIS,",
+  "WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied."
+  "See the License for the specific language governing permissions and",
+  "limitations under the License.",  ] }*/
+{
+  "name":"sonic",
+  "description":"Role for a SONiC Switch",
+  "json_class":"Chef::Role",
+  "default_attributes":{
+    "vlans":{
+      "VLAN 100":{
+        "vlan_id":100,
+        "tagging_mode":"untagged",
+        "participation_list":[
+          "Ethernet0",
+          "Ethernet4"
+        ]
+      },
+      "VLAN 200":{
+        "vlan_id":200,
+        "participation_list":[
+          "Ethernet0",
+          "Ethernet4"
+        ]
+      }, 
+      "VLAN 300":{
+        "vlan_id":300,
+        "participation_list":[
+          "Ethernet8",
+          "Ethernet12"
+        ],
+        "action":"del_participation"
+      },
+      "VLAN 400":{
+        "vlan_id":400,
+        "participation_list":[
+          "Ethernet8",
+          "Ethernet12"
+        ],
+        "action":"delete"
+      }
+    }
+  },
+  "override_attributes":{
+
+  },
+  "chef_type":"role",
+  "run_list":[
+    "recipe[sonic::vlan]"
+  ],
+  "env_run_lists":{
+
+  }
+}
+
