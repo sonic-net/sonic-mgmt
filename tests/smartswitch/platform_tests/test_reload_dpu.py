@@ -6,6 +6,7 @@ import logging
 import pytest
 import re
 import time
+from tests.common.cisco_data import is_cisco_device
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
@@ -202,17 +203,21 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
-    logging.info("Checking DPUs reboot reason as Kernel Panic")
-    check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
+    # Check if it's a Cisco ASIC
+    if is_cisco_device(duthost):
 
-    logging.info("Shutdown DPUs after kernel Panic")
-    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
+        logging.info("Checking DPUs reboot reason as Kernel Panic")
+        check_dpus_reboot_cause(duthost, dpu_on_list,
+                                num_dpu_modules, "Kernel Panic")
 
-    logging.info("5 min Cool off period after DPUs Shutdown")
-    time.sleep(MAX_COOL_OFF_TIME)
+        logging.info("Shutdown DPUs after kernel Panic")
+        dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    logging.info("Starting UP the DPUs")
-    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+        logging.info("5 min Cool off period after DPUs Shutdown")
+        time.sleep(MAX_COOL_OFF_TIME)
+
+        logging.info("Starting UP the DPUs")
+        dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts,
@@ -249,17 +254,21 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     logging.info("Checking DPUs are not pingable")
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
-    logging.info("Checking DPUs reboot reason as Kernel Panic")
-    check_dpus_reboot_cause(duthost, dpu_on_list, num_dpu_modules, "Kernel Panic")
+    # Check if it's a Cisco ASIC
+    if is_cisco_device(duthost):
 
-    logging.info("Shutdown DPUs after memory exhaustion")
-    dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
+        logging.info("Checking DPUs reboot reason as Kernel Panic")
+        check_dpus_reboot_cause(duthost, dpu_on_list,
+                                num_dpu_modules, "Kernel Panic")
 
-    logging.info("5 min Cool off period after DPUs Shutdown")
-    time.sleep(MAX_COOL_OFF_TIME)
+        logging.info("Shutdown DPUs after memory exhaustion")
+        dpus_shutdown_and_check(duthost, dpu_on_list, num_dpu_modules)
 
-    logging.info("Starting UP the DPUs")
-    dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
+        logging.info("5 min Cool off period after DPUs Shutdown")
+        time.sleep(MAX_COOL_OFF_TIME)
+
+        logging.info("Starting UP the DPUs")
+        dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
