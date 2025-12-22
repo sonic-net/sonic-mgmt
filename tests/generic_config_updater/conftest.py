@@ -62,19 +62,32 @@ def skip_when_buffer_is_dynamic_model(duthost):
 
 # Function Fixture
 @pytest.fixture(autouse=True)
-def ignore_expected_loganalyzer_exceptions(duthosts, selected_dut_hostname, loganalyzer):
+def ignore_expected_loganalyzer_exceptions(request, duthosts, loganalyzer):
     """
        Ignore expected yang validation failure during test execution
 
        GCU will try several sortings of JsonPatch until the sorting passes yang validation
 
        Args:
+            request: Pytest request object to detect which DUT fixture is being used
             duthosts: list of DUTs.
-            selected_dut_hostname: Hostname of a random chosen dut
            loganalyzer: Loganalyzer utility fixture
     """
+    # Determine which DUT hostname fixture is being used
+    if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "selected_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("selected_dut_hostname")
+    elif "rand_one_dut_front_end_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_front_end_hostname")
+    elif "rand_one_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
+    else:
+        # Fallback - try to get any available DUT
+        return
+
+    duthost = duthosts[dut_hostname]
     # When loganalyzer is disabled, the object could be None
-    duthost = duthosts[selected_dut_hostname]
     if loganalyzer:
         ignoreRegex = [
             ".*ERR sonic_yang.*",
