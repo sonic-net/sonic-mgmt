@@ -812,6 +812,39 @@
                 "ls -l"
             ]
         },
+        "mathilda-dualtor-m5-6" : {
+            "ucs_host_name": "sonic-ucs-m5-6",
+            "ucs_host": "172.27.147.173",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "tor40-1,tor40-2",
+            "installer_mode":"sonic",
+            "ucs_tb": "tor40",
+            "telnet_host": ["172.27.147.44"],
+            "telnet_port": [ "2012", "2011"],
+            "telnet_details": ["172.27.147.44 2012", "172.27.147.44 2011"],
+            "dut_ssh": ["1.75.43.52", "1.75.43.51"],
+            "topology": "dualtor",
+            "telnet_flag": "True",
+            "docker_count": "14",
+            "docker_prompt":"@sonic-ucs-m5-6",
+            "sonic_mgmt_container_202405": "cicd_prod_202405",
+            "sonic_mgmt_container_202411": "cicd_prod_202411",
+            "sonic_mgmt_container_202511": "cicd_prod_202511",
+            "sonic_mgmt_container_202505": "cicd_prod_202505",
+            "sonic_mgmt_container_master": "cicd_prod_master",
+            "run_type_check": "run_tests",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo tor40 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo tor40 ./lab",
+            "skip_tests": "snappi_tests/cisco/test_ecn_marking_cisco8000.py",
+            "skip_folder": "ixia pfc_asym"
+        },
         "dualtor-m6-30-tornado" : {
             "ucs_host_name": "sonic-ucs-m6-30",
             "ucs_host": "172.26.235.80",
@@ -1976,6 +2009,7 @@
             "cisco.202405c.2.tortuga.carib.no-agents",
             "cisco.202405c.2.tortuga.siren.no-agents"
         ],
+        "mathilda-dualtor-m5-6": "None",
         "dualtor-m6-30-tornado": "None",
         "dualtor-m6-31-tornado": "None",
         "b2b-m3-2-m64": "None",
@@ -2078,7 +2112,7 @@
         "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm"],
         "t2" : ["aaa14-t2"],
-        "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1"],
+        "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
         "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat"]
     },
     "testbed_image_ucs_map" : {
@@ -2117,6 +2151,7 @@
         "t0-m6-33-laguna": "ucs_m6_33",
         "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10",
+        "mathilda-dualtor-m5-6": "ucs_m6_30",
         "dualtor-m6-30-tornado": "ucs_m6_30",
         "dualtor-m6-31-tornado": "ucs_m6_30",
         "mathilda-dualtor-t0-1": "ucs_m6_5",
