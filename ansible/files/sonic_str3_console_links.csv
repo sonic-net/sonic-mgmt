@@ -79,8 +79,8 @@ console-179,24,str3-8101-fanout-25,ssh,cisco_config,
 console-179,25,str3-8101-fanout-26,ssh,cisco_config,
 console-176,3,str3-t0-8101-fanout-01,ssh,cisco_config,
 console-176,5,str3-t0-8101-fanout-02,ssh,cisco_config,
-console-176,4,str3-t0-8102-smartswitch-01,ssh,cisco_config
-console-176,6,str3-t0-8102-smartswitch-02,ssh,cisco_config
+console-176,4,str3-t0-8102-smartswitch-01,ssh,cisco_config,
+console-176,6,str3-t0-8102-smartswitch-02,ssh,cisco_config,
 console-175,24,str3-8101-fanout-27,ssh,cisco_config,
 console-175,27,str3-8101-fanout-28,ssh,cisco_config,
 console-179,17,str3-8101-fanout-29,ssh,cisco_config,

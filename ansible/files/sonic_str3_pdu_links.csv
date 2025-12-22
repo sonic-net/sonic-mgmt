@@ -241,5 +241,5 @@ pdu-46,4,str3-t0-8101-fanout-01,PSU1,
 pdu-47,4,str3-t0-8101-fanout-02,PSU2,
 pdu-46,3,str3-t0-8101-fanout-01,PSU1,
 pdu-47,3,str3-t0-8101-fanout-02,PSU2,
-pdu-96,31,str3-d03u28-8101-01,PSU1
-pdu-97,31,str3-d03u28-8101-01,PSU2
+pdu-96,31,str3-d03u28-8101-01,PSU1,
+pdu-97,31,str3-d03u28-8101-01,PSU2,
