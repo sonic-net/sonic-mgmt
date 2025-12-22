@@ -659,4 +659,3 @@ def check_dpus_reboot_cause(duthost, dpu_list, num_dpu_modules, reason):
         pytest.fail(f"DPUs {failed} did not reboot due to '{reason}'")
     else:
         logging.info(f"All DPUs rebooted due to '{reason}' as expected")
-

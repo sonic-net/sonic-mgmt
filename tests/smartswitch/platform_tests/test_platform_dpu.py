@@ -184,7 +184,7 @@ def test_system_health_state(duthosts, dpuhosts,
     Sleep time of 5 mins is added to get the system health state
     is reflected in the cli after dpus are shutdown
     """
-    # Check if it's a Mellanox ASIC
+    # Check if it's a Cisco ASIC
     if is_cisco_device(duthost):
         logging.info("5 minutes Cool off period after shutdown")
         time.sleep(COOL_OFF_TIME)
