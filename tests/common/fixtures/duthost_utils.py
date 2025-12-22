@@ -599,6 +599,65 @@ def is_support_psu(duthosts, rand_one_dut_hostname):
         return True
 
 
+@pytest.fixture(scope='module')
+def frontend_asic_index_with_portchannel(request, duthosts, tbinfo):
+    """
+    Select a frontend ASIC that has portchannels configured.
+    Returns the ASIC index or None for single-ASIC devices.
+
+    This fixture is useful for tests that require portchannels on multi-ASIC devices,
+    ensuring the test runs on an ASIC that actually has portchannels configured.
+
+    Args:
+        request: Pytest request object to detect which DUT fixture is being used
+        duthosts: Fixture for DUT hosts
+        tbinfo: Testbed info fixture
+
+    Returns:
+        int: ASIC index for multi-ASIC devices with portchannels
+        None: For single-ASIC devices
+
+    Raises:
+        pytest_require: If no frontend ASIC with external portchannels is found
+    """
+    # Determine which DUT hostname fixture is being used
+    if "enum_rand_one_per_hwsku_frontend_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_rand_one_per_hwsku_frontend_hostname")
+    elif "rand_one_dut_front_end_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("rand_one_dut_front_end_hostname")
+    elif "enum_frontend_dut_hostname" in request.fixturenames:
+        dut_hostname = request.getfixturevalue("enum_frontend_dut_hostname")
+    else:
+        # Fallback to rand_one_dut_hostname if no frontend-specific fixture is found
+        dut_hostname = request.getfixturevalue("rand_one_dut_hostname")
+
+    duthost = duthosts[dut_hostname]
+    mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
+
+    if duthost.is_multi_asic:
+        # For multi-ASIC, find an ASIC with portchannels
+        for asic_index in duthost.get_frontend_asic_ids():
+            asic_namespace = duthost.get_namespace_from_asic_id(asic_index)
+            asic_cfg_facts = duthost.config_facts(
+                host=duthost.hostname,
+                source="persistent",
+                namespace=asic_namespace
+            )['ansible_facts']
+
+            portchannel_dict = asic_cfg_facts.get('PORTCHANNEL', {})
+            if portchannel_dict:
+                # Check if there are external (non-backend) portchannels
+                for portchannel_key in portchannel_dict:
+                    if not duthost.is_backend_portchannel(portchannel_key, mg_facts):
+                        logger.info(f"Selected ASIC {asic_index} with external portchannel: {portchannel_key}")
+                        return asic_index
+
+        pt_assert(False, "No frontend ASIC with external portchannels found")
+    else:
+        # For single-ASIC, return None
+        return None
+
+
 def separated_dscp_to_tc_map_on_uplink(dut_qos_maps_module):
     """
     A helper function to check if separated DSCP_TO_TC_MAP is applied to
