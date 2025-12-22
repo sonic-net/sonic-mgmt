@@ -293,7 +293,7 @@ fanout:
       ansible_hostv6:
       os: sonic
     str4-7060x6-512-fan-11:
-      ansible_host: 10.64.247.63
+      ansible_host: 10.64.247.8
       ansible_hostv6:
       os: sonic
     str4-7060x6-512-fan-12:
