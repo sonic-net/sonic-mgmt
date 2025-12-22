@@ -1117,7 +1117,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_host = str(link_info['peerdevice'])
             fanout_port = str(link_info['peerport'])
             baud_rate = link_info.get('baud_rate', "9600")
-            flow_control = link_info.get('flow_control', "0")
+            flow_control = link_info.get('flow_control', "0") == "1"
 
             # Create or get fanout object
             fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name, is_console_switch=True)
