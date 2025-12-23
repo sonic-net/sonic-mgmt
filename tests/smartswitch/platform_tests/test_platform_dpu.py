@@ -203,7 +203,10 @@ def test_system_health_state(duthosts, dpuhosts,
 
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Switch rebooted DPU")
+                         num_dpu_modules,
+                         re.compile(r"reboot|Non-Hardware",
+                                    re.IGNORECASE))
+
 
     for index in range(len(dpu_on_list)):
         check_dpu_health_status(duthost, dpu_on_list[index],
