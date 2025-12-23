@@ -579,12 +579,16 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
             pytest_assert(restarted, "Failed to manually restart container '{}'".format(container_name))
             logger.info("Container '{}' was manually restarted successfully".format(container_name))
 
-            # Perform config reload to restore system state (e.g., BGP sessions)
-            logger.info("Performing config reload to restore system state...")
-            config_reload(duthost, config_source='config_db', safe_reload=True, wait_before_force_reload=600)
+            # Start redis process and set CONFIG_DB_INITIALIZED flag
+            logger.info("Starting redis process in database container...")
+            duthost.shell("docker exec {} supervisorctl start redis".format(container_name))
+            redis_running = wait_until(30, 2, 0, is_process_running, duthost, container_name, "redis")
+            pytest_assert(redis_running, "Failed to start redis process in container '{}'".format(container_name))
+            
+            logger.info("Setting CONFIG_DB_INITIALIZED flag...")
+            duthost.shell('sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"')
 
-            # Re-enable autorestart after config reload
-            enable_autorestart(duthost)
+            # Now `config reload` will work..., fallback to normal flow
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
