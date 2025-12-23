@@ -1,0 +1,279 @@
+version 9.3(5) Bios:version 05.39
+hostname nexus-root
+vdc nexus-root id 1
+  limit-resource vlan minimum 16 maximum 4094
+  limit-resource vrf minimum 2 maximum 4096
+  limit-resource port-channel minimum 0 maximum 511
+  limit-resource u4route-mem minimum 248 maximum 248
+  limit-resource u6route-mem minimum 96 maximum 96
+  limit-resource m4route-mem minimum 58 maximum 58
+  limit-resource m6route-mem minimum 8 maximum 8
+  limit-resource vni_bd minimum 4096 maximum 4096
+
+feature privilege
+feature telnet
+feature bash-shell
+feature interface-vlan
+feature vtp
+
+username admin password 5 $5$Cm6/gSBv$SSlPEFbo4NFiNMhPhIOZ0vsOiIPvi/Dml4/VmjmHmv6  role network-admin
+ip domain-lookup
+system default switchport
+vlan dot1Q tag native
+interface breakout module 1 port 35 map 10g-4x
+copp profile strict
+vtp domain cisco
+snmp-server user admin network-admin auth md5 0x6025fc5d41ed9f7d7aac6ba9c65ec761 priv 0x6025fc5d41ed9f7d7aac6ba9c65ec761 localizedkey
+rmon event 1 log trap public description FATAL(1) owner PMON@FATAL
+rmon event 2 log trap public description CRITICAL(2) owner PMON@CRITICAL
+rmon event 3 log trap public description ERROR(3) owner PMON@ERROR
+rmon event 4 log trap public description WARNING(4) owner PMON@WARNING
+rmon event 5 log trap public description INFORMATION(5) owner PMON@INFO
+
+ip route 0.0.0.0/0 1.74.23.7
+ip route 0.0.0.0/0 mgmt0 1.74.23.7
+vlan 1,100,200,1000,1601-1631,2000-2095
+
+no spanning-tree vlan 1-3967
+vrf context management
+  ip route 0.0.0.0/0 1.74.23.7
+
+
+interface Vlan1
+  no shutdown
+
+interface Ethernet1/1
+  switchport mode dot1q-tunnel
+  switchport access vlan 2000
+  spanning-tree bpdufilter enable
+  mtu 9216
+  speed 100000
+  duplex full
+  no negotiate auto
+
+interface Ethernet1/2
+  switchport mode dot1q-tunnel
+  switchport access vlan 2001
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/3
+  switchport mode dot1q-tunnel
+  switchport access vlan 2002
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/4
+  switchport mode dot1q-tunnel
+  switchport access vlan 2003
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/5
+  switchport mode dot1q-tunnel
+  switchport access vlan 2004
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/6
+  switchport mode dot1q-tunnel
+  switchport access vlan 2005
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/7
+  switchport mode dot1q-tunnel
+  switchport access vlan 2006
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/8
+  switchport mode dot1q-tunnel
+  switchport access vlan 2007
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/9
+  switchport mode dot1q-tunnel
+  switchport access vlan 2008
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/10
+  switchport mode dot1q-tunnel
+  switchport access vlan 2009
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/11
+  switchport mode dot1q-tunnel
+  switchport access vlan 2010
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/12
+  switchport mode dot1q-tunnel
+  switchport access vlan 2011
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/13
+  switchport mode dot1q-tunnel
+  switchport access vlan 2012
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/14
+  switchport mode dot1q-tunnel
+  switchport access vlan 2013
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/15
+  switchport mode dot1q-tunnel
+  switchport access vlan 2014
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/16
+  switchport mode dot1q-tunnel
+  switchport access vlan 2015
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/17
+  switchport mode dot1q-tunnel
+  switchport access vlan 2016
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/18
+  switchport mode dot1q-tunnel
+  switchport access vlan 2017
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/19
+  switchport mode dot1q-tunnel
+  switchport access vlan 2018
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/20
+  switchport mode dot1q-tunnel
+  switchport access vlan 2019
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/21
+  switchport mode dot1q-tunnel
+  switchport access vlan 2020
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/22
+  switchport mode dot1q-tunnel
+  switchport access vlan 2021
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/23
+  switchport mode dot1q-tunnel
+  switchport access vlan 2022
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/24
+  switchport mode dot1q-tunnel
+  switchport access vlan 2023
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/25
+  switchport mode dot1q-tunnel
+  switchport access vlan 2024
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/26
+  switchport mode dot1q-tunnel
+  switchport access vlan 2025
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/27
+  switchport mode dot1q-tunnel
+  switchport access vlan 2026
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/28
+  switchport mode dot1q-tunnel
+  switchport access vlan 2027
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/29
+  switchport mode dot1q-tunnel
+  switchport access vlan 2028
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/30
+  switchport mode dot1q-tunnel
+  switchport access vlan 2029
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/31
+  switchport mode dot1q-tunnel
+  switchport access vlan 2030
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/32
+  switchport mode dot1q-tunnel
+  switchport access vlan 2031
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/33
+  switchport mode trunk
+  switchport vlan mapping enable
+  switchport trunk allowed vlan 2032-2063
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/34
+  switchport mode trunk
+  switchport vlan mapping enable
+  switchport trunk allowed vlan 1,2064-2095
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/35/1
+  switchport mode trunk
+  switchport vlan mapping enable
+  switchport trunk allowed vlan 1,2000-2095
+  spanning-tree bpdufilter enable
+  mtu 9216
+
+interface Ethernet1/35/2
+
+interface Ethernet1/35/3
+
+interface Ethernet1/35/4
+
+interface Ethernet1/36
+
+interface mgmt0
+  vrf member management
+  ip address 1.74.23.201/16
+line console
+line vty
+boot nxos bootflash:/nxos.9.3.5.bin
+boot order bootflash
+no feature signature-verification
+no system default switchport shutdown
+
+
