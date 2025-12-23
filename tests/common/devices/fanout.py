@@ -15,8 +15,8 @@ logger = logging.getLogger(__name__)
 @dataclass
 class SerialPortMapping():
     dut_name: str
-    dut_port: str
-    baud_rate: str
+    dut_port: int
+    baud_rate: int
     flow_control: bool
 
 
@@ -33,7 +33,7 @@ class FanoutHost(object):
         self.type = device_type
         self.host_to_fanout_port_map = {}
         self.fanout_to_host_port_map = {}
-        self.serial_port_map: defaultdict[str, Optional[SerialPortMapping]] = defaultdict(lambda: None)
+        self.serial_port_map: defaultdict[int, Optional[SerialPortMapping]] = defaultdict(lambda: None)
 
         if os == 'sonic':
             self.os = os
@@ -136,7 +136,7 @@ class FanoutHost(object):
         self.host_to_fanout_port_map[host_port] = fanout_port
         self.fanout_to_host_port_map[fanout_port] = host_port
 
-    def add_serial_port_map(self, host_name: str, host_port: str, fanout_port: str, baud_rate: str, flow_control: bool):
+    def add_serial_port_map(self, host_name: str, host_port: int, fanout_port: int, baud_rate: int, flow_control: bool):
         """
             Record serial port mapping information for a given fanout port.
             Mapping information can be access via self.serial_port_map[fanout_port]

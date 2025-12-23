@@ -3037,12 +3037,12 @@ print(device_prefix)
 
         return device_prefix
 
-    def _get_serial_device_path(self, port: str) -> str:
+    def _get_serial_device_path(self, port: int) -> str:
         """
         Get the full serial device path for a given port.
 
         Args:
-            port: Port name (e.g., "1", "2")
+            port: Port number (e.g., 1, 2)
 
         Returns:
             str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB-1")
@@ -3050,7 +3050,7 @@ print(device_prefix)
         device_prefix = self._get_serial_device_prefix()
         return f"{device_prefix}{port}"
 
-    def set_loopback(self, port: str, baud_rate: str = '9600', flow_control: bool = False) -> None:
+    def set_loopback(self, port: int, baud_rate: int = 9600, flow_control: bool = False) -> None:
         """Set loopback on the specified port. Raises RuntimeError on failure."""
         if not self.is_console_switch():
             error_msg = "This operation is only supported on console switches"
@@ -3089,7 +3089,7 @@ print(device_prefix)
 
         logging.info(f"Successfully started socat loopback on port {port}")
 
-    def unset_loopback(self, port: str) -> None:
+    def unset_loopback(self, port: int) -> None:
         """Unset loopback on the specified port. Raises RuntimeError on failure."""
         if not self.is_console_switch():
             error_msg = "This operation is only supported on console switches"
@@ -3123,7 +3123,7 @@ print(device_prefix)
 
         logging.info(f"Successfully stopped socat loopback on port {port}")
 
-    def bridge(self, port1: str, port2: str, baud_rate: str = "9600", flow_control: bool = False) -> None:
+    def bridge(self, port1: int, port2: int, baud_rate: int = 9600, flow_control: bool = False) -> None:
         """Bridge two ports together. Raises RuntimeError on failure."""
         if not self.is_console_switch():
             error_msg = "This operation is only supported on console switches"
@@ -3172,7 +3172,7 @@ print(device_prefix)
 
         logging.info(f"Successfully bridged ports {port1} and {port2}")
 
-    def unbridge(self, port1: str, port2: str) -> None:
+    def unbridge(self, port1: int, port2: int) -> None:
         """Remove bridge between two ports. Raises RuntimeError on failure."""
         if not self.is_console_switch():
             error_msg = "This operation is only supported on console switches"
@@ -3225,10 +3225,10 @@ print(device_prefix)
 
         logging.info(f"Successfully unbridged ports {port1} and {port2}")
 
-    def bridge_remote(self, port: str, remote_host: str, remote_port: str):
+    def bridge_remote(self, port: int, remote_host: int, remote_port: int):
         raise NotImplementedError("Bridge method is not implemented yet")
 
-    def unbridge_remote(self, port: str):
+    def unbridge_remote(self, port: int):
         raise NotImplementedError("Bridge method is not implemented yet")
 
     def cleanup_all_console_sessions(self) -> None:
