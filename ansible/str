@@ -246,7 +246,7 @@ all:
 
 sonic:
   vars:
-    mgmt_subnet_mask_length: 23
+    mgmt_subnet_mask_length: 25
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_mlnx_40:
@@ -440,6 +440,7 @@ sonic_arista32_100:
     str-a7060cx-acs-1:
       ansible_host: 10.64.247.14
       ansible_hostv6: 2a01:111:e210:b000::a40:f70e
+      mgmt_subnet_mask_length: 26
       hwsku: Arista-7060CX-32S-D48C8
       model: DCS-7060CX-32S
       serial: HBG224100YH
@@ -644,6 +645,7 @@ sonic_mlnx_4700:
     str-msn4700-02:
       ansible_host: 10.64.247.80
       ansible_hostv6: 2a01:111:e210:b000::a40:f755
+      mgmt_subnet_mask_length: 26
       hwsku: Mellanox-SN4700-O32
       iface_speed: 400000
       model: MSN4700-WS2ROS
@@ -743,9 +745,11 @@ fanout:
     str-7060cx-32s-17:
       ansible_host: 10.64.247.13
       ansible_hostv6: 2a01:111:e210:b000::a40:f70d
+      mgmt_subnet_mask_length: 26
     str-7060cx-32s-18:
       ansible_host: 10.64.247.22
       ansible_hostv6: 2a01:111:e210:b000::a40:f716
+      mgmt_subnet_mask_length: 26
     str-7260cx3-fan-06:
       ansible_host: 10.3.146.25
       ansible_hostv6: 2a01:111:e210:3000::a03:9219
@@ -756,10 +760,12 @@ fanout:
     str-msn4700-fanout-02:
       ansible_host: 10.64.247.79
       ansible_hostv6: 2a01:111:e210:b000::a40:f74f
+      mgmt_subnet_mask_length: 26
       os: sonic
     str2-7260cx3-d21-u22:
       ansible_host: 10.64.247.77
       ansible_hostv6: 2a01:111:e210:b000::a40:f74d
+      mgmt_subnet_mask_length: 26
 
 server:
   hosts:
@@ -775,6 +781,7 @@ server:
     str-acs-serv-06:
       ansible_host: 10.64.247.42
       ansible_hostv6: 2a01:111:e210:b000::a40:f72a
+      mgmt_subnet_mask_length: 26
     str-acs-serv-07:
       ansible_host: 10.64.246.28
       ansible_hostv6: 2a01:111:e210:b000::a40:f61c
@@ -787,6 +794,7 @@ server:
     str-acs-serv-14:
       ansible_host: 10.64.247.30
       ansible_hostv6: 2a01:111:e210:b000::a40:f71e
+      mgmt_subnet_mask_length: 26
 
 # designated nightly agents
 self_hosted_azure_agents:
@@ -794,3 +802,4 @@ self_hosted_azure_agents:
     str-acs-serv-15:
       ansible_host: 10.64.247.31
       ansible_hostv6: 2a01:111:e210:b000::a40:f71f
+      mgmt_subnet_mask_length: 26

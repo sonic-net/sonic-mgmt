@@ -341,14 +341,17 @@ fanout:
     str3-8101-fanout-10:
       ansible_host: 10.64.247.59
       ansible_hostv6: 2a01:111:e210:b000::a40:f73b
+      mgmt_subnet_mask_length: 26
       os: sonic
     str3-8101-fanout-11:
       ansible_host: 10.64.247.60
       ansible_hostv6: 2a01:111:e210:b000::a40:f73c
+      mgmt_subnet_mask_length: 26
       os: sonic
     str3-8101-fanout-12:
       ansible_host: 10.64.247.61
       ansible_hostv6: 2a01:111:e210:b000::a40:f73d
+      mgmt_subnet_mask_length: 26
       os: sonic
     str3-8101-fanout-22:
       ansible_host: 10.3.146.151
@@ -440,7 +443,7 @@ fanout:
       os: sonic
 sonic:
   vars:
-    mgmt_subnet_mask_length: 23
+    mgmt_subnet_mask_length: 25
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_cisco_8102:
@@ -1036,7 +1039,7 @@ sonic_cisco_8101_tornado_V64:
     str3-8101c1-06:
       ansible_host: 10.64.247.90
       ansible_hostv6: 2a01:111:e210:b000::a40:f75a
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 26
       model: 8101-32FH-O-C01
       serial: WZP28509E5U
       base_mac: 48:00:B3:A0:FE:96
@@ -1208,6 +1211,7 @@ sonic_cisco_8111:
     str3-8111-04:
       ansible_host: 10.64.247.55
       ansible_hostv6: 2a01:111:e210:b000::a40:f737
+      mgmt_subnet_mask_length: 26
       hwsku: Cisco-8111-O64
       model: 8111-32EH-O
       serial: FLM270401D2
@@ -1601,7 +1605,7 @@ sonic_arista_7800_sup:
     str3-7808-sup-2:
       ansible_host: 10.64.246.61
       ansible_hostv6: 2a01:111:e210:3000::a03:92d1
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       hwsku: Arista-7808R3A-FM
       model: 'DCS-7800-SUP1A'
       serial: SGD2419016E
@@ -1882,7 +1886,7 @@ sonic_arista_7800_lc_100G:
       base_mac: fc:bd:67:67:e4:1b
       ansible_host: 10.64.246.31
       ansible_hostv6: 2a01:111:e210:3000::a03:92d2
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       syseeprom_info:
         "0x21": "7800R3-48CQ2-LC"
         "0x22": "ASY050910106"
@@ -1916,7 +1920,7 @@ sonic_arista_7800_lc_100G:
       base_mac: fc:bd:67:67:dc:a4
       ansible_host: 10.64.246.18
       ansible_hostv6: 2a01:111:e210:3000::a03:92d3
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       syseeprom_info:
         "0x21": "7800R3-48CQ2-LC"
         "0x22": "ASY050910106"
@@ -1950,7 +1954,7 @@ sonic_arista_7800_lc_100G:
       base_mac: 60:6b:5b:dc:df:95
       ansible_host: 10.64.246.72
       ansible_hostv6: 2a01:111:e210:3000::a03:92d4
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
     str3-7800-lc6-2:
       hwsku: Arista-7800R3-48CQ2-C48
       sonic_hwsku: Arista-7800R3-48CQ2-C48
@@ -1966,7 +1970,7 @@ sonic_arista_7800_lc_100G:
       base_mac: 28:e7:1d:8e:32:b9
       ansible_host: 10.64.246.73
       ansible_hostv6: 2a01:111:e210:3000::a03:92d8
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
 
 sonic_arista32_100:
   hosts:
@@ -2211,7 +2215,7 @@ sonic_arista_7060x6:
     str3-7060x6-64pe-1:
       ansible_host: 10.64.246.2
       ansible_hostv6: 2a01:111:e210:b000::a03:92a9
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-64PE-256x200G
       model: DCS-7060X6-64PE
       serial: HBG240808QJ
@@ -2231,7 +2235,7 @@ sonic_arista_7060x6:
     str3-7060x6-64pe-3:
       ansible_host: 10.64.246.20
       ansible_hostv6: 2a01:111:e210:b000::a40:f614
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-64PE-256x200G
       model: DCS-7060X6-64PE
       serial: HBG240904VN
@@ -2252,7 +2256,7 @@ sonic_arista_7060x6:
     str3-7060x6-64pe-4:
       ansible_host: 10.64.246.64
       ansible_hostv6: 2a01:111:e210:b000::a40:f640
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-64PE-256x200G
       model: DCS-7060X6-64PE
       serial: HBG24270155
@@ -2456,18 +2460,23 @@ server:
     str3-acs-serv-64:
       ansible_host: 10.64.247.46
       ansible_hostv6: 2a01:111:e210:b000::a40:f72e
+      mgmt_subnet_mask_length: 26
     str3-acs-serv-66:
       ansible_host: 10.64.247.118
       ansible_hostv6: 2a01:111:e210:b000::a40:f776
+      mgmt_subnet_mask_length: 26
     str3-acs-serv-67:
       ansible_host: 10.64.247.66
       ansible_hostv6: 2a01:111:e210:b000::a40:f742
+      mgmt_subnet_mask_length: 26
     str3-acs-serv-68:
       ansible_host: 10.64.247.67
       ansible_hostv6: 2a01:111:e210:b000::a40:f743
+      mgmt_subnet_mask_length: 26
     str3-acs-serv-69:  # dedicated server for vms69-t2-8800-x
       ansible_host: 10.64.247.88
       ansible_hostv6: 2a01:111:e210:b000::a40:f758
+      mgmt_subnet_mask_length: 26
     str3-acs-serv-76:
       ansible_host: 10.64.246.14
       ansible_hostv6: 2a01:111:e210:b000::a40:f604

@@ -463,7 +463,7 @@ fanout:
 
 sonic:
   vars:
-    mgmt_subnet_mask_length: 23
+    mgmt_subnet_mask_length: 25
     mgmt_subnet_v6_mask_length: 64
   children:
     sonic_mlnx:
@@ -679,7 +679,7 @@ sonic_mlnx_4700:
     str2-msn4700-fanout-13:
       ansible_host: 10.64.246.172
       ansible_hostv6: 2a01:111:e210:3000::a40:f6ac
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       hwsku: Mellanox-SN4700-O32
       model: MSN4700-WS2ROS
       serial: MT2414J000YP
@@ -702,7 +702,7 @@ sonic_mlnx_4280_smartswitch:
   hosts:
     str2-mlnx-4280-smartswitch-02:
       ansible_host: 10.64.246.170
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       model: SN4280
       serial: MT2437XZ06C4
       base_mac: B0:CF:0E:31:28:00
@@ -733,7 +733,7 @@ sonic_mlnx_4280_smartswitch:
           wait: 600
     str2-mlnx-4280-smartswitch-03:
       ansible_host: 10.64.246.171
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       model: SN4280
       serial: MT2433XZ050G
       base_mac: B0:CF:0E:27:6F:00
@@ -2478,7 +2478,7 @@ sonic_cisco_8102_smartswitch:
   hosts:
     str2-8102-smartswitch-03:
       ansible_host: 10.64.246.173
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       model: 8102-28FH-DPU-O
       serial: FLM282907T8
       base_mac: 9C:09:8B:FC:4A:00
@@ -2496,7 +2496,7 @@ sonic_cisco_8102_smartswitch:
         "0xFE": "0x34A51801"
     str2-8102-smartswitch-04:
       ansible_host: 10.64.246.175
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 25
       model: 8102-28FH-DPU-O
       serial: FLM275101ML
       base_mac: 24:D5:E4:34:D9:D0
@@ -2591,7 +2591,7 @@ sonic_cisco_8101_tornado_O8V48:
     str2-8101c1-09:
       ansible_host: 10.64.247.57
       ansible_hostv6: 2a01:111:e210:b000::a40:f739
-      mgmt_subnet_mask_length: 23
+      mgmt_subnet_mask_length: 26
       model: 8101-32FH-O-C01
       serial: WZP29179HRY
       base_mac: 48:00:B3:A2:80:48
