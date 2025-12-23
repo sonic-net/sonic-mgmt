@@ -208,16 +208,16 @@ fanout:
       ansible_hostv6: 2a01:111:e210:b000::a40:f793
       os: sonic
     str5-7060x6-moby-512-fan-1:
-      ansible_host: 10.64.247.155
-      ansible_hostv6: 2a01:111:e210:b000::a40:f79b
+      ansible_host: 10.64.247.37
+      ansible_hostv6: 2a01:111:e210:b000::a40:f725
       os: sonic
     str5-7060x6-moby-512-fan-2:
-      ansible_host: 10.64.247.159
-      ansible_hostv6: 2a01:111:e210:b000::a40:f79f
+      ansible_host: 10.64.247.120
+      ansible_hostv6: 2a01:111:e210:b000::a40:f778
       os: sonic
     str5-7060x6-moby-512-fan-3:
-      ansible_host: 10.64.247.166
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7a6
+      ansible_host: 10.64.247.122
+      ansible_hostv6: 2a01:111:e210:b000::a40:f77a
       os: sonic
     str5-sn5640-fan-1:
       ansible_host: 10.64.247.138
@@ -371,8 +371,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "HBG250905MG"
     str5-7060x6-moby-512-1:
-      ansible_host: 10.64.247.154
-      ansible_hostv6: 2a01:111:e210:b000::a40:f79a
+      ansible_host: 10.64.247.36
+      ansible_hostv6: 2a01:111:e210:b000::a40:f724
       mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-384C-B
@@ -391,8 +391,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "SSN25202317"
     str5-7060x6-moby-512-2:
-      ansible_host: 10.64.247.158
-      ansible_hostv6: 2a01:111:e210:b000::a40:f79e
+      ansible_host: 10.64.247.119
+      ansible_hostv6: 2a01:111:e210:b000::a40:f777
       mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-384C-B
@@ -411,8 +411,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "SSN25202343"
     str5-7060x6-moby-512-3:
-      ansible_host: 10.64.247.162
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7a2
+      ansible_host: 10.64.247.121
+      ansible_hostv6: 2a01:111:e210:b000::a40:f779
       mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-384C-B
@@ -431,8 +431,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "SSN25202376"
     str5-7060x6-moby-512-4:
-      ansible_host: 10.64.247.201
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7c9
+      ansible_host: 10.64.247.38
+      ansible_hostv6: 2a01:111:e210:b000::a40:f726
       mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-384C-B
@@ -451,8 +451,8 @@ sonic_arista_7060x6_512:
         "0x2D": "Arista Networks"
         "0x2F": "SSN25202314"
     str5-7060x6-moby-512-5:
-      ansible_host: 10.64.247.202
-      ansible_hostv6: 2a01:111:e210:b000::a40:f7ca
+      ansible_host: 10.64.247.50
+      ansible_hostv6: 2a01:111:e210:b000::a40:f732
       mgmt_subnet_mask_length: 25
       hwsku: Arista-7060X6-16PE-384C-B-O128S2
       model: DCS-7060X6-16PE-384C-B
