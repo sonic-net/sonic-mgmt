@@ -822,6 +822,13 @@ def acl_config_scenario(request):
     return request.param
 
 
+# Setting to false due to kvm data traffic issue failing the test case. Need to be enabled after investigation.
+# Issue: https://github.com/sonic-net/sonic-mgmt/issues/21775
+@pytest.fixture(scope="module", params=[False])
+def data_traffic_scenario(request):
+    return request.param
+
+
 def setup_acl_config(duthost, ip_netns_namespace_prefix):
     logger.info("Adding acl config.")
     remove_dataacl_table_single_dut("DATAACL", duthost)
@@ -898,7 +905,8 @@ def setup_add_cluster(tbinfo,
                       ptfadapter,
                       loganalyzer,
                       acl_config_scenario,
-                      setup_static_route):
+                      setup_static_route,
+                      data_traffic_scenario):
     """
     This setup fixture prepares the Downstream LC by applying a patch to remove
     and then re-add the cluster configuration.
@@ -953,7 +961,7 @@ def setup_add_cluster(tbinfo,
         )
     )
     initial_buffer_pg_info = get_cfg_info_from_dut(duthost, 'BUFFER_PG', enum_rand_one_asic_namespace)
-    with allure.step("Data Verification before removing cluster"):
+    with allure.step("Verification before removing cluster"):
         for host_device in duthosts:
             if host_device.is_supervisor_node():
                 continue
@@ -965,8 +973,10 @@ def setup_add_cluster(tbinfo,
                       .format(STATIC_DST_IP))
         pytest_assert(route_exists_src, "Static route {} doesn't exist on upstream DUT before cluster removal."
                       .format(STATIC_DST_IP))
-        send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
-                                ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
+        if data_traffic_scenario:
+            logger.info("Sending traffic from upstream DUT to downstream DUT before cluster removal.")
+            send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
+                                    ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
 
     with allure.step("Removing cluster info for namespace"):
         # disable loganalyzer during cluster removal
@@ -1051,7 +1061,8 @@ def test_add_cluster(tbinfo,
                      loganalyzer,
                      acl_config_scenario,
                      cli_namespace_prefix,
-                     setup_add_cluster):
+                     setup_add_cluster,
+                     data_traffic_scenario):
     """
     Validates the functionality of the Downstream Linecard after adding a cluster.
 
@@ -1089,60 +1100,62 @@ def test_add_cluster(tbinfo,
             duthost_up.get_asic_ids()
         )
     )
-    # Traffic scenarios applied in non-acl, acl scenario
-    traffic_scenarios = [
-        {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-         "sport": 1234, "dport": 50, "verify": True, "expect_error": False},
-        {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-         "sport": 1234, "dport": 50, "verify": True, "expect_error": False}
-    ]
-    if acl_config_scenario:
+
+    if data_traffic_scenario:
+        # Traffic scenarios applied in non-acl, acl scenario
         traffic_scenarios = [
             {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-             "sport": 5000, "dport": 50, "verify": True, "expect_error": False, "match_rule": "RULE_100"},
-            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-             "sport": 1234, "dport": 8080, "verify": True, "expect_error": True, "match_rule": "RULE_200"},
-            {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-             "sport": 1234, "dport": 50, "verify": True, "expect_error": False, "match_rule": None},
+             "sport": 1234, "dport": 50, "verify": True, "expect_error": False},
             {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-             "sport": 5000, "dport": 50, "verify": True, "expect_error": False, "match_rule": "RULE_100"},
-            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-             "sport": 1234, "dport": 8080, "verify": True, "expect_error": True, "match_rule": "RULE_200"},
-            {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
-             "sport": 1234, "dport": 50, "verify": True, "expect_error": False, "match_rule": None}
+             "sport": 1234, "dport": 50, "verify": True, "expect_error": False}
         ]
-
-    for traffic_scenario in traffic_scenarios:
-        logger.info("Starting Data Traffic Scenario: {}".format(traffic_scenario))
-        if traffic_scenario["direction"] == "upstream->downstream":
-            src_duthost = duthost_up
-            src_asic_index = asic_id_src_up
-        elif traffic_scenario["direction"] == "downstream->downstream":
-            src_duthost = duthost
-            src_asic_index = asic_id_src
-        else:
-            pytest_assert("Unsupported direction for traffic scenario {}.".format(traffic_scenario["direction"]))
-
         if acl_config_scenario:
-            duthost.shell('{} aclshow -c'.format(ip_netns_namespace_prefix))
+            traffic_scenarios = [
+                {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
+                 "sport": 5000, "dport": 50, "verify": True, "expect_error": False, "match_rule": "RULE_100"},
+                {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
+                 "sport": 1234, "dport": 8080, "verify": True, "expect_error": True, "match_rule": "RULE_200"},
+                {"direction": "upstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
+                 "sport": 1234, "dport": 50, "verify": True, "expect_error": False, "match_rule": None},
+                {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
+                 "sport": 5000, "dport": 50, "verify": True, "expect_error": False, "match_rule": "RULE_100"},
+                {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
+                 "sport": 1234, "dport": 8080, "verify": True, "expect_error": True, "match_rule": "RULE_200"},
+                {"direction": "downstream->downstream", "dst_ip": STATIC_DST_IP, "count": 1000, "dscp": 3,
+                 "sport": 1234, "dport": 50, "verify": True, "expect_error": False, "match_rule": None}
+            ]
 
-        send_and_verify_traffic(tbinfo, src_duthost, duthost, src_asic_index, asic_id,
-                                ptfadapter,
-                                dst_ip=traffic_scenario["dst_ip"],
-                                dscp=traffic_scenario["dscp"],
-                                count=traffic_scenario["count"],
-                                sport=traffic_scenario["sport"],
-                                dport=traffic_scenario["dport"],
-                                verify=traffic_scenario["verify"],
-                                expect_error=traffic_scenario["expect_error"])
+        for traffic_scenario in traffic_scenarios:
+            logger.info("Starting Data Traffic Scenario: {}".format(traffic_scenario))
+            if traffic_scenario["direction"] == "upstream->downstream":
+                src_duthost = duthost_up
+                src_asic_index = asic_id_src_up
+            elif traffic_scenario["direction"] == "downstream->downstream":
+                src_duthost = duthost
+                src_asic_index = asic_id_src
+            else:
+                pytest_assert("Unsupported direction for traffic scenario {}.".format(traffic_scenario["direction"]))
 
-        if acl_config_scenario:
-            acl_counters = duthost.show_and_parse('{} aclshow -a'.format(ip_netns_namespace_prefix))
-            for acl_counter in acl_counters:
-                if acl_counter["rule name"] in ACL_RULE_SKIP_VERIFICATION_LIST:
-                    continue
-                pytest_assert(acl_counter["packets count"] == str(traffic_scenario["count"])
-                              if acl_counter["rule name"] == traffic_scenario["match_rule"]
-                              else acl_counter["packets count"] == '0',
-                              "Acl rule {} statistics are not as expected. Found value {}"
-                              .format(acl_counter["rule name"], acl_counter["packets count"]))
+            if acl_config_scenario:
+                duthost.shell('{} aclshow -c'.format(ip_netns_namespace_prefix))
+
+            send_and_verify_traffic(tbinfo, src_duthost, duthost, src_asic_index, asic_id,
+                                    ptfadapter,
+                                    dst_ip=traffic_scenario["dst_ip"],
+                                    dscp=traffic_scenario["dscp"],
+                                    count=traffic_scenario["count"],
+                                    sport=traffic_scenario["sport"],
+                                    dport=traffic_scenario["dport"],
+                                    verify=traffic_scenario["verify"],
+                                    expect_error=traffic_scenario["expect_error"])
+
+            if acl_config_scenario:
+                acl_counters = duthost.show_and_parse('{} aclshow -a'.format(ip_netns_namespace_prefix))
+                for acl_counter in acl_counters:
+                    if acl_counter["rule name"] in ACL_RULE_SKIP_VERIFICATION_LIST:
+                        continue
+                    pytest_assert(acl_counter["packets count"] == str(traffic_scenario["count"])
+                                  if acl_counter["rule name"] == traffic_scenario["match_rule"]
+                                  else acl_counter["packets count"] == '0',
+                                  "Acl rule {} statistics are not as expected. Found value {}"
+                                  .format(acl_counter["rule name"], acl_counter["packets count"]))
