@@ -37,7 +37,7 @@ def skip_ignored_broken_symbolinks(broken_symbolinks):
     return broken_symbolinks_updated
 
 
-def check_sysfs(dut):
+def check_sysfs(dut, expected_module_temp_fault_value=['0']):
     """
     @summary: Check various hw-management related sysfs under /var/run/hw-management
     """
@@ -167,7 +167,7 @@ def check_sysfs(dut):
         if not sfp_info["temp_fault"]:
             continue
 
-        assert sfp_info["temp_fault"] == '0', "SFP%d temp fault" % int(sfp_id)
+        assert sfp_info["temp_fault"] in expected_module_temp_fault_value, "SFP%d temp fault" % int(sfp_id)
         sfp_temp = float(sfp_info['temp']) if sfp_info['temp'] != '0' else 0
         sfp_temp_crit = float(
             sfp_info['crit_temp']) if sfp_info['crit_temp'] != '0' else 0
