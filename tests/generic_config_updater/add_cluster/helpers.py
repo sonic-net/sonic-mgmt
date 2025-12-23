@@ -80,10 +80,10 @@ def remove_static_route(tbinfo, neigh_ip, exabgp_port, ip, mask='32', aspath=655
 def verify_routev4_existence(duthost, asic_id, ip, should_exist=True):
     cur_ipv4_routes = duthost.asic_instance(asic_id).command("ip -4 route")['stdout']
     if ip in cur_ipv4_routes:
-        logger.info("Verifying route {} existence || Found=True || Expected={}.".format(ip, should_exist))
+        logger.info("{}:Verifying route {} existence || Found=True || Expected={}.".format(duthost, ip, should_exist))
         return True if should_exist else False
     else:
-        logger.info("Verifying route {} existence || Found=False || Expected={}.".format(ip, should_exist))
+        logger.info("{}:Verifying route {} existence || Found=False || Expected={}.".format(duthost, ip, should_exist))
         return False if should_exist else True
 
 

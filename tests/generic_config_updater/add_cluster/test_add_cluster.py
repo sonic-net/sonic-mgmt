@@ -959,6 +959,12 @@ def setup_add_cluster(tbinfo,
                 continue
             logger.info(host_device.shell('show ip bgp summary -d all'))
             logger.info(host_device.shell('show ipv6 bgp summary -d all'))
+        route_exists = verify_routev4_existence(duthost, asic_id, STATIC_DST_IP, should_exist=True)
+        route_exists_src = verify_routev4_existence(duthost_src, asic_id_src, STATIC_DST_IP, should_exist=True)
+        pytest_assert(route_exists, "Static route {} doesn't exist on downstream DUT before cluster removal."
+                      .format(STATIC_DST_IP))
+        pytest_assert(route_exists_src, "Static route {} doesn't exist on upstream DUT before cluster removal."
+                      .format(STATIC_DST_IP))
         send_and_verify_traffic(tbinfo, duthost_src, duthost, asic_id_src, asic_id,
                                 ptfadapter, dst_ip=STATIC_DST_IP, count=10, expect_error=False)
 
