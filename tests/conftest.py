@@ -969,7 +969,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
 
             # Ensure is_console_switch flag is consistent with parameter
             if isinstance(fanout.host, SonicHost):
-                fanout.host.is_console_switch = is_console_switch
+                fanout.host.is_console_switch |= is_console_switch
 
             return fanout
 
