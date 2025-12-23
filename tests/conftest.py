@@ -966,6 +966,11 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout = fanout_hosts[fanout_name]
             if dut_host not in fanout.dut_hostnames:
                 fanout.dut_hostnames.append(dut_host)
+
+            # Ensure is_console_switch flag is consistent with parameter
+            if isinstance(fanout.host, SonicHost):
+                fanout.host.is_console_switch = is_console_switch
+
             return fanout
 
         # Get fanout device info from inventory
@@ -1044,15 +1049,6 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     # Process Ethernet connections
 
     dev_conn = conn_graph_facts.get('device_conn', {})
-    # "device_conn": {
-    #     "labx-x-720dt-9": {
-    #         "Ethernet48": {
-    #             "peerdevice": "labx-x-720dt-leaf-25",
-    #             "peerport": "Ethernet7/1",
-    #             "speed": "10000",
-    #             "fec_disable": "",
-    #             "autoneg": "Off"
-    #         },
 
     for dut_name, ethernet_ports in dev_conn.items():
 
@@ -1094,14 +1090,6 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     # Process Serial connections
 
     dev_serial_link = conn_graph_facts.get('device_serial_link', {})
-    # "device_serial_link": {
-    #     "labx-x-720dt-9": {
-    #         "1": {
-    #             "peerdevice": "labx-x-720dt-leaf-27",
-    #             "peerport": "1",
-    #             "baud_rate": "9600",
-    #             "flow_control": "0"
-    #         },
 
     for dut_name, serial_ports_map in dev_serial_link.items():
 
