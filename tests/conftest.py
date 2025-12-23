@@ -965,11 +965,6 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout = fanout_hosts[fanout_name]
             if dut_host not in fanout.dut_hostnames:
                 fanout.dut_hostnames.append(dut_host)
-
-            # Ensure is_console_switch flag is consistent with parameter
-            if isinstance(fanout.host, SonicHost):
-                fanout.host.is_console_switch |= is_console_switch
-
             return fanout
 
         # Get fanout device info from inventory
