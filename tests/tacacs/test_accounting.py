@@ -8,6 +8,7 @@ from .utils import check_server_received, change_and_wait_aaa_config_update, get
     ensure_tacacs_server_running_after_ut, ssh_connect_remote_retry, ssh_run_command, cleanup_tacacs_log  # noqa: F401
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import skip_release
+from tests.common.fixtures.duthost_utils import duthost_mgmt_ip  # noqa: F401
 
 
 pytestmark = [
@@ -242,14 +243,15 @@ def test_accounting_tacacs_only_some_tacacs_server_down(
                                                     tacacs_creds,
                                                     check_tacacs,  # noqa: F811
                                                     rw_user_client,
+                                                    duthost_mgmt_ip,  # noqa: F811
                                                     skip_in_container_test):
     """
         Setup multiple tacacs server for this UT.
-        Tacacs server 127.0.0.1 not accessible.
+        Tacacs server 127.0.0.1/::1 not accessible.
     """
-    invalid_tacacs_server_ip = "127.0.0.1"
+    invalid_tacacs_server_ip = "::1" if duthost_mgmt_ip["version"] == "v6" else "127.0.0.1"
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
-    tacacs_server_ip = ptfhost.mgmt_ip
+    tacacs_server_ip = ptfhost.mgmt_ipv6 if duthost_mgmt_ip["version"] == "v6" else ptfhost.mgmt_ip
 
     # when tacacs config change multiple time in short time
     # auditd service may been request reload during reloading
