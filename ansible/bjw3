@@ -152,6 +152,7 @@ all:
           ansible_host: 10.150.126.79
           protocol: snmp
 
+
 fanout:
   hosts:
     bjw3-can-7260-root-1:
