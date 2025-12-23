@@ -207,7 +207,6 @@ def test_system_health_state(duthosts, dpuhosts,
                          re.compile(r"reboot|Non-Hardware",
                                     re.IGNORECASE))
 
-
     for index in range(len(dpu_on_list)):
         check_dpu_health_status(duthost, dpu_on_list[index],
                                 'Online', 'up')
