@@ -28,7 +28,7 @@ class FanoutHost(object):
     """
 
     def __init__(self, ansible_adhoc, os, hostname, device_type, user, passwd,
-                 eos_shell_user=None, eos_shell_passwd=None, is_console_switch=False):
+                 eos_shell_user=None, eos_shell_passwd=None):
         self.hostname = hostname
         self.type = device_type
         self.host_to_fanout_port_map = {}
@@ -40,8 +40,7 @@ class FanoutHost(object):
             self.fanout_port_alias_to_name = {}
             self.host = SonicHost(ansible_adhoc, hostname,
                                   ssh_user=user,
-                                  ssh_passwd=passwd,
-                                  is_console_switch=is_console_switch)
+                                  ssh_passwd=passwd)
         elif os == 'onyx':
             self.os = os
             self.host = OnyxHost(ansible_adhoc, hostname, user, passwd)

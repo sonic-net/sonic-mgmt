@@ -60,7 +60,7 @@ class SonicHost(AnsibleHostBase):
     """
     def __init__(self, ansible_adhoc, hostname,
                  shell_user=None, shell_passwd=None,
-                 ssh_user=None, ssh_passwd=None, is_console_switch=False):
+                 ssh_user=None, ssh_passwd=None):
         AnsibleHostBase.__init__(self, ansible_adhoc, hostname)
 
         self.DEFAULT_ASIC_SERVICES = ["bgp", "database", "lldp", "swss", "syncd", "teamd"]
@@ -97,7 +97,6 @@ class SonicHost(AnsibleHostBase):
 
         self._facts = self._gather_facts()
         self._os_version = self._get_os_version()
-        self.is_console_switch = is_console_switch
 
         device_metadata = self.get_running_config_facts().get('DEVICE_METADATA', {}).get('localhost', {})
         device_type = device_metadata.get('type')
@@ -444,6 +443,25 @@ class SonicHost(AnsibleHostBase):
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
         return not self.is_supervisor_node()
+
+    def is_console_switch(self):
+        """
+        Check if this device has console functionality enabled.
+
+        Returns:
+            bool: True if console is enabled, False otherwise
+        """
+        try:
+            result = self.shell(
+                'sonic-db-cli CONFIG_DB hget "CONSOLE_SWITCH|console_mgmt" enabled',
+                module_ignore_errors=True
+            )
+            if result["rc"] == 0:
+                output = result["stdout"].strip().lower()
+                return output == 'yes'
+            return False
+        except Exception:
+            return False
 
     def is_macsec_capable_node(self):
         im = self.host.options['inventory_manager']

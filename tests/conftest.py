@@ -947,7 +947,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     """
 
     # Internal helper functions
-    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host, is_console_switch=False) -> FanoutHost | None:
+    def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
         """
         Create FanoutHost if not exists, or return existing one.
         Fanout creation logic for both Ethernet and Serial connections.
@@ -956,7 +956,6 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_hosts (dict): Dictionary of existing fanout hosts
             fanout_name (str): Fanout device hostname
             dut_host (str): DUT hostname that connects to this fanout
-            is_console_switch (bool): Whether the fanout supports console server features
 
         Returns:
             FanoutHost: Fanout host object
@@ -1022,8 +1021,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_user,
             fanout_password,
             eos_shell_user=eos_shell_user,
-            eos_shell_passwd=eos_shell_password,
-            is_console_switch=is_console_switch
+            eos_shell_passwd=eos_shell_password
         )
         fanout.dut_hostnames = [dut_host]
         fanout_hosts[fanout_name] = fanout
@@ -1108,7 +1106,7 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             flow_control = link_info.get('flow_control', "0") == "1"
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name, is_console_switch=True)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
             if fanout is None:
                 continue
 
