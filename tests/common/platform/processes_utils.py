@@ -5,11 +5,31 @@ This script contains re-usable functions for checking status of critical service
 """
 import logging
 import time
+import re
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until, get_plt_reboot_ctrl
 
 logger = logging.getLogger(__name__)
+
+
+def check_pmon_uptime_minutes(duthost, minimal_runtime=6):
+    """
+    @summary: This function checks if pmon uptime is at least the minimal_runtime
+    @return: True pmon has been running at least the minimal_runtime, False for otherwise
+    """
+    result = duthost.command("docker ps | grep pmon", _uses_shell=True)
+    if result["stdout"]:
+        match = re.search(r'Up (\d+) (minutes|hours)', result["stdout"])
+        if match:
+            if match.group(2) == "hours":
+                return int(match.group(1))*60 >= minimal_runtime
+            else:
+                return int(match.group(1)) >= minimal_runtime
+        match = re.search(r'Up About an hour', result["stdout"])
+        if match:
+            return 60 >= minimal_runtime
+    return False
 
 
 def reset_timeout(duthost):
