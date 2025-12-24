@@ -70,7 +70,7 @@ def _create_parser():
     parser.add_argument('-f', '--topo_yaml', type=str, help='topo yaml file',
                       required=False,default=None)
     parser.add_argument('-t', '--topo_type', type=str, help='topo type',
-                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-1x3'])
+                      required=False,default='sol-tb-l2vni', choices=['sol-tb-l2vni', 'sol-tb-l3vni', 'tortuga-controller-2x2', 'tortuga-controller-2x3', 'tortuga-controller-1x3', 'tortuga_controller_dci1x2-2', 'tortuga_controller_dci2x2-2', 'tortuga_controller_dci1x2-3'])
     parser.add_argument('-g', '--topo_name', type=str, help='Topo name specified to run tests',
                       required=False,default='docker-ptf')
     parser.add_argument('-p', '--dut_passwd', type=str, help='Dut password, when it is different from YourPaSsWoRd',
@@ -438,6 +438,53 @@ def print_env_info(data, device_type):
             print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
             host_ports.append(data['trex' + str(i)]['xr_redir22'])
         return leaf_ports, host_ports, spine_ports
+    elif 'tortuga_controller_dci1x2-2' in data['topo_type']:
+        leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22'],data['L3']['xr_redir22']]
+        spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22']]
+        host_ports = list()
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Leaf3 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L3']['HostAgent'], data['L3']['serial0'], data['L3']['xr_mgmt_ip'], data['L3']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        for i in range(1,15):
+            print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
+            host_ports.append(data['trex' + str(i)]['xr_redir22'])
+        return leaf_ports, host_ports, spine_ports
+    elif 'tortuga_controller_dci2x2-2' in data['topo_type']:
+        leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22'],data['L3']['xr_redir22']]
+        spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22'],data['S2']['xr_redir22'],data['S3']['xr_redir22']]
+        host_ports = list()
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Leaf3 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L3']['HostAgent'], data['L3']['serial0'], data['L3']['xr_mgmt_ip'], data['L3']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        print("Spine2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S2']['HostAgent'], data['S2']['serial0'], data['S2']['xr_mgmt_ip'], data['S2']['xr_redir22']))
+        print("Spine3 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S3']['HostAgent'], data['S3']['serial0'], data['S3']['xr_mgmt_ip'], data['S3']['xr_redir22']))
+        for i in range(1,15):
+            print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
+            host_ports.append(data['trex' + str(i)]['xr_redir22'])
+        return leaf_ports, host_ports, spine_ports
+    elif 'tortuga_controller_dci1x2-3' in data['topo_type']:
+        leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22'],data['L3']['xr_redir22'],data['L4']['xr_redir22'],data['L5']['xr_redir22']]
+        spine_ports = [data['S0']['xr_redir22'],data['S1']['xr_redir22'],data['S2']['xr_redir22']]
+        host_ports = list()
+        print("Leaf0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L0']['HostAgent'], data['L0']['serial0'], data['L0']['xr_mgmt_ip'], data['L0']['xr_redir22']))
+        print("Leaf1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L1']['HostAgent'], data['L1']['serial0'], data['L1']['xr_mgmt_ip'], data['L1']['xr_redir22']))
+        print("Leaf2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L2']['HostAgent'], data['L2']['serial0'], data['L2']['xr_mgmt_ip'], data['L2']['xr_redir22']))
+        print("Leaf3 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L3']['HostAgent'], data['L3']['serial0'], data['L3']['xr_mgmt_ip'], data['L3']['xr_redir22']))
+        print("Leaf4 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L4']['HostAgent'], data['L4']['serial0'], data['L4']['xr_mgmt_ip'], data['L4']['xr_redir22']))
+        print("Leaf5 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['L5']['HostAgent'], data['L5']['serial0'], data['L5']['xr_mgmt_ip'], data['L5']['xr_redir22']))
+        print("Spine0 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S0']['HostAgent'], data['S0']['serial0'], data['S0']['xr_mgmt_ip'], data['S0']['xr_redir22']))
+        print("Spine1 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S1']['HostAgent'], data['S1']['serial0'], data['S1']['xr_mgmt_ip'], data['S1']['xr_redir22']))
+        print("Spine2 (admin/password) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(data['S2']['HostAgent'], data['S2']['serial0'], data['S2']['xr_mgmt_ip'], data['S2']['xr_redir22']))
+        for i in range(1,22):
+            print("trex{} (root/root) :  SlurmHost: {}   Tlnt Port: {}  SSH: {}   SSH Port: {}".format(i, data['trex' + str(i)]['HostAgent'], data['trex' + str(i)]['serial0'], data['trex' + str(i)]['xr_mgmt_ip'], data['trex' + str(i)]['xr_redir22']))
+            host_ports.append(data['trex' + str(i)]['xr_redir22'])
+        return leaf_ports, host_ports, spine_ports
     else:
         leaf_ports = [data['L0']['xr_redir22'],data['L1']['xr_redir22'],data['L2']['xr_redir22']]
         spine_ports = [data['S0']['xr_redir22']]
@@ -531,22 +578,62 @@ def replace_fabric_name(topo_type, topo_yaml,fabric_name):
     elif 'tortuga-controller-2x3' in topo_type:
         num_leaf = 3
         num_spine = 2
+    elif 'tortuga_controller_dci1x2-2' in topo_type:
+        num_leaf = 4
+        num_spine = 2
+    elif 'tortuga_controller_dci2x2-2' in topo_type:
+        num_leaf = 4
+        num_spine = 4
+    elif 'tortuga_controller_dci1x2-3' in topo_type:
+        num_leaf = 6
+        num_spine = 3
     else:
         num_leaf = 3
         num_spine = 1
 
     with open(topo_yaml) as f:
         vxr_data = yaml.load(f, Loader=yaml.FullLoader)
-        for i in range(0, num_leaf):
-            for line in vxr_data['devices']['L{}'.format(i)]['cli_commands'].splitlines():
-                if 'config hostname' in line:
-                    newline = "sudo config hostname {}-leaf{}".format(fabric_name,i)
-                    os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
-        for i in range(0, num_spine):
-            for line in vxr_data['devices']['S{}'.format(i)]['cli_commands'].splitlines():
-                if 'config hostname' in line:
-                    newline = "sudo config hostname {}-spine{}".format(fabric_name,i)
-                    os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+
+        # Special handling for DCI topologies with multiple data centers
+        if 'tortuga_controller_dci1x2-2' in topo_type or 'tortuga_controller_dci2x2-2' in topo_type or 'tortuga_controller_dci1x2-3' in topo_type:
+            # For dci1x2-2 and dci2x2-2: L0, L1 belong to fabric1; L2, L3 belong to fabric2
+            # For dci1x2-3: L0, L1 belong to fabric1; L2, L3 belong to fabric2; L4, L5 belong to fabric3
+            for i in range(0, num_leaf):
+                dc_num = (i // 2) + 1
+                leaf_num = i % 2
+                for line in vxr_data['devices']['L{}'.format(i)]['cli_commands'].splitlines():
+                    if 'config hostname' in line:
+                        newline = "sudo config hostname {}{}-leaf{}".format(fabric_name, dc_num, leaf_num)
+                        os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+            for i in range(0, num_spine):
+                if 'tortuga_controller_dci1x2-3' in topo_type:
+                    # For dci1x2-3: one spine per DC
+                    dc_num = i + 1
+                    spine_num = 0
+                elif 'tortuga_controller_dci2x2-2' in topo_type:
+                    # For dci2x2-2: two spines per DC
+                    dc_num = (i // 2) + 1
+                    spine_num = i % 2
+                else:
+                    # For dci1x2-2: one spine per DC
+                    dc_num = i + 1
+                    spine_num = 0
+                for line in vxr_data['devices']['S{}'.format(i)]['cli_commands'].splitlines():
+                    if 'config hostname' in line:
+                        newline = "sudo config hostname {}{}-spine{}".format(fabric_name, dc_num, spine_num)
+                        os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+        else:
+            # Standard handling for non-DCI topologies
+            for i in range(0, num_leaf):
+                for line in vxr_data['devices']['L{}'.format(i)]['cli_commands'].splitlines():
+                    if 'config hostname' in line:
+                        newline = "sudo config hostname {}-leaf{}".format(fabric_name,i)
+                        os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
+            for i in range(0, num_spine):
+                for line in vxr_data['devices']['S{}'.format(i)]['cli_commands'].splitlines():
+                    if 'config hostname' in line:
+                        newline = "sudo config hostname {}-spine{}".format(fabric_name,i)
+                        os.system("sed -i 's/{}/{}/' {}".format(line,newline,topo_yaml))
 
 def collect_showtechsupport(data, dut_ports):
     files_downloaded = []
