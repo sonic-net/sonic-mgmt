@@ -478,18 +478,26 @@ def ensure_process_is_running(duthost, container_name, critical_process):
             pytest.fail("Failed to start process '{}' in container '{}'.".format(critical_process, container_name))
 
 
-def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
+def ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=False):
     """Checks whether each critical process is running and starts it if it is not running.
 
     Args:
         duthost: Hostname of DUT.
         containers_in_namespaces: A dictionary where keys are container names and
         values are lists which contains ids of namespaces this container should reside in.
+        prioritize_database: If True, ensure database container processes are recovered first.
 
     Returns:
         None.
     """
-    for container_name in list(containers_in_namespaces.keys()):
+    container_list = list(containers_in_namespaces.keys())
+
+    # If prioritize_database is True, ensure database container is processed first
+    if prioritize_database and 'database' in container_list:
+        container_list.remove('database')
+        container_list.insert(0, 'database')
+
+    for container_name in container_list:
         namespace_ids = containers_in_namespaces[container_name]
         container_name_in_namespace = container_name
         # If a container is only running on host, then namespace_ids is [None]
@@ -524,7 +532,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    skip_containers.append("database")
+    # Database container is now included in testing to ensure critical processes are monitored
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
@@ -551,7 +559,9 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
     logger.info("Executing the config reload was done!")
 
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+    # Ensure database container processes are recovered first to avoid dependency failures
+    logger.info("Ensuring all critical processes are running, prioritizing database container...")
+    ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=True)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")
