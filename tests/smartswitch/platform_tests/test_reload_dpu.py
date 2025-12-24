@@ -22,7 +22,7 @@ pytestmark = [
 kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger' &"
 memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
-DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
+DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 240
 
 
 def test_dpu_status_post_switch_reboot(duthosts,
@@ -108,8 +108,7 @@ def test_dpu_status_post_switch_mem_exhaustion(duthosts,
                        state='absent',
                        search_regex=SONIC_SSH_REGEX,
                        delay=10,
-                       timeout=DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION,
-                       module_ignore_errors=True)
+                       timeout=DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION)
 
     logging.info("Executing post test check")
     post_test_switch_check(duthost, localhost,
@@ -146,8 +145,7 @@ def test_dpu_status_post_switch_kernel_panic(duthosts,
                        state='absent',
                        search_regex=SONIC_SSH_REGEX,
                        delay=10,
-                       timeout=DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC,
-                       module_ignore_errors=True)
+                       timeout=DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC)
 
     logging.info("Executing post test check")
     post_test_switch_check(duthost, localhost,
