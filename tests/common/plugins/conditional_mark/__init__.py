@@ -15,6 +15,7 @@ import pytest
 from tests.common.testbed import TestbedInfo
 from .issue import check_issues
 from tests.common.utilities import get_duts_from_host_pattern
+from .skip_category_validator import check_expiry_and_format_reason
 
 logger = logging.getLogger(__name__)
 
@@ -93,17 +94,26 @@ def load_conditions(session):
     if not conditions_files:
         pytest.fail('There is no conditions files')
 
+    skip_categories = None
     try:
         logger.debug('Trying to load test mark conditions files: {}'.format(conditions_files))
         for conditions_file in conditions_files:
             with open(conditions_file) as f:
                 logger.debug('Loaded test mark conditions file: {}'.format(conditions_file))
                 conditions = yaml.safe_load(f)
+                # Extract skip_categories if present
+                if 'skip_categories' in conditions:
+                    skip_categories = conditions.pop('skip_categories')
+                    logger.info('Loaded skip_categories configuration from {}'.format(conditions_file))
                 for key, value in list(conditions.items()):
                     conditions_list.append({key: value})
     except Exception as e:
         logger.error('Failed to load {}, exception: {}'.format(conditions_files, repr(e)), exc_info=True)
         pytest.fail('Loading conditions file "{}" failed. Possibly invalid yaml file.'.format(conditions_files))
+
+    # Cache skip_categories for validation
+    if skip_categories:
+        session.config.cache.set('SKIP_CATEGORIES', skip_categories)
 
     return conditions_list
 
@@ -655,6 +665,12 @@ def pytest_collection_modifyitems(session, config, items):
         logger.debug('No mark condition is defined')
         return
 
+    # Get skip_categories configuration
+    skip_categories = config.cache.get('SKIP_CATEGORIES', None)
+    if skip_categories:
+        logger.info('Skip categories configuration loaded: {}'.format(
+            json.dumps(skip_categories, indent=2)))
+
     dut_name = get_dut_name(session)
     cached_facts_name = f'BASIC_FACTS_{dut_name}'
     basic_facts = config.cache.get(cached_facts_name, None)
@@ -665,6 +681,10 @@ def pytest_collection_modifyitems(session, config, items):
         json.dumps(basic_facts, indent=2)))
     dynamic_update_skip_reason = session.config.option.dynamic_update_skip_reason
     basic_facts['constants'] = MARK_CONDITIONS_CONSTANTS
+
+    # Collect validation errors to report at the end
+    all_validation_errors = []
+
     for item in items:
         all_matches = find_all_matches(item.nodeid, conditions, session, dynamic_update_skip_reason, basic_facts)
 
@@ -673,6 +693,7 @@ def pytest_collection_modifyitems(session, config, items):
 
             for match in all_matches:
                 # match is a dict which has only one item, so we use match.values()[0] to get its value.
+                test_path = list(match.keys())[0]
                 for mark_name, mark_details in list(list(match.values())[0].items()):
                     if mark_name in ["regex", "use_longest"]:
                         continue
@@ -690,8 +711,22 @@ def pytest_collection_modifyitems(session, config, items):
                                                            basic_facts, conditions_logical_operator, session)
 
                     if add_mark:
-                        reason = ''
-                        if mark_details:
+                        # Validate category and expiry before adding mark
+                        should_apply_mark, formatted_reason, validation_errors = check_expiry_and_format_reason(
+                            mark_details, mark_name, test_path, skip_categories
+                        )
+
+                        # Collect validation errors
+                        if validation_errors:
+                            all_validation_errors.extend(validation_errors)
+                            continue  # Skip adding this mark if validation failed
+
+                        if not should_apply_mark:
+                            # Mark expired with action 'warn' or 'run', skip adding mark
+                            continue
+
+                        reason = formatted_reason
+                        if not reason:
                             reason = mark_details.get('reason', '')
                             if isinstance(reason, list):
                                 if conditions_logical_operator == "AND":
@@ -711,3 +746,10 @@ def pytest_collection_modifyitems(session, config, items):
 
                         logger.debug('Adding mark {} to {}'.format(mark, item.nodeid))
                         item.add_marker(mark)
+
+    # Report all validation errors at once
+    if all_validation_errors:
+        error_message = "\n\n".join(all_validation_errors)
+        logger.error("Category/Expiry validation errors found:\n{}".format(error_message))
+        pytest.fail("Category/Expiry validation failed. Please fix the errors in mark conditions files:\n\n{}"
+                    .format(error_message))
