@@ -25,10 +25,10 @@ from tests.common.mellanox_data import is_mellanox_device as isMellanoxDevice
 from ipaddress import IPv6Network, IPv6Address
 import ipaddress
 from random import getrandbits
+from tests.common.helpers.assertions import pytest_assert
 from tests.common.portstat_utilities import parse_portstat
 from collections import defaultdict
 from tests.conftest import parse_override
-from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 
 logger = logging.getLogger(__name__)
@@ -1322,12 +1322,13 @@ def start_pfcwd_fwd(duthost, asic_value=None):
                       format(asic_value))
 
 
-def clear_counters(duthost, port):
+def clear_counters(duthost, port=None, namespace=None):
     """
     Clear PFC, Queuecounters, Drop and generic counters from SONiC CLI.
     Args:
         duthost (Ansible host instance): Device under test
         port (str): port name
+        namespace (str): namespace name in case of multi asic duthost
     Returns:
         None
     """
@@ -1343,8 +1344,15 @@ def clear_counters(duthost, port):
     duthost.command("sonic-clear queue watermark all \n")
 
     if (duthost.is_multi_asic):
-        asic = duthost.get_port_asic_instance(port).get_asic_namespace()
-        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(asic))
+        pytest_assert(
+            port or namespace,
+            'Cannot clear counters in case of multi asic, either port or namespace needs to be provided.'
+            )
+        if not namespace:
+            namespace = duthost.get_port_asic_instance(port).get_asic_namespace()
+        duthost.command("sudo ip netns exec {} sonic-clear dropcounters \n".format(namespace))
+    else:
+        duthost.command("sonic-clear dropcounters \n")
 
 
 def get_interface_stats(duthost, port):
