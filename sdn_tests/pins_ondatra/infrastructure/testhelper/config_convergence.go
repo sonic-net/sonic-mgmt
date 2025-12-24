@@ -23,11 +23,8 @@ import (
 )
 
 const (
-	configConvergenceTimeout      = 2 * time.Minute
 	configConvergencePollInterval = 30 * time.Second
-	switchStateTimeout            = 2 * time.Minute
 	switchStatePollInterval       = 10 * time.Second
-	portsUpTimeout                = 2 * time.Minute
 )
 
 // configStateDiffReporter is a custom diff reporter for comparing
@@ -184,8 +181,6 @@ func WaitForConfigConvergence(ctx context.Context, t *testing.T, dut *ondatra.DU
 	if config == nil {
 		return errors.New("nil config passed to WaitForConfigConvergence()")
 	}
-	ctx, cancel := context.WithTimeout(ctx, configConvergenceTimeout)
-	defer cancel()
 	dutName := dut.Name()
 	// Poll until the config and state are similar.
 	return poll(ctx, configConvergencePollInterval, func() pollStatus {
@@ -254,9 +249,6 @@ func WaitForAllPortsUp(ctx context.Context, t *testing.T, dut *ondatra.DUTDevice
 	if err != nil {
 		return fmt.Errorf("unable to get ygNMI client, err: %v", err)
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, portsUpTimeout)
-	defer cancel()
 
 	allInterfaces, err := ygnmi.GetAll(ctx, yc, gnmi.OC().InterfaceAny().Name().Config())
 	if err != nil {
@@ -345,8 +337,6 @@ func WaitForSwitchState(ctx context.Context, t *testing.T, dut *ondatra.DUTDevic
 	dutName := dut.Name()
 	log.InfoContextf(ctx, "Polling for switch state to be ready for dut: %v", dutName)
 	switchState := down
-	ctx, cancel := context.WithTimeout(ctx, switchStateTimeout)
-	defer cancel()
 
 	// Poll until the switch is ready or the context is done.
 	err := poll(ctx, switchStatePollInterval, func() pollStatus {
