@@ -129,3 +129,4 @@ stages:
         RETRY_TIMES: ${{ parameters.RETRY_TIMES }}
         RETRY_CASES_INCLUDE: ${{ parameters.RETRY_CASES_INCLUDE }}
         RETRY_CASES_EXCLUDE: ${{ parameters.RETRY_CASES_EXCLUDE }}
+        PTF_IMAGE_TAG: ${{ parameters.MGMT_BRANCH }}
