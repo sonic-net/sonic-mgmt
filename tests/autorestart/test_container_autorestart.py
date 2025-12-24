@@ -577,7 +577,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo, 
             # Wait for all critical services to be fully started
             logger.info("Waiting for all critical services to be fully started...")
             pytest_assert(wait_until(600, 20, 0, duthost.critical_services_fully_started),
-                         "Not all critical services are fully started after reboot")
+                          "Not all critical services are fully started after reboot")
 
             # Re-enable autorestart for all features
             logger.info("Re-enabling autorestart for all features...")
