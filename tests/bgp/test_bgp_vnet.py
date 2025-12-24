@@ -17,6 +17,7 @@ from scapy.all import IP, Ether
 
 pytestmark = [
     pytest.mark.topology('t0'),
+    pytest.mark.asic('cisco-8000', 'mellanox', 'vs'),
     pytest.mark.disable_loganalyzer
 ]
 
