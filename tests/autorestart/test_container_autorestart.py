@@ -12,6 +12,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common import config_reload
 from tests.common.helpers.dut_utils import get_disabled_container_list
+from tests.common.reboot import reboot
 
 logger = logging.getLogger(__name__)
 
@@ -504,7 +505,7 @@ def is_process_running(duthost, container_name, program_name):
                     .format(program_name, container_name))
 
 
-def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
+def run_test_on_single_container(duthost, container_name, service_name, tbinfo, localhost):
     feature_autorestart_states = duthost.get_container_autorestart_states()
     disabled_containers = get_disabled_container_list(duthost)
 
@@ -568,27 +569,23 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
                 # statement
                 break
     finally:
-        # For database container, manually restart and perform config reload to ensure proper recovery
+        # For database container, recover by performing a reboot
         if feature_name == "database":
-            logger.info("Manually restarting container '{}' to recover...".format(container_name))
-            duthost.shell("sudo systemctl restart {}.service".format(service_name))
-            restarted = wait_until(CONTAINER_RESTART_THRESHOLD_SECS,
-                                   CONTAINER_CHECK_INTERVAL_SECS,
-                                   0,
-                                   check_container_state, duthost, container_name, True)
-            pytest_assert(restarted, "Failed to manually restart container '{}'".format(container_name))
-            logger.info("Container '{}' was manually restarted successfully".format(container_name))
+            logger.info("Database container requires reboot to recover. Performing reboot...")
+            reboot(duthost, localhost, wait=300)
 
-            # Start redis process and set CONFIG_DB_INITIALIZED flag
-            logger.info("Starting redis process in database container...")
-            duthost.shell("docker exec {} supervisorctl start redis".format(container_name))
-            redis_running = wait_until(30, 2, 0, is_process_running, duthost, container_name, "redis")
-            pytest_assert(redis_running, "Failed to start redis process in container '{}'".format(container_name))
-            
-            logger.info("Setting CONFIG_DB_INITIALIZED flag...")
-            duthost.shell('sonic-db-cli CONFIG_DB SET "CONFIG_DB_INITIALIZED" "1"')
+            # Wait for all critical services to be fully started
+            logger.info("Waiting for all critical services to be fully started...")
+            pytest_assert(wait_until(600, 20, 0, duthost.critical_services_fully_started),
+                         "Not all critical services are fully started after reboot")
 
-            # Now `config reload` will work..., fallback to normal flow
+            # Re-enable autorestart for all features
+            logger.info("Re-enabling autorestart for all features...")
+            enable_autorestart(duthost)
+
+            logger.info("DUT recovered successfully after reboot")
+            # Skip postcheck for database since we already recovered the system via reboot
+            return
 
     critical_proceses, bgp_check = postcheck_critical_processes_status(
         duthost, feature_autorestart_states, up_bgp_neighbors
@@ -643,7 +640,7 @@ def run_test_on_single_container(duthost, container_name, service_name, tbinfo):
 
 @pytest.mark.disable_loganalyzer
 def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum_rand_one_asic_index,
-                                enum_dut_feature, tbinfo):
+                                enum_dut_feature, tbinfo, localhost):
     """
     @summary: Test the auto-restart feature of each container against two scenarios: killing
               a non-critical process to verify the container is still running; killing each
@@ -653,4 +650,4 @@ def test_containers_autorestart(duthosts, enum_rand_one_per_hwsku_hostname, enum
     asic = duthost.asic_instance(enum_rand_one_asic_index)
     service_name = asic.get_service_name(enum_dut_feature)
     container_name = asic.get_docker_name(enum_dut_feature)
-    run_test_on_single_container(duthost, container_name, service_name, tbinfo)
+    run_test_on_single_container(duthost, container_name, service_name, tbinfo, localhost)
