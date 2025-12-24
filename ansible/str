@@ -77,7 +77,7 @@ all:
           ansible_hostv6: 2a01:111:e210:b000::a40:f688
         vms6-2:
           ansible_host: 10.250.0.106
-          ansible_hostv6: fec0::ffff:afa:6
+          ansible_hostv6: fec0::ffff:afa:6a
         vms6-3:
           ansible_host: 10.64.247.4
           ansible_hostv6: 2a01:111:e210:b000::a40:f704
