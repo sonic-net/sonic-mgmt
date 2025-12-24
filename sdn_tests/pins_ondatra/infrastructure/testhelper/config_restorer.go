@@ -19,6 +19,13 @@ import (
 	"google.golang.org/grpc"
 )
 
+var (
+	configChangedTimeout = 2 * time.Minute
+	// Using 4 minutes as the upper limit.
+	configPushAndConvergenceTimeout = 4 * time.Minute
+	waitForSwitchStateTimeout       = 5 * time.Minute
+)
+
 // DUT and CONTROL are the only restorable IDs.
 var restorableDUTIDs = map[string]bool{
 	"dut":     true,
@@ -208,21 +215,22 @@ func (cr *ConfigRestorer) reboot(ctx context.Context, t *testing.T, device *onda
 		Method:  syspb.RebootMethod_COLD,
 		Message: "rebooting to apply config",
 	}
-	if err := Reboot(t, device, &RebootParams{
-		request:       req,
-		waitTime:      waitTime,
-		checkInterval: 10 * time.Second,
-	}); err != nil {
+	params := NewRebootParams().WithRequest(req).WithWaitTime(waitTime).WithCheckInterval(10 * time.Second)
+	if err := Reboot(t, device, params); err != nil {
 		return fmt.Errorf("Reboot(dut=%v) failed, err: %v", deviceName, err)
 	}
-	return WaitForSwitchState(ctx, t, device)
+	waitForSwitchStateCtx, waitForSwitchStateCancel := context.WithTimeout(ctx, waitForSwitchStateTimeout)
+	defer waitForSwitchStateCancel()
+	return WaitForSwitchState(waitForSwitchStateCtx, t, device)
 }
 
 // restoreConfigOnDiff checks if there is a diff between
 // the current config and the saved config.
 // If there is a diff, try to restore the config.
 func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T, device *ondatra.DUTDevice) error {
-	changed, err := cr.configChanged(ctx, t, device)
+	configChangedCtx, configChangedCancel := context.WithTimeout(ctx, configChangedTimeout)
+	defer configChangedCancel()
+	changed, err := cr.configChanged(configChangedCtx, t, device)
 	if err != nil {
 		return fmt.Errorf("err in finding config changes, err: %v", err)
 	}
@@ -230,13 +238,18 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T,
 		return nil
 	}
 
-	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", device.Name())
-	if err := ConfigPushAndWaitForConvergence(ctx, t, device, nil /*(config)*/); err != nil {
-		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", device.Name(), err)
+	dutName := device.Name()
+	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", dutName)
+	configPushAndConvergenceCtx, configPushAndConvergenceCancel := context.WithTimeout(ctx, configPushAndConvergenceTimeout)
+	defer configPushAndConvergenceCancel()
+	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device, nil /*(config)*/); err != nil {
+		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", dutName, err)
 		return cr.reboot(ctx, t, device)
 	}
-	if err := WaitForSwitchState(ctx, t, device); err != nil {
-		log.InfoContextf(ctx, "WaitForSwitchState(dut=%v) failed, err: %v", device.Name(), err)
+	waitForSwitchStateCtx, waitForSwitchStateCancel := context.WithTimeout(ctx, waitForSwitchStateTimeout)
+	defer waitForSwitchStateCancel()
+	if err := WaitForSwitchState(waitForSwitchStateCtx, t, device); err != nil {
+		log.InfoContextf(ctx, "WaitForSwitchState(dut=%v) failed, err: %v", dutName, err)
 		return cr.reboot(ctx, t, device)
 	}
 	return nil
@@ -245,7 +258,8 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T,
 // restoreReservedDevices tries to restore the config of the reserved devices
 // if the config differs from the saved config.
 func (cr *ConfigRestorer) restoreReservedDevices(t *testing.T) error {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Minute)
+	defer cancel()
 	if cr.savedConfigs == nil {
 		return fmt.Errorf("savedConfigs are not initialized")
 	}
