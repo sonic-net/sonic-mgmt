@@ -947,11 +947,12 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
     For Ethernet connections: Uses device_conn from conn_graph_facts
     For Serial connections: Uses device_serial_link from conn_graph_facts
     """
+
     # Internal helper functions
     def create_or_get_fanout(fanout_hosts, fanout_name, dut_host) -> FanoutHost | None:
         """
         Create FanoutHost if not exists, or return existing one.
-        This centralizes fanout creation logic for both Ethernet and Serial connections.
+        Fanout creation logic for both Ethernet and Serial connections.
 
         Args:
             fanout_hosts (dict): Dictionary of existing fanout hosts
@@ -995,11 +996,9 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_password = creds.get('fanout_mlnx_password', None)
         elif os_type == 'ixia':
             # Skip for ixia device which has no fanout
-            logging.info(f"Skipping ixia device {fanout_name}")
             return None
         else:
-            logging.warning(f"Unsupported fanout OS type: {os_type}")
-            return None
+            pytest.fail(f"Unsupported fanout OS type {os_type} for fanout {fanout_name}")
 
         # EOS specific shell credentials
         eos_shell_user = None
@@ -1034,25 +1033,28 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
         return fanout
 
     # Main fixture logic
+
     fanout_hosts = {}
 
-    # Skip NUT topologies that have no fanout
+    # Skip special topologies that have no fanout
     if tbinfo['topo']['name'].startswith('nut-'):
         logging.info("Nut topology has no fanout")
         return fanout_hosts
 
     # Process Ethernet connections
+
     dev_conn = conn_graph_facts.get('device_conn', {})
 
-    for dut_host, ethernet_ports in dev_conn.items():
+    for dut_name, ethernet_ports in dev_conn.items():
 
-        duthost = duthosts[dut_host]
+        duthost = duthosts[dut_name]
 
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            logging.info(f"Skipping kvm platform {dut_host}")
+            logging.info(f"Skipping kvm platform {dut_name}")
             continue
 
+        # Get minigraph facts for port alias mapping
         mg_facts = duthost.minigraph_facts(host=duthost.hostname)['ansible_facts']
 
         # Process each Ethernet port connection
@@ -1061,12 +1063,12 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
             fanout_port = str(fanout_rec['peerport'])
 
             # Create or get fanout object
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
             if fanout is None:
                 continue
 
             # Add Ethernet port mapping: DUT port -> Fanout port
-            fanout.add_port_map(encode_dut_port_name(dut_host, dut_port), fanout_port)
+            fanout.add_port_map(encode_dut_port_name(dut_name, dut_port), fanout_port)
 
             # Handle port alias mapping if available
             if dut_port in mg_facts.get('minigraph_port_alias_to_name_map', {}):
@@ -1078,37 +1080,40 @@ def fanouthosts(enhance_inventory, ansible_adhoc, tbinfo, conn_graph_facts, cred
                 # Ethernet108   Ethernet32
                 # Ethernet32    Ethernet13/1
                 if mapped_port not in list(ethernet_ports.keys()):
-                    fanout.add_port_map(encode_dut_port_name(dut_host, mapped_port), fanout_port)
+                    fanout.add_port_map(encode_dut_port_name(dut_name, mapped_port), fanout_port)
 
     # Process Serial connections
 
     dev_serial_link = conn_graph_facts.get('device_serial_link', {})
 
-    for dut_host, serial_ports in dev_serial_link.items():
+    for dut_name, serial_ports_map in dev_serial_link.items():
 
-        duthost = duthosts[dut_host]
+        duthost = duthosts[dut_name]
 
         # Skip virtual testbed which has no fanout
         if duthost.facts['platform'] == 'x86_64-kvm_x86_64-r0':
-            logging.info(f"Skipping kvm platform {dut_host} for serial links")
+            logging.info(f"Skipping kvm platform {dut_name} for serial links")
             continue
 
         # Process each Serial port connection
-        for serial_port_num, link_info in serial_ports.items():
+        for host_port, link_info in serial_ports_map.items():
             fanout_host = str(link_info['peerdevice'])
             fanout_port = str(link_info['peerport'])
+            baud_rate = link_info.get('baud_rate', "9600")
+            flow_control = link_info.get('flow_control', "0") == "1"
 
-            # Create or get fanout object (reuses same function as Ethernet)
-            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_host)
+            # Create or get fanout object
+            fanout = create_or_get_fanout(fanout_hosts, fanout_host, dut_name)
             if fanout is None:
                 continue
 
-            # Add Serial port mapping with Console prefix
-            serial_port_key = f"C0_{serial_port_num}"
-            fanout.add_port_map(encode_dut_port_name(dut_host, serial_port_key), fanout_port)
+            # Add Serial port mapping
+            fanout.add_serial_port_map(dut_name, host_port, fanout_port, baud_rate, flow_control)
 
-            logging.debug(f"Added serial port mapping: {dut_host} Console{serial_port_num} -> "
-                          f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})")
+            logging.debug(
+                f"Added serial port mapping: {dut_name} Console{host_port} -> "
+                f"{fanout_host}:{fanout_port} (baud={link_info.get('baud_rate', '9600')})"
+            )
 
     logging.info(f"fanouthosts fixture initialized with {len(fanout_hosts)} fanout devices")
 
