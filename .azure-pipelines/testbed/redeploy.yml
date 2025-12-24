@@ -118,9 +118,13 @@ stages:
               scriptSource: 'inline'
               script: |
                 from __future__ import print_function
-                import os, imp, sys
+                import os, sys
+                import importlib.util
 
-                testbed_module = imp.load_source('testbed', 'tests/common/testbed.py')
+                spec = importlib.util.spec_from_file_location('testbed', 'tests/common/testbed.py')
+                testbed_module = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(testbed_module)
+                sys.modules['testbed'] = testbed_module
                 testbed_name = '${{ parameters.TESTBED_NAME }}'.strip()
                 testbed_file = '${{ parameters.TESTBED_FILE }}'.strip()
                 tbinfo = testbed_module.TestbedInfo('ansible/{}'.format(testbed_file))
