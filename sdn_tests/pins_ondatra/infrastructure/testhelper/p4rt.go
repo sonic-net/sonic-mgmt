@@ -22,6 +22,7 @@ import (
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/prototext"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
 )
@@ -161,11 +162,15 @@ func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 	err := fmt.Errorf("P4Info is not implemented")
 
 	// Read P4Info from file.
-	p4Info = &p4infopb.P4Info{}
-	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
+	file, err := bazel.Runfile("ondatra/data/p4rtconfig.prototext")
 	if err != nil {
 		return nil, err
 	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+        p4Info = &p4infopb.P4Info{}
 	err = prototext.Unmarshal(data, p4Info)
 
 	return p4Info, err
