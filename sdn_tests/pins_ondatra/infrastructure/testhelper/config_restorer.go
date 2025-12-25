@@ -21,9 +21,6 @@ import (
 
 var (
 	configChangedTimeout = 2 * time.Minute
-	// Data source:
-	// google3/platforms/networking/gpins/testing/blackbox/test_data/gpins_performance_metrics_threshold_info.textproto:183
-	// Using 4 minutes as the upper limit.
 	configPushAndConvergenceTimeout = 4 * time.Minute
 	waitForSwitchStateTimeout       = 5 * time.Minute
 )
