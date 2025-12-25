@@ -242,7 +242,8 @@ func (cr *ConfigRestorer) restoreConfigOnDiff(ctx context.Context, t *testing.T,
 	log.InfoContextf(ctx, "Trying to restore config for device: %v by pushing default config\n", dutName)
 	configPushAndConvergenceCtx, configPushAndConvergenceCancel := context.WithTimeout(ctx, configPushAndConvergenceTimeout)
 	defer configPushAndConvergenceCancel()
-	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device, nil /*(config)*/); err != nil {
+	if err := ConfigPushAndWaitForConvergence(configPushAndConvergenceCtx, t, device,
+		nil /*(config)*/, nil /*(ignorePathsWithPrefix)*/); err != nil {
 		log.InfoContextf(ctx, "ConfigPushAndWaitForConvergence(dut=%v) failed, err: %v", dutName, err)
 		return cr.reboot(ctx, t, device)
 	}
