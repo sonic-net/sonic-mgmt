@@ -746,7 +746,7 @@
           macsec_profile: "{{ macsec_profile }}"
           num_asics: "{{ num_asics }}"
         become: true
-        when: "('t2' in topo) and (enable_macsec is defined)"
+        when: "('t2' in topo) and (macsec_profile is defined)"
 
       - name: Use minigraph case
         block:
