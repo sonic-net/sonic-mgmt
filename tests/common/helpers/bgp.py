@@ -1,8 +1,9 @@
 import jinja2
 import logging
 import requests
+from retry import retry
 import ipaddress
-
+from requests.exceptions import ConnectionError
 from tests.common.utilities import wait_tcp_connection
 
 
@@ -106,6 +107,7 @@ class BGPNeighbor(object):
         self.is_multihop = not is_passive and is_multihop
         self.debug = debug
 
+    @retry(ConnectionError, tries=3, delay=5)
     def start_session(self):
         """Start the BGP session."""
         logging.debug("start bgp session %s", self.name)
@@ -167,6 +169,7 @@ class BGPNeighbor(object):
             allow_ebgp_multihop_cmd %= (self.peer_asn, self.ip)
             self.duthost.shell(allow_ebgp_multihop_cmd)
 
+    @retry(ConnectionError, tries=3, delay=5)
     def stop_session(self):
         """Stop the BGP session."""
         logging.debug("stop bgp session %s", self.name)
@@ -176,6 +179,7 @@ class BGPNeighbor(object):
                 asichost.run_sonic_db_cli_cmd("CONFIG_DB del 'DEVICE_NEIGHBOR_METADATA|{}'".format(self.name))
         self.ptfhost.exabgp(name=self.name, state="absent")
 
+    @retry(ConnectionError, tries=3, delay=5)
     def teardown_session(self):
         # error_subcode 3: Peer De-configured. References: RFC 4271
         msg = "neighbor {} teardown 3"
@@ -197,6 +201,7 @@ class BGPNeighbor(object):
                     logging.debug("update CONFIG_DB admin_status to down on {}".format(asichost.namespace))
                     asichost.run_sonic_db_cli_cmd("CONFIG_DB hset 'BGP_NEIGHBOR|{}' admin_status down".format(self.ip))
 
+    @retry(ConnectionError, tries=3, delay=5)
     def announce_route(self, route):
         if "aspath" in route:
             msg = "announce route {prefix} next-hop {nexthop} as-path [ {aspath} ]"
@@ -213,6 +218,7 @@ class BGPNeighbor(object):
             resp.status_code
         )
 
+    @retry(ConnectionError, tries=3, delay=5)
     def withdraw_route(self, route):
         if "aspath" in route:
             msg = "withdraw route {prefix} next-hop {nexthop} as-path [ {aspath} ]"
