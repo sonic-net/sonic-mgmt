@@ -34,8 +34,8 @@ func PeerPortsBySpeed(t *testing.T, host *ondatra.DUTDevice, peer *ondatra.DUTDe
 
 		// Verify we are not already part of an existing PortChannel since one port cannot belong to
 		// multiple PortChannels.
-		if got, want := testhelperConfigIntfAggregateIDGet(t, host, testhelperOndatraPortNameGet(hostPort)), ""; got != want {
-			log.Warningf("Port %v:%v cannot be used since it is already assigned to a PortChannel: want=%v got=%v", testhelperDUTNameGet(host), testhelperOndatraPortNameGet(hostPort), want, got)
+		if got, present := testhelperConfigIntfAggregateIDLookup(t, host, testhelperOndatraPortNameGet(hostPort)); present && got != "" {
+			log.Warningf("Port %v:%v cannot be used since it is already assigned to a PortChannel: got=%v", testhelperDUTNameGet(host), testhelperOndatraPortNameGet(hostPort), got)
 			continue
 		}
 
@@ -55,7 +55,7 @@ func PeerPortsBySpeed(t *testing.T, host *ondatra.DUTDevice, peer *ondatra.DUTDe
 
 // PeerPortGroupWithNumMembers returns a list of PeerPorts of size `numMembers`.
 func PeerPortGroupWithNumMembers(t *testing.T, host *ondatra.DUTDevice, peer *ondatra.DUTDevice, numMembers int) ([]PeerPorts, error) {
-	// GPINs requires that all members of a LACP LAG have the same speed. So we first group all the
+	// PINs requires that all members of a LACP LAG have the same speed. So we first group all the
 	// ports based on their configured speed.
 	peerPortsBySpeed := PeerPortsBySpeed(t, host, peer)
 
