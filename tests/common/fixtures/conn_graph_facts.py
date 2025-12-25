@@ -4,6 +4,8 @@ import six
 import yaml
 import copy
 
+from tests.common.constants import SONIC_SSH_PORT
+
 
 @pytest.fixture(scope="module")
 def conn_graph_facts(duthosts, localhost):
@@ -81,10 +83,13 @@ def get_graph_facts(duthost, localhost, hostnames):
     kargs = {"filepath": lab_conn_graph_path}
     if group:
         kargs["group"] = group
+    host_vars = duthost.host.options["inventory_manager"].get_host(duthost.hostname).vars
     if isinstance(hostnames, six.string_types):
         kargs["host"] = hostnames
     elif isinstance(hostnames, (list, tuple)):
         kargs["hosts"] = hostnames
+    ansible_port = host_vars.get("ansible_port", SONIC_SSH_PORT)
+    kargs["ansible_port"] = ansible_port
     conn_graph_facts = localhost.conn_graph_facts(
         **kargs)["ansible_facts"]
     return key_convert2str(conn_graph_facts)
