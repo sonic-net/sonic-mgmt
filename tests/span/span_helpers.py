@@ -3,6 +3,7 @@ Helper functions for span tests
 '''
 
 import ptf.testutils as testutils
+from tests.common.helpers.constants import PTF_TIMEOUT
 
 
 def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
@@ -20,4 +21,4 @@ def send_and_verify_mirrored_packet(ptfadapter, src_port, monitor):
 
     ptfadapter.dataplane.flush()
     testutils.send(ptfadapter, src_port, pkt)
-    testutils.verify_packet(ptfadapter, pkt, monitor)
+    testutils.verify_packet(ptfadapter, pkt, monitor, timeout=PTF_TIMEOUT)
