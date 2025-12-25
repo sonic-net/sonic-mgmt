@@ -14,6 +14,7 @@
 #include "dvaas/test_vector.pb.h"
 #include "gtest/gtest.h"
 #include "gutil/status.h"
+#include "gutil/testing.h"
 #include "infrastructure/thinkit/ondatra_params.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
