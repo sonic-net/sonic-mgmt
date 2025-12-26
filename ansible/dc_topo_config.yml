@@ -1,0 +1,17 @@
+---
+# This Playbook can save or deploy configuration for all the devices in a dc topology.
+
+# Usage 1 - To backup individual configuration from each node on the DC.
+# Configuration fetched from each node will be saved under roles/dc/files/{hostname}_{file} format.
+# command : ansible-playbook dc_topo_config.yml -e config_backup=true
+
+# Usage 2 - To apply the saved or newly written config to all nodes on the DC
+# This option expects the config files to be present on roles/dc/files/{hostname}_{file} format.
+# Alternatively, it can pickup the files saved using config_backup=true option.
+# ansible-playbook dc_topo_config.yml -e config_apply=true
+
+- hosts: sonic-switches
+  gather_facts: yes
+  remote_user: admin
+  roles:
+  - role: dc
