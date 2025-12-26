@@ -5,19 +5,17 @@ package testhelper
 import (
 	"context"
 	"fmt"
-	"testing"
-	"time"
-
 	log "github.com/golang/glog"
-        "github.com/openconfig/gnoigo"
-	"github.com/openconfig/ondatra"
-        "github.com/openconfig/ondatra/binding/grpcutil"
-	"github.com/openconfig/ondatra/gnmi"
-	"github.com/pkg/errors"
-        "google.golang.org/grpc"
-
 	healthzpb "github.com/openconfig/gnoi/healthz"
 	syspb "github.com/openconfig/gnoi/system"
+	"github.com/openconfig/gnoigo"
+	"github.com/openconfig/ondatra"
+	"github.com/openconfig/ondatra/binding/grpcutil"
+	"github.com/openconfig/ondatra/gnmi"
+	"github.com/pkg/errors"
+	"google.golang.org/grpc"
+	"testing"
+	"time"
 )
 
 // Function pointers that interact with the switch. They enable unit testing

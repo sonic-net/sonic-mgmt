@@ -41,6 +41,7 @@ import (
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/local"
+	"google.golang.org/grpc/keepalive"
 	"google.golang.org/protobuf/proto"
 
 	"github.com/openconfig/ondatra/fakebind"
@@ -134,8 +135,15 @@ func Init(ctx context.Context, tb *opb.Testbed, waitTime, runTime C.long) error 
 	if err != nil {
 		return err
 	}
-	p, err = proxy.New(b, grpc.Creds(local.NewCredentials()))
-
+	// https://grpc.github.io/grpc/core/md_doc_keepalive.html
+	// https://github.com/grpc/grpc-go/blob/master/Documentation/keepalive.md
+	ep := keepalive.EnforcementPolicy{
+		MinTime:             1 * time.Millisecond, // Small min time to disable GOAWAY / PING Strikes.
+		PermitWithoutStream: true,                 // Allow keepalive pings without on-going traffic.
+	}
+	p, err = proxy.New(b,
+		grpc.Creds(local.NewCredentials()),
+		grpc.KeepaliveEnforcementPolicy(ep))
 	if err != nil {
 		return err
 	}
