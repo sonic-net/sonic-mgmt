@@ -3,12 +3,6 @@ package testhelper
 
 import (
 	"fmt"
-	"crypto/rand"
-	"math/big"
-	"strings"
-	"testing"
-	"time"
-
 	log "github.com/golang/glog"
 	healthzpb "github.com/openconfig/gnoi/healthz"
 	"github.com/openconfig/ondatra"
@@ -16,6 +10,11 @@ import (
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ygnmi/ygnmi"
 	"github.com/pkg/errors"
+	"crypto/rand"
+	"math/big"
+	"strings"
+	"testing"
+	"time"
 )
 
 var pph portPmdHandler

@@ -2,12 +2,11 @@ package testhelper
 
 import (
 	"fmt"
+	log "github.com/golang/glog"
 	"os"
 	"path"
 	"strings"
 	"testing"
-
-	log "github.com/golang/glog"
 )
 
 var (
