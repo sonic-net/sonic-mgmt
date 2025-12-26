@@ -3,13 +3,9 @@ package testhelper
 import (
 	"context"
         "fmt"
-	"os"
-        "path"
-	"sync"
-	"testing"
-        "time"
-
+        "github.com/bazelbuild/rules_go/go/tools/bazel"
         log "github.com/golang/glog"
+        gpb "github.com/openconfig/gnmi/proto/gnmi"
 	closer "github.com/openconfig/gocloser"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
@@ -19,9 +15,11 @@ import (
         "github.com/openconfig/ygot/ytypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-
-        "github.com/bazelbuild/rules_go/go/tools/bazel"
-	gpb "github.com/openconfig/gnmi/proto/gnmi"
+        "os"
+	"path"
+	"sync"
+	"testing"
+	"time"
 )
 
 // Function pointers that interact with the switch. They enable unit testing

@@ -4,10 +4,6 @@ import (
 	"context"
         "errors"
 	"fmt"
-	"strings"
-        "sync"
-	"testing"
-	"time"
 
 	log "github.com/golang/glog"
 	"github.com/google/go-cmp/cmp"
@@ -17,6 +13,10 @@ import (
 	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ygot/ygot"
 	"google.golang.org/grpc"
+        "strings"
+	"sync"
+	"testing"
+	"time"
 )
 
 var (

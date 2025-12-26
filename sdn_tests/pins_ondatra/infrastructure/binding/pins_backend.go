@@ -6,8 +6,6 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"os"
-	"time"
 	"flag"
 
         "github.com/bazelbuild/rules_go/go/tools/bazel"
@@ -20,6 +18,8 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
+        "os"
+	"time"
 )
 
 var insecureMode = flag.Bool("use_binding_insecure_mode", false, "set the flag if the server doesn't support gRPC mTLS.")
