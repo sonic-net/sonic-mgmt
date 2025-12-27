@@ -1,3 +1,5 @@
+#include <optional>
+
 #include "absl/status/statusor.h"
 #include "gtest/gtest.h"
 #include "infrastructure/thinkit/ondatra_params.h"
