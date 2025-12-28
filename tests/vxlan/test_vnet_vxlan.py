@@ -15,7 +15,7 @@ from .vnet_utils import generate_dut_config_files, safe_open_template, \
 
 from tests.common.flow_counter.flow_counter_utils \
     import RouteFlowCounterTestContext, is_route_flow_counter_supported  # noqa: F401
-from tests.common.arp_utils import set_up, tear_down, testWrArp
+from tests.common.arp_utils import set_up, tear_down, wrArp
 from tests.common.config_reload import config_reload
 
 logger = logging.getLogger(__name__)
@@ -158,7 +158,7 @@ def vxlan_status(setup, request, duthosts, rand_one_dut_hostname,
     elif request.param == "WR_ARP":
         route, ptfIp, gwIp = set_up(duthost, ptfhost, tbinfo)
         try:
-            testWrArp(request, duthost, ptfhost, creds)
+            wrArp(request, duthost, ptfhost, creds)
         finally:
             tear_down(duthost, route, ptfIp, gwIp)
 
