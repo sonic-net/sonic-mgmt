@@ -23818,8 +23818,6 @@ vms_97:
       ansible_host: 172.16.227.254
     VM97245:
       ansible_host: 172.16.227.255
-    VM97245:
-      ansible_host: 172.16.230.10
     VM97246:
       ansible_host: 172.16.230.11
     VM97247:
@@ -24360,6 +24358,8 @@ vms_97:
       ansible_host: 172.16.231.33
     VM97515:
       ansible_host: 172.16.231.34
+    VM97516:
+      ansible_host: 172.16.230.10
     # Server-96 is reserved for vms97-t1-sn5640-1 (t1-isolated-d448u15-lag)
     # Please don't deploy other testbed on this server.
 
