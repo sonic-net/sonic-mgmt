@@ -536,6 +536,12 @@ bgp/test_traffic_shift_sup.py:
     conditions:
       - "'t2_single_node' in topo_name"
 
+bgp/test_bgp_vnet.py:
+  skip:
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    conditions:
+      - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+
 #######################################
 #####            cacl             #####
 #######################################
