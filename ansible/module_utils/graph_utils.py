@@ -22,7 +22,7 @@ class LabGraph(object):
         "console_links": "sonic_{}_console_links.csv",
         "bmc_links": "sonic_{}_bmc_links.csv",
         "l1_links": "sonic_{}_l1_links.csv",
-        "serial_links": "sonic_{}_serial_link.csv",
+        "serial_links": "sonic_{}_serial_links.csv",
     }
 
     def __init__(self, path, group):
