@@ -288,6 +288,7 @@ bgp/test_bgp_allow_list.py:
     conditions:
       - "'t1' not in topo_type"
       - "platform in ['x86_64-8111_32eh_o-r0', 'x86_64-8122_64eh_o-r0', 'x86_64-8122_64ehf_o-r0']"
+      - "'isolated' in topo_name"
 
 bgp/test_bgp_bbr.py:
   skip:
