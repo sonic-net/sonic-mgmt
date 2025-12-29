@@ -3225,11 +3225,93 @@ print(device_prefix)
 
         logging.info(f"Successfully unbridged ports {port1} and {port2}")
 
-    def bridge_remote(self, port: int, remote_host: int, remote_port: int):
-        raise NotImplementedError("Bridge method is not implemented yet")
+    def bridge_remote(
+        self, port: int, remote_host: str, remote_port: int,
+        baud_rate: int = 9600, flow_control: bool = False
+    ) -> None:
+        """Bridge a local serial port to a remote host's TCP port. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
 
-    def unbridge_remote(self, port: int):
-        raise NotImplementedError("Bridge method is not implemented yet")
+        device_path = self._get_serial_device_path(port)
+
+        # Check if device path exists and is not in use or raise error
+        if not self.is_file_existed(device_path):
+            error_msg = f"Device path {device_path} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if self.is_file_opened(device_path):
+            error_msg = f"Device path {device_path} is already in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Set hardware flow control option
+        crtscts_val = "1" if flow_control else "0"
+
+        # Execute bridge command to remote host
+        command = (
+            f"sudo socat -d -d "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"TCP:{remote_host}:{remote_port} "
+            f"& echo $! "
+        )
+
+        res: ShellResult = self.shell(command, module_ignore_errors=True)
+        if res['failed']:
+            error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully bridged port {port} to {remote_host}:{remote_port}")
+
+    def unbridge_remote(self, port: int) -> None:
+        """Remove bridge from a local port to any remote host. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_path = self._get_serial_device_path(port)
+
+        if not self.is_file_existed(device_path):
+            error_msg = f"Device path {device_path} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Find all related socat processes for the port with TCP connection
+        res: ShellResult = self.shell(
+            f"pgrep -f 'socat .*{device_path}.*TCP:'",
+            module_ignore_errors=True
+        )
+        pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
+
+        if not pids or pids == ['']:
+            error_msg = f"No remote bridge found for port {port}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Kill all related socat processes
+        for pid in pids:
+            if pid:  # Skip empty strings
+                self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        time.sleep(0.5)
+
+        # Confirm all related processes have stopped
+        res: ShellResult = self.shell(
+            f"ps aux | grep 'socat .*{device_path}.*TCP:' | grep -v grep",
+            module_ignore_errors=True
+        )
+
+        if res['stdout'].strip():
+            error_msg = f"Failed to stop remote bridge process for port {port}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully unbridged remote connection for port {port}")
 
     def cleanup_all_console_sessions(self) -> None:
         """Clean up all console sessions. Raises RuntimeError on failure."""
