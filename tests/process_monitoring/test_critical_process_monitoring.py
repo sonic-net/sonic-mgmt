@@ -626,6 +626,13 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     """
     duthost = duthosts[rand_one_dut_hostname]
 
+    # Ensure all critical processes are running before starting this test
+    # This is needed in case test_monitoring_critical_processes ran before this test
+    logger.info("Ensuring all critical processes are running before orchagent heartbeat test...")
+    if not wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+                      check_all_critical_processes_running, duthost):
+        pytest.fail("Not all critical processes are running before orchagent heartbeat test")
+
     # t1 lag does not have swss container
     swss_running = is_container_running(duthost, 'swss')
     if not swss_running:
