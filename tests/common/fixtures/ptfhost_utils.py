@@ -373,7 +373,8 @@ def run_icmp_responder(duthosts, rand_one_dut_hostname, ptfhost, tbinfo, request
         logger.info("Not running on a T0 testbed, not starting ICMP responder")
         yield
         return
-    elif 'dualtor' not in tbinfo['topo']['name'] and "test_advanced_reboot" in request.node.name:
+    elif 'dualtor' not in tbinfo['topo']['name'] and ("test_advanced_reboot" in request.node.name or
+                                                      "test_express_reboot" in request.node.name):
         logger.info("Skip ICMP responder for advanced-reboot test on non dualtor devices")
         yield
         return
@@ -469,7 +470,7 @@ def run_garp_service(duthost, ptfhost, tbinfo, change_mac_addresses, request):
 
         ptf_indices = duthost.get_extended_minigraph_facts(tbinfo)["minigraph_ptf_indices"]
         if 'dualtor' not in tbinfo['topo']['name']:
-            if "test_advanced_reboot" in request.node.name:
+            if "test_advanced_reboot" in request.node.name or "test_express_reboot" in request.node.name:
                 logger.info("Skip GARP service for advanced-reboot test on non dualtor devices")
                 yield
                 return
