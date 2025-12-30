@@ -62,7 +62,11 @@ def config_system_checks_passed(duthost, delayed_services=[]):
 
 
 def config_force_option_supported(duthost):
-    out = duthost.shell("config reload -h", executable="/bin/bash")
+    out = duthost.shell("config reload -h", executable="/bin/bash", module_ignore_errors=True)
+    # If command failed (e.g., database not available), assume force option is supported for newer versions
+    if out.get('rc', 0) != 0:
+        logger.warning("Unable to check force option support, assuming supported. Error: %s", out.get('stderr', ''))
+        return True
     if "force" in out['stdout'].strip():
         return True
     return False
