@@ -19,4 +19,4 @@ REPO_DIR=$(dirname "${DOT_GITHUB_DIR}")
 uv --project "${CODEOWNERS_SCRIPTS}" \
       	run codeowners-cli --repo "${REPO_DIR}" \
                       	   --contributors_file "${CODEREVIEWERS_METADIR}/contributors.yaml" \
-			   --folder_presets_file "${CODEREVIEWERS_METADIR}/folder_presets.yaml" | tee "${REPO_DIR}/.github/pr_reviewer-by-files.yml"
+			   --folder_presets_file "${CODEREVIEWERS_METADIR}/folder_presets.yaml" | tee "${REPO_DIR}/.github/.code-reviewers/pr_reviewer-by-files.yml"
