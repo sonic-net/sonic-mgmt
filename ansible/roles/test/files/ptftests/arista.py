@@ -7,6 +7,7 @@ import paramiko
 import pickle
 import ast
 import six
+import ipaddress
 import _strptime  # noqa: F401 workaround python bug ref: https://stackoverflow.com/a/22476843/2514803
 
 from operator import itemgetter
@@ -28,10 +29,12 @@ class Arista(host_device.HostDevice):
         self.password = password
         self.conn = None
         self.arista_prompt = None
-        self.v4_routes = list(ast.literal_eval(
-            test_params['vlan_ip_range']).values())
+        vlan_ip_range = []
+        map(vlan_ip_range.extend, ast.literal_eval(test_params['vlan_ip_range']).values())
+        self.v4_routes = [x for x in vlan_ip_range if ipaddress.ip_network(x).version == 4]
         self.v4_routes.append(test_params['lo_prefix'])
-        self.v6_routes = [test_params['lo_v6_prefix']]
+        self.v6_routes = [x for x in vlan_ip_range if ipaddress.ip_network(x).version == 6]
+        self.v6_routes.append(test_params['lo_v6_prefix'])
         self.fails = set()
         self.info = set()
         self.min_bgp_gr_timeout = int(test_params['min_bgp_gr_timeout'])
