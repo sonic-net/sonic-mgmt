@@ -366,6 +366,10 @@ class EosHost(AnsibleHostBase):
             return True
 
         if enabled:
+            # configure all FECs to be auto-chosen on port autoneg
+            self._append_port_fec(interface_name, 'fc')
+            self._append_port_fec(interface_name, 'rs')
+
             speed_to_advertise = self.get_supported_speeds(interface_name)[-1]
             speed_to_advertise = speed_to_advertise[:-3] + 'gfull'
             out = self.eos_config(
