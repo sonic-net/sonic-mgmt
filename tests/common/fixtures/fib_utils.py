@@ -7,6 +7,7 @@ from datetime import datetime
 import pytest
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.sonic_db import VoqDbCli
+from tests.common.helpers.constants import SMARTSWITCH_SUBTYPE
 
 
 logger = logging.getLogger(__name__)
@@ -190,6 +191,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
     timestamp = datetime.now().strftime('%Y-%m-%d-%H:%M:%S')
     fib_info = {}
     route_key = 'ROUTE*'
+    bp_interface = lambda ifname: ifname.startswith("Ethernet") and int(ifname[8:]) >= 224
     if 'test_ecmp_group_member_flap' in testname:
         route_key = r'ROUTE_TABLE:0\.0\.0\.0*'
 
@@ -205,6 +207,7 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
         po = asic_cfg_facts.get('PORTCHANNEL_MEMBER', {})
         ports = asic_cfg_facts.get('PORT', {})
         sub_interfaces = asic_cfg_facts.get('VLAN_SUB_INTERFACE', {})
+        is_smartswitch = (asic_cfg_facts.get('DEVICE_METADATA', {}).get('localhost', {}).get('subtype') == SMARTSWITCH_SUBTYPE)
 
         with open("/tmp/fib/{}/tmp/fib.{}.txt".format(duthost.hostname, timestamp)) as fp:
             fib = json.load(fp)
@@ -217,6 +220,10 @@ def get_fib_info(duthost, dut_cfg_facts, duts_mg_facts, testname=None):
 
                 oports = []
                 for ifname in ifnames:
+                    # Skip for DPU ports on SmartSwitch
+                    if is_smartswitch and bp_interface(ifname):
+                        logger.info("Skipping for {} as it is DPU port".format(ifname))
+                        continue
                     if ifname in po:
                         # ignore the prefix, if the prefix nexthop is not a frontend port
                         if len(list(po[ifname].keys())) > 0:
