@@ -5043,10 +5043,8 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
-    conditions_logical_operator: OR
+    reason: "Skip on dualtor topo https://github.com/sonic-net/sonic-mgmt/issues/15061"
     conditions:
-      - "asic_type in ['broadcom']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
 
 #######################################
