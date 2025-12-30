@@ -282,7 +282,7 @@ def ip_and_intf_info(config_facts, intfs_for_test, ptfhost, ptfadapter):
 
 
 @pytest.fixture
-def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
+def proxy_arp_enabled(request, rand_selected_dut, config_facts):
     """
     Tries to enable proxy ARP for each VLAN on the ToR
 
@@ -316,7 +316,7 @@ def proxy_arp_enabled(packets_for_test, rand_selected_dut, config_facts):
         new_proxy_arp_res = duthost.shell(proxy_arp_check_cmd.format(vid))
         new_proxy_arp_vals.append(new_proxy_arp_res['stdout'])
 
-    if ip_version == 'v6':
+    if 'ipv6' in request.node.name:
         # Allow time for ndppd to reset and startup
         time.sleep(30)
 
