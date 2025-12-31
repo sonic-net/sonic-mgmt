@@ -104,7 +104,7 @@ if reviewer_candidates:
 
     try:
         # Request reviews
-        # pr.create_review_request(reviewers=reviewers_to_add)
+        pr.create_review_request(reviewers=reviewers_to_add)
         print(
             f"Successfully requested reviews for PR #{pr.number} from users: {reviewers_to_add}"
         )
