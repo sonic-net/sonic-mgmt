@@ -303,7 +303,6 @@ def proxy_arp_enabled(request, rand_selected_dut, config_facts):
     vlan_ids = [vlans[vlan]['vlanid'] for vlan in list(vlans.keys())]
     old_proxy_arp_vals = {}
     new_proxy_arp_vals = []
-    ip_version, _, _ = packets_for_test
 
     # Enable proxy ARP/NDP for the VLANs on the DUT
     for vid in vlan_ids:
