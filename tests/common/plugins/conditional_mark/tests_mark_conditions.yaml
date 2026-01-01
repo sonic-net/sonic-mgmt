@@ -507,11 +507,9 @@ bgp/test_bgp_vnet.py:
 
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend
-             or Skip for IPv6-only topologies, since there are v6 verison of the test"
+    reason: "Not supported on T2 topology or topology backend"
     conditions:
       - "'backend' in topo_name or topo_type in ['t2']"
-      - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
