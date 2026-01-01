@@ -8,6 +8,7 @@ import re
 from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD, SONIC_SSH_PORT, SONIC_SSH_REGEX
 from tests.common.helpers.platform_api import module
+from tests.common.helpers.dut_utils import is_mellanox_devices
 from tests.smartswitch.common.device_utils_dpu import check_dpu_link_and_status,\
     pre_test_check, post_test_switch_check, post_test_dpus_check,\
     num_dpu_modules, check_dpus_are_not_pingable  # noqa: F401
@@ -23,6 +24,7 @@ kernel_panic_cmd = "sudo nohup bash -c 'sleep 5 && echo c > /proc/sysrq-trigger'
 memory_exhaustion_cmd = "sudo nohup bash -c 'sleep 5 && tail /dev/zero' &"
 DUT_ABSENT_TIMEOUT_FOR_KERNEL_PANIC = 100
 DUT_ABSENT_TIMEOUT_FOR_MEMORY_EXHAUSTION = 100
+EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG = 40
 
 
 def test_dpu_status_post_switch_reboot(duthosts,
@@ -181,7 +183,13 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
     logging.info("Executing post test dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, "Non-Hardware")
+    if is_mellanox_devices(duthost.facts['hwsku']):
+        expected_reboot_cause = "Watchdog"
+    else:
+        expected_reboot_cause = "Non-Hardware"
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
+                         num_dpu_modules, expected_reboot_cause,
+                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG)
 
 
 @pytest.mark.disable_loganalyzer
@@ -212,8 +220,13 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
     check_dpus_are_not_pingable(duthost, ip_address_list)
 
     logging.info("Executing post test dpu check")
+    if is_mellanox_devices(duthost.facts['hwsku']):
+        expected_reboot_cause = "Watchdog"
+    else:
+        expected_reboot_cause = "Non-Hardware"
     post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list,
-                         num_dpu_modules, "Non-Hardware")
+                         num_dpu_modules, expected_reboot_cause,
+                         EXTRA_DPU_ONLINE_TIMEOUT_FOR_WATCHDOG)
 
 
 def test_cold_reboot_dpus(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname,
@@ -272,5 +285,8 @@ def test_cold_reboot_switch(duthosts, dpuhosts, enum_rand_one_per_hwsku_hostname
     perform_reboot(duthost, REBOOT_TYPE_COLD, None)
 
     logging.info("Executing post switch reboot dpu check")
-    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules,
-                         re.compile(r"reboot|Non-Hardware", re.IGNORECASE))
+    if is_mellanox_devices(duthost.facts['hwsku']):
+        expected_reboot_cause = "Non-Hardware"
+    else:
+        expected_reboot_cause = "reboot"
+    post_test_dpus_check(duthost, dpuhosts, dpu_on_list, ip_address_list, num_dpu_modules, expected_reboot_cause)
