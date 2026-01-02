@@ -24,7 +24,7 @@ str4-7060x6-pe64-root,Ethernet48/1,str4-acs-serv-76,ens4f1,100000,"",Trunk,off
 str4-7060x6-pe64-root,Ethernet49/1,str4-acs-serv-70,ens4f0,100000,"",Trunk,off
 str4-7060x6-pe64-root,Ethernet50/1,str4-acs-serv-70,ens4f1,100000,"100-356,357-486,3660-3725,3730-3801",Trunk,off
 str4-7060x6-pe64-root,Ethernet51/1,str4-acs-serv-71,ens4f0,100000,"",Trunk,off
-str4-7060x6-pe64-root,Ethernet52/1,str4-acs-serv-71,ens4f1,100000,"3100-3171",Trunk,off
+str4-7060x6-pe64-root,Ethernet52/1,str4-acs-serv-71,ens4f1,100000,"1600-1759,1760-1855,3100-3171",Trunk,off
 str4-7060x6-pe64-root,Ethernet53/1,str4-acs-serv-72,ens4f0,100000,"",Trunk,off
 str4-7060x6-pe64-root,Ethernet54/1,str4-acs-serv-72,ens4f1,100000,"2747-3004",Trunk,off
 str4-7060x6-pe64-root,Ethernet55/1,str4-acs-serv-73,ens4f0,100000,"",Trunk,off
