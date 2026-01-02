@@ -4792,6 +4792,23 @@
   auto_recover: 'False'
   comment: yatishkoul
 
+- conf-name: vmsvc3-t2-7808-2
+  group-name: svc1-10
+  topo: t2_2lc_min_ports-masic
+  ptf_image_name: docker-ptf
+  ptf: svc1-10
+  ptf_ip: 10.206.144.82/24
+  ptf_ipv6: 2a01:111:e205:100::ace:9052/64
+  server: server_svc_7
+  vm_base: VM65000
+  dut:
+  - svcstr-7800-lc3-1
+  - svcstr-7800-lc4-1
+  - svcstr-7808-sup-1
+  inv_name: strsvc
+  auto_recover: 'False'
+  comment: javiertan
+
 - conf-name: vmsvc-ut2-nh5010-3
   group-name: svc3-2
   topo: t2_single_node_min_nexthop_ut2
