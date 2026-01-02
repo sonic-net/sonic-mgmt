@@ -158,7 +158,7 @@ def get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_s
     supported_statedb_fecs = get_supported_port_fecs(duthost, cli_namespace_prefix, selected_random_port)
     logger.info(f"Supported valid fecs for port based on STATE_DB: {supported_statedb_fecs}")
     supported_fecs_per_speed = get_fec_for_speed(duthost, target_speed)
-    pytest_assert(supported_fecs_per_speed, "Failed to find any fec for speed {target_speed}.")
+    pytest_assert(supported_fecs_per_speed, f"Failed to find any fec for speed {target_speed}.")
     logger.info(f"Supported test fecs for port based on targeted speed: {supported_fecs_per_speed}")
     for fec in supported_fecs_per_speed:
         if fec in supported_statedb_fecs:
@@ -219,27 +219,26 @@ def get_interface_neighbor_and_intfs(mg_facts, selected_random_port):
     vm_neighbors = mg_facts['minigraph_neighbors']
     dut_interface = selected_random_port
     # if the interface is a portchannel member, resolve to actual member
-    if (port_channel := mg_facts.get('minigraph_portchannels', {}).get(dut_interface)):
+    if (port_channel := mg_facts.get('minigraph_portchannels', {}).get(dut_interface)) is not None:
         dut_interface = port_channel['members'][0]
     neighbor_name = vm_neighbors[dut_interface]['name']
     neighbor_info = mg_facts['minigraph_bgp']
     neighbor_addr = []
-    neighbor_peer_addr = []
     neighbor_ipv4_addr = ""
     neighbor_ipv6_addr = ""
     for neigh in neighbor_info:
         if neigh['name'] == neighbor_name:
             neighbor_addr.append(neigh['addr'])
-            neighbor_peer_addr.append(neigh['peer_addr'])
             if is_ipv4_address(neigh['addr']):
                 neighbor_ipv4_addr = neigh['addr']
             elif is_ipv6_address(neigh['addr']):
                 neighbor_ipv6_addr = neigh['addr']
     neighbor_addr = list(set(neighbor_addr))
-    neighbor_peer_addr = list(set(neighbor_peer_addr))
-    logger.info("Found neighbor {} with interfaces {} for duthost port {}. \
-                IPV4 interface: {} IPV6 interface: {}".format(
-        neighbor_name, neighbor_addr, selected_random_port, neighbor_ipv4_addr, neighbor_ipv6_addr))
+    logger.info(
+        "Found neighbor {} with interfaces {} for duthost port {}. "
+        "IPV4 interface: {} IPV6 interface: {}".format(
+            neighbor_name, neighbor_addr, selected_random_port, neighbor_ipv4_addr, neighbor_ipv6_addr)
+    )
     return neighbor_name, neighbor_addr, neighbor_ipv4_addr, neighbor_ipv6_addr
 
 
@@ -304,11 +303,12 @@ def apply_patch_change_port_cluster(config_facts,
         elif operation == "remove":
             if acl_table not in config_facts["ACL_TABLE"]:
                 continue
-            pindex = get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, selected_random_port)
-            if pindex is not None:
+            port_index = get_port_index_in_acl_table(
+                duthost, enum_rand_one_asic_namespace, acl_table, selected_random_port)
+            if port_index is not None:
                 json_patch_acl.append({
                     "op": "remove",
-                    "path": "{}/ACL_TABLE/{}/ports/{}".format(json_namespace, acl_table, pindex)
+                    "path": "{}/ACL_TABLE/{}/ports/{}".format(json_namespace, acl_table, port_index)
                 })
 
     # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
@@ -599,11 +599,7 @@ def apply_patch_change_port_cluster(config_facts,
 def setup_acl_config(duthost, ip_netns_namespace_prefix):
     logger.info("Adding acl config.")
     remove_dataacl_table_single_dut("DATAACL", duthost)
-    # duthost.command("{} config acl add table {} {} -s {}" \
-    # .format(ip_netns_namespace_prefix, ACL_TABLE_NAME, ACL_TABLE_TYPE_L3, ACL_TABLE_STAGE_EGRESS))
     duthost.copy(src=ACL_RULE_FILE_PATH, dest=ACL_RULE_DST_FILE)
-    # duthost.shell("{} acl-loader update full --table_name {} {}" \
-    # .format(ip_netns_namespace_prefix, ACL_TABLE_NAME, ACL_RULE_DST_FILE))
     cmds = [
             "config acl add table {} {} -s {}".format(ACL_TABLE_NAME, ACL_TABLE_TYPE_L3, ACL_TABLE_STAGE_EGRESS),
             "acl-loader update full --table_name {} {}".format(ACL_TABLE_NAME, ACL_RULE_DST_FILE)
@@ -718,10 +714,11 @@ def test_port_speed_change(tbinfo,
                            ptfadapter,
                            setup_port_speed_change):
     """
-    Validates the functionality of the Downstream Linecard after adding a cluster.
-
-    Performs lossless data traffic scenarios for both ACL and non-ACL cases.
-    Verifies successful data transmission, queue counters, and ACL rule match counters.
+    Validates port speed change functionality via Generic Config Updater (GCU).
+    This test verifies that port speed changes are correctly applied, including updates to
+    the configuration database, buffer profiles, and hardware state. It also performs
+    traffic scenarios with and without ACL rules to ensure successful data transmission,
+    correct queue counters, and accurate ACL rule match counters.
     """
 
     # initial test env
@@ -761,7 +758,6 @@ def test_port_speed_change(tbinfo,
     initial_speed = config_facts["PORT"][selected_random_port]["speed"]
     initial_cable_length = config_facts["CABLE_LENGTH"]["AZURE"][selected_random_port]
     initial_pg_lossless_profile_name = 'pg_lossless_{}_{}_profile'.format(initial_speed, initial_cable_length)
-    # initial_buffer_pg_info = config_facts["BUFFER_PG"]
 
     with allure.step("Changing speed to initial speed (A) [{}]. Adding cluster info. \
                      Expecting success operation AND ports up.".format(initial_speed)):
@@ -793,10 +789,6 @@ def test_port_speed_change(tbinfo,
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info,
                       "Expected buffer profile {} was not created in CONFIG_DB.".format(
                           initial_pg_lossless_profile_name))
-        # needs formatting before comparison
-        # pytest_assert(current_buffer_pg_info == initial_buffer_pg_info,
-        #              "Didn't find expected BUFFER_PG info in CONFIG_DB.")
-
         cmd = "sonic-db-cli -n {} APPL_DB keys BUFFER_PROFILE_TABLE:*".format(enum_rand_one_asic_namespace)
         current_buffer_profile_info_appl_db = duthost.shell(cmd)["stdout"]
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info_appl_db,
@@ -831,7 +823,7 @@ def test_port_speed_change(tbinfo,
             src_duthost = duthost
             src_asic_index = asic_id_src
         else:
-            pytest_assert("Unsupported direction for traffic scenario {}.".format(traffic_scenario["direction"]))
+            pytest.fail("Unsupported direction for traffic scenario {}.".format(traffic_scenario["direction"]))
 
         duthost.shell('{} aclshow -c'.format(ip_netns_namespace_prefix))
         # send traffic
