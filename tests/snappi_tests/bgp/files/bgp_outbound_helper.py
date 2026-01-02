@@ -7,7 +7,6 @@ import os
 from ixnetwork_restpy import SessionAssistant
 from ixnetwork_restpy.testplatform.testplatform import TestPlatform
 from ixnetwork_restpy.assistants.statistics.statviewassistant import StatViewAssistant
-from tabulate import tabulate
 from statistics import mean
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.common.utilities import (wait, wait_until)  # noqa: F401
@@ -51,7 +50,7 @@ def get_hw_platform(hostnames):
 
 def run_bgp_outbound_uplink_blackout_test(api,
                                           snappi_extra_params,
-                                          creds):
+                                          creds, record_property):
     """
     Run outbound test for uplink blackout
     Args:
@@ -96,13 +95,14 @@ def run_bgp_outbound_uplink_blackout_test(api,
                                      blackout_percentage,
                                      route_range,
                                      test_name,
-                                     creds)
+                                     creds, record_property)
 
 
 def run_bgp_outbound_tsa_tsb_test(api,
                                   snappi_extra_params,
                                   creds,
-                                  is_supervisor):
+                                  is_supervisor,
+                                  record_property):
     """
     Run outbound test with TSA TSB on the dut
 
@@ -147,13 +147,15 @@ def run_bgp_outbound_tsa_tsb_test(api,
                                     route_range,
                                     test_name,
                                     creds,
-                                    is_supervisor)
+                                    is_supervisor,
+                                    record_property=record_property)
 
 
 def run_bgp_outbound_ungraceful_restart(api,
                                         creds,
                                         is_supervisor,
-                                        snappi_extra_params):
+                                        snappi_extra_params,
+                                        record_property):
     """
     Run outbound test with ungraceful restart on the dut
     Args:
@@ -197,12 +199,14 @@ def run_bgp_outbound_ungraceful_restart(api,
                                                route_range,
                                                test_name,
                                                creds,
-                                               is_supervisor)
+                                               is_supervisor,
+                                               record_property)
 
 
 def run_bgp_outbound_process_restart_test(api,
                                           creds,
-                                          snappi_extra_params):
+                                          snappi_extra_params,
+                                          record_property):
     """
     Run Local link failover test
 
@@ -249,12 +253,14 @@ def run_bgp_outbound_process_restart_test(api,
                                          host_name,
                                          route_range,
                                          test_name,
-                                         creds)
+                                         creds,
+                                         record_property)
 
 
 def run_bgp_outbound_link_flap_test(api,
                                     creds,
-                                    snappi_extra_params):
+                                    snappi_extra_params,
+                                    record_property):
     """
     Run Local link failover test
 
@@ -300,7 +306,7 @@ def run_bgp_outbound_link_flap_test(api,
                                       iteration,
                                       route_range,
                                       test_name,
-                                      creds)
+                                      creds, record_property)
 
 
 def generate_mac_address():
@@ -702,7 +708,8 @@ def get_convergence_for_link_flap(duthosts,
                                   iteration,
                                   route_range,
                                   test_name,
-                                  creds):
+                                  creds,
+                                  record_property):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -745,6 +752,10 @@ def get_convergence_for_link_flap(duthosts,
         logger.info('Verifying protocol sessions state')
         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
+        # NOTE: we sleep 60 seconds to make sure DUT is ready before receiving traffic, avoiding traffic lost
+        time.sleep(60)
+
         logger.info('Starting Traffic')
 
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
@@ -857,17 +868,26 @@ def get_convergence_for_link_flap(duthosts,
 
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
+    convergence_result = [
+        {
+            "Test Name": f"{test_name} (link down)",
+            "Iteration": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": avg_pld
+        },
+        {
+            "Test Name": f"{test_name} (link up)",
+            "Iteration": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": avg_pld2
+        }
+    ]
 
-    convergence_result = tabulate([
-        [f"{test_name} (Link DOWN)", iteration, traffic_type,
-         portchannel_count, total_routes, mean(avg_pld)],
-        [f"{test_name} (Link UP)", iteration, traffic_type,
-         portchannel_count, total_routes, mean(avg_pld2)]
-    ], headers=columns, tablefmt="psql")
-
-    logger.info("\n%s" % convergence_result)
+    record_property("convergence_result", convergence_result)
 
 
 def kill_process_inside_container(duthost, container_name, process_id, creds):
@@ -966,7 +986,8 @@ def get_convergence_for_process_flap(duthosts,
                                      host_name,
                                      route_range,
                                      test_name,
-                                     creds):
+                                     creds,
+                                     record_property):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -994,7 +1015,7 @@ def get_convergence_for_process_flap(duthosts,
                         format(topology.DeviceGroup.find()[0].Name))
             continue
 
-    table = []
+    convergence_result = []
     logger.info('\n')
     logger.info('Testing with Route Range: {}'.format(route_range))
     logger.info('\n')
@@ -1003,7 +1024,6 @@ def get_convergence_for_process_flap(duthosts,
             container_names = get_container_names_from_asic_count(duthost, container_name)
             if duthost.hostname == host_name:
                 for container in container_names:
-                    row = []
                     avg_pld = []
                     for i in range(0, iteration):
                         logger.info(
@@ -1018,6 +1038,9 @@ def get_convergence_for_process_flap(duthosts,
                         logger.info('Verifying protocol sessions state')
                         protocolsSummary = StatViewAssistant(ixnetwork, 'Protocols Summary')
                         protocolsSummary.CheckCondition('Sessions Down', StatViewAssistant.EQUAL, 0)
+
+                        # NOTE: we sleep 60 seconds to make sure DUT is ready before receiving traffic
+                        time.sleep(60)
 
                         logger.info('Starting Traffic')
                         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
@@ -1083,18 +1106,19 @@ def get_convergence_for_process_flap(duthosts,
                         api.set_control_state(cs)
                         wait(SNAPPI_TRIGGER, "For Protocols To stop")
                         logger.info('\n')
-                    row.append(test_name)
-                    row.append(f'{container}')
-                    row.append(f'{process_name}')
-                    row.append(iteration)
-                    row.append(traffic_type)
-                    row.append(portchannel_count)
-                    row.append(total_routes)
-                    row.append(mean(avg_pld))
-                    table.append(row)
-    columns = ['Test Name', 'Container Name', 'Process Name', 'Iterations', 'Traffic Type',
-               'Uplink ECMP Paths', 'Route Count', 'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate(table, headers=columns, tablefmt="psql"))
+
+                    convergence_result.append({
+                        "Test Name": test_name,
+                        "Container Name": container,
+                        "Process Name": process_name,
+                        "Iterations": iteration,
+                        "Traffic Type": traffic_type,
+                        "Uplink ECMP Paths": portchannel_count,
+                        "Route Count": total_routes,
+                        "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+                    })
+
+    record_property("convergence_result", convergence_result)
 
 
 def get_convergence_for_tsa_tsb(duthosts,
@@ -1106,7 +1130,8 @@ def get_convergence_for_tsa_tsb(duthosts,
                                 route_range,
                                 test_name,
                                 creds,
-                                is_supervisor):
+                                is_supervisor,
+                                record_property):
 
     """
     Args:
@@ -1239,12 +1264,26 @@ def get_convergence_for_tsa_tsb(duthosts,
 
             logger.info('\n')
 
-        columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-                   'Avg Calculated Packet Loss Duration (ms)']
-        logger.info("\n%s" % tabulate([[test_name+' (TSA)', iteration, traffic_type, portchannel_count,
-                                      total_routes, mean(avg_pld)], [test_name+' (TSB)', iteration,
-                                      traffic_type, portchannel_count, total_routes, mean(avg_pld2)]],
-                                      headers=columns, tablefmt="psql"))
+        convergence_result = [
+            {
+                "Test Name": f"{test_name} (TSA)",
+                "Iterations": iteration,
+                "Traffic Type": traffic_type,
+                "Uplink ECMP Paths": portchannel_count,
+                "Route Count": total_routes,
+                "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+            },
+            {
+                "Test Name": f"{test_name} (TSB)",
+                "Iterations": iteration,
+                "Traffic Type": traffic_type,
+                "Uplink ECMP Paths": portchannel_count,
+                "Route Count": total_routes,
+                "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld2)
+            }
+        ]
+
+        record_property("convergence_result", convergence_result)
 
     except Exception as e:
         logger.info(e)
@@ -1294,7 +1333,7 @@ def get_convergence_for_blackout(duthosts,
                                  blackout_percentage,
                                  route_range,
                                  test_name,
-                                 creds):
+                                 creds, record_property):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -1453,12 +1492,26 @@ def get_convergence_for_blackout(duthosts,
         api.set_control_state(cs)
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[test_name+' (Link Down)', iteration, traffic_type, portchannel_count,
-                                  total_routes, mean(avg_pld)], [test_name+' (Link Up)', iteration,
-                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
-                                  tablefmt="psql"))
+    convergence_result = [
+        {
+            "Test Name": f"{test_name} (Link Down)",
+            "Iterations": iteration,
+            "Traffic type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+        },
+        {
+            "Test Name": f"{test_name} (Link Down)",
+            "Iterations": iteration,
+            "Traffic type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld2)
+        }
+    ]
+
+    record_property("convergence_result", convergence_result)
 
 
 def send_kernel_panic_command(duthost, creds):
@@ -1496,7 +1549,8 @@ def get_convergence_for_ungraceful_restart(duthosts,
                                            route_range,
                                            test_name,
                                            creds,
-                                           is_supervisor):
+                                           is_supervisor,
+                                           record_property):
     """
     Args:
         duthost (pytest fixture): duthost fixture
@@ -1545,6 +1599,9 @@ def get_convergence_for_ungraceful_restart(duthosts,
         protocolsSummary.CheckCondition(
             'Sessions Down', StatViewAssistant.EQUAL, 0)
         logger.info('Starting Traffic')
+
+        # NOTE: we sleep 60 seconds to make sure DUT is ready before receiving traffic, avoiding traffic lost
+        time.sleep(60)
 
         cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
         api.set_control_state(cs)
@@ -1598,7 +1655,7 @@ def get_convergence_for_ungraceful_restart(duthosts,
         logger.info('Clearing Stats')
         ixnetwork.ClearStats()
         for duthost in duthosts:
-            ping_device(duthost, timeout=180)
+            ping_device(duthost, timeout=300)
         wait(DUT_TRIGGER, "Contaniers on the DUT to stabalize after restart")
 
         flow_stats = get_flow_stats(api)
@@ -1626,9 +1683,23 @@ def get_convergence_for_ungraceful_restart(duthosts,
         api.set_control_state(cs)
         logger.info('\n')
 
-    columns = ['Test Name', 'Iterations', 'Traffic Type', 'Uplink ECMP Paths', 'Route Count',
-               'Avg Calculated Packet Loss Duration (ms)']
-    logger.info("\n%s" % tabulate([[test_name+' (DOWN))', iteration, traffic_type, portchannel_count,
-                                  total_routes, mean(avg_pld)], [test_name+' (UP)', iteration,
-                                  traffic_type, portchannel_count, total_routes, mean(avg_pld2)]], headers=columns,
-                                  tablefmt="psql"))
+    convergence_result = [
+        {
+            "Test Name": f"{test_name} (Link DOWN)",
+            "Iterations": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld)
+        },
+        {
+            "Test Name": f"{test_name} (Link UP)",
+            "Iterations": iteration,
+            "Traffic Type": traffic_type,
+            "Uplink ECMP Paths": portchannel_count,
+            "Route Count": total_routes,
+            "Avg Calculated Packet Loss Duration (ms)": mean(avg_pld2)
+        }
+    ]
+
+    record_property("convergence_result", convergence_result)

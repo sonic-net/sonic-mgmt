@@ -1,9 +1,12 @@
 import pytest
 import json
 import re
+import logging
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+
+logger = logging.getLogger(__name__)
 
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
@@ -58,16 +61,33 @@ def get_queue_cntrs_oid(interface):
     return queue_cntrs_oid
 
 
-def get_asic_interface(inter_facts):
+def get_dpu_npu_port_list(duthost):
+    dpu_npu_port_list = []
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts is None:
+        return dpu_npu_port_list
+    if 'PORT' not in config_facts:
+        return dpu_npu_port_list
+    dpu_npu_port_list = [p for p, v in list(config_facts['PORT'].items()) if v.get('role', None) == 'Dpc']
+
+    logger.info(f"dpu npu port list: {dpu_npu_port_list}")
+    return dpu_npu_port_list
+
+
+def get_asic_interface(inter_facts, duthost):
     """
     @summary: Returns interface dynamically based on the asic chosen
               for single/multi-asic sonic host.
     """
     ansible_inter_facts = inter_facts['ansible_interface_facts']
     interface = None
+    internal_port_list = get_dpu_npu_port_list(duthost)
     for key, v in ansible_inter_facts.items():
         # Exclude internal interfaces
         if 'IB' in key or 'Rec' in key or 'BP' in key:
+            continue
+        if key in internal_port_list:
             continue
         if 'Ether' in key and v['active']:
             interface = key
@@ -106,7 +126,7 @@ def test_snmp_queue_counters(duthosts,
         duthost.hostname).vars['ansible_host']
     asic = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asic.interface_facts()['ansible_facts']
-    interface = get_asic_interface(int_facts)
+    interface = get_asic_interface(int_facts, duthost)
     if interface is None:
         pytest.skip("No active interface present on the asic {}".format(asic))
     queue_cntrs_oid = get_queue_cntrs_oid(interface)
