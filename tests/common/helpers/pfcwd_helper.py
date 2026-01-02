@@ -327,6 +327,11 @@ def set_pfc_timers():
     return pfc_timers
 
 
+def update_pfc_poll_interval(duthost, poll_interval):
+    logger.info("Setting PFC watchdog poll interval to {}ms".format(poll_interval))
+    duthost.command("pfcwd interval {}".format(poll_interval))
+
+
 def select_test_ports(test_ports):
     """
     Select a subset of ports from the generated port info
@@ -588,7 +593,7 @@ def check_pfc_storm_state(dut, port, queue):
     return None
 
 
-def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
+def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state, baseline_counters=None):
     """
     Helper function to verify if PFC storm on a specific queue is in expected state
     """
@@ -601,23 +606,77 @@ def verify_pfc_storm_in_expected_state(dut, port, queue, expected_state):
         logger.debug(f"No PFC watchdog stats found for port {port} queue {queue}")
         return False
 
+    current_detect_count = int(pfcwd_stat[0]['storm_detect_count'])
+    current_restored_count = int(pfcwd_stat[0]['restored_count'])
+    current_status = pfcwd_stat[0]['status']
+
     if expected_state == "storm":
-        if ("storm" in pfcwd_stat[0]['status']) and \
-                int(pfcwd_stat[0]['storm_detect_count']) > int(pfcwd_stat[0]['restored_count']):
-            return True
+        # For storm state verification:
+        # 1. If baseline_counters provided, check if detect_count increased since baseline
+        # 2. Otherwise, accept only if currently in storm
+        if baseline_counters is not None:
+            baseline_detect = baseline_counters.get(port, 0)
+            if current_detect_count > baseline_detect:
+                logger.debug(f"Port {port} queue {queue} has new storm detection "
+                             f"(baseline={baseline_detect}, current={current_detect_count}, "
+                             f"status={current_status})")
+                return True
+        else:
+            if ("storm" in current_status) and (current_detect_count > current_restored_count):
+                return True
     else:
-        if ("storm" not in pfcwd_stat[0]['status']) and \
-                int(pfcwd_stat[0]['storm_detect_count']) == int(pfcwd_stat[0]['restored_count']):
+        if ("storm" not in current_status) and (current_detect_count == current_restored_count):
             return True
     return False
 
 
-def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state):
-    """
-    Helper function to verify if PFC storm on all ports in a multi-port storm test is in expected state
-    """
+def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_state, baseline_counters=None,
+                                                 threshold_percentage=100, stormed_ports_list=None):
+    """Verify if threshold percentage of ports reached expected PFC storm state."""
     if dut.facts['asic_type'] == 'vs':
         return True
+
+    # Build list of all ports to check
+    ports_to_check = []
+    for peer in storm_hndle.peer_params.keys():
+        fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
+        device_conn = storm_hndle.fanout_graph[peer]['device_conn']
+        queue_idx = storm_hndle.storm_handle[peer].pfc_queue_idx
+        for intf in fanout_intfs:
+            ports_to_check.append((device_conn[intf]['peerport'], queue_idx))
+
+    # For restore, only check ports that actually stormed
+    if expected_state == "restore" and stormed_ports_list:
+        ports_to_check = [(p, q) for p, q in ports_to_check if p in stormed_ports_list]
+        logger.info(f"Restore: checking {len(ports_to_check)}/{len(stormed_ports_list)} stormed ports")
+
+    # Verify each port
+    ports_in_expected_state = 0
+    for test_port, queue_idx in ports_to_check:
+        if verify_pfc_storm_in_expected_state(dut, test_port, queue_idx, expected_state, baseline_counters):
+            ports_in_expected_state += 1
+            if expected_state == "storm" and stormed_ports_list is not None and test_port not in stormed_ports_list:
+                stormed_ports_list.append(test_port)
+        else:
+            logger.debug(f"Port {test_port}:{queue_idx} not in {expected_state} state")
+
+    total_ports = len(ports_to_check)
+    if total_ports == 0:
+        logger.warning("No ports found to verify")
+        return False
+
+    success_percentage = (ports_in_expected_state / total_ports) * 100
+    logger.info(f"{ports_in_expected_state}/{total_ports} ports ({success_percentage:.1f}%) "
+                f"in '{expected_state}' state (threshold: {threshold_percentage}%)")
+
+    return success_percentage >= threshold_percentage
+
+
+def get_pfc_storm_baseline_counters(dut, storm_hndle):
+    """Capture baseline storm detect counters to avoid false positives from stale counters."""
+    baseline = {}
+    if dut.facts['asic_type'] == 'vs':
+        return baseline
 
     for peer in storm_hndle.peer_params.keys():
         fanout_intfs = storm_hndle.peer_params[peer]['intfs'].split(',')
@@ -626,10 +685,11 @@ def verify_all_ports_pfc_storm_in_expected_state(dut, storm_hndle, expected_stat
 
         for intf in fanout_intfs:
             test_port = device_conn[intf]['peerport']
-            if not verify_pfc_storm_in_expected_state(dut, test_port, queue_idx, expected_state):
-                logger.debug(f"Port {test_port} queue {queue_idx} not in expected state {expected_state}")
-                return False
-    return True
+            pfcwd_stat = parser_show_pfcwd_stat(dut, test_port, queue_idx)
+            baseline[test_port] = int(pfcwd_stat[0]['storm_detect_count']) if pfcwd_stat else 0
+            logger.debug(f"Baseline {test_port}:{queue_idx} = {baseline[test_port]}")
+
+    return baseline
 
 
 def parser_show_pfcwd_stat(dut, select_port, select_queue):
