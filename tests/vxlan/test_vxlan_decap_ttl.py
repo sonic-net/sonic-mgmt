@@ -87,7 +87,7 @@ def create_vxlan_tunnel(duthost, tbinfo, outer_ip_version, configure_vxlan_globa
     """
     logger.info("Creating a VxLAN tunnel...")
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
-    vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version)
+    vxlan_tunnel = ecmp_utils.create_vxlan_tunnel(duthost, minigraph_facts, outer_ip_version, ttl_mode="pipe")
     pytest_assert(wait_until(10, 2, 0, is_vxlan_tunnel_in_app_db, duthost, vxlan_tunnel),
                   "The VxLAN tunnel is not created in APP DB.")
     yield vxlan_tunnel
@@ -222,8 +222,8 @@ def test_vxlan_decap_ttl(duthost, tbinfo, ptfadapter, create_vnet, outer_ip_vers
     """
         In this test, the DUT acts as a VNET endpoint and decapulates VxLAN packets sent to it that match
         the VNI of the VNET configured on it.
-        The test verifies that TTL/Hop limit of the egress packet is set correctly (i.e., to the TTL/Hop limit
-        of the inner ingress packet minus 1).
+        The test verifies that TTL/Hop limit of the egress packet is set correctly when using the pipe model
+        (i.e., to the TTL/Hop limit of the inner ingress packet minus 1).
     """
     minigraph_facts = duthost.get_extended_minigraph_facts(tbinfo)
     router_mac = duthost.facts["router_mac"]
