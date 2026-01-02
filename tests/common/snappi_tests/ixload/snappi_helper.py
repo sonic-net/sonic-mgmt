@@ -433,6 +433,14 @@ def _set_routes_on_dut(duthosts, duthost, tbinfo, local_files, local_dir, dpu_in
                         f'Pinging standby side loopback intf from {duthost.hostname}: '
                         f'ping -c 3 {active_ethpass_ip}')  # noqa:  E231
                     output_ping = duthost.command(f"ping -c 3 {active_ethpass_ip}", module_ignore_errors=True)
+                    logger.info(f'Correcting route on {duthost.hostname}: '
+                                f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 nexthop 20.{dpu_index}.202.1')
+                    output = duthost.command(f'sudo config route del prefix 221.0.0.{dpu_index+1}/32 '
+                                             f'nexthop 20.{dpu_index}.202.1', module_ignore_errors=True)
+                    logger.info(f'Adding correct route on {duthost.hostname}: '
+                                f'sudo config route add prefix 221.0.0.{dpu_index+1}/32 nexthop 220.0.4.1')
+                    output = duthost.command(f'sudo config route add prefix 221.0.0.{dpu_index+1}/32 '
+                                             f'nexthop 220.0.4.1', module_ignore_errors=True)
 
                 else:
                     # DPU0 initial active side
