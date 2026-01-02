@@ -208,14 +208,14 @@ The scenario verifies:
 - Select a random ASIC namespace and a random active interface within that namespace.
 - Capture the initial speed of the interface (speedA).
 - Identify supported interface speeds and randomly select a second speed (speedB).
-- Change speed using gcu apply-patch from speedA -> speedB.
+- Change speed using gcu apply-patch from speedA -> speedB. Also, remove cluster information for that port.
 - Verify DB reflects the speed change.
 > The system is expected not to be fully functional at this point because physical hardware (transceivers) may not support both speeds, causing the interface to go down.
 - Save configuration and perform config reload.
 This completes the initial setup.
 
 #### Testing Steps
-- Change speed via gcu apply-patch back to the original speed (speedA).
+- Change speed via gcu apply-patch back to the original speed (speedA). Also, add cluster information for that port.
 - Verify DB reflects the change.
 > The system is expected to be fully functional and all interfaces should be up.
 - Run data traffic toward the selected interface.
@@ -225,206 +225,294 @@ This completes the initial setup.
 #### Testing Teardown
 - Restore configuration with load minigraph.
 
+#### Testing Limitations
+The operation completes in two steps.
+The first patch update includes a port speed change and the addition of cluster information.
+The second patch update includes QUEUE table configuration.
+
 #### Port Speed Change Json File
-- An example of a json file performed port speed changes is similar to below:
+- An example of the two json files performed port speed changes is similar to below:
+
+- Patch update No.1 (add cluster + port speed change)
 <pre>
 [
   {
-    "op": "remove",
-    "path": "/asic1/BUFFER_QUEUE/ixre-egl-board33|asic1|Ethernet200|0-2"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/BUFFER_QUEUE/ixre-egl-board33|asic1|Ethernet200|3-4"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/BUFFER_QUEUE/ixre-egl-board33|asic1|Ethernet200|5-6"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|0"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|1"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|2"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|3"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|4"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|5"
-  },
-  {
-    "op": "remove",
-    "path": "/asic1/QUEUE/ixre-egl-board33|asic1|Ethernet200|6"
+    "op": "add",
+    "path": "/localhost/BGP_NEIGHBOR/fc00::22",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "fc00::21",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
   },
   {
     "op": "add",
-    "path": "/asic1/PORT/Ethernet200/admin_status",
+    "path": "/localhost/BGP_NEIGHBOR/10.0.0.17",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "10.0.0.16",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/DEVICE_NEIGHBOR/Ethernet14~11",
+    "value": {
+      "name": "ASIC0",
+      "port": "Eth104"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/DEVICE_NEIGHBOR_METADATA/ARISTA03T1",
+    "value": {
+      "hwsku": "Arista-VM",
+      "mgmt_addr": "10.250.29.56",
+      "type": "LeafRouter"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/BGP_NEIGHBOR/fc00::22",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "fc00::21",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/BGP_NEIGHBOR/10.0.0.17",
+    "value": {
+      "asn": "65001",
+      "holdtime": "10",
+      "keepalive": "3",
+      "local_addr": "10.0.0.16",
+      "name": "ARISTA03T1",
+      "nhopself": "0",
+      "rrclient": "0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/DEVICE_NEIGHBOR/Ethernet104",
+    "value": {
+      "name": "ARISTA03T1",
+      "port": "Ethernet1"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/DEVICE_NEIGHBOR_METADATA/ARISTA03T1",
+    "value": {
+      "hwsku": "Arista-VM",
+      "mgmt_addr": "10.250.29.56",
+      "type": "LeafRouter"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/INTERFACE/Ethernet104",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/INTERFACE/Ethernet104|10.0.0.16~131",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/INTERFACE/Ethernet104|FC00::21~1126",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/INTERFACE/Ethernet14~11",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/INTERFACE/Ethernet14~11|10.0.0.16~131",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/localhost/INTERFACE/Ethernet14~11|FC00::21~1126",
+    "value": {
+
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/CABLE_LENGTH/AZURE/Ethernet104",
+    "value": "2000m"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|3"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|5"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|6"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|0"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|4"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|2"
+  },
+  {
+    "op": "remove",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|1"
+  },
+  {
+    "op": "add",
+    "path": "/asic0/PORT/Ethernet104/admin_status",
     "value": "down"
   },
   {
     "op": "add",
-    "path": "/asic1/PORT/Ethernet200/lanes",
-    "value": "128,129,130,131"
+    "path": "/asic0/PORT/Ethernet104/lanes",
+    "value": "32,33,34,35"
   },
   {
     "op": "add",
-    "path": "/asic1/PORT/Ethernet200/speed",
+    "path": "/asic0/PORT/Ethernet104/speed",
     "value": "100000"
   },
   {
     "op": "add",
-    "path": "/asic1/PORT/Ethernet200/fec",
+    "path": "/asic0/PORT/Ethernet104/fec",
     "value": "rs"
   },
   {
     "op": "add",
-    "path": "/asic1/INTERFACE/Ethernet200",
+    "path": "/asic0/BUFFER_PG/Ethernet104|0",
     "value": {
-
+      "profile": "ingress_lossy_profile"
     }
   },
   {
     "op": "add",
-    "path": "/asic1/INTERFACE/Ethernet200|11.0.0.34~131",
+    "path": "/asic0/PORT_QOS_MAP/Ethernet104",
     "value": {
-
+      "dscp_to_tc_map": "AZURE",
+      "pfc_enable": "3,4",
+      "pfc_to_queue_map": "AZURE",
+      "pfcwd_sw_enable": "3,4",
+      "tc_to_pg_map": "AZURE",
+      "tc_to_queue_map": "AZURE"
     }
   },
   {
     "op": "add",
-    "path": "/asic1/INTERFACE/Ethernet200|2001::AB:45~1126",
-    "value": {
-
-    }
+    "path": "/asic0/ACL_TABLE/DATAACL/ports/-",
+    "value": "Ethernet104"
   },
   {
     "op": "add",
-    "path": "/localhost/INTERFACE/Ethernet26~11",
-    "value": {
-
-    }
+    "path": "/asic0/ACL_TABLE/EVERFLOW/ports/-",
+    "value": "Ethernet104"
   },
   {
     "op": "add",
-    "path": "/localhost/INTERFACE/Ethernet26~11|11.0.0.34~131",
-    "value": {
-
-    }
+    "path": "/asic0/ACL_TABLE/EVERFLOWV6/ports/-",
+    "value": "Ethernet104"
   },
   {
     "op": "add",
-    "path": "/localhost/INTERFACE/Ethernet26~11|2001::AB:45~1126",
-    "value": {
-
-    }
-  },
-  {
-    "op": "add",
-    "path": "/localhost/BGP_NEIGHBOR/11.0.0.35",
-    "value": {
-      "admin_status": "up",
-      "asn": "65200",
-      "holdtime": "10",
-      "keepalive": "3",
-      "local_addr": "11.0.0.34",
-      "name": "ARISTA18T3",
-      "nhopself": "0",
-      "rrclient": "0"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/localhost/BGP_NEIGHBOR/2001::AB:46",
-    "value": {
-      "admin_status": "up",
-      "asn": "65200",
-      "holdtime": "10",
-      "keepalive": "3",
-      "local_addr": "2001::AB:45",
-      "name": "ARISTA18T3",
-      "nhopself": "0",
-      "rrclient": "0"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/localhost/DEVICE_NEIGHBOR/Ethernet26~11",
-    "value": {
-      "name": "ARISTA18T3",
-      "port": "Ethernet1"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/localhost/DEVICE_NEIGHBOR_METADATA/ARISTA18T3",
-    "value": {
-      "hwsku": "Arista-VM",
-      "mgmt_addr": "10.250.32.176",
-      "type": "AZNGHub"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/asic1/BGP_NEIGHBOR/11.0.0.35",
-    "value": {
-      "admin_status": "up",
-      "asn": "65200",
-      "holdtime": "10",
-      "keepalive": "3",
-      "local_addr": "11.0.0.34",
-      "name": "ARISTA18T3",
-      "nhopself": "0",
-      "rrclient": "0"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/asic1/BGP_NEIGHBOR/2001::AB:46",
-    "value": {
-      "admin_status": "up",
-      "asn": "65200",
-      "holdtime": "10",
-      "keepalive": "3",
-      "local_addr": "2001::AB:45",
-      "name": "ARISTA18T3",
-      "nhopself": "0",
-      "rrclient": "0"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/asic1/DEVICE_NEIGHBOR/Ethernet200",
-    "value": {
-      "name": "ARISTA18T3",
-      "port": "Ethernet1"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/asic1/DEVICE_NEIGHBOR_METADATA/ARISTA18T3",
-    "value": {
-      "hwsku": "Arista-VM",
-      "mgmt_addr": "10.250.32.176",
-      "type": "AZNGHub"
-    }
-  },
-  {
-    "op": "add",
-    "path": "/asic1/PORT/Ethernet200/admin_status",
+    "path": "/asic0/PORT/Ethernet104/admin_status",
     "value": "up"
+  }
+]
+</pre>
+
+
+- Patch update No.2 (QUEUE configuration)
+<pre>
+[
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|3",
+    "value": {
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|5",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|6",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|0",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|4",
+    "value": {
+      "scheduler": "scheduler.1",
+      "wred_profile": "AZURE_LOSSLESS"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|2",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
+  },
+  {
+    "op": "add",
+    "path": "/asic0/QUEUE/ixre-egl-board192|asic0|Ethernet104|1",
+    "value": {
+      "scheduler": "scheduler.0"
+    }
   }
 ]
 </pre>
