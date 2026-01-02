@@ -17,63 +17,102 @@ import logging
 from .port_spec import PortSpecExpander
 from .config_parser import parse_transceiver_configuration
 from .exceptions import DutInfoError
-from .paths import REL_DUT_INFO_FILE
+from .paths import REL_NORMALIZATION_MAPPINGS_FILE, REL_DUT_INFO_DIR
 
 logger = logging.getLogger(__name__)
 
-# Centralized path imported from paths.py
 MANDATORY_FIELDS = ['vendor_name', 'vendor_pn', 'transceiver_configuration']
 
 
 class DutInfoLoader:
     def __init__(self, repo_root):
         self.repo_root = repo_root
-        self._dut_info_json = None
-        self._mappings = None
+        self._normalization_mappings = None
+        self._dut_data_cache = {}  # Cache for per-DUT files
 
-    def _load_file(self):
-        """Load and validate dut_info.json with comprehensive error handling."""
-        if self._dut_info_json is not None:
-            return self._dut_info_json
-        file_path = os.path.join(self.repo_root, REL_DUT_INFO_FILE)
+    def _load_normalization_mappings(self):
+        """Load and validate normalization_mappings.json with comprehensive error handling."""
+        if self._normalization_mappings is not None:
+            return self._normalization_mappings
+
+        file_path = os.path.join(self.repo_root, REL_NORMALIZATION_MAPPINGS_FILE)
         if not os.path.isfile(file_path):
-            raise DutInfoError(f"dut_info.json not found at {file_path}")
+            raise DutInfoError(f"normalization_mappings.json not found at {file_path}")
 
-        logger.debug("Loading dut_info.json from %s", file_path)
+        logger.debug("Loading normalization_mappings.json from %s", file_path)
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
                 data = json.load(f)
         except json.JSONDecodeError as e:
-            raise DutInfoError(f"Invalid JSON syntax in dut_info.json: {e}") from e
+            raise DutInfoError(f"Invalid JSON syntax in normalization_mappings.json: {e}") from e
         except Exception as e:
-            raise DutInfoError(f"Failed to load dut_info.json: {e}") from e
+            raise DutInfoError(f"Failed to load normalization_mappings.json: {e}") from e
 
-        self._dut_info_json = data
-        logger.info("Successfully loaded dut_info.json")
-        return self._dut_info_json
+        # Validate structure
+        if not isinstance(data, dict):
+            raise DutInfoError("normalization_mappings.json must contain a JSON object")
 
-    def _get_mappings(self):
-        """Extract normalization mappings with validation and safe defaults."""
-        if self._mappings is not None:
-            return self._mappings
+        vendor_names = data.get('vendor_names', {})
+        part_numbers = data.get('part_numbers', {})
 
-        data = self._load_file()
-        mappings = data.get('normalization_mappings', {})
+        if not isinstance(vendor_names, dict):
+            raise DutInfoError("vendor_names in normalization_mappings.json must be a dictionary")
+        if not isinstance(part_numbers, dict):
+            raise DutInfoError("part_numbers in normalization_mappings.json must be a dictionary")
 
-        vendor_names = mappings.get('vendor_names', {})
-        part_numbers = mappings.get('part_numbers', {})
-
-        self._mappings = {
+        self._normalization_mappings = {
             'vendor_names': vendor_names,
             'part_numbers': part_numbers,
         }
 
-        logger.debug(
-            "Loaded %d vendor name mappings, %d part number mappings",
+        logger.info(
+            "Successfully loaded normalization_mappings.json: %d vendor mappings, %d part number mappings",
             len(vendor_names),
             len(part_numbers),
         )
-        return self._mappings
+        return self._normalization_mappings
+
+    def _load_dut_file(self, dut_name):
+        """Load and validate per-DUT JSON file with comprehensive error handling."""
+        if dut_name in self._dut_data_cache:
+            return self._dut_data_cache[dut_name]
+
+        dut_info_dir = os.path.join(self.repo_root, REL_DUT_INFO_DIR)
+        file_path = os.path.join(dut_info_dir, f"{dut_name}.json")
+
+        if not os.path.isfile(file_path):
+            # List available DUT files for helpful error message
+            available_duts = []
+            if os.path.isdir(dut_info_dir):
+                available_duts = [
+                    f[:-5] for f in os.listdir(dut_info_dir)
+                    if f.endswith('.json')
+                ]
+            raise DutInfoError(
+                f"DUT file not found: {file_path}. "
+                f"Available DUTs: {available_duts if available_duts else 'none'}"
+            )
+
+        logger.debug("Loading DUT file from %s", file_path)
+        try:
+            with open(file_path, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            raise DutInfoError(f"Invalid JSON syntax in {file_path}: {e}") from e
+        except Exception as e:
+            raise DutInfoError(f"Failed to load {file_path}: {e}") from e
+
+        # Validate structure
+        if not isinstance(data, dict):
+            raise DutInfoError(f"DUT file {file_path} must contain a JSON object")
+
+        self._dut_data_cache[dut_name] = data
+        logger.info("Successfully loaded DUT file for '%s' with %d port specifications", dut_name, len(data))
+        return data
+
+    def _get_mappings(self):
+        """Get normalization mappings (loads if not already cached)."""
+        return self._load_normalization_mappings()
 
     def _collect_port_attributes(self, dut_section):
         """First pass: collect and merge all attributes per port from overlapping specs."""
@@ -164,19 +203,15 @@ class DutInfoLoader:
         """
         logger.info("Building base port attributes for DUT '%s'", dut_name)
 
-        data = self._load_file()
+        # Load normalization mappings (shared across all DUTs)
         mappings = self._get_mappings()
 
-        if dut_name not in data:
-            available_duts = [k for k in data.keys() if k != 'normalization_mappings']
-            logger.warning(
-                "DUT '%s' not present in dut_info.json. Available DUTs: %s",
-                dut_name,
-                available_duts,
-            )
-            return {}
-
-        dut_section = data[dut_name]
+        # Load per-DUT file
+        try:
+            dut_section = self._load_dut_file(dut_name)
+        except DutInfoError as e:
+            logger.error("Failed to load DUT file for '%s': %s", dut_name, e)
+            raise
 
         # First pass: collect and merge attributes per port
         port_attributes = self._collect_port_attributes(dut_section)

@@ -58,7 +58,8 @@ from tests.transceiver.infra.exceptions import (  # noqa: E402
 )  # noqa: E402
 from tests.transceiver.infra.template_validator import TemplateValidator  # noqa: E402
 from tests.transceiver.infra.paths import (  # noqa: E402
-    REL_DUT_INFO_FILE,
+    REL_NORMALIZATION_MAPPINGS_FILE,
+    REL_DUT_INFO_DIR,
     REL_ATTR_DIR,
     REL_DEPLOYMENT_TEMPLATES_FILE,
 )  # noqa: E402
@@ -76,30 +77,29 @@ TEST_PLATFORM_HWSKU_KEY = f"{TEST_PLATFORM}+{TEST_HWSKU}"
 
 SEPARATOR_LINE = "=" * 70
 
-EMBEDDED_DUT_INFO_JSON = {
-    "normalization_mappings": {
-        "vendor_names": {"ACME CORP.": "ACME_CORP"},
-        "part_numbers": {"PN-ABC-123DE": "PN-ABC-123DE"}
+EMBEDDED_NORMALIZATION_MAPPINGS = {
+    "vendor_names": {"ACME CORP.": "ACME_CORP"},
+    "part_numbers": {"PN-ABC-123DE": "PN-ABC-123DE"}
+}
+
+EMBEDDED_DUT_DATA = {
+    "Ethernet0:8": {
+        "vendor_name": "ACME CORP.",
+        "vendor_pn": "PN-ABC-123DE",
+        "vendor_sn": "IDOBIS130378",
+        "vendor_date": "2024-09-02",
+        "vendor_oui": "34-36-07",
+        "vendor_rev": "1A",
+        "hardware_rev": "1.10"
     },
-    TEST_DUT_NAME: {
-        "Ethernet0:8": {
-            "vendor_name": "ACME CORP.",
-            "vendor_pn": "PN-ABC-123DE",
-            "vendor_sn": "IDOBIS130378",
-            "vendor_date": "2024-09-02",
-            "vendor_oui": "34-36-07",
-            "vendor_rev": "1A",
-            "hardware_rev": "1.10"
-        },
-        "Ethernet0": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x1-0x1"},
-        "Ethernet1": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x2-0x2"},
-        "Ethernet2": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x4-0x4"},
-        "Ethernet3": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x8-0x8"},
-        "Ethernet4": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x10-0x10"},
-        "Ethernet5": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x20-0x20"},
-        "Ethernet6": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x40-0x40"},
-        "Ethernet7": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x80-0x80"}
-    }
+    "Ethernet0": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x1-0x1"},
+    "Ethernet1": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x2-0x2"},
+    "Ethernet2": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x4-0x4"},
+    "Ethernet3": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x8-0x8"},
+    "Ethernet4": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x10-0x10"},
+    "Ethernet5": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x20-0x20"},
+    "Ethernet6": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x40-0x40"},
+    "Ethernet7": {"transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x80-0x80"}
 }
 
 EMBEDDED_EEPROM_JSON = {
@@ -131,7 +131,7 @@ def test_temp_environment(prefix='sonic_test_', create_dut_info=False, create_ee
 
     Args:
         prefix: Prefix for temporary directory name
-        create_dut_info: If True, creates dut_info.json with EMBEDDED_DUT_INFO_JSON
+        create_dut_info: If True, creates normalization_mappings.json and per-DUT file
         create_eeprom: If True, creates eeprom.json in attributes directory
         eeprom_data: Custom EEPROM data dict (uses EMBEDDED_EEPROM_JSON if None)
 
@@ -144,7 +144,9 @@ def test_temp_environment(prefix='sonic_test_', create_dut_info=False, create_ee
                 files/
                     transceiver/
                         inventory/
-                            dut_info.json (if create_dut_info=True)
+                            normalization_mappings.json (if create_dut_info=True)
+                            dut_info/
+                                <dut_name>.json (if create_dut_info=True)
                             attributes/
                                 eeprom.json (if create_eeprom=True)
 
@@ -156,9 +158,18 @@ def test_temp_environment(prefix='sonic_test_', create_dut_info=False, create_ee
         attr_dir = Path(temp_root) / REL_ATTR_DIR
         attr_dir.mkdir(parents=True, exist_ok=True)
         if create_dut_info:
-            dut_info_path = Path(temp_root) / REL_DUT_INFO_FILE
-            with open(dut_info_path, 'w', encoding='utf-8') as f:
-                json.dump(EMBEDDED_DUT_INFO_JSON, f, indent=2)
+            # Create normalization_mappings.json
+            mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
+            mappings_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(mappings_path, 'w', encoding='utf-8') as f:
+                json.dump(EMBEDDED_NORMALIZATION_MAPPINGS, f, indent=2)
+
+            # Create per-DUT file
+            dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
+            dut_info_dir.mkdir(parents=True, exist_ok=True)
+            dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
+            with open(dut_file_path, 'w', encoding='utf-8') as f:
+                json.dump(EMBEDDED_DUT_DATA, f, indent=2)
         if create_eeprom:
             eeprom_path = attr_dir / 'eeprom.json'
             data = eeprom_data if eeprom_data else EMBEDDED_EEPROM_JSON
@@ -349,15 +360,16 @@ def test_missing_dut_info_file():
 
 
 def test_dut_not_in_dut_info():
-    """Test that DutInfoLoader returns empty dict when DUT name not found in dut_info.json."""
-    print("Testing DUT name not in dut_info.json...")
+    """Test that DutInfoLoader raises error when DUT file not found."""
+    print("Testing DUT name not in dut_info (missing DUT file)...")
     with test_temp_environment(prefix='sonic_test_no_dut_', create_dut_info=True) as temp_root:
-        loader = DutInfoLoader(temp_root)
-        base = loader.build_base_port_attributes('nonexistent-dut')
-        assert not base, (
-            f"Expected empty result for nonexistent DUT, got {len(base)} ports"
-        )
-        print("  Correctly returned empty result")
+        try:
+            loader = DutInfoLoader(temp_root)
+            loader.build_base_port_attributes('nonexistent-dut')
+            raise AssertionError("Expected DutInfoError for nonexistent DUT file")
+        except DutInfoError as e:
+            assert 'not found' in str(e) or 'Available DUTs' in str(e), f"Unexpected error: {e}"
+            print(f"  Correctly caught: {e}")
 
 
 def test_attribute_manager_mandatory_field_missing():
@@ -447,10 +459,19 @@ def test_default_and_mandatory_overlap():
 
 def test_malformed_json():
     """Test that DutInfoLoader handles malformed JSON syntax gracefully."""
-    print("Testing malformed JSON in dut_info.json...")
+    print("Testing malformed JSON in per-DUT file...")
     with test_temp_environment(prefix='sonic_test_malformed_') as temp_root:
-        dut_info_path = Path(temp_root) / REL_DUT_INFO_FILE
-        with open(dut_info_path, 'w', encoding='utf-8') as f:
+        # Create valid normalization_mappings.json first
+        mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
+        mappings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(mappings_path, 'w', encoding='utf-8') as f:
+            json.dump(EMBEDDED_NORMALIZATION_MAPPINGS, f, indent=2)
+
+        # Create malformed per-DUT file
+        dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
+        dut_info_dir.mkdir(parents=True, exist_ok=True)
+        dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
+        with open(dut_file_path, 'w', encoding='utf-8') as f:
             f.write('{"invalid": "json", missing_quote: true}')
         try:
             loader = DutInfoLoader(temp_root)
@@ -463,22 +484,29 @@ def test_malformed_json():
 
 def test_dut_info_loader_mandatory_field_missing():
     print("Testing DutInfoLoader mandatory field validation...")
-    dut_info_missing_field = {
-        "normalization_mappings": {
-            "vendor_names": {"ACME CORP.": "ACME_CORP"},
-            "part_numbers": {"PN-ABC-123DE": "PN-ABC-123DE"}
-        },
-        TEST_DUT_NAME: {
-            "Ethernet0": {
-                "vendor_name": "ACME CORP.",
-                "vendor_pn": "PN-ABC-123DE"
-            }
+    normalization_mappings = {
+        "vendor_names": {"ACME CORP.": "ACME_CORP"},
+        "part_numbers": {"PN-ABC-123DE": "PN-ABC-123DE"}
+    }
+    dut_data_missing_field = {
+        "Ethernet0": {
+            "vendor_name": "ACME CORP.",
+            "vendor_pn": "PN-ABC-123DE"
         }
     }
     with test_temp_environment(prefix='sonic_test_missing_field_') as temp_root:
-        dut_info_path = Path(temp_root) / REL_DUT_INFO_FILE
-        with open(dut_info_path, 'w', encoding='utf-8') as f:
-            json.dump(dut_info_missing_field, f, indent=2)
+        # Create normalization_mappings.json
+        mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
+        mappings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(mappings_path, 'w', encoding='utf-8') as f:
+            json.dump(normalization_mappings, f, indent=2)
+
+        # Create per-DUT file with missing field
+        dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
+        dut_info_dir.mkdir(parents=True, exist_ok=True)
+        dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
+        with open(dut_file_path, 'w', encoding='utf-8') as f:
+            json.dump(dut_data_missing_field, f, indent=2)
         try:
             loader = DutInfoLoader(temp_root)
             loader.build_base_port_attributes(TEST_DUT_NAME)
@@ -493,20 +521,27 @@ def test_dut_info_loader_mandatory_field_missing():
 def test_invalid_port_spec():
     """Test that DutInfoLoader rejects invalid port name formats (must be Ethernet<N>)."""
     print("Testing invalid port specification format...")
-    dut_info_invalid_spec = {
-        "normalization_mappings": {"vendor_names": {}, "part_numbers": {}},
-        TEST_DUT_NAME: {
-            "InvalidPort123": {
-                "vendor_name": "ACME CORP.",
-                "vendor_pn": "PN-ABC-123DE",
-                "transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x1-0x1"
-            }
+    normalization_mappings = {"vendor_names": {}, "part_numbers": {}}
+    dut_data_invalid_spec = {
+        "InvalidPort123": {
+            "vendor_name": "ACME CORP.",
+            "vendor_pn": "PN-ABC-123DE",
+            "transceiver_configuration": "DR8-800-QSFPDD-8x100G_DR8-0x1-0x1"
         }
     }
     with test_temp_environment(prefix='sonic_test_invalid_spec_') as temp_root:
-        dut_info_path = Path(temp_root) / REL_DUT_INFO_FILE
-        with open(dut_info_path, 'w', encoding='utf-8') as f:
-            json.dump(dut_info_invalid_spec, f, indent=2)
+        # Create normalization_mappings.json
+        mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
+        mappings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(mappings_path, 'w', encoding='utf-8') as f:
+            json.dump(normalization_mappings, f, indent=2)
+
+        # Create per-DUT file with invalid port spec
+        dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
+        dut_info_dir.mkdir(parents=True, exist_ok=True)
+        dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
+        with open(dut_file_path, 'w', encoding='utf-8') as f:
+            json.dump(dut_data_invalid_spec, f, indent=2)
         try:
             loader = DutInfoLoader(temp_root)
             loader.build_base_port_attributes(TEST_DUT_NAME)
@@ -521,20 +556,27 @@ def test_invalid_port_spec():
 def test_invalid_transceiver_config():
     """Test that DutInfoLoader validates transceiver_configuration format (6 hyphen-separated components)."""
     print("Testing invalid transceiver configuration format...")
-    dut_info_bad_config = {
-        "normalization_mappings": {"vendor_names": {}, "part_numbers": {}},
-        TEST_DUT_NAME: {
-            "Ethernet0": {
-                "vendor_name": "ACME CORP.",
-                "vendor_pn": "PN-ABC-123DE",
-                "transceiver_configuration": "INVALID-CONFIG"
-            }
+    normalization_mappings = {"vendor_names": {}, "part_numbers": {}}
+    dut_data_bad_config = {
+        "Ethernet0": {
+            "vendor_name": "ACME CORP.",
+            "vendor_pn": "PN-ABC-123DE",
+            "transceiver_configuration": "INVALID-CONFIG"
         }
     }
     with test_temp_environment(prefix='sonic_test_bad_config_') as temp_root:
-        dut_info_path = Path(temp_root) / REL_DUT_INFO_FILE
-        with open(dut_info_path, 'w', encoding='utf-8') as f:
-            json.dump(dut_info_bad_config, f, indent=2)
+        # Create normalization_mappings.json
+        mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
+        mappings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(mappings_path, 'w', encoding='utf-8') as f:
+            json.dump(normalization_mappings, f, indent=2)
+
+        # Create per-DUT file with invalid config
+        dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
+        dut_info_dir.mkdir(parents=True, exist_ok=True)
+        dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
+        with open(dut_file_path, 'w', encoding='utf-8') as f:
+            json.dump(dut_data_bad_config, f, indent=2)
         try:
             loader = DutInfoLoader(temp_root)
             loader.build_base_port_attributes(TEST_DUT_NAME)
@@ -549,14 +591,21 @@ def test_invalid_transceiver_config():
 def test_empty_dut_section():
     """Test that DutInfoLoader handles DUT with no port definitions (empty dict)."""
     print("Testing empty DUT section...")
-    dut_info_empty = {
-        "normalization_mappings": {"vendor_names": {}, "part_numbers": {}},
-        TEST_DUT_NAME: {}
-    }
+    normalization_mappings = {"vendor_names": {}, "part_numbers": {}}
+    dut_data_empty = {}
     with test_temp_environment(prefix='sonic_test_empty_dut_') as temp_root:
-        dut_info_path = Path(temp_root) / REL_DUT_INFO_FILE
-        with open(dut_info_path, 'w', encoding='utf-8') as f:
-            json.dump(dut_info_empty, f, indent=2)
+        # Create normalization_mappings.json
+        mappings_path = Path(temp_root) / REL_NORMALIZATION_MAPPINGS_FILE
+        mappings_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(mappings_path, 'w', encoding='utf-8') as f:
+            json.dump(normalization_mappings, f, indent=2)
+
+        # Create empty per-DUT file
+        dut_info_dir = Path(temp_root) / REL_DUT_INFO_DIR
+        dut_info_dir.mkdir(parents=True, exist_ok=True)
+        dut_file_path = dut_info_dir / f"{TEST_DUT_NAME}.json"
+        with open(dut_file_path, 'w', encoding='utf-8') as f:
+            json.dump(dut_data_empty, f, indent=2)
         loader = DutInfoLoader(temp_root)
         base = loader.build_base_port_attributes(TEST_DUT_NAME)
         assert base == {}, f"Expected empty dict for empty DUT section, got {base}"

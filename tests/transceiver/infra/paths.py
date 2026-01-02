@@ -21,9 +21,10 @@ REL_TRANSCEIVER_INV_DIR = os.path.join('ansible', 'files', 'transceiver', 'inven
 # Subdirectories
 REL_ATTR_DIR = os.path.join(REL_TRANSCEIVER_INV_DIR, 'attributes')
 REL_TEMPLATES_DIR = os.path.join(REL_TRANSCEIVER_INV_DIR, 'templates')
+REL_DUT_INFO_DIR = os.path.join(REL_TRANSCEIVER_INV_DIR, 'dut_info')
 
 # Files
-REL_DUT_INFO_FILE = os.path.join(REL_TRANSCEIVER_INV_DIR, 'dut_info.json')
+REL_NORMALIZATION_MAPPINGS_FILE = os.path.join(REL_TRANSCEIVER_INV_DIR, 'normalization_mappings.json')
 REL_DEPLOYMENT_TEMPLATES_FILE = os.path.join(REL_TEMPLATES_DIR, 'deployment_templates.json')
 
 
