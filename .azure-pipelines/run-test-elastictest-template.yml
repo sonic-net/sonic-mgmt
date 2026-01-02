@@ -99,7 +99,7 @@ parameters:
 
   - name: PLATFORM
     type: string
-    default: ""
+    default: "kvm"
 
   - name: SCRIPTS
     type: string
@@ -375,6 +375,35 @@ steps:
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
+
+      if [ "${{ parameters.PLATFORM }}" == "kvm" ] && [ -f "lock_timing.json" ]; then
+          echo "Uploading lock timing data to Kusto..."
+          
+          sudo apt-get -o DPkg::Lock::Timeout=60 -y install jq
+          
+          # Add testbed configuration to lock timing data before upload
+          jq --arg min_worker "${{ parameters.MIN_WORKER }}" \
+             --arg max_worker "${{ parameters.MAX_WORKER }}" \
+             --arg platform "${{ parameters.PLATFORM }}" \
+             --arg topology "${{ parameters.TOPOLOGY }}" \
+             '. + {min_worker: ($min_worker | tonumber), max_worker: ($max_worker | tonumber), platform: $platform, topology: $topology}' \
+             lock_timing.json > lock_timing_additional.json
+          mv lock_timing_additional.json lock_timing.json
+          
+          cat lock_timing.json
+
+          az login --identity --client-id $(SONIC_AUTOMATION_UMI)
+          accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+          export ACCESS_TOKEN=$accessToken
+          export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+
+          pip install -r ./test_reporting/requirements.txt
+          python ./test_reporting/report_uploader.py -c "lock_timing" lock_timing.json SonicTestData
+          echo "Lock timing data uploaded to Kusto"
+      elif [ "${{ parameters.PLATFORM }}" != "kvm" ]; then
+          echo "Skipping lock timing upload - only enabled for KVM platform (current: ${{ parameters.PLATFORM }})"
+      fi
+
 
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
