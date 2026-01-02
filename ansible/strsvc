@@ -770,6 +770,7 @@ sonic_arista_7800_sup:
       model: 'DCS-7800-SUP1A'
       serial: FGN23380BKC
       base_mac: 60:6b:5b:2f:a0:95
+      chassis_id: svcstr-7808-chassis-1
       syseeprom_info:
         "0x21": "DCS-7800-SUP1A"
         "0x22": "ASY0522803D0"
