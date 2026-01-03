@@ -71,7 +71,6 @@ class VnetBgpScaleDataplane(BaseTest):
         for vnet_id, egress_subif, sid, dst_ip in self.test_routes:
             # ---- EGRESS ----
             egress_vlan = self.base_vlan_id + sid
-            egress_ptf_ip = self._ptf_ip_for_sid(sid)
 
             # ---- INGRESS (different subif, same VNET) ----
             ingress_subif = (egress_subif + 1) % self.subifs_per_vnet
