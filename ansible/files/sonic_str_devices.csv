@@ -1,7 +1,7 @@
 Hostname,ManagementIp,HwSku,Type,Protocol,Os
 str-msn2700-01,10.3.146.215/24,Mellanox-SN2700,DevSonic,,sonic
 str-msn2700-02,10.3.146.163/24,Mellanox-SN2700,DevSonic,,sonic
-str-msn2700a1-03,10.64.246.13/24,Mellanox-SN2700-A1,DevSonic,,sonic
+str-msn2700a1-03,10.64.246.13/25,Mellanox-SN2700-A1,DevSonic,,sonic
 str-a7060cx-acs-10,10.64.247.240/25,Arista-7060CX-32S-C32,DevSonic,,sonic
 str-a7060cx-acs-1,10.64.247.14/26,Arista-7060CX-32S-D48C8,DevSonic,,sonic
 str-7260cx3-acs-1,10.64.247.224/25,Arista-7260CX3-D108C8,DevSonic,,sonic

@@ -69,6 +69,8 @@ str-ocs-dlx64-acs-12,10.64.246.53/25,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-13,10.64.246.76/25,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-14,10.64.246.81/25,DLXA64B64HNLA1MS,FanoutL1Sonic,
 str-ocs-dlx64-acs-15,10.64.246.85/25,DLXA64B64HNLA1MS,FanoutL1Sonic,
+str-7060x6-moby-512-snake-1,10.64.247.3/26,Arista-7060X6-16PE-384C-O128S2,DevSonic,sonic
+str-7060x6-moby-512-snake-2,10.64.247.6/26,Arista-7060X6-16PE-384C-O128S2,DevSonic,sonic
 console-185,10.3.145.185,Cisco,ConsoleServer,ssh
 console-194,10.3.145.194,Cisco,ConsoleServer,ssh
 console-201,10.3.145.201,Cisco,ConsoleServer,ssh
