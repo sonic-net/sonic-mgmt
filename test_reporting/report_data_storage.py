@@ -89,6 +89,14 @@ class ReportDBConnector(ABC):
         Args:
             expected_runs: A list of expected runs.
         """
+    
+    @abstractmethod
+    def upload_lock_timing_data(self, lock_timing_data: Dict) -> None:
+        """Upload lock timing data to the back-end data store.
+
+        Args:
+            lock_timing_data: A dictionary containing lock timing metrics.
+        """
 
 
 class KustoConnector(ReportDBConnector):
@@ -109,6 +117,7 @@ class KustoConnector(ReportDBConnector):
     PIPELINE_TABLE = "TestReportPipeline"
     CASE_INVOC_TABLE = "CaseInvocationCoverage"
     SAI_HEADER_INVOC_TABLE = "SAIHeaderDefinition"
+    LOCK_TIMING_TABLE = "LockTimingData"
 
     TABLE_FORMAT_LOOKUP = {
         METADATA_TABLE: DataFormat.JSON,
@@ -126,6 +135,7 @@ class KustoConnector(ReportDBConnector):
         PIPELINE_TABLE: DataFormat.JSON,
         CASE_INVOC_TABLE: DataFormat.MULTIJSON,
         SAI_HEADER_INVOC_TABLE: DataFormat.MULTIJSON,
+        LOCK_TIMING_TABLE: DataFormat.JSON,
     }
 
     TABLE_MAPPING_LOOKUP = {
@@ -144,6 +154,7 @@ class KustoConnector(ReportDBConnector):
         PIPELINE_TABLE: "FlatPipelineMappingV1",
         CASE_INVOC_TABLE: "CaseInvocationCoverageMapping",
         SAI_HEADER_INVOC_TABLE: "SAIHeaderDefinitionMapping",
+        LOCK_TIMING_TABLE: "LockTimingDataMapping",
     }
 
     def __init__(self, db_name: str, auth_method: str = "appKey"):
@@ -355,6 +366,9 @@ class KustoConnector(ReportDBConnector):
 
     def upload_case_numbers(self, case_numbers: List) -> None:
         self._ingest_data(self.TEST_CASE_NUMBERS_TABLE, case_numbers)
+    
+    def upload_lock_timing_data(self, lock_timing_data: Dict) -> None:
+        self._ingest_data(self.LOCK_TIMING_TABLE, lock_timing_data)
 
     def _upload_swss_log_file(self, swss_file: str) -> None:
         self._ingest_data_file(self.SWSSDATA_TABLE, swss_file)
