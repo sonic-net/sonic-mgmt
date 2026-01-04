@@ -6,6 +6,7 @@ import ptf.testutils as testutils
 import pytest
 
 from tests.arp.arp_utils import clear_dut_arp_cache
+from tests.common.helpers.constants import PTF_TIMEOUT
 from tests.common.utilities import increment_ipv4_addr
 from tests.common.helpers.assertions import pytest_assert, pytest_require
 
@@ -101,4 +102,4 @@ def test_proxy_arp(rand_selected_dut, proxy_arp_enabled, ip_and_intf_info, ptfad
     if ip_version == 'v6':
         neigh_table = rand_selected_dut.shell('ip -6 neigh')['stdout']
         logger.debug(neigh_table)
-    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=10)
+    testutils.verify_packet(ptfadapter, expected_packet, ptf_intf_index, timeout=PTF_TIMEOUT)
