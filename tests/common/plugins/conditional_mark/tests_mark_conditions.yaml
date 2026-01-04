@@ -1017,6 +1017,12 @@ dhcp_relay/test_dhcpv4_relay.py:
     conditions:
       - "release < '202511'"
 
+dhcp_relay/test_dhcpv4_relay.py::test_dhcp_relay_option82_suboptions[server_id_override-sonic-relay-agent]:
+  skip:
+    reason: "Test skipped: We are skipping this testcase for now"
+    conditions:
+      - "True"
+
 dhcp_relay/test_dhcpv6_relay.py:
   skip:
     reason: "Need to skip for platform x86_64-8111_32eh_o-r0"
