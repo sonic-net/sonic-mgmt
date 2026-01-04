@@ -39,6 +39,7 @@ def is_bbr_enabled(duthost):
     
     return False
 
+
 def config_bbr_by_gcu(duthost, status):
     logger.info('Config BGP_BBR by GCU cmd')
     
