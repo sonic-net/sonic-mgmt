@@ -18,11 +18,12 @@ import logging
 from collections import namedtuple
 
 import pytest
+
 # Functions
-from bgp_bbr_helpers import (config_bbr_by_gcu, get_bbr_default_state,
-                             is_bbr_enabled)
+from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_enabled
 
 from tests.common.gcu_utils import apply_gcu_patch
+from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -37,8 +38,30 @@ CONSTANTS_FILE = "/etc/sonic/constants.yml"
 AGGR_V4 = "172.16.51.0/24"
 AGGR_V6 = "2000:172:16:50::/64"
 BGP_AGGREGATE_ADDRESS = "BGP_AGGREGATE_ADDRESS"
+PLACEHOLDER_PREFIX = "192.0.2.0/32"  # RFC5737 TEST-NET-1
 
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_teardown(duthost):
+    # This testcase will use GCU to modify several entries in running-config.
+    # Restore the config via config_reload may cost too much time.
+    # So we leverage GCU for the config update. Setup checkpoint before the test
+    # and rollback to it after the test.
+    create_checkpoint(duthost)
+
+    # add placeholder aggregate to avoid GCU to remove empty table
+    default_aggregates = dump_db(duthost, "CONFIG_DB", BGP_AGGREGATE_ADDRESS)
+    if not default_aggregates:
+        gcu_add_placeholder_aggregate(duthost, PLACEHOLDER_PREFIX)
+
+    yield
+
+    try:
+        rollback_or_reload(duthost, fail_on_rollback_error=False)
+    finally:
+        delete_checkpoint(duthost)
 
 
 # ---- DB & running-config helpers ----
@@ -58,7 +81,6 @@ def dump_db(duthost, dbname, tablename):
     return res
 
 
-#
 def running_bgp_has_aggregate(duthost, prefix):
     """Grep FRR running BGP config for aggregate-address lines."""
     return duthost.shell(
@@ -67,6 +89,18 @@ def running_bgp_has_aggregate(duthost, prefix):
 
 
 # ---- GCU JSON patch helpers ----
+def gcu_add_placeholder_aggregate(duthost, prefix):
+    patch = [
+        {
+            "op": "add",
+            "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}",
+            "value": {"summary-only": "false", "as-set": "false"},
+        }
+    ]
+    logger.info(f"Adding placeholder BGP aggregate {prefix.replace('/', '~1')}")
+    return apply_gcu_patch(duthost, patch)
+
+
 def gcu_add_aggregate(duthost, aggregate_cfg: AggregateCfg):
     logger.info("Add BGP_AGGREGATE_ADDRESS by GCU cmd")
     patch = [
@@ -176,13 +210,13 @@ def test_bgp_aggregate_address(duthosts, rand_one_dut_hostname, ip_version, bbr_
     # Apply aggregate via GCU
     gcu_add_aggregate(duthost, cfg)
 
-    # Verify config db, statedb and running config
+    # Verify config db, state db and running config
     verify_bgp_aggregate_consistence(duthost, bbr_enabled, cfg)
 
     # Cleanup
     gcu_remove_aggregate(duthost, cfg.prefix)
 
-    # Verify config db, statedb and running config are cleanup
+    # Verify config db, state db and running config are cleanup
     verify_bgp_aggregate_cleanup(duthost, cfg.prefix)
 
 
