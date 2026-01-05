@@ -203,8 +203,12 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
             if not wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"):
                 logger.warning("Database not fully started, attempting to start it...")
                 sonic_host.shell("docker exec database supervisorctl start redis redis_bmp", module_ignore_errors=True)
-                pytest_assert(wait_until(120, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
-                              "Database failed to start before config reload")
+                pytest_assert(
+                    wait_until(
+                        120, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"
+                    ),
+                    "Database failed to start before config reload"
+                )
 
         cmd = 'config reload -y'
         reloading = False
