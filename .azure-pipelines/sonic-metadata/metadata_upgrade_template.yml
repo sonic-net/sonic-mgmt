@@ -146,13 +146,18 @@ stages:
         scriptSource: 'inline'
         script: |
           from __future__ import print_function
-          import os, imp, sys
+          import os, sys
+          import importlib.util
 
-          testbed_module = imp.load_source('testbed', 'sonic-mgmt-int/tests/common/testbed.py')
-          testbed_name = '${{ parameters.TESTBED_NAME }}'
+          spec = importlib.util.spec_from_file_location('testbed', 'sonic-mgmt-int/tests/common/testbed.py')
+          testbed_module = importlib.util.module_from_spec(spec)
+          spec.loader.exec_module(testbed_module)
+          sys.modules['testbed'] = testbed_module
+          testbed_name = '${{ parameters.TESTBED_NAME }}'.strip()
           testbed_file = 'testbed.yaml'
           tbinfo = testbed_module.TestbedInfo('sonic-mgmt-int/ansible/{}'.format(testbed_file))
           target_testbed = tbinfo.testbed_topo.get(testbed_name, None)
+
           if not target_testbed:
               print('Testbed {} not found!'.format(testbed_name))
               sys.exit(1)
