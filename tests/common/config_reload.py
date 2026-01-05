@@ -62,14 +62,24 @@ def config_system_checks_passed(duthost, delayed_services=[]):
 
 
 def config_force_option_supported(duthost):
-    out = duthost.shell("config reload -h", executable="/bin/bash", module_ignore_errors=True)
-    # If command failed (e.g., database not available), assume force option is supported for newer versions
-    if out.get('rc', 0) != 0:
-        logger.warning("Unable to check force option support, assuming supported. Error: %s", out.get('stderr', ''))
+    # Use a shell-based approach that doesn't require database connection
+    # Check if the config reload command script supports --force option by examining the file
+    out = duthost.shell(
+        "grep -q '\\-\\-force' /usr/local/bin/config || grep -q '\\-f' /usr/local/bin/config",
+        executable="/bin/bash",
+        module_ignore_errors=True
+    )
+    if out.get('rc', 0) == 0:
         return True
-    if "force" in out['stdout'].strip():
+    
+    # Fallback: try the help command but handle failures gracefully
+    out = duthost.shell("config reload -h 2>&1 || true", executable="/bin/bash", module_ignore_errors=True)
+    if "force" in out.get('stdout', '').lower() or "force" in out.get('stderr', '').lower():
         return True
-    return False
+    
+    # Default to assuming force is supported for newer SONiC versions
+    logger.warning("Unable to definitively check force option support, assuming supported")
+    return True
 
 
 def config_reload_minigraph_with_rendered_golden_config_override(
