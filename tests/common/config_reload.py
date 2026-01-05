@@ -77,6 +77,10 @@ def config_force_option_supported(duthost):
     if "force" in out.get('stdout', '').lower() or "force" in out.get('stderr', '').lower():
         return True
 
+    # Default to assuming force is supported for newer SONiC versions
+    logger.warning("Unable to definitively check force option support, assuming supported")
+    return True
+
 
 def config_reload_minigraph_with_rendered_golden_config_override(
         sonic_host, wait=120, start_bgp=True, start_dynamic_buffer=True,
