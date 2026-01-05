@@ -248,8 +248,14 @@ def perform_reboot(duthost, pool, reboot_command, reboot_helper=None, reboot_kwa
     return [reboot_res, dut_datetime]
 
 
+def execute_reboot_smartswitch_command(duthost, reboot_type, hostname):
+    reboot_command = reboot_ss_ctrl_dict[reboot_type]["command"]
+    logger.info(f'rebooting {hostname} with command "{reboot_command}"')
+    return duthost.command(reboot_command)
+
+
 @support_ignore_loganalyzer
-def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
+def reboot_smartswitch(duthost, pool, reboot_type=REBOOT_TYPE_COLD):
     """
     reboots SmartSwitch or a DPU
     :param duthost: DUT host object
@@ -266,7 +272,8 @@ def reboot_smartswitch(duthost, reboot_type=REBOOT_TYPE_COLD):
 
     logging.info("Rebooting the DUT {} with type {}".format(hostname, reboot_type))
 
-    reboot_res = duthost.command(reboot_ss_ctrl_dict[reboot_type]["command"])
+    reboot_res = pool.apply_async(execute_reboot_smartswitch_command,
+                                  (duthost, reboot_type, hostname))
 
     return [reboot_res, dut_datetime]
 
@@ -348,7 +355,7 @@ def reboot(duthost, localhost, reboot_type='cold', delay=10,
     time.sleep(wait_conlsole_connection)
     # Perform reboot
     if duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
-        reboot_res, dut_datetime = reboot_smartswitch(duthost, reboot_type)
+        reboot_res, dut_datetime = reboot_smartswitch(duthost, pool, reboot_type)
     else:
         reboot_res, dut_datetime = perform_reboot(duthost, pool, reboot_command, reboot_helper,
                                                   reboot_kwargs, reboot_type)
