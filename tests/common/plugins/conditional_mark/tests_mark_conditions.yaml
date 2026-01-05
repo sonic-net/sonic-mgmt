@@ -5355,7 +5355,8 @@ srv6/test_srv6_dataplane.py:
     reason: "Only target Mellanox SPC4+ and SRv6-capable Broadcom platforms with 202412 or 202511+ image. SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
     conditions_logical_operator: or
     conditions:
-      - "asic_type not in ['mellanox', 'broadcom', 'vpp'] or (release != 'master' and release != '202412' and release < '202511')"
+      - "asic_type not in ['mellanox', 'broadcom', 'vpp', 'cisco-8000'] or (asic_type == 'cisco-8000' and 'Cisco-8122' not in hwsku)"
+      - "(release != 'master' and release != '202412' and release < '202511') and not (asic_type == 'cisco-8000' and 'Cisco-8122' in hwsku)"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "asic_type == 'broadcom' and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
@@ -5376,7 +5377,7 @@ srv6/test_srv6_static_config.py:
     reason: "Only target mellanox SPC4+ platform with 202412 or 202511+ image. Requires particular image support (202412 or 202511+). SRv6 is not supported on older ASICs (Broadcom TH/TH2/TD3; Mellanox SPC1-3). Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128"
     conditions_logical_operator: or
     conditions:
-      - "(release != 'master' and release != '202412' and release < '202511') and asic_type not in ['vpp']"
+      - "(release != 'master' and release != '202412' and release < '202511') and asic_type not in ['vpp'] and not (asic_type == 'cisco-8000' and 'Cisco-8122' in hwsku)"
       - "asic_type == 'mellanox' and asic_gen in ['spc1', 'spc2', 'spc3']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
@@ -5386,7 +5387,7 @@ srv6/test_srv6_static_config.py::test_uDT46_config:
   skip:
     reason: "Unsupported platform"
     conditions:
-      - "asic_type in ['mellanox', 'vpp']"
+      - "asic_type in ['mellanox', 'vpp', 'cisco-8000']"
 
 srv6/test_srv6_vlan_forwarding.py:
   skip:
