@@ -71,15 +71,11 @@ def config_force_option_supported(duthost):
     )
     if out.get('rc', 0) == 0:
         return True
-    
+
     # Fallback: try the help command but handle failures gracefully
     out = duthost.shell("config reload -h 2>&1 || true", executable="/bin/bash", module_ignore_errors=True)
     if "force" in out.get('stdout', '').lower() or "force" in out.get('stderr', '').lower():
         return True
-    
-    # Default to assuming force is supported for newer SONiC versions
-    logger.warning("Unable to definitively check force option support, assuming supported")
-    return True
 
 
 def config_reload_minigraph_with_rendered_golden_config_override(
