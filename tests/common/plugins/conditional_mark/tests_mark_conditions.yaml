@@ -5068,7 +5068,6 @@ vrf/test_vrf.py:
       - "topo_type not in ['t0']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21700"
 
-
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
     reason: "Switch does not support ACL REDIRECT_ACTION."
