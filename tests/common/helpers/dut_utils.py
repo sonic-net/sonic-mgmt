@@ -131,44 +131,51 @@ def restart_service_with_startlimit_guard(duthost, service_name, backoff_seconds
     Restart a systemd-managed service with StartLimitHit guard.
 
     Strategy:
-    0) If already in StartLimitHit, skip restart and go straight to reset-failed + backoff + start
-    1) Proactively reset-failed to clear stale counters
-    2) Try 'systemctl restart <service>.service'
-    3) If restart fails, rate-limit is detected, or container isn't running:
+    0) Pre-detect StartLimitHit and, if present, skip a failing restart
+    1) When not rate-limited, reset-failed to clear stale counters and try restart
+    2) If restart fails, rate-limit is detected, or container isn't running:
        - 'systemctl reset-failed <service>.service'
-       - fixed backoff (default 30s)
+       - fixed backoff (default 30s when rate-limited, 1s otherwise)
        - 'systemctl start <service>.service'
        - wait until container is running
 
     Returns: True when the service is (re)started and running; asserts on failure.
     """
-    # 0) If StartLimitHit present beforehand, avoid a failing restart that pollutes logs
-    if is_hitting_start_limit(duthost, service_name):
+
+    # 0) Pre-detect StartLimitHit so we can optionally skip a failing restart
+    pre_rate_limited = is_hitting_start_limit(duthost, service_name)
+
+    if not pre_rate_limited:
+        # 1) Proactively clear stale failure counters and try a normal restart
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
+        ret = duthost.shell(
+            f"sudo systemctl restart {service_name}.service",
+            module_ignore_errors=True
+        )
+        rate_limited = is_hitting_start_limit(duthost, service_name)
+    else:
         logger.info(
-            f"StartLimitHit pre-detected for {service_name}, applying reset-failed and fixed backoff "
-            f"{backoff_seconds}s"
+            f"StartLimitHit pre-detected for {service_name}, applying reset-failed and "
+            f"fixed backoff {backoff_seconds}s before start"
         )
-        duthost.shell(f"sudo systemctl reset-failed {service_name}.service", module_ignore_errors=True)
-        time.sleep(backoff_seconds)
-        duthost.shell(f"sudo systemctl start {service_name}.service", module_ignore_errors=True)
-        pytest_assert(
-            wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
-            f"{service_name} container did not become running after backoff+start"
-        )
-        return True
+        # Force the recovery path below without attempting an immediate restart.
+        ret = {"rc": 1}
+        rate_limited = True
 
-    # 1) Proactively clear stale failure counters
-    duthost.shell(f"sudo systemctl reset-failed {service_name}.service", module_ignore_errors=True)
-
-    # 2) Attempt direct restart
-    ret = duthost.shell(f"sudo systemctl restart {service_name}.service", module_ignore_errors=True)
-    rate_limited = is_hitting_start_limit(duthost, service_name)
-
-    # 3) Recovery path
+    # 2/3) Recovery path: reset-failed + backoff + start if needed
     if ret.get("rc", 1) != 0 or rate_limited or not is_container_running(duthost, service_name):
-        duthost.shell(f"sudo systemctl reset-failed {service_name}.service", module_ignore_errors=True)
+        duthost.shell(
+            f"sudo systemctl reset-failed {service_name}.service",
+            module_ignore_errors=True
+        )
         time.sleep(backoff_seconds if rate_limited else 1)
-        duthost.shell(f"sudo systemctl start {service_name}.service", module_ignore_errors=True)
+        duthost.shell(
+            f"sudo systemctl start {service_name}.service",
+            module_ignore_errors=True
+        )
         pytest_assert(
             wait_until(verify_timeout, 1, 0, check_container_state, duthost, service_name, True),
             f"{service_name} container did not become running after recovery start"

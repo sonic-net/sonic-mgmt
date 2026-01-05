@@ -224,12 +224,12 @@ def cleanup_macsec_configuration(duthost, ctrl_links, profile_name):
     # Extract DUT interface names from ctrl_links and wait for automatic
     # MACsec cleanup on the DUT side.
     interfaces = list(ctrl_links.keys())
-    wait_for_macsec_cleanup(duthost, interfaces, timeout=90)
+    wait_for_macsec_cleanup(duthost, interfaces)
 
     # Also wait for neighbor devices to complete automatic cleanup for their
     # corresponding ports.
     for dut_port, nbr in list(ctrl_links.items()):
-        wait_for_macsec_cleanup(nbr["host"], [nbr["port"]], timeout=90)
+        wait_for_macsec_cleanup(nbr["host"], [nbr["port"]])
 
     logger.info("Cleanup macsec configuration finished")
 
@@ -291,7 +291,7 @@ def wait_for_macsec_cleanup(host, interfaces, timeout=90):
     Args:
         host: SONiC DUT or neighbor host object
         interfaces: List of interface names to check
-        timeout: Maximum time to wait in seconds (increased for proper synchronization)
+        timeout: Maximum time to wait in seconds for MACsec cleanup to finish (default: 90).
 
     Returns:
         bool: True if cleanup completed, False if timeout
@@ -304,6 +304,9 @@ def wait_for_macsec_cleanup(host, interfaces, timeout=90):
     logger.info(f"Waiting for automatic MACsec cleanup (timeout: {timeout}s)")
 
     start_time = time.time()
+    # Poll at most ~10 times over the full timeout, capped at 10 seconds between checks.
+    poll_interval = min(10, max(1, timeout / 10.0))
+
     # We only care about APPL_DB and STATE_DB for MACsec tables. Instead of
     # trying to reverse-engineer numeric DB IDs from CONFIG_DB, rely on
     # sonic-db-cli with logical DB names and the same namespace logic used
@@ -341,19 +344,19 @@ def wait_for_macsec_cleanup(host, interfaces, timeout=90):
                     all_clean = False
                     remaining_entries.setdefault((db_name, interface), []).extend(keys)
 
+        elapsed = time.time() - start_time
+
         if all_clean:
-            elapsed = time.time() - start_time
             logger.info(
                 f"Automatic MACsec cleanup completed successfully in {elapsed:.1f}s"
             )
             return True
 
         # Log progress every 30 seconds to reduce verbosity
-        elapsed = time.time() - start_time
         if int(elapsed) % 30 == 0 and elapsed > 0:
             logger.info(f"Still waiting for cleanup... ({elapsed:.0f}s elapsed)")
 
-        time.sleep(2)  # Check every 2 seconds
+        time.sleep(poll_interval)
 
     # Timeout reached
     elapsed = time.time() - start_time

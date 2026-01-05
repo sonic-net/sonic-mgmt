@@ -138,7 +138,9 @@ class MacsecPlugin(object):
             # not define it, fall back to the original behaviour.
             try:
                 request.getfixturevalue('wait_mka_establish')
-            except Exception:
+            except pytest.FixtureLookupError:
+                # Some environments do not define wait_mka_establish; fall back
+                # to the original behaviour when the fixture is missing.
                 pass
 
             if is_macsec_configured(macsec_duthost, macsec_profile, ctrl_links):
