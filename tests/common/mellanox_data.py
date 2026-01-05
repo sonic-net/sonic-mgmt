@@ -1273,8 +1273,17 @@ def is_issu_enabled(duthost):
     sai_xml_filename = duthost.shell(cmd_get_sai_xml_filename)["stdout"].strip()
     sai_xml_path = f"/usr/share/sonic/device/{dut_platform}/{dut_hwsku}/{sai_xml_filename}"
 
-    pattern = "<issu-enabled>*1*<\/issu-enabled>"
+    pattern = r"<issu-enabled>*1*<\/issu-enabled>"
     output = duthost.shell(f'egrep "{pattern}" {sai_xml_path} | wc -l')['stdout'].strip()
     logger.info(f"ISSU is enabled: {output == '1'}")
 
     return True if output == "1" else False
+
+
+def get_reload_type_list(duthost):
+    reload_types = ["reload", "cold", "fast", "warm"]
+    if not is_issu_enabled(duthost):
+        logger.info("ISSU is not enabled on the Mellanox device, remove warm reboot from the list")
+        reload_types.remove("warm")
+    logger.info(f"Reload types: {reload_types}")
+    return reload_types

@@ -12,7 +12,7 @@ from tests.common.platform.interface_utils import check_interface_status_of_up_p
 from .static_dns_util import RESOLV_CONF_FILE, verify_nameserver_in_config_db, verify_nameserver_in_conf_file, \
     get_nameserver_from_resolvconf, config_mgmt_ip, add_dns_nameserver, del_dns_nameserver, get_mgmt_port_ip_info, \
     get_nameserver_from_config_db, clear_nameserver_from_resolvconf
-from tests.common.mellanox_data import is_mellanox_device, is_issu_enabled
+from tests.common.mellanox_data import is_mellanox_device, get_reload_type_list
 
 
 pytestmark = [
@@ -84,10 +84,8 @@ def test_static_dns_basic(request, duthost, localhost, mgmt_interfaces):
     duthost.shell("config save -y")
     reboot_type = request.config.getoption("--static_dns_reboot_type")
     if reboot_type == "random":
-        reload_types = ["reload", "cold", "fast", "warm"]
-        if is_mellanox_device(duthost) and not is_issu_enabled(duthost):
-            logger.info("ISSU is not enabled on the device, remove warm reboot from the list")
-            reload_types.remove("warm")
+        reload_types = get_reload_type_list(duthost) if is_mellanox_device(duthost) \
+            else ["reload", "cold", "fast", "warm"]
         reboot_type = random.choice(reload_types)
     with allure.step(f"Reload the system with command {reboot_type}"):
         if reboot_type == "reload":
