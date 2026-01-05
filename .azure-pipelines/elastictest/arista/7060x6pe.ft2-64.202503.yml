@@ -26,7 +26,7 @@ variables:
 parameters:
   - name: TESTBED_NAME
     type: string
-    default: "vms73-ft2-7060x6-4"
+    default: "vms13-ft2-7060x6-4"
     displayName: "Testbed Name"
 
   - name: MIN_WORKER
