@@ -252,7 +252,7 @@ def portchannel_interface_tc1_add_and_rm(duthost, portchannel_table,
 
 
 def test_portchannel_interface_tc1_suite(duthosts, enum_rand_one_per_hwsku_frontend_hostname, portchannel_table,
-                                         enum_rand_one_frontend_asic_index, rand_portchannel_name):
+                                         frontend_asic_index_with_portchannel, rand_portchannel_name):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portchannel_interface_tc1_add_duplicate(duthost, portchannel_table,
                                             frontend_asic_index_with_portchannel, rand_portchannel_name)
@@ -373,7 +373,7 @@ def portchannel_interface_tc2_incremental(duthost,
 
 
 def test_portchannel_interface_tc2_attributes(duthosts, enum_rand_one_per_hwsku_frontend_hostname,
-                                              enum_rand_one_frontend_asic_index,
+                                              frontend_asic_index_with_portchannel,
                                               rand_portchannel_name):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     portchannel_interface_tc2_replace(duthost,
