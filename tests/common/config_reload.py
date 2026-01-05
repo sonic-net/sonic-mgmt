@@ -196,6 +196,16 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
+        # Ensure database is running before attempting config reload
+        # as the config command requires database connection
+        if safe_reload:
+            logger.info("Ensuring database is accessible before config reload...")
+            if not wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"):
+                logger.warning("Database not fully started, attempting to start it...")
+                sonic_host.shell("docker exec database supervisorctl start redis redis_bmp", module_ignore_errors=True)
+                pytest_assert(wait_until(120, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
+                              "Database failed to start before config reload")
+
         cmd = 'config reload -y'
         reloading = False
         if config_force_option_supported(sonic_host):
