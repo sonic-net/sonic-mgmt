@@ -38,7 +38,7 @@ async def noop(request):
     yield True
 
 
-async def bad_op(duthost):
+async def bad_op(request):
     yield False
 
 
