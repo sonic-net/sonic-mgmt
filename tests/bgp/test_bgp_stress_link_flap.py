@@ -129,28 +129,12 @@ def setup(duthosts, rand_one_dut_hostname, nbrhosts, fanouthosts):
     logger.info("Fixture teardown: Cleaning up BGP configurations")
     try:
         duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
-    except Exception as e:
-        logger.debug("Failed to delete BGPSentinel: {}".format(str(e)))
-
-    try:
         duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
-    except Exception as e:
-        logger.debug("Failed to delete BGPSentinelV6: {}".format(str(e)))
-
-    try:
         duthost.file(path=BGPSENTINEL_CONFIG_FILE, state='absent')
-    except Exception as e:
-        logger.debug("Failed to delete sentinel config file: {}".format(str(e)))
-
-    try:
         duthost.file(path='/tmp/bgpmon_v4.json', state='absent')
-    except Exception as e:
-        logger.debug("Failed to delete bgpmon_v4 file: {}".format(str(e)))
-
-    try:
         duthost.file(path='/tmp/bgpmon_v6.json', state='absent')
     except Exception as e:
-        logger.debug("Failed to delete bgpmon_v6 file: {}".format(str(e)))
+        logger.debug(f"Failed to clean up BGP Sentinel/Monitor files or configs: {str(e)}")
 
     # Clean up BGP_MONITORS - need to get the actual IPs
     try:
@@ -317,10 +301,11 @@ def test_bgp_stress_link_flap(duthosts, rand_one_dut_hostname, setup, nbrhosts, 
 
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Get DUT ASN and PTF backplane addresses
-    dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
-    ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
-    ptf_bp_v6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'].lower()
+    # Get DUT ASN and PTF backplane addresses safely
+    common_cfg = tbinfo.get('topo', {}).get('properties', {}).get('configuration_properties', {}).get('common', {})
+    dut_asn = common_cfg.get('dut_asn', None)
+    ptf_bp_v4 = common_cfg.get('nhipv4', None)
+    ptf_bp_v6 = common_cfg.get('nhipv6', '').lower() if common_cfg.get('nhipv6') else None
     ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
 
     # Try to apply BGP Sentinel and Monitor configurations (optional, best effort)
