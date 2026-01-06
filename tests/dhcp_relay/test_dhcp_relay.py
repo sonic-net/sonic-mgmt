@@ -4,7 +4,7 @@ import time
 import logging
 import re
 
-from tests.common.dhcp_relay_utils import init_dhcpcom_relay_counters, validate_dhcpcom_relay_counters
+from tests.common.dhcp_relay_utils import init_dhcpmon_counters, validate_dhcpmon_counters
 from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory   # noqa F401
 from tests.common.fixtures.ptfhost_utils import change_mac_addresses      # noqa F401
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor_m    # noqa F401
@@ -127,7 +127,7 @@ def test_interface_binding(duthosts, rand_one_dut_hostname, dut_dhcp_relay_data)
             assert "{}:67".format(iface) in output, "{} is not found in {}".format("{}:67".format(iface), output)
 
 
-def start_dhcp_monitor_debug_counter(duthost):
+def restart_dhcpmon_in_debug(duthost):
     program_name = "dhcpmon"
     program_pid_list = []
     program_list = duthost.shell("ps aux | grep {}".format(program_name))
@@ -210,8 +210,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
-                    start_dhcp_monitor_debug_counter(standby_duthost)
-                    init_dhcpcom_relay_counters(standby_duthost)
+                    restart_dhcpmon_in_debug(standby_duthost)
+                    init_dhcpmon_counters(standby_duthost)
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -220,8 +220,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                     loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
-                start_dhcp_monitor_debug_counter(duthost)
-                init_dhcpcom_relay_counters(duthost)
+                restart_dhcpmon_in_debug(duthost)
+                init_dhcpmon_counters(duthost)
                 if testing_mode == DUAL_TOR_MODE:
                     expected_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
@@ -271,8 +271,8 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
                     dhcp_relay_request_times = 1
-                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
-                    validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpmon relay counters should all be 0
+                    validate_dhcpmon_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
                     "RX": {"Unknown": 1, "Discover": 1, "Request": dhcp_relay_request_times, "Bootp": 1,
                            "Decline": 1, "Release": 1, "Inform": 1},
@@ -284,9 +284,9 @@ def test_dhcp_relay_default(ptfhost, dut_dhcp_relay_data, validate_dut_routes_ex
                            "Request": dhcp_server_sum * dhcp_relay_request_times, "Inform": dhcp_server_sum,
                            "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
-                validate_dhcpcom_relay_counters(dhcp_relay, duthost,
-                                                expected_uplink_counter,
-                                                expected_downlink_counter)
+                validate_dhcpmon_counters(dhcp_relay, duthost,
+                                          expected_uplink_counter,
+                                          expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -318,8 +318,8 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                 dhcp_server_num = len(dhcp_relay['downlink_vlan_iface']['dhcp_server_addrs'])
                 if testing_mode == DUAL_TOR_MODE:
                     standby_duthost = rand_unselected_dut
-                    start_dhcp_monitor_debug_counter(standby_duthost)
-                    init_dhcpcom_relay_counters(standby_duthost)
+                    restart_dhcpmon_in_debug(standby_duthost)
+                    init_dhcpmon_counters(standby_duthost)
                     expected_standby_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                         r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -328,8 +328,8 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                     loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
                     marker_standby = loganalyzer_standby.init()
                     loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
-                start_dhcp_monitor_debug_counter(duthost)
-                init_dhcpcom_relay_counters(duthost)
+                restart_dhcpmon_in_debug(duthost)
+                init_dhcpmon_counters(duthost)
                 if testing_mode == DUAL_TOR_MODE:
                     expected_agg_counter_message = (
                         r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
@@ -381,8 +381,8 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                 if testing_mode == DUAL_TOR_MODE:
                     loganalyzer_standby.analyze(marker_standby)
                     dhcp_relay_request_times = 1
-                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
-                    validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+                    # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpmon relay counters should all be 0
+                    validate_dhcpmon_counters(dhcp_relay, standby_duthost, {}, {})
                 expected_downlink_counter = {
                     "RX": {"Unknown": 1, "Discover": 1, "Request": dhcp_relay_request_times, "Bootp": 1,
                            "Decline": 1, "Release": 1, "Inform": 1},
@@ -394,9 +394,9 @@ def test_dhcp_relay_with_source_port_ip_in_relay_enabled(ptfhost, dut_dhcp_relay
                            "Request": dhcp_server_sum * dhcp_relay_request_times, "Inform": dhcp_server_sum,
                            "Decline": dhcp_server_sum, "Release": dhcp_server_sum}
                 }
-                validate_dhcpcom_relay_counters(dhcp_relay, duthost,
-                                                expected_uplink_counter,
-                                                expected_downlink_counter)
+                validate_dhcpmon_counters(dhcp_relay, duthost,
+                                          expected_uplink_counter,
+                                          expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -601,8 +601,8 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
     try:
         for dhcp_relay in dut_dhcp_relay_data:
             standby_duthost = rand_unselected_dut
-            start_dhcp_monitor_debug_counter(standby_duthost)
-            init_dhcpcom_relay_counters(standby_duthost)
+            restart_dhcpmon_in_debug(standby_duthost)
+            init_dhcpmon_counters(standby_duthost)
             expected_standby_agg_counter_message = (
                 r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                 r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -611,8 +611,8 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
             loganalyzer_standby = LogAnalyzer(ansible_host=standby_duthost, marker_prefix="dhcpmon counter")
             marker_standby = loganalyzer_standby.init()
             loganalyzer_standby.expect_regex = [expected_standby_agg_counter_message]
-            start_dhcp_monitor_debug_counter(duthost)
-            init_dhcpcom_relay_counters(duthost)
+            restart_dhcpmon_in_debug(duthost)
+            init_dhcpmon_counters(duthost)
             expected_agg_counter_message = (
                 r".*dhcp_relay#dhcpmon\[[0-9]+\]: "
                 r"\[\s*Agg-%s\s*-[\sA-Za-z0-9]+\s*rx/tx\] "
@@ -658,11 +658,11 @@ def test_dhcp_relay_on_dualtor_standby(ptfhost, dut_dhcp_relay_data, testing_con
                 "RX": {"Unknown": 1, "Nak": 1, "Ack": 1, "Offer": 1}
             }
             # because all packets send to standby dut, the packets are expected to countted on standby's counters.
-            validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost,
-                                            expected_uplink_counter,
-                                            expected_downlink_counter)
+            validate_dhcpmon_counters(dhcp_relay, standby_duthost,
+                                      expected_uplink_counter,
+                                      expected_downlink_counter)
             # active dut counters should be all 0
-            validate_dhcpcom_relay_counters(dhcp_relay, duthost, {}, {})
+            validate_dhcpmon_counters(dhcp_relay, duthost, {}, {})
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
@@ -687,10 +687,10 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
         for dhcp_relay in dut_dhcp_relay_data:
             if testing_mode == DUAL_TOR_MODE:
                 standby_duthost = rand_unselected_dut
-                start_dhcp_monitor_debug_counter(standby_duthost)
-                init_dhcpcom_relay_counters(standby_duthost)
-            start_dhcp_monitor_debug_counter(duthost)
-            init_dhcpcom_relay_counters(duthost)
+                restart_dhcpmon_in_debug(standby_duthost)
+                init_dhcpmon_counters(standby_duthost)
+            restart_dhcpmon_in_debug(duthost)
+            init_dhcpmon_counters(duthost)
             # Run the DHCP relay test on the PTF host
             ptf_runner(ptfhost,
                        "ptftests",
@@ -719,17 +719,17 @@ def test_dhcp_relay_monitor_checksum_validation(ptfhost, dut_dhcp_relay_data, va
                        is_python3=True)
             time.sleep(36)      # dhcpmon debug counter prints every 18 seconds
             if testing_mode == DUAL_TOR_MODE:
-                # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpcom relay counters should all be 0
-                validate_dhcpcom_relay_counters(dhcp_relay, standby_duthost, {}, {})
+                # If the testing mode is DUAL_TOR_MODE, standby tor's dhcpmon relay counters should all be 0
+                validate_dhcpmon_counters(dhcp_relay, standby_duthost, {}, {})
             expected_downlink_counter = {
                 "RX": {"Malformed": 4}
             }
             expected_uplink_counter = {
                 "RX": {"Malformed": 3}
             }
-            validate_dhcpcom_relay_counters(dhcp_relay, duthost,
-                                            expected_uplink_counter,
-                                            expected_downlink_counter)
+            validate_dhcpmon_counters(dhcp_relay, duthost,
+                                      expected_uplink_counter,
+                                      expected_downlink_counter)
     except LogAnalyzerError as err:
         logger.error("Unable to find expected log in syslog")
         raise err
