@@ -1,4 +1,3 @@
-
 import ipaddress
 import json
 import logging
@@ -25,6 +24,19 @@ from tests.common.helpers.platform_api.chassis import is_inband_port
 from tests.common.helpers.parallel import parallel_run_threaded
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common import constants
+from typing import TypedDict
+
+
+class ShellResult(TypedDict):
+    cmd: str
+    rc: int
+    stdout: str
+    stderr: str
+    stdout_lines: list
+    stderr_lines: list
+    failed: bool
+    changed: bool
+
 
 logger = logging.getLogger(__name__)
 PROCESS_TO_CONTAINER_MAP = {
@@ -431,6 +443,25 @@ class SonicHost(AnsibleHostBase):
             node. If we add more types of nodes, then we need to exclude them from this method as well.
         """
         return not self.is_supervisor_node()
+
+    def is_console_switch(self):
+        """
+        Check if this device has console functionality enabled.
+
+        Returns:
+            bool: True if console is enabled, False otherwise
+        """
+        try:
+            result = self.shell(
+                'sonic-db-cli CONFIG_DB hget "CONSOLE_SWITCH|console_mgmt" enabled',
+                module_ignore_errors=True
+            )
+            if result["rc"] == 0:
+                output = result["stdout"].strip().lower()
+                return output == 'yes'
+            return False
+        except Exception:
+            return False
 
     def is_macsec_capable_node(self):
         im = self.host.options['inventory_manager']
@@ -2960,6 +2991,354 @@ Totals               6450                 6449
             except Exception as e:
                 logging.error(f"Error starting bgpd process: {str(e)}")
                 return {'rc': 1, 'stdout': '', 'stderr': str(e)}
+
+    def is_file_existed(self, device_path: str) -> bool:
+        """Check if device path exists. Returns True if exists, False otherwise."""
+        res: ShellResult = self.shell(f"test -e {device_path}", module_ignore_errors=True)
+        return True if res['rc'] == 0 else False
+
+    def is_file_opened(self, device_path: str) -> bool:
+        """Check if device path is not in use. Returns True if file is opened, False otherwise."""
+        res: ShellResult = self.shell(f"sudo lsof {device_path}", module_ignore_errors=True)
+        return True if res["stdout"] else False
+
+    def _get_serial_device_prefix(self) -> str:
+        """
+        Get the serial device prefix for the platform.
+
+        Returns:
+            str: The device prefix (e.g., "/dev/C0-", "/dev/ttyUSB-")
+        """
+        # Reads udevprefix.conf from the platform directory to determine the correct device prefix
+        # Falls back to /dev/ttyUSB- if the config file doesn't exist
+        script = '''
+from sonic_py_common import device_info
+import os
+
+platform_path, _ = device_info.get_paths_to_platform_and_hwsku_dirs()
+config_file = os.path.join(platform_path, "udevprefix.conf")
+
+if os.path.exists(config_file):
+    with open(config_file, 'r') as f:
+        device_prefix = "/dev/" + f.readline().rstrip()
+else:
+    raise FileNotFoundError("Config file not found")
+
+print(device_prefix)
+'''
+        cmd = f"python3 << 'EOF'\n{script}\nEOF"
+        res: ShellResult = self.shell(cmd, module_ignore_errors=True)
+
+        if res['rc'] != 0 or not res['stdout'].strip():
+            logging.warning("Failed to get serial device prefix, using default /dev/ttyUSB-")
+            device_prefix = "/dev/ttyUSB-"
+        else:
+            device_prefix = res['stdout'].strip()
+
+        return device_prefix
+
+    def _get_serial_device_path(self, port: int) -> str:
+        """
+        Get the full serial device path for a given port.
+
+        Args:
+            port: Port number (e.g., 1, 2)
+
+        Returns:
+            str: The full device path (e.g., "/dev/C0-1", "/dev/ttyUSB-1")
+        """
+        device_prefix = self._get_serial_device_prefix()
+        return f"{device_prefix}{port}"
+
+    def set_loopback(self, port: int, baud_rate: int = 9600, flow_control: bool = False) -> None:
+        """Set loopback on the specified port. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_path = self._get_serial_device_path(port)
+
+        # Check if device path exists and is not in use or raise error
+        if not self.is_file_existed(device_path):
+            error_msg = f"Device path {device_path} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if self.is_file_opened(device_path):
+            error_msg = f"Device path {device_path} is already in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Set hardware flow control option
+        crtscts_val = "1" if flow_control else "0"
+
+        # Execute loopback command
+        command = (
+            f"sudo socat -d -d "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"EXEC:'/bin/cat' "
+            f"& echo $! "
+        )
+
+        res: ShellResult = self.shell(command, module_ignore_errors=True)
+        if res['failed']:
+            error_msg = f"Failed to start socat on port {port}: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully started socat loopback on port {port}")
+
+    def unset_loopback(self, port: int) -> None:
+        """Unset loopback on the specified port. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Find all related socat processes
+        device_path = self._get_serial_device_path(port)
+        if not self.is_file_existed(device_path):
+            error_msg = f"Device path {device_path} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        res: ShellResult = self.shell(f"pgrep -f 'socat .*{device_path}'", module_ignore_errors=True)
+        pids = res['stdout'].strip().split('\n')
+
+        # Kill all related socat processes
+        for pid in pids:
+            self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        time.sleep(0.5)
+
+        # Confirm all related processes for the port have stopped
+        res: ShellResult = \
+            self.shell(f"ps aux | grep 'socat .*{device_path}' | grep -v grep", module_ignore_errors=True)
+
+        if res['stdout'].strip():
+            error_msg = f"Failed to stop socat process for device path {device_path}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully stopped socat loopback on port {port}")
+
+    def bridge(self, port1: int, port2: int, baud_rate: int = 9600, flow_control: bool = False) -> None:
+        """Bridge two ports together. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_path1 = self._get_serial_device_path(port1)
+        device_path2 = self._get_serial_device_path(port2)
+
+        # Check if both device paths exist and are not in use or raise error
+        if not self.is_file_existed(device_path1):
+            error_msg = f"Device path {device_path1} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if not self.is_file_existed(device_path2):
+            error_msg = f"Device path {device_path2} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if self.is_file_opened(device_path1):
+            error_msg = f"Device path {device_path1} is already in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if self.is_file_opened(device_path2):
+            error_msg = f"Device path {device_path2} is already in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Set hardware flow control option
+        crtscts_val = "1" if flow_control else "0"
+
+        # Execute bridge command
+        command = (
+            f"sudo socat -d -d "
+            f"FILE:{device_path1},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"FILE:{device_path2},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"& echo $! "
+        )
+
+        res: ShellResult = self.shell(command, module_ignore_errors=True)
+        if res['failed']:
+            error_msg = f"Failed to bridge ports {port1} and {port2}: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully bridged ports {port1} and {port2}")
+
+    def unbridge(self, port1: int, port2: int) -> None:
+        """Remove bridge between two ports. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_path1 = self._get_serial_device_path(port1)
+        device_path2 = self._get_serial_device_path(port2)
+
+        if not self.is_file_existed(device_path1):
+            error_msg = f"Device path {device_path1} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if not self.is_file_existed(device_path2):
+            error_msg = f"Device path {device_path2} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Find all related socat processes for both ports
+        res: ShellResult = self.shell(
+            f"pgrep -f 'socat .*{device_path1}.*{device_path2}|socat .*{device_path2}.*{device_path1}'",
+            module_ignore_errors=True
+        )
+        pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
+
+        if not pids or pids == ['']:
+            error_msg = f"No bridge found between {device_path1} and {device_path2}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Kill all related socat processes
+        for pid in pids:
+            if pid:  # Skip empty strings
+                self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        time.sleep(0.5)
+
+        # Confirm all related processes have stopped
+        res: ShellResult = self.shell(
+            f"ps aux | "
+            f"grep -E 'socat.*{device_path1}.*{device_path2}|socat.*{device_path2}.*{device_path1}' | "
+            f"grep -v grep",
+            module_ignore_errors=True
+        )
+
+        if res['stdout'].strip():
+            error_msg = f"Failed to stop bridge process between {device_path1} and {device_path2}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully unbridged ports {port1} and {port2}")
+
+    def bridge_remote(
+        self, port: int, remote_host: str, remote_port: int,
+        baud_rate: int = 9600, flow_control: bool = False
+    ) -> None:
+        """Bridge a local serial port to a remote host's TCP port. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_path = self._get_serial_device_path(port)
+
+        # Check if device path exists and is not in use or raise error
+        if not self.is_file_existed(device_path):
+            error_msg = f"Device path {device_path} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+        if self.is_file_opened(device_path):
+            error_msg = f"Device path {device_path} is already in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Set hardware flow control option
+        crtscts_val = "1" if flow_control else "0"
+
+        # Execute bridge command to remote host
+        command = (
+            f"sudo socat -d -d "
+            f"FILE:{device_path},raw,echo=0,nonblock,b{baud_rate},cs8,"
+            f"parenb=0,cstopb=0,ixon=0,ixoff=0,crtscts={crtscts_val},icrnl=0,onlcr=0,opost=0,isig=0,icanon=0 "
+            f"TCP:{remote_host}:{remote_port} "
+            f"& echo $! "
+        )
+
+        res: ShellResult = self.shell(command, module_ignore_errors=True)
+        if res['failed']:
+            error_msg = f"Failed to bridge port {port} to {remote_host}:{remote_port}: {res.get('stderr', '')}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully bridged port {port} to {remote_host}:{remote_port}")
+
+    def unbridge_remote(self, port: int) -> None:
+        """Remove bridge from a local port to any remote host. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_path = self._get_serial_device_path(port)
+
+        if not self.is_file_existed(device_path):
+            error_msg = f"Device path {device_path} does not exist"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Find all related socat processes for the port with TCP connection
+        res: ShellResult = self.shell(
+            f"pgrep -f 'socat .*{device_path}.*TCP:'",
+            module_ignore_errors=True
+        )
+        pids = res['stdout'].strip().split('\n') if res['stdout'].strip() else []
+
+        if not pids or pids == ['']:
+            error_msg = f"No remote bridge found for port {port}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        # Kill all related socat processes
+        for pid in pids:
+            if pid:  # Skip empty strings
+                self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        time.sleep(0.5)
+
+        # Confirm all related processes have stopped
+        res: ShellResult = self.shell(
+            f"ps aux | grep 'socat .*{device_path}.*TCP:' | grep -v grep",
+            module_ignore_errors=True
+        )
+
+        if res['stdout'].strip():
+            error_msg = f"Failed to stop remote bridge process for port {port}"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info(f"Successfully unbridged remote connection for port {port}")
+
+    def cleanup_all_console_sessions(self) -> None:
+        """Clean up all console sessions. Raises RuntimeError on failure."""
+        if not self.is_console_switch():
+            error_msg = "This operation is only supported on console switches"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        device_prefix = self._get_serial_device_prefix()
+        pattern = f"{device_prefix}*"
+
+        # Find all related serial port processes
+        res: ShellResult = self.shell(f"sudo lsof -t {pattern}", module_ignore_errors=True)
+        pids = res['stdout'].strip().split('\n')
+
+        # Kill all related processes
+        for pid in pids:
+            self.shell(f"sudo kill {pid}", module_ignore_errors=True)
+
+        # Check that no serial ports are in use
+        res: ShellResult = self.shell(f"sudo lsof {pattern}", module_ignore_errors=True)
+        if res['stdout'].strip() or res['stderr'].strip():
+            error_msg = "Failed to clean up all console sessions: some ports are still in use"
+            logging.error(error_msg)
+            raise RuntimeError(error_msg)
+
+        logging.info("Successfully cleaned up all console sessions")
 
 
 def assert_exit_non_zero(shell_output):
