@@ -88,6 +88,9 @@ SWITCH_MODELS = {
             }
         }
     },
+    "x86_64-nvidia_sn5600_simx-r0": {
+        "chip_type": "spectrum4"
+    },
     "x86_64-nvidia_sn5640-r0": {
         "chip_type": "spectrum5",
         "reboot": {
@@ -264,6 +267,9 @@ SWITCH_MODELS = {
                 "number": 1
             }
         }
+    },
+    "x86_64-mlnx_msn2700_simx-r0": {
+        "chip_type": "spectrum1"
     },
     "x86_64-mlnx_msn2700a1-r0": {
         "chip_type": "spectrum1",
