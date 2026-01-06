@@ -502,7 +502,7 @@ class HashTest(BaseTest):
         logs = self.create_packets_logs(
             src_port=src_port,
             pkt=pkt,
-            ipinip_pkt=inner_pkt,
+            ipinip_pkt=pkt,
             vxlan_pkt=pkt,
             nvgre_pkt=pkt,
             inner_pkt=inner_pkt,
@@ -698,32 +698,32 @@ class IPinIPHashTest(HashTest):
         inner_pkt_len = random.randrange(
             100, 1024) if hash_key == 'inner_length' else 100
         if version == 'IP':
-            pkt = simple_tcp_packet(pktlen=inner_pkt_len if vlan_id == 0 else inner_pkt_len + 4,
-                                    dl_vlan_enable=False if vlan_id == 0 else True,
-                                    vlan_vid=vlan_id,
-                                    vlan_pcp=0,
-                                    ip_src=ip_src,
-                                    ip_dst=ip_dst,
-                                    tcp_sport=sport,
-                                    tcp_dport=dport,
-                                    ip_ttl=64)
+            inner_pkt = simple_tcp_packet(pktlen=inner_pkt_len if vlan_id == 0 else inner_pkt_len + 4,
+                                          dl_vlan_enable=False if vlan_id == 0 else True,
+                                          vlan_vid=vlan_id,
+                                          vlan_pcp=0,
+                                          ip_src=ip_src,
+                                          ip_dst=ip_dst,
+                                          tcp_sport=sport,
+                                          tcp_dport=dport,
+                                          ip_ttl=64)
         else:
-            pkt = simple_tcpv6_packet(pktlen=inner_pkt_len if vlan_id == 0 else inner_pkt_len + 4,
-                                      dl_vlan_enable=False if vlan_id == 0 else True,
-                                      vlan_vid=vlan_id,
-                                      vlan_pcp=0,
-                                      ipv6_dst=ip_dst,
-                                      ipv6_src=ip_src,
-                                      tcp_sport=sport,
-                                      tcp_dport=dport,
-                                      ipv6_hlim=64)
+            inner_pkt = simple_tcpv6_packet(pktlen=inner_pkt_len if vlan_id == 0 else inner_pkt_len + 4,
+                                            dl_vlan_enable=False if vlan_id == 0 else True,
+                                            vlan_vid=vlan_id,
+                                            vlan_pcp=0,
+                                            ipv6_dst=ip_dst,
+                                            ipv6_src=ip_src,
+                                            tcp_sport=sport,
+                                            tcp_dport=dport,
+                                            ipv6_hlim=64)
         if self.is_v6_topo:
             ipinip_pkt = simple_ipv6ip_packet(
                 eth_dst=router_mac,
                 eth_src=src_mac,
                 ipv6_src=outer_src_ipv6,
                 ipv6_dst=outer_dst_ipv6,
-                inner_frame=pkt['IPv6'])
+                inner_frame=inner_pkt['IPv6'])
             exp_pkt = ipinip_pkt.copy()
             exp_pkt['IPV6'].hlim -= 1
         else:
@@ -732,10 +732,10 @@ class IPinIPHashTest(HashTest):
                 eth_src=src_mac,
                 ip_src=outer_src_ip,
                 ip_dst=outer_dst_ip,
-                inner_frame=pkt[version])
+                inner_frame=inner_pkt[version])
             exp_pkt = ipinip_pkt.copy()
             exp_pkt['IP'].ttl -= 1
-        return pkt, exp_pkt, ipinip_pkt
+        return ipinip_pkt, exp_pkt, inner_pkt
 
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
