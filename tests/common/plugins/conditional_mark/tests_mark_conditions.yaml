@@ -499,13 +499,17 @@ bgp/test_bgp_update_replication.py:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/21110 and 'dualtor-aa' in topo_name"
 
+bgp/test_bgp_vnet.py:
+  skip:
+    reason: "Test is only enabled for VS, Cisco and Nvidia mellanox platforms"
+    conditions:
+      - "asic_type not in ['vs', 'cisco-8000', 'mellanox']"
+
 bgp/test_bgpmon.py:
   skip:
-    reason: "Not supported on T2 topology or topology backend
-             or Skip for IPv6-only topologies, since there are v6 verison of the test"
+    reason: "Not supported on T2 topology or topology backend"
     conditions:
       - "'backend' in topo_name or topo_type in ['t2']"
-      - "'-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
@@ -5037,10 +5041,8 @@ vlan/test_vlan.py::test_vlan_tc7_tagged_qinq_switch_on_outer_tag:
 
 vlan/test_vlan_ping.py:
   skip:
-    reason: "test_vlan_ping doesn't work on Broadcom platform. Ignored on dualtor topo and mellanox setups due to Github issue: https://github.com/sonic-net/sonic-mgmt/issues/9642."
-    conditions_logical_operator: OR
+    reason: "Skip on dualtor topo https://github.com/sonic-net/sonic-mgmt/issues/15061"
     conditions:
-      - "asic_type in ['broadcom']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/15061 and 'dualtor-aa' in topo_name"
 
 #######################################
