@@ -524,7 +524,8 @@
             },
             {
                 "scripts": [
-                    "ecmp.test_ecmp_sai_value"
+                    "ecmp.test_ecmp_sai_value",
+                    "ecmp.test_ecmp_balance"
                 ],
                 "owner": "Zhaohui Sun",
                 "email": "zhaohuisun@microsoft.com"

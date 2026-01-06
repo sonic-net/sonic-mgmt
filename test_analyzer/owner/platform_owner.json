@@ -878,5 +878,13 @@
         "email": "zhijianli@microsoft.com",
         "new_platform": "Yes",
         "tag": "Yes"
+    },
+    {
+        "hwsku": "Nokia-7215-A1-MGX-G48S4",
+        "topo": "mx",
+        "owner": "Zhijian Li",
+        "email": "zhijianli@microsoft.com",
+        "new_platform": "Yes",
+        "tag": "Yes"
     }
 ]
