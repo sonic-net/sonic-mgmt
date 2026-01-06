@@ -88,6 +88,15 @@ all:
         bjw3-9-4:
           ansible_host: 10.150.239.25
           ansible_hostv6: 2404:f801:10:16::a96:ef18
+        bjw3-2-4:
+          ansible_host: 10.150.239.26
+          ansible_hostv6: 2404:f801:10:16::a96:ef19
+        bjw3-4-4:
+          ansible_host: 10.150.239.27
+          ansible_hostv6: 2404:f801:10:16::a96:ef1a
+        bjw3-8-4:
+          ansible_host: 10.150.239.28
+          ansible_hostv6: 2404:f801:10:16::a96:ef1b
     pdu:
       vars:
         pdu_ro_snmp_version: v3
@@ -249,6 +258,10 @@ fanout:
       ansible_host: 10.150.238.117
       ansible_hostv6: 2404:f801:10:16::a96:ee75
       os: sonic
+    bjw3-can-8300-leaf-1:
+      ansible_host: 10.150.238.119
+      ansible_hostv6: 2404:f801:10:16::a96:ee77
+      os: sonic
 
 sonic:
   vars:
@@ -263,6 +276,7 @@ sonic:
     sonic_arista_7060cx:
     sonic_cisco_8102:
     sonic_arista_720dt:
+    sonic_cisco_8300:
 
 
 server:
@@ -823,6 +837,21 @@ sonic_cisco_8102:
         platform_tests/test_reload_config.py::test_reload_configuration_checks:
           timeout: 300
           wait: 600
+
+
+sonic_cisco_8300:
+  vars:
+    hwsku: Cisco-C8220TG-48A-O
+  hosts:
+    bjw3-can-8300-1:
+      ansible_host: 10.150.238.118
+      ansible_hostv6: 2404:f801:10:16::a96:ee76
+    bjw3-can-8300-2:
+      ansible_host: 10.150.238.120
+      ansible_hostv6: 2404:f801:10:16::a96:ee78
+    bjw3-can-8300-3:
+      ansible_host: 10.150.238.121
+      ansible_hostv6: 2404:f801:10:16::a96:ee79
 
 
 sonic_arista_720dt:
