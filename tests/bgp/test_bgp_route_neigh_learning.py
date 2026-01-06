@@ -15,6 +15,50 @@ Logger = logging.getLogger(__name__)
 V4_PREFIX = "77.88.99.1"
 V4_MASK = "32"
 
+def add_route_to_nbr(data, name):
+    loopback = 1
+    vrf = "default"
+    if data["nbr"][name].get("is_multi_vrf_peer", False):
+        vrf = name
+        loopback += data["nbr"][name]["multi_vrf_data"]["intf_offset"]
+
+    bgp_as_num = data['bgp'][name]
+    # add a route in the neighbor T1 eos device
+    cmds = ["configure",
+            "interface loopback {}".format(loopback),
+            "vrf {}".format(vrf),
+            "ip address {}/{}".format(V4_PREFIX, V4_MASK),
+            "exit",
+            "router bgp {}".format(bgp_as_num),
+            "vrf {}".format(vrf),
+            "address-family ipv4",
+            "network {}/{}".format(V4_PREFIX, V4_MASK),
+            "exit",
+            ]
+    data['nbr'][name]['host'].run_command_list(cmds)
+    Logger.info("Route %s added to vrf %s on %s", V4_PREFIX, vrf, name)
+
+
+def rm_route_from_nbr(data, name):
+    loopback = 1
+    vrf = "default"
+    if data["nbr"][name].get("is_multi_vrf_peer", False):
+        vrf = name
+        loopback += data["nbr"][name]["multi_vrf_data"]["intf_offset"]
+
+    bgp_as_num = data['bgp'][name]
+    # remove the route in the neighbor T1 eos device
+    cmds = ["configure",
+            "router bgp {}".format(bgp_as_num),
+            "vrf {}".format(vrf),
+            "address-family ipv4",
+            "no network {}/{}".format(V4_PREFIX, V4_MASK),
+            "no interface loopback {}".format(loopback),
+            "exit",
+            ]
+    data['nbr'][name]['host'].run_command_list(cmds)
+    Logger.info("Route, IP and Loopback %d removed from %s on %s", loopback, vrf, name)
+
 
 @pytest.fixture(name="setUp", scope="module")
 def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
@@ -54,15 +98,7 @@ def fixture_setUp(nbrhosts, duthosts, enum_frontend_dut_hostname):
         bgp_as_num = data['bgp'][name]
         # remove the route in the neighbor T1 eos device
         if isinstance(nbrhost, EosHost):
-            cmds = ["configure",
-                    "router bgp {}".format(bgp_as_num),
-                    "address-family ipv4",
-                    "no network {}/{}".format(V4_PREFIX, V4_MASK),
-                    "no interface loopback 1",
-                    "exit"
-                    ]
-            Logger.info("Route, IP and Loopback 1 removed from %s", name)
-            nbrhost.run_command_list(cmds)
+            rm_route_from_nbr(data, name)
         elif isinstance(nbrhost, SonicHost):
             cmd = "sudo vtysh -c 'configure terminal' " \
                   f"-c 'router bgp {bgp_as_num}' " \
@@ -94,22 +130,14 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
     """ Route added on All neighbor should be learned by the DUT"""
     Logger.info("Adding routes on neighbors")
 
+    exp_len = 0
     for name in data['T1']:
         bgp_as_num = data['bgp'][name]
         nbrhost = data['nbr'][name]['host']
         cmds = []
         # add a route in the neighbor T1 eos device
         if isinstance(nbrhost, EosHost):
-            cmds = ["configure",
-                    "interface loopback 1",
-                    "ip address {}/{}".format(V4_PREFIX, V4_MASK),
-                    "exit",
-                    "router bgp {}".format(bgp_as_num),
-                    "address-family ipv4",
-                    "network {}/{}".format(V4_PREFIX, V4_MASK),
-                    "exit"
-                    ]
-            nbrhost.run_command_list(cmds)
+            add_route_to_nbr(data, name)
         elif isinstance(nbrhost, SonicHost):
             # Create and configure loopback interface
             cmd = f"sudo config interface ip add Loopback1 {V4_PREFIX}/{V4_MASK}"

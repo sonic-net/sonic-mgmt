@@ -203,7 +203,6 @@ exabgp_supervisord_conf_tmpl_p2_v4_debug = '''\
 command=/usr/local/bin/exabgp --debug --env /etc/exabgp/exabgp.env /etc/exabgp/{{ name }}.conf
 '''
 
-
 def exec_command(module, cmd, ignore_error=False, msg="executing command"):
     rc, out, err = module.run_command(cmd)
     if not ignore_error and rc != 0:

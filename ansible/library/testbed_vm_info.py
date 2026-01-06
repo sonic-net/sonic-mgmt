@@ -96,6 +96,7 @@ class TestbedVMFacts:
         with open(self.topofile) as f:
             vm_topology = yaml.safe_load(f)
         self.topoall = vm_topology
+        self.topo_is_multi_vrf = self.topoall.get("topo_is_multi_vrf", False)
 
         if self.servers_info:
             return MultiServersUtils.generate_vm_name_mapping(
@@ -113,9 +114,17 @@ class TestbedVMFacts:
             else:
                 return eos
 
-        for eos_name, eos_value in vm_topology['topology']['VMs'].items():
-            vm_name = vm_name_fmt % (vm_start_index + eos_value['vm_offset'])
-            eos[eos_name] = vm_name
+        if self.topo_is_multi_vrf:
+            vrf_map = self.topoall["convergence_data"]["convergence_mapping"]
+            host_map = { vrf: host for host, vrfs in vrf_map.items() for vrf in vrfs }
+            for vrf, host in host_map.items():
+                vm = vm_topology["topology"]["VMs"][host]
+                vm_name = vm_name_fmt % (vm_start_index + vm["vm_offset"])
+                eos[vrf] = vm_name
+        else:
+            for eos_name, eos_value in vm_topology['topology']['VMs'].items():
+                vm_name = vm_name_fmt % (vm_start_index + eos_value['vm_offset'])
+                eos[eos_name] = vm_name
         return eos
 
     def get_neighbor_dpu(self):

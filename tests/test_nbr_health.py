@@ -65,10 +65,25 @@ def check_sonic_facts(hostname, mgmt_addr, host):
 
 def check_eos_bgp_facts(hostname, host):
     logger.info("Check neighbor {} bgp facts".format(hostname))
-    res = host.eos_command(commands=['show ip bgp sum'])
-    logger.info("bgp: {}".format(res))
-    if 'stdout_lines' not in res or u'BGP summary' not in res['stdout_lines'][0][0]:
-        return "neighbor {} bgp not configured correctly".format(hostname)
+
+    vrf_output = host.eos_command(commands=['show vrf | json'])
+    if 'stdout_lines' in vrf_output and len(vrf_output['stdout_lines'][0].get('vrfs', {})) > 2:
+        err = "neighbor {} bgp not configured correctly".format(hostname)
+        output = host.eos_command(commands=['show ip bgp summary vrf all | json'])
+        logger.info("bgp: {}".format(output))
+        if "stdout_lines" not in output:
+            return err
+
+        output = output[ "stdout_lines" ][ 0 ]
+        for vrf, data in output[ "vrfs" ].items():
+            for _, peerData in data[ "peers" ].items():
+                if peerData[ "peerState" ] != "Established":
+                    return err
+    else:
+        res = host.eos_command(commands=['show ip bgp summary vrf all'])
+        logger.info("bgp: {}".format(res))
+        if 'stdout_lines' not in res or u'BGP summary' not in res['stdout_lines'][0][0]:
+            return "neighbor {} bgp not configured correctly".format(hostname)
 
 
 def check_sonic_bgp_facts(hostname, host):
