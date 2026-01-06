@@ -5078,3 +5078,54 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.162/17
+
+- conf-name: testbed-bjw3-can-8300-1
+  group-name: bjw3-2-4
+  topo: c0
+  ptf_image_name: docker-ptf
+  ptf: bjw3-2-4
+  ptf_ip: 10.150.239.26/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef19/64
+  server: server_bjw3_2
+  vm_base: VM22004
+  dut:
+    - bjw3-can-8300-1
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.163/17
+
+- conf-name: testbed-bjw3-can-8300-2
+  group-name: bjw3-4-4
+  topo: c0-lo
+  ptf_image_name: docker-ptf
+  ptf: bjw3-4-4
+  ptf_ip: 10.150.239.27/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef1a/64
+  server: server_bjw3_4
+  vm_base: VM31136
+  dut:
+    - bjw3-can-8300-2
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.164/17
+
+- conf-name: testbed-bjw3-can-8300-3
+  group-name: bjw3-8-4
+  topo: c0-lo
+  ptf_image_name: docker-ptf
+  ptf: bjw3-8-4
+  ptf_ip: 10.150.239.28/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef1b/64
+  server: server_bjw3_8
+  vm_base: VM00136
+  dut:
+    - bjw3-can-8300-3
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.165/17

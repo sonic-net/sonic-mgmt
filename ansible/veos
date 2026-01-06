@@ -24584,6 +24584,12 @@ vms_bjw3_2:
       ansible_host: 172.16.214.145
     VM22003:
       ansible_host: 172.16.214.146
+    VM22004:
+      ansible_host: 172.16.214.147
+    VM22005:
+      ansible_host: 172.16.214.148
+    VM22006:
+      ansible_host: 172.16.214.149
     VM22011:
       ansible_host: 172.16.214.11
     VM22012:
@@ -25392,6 +25398,12 @@ vms_bjw3_4:
       ansible_host: 172.16.216.146
     VM31135:
       ansible_host: 172.16.216.147
+    VM31136:
+      ansible_host: 172.16.216.148
+    VM31137:
+      ansible_host: 172.16.216.149
+    VM31138:
+      ansible_host: 172.16.216.150
 vms_bjw3_5:
   hosts:
     VM32000:
@@ -25916,6 +25928,12 @@ vms_bjw3_8:
       ansible_host: 172.16.173.146
     VM00135:
       ansible_host: 172.16.173.147
+    VM00136:
+      ansible_host: 172.16.173.148
+    VM00137:
+      ansible_host: 172.16.173.149
+    VM00138:
+      ansible_host: 172.16.173.150
 vms_bjw3_9:
   hosts:
     VM04000:
