@@ -23,6 +23,67 @@ Run all tests:
    - Test cases demonstrating various scenarios
    - **Edit this file to quickly test new configurations**
 
+## Skip Categories Overview
+
+There are two types of skip categories:
+
+### Permanent Categories
+- Used for skips that won't be fixed (e.g., platform limitations)
+- **Does not require** an `expiry_date`
+- Examples: `ASIC_NOT_SUPPORTED`, `FEATURE_NOT_APPLICABLE`
+
+### Temporary Categories
+- Used for skips that should be fixed eventually (e.g., bugs, flaky tests)
+- **Requires** an `expiry_date` (format: YYYY-MM-DD)
+- Maximum expiry duration: 180 days
+- Examples: `BUG_FIX_IN_PROGRESS`, `KNOWN_FLAKY_TEST`
+
+## Expiry Actions
+
+When a skip with an `expiry_date` has passed, you can control what happens using `expiry_action`:
+
+### `expiry_action: "fail"` (default)
+- **Fails the entire test run** when expiry date has passed
+- Forces someone to address the expired skip
+- Use this when you want strict accountability
+- Example:
+```yaml
+test_case.py::test_function:
+  skip:
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-03-01"
+    expiry_action: "fail"  # Will fail test run after March 1, 2026
+    reason: "Bug #123 being fixed"
+```
+
+### `expiry_action: "warn"`
+- **Removes the skip** and runs the test
+- Logs a warning message about the expired skip
+- Use this when you want visibility but not enforcement
+- Example:
+```yaml
+test_case.py::test_function:
+  skip:
+    category: "KNOWN_FLAKY_TEST"
+    expiry_date: "2026-03-01"
+    expiry_action: "warn"  # Will run test with warning after March 1, 2026
+    reason: "Flaky due to timing issue"
+```
+
+### `expiry_action: "run"`
+- **Removes the skip** and runs the test silently
+- No warnings or errors
+- Use this when you want automatic cleanup
+- Example:
+```yaml
+test_case.py::test_function:
+  skip:
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2026-03-01"
+    expiry_action: "run"  # Will run test silently after March 1, 2026
+    reason: "Waiting for feature release"
+```
+
 ## How to Test Your Own Configurations
 
 ### 1. Add a New Permanent Category
@@ -67,17 +128,41 @@ Tests will automatically validate against the new limit.
 
 ### 3. Test Expired Skips
 
-Add a test case with past date:
+Test expired skip with different actions:
 
 ```yaml
-test_expired_check.py::test_case:
+# Expired with fail action - will cause test run to fail
+test_expired_fail.py::test_case:
   skip:
     category: "BUG_FIX_IN_PROGRESS"
     expiry_date: "2024-01-01"  # Past date
-    reason: "This should not be applied"
+    expiry_action: "fail"  # Default behavior
+    reason: "This will fail the test run"
+    conditions:
+      - "True"
+
+# Expired with warn action - will run test with warning
+test_expired_warn.py::test_case:
+  skip:
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2024-01-01"  # Past date
+    expiry_action: "warn"
+    reason: "This will run with a warning"
+    conditions:
+      - "True"
+
+# Expired with run action - will run test silently
+test_expired_run.py::test_case:
+  skip:
+    category: "BUG_FIX_IN_PROGRESS"
+    expiry_date: "2024-01-01"  # Past date
+    expiry_action: "run"
+    reason: "This will run silently"
+    conditions:
+      - "True"
 ```
 
-Run tests to verify expired skip is not applied.
+Run tests to verify behavior matches expected expiry actions.
 
 ### 4. Test Invalid Configurations
 

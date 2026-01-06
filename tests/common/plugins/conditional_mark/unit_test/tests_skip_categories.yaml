@@ -65,7 +65,7 @@ test_expired.py::test_expired_bug:
     conditions:
       - "True"
 
-# Expired with expiry_action: fail - keep skip with expired message
+# Expired with expiry_action: fail - fail test run to force addressing the issue
 test_expired_action_fail.py::test_case:
   skip:
     reason: "Bug fix was supposed to be done"

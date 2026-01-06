@@ -294,11 +294,12 @@ class TestCheckExpiryAndFormatReason(unittest.TestCase):
             'test.py::test_case',
             self.skip_categories
         )
-        # Default expiry_action is 'fail', so mark should be applied with expired message
-        self.assertTrue(apply_mark)
-        self.assertIn('EXPIRED', formatted_reason)
-        self.assertIn('Bug being fixed', formatted_reason)
-        self.assertEqual(len(errors), 0)
+        # Default expiry_action is 'fail', so validation error should be returned to fail test run
+        self.assertFalse(apply_mark)
+        self.assertIsNone(formatted_reason)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('EXPIRED', errors[0])
+        self.assertIn('Bug being fixed', errors[0])
 
     def test_expired_skip_action_fail(self):
         """Test expired skip with expiry_action='fail'."""
@@ -315,11 +316,12 @@ class TestCheckExpiryAndFormatReason(unittest.TestCase):
             'test.py::test_case',
             self.skip_categories
         )
-        # With 'fail', mark should be applied with expired message
-        self.assertTrue(apply_mark)
-        self.assertIn('EXPIRED', formatted_reason)
-        self.assertIn('Action required', formatted_reason)
-        self.assertEqual(len(errors), 0)
+        # With 'fail', validation error should be returned to fail test run
+        self.assertFalse(apply_mark)
+        self.assertIsNone(formatted_reason)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('EXPIRED', errors[0])
+        self.assertIn('Action required', errors[0])
 
     def test_expired_skip_action_warn(self):
         """Test expired skip with expiry_action='warn'."""

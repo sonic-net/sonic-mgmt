@@ -104,10 +104,11 @@ class TestSkipCategoriesFromYAML(unittest.TestCase):
             self.skip_categories
         )
 
-        # Default expiry_action is 'fail', so skip should be applied with expired message
-        self.assertTrue(apply_mark)
-        self.assertIn('EXPIRED', formatted_reason)
-        self.assertEqual(len(errors), 0)
+        # Default expiry_action is 'fail', so validation error should be returned to fail test run
+        self.assertFalse(apply_mark)
+        self.assertIsNone(formatted_reason)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('EXPIRED', errors[0])
 
     def test_expired_action_fail_from_yaml(self):
         """Test expired skip with expiry_action='fail' from YAML."""
@@ -122,11 +123,12 @@ class TestSkipCategoriesFromYAML(unittest.TestCase):
             self.skip_categories
         )
 
-        # With 'fail', skip should be applied with expired message
-        self.assertTrue(apply_mark)
-        self.assertIn('EXPIRED', formatted_reason)
-        self.assertIn('Bug fix was supposed to be done', formatted_reason)
-        self.assertEqual(len(errors), 0)
+        # With 'fail', validation error should be returned to fail test run
+        self.assertFalse(apply_mark)
+        self.assertIsNone(formatted_reason)
+        self.assertEqual(len(errors), 1)
+        self.assertIn('EXPIRED', errors[0])
+        self.assertIn('Bug fix was supposed to be done', errors[0])
 
     def test_expired_action_warn_from_yaml(self):
         """Test expired skip with expiry_action='warn' from YAML."""
