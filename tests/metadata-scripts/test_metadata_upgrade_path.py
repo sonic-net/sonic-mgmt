@@ -67,17 +67,6 @@ def upgrade_strategy_fixture(request, ptfhost):
         raise ValueError(f"Unknown upgrade strategy '{strategy_type}'. Valid options: script, gnoi")
 
 
-def pytest_addoption(parser):
-    """Add command line option for upgrade strategy selection."""
-    parser.addoption(
-        "--upgrade_strategy",
-        action="store",
-        default="script",
-        choices=["script", "gnoi"],
-        help="Strategy to use for firmware upgrade process: script (default) or gnoi"
-    )
-
-
 def pytest_generate_tests(metafunc):
     if metafunc.config.getoption("multi_hop_upgrade_path"):
         # This pytest execution is for multi-hop upgrade path - don't parametrize for A->B upgrade
