@@ -24,7 +24,6 @@ from bgp_bbr_helpers import config_bbr_by_gcu, get_bbr_default_state, is_bbr_ena
 
 from tests.common.gcu_utils import apply_gcu_patch
 from tests.common.gcu_utils import create_checkpoint, rollback_or_reload, delete_checkpoint
-from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -98,7 +97,6 @@ def gcu_add_placeholder_aggregate(duthost, prefix):
             "value": {"summary-only": "false", "as-set": "false"},
         }
     ]
-    patch = format_json_patch_for_multiasic(duthost=duthost, json_data=patch)
     logger.info(f"Adding placeholder BGP aggregate {prefix.replace('/', '~1')}")
     return apply_gcu_patch(duthost, patch)
 
@@ -116,14 +114,12 @@ def gcu_add_aggregate(duthost, aggregate_cfg: AggregateCfg):
             },
         }
     ]
-    patch = format_json_patch_for_multiasic(duthost=duthost, json_data=patch)
 
     apply_gcu_patch(duthost, patch)
 
 
 def gcu_remove_aggregate(duthost, prefix):
     patch = [{"op": "remove", "path": f"/BGP_AGGREGATE_ADDRESS/{prefix.replace('/', '~1')}"}]
-    patch = format_json_patch_for_multiasic(duthost=duthost, json_data=patch)
 
     apply_gcu_patch(duthost, patch)
 
