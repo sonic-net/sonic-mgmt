@@ -43,7 +43,7 @@ async def check_success_criteria(timeout, delay, interval, checker, result):
     result["time_to_pass"] = end_time - start_time
 
 
-async def run_test_performance_for_op(duthost, call_sanity_check, reorged_test_config, op, run_index):
+async def run_test_performance_for_op(request, call_sanity_check, reorged_test_config, op, run_index):
     sanity_check_setup, sanity_check_cleanup = call_sanity_check
 
     single_run_result = {}
@@ -70,13 +70,13 @@ async def run_test_performance_for_op(duthost, call_sanity_check, reorged_test_c
             interval = test_config.get("interval", 1)
             success_criteria = test_config["success_criteria"]
             filtered_vars = filter_vars(test_config, success_criteria)
-            checker = get_success_criteria_by_name(success_criteria)(duthost, test_result, **filtered_vars)
+            checker = get_success_criteria_by_name(success_criteria)(request, test_result, **filtered_vars)
             coros.append(check_success_criteria(timeout, delay, interval, checker, test_result))
 
     # do the op setup, it can block but should NEVER block forever
     # return True on success, False on fail
     # failure will stop test for op
-    async with asynccontextmanager(get_op_by_name(op))(duthost) as op_success:
+    async with asynccontextmanager(get_op_by_name(op))(request) as op_success:
         single_run_result["op_success"] = op_success
         if op_success:
             await asyncio.gather(*coros)
@@ -89,7 +89,7 @@ async def run_test_performance_for_op(duthost, call_sanity_check, reorged_test_c
     return single_run_result
 
 
-async def async_test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
+async def async_test_performance(request, call_sanity_check, reorged_test_config, store_test_result,
                                  path, test_name, op, success_criteria, run_index):
     if op not in reorged_test_config or path not in reorged_test_config[op]:
         pytest.skip("Test condition run_when does not match")
@@ -97,7 +97,7 @@ async def async_test_performance(duthost, call_sanity_check, reorged_test_config
                  .format(path, test_name, op, success_criteria, run_index))
     if not store_test_result[op][run_index]:
         logging.info("The {}th op {} has not been run, running now".format(run_index, op))
-        store_test_result[op][run_index] = await run_test_performance_for_op(duthost, call_sanity_check,
+        store_test_result[op][run_index] = await run_test_performance_for_op(request, call_sanity_check,
                                                                              reorged_test_config, op, run_index)
     test_result = store_test_result[op][run_index]
     logging.info("Result of path {} test_name {} op {} success_criteria {} run_index {}: {}"
@@ -106,9 +106,9 @@ async def async_test_performance(duthost, call_sanity_check, reorged_test_config
 
 # Ideally, test_performance should not give errors and only collect results regardless of the
 # errors received. Analyzing the result is reserved for test_performance_stats
-def test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
+def test_performance(request, call_sanity_check, reorged_test_config, store_test_result,
                      path, test_name, op, success_criteria, run_index):     # noqa: F811
-    asyncio.run(async_test_performance(duthost, call_sanity_check, reorged_test_config, store_test_result,
+    asyncio.run(async_test_performance(request, call_sanity_check, reorged_test_config, store_test_result,
                                        path, test_name, op, success_criteria, run_index))
 
 
