@@ -74,10 +74,10 @@ def check_eos_bgp_facts(hostname, host):
         if "stdout_lines" not in output:
             return err
 
-        output = output[ "stdout_lines" ][ 0 ]
-        for vrf, data in output[ "vrfs" ].items():
-            for _, peerData in data[ "peers" ].items():
-                if peerData[ "peerState" ] != "Established":
+        output = output["stdout_lines"][0]
+        for vrf, data in output["vrfs"].items():
+            for _, peerData in data["peers"].items():
+                if peerData["peerState"] != "Established":
                     return err
     else:
         res = host.eos_command(commands=['show ip bgp summary vrf all'])

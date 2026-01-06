@@ -15,6 +15,7 @@ Logger = logging.getLogger(__name__)
 V4_PREFIX = "77.88.99.1"
 V4_MASK = "32"
 
+
 def add_route_to_nbr(data, name):
     loopback = 1
     vrf = "default"
@@ -130,11 +131,9 @@ def run_bgp_neighbor_route_learning(duthosts, enum_frontend_dut_hostname, data):
     """ Route added on All neighbor should be learned by the DUT"""
     Logger.info("Adding routes on neighbors")
 
-    exp_len = 0
     for name in data['T1']:
         bgp_as_num = data['bgp'][name]
         nbrhost = data['nbr'][name]['host']
-        cmds = []
         # add a route in the neighbor T1 eos device
         if isinstance(nbrhost, EosHost):
             add_route_to_nbr(data, name)

@@ -18,7 +18,6 @@ class ListIndentDumper(yaml.Dumper):
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
         return super().increase_indent(flow, False)
 
-
 class SonicTopoConverger:
 
     def __init__(self, topology: Dict[str, Union[int, str]], file_out: str) -> None:
@@ -128,9 +127,9 @@ class SonicTopoConverger:
             properties = deepcopy(peers[dev]["properties"])
             asn = peers[dev]["bgp"]["asn"]
             new_peers[dev] = {"properties": properties,
-                             "vrf": {},
-                             "bgp": {"asn": asn},
-                             "intf_mapping": {}}
+                              "vrf": {},
+                              "bgp": {"asn": asn},
+                              "intf_mapping": {}}
 
         # Backplane L3 addresses are laid out for clarity-- addresses with odd
         # least-signifcant octets or hextets are assigned to the interfaces of the
@@ -142,7 +141,6 @@ class SonicTopoConverger:
         peer_bp_addr_offset = 100
         ptf_bp_addr_offset = 101
         for prime_dev, peer_list in self.prime_device_mapping.items():
-            num_peers = len(peer_list)
             intf_counter_base = 1
             eth_intf_index = 1
             offset = 0
@@ -155,9 +153,9 @@ class SonicTopoConverger:
                 orig_intf_map = {}
 
                 intf_index = i + intf_counter_base
-                vrf = { f"Vlan{vlan_id}": {}}
+                vrf = {f"Vlan{vlan_id}": {}}
 
-                for intf, config in peer_intfs.items():
+                for intf in peer_intfs:
                     if "Ethernet" not in intf:
                         continue
                     eth_intf = f"Ethernet{eth_intf_index}"
@@ -177,23 +175,22 @@ class SonicTopoConverger:
                 new_peers[prime_dev]["vrf"][vrf_name] = vrf
 
                 bp_addr_data = {}
-                v4Addr = peer["bp_interface"].get("ipv4", "10.10.246.0")
+                v4_addr = peer["bp_interface"].get("ipv4", "10.10.246.0")
                 if "ipv4" in peer["bp_interface"]:
-                    base_addr = v4Addr.split("/")[0]
+                    base_addr = v4_addr.split("/")[0]
                     bp_addr_data["ipv4"] = f"{self.modify_l3_address(base_addr, ptf_bp_addr_offset)}/31"
                     vrf[f"Vlan{vlan_id}"]["ipv4"] = f"{self.modify_l3_address(base_addr, peer_bp_addr_offset)}/31"
                 if "ipv6" in peer["bp_interface"]:
                     base_addr = peer["bp_interface"]["ipv6"].split("/")[0]
                     bp_addr_data["ipv6"] = f"{self.modify_l3_address(base_addr, ptf_bp_addr_offset)}/127"
-                    bp_addr_data["router-id"] = f"{self.modify_l3_address(v4Addr, ptf_bp_addr_offset)}"
+                    bp_addr_data["router-id"] = f"{self.modify_l3_address(v4_addr, ptf_bp_addr_offset)}"
                     vrf[f"Vlan{vlan_id}"]["ipv6"] = f"{self.modify_l3_address(base_addr, peer_bp_addr_offset)}/127"
                 if bp_addr_data:
                     bp_addr_data["vlan"] = vlan_id
                     bp_addrs[peer_name] = bp_addr_data
 
                 if not new_peers[prime_dev]["intf_mapping"]:
-                    # If we are filling in a prime_dev for the first time, reset the
-                    # offset
+                    # If we are filling in a prime_dev for the first time, reset the offset
                     offset = 0
                 new_peers[prime_dev]["intf_mapping"][vrf_name] = {"offset": offset, "orig_intf_map": orig_intf_map}
                 offset += 1
@@ -223,8 +220,7 @@ class SonicTopoConverger:
         self.converged_topo["topo_is_multi_vrf"] = True
 
         # We don't need to change the host_interfaces portion of the passed topo, so
-        # copy
-        # it over as is.
+        # copy it over as is.
         key = "host_interfaces"
         if key in old_topo:
             new_topo[key] = old_topo[key].copy()
@@ -261,7 +257,6 @@ class SonicTopoConverger:
         with open(self.file_out, "w", encoding="utf-8") as out_file:
             yaml.dump(self.converged_topo, out_file,
                       Dumper=ListIndentDumper, sort_keys=False)
-
 
 def converge_testbed(input_file: str, output_file: str) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:

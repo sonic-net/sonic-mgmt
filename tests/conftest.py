@@ -870,7 +870,8 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                                       'orig_intf_map': primary_data['intf_mapping'][neighbor_name]["orig_intf_map"],
                                       'primary_host': multi_vrf_primary_host,
                                       'primary_host_asn': primary_asn,
-                                      'intf_index_mapping': copy.deepcopy(data['interface_index_mapping'][neighbor_name]),
+                                      'intf_index_mapping': copy.deepcopy(
+                                            data['interface_index_mapping'][neighbor_name]),
                                       'vm_offset_mapping': data['vm_offset_mapping'][neighbor_name],
                                       'ptf_bp_config': copy.deepcopy(data['ptf_backplane_addrs'][neighbor_name])}
                 device = NeighborDevice(
@@ -940,7 +941,7 @@ def nbrhosts(enhance_inventory, ansible_adhoc, tbinfo, creds, request):
                     convergence_info = tbinfo['topo']['properties']['convergence_data']
                     for vrf_name in convergence_info['convergence_mapping'][neighbor_name]:
                         executor.submit(initial_neighbor, vrf_name, vm_name, multi_vrf_peer=True,
-                            multi_vrf_primary_host=neighbor_name)
+                                        multi_vrf_primary_host=neighbor_name)
                 else:
                     executor.submit(initial_neighbor, neighbor_name, vm_name)
 

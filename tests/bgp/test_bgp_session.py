@@ -217,7 +217,6 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     elif failure_type == "neighbor":
         for port in local_interfaces:
-            peer_name = neighbor_name
             neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
             nbr_data = nbrhosts[neighbor_name]
             if nbr_data.get('is_multi_vrf_peer', False):
@@ -265,7 +264,6 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
         elif failure_type == "neighbor":
             for port in local_interfaces:
-                peer_name = neighbor_name
                 neighbor_port = setup['neighhosts'][neighbor]['interface'][port]['port']
                 nbr_data = nbrhosts[neighbor_name]
                 if nbr_data.get('is_multi_vrf_peer', False):

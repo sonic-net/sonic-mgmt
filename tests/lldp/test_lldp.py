@@ -1,6 +1,5 @@
 import logging
 import pytest
-import re
 from tests.common.platform.interface_utils import get_dpu_npu_ports_from_hwsku
 from tests.common.utilities import wait_until
 
@@ -104,20 +103,20 @@ def test_lldp(duthosts, enum_rand_one_per_hwsku_frontend_hostname, localhost,
                 "LLDP neighbor interface mismatch. Expected '{}', but got '{}'."
             ).format(new_intf, v['port']['ifname'])
         else:
-           # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
-           assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
-               "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
-           ).format(config_facts['DEVICE_NEIGHBOR'][k]['name'], v['chassis']['name'])
-           # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port
-           if request.config.getoption("--neighbor_type") == 'eos':
-               assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
-                   "LLDP neighbor port interface name mismatch. Expected '{}', but got '{}'."
-               ).format(config_facts['DEVICE_NEIGHBOR'][k]['port'], v['port']['ifname'])
-           else:
-               # Dealing with KVM that advertises port description
-               assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
-                   "LLDP neighbor port description mismatch. Expected '{}', but got '{}'."
-               ).format(config_facts['DEVICE_NEIGHBOR'][k]['port'], v['port']['descr'])
+            # Compare the LLDP neighbor name with minigraph neigbhor name (exclude the management port)
+            assert v['chassis']['name'] == config_facts['DEVICE_NEIGHBOR'][k]['name'], (
+                "LLDP neighbor name mismatch. Expected '{}', but got '{}'."
+            ).format(config_facts['DEVICE_NEIGHBOR'][k]['name'], v['chassis']['name'])
+            # Compare the LLDP neighbor interface with minigraph neigbhor interface (exclude the management port
+            if request.config.getoption("--neighbor_type") == 'eos':
+                assert v['port']['ifname'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                    "LLDP neighbor port interface name mismatch. Expected '{}', but got '{}'."
+                ).format(config_facts['DEVICE_NEIGHBOR'][k]['port'], v['port']['ifname'])
+            else:
+                # Dealing with KVM that advertises port description
+                assert v['port']['descr'] == config_facts['DEVICE_NEIGHBOR'][k]['port'], (
+                    "LLDP neighbor port description mismatch. Expected '{}', but got '{}'."
+                ).format(config_facts['DEVICE_NEIGHBOR'][k]['port'], v['port']['descr'])
 
 
 def check_lldp_neighbor(duthost, localhost, eos, sonic, collect_techsupport_all_duts,
