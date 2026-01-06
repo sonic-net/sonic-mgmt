@@ -18,6 +18,7 @@ class ListIndentDumper(yaml.Dumper):
     def increase_indent(self, flow: bool = False, indentless: bool = False) -> None:
         return super().increase_indent(flow, False)
 
+
 class SonicTopoConverger:
 
     def __init__(self, topology: Dict[str, Union[int, str]], file_out: str) -> None:
@@ -257,6 +258,7 @@ class SonicTopoConverger:
         with open(self.file_out, "w", encoding="utf-8") as out_file:
             yaml.dump(self.converged_topo, out_file,
                       Dumper=ListIndentDumper, sort_keys=False)
+
 
 def converge_testbed(input_file: str, output_file: str) -> None:
     with open(input_file, "r", encoding="utf-8") as in_file:

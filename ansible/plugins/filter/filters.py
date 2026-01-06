@@ -342,7 +342,6 @@ class MultiVrfUtils:
     def get_exabgp_local_ip_v4(vm_name, multi_vrf_data):
         return MultiVrfUtils.get_exabgp_local_ip(vm_name, multi_vrf_data)
 
-
     @staticmethod
     def get_exabgp_local_ip_v6(vm_name, multi_vrf_data):
         return MultiVrfUtils.get_exabgp_local_ip(vm_name, multi_vrf_data, v6=True)
