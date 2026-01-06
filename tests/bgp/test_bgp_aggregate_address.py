@@ -44,6 +44,12 @@ AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_on
 
 
 @pytest.fixture(scope="module", autouse=True)
+def skip_multi_asic(duthost):
+    if duthost.is_multi_asic:
+        pytest.skip("Test not supported on multi-ASIC platforms")
+
+
+@pytest.fixture(scope="module", autouse=True)
 def setup_teardown(duthost):
     # This testcase will use GCU to modify several entries in running-config.
     # Restore the config via config_reload may cost too much time.
@@ -197,8 +203,6 @@ def test_bgp_aggregate_address(duthosts, rand_one_dut_hostname, ip_version, bbr_
     Unified BGP aggregate-address test with parametrize
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Not supported on multi-ASIC platforms")
 
     # Select specific data
     if ip_version == "ipv4":
@@ -239,8 +243,6 @@ def test_bgp_aggregate_address_when_bbr_changed(
     During device up, the BBR state may change, and the bgp aggregate address feature should take action accordingly.
     """
     duthost = duthosts[rand_one_dut_hostname]
-    if duthost.is_multi_asic:
-        pytest.skip("Not supported on multi-ASIC platforms")
 
     bbr_supported, bbr_default_state = get_bbr_default_state(duthost)
     if not bbr_supported:
