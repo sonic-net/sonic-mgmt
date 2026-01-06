@@ -3908,8 +3908,8 @@
   topo: t1-isolated-v6-d56u1-lag
   ptf_image_name: docker-ptf
   ptf: vms75-5
-  ptf_ip: 10.64.246.234/25
-  ptf_ipv6: 2a01:111:e210:b000::a40:f6ea/121
+  ptf_ip: 10.64.246.84/25
+  ptf_ipv6: 2a01:111:e210:b000::a40:f654/121
   server: server_75
   vm_base: VM75429
   dut:
