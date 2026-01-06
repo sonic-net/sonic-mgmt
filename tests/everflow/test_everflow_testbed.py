@@ -514,8 +514,11 @@ class EverflowIPv4Tests(BaseEverflowTest):
                                  setup_info[dest_port_type]["remote_namespace"])
         time.sleep(15)
 
-        # Verify that mirrored traffic is not sent to this new next hop
+        # Verify that packet exits via one of the nexthops including the new one
         tx_port_ptf_id = setup_info[dest_port_type]["dest_port_ptf_id"][2]
+        new_tx_port_ptf_ids = []
+        new_tx_port_ptf_ids.extend(tx_port_ptf_ids)
+        new_tx_port_ptf_ids.append(tx_port_ptf_id)
         self._run_everflow_test_scenarios(
             ptfadapter,
             setup_info,
@@ -523,9 +526,8 @@ class EverflowIPv4Tests(BaseEverflowTest):
             setup_mirror_session,
             everflow_dut,
             rx_port_ptf_id,
-            [tx_port_ptf_id],
+            new_tx_port_ptf_ids,
             dest_port_type,
-            expect_recv=False,
             valid_across_namespace=False,
             erspan_ip_ver=erspan_ip_ver
         )
