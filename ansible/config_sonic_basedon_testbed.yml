@@ -337,6 +337,15 @@
 
     when: switch_type is defined and switch_type == 'voq' and slot_num is defined and asic_topo_config|length > 0
 
+  - name: set default voq_chassis
+    set_fact:
+      voq_chassis: false
+
+  - name: set voq_chassis
+    set_fact:
+      voq_chassis: true
+    when: switch_type is defined and switch_type == 'voq' and voq_inband_ip is defined
+
   - name: create minigraph file in ansible minigraph folder
     template: src=templates/minigraph_template.j2
               dest=minigraph/{{ inventory_hostname}}.{{ topo }}.xml
