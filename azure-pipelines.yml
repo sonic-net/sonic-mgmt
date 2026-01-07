@@ -88,6 +88,7 @@ stages:
   condition: and(succeeded(), in(dependencies.Pre_test.result, 'Succeeded'))
   variables:
   - group: SONiC-Elastictest
+  - group: KUSTO_SECRETS
   - name: BUILD_BRANCH
     ${{ if eq(variables['Build.Reason'], 'PullRequest') }}:
       value: $(System.PullRequest.TargetBranch)

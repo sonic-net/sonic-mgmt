@@ -447,6 +447,7 @@ class TestPlanManager(object):
         print(f"Result of cancelling test plan at {tp_url}:")
         print(str(resp["data"]))
 
+
     def poll(self, test_plan_id, interval=60, timeout=-1, expected_state="", expected_result=None):
         print(f"Polling progress and status of test plan at {self.frontend_url}/scheduler/testplan/{test_plan_id}")
         print(f"Polling interval: {interval} seconds")
@@ -494,6 +495,7 @@ class TestPlanManager(object):
             current_tp_status = resp_data.get("status", None)
             current_tp_result = resp_data.get("result", None)
 
+            
             if expected_state:
                 current_status = test_plan_status_factory(current_tp_status)
                 expected_status = test_plan_status_factory(expected_state)
@@ -553,16 +555,61 @@ class TestPlanManager(object):
                                 f"Check {self.frontend_url}/scheduler/testplan/{test_plan_id} for test plan status"
                             )
 
+                    # Extract lock timing data when LOCK_TESTBED step completes successfully
+                    if expected_state == "LOCK_TESTBED" and step_status == "SUCCEEDED":
+                        try:
+                            self._extract_and_save_lock_timing(test_plan_id, start_time)
+                        except Exception as timing_err:
+                            print(f"WARNING: Failed to extract lock timing data: {timing_err}")
+
                     print(f"Current step status is {step_status}.")
                     return
 
                 time.sleep(interval)
 
         else:
+            # Record lock timing data on timeout as well
+            if expected_state == "LOCK_TESTBED":
+                try:
+                    self._extract_and_save_lock_timing(test_plan_id, start_time)
+                except Exception as timing_err:
+                    print(f"WARNING: Failed to extract lock timing data on timeout: {timing_err}")
+
             raise PollTimeoutException(
                 f"Max polling time reached, test plan at {poll_url} is not successfully finished or cancelled"
             )
 
+    def _extract_and_save_lock_timing(self, test_plan_id, poll_start_time):
+        try:
+            lock_end_time = time.time()
+            lock_duration = lock_end_time - poll_start_time
+            
+            lock_timing_data = {
+                "test_plan_id": test_plan_id,
+                "start_time": datetime.fromtimestamp(poll_start_time, tz=timezone.utc).isoformat(),
+                "end_time": datetime.fromtimestamp(lock_end_time, tz=timezone.utc).isoformat(),
+                "duration_seconds": round(lock_duration, 2),
+                "build_id": os.environ.get("BUILD_BUILDID", ""),
+            }        
+
+            output_file = "lock_timing.json"
+            try:
+                with open(output_file, "w") as f:
+                    json.dump(lock_timing_data, f, indent=2)
+                print(f"Lock timing data saved to {output_file}")
+            except IOError as e:
+                print(f"WARNING: Failed to write lock timing file '{output_file}': {e}")
+                return None
+            except Exception as e:
+                print(f"WARNING: Unexpected error writing lock timing file: {e}")
+                return None
+            
+            return lock_timing_data
+            
+        except Exception as e:
+            print(f"WARNING: Failed to extract lock timing data: {e}")
+            return None
+    
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
