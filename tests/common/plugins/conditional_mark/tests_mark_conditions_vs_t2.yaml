@@ -305,11 +305,6 @@ generic_config_updater/test_pg_headroom_update.py:
     conditions:
     - asic_type in ['vs'] and 't2' in topo_name
     reason: This test case either cannot pass or should be skipped on virtual chassis
-generic_config_updater/test_portchannel_interface.py:
-  skip:
-    conditions:
-    - asic_type in ['vs'] and 't2' in topo_name
-    reason: This test case either cannot pass or should be skipped on virtual chassis
 generic_config_updater/test_static_route.py:
   skip:
     conditions:
