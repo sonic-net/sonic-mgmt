@@ -101,7 +101,7 @@ def setup_env(duthosts, enum_rand_one_per_hwsku_frontend_hostname, portchannel_t
     Setup/teardown fixture for portchannel interface config
     Args:
         duthosts: list of DUTs.
-        enum_rand_one_per_hwsku_frontend_hostname: The fixture returns one DUT per hardware SKU
+        enum_rand_one_per_hwsku_frontend_hostname: The fixture returns a randomly selected frontend DuT per HwSKU
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     create_checkpoint(duthost)
