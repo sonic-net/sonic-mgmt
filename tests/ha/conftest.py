@@ -265,21 +265,25 @@ def wait_for_pending_operation_id(
     """
     Wait until the expected pending_operation_id appears.
     """
-    def _get_pending_id():
-        return get_pending_operation_id(
+    pending_id = None
+
+    def _condition():
+        nonlocal pending_id
+        pending_id = get_pending_operation_id(
             duthost,
             scope_key,
             expected_op_type,
         )
+        return pending_id is not None
 
-    success, result = wait_until(
+    success = wait_until(
         timeout,
         interval,
-        _get_pending_id,
-        delay=0,
+        0,           # REQUIRED delay argument
+        _condition,  # condition callable
     )
 
-    return result if success else None
+    return pending_id if success else None
 
 
 def expected_ha_state_from_fields(fields):
