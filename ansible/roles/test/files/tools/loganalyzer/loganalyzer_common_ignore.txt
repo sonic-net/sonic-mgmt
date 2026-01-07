@@ -424,4 +424,4 @@ r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
 
 # Ignore systemd-networkd.socket not being able to be started. This is expected on non-DPU platforms.
-r, ".*ERR systemd[1]: Failed to listen on systemd-networkd.socket - Network Service Netlink Socket.*"
+r, ".*ERR systemd\[1\]: Failed to listen on systemd-networkd.socket - Network Service Netlink Socket.*"
