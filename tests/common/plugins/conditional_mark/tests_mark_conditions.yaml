@@ -4914,22 +4914,6 @@ syslog/test_syslog_source_ip.py::TestSSIP::test_syslog_protocol_filter_severity:
       - "asic_type in ['vs']"
 
 #######################################
-#####         system_health       #####
-#######################################
-system_health/test_system_health.py:
-  skip:
-    reason: "There is no table SYSTEM_HEALTH_INFO in STATE_DB on kvm testbed, skip in PR testing"
-    conditions:
-      - "asic_type in ['vs']"
-
-system_health/test_system_health.py::test_service_checker_with_process_exit:
-  xfail:
-    strict: True
-    conditions:
-      - "branch in ['internal-202012']"
-      - "build_version.split('.')[1].isdigit() and int(build_version.split('.')[1]) <= 44"
-
-#######################################
 #####           tacacs          #####
 #######################################
 tacacs/test_accounting.py:
