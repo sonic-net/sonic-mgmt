@@ -50,6 +50,9 @@ PB_CLASS_MAP = {
     "METER_RULE": MeterRule,
     "TUNNEL": Tunnel,
     "ROUTE_RULE": RouteRule
+}
+
+PB_TYPE_MAP = {
     "HA_SCOPE": types_pb2.HaScope,
     "HA_OWNER": types_pb2.HaOwner,
     "IP_VERSION": types_pb2.IpVersion,
@@ -140,20 +143,26 @@ def parse_dash_proto(key: str, proto_dict: dict):
 
 
 def get_enum_type_from_str(enum_type_str, enum_name_str):
-
-    # 4_to_6 uses small cap so cannot use dynamic naming
+    # Special-case: enum value does not match standard naming
     if enum_name_str == "4_to_6":
-        return ActionType.ACTION_TYPE_4_to_6
+        return ActionType.ACTION_TYPE_4_TO_6
 
+    # Convert enum type name → ENUM_PREFIX
+    # Example: HaScope → HA_SCOPE
     my_enum_type_parts = re.findall(r'[A-Z][^A-Z]*', enum_type_str)
-    my_enum_type_concatenated = '_'.join(my_enum_type_parts)
-    enum_name = f"{my_enum_type_concatenated.upper()}_{enum_name_str.upper()}"
-    a = globals()[enum_type_str]
-    if a is not None:
-        """Returns the value for the given enum name and raisees ValueError if not found."""
-        return a.Value(enum_name)
-    else:
-        raise Exception(f"Cannot find enum type {enum_type_str}")
+    enum_prefix = '_'.join(my_enum_type_parts).upper()
+
+    enum_class = PB_TYPE_MAP.get(enum_prefix)
+    if not enum_class:
+        raise Exception(f"Cannot find enum type {enum_prefix} in PB_TYPE_MAP")
+
+    # Normalize enum value
+    # Example: "dpu" → HA_SCOPE_DPU
+    enum_value = enum_name_str.upper()
+    if not enum_value.startswith(enum_prefix):
+        enum_value = f"{enum_prefix}_{enum_value}"
+
+    return enum_class.Value(enum_value)
 
 
 def routing_type_from_json(json_obj):
@@ -301,10 +310,10 @@ def json_to_proto(key: str, proto_dict: dict):
             else:
                 enum_name = f"{enum_prefix}_{value_upper}"
 
-            # Lookup enum class from unified PB_CLASS_MAP
-            enum_class = PB_CLASS_MAP.get(enum_prefix)
+            # Lookup enum class from unified PB_TYPE_MAP
+            enum_class = PB_TYPE_MAP.get(enum_prefix)
             if enum_class is None:
-                raise KeyError(f"Enum type '{enum_type}' ({enum_prefix}) not found in PB_CLASS_MAP")
+                raise KeyError(f"Enum type '{enum_type}' ({enum_prefix}) not found in PB_TYPE_MAP")
 
             # Convert string to enum integer
             new_dict[field_name] = enum_class.Value(enum_name)
