@@ -73,7 +73,7 @@ def config_force_option_supported(duthost):
         return True
 
     # Fallback: try the help command but handle failures gracefully
-    out = duthost.shell("config reload -h 2>&1 || true", executable="/bin/bash", module_ignore_errors=True)
+    out = duthost.shell("sudo config reload -h 2>&1 || true", executable="/bin/bash", module_ignore_errors=True)
     if "force" in out.get('stdout', '').lower() or "force" in out.get('stderr', '').lower():
         return True
 
