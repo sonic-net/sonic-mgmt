@@ -125,7 +125,7 @@ console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
-console-212,10.3.145.212,Cisco,ConsoleServer,ssh,
+str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 console-185,10.3.145.185,Cisco,ConsoleServer,ssh,
 console-176,10.3.145.176,Cisco,ConsoleServer,ssh,
 str3-z9332f-02,10.3.146.118/24,DellEMC-Z9332f-O32,FanoutLeafSonic,,sonic
