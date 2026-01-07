@@ -1,8 +1,23 @@
 import pytest
-import os
 import re
 
 container_name = "acms"
+
+TEST_DATA_CLOUD = [
+    {
+        "cloudtype": "Public",
+        "region_list": ["useast", "japaneast", "asiaeast"]
+    },
+    {
+        "cloudtype": "FairFax",
+        "region_list": ["usgoveast", "usgovsc", "usgovsw"]
+    },
+    {
+        "cloudtype": "Mooncake",
+        "region_list": ["chinaeast", "chinaeast2", "chinaeast3"]
+    }
+]
+
 
 def create_acms_conf(region, cloudtype, duthost, filename):
     # Get ground truth from DUT
@@ -25,6 +40,7 @@ def create_acms_conf(region, cloudtype, duthost, filename):
     duthost.copy(content=text, dest=filename)
     return
 
+
 def create_dsms_conf(duthost, filename):
     text = '''
 [ACMS]
@@ -34,13 +50,16 @@ LastPollSuccess=yes
     duthost.copy(content=text, dest=filename)
     return
 
+
 def generate_pfx_cert(duthost, cert_name, expire=3650):
     """
     Generate a pfx cert file on the DUT.
     """
     command = "docker exec acms openssl genrsa -out /tmp/%s.key 2048" % (cert_name)
     duthost.shell(command, module_ignore_errors=True)
-    command = "docker exec acms openssl req -new -x509 -key /tmp/%s.key -out /tmp/%s.crt -subj '/CN=test.server.restapi.sonic' -days %d" % (cert_name, cert_name, expire)
+    command = "docker exec acms openssl req -new -x509 -key /tmp/%s.key -out /tmp/%s.crt \
+              -subj '/CN=test.server.restapi.sonic' -days %d" % (cert_name, cert_name, expire)
     duthost.shell(command, module_ignore_errors=True)
-    command = "docker exec acms openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key -in /tmp/%s.crt -password pass:" % (cert_name, cert_name, cert_name)
+    command = "docker exec acms openssl pkcs12 -export -out /tmp/%s.pfx -inkey /tmp/%s.key \
+              -in /tmp/%s.crt -password pass:" % (cert_name, cert_name, cert_name)
     duthost.shell(command, module_ignore_errors=True)

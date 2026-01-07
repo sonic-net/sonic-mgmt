@@ -1,11 +1,11 @@
+import json
 import logging
 import pytest
-import time
 
 from tests.acms.helper import container_name
 from tests.acms.helper import create_acms_conf
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.acms.helper import TEST_DATA_CLOUD
 
 
 logger = logging.getLogger(__name__)
@@ -15,21 +15,11 @@ pytestmark = [
     pytest.mark.disable_loganalyzer
 ]
 
-
-test_data_cloud = [
-    {
-        "cloudtype": "Public",
-        "region_list": ["useast", "japaneast", "asiaeast"]
-    },
-    {
-        "cloudtype": "FairFax",
-        "region_list": ["usgoveast", "usgovsc", "usgovsw"]
-    },
-    {
-        "cloudtype": "Mooncake",
-        "region_list": ["chinaeast", "chinaeast2", "chinaeast3"]
-    }
-]
+DOCKER_EXEC_CMD = "docker exec {} bash -c "
+NSENTER_CMD = "nsenter --target 1 --pid --mount --uts --ipc --net"
+ACMS_WATCHDOG_CMD = DOCKER_EXEC_CMD.format("acms_watchdog") + "'{} {}'"
+CURL_HTTP_CODE_CMD = "curl -s -o /dev/null -w \%\{http_code\} http://localhost:51001"   # noqa: W605
+CURL_CMD = "curl http://localhost:51001"   # ACMS watchdog http endpoint is 51001
 
 
 @pytest.fixture(scope='function', autouse=True)
@@ -63,11 +53,12 @@ def check_ca_cert(duthost, cert_name):
     return cert_name in command_result["stdout"]
 
 
-@pytest.mark.parametrize("test_data", test_data_cloud)
-def test_acms_cert_downloader(duthosts, rand_one_dut_hostname, creds, test_data):
+@pytest.fixture(scope='function', params=TEST_DATA_CLOUD, ids=[d["cloudtype"] for d in TEST_DATA_CLOUD])
+def setup_ca_pem_cert(request, duthosts, rand_one_dut_hostname, creds):
     """
     Test ACMS CA_cert_downloader.py functionality.
     """
+    test_data = request.param
     duthost = duthosts[rand_one_dut_hostname]
     http_proxy = creds.get('proxy_env', {}).get('http_proxy', '')
     https_proxy = creds.get('proxy_env', {}).get('https_proxy', '')
@@ -91,3 +82,59 @@ def test_acms_cert_downloader(duthosts, rand_one_dut_hostname, creds, test_data)
         dut_command = "docker exec %s supervisorctl stop CA_cert_downloader" % container_name
         duthost.shell(dut_command, module_ignore_errors=True)
     pytest.fail("Failed to download CA cert for %s" % cloudtype)
+
+
+def test_acms_healthy(duthosts,
+                      enum_rand_one_per_hwsku_hostname,
+                      verify_acms_containers_running,
+                      setup_ca_pem_cert):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    output = duthost.command(ACMS_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
+    try:
+        response = json.loads(output)
+    except json.JSONDecodeError:
+        pytest.fail("Invalid JSON response from ACMS watchdog: {}".format(output))
+
+    # Define expected keys
+    expected_keys = [
+        "check_ca_pem"
+    ]
+
+    # Check if all expected keys exist and have the value "OK"
+    for key in expected_keys:
+        pytest_assert(response.get(key) == "OK",
+                      "ACMS watchdog check failed for {}: {}".format(key, response.get(key)))
+
+    output = duthost.command(ACMS_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
+                             module_ignore_errors=True)["stdout"]
+    pytest_assert(output == "200", "ACMS watchdog should be healthy")
+
+
+def test_acms_missing_ca_pem(duthosts,
+                             enum_rand_one_per_hwsku_hostname,
+                             verify_acms_containers_running):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+
+    output = duthost.command(ACMS_WATCHDOG_CMD.format(NSENTER_CMD, CURL_CMD), module_ignore_errors=True)["stdout"]
+    try:
+        response = json.loads(output)
+    except json.JSONDecodeError:
+        pytest.fail("Invalid JSON response from ACMS watchdog: {}".format(output))
+
+    # Define expected keys
+    expected_keys = [
+        "check_ca_pem"
+    ]
+
+    # Check if all expected keys exist and have the value "OK"
+    for key in expected_keys:
+        msg = response.get(key, "")
+        pytest_assert(msg.startswith("FAIL cannot access") and
+                      "ROOT_CERTIFICATE.pem" in msg and
+                      "No such file or directory" in msg,
+                      "Unexpected results for {}: {}".format(key, response.get(key)))
+
+    output = duthost.command(ACMS_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
+                             module_ignore_errors=True)["stdout"]
+    pytest_assert(output == "500", "ACMS watchdog should be unhealthy")

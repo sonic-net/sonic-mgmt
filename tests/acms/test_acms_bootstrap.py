@@ -4,6 +4,7 @@ import pytest
 from tests.acms.helper import container_name
 from tests.acms.helper import create_acms_conf
 from tests.acms.helper import generate_pfx_cert
+from tests.acms.helper import TEST_DATA_CLOUD
 
 
 logger = logging.getLogger(__name__)
@@ -14,23 +15,7 @@ pytestmark = [
 ]
 
 
-test_data_cloud = [
-    {
-        "cloudtype": "Public",
-        "region_list": ["useast", "japaneast", "asiaeast"]
-    },
-    {
-        "cloudtype": "FairFax",
-        "region_list": ["usgoveast", "usgovsc", "usgovsw"]
-    },
-    {
-        "cloudtype": "Mooncake",
-        "region_list": ["chinaeast", "chinaeast2", "chinaeast3"]
-    }
-]
-
-
-@pytest.mark.parametrize("test_data", test_data_cloud)
+@pytest.mark.parametrize("test_data", TEST_DATA_CLOUD)
 def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
     """
     Test ACMS bootstrap functionality with internal image.
@@ -60,7 +45,8 @@ def test_acms_bootstrap(duthosts, rand_one_dut_hostname, creds, test_data):
         dut_command = "docker exec acms cp /tmp/acms.pfx /etc/sonic/credentials/sonic_acms_bootstrap-%s.pfx" % region
         duthost.shell(dut_command, module_ignore_errors=True)
         dut_command = 'docker exec -e http_proxy="%s" -e https_proxy="%s" %s \
-                        acms -Bootstrap -Dependant client -BaseDirPath /var/opt/msft/ -Console yes' % (http_proxy, https_proxy, container_name)
+                        acms -Bootstrap -Dependant client -BaseDirPath /var/opt/msft/ -Console yes' \
+                        % (http_proxy, https_proxy, container_name)
         command_result = duthost.shell(dut_command, module_ignore_errors=True)
         if "HTTP_1_1_REQUIRED" in command_result['stdout']:
             pytest.fail("CURL error: cloud %s, region %s, HTTP_1_1_REQUIRED" % (cloudtype, region))

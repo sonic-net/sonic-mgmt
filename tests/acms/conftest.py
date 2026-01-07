@@ -25,3 +25,11 @@ def setup_acms(duthosts, rand_one_dut_hostname):
     duthost.shell(dut_command, module_ignore_errors=True)
     dut_command = "docker exec %s supervisorctl reload" % (container_name)
     duthost.shell(dut_command)
+
+
+@pytest.fixture(scope="module")
+def verify_acms_containers_running(duthosts, enum_rand_one_per_hwsku_hostname):
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    for container in ["acms", "acms_watchdog", "acms-sidecar"]:
+        if not is_container_running(duthost, container):
+            pytest.skip(f"Container {container} is not running")
