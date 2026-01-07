@@ -339,20 +339,27 @@ class Test_VxLAN_route_Advertisement():
         Create a tunnel route and advertise the tunnel route to all neighbor without community id
         Result: All BGP neighbors can recieve the advertised BGP routes
         '''
-
+        time.sleep(15)
         self.vxlan_test_setup = setUp
         self.duthost = duthost
         if encap_type == 'v4_in_v4':
             self.prefix_type = 'v4'
         else:
             self.prefix_type = 'v6'
+
+        time.sleep(15)
         routes = self.gnenrate_vnet_routes(encap_type, 1)
+        time.sleep(15)
         self.add_unmonitored_vnet_route(routes, "")
+        time.sleep(15)
         time.sleep(WAIT_TIME)
         self.verify_nighbor_has_routes(routes, "")
+        time.sleep(15)
         self.remove_unmonitored_vnet_route(routes)
+        time.sleep(15)
         time.sleep(WAIT_TIME)
         self.verify_nighbor_doesnt_have_routes(routes, "")
+        time.sleep(15)
         return
 
     def test_basic_route_advertisement_with_community(self, setUp, encap_type, duthost):  # noqa: F811

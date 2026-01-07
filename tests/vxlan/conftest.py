@@ -340,40 +340,40 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
 
 
 
-@pytest.fixture(scope="function", autouse=True)
-def dump_config(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    logger.info("##### dump_config before running tests #####")
-    cmd = "ip -d link show type vrf"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+# @pytest.fixture(scope="function", autouse=True)
+# def dump_config(duthosts, rand_one_dut_hostname):
+#     duthost = duthosts[rand_one_dut_hostname]
+#     logger.info("##### dump_config before running tests #####")
+#     cmd = "ip -d link show type vrf"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
 
-    cmd = "vtysh -c 'show vrf'"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     cmd = "vtysh -c 'show vrf'"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
 
-    cmd = "ip link show"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     cmd = "ip link show"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
 
-    logger.info("##### dump_config before running tests done #####")
+#     logger.info("##### dump_config before running tests done #####")
 
-    yield
+#     yield
 
-    logger.info("##### dump_config after running tests #####")
-    cmd = "ip -d link show type vrf"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     logger.info("##### dump_config after running tests #####")
+#     cmd = "ip -d link show type vrf"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
 
-    cmd = "vtysh -c 'show vrf'"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     cmd = "vtysh -c 'show vrf'"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
 
-    cmd = "ip link show"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     cmd = "ip link show"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
 
-    logger.info("##### dump_config after running tests done #####")
+#     logger.info("##### dump_config after running tests done #####")
 
 
 
