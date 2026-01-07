@@ -293,6 +293,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 | 10 | Firmware download stress test | 1. Perform steps in TC #1 `firmware_download_stress_iterations` number of times. | 1. All the expectations of TC #1 must be met |
 | 11 | Firmware activation stress test | 1. Perform steps in TC #2 and #3 `firmware_activation_stress_iterations` number of times. | 1. All the expectations of TC #2 and #3 must be met |
 | 12 | Firmware read stress test | 1. Perform fw read operation `firmware_read_stress_iterations` number of times. | 1. The return code is 0.<br>2. All the fields remain unchanged across iterations<br>3. Critical process such as `xcvrd`, `syncd`  `orchagent` does not crash/restart. |
+| 13 | Firmware read stress test in parallel | 1. Perform fw read operation `firmware_read_stress_iterations` number of times for all the ports under test in parallel. | 1. The expected results from TC #12. |
 
 > Note: For firmware download, run and commit tests, report the command execution time to the test logs/report.
 
