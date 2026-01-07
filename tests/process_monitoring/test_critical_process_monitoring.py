@@ -629,9 +629,26 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     # Ensure all critical processes are running before starting this test
     # This is needed in case test_monitoring_critical_processes ran before this test
     logger.info("Ensuring all critical processes are running before orchagent heartbeat test...")
-    if not wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-                      check_all_critical_processes_running, duthost):
-        pytest.fail("Not all critical processes are running before orchagent heartbeat test")
+    if not check_all_critical_processes_running(duthost):
+        logger.warning("Not all critical processes are running, attempting recovery...")
+
+        # Get the containers to recover
+        skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
+        containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+        # Perform config reload to recover the system
+        logger.info("Performing config reload to recover critical processes...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+        # Ensure all critical processes are recovered, prioritizing database
+        logger.info("Ensuring all critical processes are running after recovery...")
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=True)
+
+        # Final check
+        if not wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
+                          check_all_critical_processes_running, duthost):
+            pytest.fail("Failed to recover all critical processes before orchagent heartbeat test")
+        logger.info("All critical processes recovered successfully")
 
     # t1 lag does not have swss container
     swss_running = is_container_running(duthost, 'swss')
