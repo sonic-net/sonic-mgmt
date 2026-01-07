@@ -43,10 +43,35 @@ PLACEHOLDER_PREFIX = "192.0.2.0/32"  # RFC5737 TEST-NET-1
 AggregateCfg = namedtuple("AggregateCfg", ["prefix", "bbr_required", "summary_only", "as_set"])
 
 
+def _is_multi_asic_host(host) -> bool:
+    """
+    Works for both MultiAsicSonicHost and SonicHost.
+    Prefer attribute when present; fallback to facts.
+    """
+    # Attribute path (MultiAsicSonicHost)
+    if hasattr(host, "is_multi_asic"):
+        try:
+            return bool(getattr(host, "is_multi_asic"))
+        except Exception:
+            pass
+
+    # Defensive fallback via facts
+    try:
+        num = int(host.facts.get("num_asic", 0))
+        return num > 1
+    except Exception:
+        return False
+
+
 @pytest.fixture(scope="module", autouse=True)
-def skip_multi_asic(duthost):
-    if duthost.is_multi_asic:
-        pytest.skip("Test not supported on multi-ASIC platforms")
+def skip_on_multi_asic(duthosts):
+    """
+    Skip the ENTIRE module if ANY DUT is multi-ASIC.
+    Runs before other module fixtures (e.g., setup_teardown).
+    """
+    for host in duthosts:
+        if _is_multi_asic_host(host):
+            pytest.skip("Skipped on multi-ASIC testbed", allow_module_level=True)
 
 
 @pytest.fixture(scope="module", autouse=True)
