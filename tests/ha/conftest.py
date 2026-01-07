@@ -282,6 +282,53 @@ def wait_for_pending_operation_id(
     return result if success else None
 
 
+def expected_ha_state_from_fields(fields):
+    desired = fields.get("desired_ha_state")
+
+    if desired == "active":
+        return "active"
+    if desired == "unspecified":
+        return "unspecified"
+
+    raise ValueError(f"Unknown desired_ha_state: {desired}")
+
+
+def extract_ha_state(text):
+    """
+    Extract ha_state from swbus-cli output
+    """
+    match = re.search(r'ha_state\s+\|\s+(\w+)', text)
+    return match.group(1) if match else None
+
+
+def wait_for_ha_state(
+    duthost,
+    scope_key,
+    expected_state,
+    timeout=120,
+    interval=5,
+):
+    """
+    Wait until HA reaches the expected state
+    """
+    def _check_ha_state():
+        cmd = (
+            "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
+            f"/hamgrd/0/ha-scope/{scope_key}"
+        )
+        res = duthost.shell(cmd)
+        return extract_ha_state(res["stdout"]) == expected_state
+
+    success, _ = wait_until(
+        timeout,
+        interval,
+        _check_ha_state,
+        delay=0,
+    )
+
+    return success
+
+
 @pytest.fixture(scope="module")
 def setup_dash_ha_from_json(duthosts):
     base_dir = "/data/tests/common/ha"
@@ -381,6 +428,14 @@ def setup_dash_ha_from_json(duthosts):
             key=key,
             args=build_dash_ha_scope_activate_args(fields, pending_id),
         )
-
+        expected_state = expected_ha_state_from_fields(fields)
+        # Verify HA state using fields
+        assert wait_for_ha_state(
+            duthost,
+            scope_key=key,
+            expected_state=expected_state,
+            timeout=120,
+            interval=5,
+        ), f"HA did not reach ACTIVE state for {key}"
     print("DASH HA Step-4 Activate Role completed")
     yield
