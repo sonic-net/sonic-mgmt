@@ -3,7 +3,7 @@
 ## Test Topology 1 – Functional test with single DUT
 
 - Basic single-DUT functional topology.
-- Tester connects four ports to the DUT at a common Ethernet speed (for example 800GE, 400GE, 200GE, or 100GE).
+- Tester connects four ports(rank 0,1,2,3) to the DUT at a common Ethernet speed (for example 800GE, 400GE, 200GE, or 100GE).
 - Used for RoCEv2 functional and congestion-control scenarios.
 
 <p float="left">
@@ -42,22 +42,31 @@
 
 ### Test Steps
 
-1.	Configure DUT with 2 lossless traffic with queues 3 and 4 mapping to DSCP value 3 and 4. 
-2.	Configure 1:1 test traffic between rank 0-3 & 1-4, 1 rank (endpoint) per port.  
-3.	Configure 4GB bursty test traffic (RoCEv2 AI traffic) for 2 lossless queues: 2 QP per rank pair, DSCP value 3 and 4 respectively, 4K IB MTU, 1MB message size (250 packets in burst per message), 50% rate per Tx port.
-4.	Configure 4GB bursty test traffic (RoCEv2 AI traffic) for remaining lossy queues: 4 QP per rank pair, DSCP values mapped to priorities 0,1,2,5 and 6 respectively, 4K IB MTU, 1MB message size (250 packets in burst per message), 50% rate per Tx port.
-5.	Disable DCQCN on endpoints.
-6.	Make sure that overall Tx port capacity doesn't exceed 100% line-rate and should not have any congestion on egress port.
-7.	Send lossless and lossy traffic and verify the statistics.
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking.  
+2. Configure 1:1 test traffic between rank 0-2 & 1-3, 1 rank (endpoint) per port.  
+3. Configure constant rate test traffic (RoCEv2 AI traffic) for 2 lossless and 4 lossy queues: 6 QPs per rank pair. 
+- DSCP value 0-5 on rank0 q1-6
+- DSCP value 0-5 on rank1 q1-6
+- DSCP for ACK/NAK/CNP value 48 
+- 4K IB MTU, 1MB message size (256 packets in burst per message) 
+- ECN-CE bit value 00 
+4. Run lossless and lossy traffic for 3 minutes and verify the statistics.
 
 
 ### Expected Results
 
-1.  In step 7, both lossless and lossy traffic should flow fine without any loss.
-2.	Verify that there are no PFC's received on tester side.
-3.	Successful test result indicates that DUT forward RoCEv2 AI traffic and control signaling as expected.
+1.  In step 4, both lossless and lossy traffic should flow fine without any loss.
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- No ECN-CE CNP Tx/Rx on the tester. 
+- No PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 6, matching tester ACK counter. 
+- ECN-CE should NOT be observed on queue 3 or 4, matching tester ECN-CE counter. 
+- CNP should NOT be observed on queue 6, matching tester CNP counter. 
+- Note Avg/Max latency and it should be within DUT spec. 
+2.	Successful test result indicates that DUT forward RoCEv2 AI traffic and control signaling as expected.
 
-## Test Case 2 – Congestion Control with PFC and ECN/CNP for AI Traffic
+## Test Case 2 – Congestion Control with PFC for AI Traffic 
 
 ### Objective
 
@@ -77,32 +86,154 @@
 
 ### Test Steps
 
-1.	Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4. 
-2.	Configure 2:1 in-cast test traffic between rank 0-3 & 1-3, 1 rank (endpoint) per port.  
-3.	Configure 4GB bursty test traffic (RoCEv2 AI traffic) for 1 lossless queue: 1QP per rank pair, DSCP value 26, 4K IB MTU, 1MB message size (250 packets in burst per message), 55% rate per Tx port
-4.	Disable DCQCN, run traffic and validate statistics
-5.	Enable DCQCN, run traffic and validate statistics.
-6.	Configure 4GB bursty test traffic (RoCEv2 AI traffic) for 2 lossless queues: 2 QP per rank pair, DSCP value 26 and 32 respectively, 4K IB MTU, 1MB message size (250 packets in burst per message), 55% rate per Tx port
-7.	Disable DCQCN, run traffic and validate statistics
-8.	Enable DCQCN, run traffic and validate statistics.
-9.	Increase number of ranks (endpoint) per port to 4K for testing T2
-
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking. 
+2. Configure 2:1 in-cast test traffic between rank 0-3 & 1-3, 1 rank (endpoint) per port.   
+3. Configure stateful RoCEv2 traffic to transmit 4GB data traffic for 1 lossless queue: 1QP per rank pair. 
+- DSCP for data traffic value 3 
+- DSCP for ACK/NAK value 3 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- 55% rate per Tx port 
+- ECN-CE bit value 00 
+4. Run traffic and validate statistics. 
+5. Configure stateful RoCEv2 traffic to transmit 4GB data traffic each for 2 lossless queues: 1 QP per rank pair. 
+- DSCP value 3 on rank0 
+- DSCP value 4 on rank1 
+- DSCP for ACK/NAK value 3 on rank0 
+- DSCP for ACK/NAK value 4 on rank1 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- 55% rate per Tx port 
+- ECN-CE bit value 00 
+6. Run traffic and validate statistics. 
+7. Configure stateful RoCEv2 traffic to transmit 4GB data traffic each for 2 lossless queues: 1 QP per rank pair. 
+- DSCP value 3 on rank0 
+- DSCP value 4 on rank1 
+- DSCP for ACK/NAK value 3 on rank0 
+- DSCP for ACK/NAK value 4 on rank1 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) on rank0 
+- 4K IB MTU, 4KB message size (WRITE only message) on rank1 
+- 55% rate per Tx port 
+- ECN-CE bit value 00 
+8. Run traffic and validate statistics. 
+9.	Increase number of endpoint per port to 4K for testing T2
 
 ### Expected Results
+1. In step 4, all messages should be completed successfully.  
 
-1.	In step 4, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. PFC should be received on priority 3 queue. Tx rate on port 1 & 2 should be reduced and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-2.	In step 5, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. No PFC should be received on priority 3 queue. Tx rate on port 1 & 2 should be reduced (due to DCQCN) and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-3.	In step 7, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. PFC should be received on both priority 3 & 4 queue. Tx rate on port 1 & 2 should be reduced and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-4.	In step 8, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. No PFC should be received on either priority queue 3 or 4. Tx rate on port 1 & 2 should be reduced (due to DCQCN) and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-5.	Successful test result indicates that DUT forward RoCEv2 AI traffic and control signaling as expected. PFC and ECN/CNP congestion signaling and congestion control function as expected. 
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- No ECN-CE CNP Tx/Rx on the tester. 
+- PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 3, matching tester ACK counter. 
+- ECN-CE should NOT be observed on queue 3, matching tester ECN-CE counter. 
+- CNP should NOT be observed on queue 6, matching tester CNP counter. 
+- Note Avg/Max latency and it should be within DUT spec. 
 
-### Notes
-1. SONiC support ECN counter. It does not support CNP counter
+2. In step 6 and 8, all messages should be completed successfully.  
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- No ECN-CE CNP Tx/Rx on the tester. 
+- PFC should be observed on queue 3, matching tester PFC counter for rank0. 
+- PFC should be observed on queue 4, matching tester PFC counter for rank1. 
+- ACK should be observed on queue 3, matching tester ACK counter for rank0. 
+- ACK should be observed on queue 4, matching tester ACK counter for rank1. 
+- ECN-CE should NOT be observed on queue 3, matching tester ECN-CE counter. 
+- CNP should NOT be observed on queue 6, matching tester CNP counter. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+3. Successful test results indicate that DUT forward RoCEv2 AI traffic and control signaling as expected. PFC congestion control functions as expected.  
 
 
----
+## Test Case 3 – Congestion Control with DCQCN for AI Traffic 
 
-## Test Case 3 – Congestion Control with PFC and ECN/CNP for Storage Traffic
+### Objective
+
+- Validate basic congestion control for RoCEv2/RDMA AI traffic using:
+  - Priority Flow Control (PFC)
+  - ECN marking on the switch
+  - CNP/ACK behavior on the endpoints
+- Applicable roles: T0, T1, T2.
+
+### Topology
+
+- Uses Test Topology 1 (single DUT with four connected test ports).
+
+<p float="left">
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
+</p>
+
+### Test Steps
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking. 
+2. Configure 2:1 in-cast test traffic between rank 0-3 & 1-3, 1 rank (endpoint) per port.   
+3. Configure stateful RoCEv2 traffic to transmit 4GB data traffic for 1 lossless queue: 1QP per rank pair. 
+
+- DSCP for data traffic value 3 
+- DSCP for ACK/NAK value 3 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- 55% rate per Tx port 
+- ECN-CE bit value 01/10 
+- Run traffic and validate statistics. 
+
+4. Configure stateful RoCEv2 traffic to transmit 4GB data traffic each for 2 lossless queues: 1 QP per rank pair. 
+
+- DSCP for data value 3 on rank0 
+- DSCP for data value 4 on rank1 
+- DSCP for ACK/NAK value 3 on rank0 
+- DSCP for ACK/NAK value 4 on rank1 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- 55% rate per Tx port 
+- ECN-CE bit value 01/10 
+5. Run traffic and validate statistics. 
+6. Set ECN-CE bit value 11 
+7. Run traffic and validate statistics. 
+8. Increase endpoint per port to 4K for testing T2 
+
+### Expected Result:  
+
+1. In step 4, all messages should be completed successfully.  
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 3, matching tester ACK counter. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+2. In step 6, all messages should be completed successfully.  
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter for rank0. 
+- Few or no PFC should be observed on queue 4, matching tester PFC counter for rank1. 
+- ACK should be observed on queue 3, matching tester ACK counter for rank0. 
+- ACK should be observed on queue 4, matching tester ACK counter for rank1. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter for rank0. 
+- ECN-CE should be observed on queue 4, matching tester ECN-CE counter for rank1. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+3. In step 8, all messages should be completed successfully. 
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter for rank0. 
+- Few or no PFC should be observed on queue 4, matching tester PFC counter for rank1. 
+- ACK should be observed on queue 3, matching tester ACK counter for rank0. 
+- ACK should be observed on queue 4, matching tester ACK counter for rank1. 
+- All data packets marked with ECN-CE should be observed on queue 3 or 4, matching tester ECN-CE counter. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+4. Successful test results indicate that DUT forward RoCEv2 AI traffic and control signaling as expected. DCQCN congestion control functions as expected. 
+
+
+## Test Case 4 – Congestion Control with PFC and ECN/CNP for Storage Traffic
 
 ### Objective
 
@@ -118,27 +249,188 @@
 </p>
 
 ### Test Steps
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking. 
+2. Configure tester for 2:1 in-cast between rank 0-3 & 1-3, 1 rank (endpoint) per port.   
+3. Configure constant rate test traffic (RoCEv2 storage traffic) for 1 lossless queue: 1QP per rank pair 
 
-1.	Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4. 
-2.	Configure tester for 2:1 in-cast between rank 0-3 & 1-3, 1 rank (endpoint) per port.  
-3.	Configure 4GB constant rate test traffic (RoCEv2 storage traffic) for 1 lossless queue: 1QP per rank pair, DSCP value 3, 4K IB MTU, 1MB message size (constant rate), 55% rate per Tx port
-4.	Disable DCQCN, run traffic and validate statistics
-5.	Enable DCQCN, run traffic and validate statistics.
-6.	Configure 4GB constant rate test traffic (RoCEv2 storage traffic) for 2 lossless queues: 2 QPs per rank pair, DSCP value 3 and 4 respectively, 4K IB MTU, 1MB message size (constant rate), 55% rate per Tx port
-7.	Disable DCQCN, run traffic and validate statistics
-8.	Enable DCQCN, run traffic and validate statistics.
+- DSCP for data traffic value 3 
+- DSCP for ACK/NAK value 3 
+- DSCP for CNP value 48 
+- 4K IB MTU, 1MB message size (256 packets in burst per message) 
+- 55% rate per Tx port 
+- ECN-CE bit value 01/10 
+4. Disable DCQCN, run traffic for 3 minutes and validate statistics. 
+5. Enable DCQCN, run traffic for 3 minutes and validate statistics. 
+6. Configure constant rate test traffic (RoCEv2 storage traffic) for 2 lossless queues: 1 QPs per rank pair 
 
-### Expected Results
+- DSCP value 3 on rank0 
+- DSCP value 4 on rank1 
+- 4K IB MTU, 1MB message size (256 packets in burst per message) 
+- 55% rate per Tx port 
+- ECN-CE bit value 01/10 
+7. Disable DCQCN, run traffic for 3 minutes and validate statistics 
+8. Enable DCQCN, run traffic for 3 minutes and validate statistics. 
+9. Increase endpoint per port to 4K for testing T2 
 
-1.	In step 4, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. PFC should be received on priority 3 queue. Tx rate on port 1 & 2 should be reduced and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-2.	In step 5, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. No PFC should be received on priority 3 queue. Tx rate on port 1 & 2 should be reduced (due to DCQCN) and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-3.	In step 7, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. PFC should be received on both priority 3 & 4 queue. Tx rate on port 1 & 2 should be reduced and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-4.	In step 8, all messages should be completed successful. No loss should be observed. Switch ECN counter should match tester ECN counter. No NAK and sequence error, ACK/CNP Tx/Rx should be same. No PFC should be received on either priority queue 3 or 4. Tx rate on port 1 & 2 should be reduced (due to DCQCN) and total should not exceed egress port bandwidth (eg. 400Gbps). Avg/Max latency should be within DUT spec.
-5.	Successful test result indicates that DUT forward RoCEv2 storage traffic and control signaling as expected. PFC and ECN/CNP congestion signaling and congestion control function as expected. 
+### Expected Result:  
 
----
+1. In step 4, all messages should be completed successfully.  
 
-## Test Case 4 – Hashing and Load Balancing
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 3, matching tester ACK counter. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Bandwidth during traffic run and it should be within DUT spec. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+2. In step 5, all messages should be completed successfully.  
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 3, matching tester ACK counter. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Bandwidth during traffic run and it should be within DUT spec. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+3. In step 7, all messages should be completed successfully.  
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- PFC should be observed on queue 3, matching tester PFC counter for rank0. 
+- PFC should be observed on queue 4, matching tester PFC counter for rank1. 
+- ACK should be observed on queue 3, matching tester ACK counter for rank0. 
+- ACK should be observed on queue 4, matching tester ACK counter for rank1. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter for rank0. 
+- ECN-CE should be observed on queue 4, matching tester ECN-CE counter for rank1. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Bandwidth during traffic run and it should be within DUT spec. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+4. In step 8, all messages should be completed successfully.  
+
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter for rank0. 
+- Few or no PFC should be observed on queue 4, matching tester PFC counter for rank1. 
+- ACK should be observed on queue 3, matching tester ACK counter for rank0. 
+- ACK should be observed on queue 4, matching tester ACK counter for rank1. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter for rank0. 
+- ECN-CE should be observed on queue 4, matching tester ECN-CE counter for rank1. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Bandwidth during traffic run and it should be within DUT spec. 
+- Note Avg/Max latency and it should be within DUT spec. 
+
+4. Successful test result indicates that DUT forward RoCEv2 storage traffic and control signaling as expected. PFC and ECN/CNP congestion signaling and congestion control function as expected.  
+
+ ## Test Case 5 – PFC propagation
+
+### Objective
+
+- Validate basic PFC propagation for RoCEv2/RDMA AI/storage traffic.
+- Applicable roles: T0, T1, T2.
+
+### Topology
+
+- Uses Test Topology 1.
+
+<p float="left">
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
+</p>
+
+### Test Steps
+
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking. 
+2. Configure tester for point-to-point traffic between rank 0-2 and 1-3, 1 rank (endpoint) per port.   
+3. Configure constant rate test traffic (RoCEv2 storage traffic) for 2 lossless queues:  
+- DSCP value 3 on rank0 
+- DSCP value 4 on rank1 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- 100% rate per Tx port 
+- ECN-CE bit value 00 
+4. Run traffic for 10 seconds and validate statistics. 
+5. Configure PFC generation on rank 2 and 3 for 90% available bandwidth. 
+6. Run traffic for 30 seconds and validate statistics. 
+7. Increase endpoint per port to 4K for testing T2 
+
+### Expected Result:  
+
+1. In step 4, all messages should be completed successfully.  
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- No PFC should be observed on queue 3, matching tester PFC counter. 
+- No PFC should be observed on queue 4, matching tester PFC counter. 
+2. In step 6, all messages should be completed successfully.  
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- PFC should be observed on queue 3, matching tester PFC counter. 
+- PFC should be observed on queue 4, matching tester PFC counter. 
+3. Successful test results indicate that DUT forward RoCEv2 AI traffic and PFC generated by tester as expected. 
+
+
+## Test Case 6 – QP Fairness with DCQCN
+
+### Objective
+
+- Validate fairness between QPs under congestion controled with DCQCN.
+
+### Topology
+
+- Can use Test Topology 1 or 2; single-DUT topology is sufficient for illustration.
+
+<p float="left">
+  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
+</p>
+
+### Test Steps
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking. 
+2. Configure 2:1 in-cast test traffic between rank 0-3 & 1-3, 1 rank (endpoint) per port.   
+3. Configure stateful RoCEv2 traffic to transmit constant rate data traffic for 1 lossless queue: 1QP per rank pair. 
+- DSCP for data traffic value 3 
+- DSCP for ACK/NAK value 3 
+- DSCP for CNP value 48 
+- 4K IB MTU, 1MB message size (256 packets in burst per message) 
+- 100% rate per Tx port 
+- ECN-CE bit value 01/10 
+4. Run traffic for 3 minutes and validate statistics. 
+5. Configure stateful RoCEv2 traffic to transmit constant rate data traffic 2 lossless queues: 1 QP per rank pair. 
+- DSCP for data value 3 on rank0 
+- DSCP for data value 4 on rank1 
+- DSCP for ACK/NAK value 3 on rank0 
+- DSCP for ACK/NAK value 4 on rank1 
+- DSCP for CNP value 48 
+- 4K IB MTU, 1MB message size (256 packets in burst per message) 
+- 100% rate per Tx port 
+- ECN-CE bit value 01/10 
+6. Run traffic for 3 minutes and validate statistics. 
+7. Configure n:1 in-cast test traffic to check QP fairness further.   
+
+### Expected Result:  
+
+1. In step 4, all messages should be completed successfully. 
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 3, matching tester ACK counter. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Bandwidth during traffic run and Tx Rate of rank0 and rank1 should be fair, with a deviation less than 30%. 
+2. In step 6, all messages should be completed successfully. 
+- No loss should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- Few or no PFC should be observed on queue 3, matching tester PFC counter for rank0. 
+- Few or no PFC should be observed on queue 4, matching tester PFC counter for rank1. 
+- ACK should be observed on queue 3, matching tester ACK counter for rank0. 
+- ACK should be observed on queue 4, matching tester ACK counter for rank1. 
+- ECN-CE should be observed on queue 3, matching tester ECN-CE counter for rank0. 
+- ECN-CE should be observed on queue 4, matching tester ECN-CE counter for rank1. 
+- CNP should be observed on queue 6, matching tester CNP counter. 
+- Note Bandwidth during traffic run and Tx Rate of rank0 and rank1 should be fair, with a deviation less than 30%. 
+
+## Test Case 7 – Hashing and Load Balancing
 
 ### Objective
 
@@ -156,7 +448,7 @@
 
 ### Test Steps
 
-1.	Configure DUT with lossless queues 3 mapping to DSCP value 2. 
+1.	Configure DUT with lossless queues 3 mapping to DSCP value 3. 
 2.	Configure continuous test traffic: 4K IB MTU,1MB message size, 
 3.	One rank pair from 0-4, 1 QP per rank pair, check leaf 1 egress.
 4.	Increase to X QPs per rank pair, check leaf 1 egress.
@@ -184,9 +476,7 @@
 2.	Most of switch chip has dynamic hashing based on traffic load. In this case, the start time of various flows will impact hashing result.
 3.	This kind of p2p test reflects pipeline parallelism and expert parallelism in real AI world training and inferencing. It is a good reference of hash behavior of DUT. 
 
----
-
-## Test Case 5 – Packet Spray
+## Test Case 8 – Packet Spray
 
 ### Objective
 
@@ -201,24 +491,29 @@
 </p>
 
 ### Test Steps
+1. Configure DUT with lossless queues 3 mapping to DSCP value 3.  
+2. Configure 4GB all-to-all test traffic between 8 ranks. 
+- DSCP for data traffic value 3 
+- DSCP for ACK/NAK value 3 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- ECN-CE bit value 01/10 
+3. Enable Out-of-order support on tester. 
+4. Run traffic and validate statistics. 
 
-1.	Configure DUT with lossless queues 3 mapping to DSCP value 26. 
-2.	Configure continuous all-to-all test traffic between 8 ranks: 4K IB MTU,1MB message size, 
-3.	Disable PFC and enable Out-of-order support on tester.
-4.	Start traffic for 5 mins and stop traffic.
-5.	Check traffic statistics on tester
+### Expected Result: 
+1. In step 4, all messages should be completed successfully.  
+- No loss or NAK should be observed on the tester.  
+- No NAK and sequence error on the tester. 
+- No PFC should be observed on queue 3, matching tester PFC counter. 
+- ACK should be observed on queue 3, matching tester ACK counter. 
+- No ECN-CE should be observed on queue 3, matching tester ECN-CE counter. 
+- No CNP should be observed on queue 6, matching tester CNP counter. 
+- Packet count should be evenly distributed on egress ports. 
+- Note Avg/Max latency and it should be within DUT spec. 
 
-### Expected Results
 
-1.	In step 4, all messages should be completed successful. No loss should be observed. Expect no NAK and sequence error. Expect max packet latency to be reduced comparing with packet spray disabled.
-
-### Notes
-
-1.	Assume packet spray does not create big out of order sequence beyond tester’s support. Eg. within 512 out-of-order distance for 800GE port.
-
----
-
-## Test Case 6 – QoS Profile Prioritizing Lossless Traffic
+## Test Case 9 – QoS Profile Prioritizing Lossless Traffic
 
 ### Objective
 
@@ -253,40 +548,8 @@
 1.	Need to experiment to validate expected result.
 2.	Set traffic rate as % of line rate which is applicable to different link speeds (Riff’s comment: Make traffic rate as input parameter to adapt to different test topology)
 
----
 
-## Test Case 7 – QP Fairness with DCQCN + PFC
-
-### Objective
-
-- Validate fairness between QPs under congestion when DCQCN and PFC are in use.
-
-### Topology
-
-- Can use Test Topology 1 or 2; single-DUT topology is sufficient for illustration.
-
-<p float="left">
-  <img src="Img/RoCEv2_Topology_1.png" width="350"  hspace="200"/>
-</p>
-
-### Test Steps
-
-1.	Configure DUT with lossless queues 3 mapping to DSCP 26.
-2.	Configure continuous 2:1 incast test traffic between 0-3, 1-3: 4K IB MTU,1MB message size, 16 QPs per rank pair, disable PFC, enable DCQCN. 
-3.	Check per QP Tput within same rank and across different ranks
-4.	Adjust DCQCN, check per QP Tput
-
-### Expected Results
-
-1.	In step 3, check ECN counter, expect Tput per QP vary. The difference should not be over ??? 
-2.	In step 4, expect more even Tput among QPs
-
-### Notes
-1.	Test QP fairness in congestion condition
-
----
-
-## Test Case 8 – Failover and Recovery
+## Test Case 10 – Failover and Recovery
 
 ### Objective
 
@@ -314,4 +577,39 @@
 2.	In step 4, traffic should be failover to the next available egress link on leaf 1. No loss is expected.
 3.	In step 5, expect traffic to move back to original link if resilient ECMP is enabled/supported, or expect traffic to stay if resilient ECMP is disabled/not-supported.
 
----
+
+## Test Case 11 – Control Plane Timeout Retransmission Mitigation
+
+### Objective
+
+- Validate control plane timeout due to PFC mitigated by setting higher or other priority queue. This test applies to T0/T1/T2. 
+
+### Topology
+
+- Uses Test Topology 2.
+
+<p float="left">
+  <img src="Img/RoCEv2_Topology_2_single_link_failover.png" width="350"  hspace="200"/>
+</p>
+
+### Test Steps
+
+1. Configure DUT with 2 lossless queues 3 and 4 mapping to DSCP value 3 and 4, queue 6 mapping to DSCP 48, enable PFC and ECN-marking.   
+2. Configure 4:1 in-cast test traffic between rank 0-4, 1-4, 2-4 & 3-4 and 1:4 broadcast test traffic between rank 4-0, 4-1, 4-2, 4-3, 1 rank (endpoint) per port.  
+- DSCP for data traffic value 3 
+- DSCP for ACK/NAK value 3 
+- DSCP for CNP value 48 
+- 4K IB MTU, 128KB message size (32 packets in burst per message) 
+- ECN-CE bit value 00 
+3. Run traffic for 60 seconds and validate statistics.  
+4. Configure constant rate test traffic for incast with dscp3, set ACK/NACK dscp7.  
+5. Configure constant rate test traffic for broadcast with dscp3, set ACK/NACK dscp7.  
+6. Run traffic for 60 seconds and validate statistics. 
+7. Configure constant rate test traffic for broadcast with dscp4, set ACK/NACK dscp4.  
+8. Run traffic for 60 seconds and validate statistics. 
+
+### Expected Result:  
+
+1. In step 5, messages completions suffered ACK-timeout retransmission under PFC-pause-induced latency or failed after retransmission with ACK loss. 
+2. In step 8, all messages should be completed without retransmission. ACK timeout retransmission is mitigated by a higher queue. 
+3. In step 10, all messages should be completed without retransmission. ACK timeout retransmission is mitigated by another lossless queue. 
