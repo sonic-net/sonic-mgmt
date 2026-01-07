@@ -16,31 +16,8 @@
 package main
 
 /*
-#include <stddef.h>
-#include <stdint.h>
+#include "infrastructure/thinkit/thinkit_go_interface.h"
 
-struct ProtoIn {
-  const char* data;
-	size_t length;
-};
-
-struct ProtoOut {
-  void* proto;
-	void (*write_proto)(void* proto, char* data, size_t length);
-};
-
-struct StringOut {
-  void* string;
-	char* (*resize)(void* string, size_t length);
-};
-
-static void write_proto(struct ProtoOut proto_out, char* data, size_t length) {
-  proto_out.write_proto(proto_out.proto, data, length);
-}
-
-static char* resize_string(struct StringOut string_out, size_t length) {
-  return string_out.resize(string_out.string, length);
-}
 */
 import (
 	"C"
@@ -50,19 +27,23 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"testing"
 	"time"
 	"unsafe"
 
 	log "github.com/golang/glog"
+
 	"github.com/openconfig/gnmi/errlist"
 
 	"github.com/openconfig/ondatra/binding"
 	"github.com/openconfig/ondatra/proxy"
 	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/binding/pinsbind"
+	"github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/testhelper/testhelper"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/local"
 	"google.golang.org/protobuf/proto"
 
+	"github.com/openconfig/ondatra/fakebind"
 	opb "github.com/openconfig/ondatra/proto"
 	rpb "github.com/openconfig/ondatra/proxy/proto/reservation"
 )
@@ -129,6 +110,7 @@ var (
 	p          *proxy.Proxy
 	resv       *binding.Reservation
 	b          proxyBinding
+	f          *fakebind.Binding // Used to set the reservation used by Ondatra APIs.
 	newBinding = defaultBinding
 )
 
@@ -153,7 +135,15 @@ func Init(ctx context.Context, tb *opb.Testbed, waitTime, runTime C.long) error 
 		return err
 	}
 	p, err = proxy.New(b, grpc.Creds(local.NewCredentials()))
-	return err
+
+	if err != nil {
+		return err
+	}
+
+	// Set the reservation for Ondatra APIs.
+	f = fakebind.Setup().WithReservation(resv)
+	initGoTestHelpers()
+	return nil
 }
 
 func addProxyTarget(s *rpb.Service, proxyAddr string) error {
@@ -223,4 +213,114 @@ func Release(ctx context.Context) error {
 	}
 	p = nil
 	return errs.Err()
+}
+
+type teardownHandler struct {
+	// Required to access ondatra APIs.
+	t *testing.T
+	// Handles the teardown logic for Ondatra tests.
+	o *testhelper.TearDownOptions
+	// Options used while creating the handler.
+	createOpts C.struct_testhelper_TeardownCreateOpts
+}
+
+var (
+	handlers      = map[int]*teardownHandler{}
+	handlersGuard = sync.Mutex{}
+	newHandlerID  = 1
+)
+
+func initGoTestHelpers() {
+	// Execute the function only once.
+	sync.OnceFunc(func() {
+		// Initialize the testing.T to access GO test helpers.
+		testing.Init()
+	})()
+}
+
+//export testhelperNewTearDownOptions
+func testhelperNewTearDownOptions(opts C.struct_testhelper_TeardownCreateOpts) C.int {
+	// Create a new testing.T to access ondatra APIs.
+	t := &testing.T{}
+	// TeardownOptions handles the teardown logic for Ondatra tests.
+	o := testhelper.NewTearDownOptions(t)
+	// Set the test case ID if provided.
+	id := C.GoString(opts.id)
+	if id != "" {
+		o = o.WithID(id)
+	}
+	// Set the teardown options.
+	if opts.with_config_restorer {
+		o = o.WithConfigRestorer(t, nil /*(ignorePaths)*/)
+	}
+
+	h := &teardownHandler{
+		t:          &testing.T{},
+		o:          o,
+		createOpts: opts,
+	}
+
+	// Acquire the lock to save the handler in a map.
+	handlersGuard.Lock()
+	defer handlersGuard.Unlock()
+	// Assign a unique ID to the handler.
+	hID := newHandlerID
+	newHandlerID++
+
+	// Save the handler in the map.
+	handlers[hID] = h
+	log.InfoContextf(context.TODO(), "Created new testhelper teardown handler, with id: %v", hID)
+	// Return the handler ID.
+	// Handler ID is used to identify the handler coming from the CC code.
+	return C.int(hID)
+}
+
+//export testhelperTeardown
+func testhelperTeardown(handlerID C.int) {
+	hID := int(handlerID)
+
+	// Acquire the lock to read/remove the handler from the map.
+	handlersGuard.Lock()
+	defer handlersGuard.Unlock()
+
+	h, ok := handlers[hID]
+	if !ok {
+		log.FatalContextf(context.TODO(), "handler %v not found", hID)
+	}
+
+	o := h.o
+	// Trigger the teardown logic.
+	o.Teardown(h.t)
+	// Explicitly restore configs if enabled,
+	// as config restorer is not triggered in the teardown logic.
+	if h.createOpts.with_config_restorer {
+		if err := o.RestoreConfigs(h.t); err != nil {
+			log.WarningContextf(context.TODO(), "testhelperTeardown, failed to restore configs: %v", err)
+		}
+	}
+
+	// Remove the handler from the map.
+	delete(handlers, hID)
+}
+
+//export testhelperAddTestCaseID
+func testhelperAddTestCaseID(handlerID C.int, testCaseID *C.char) {
+	if testCaseID == nil {
+		return
+	}
+
+	// Get the handler from the map.
+	hID := int(handlerID)
+	handlersGuard.Lock()
+	defer handlersGuard.Unlock()
+	h, ok := handlers[hID]
+	if !ok {
+		log.FatalContextf(context.TODO(), "handler %v not found", hID)
+	}
+	h.o.WithID(C.GoString(testCaseID))
+}
+
+//export testhelperSaveSwitchLogs
+func testhelperSaveSwitchLogs() {
+	log.Warningf("testhelperSaveSwitchLogs is unimplemented")
 }

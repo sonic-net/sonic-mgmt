@@ -7,7 +7,9 @@ import (
 	"encoding/hex"
 	"fmt"
 	"os"
+	"path"
 	"strconv"
+	"sync"
 	"testing"
 	"time"
 
@@ -15,10 +17,12 @@ import (
 
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
+	"github.com/openconfig/ygnmi/ygnmi"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/protobuf/encoding/prototext"
 
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
 	p4infopb "github.com/p4lang/p4runtime/go/p4/config/v1"
 	p4pb "github.com/p4lang/p4runtime/go/p4/v1"
 )
@@ -35,15 +39,33 @@ var (
 		return 0, errors.Errorf("failed to get port ID for port %v from switch", port)
 	}
 	testhelperDeviceIDGet = func(t *testing.T, d *ondatra.DUTDevice) (uint64, error) {
-		deviceInfo, present := gnmi.Lookup(t, d, gnmi.OC().Component(icName).IntegratedCircuit().State()).Val()
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		yc, err := ygnmiClient(ctx, d)
+		if err != nil {
+			return 0, fmt.Errorf("failed to create ygnmi client, err: %v", err)
+		}
+		v, err := ygnmi.Lookup(ctx, yc, gnmi.OC().Component(icName).IntegratedCircuit().State())
+		if err != nil {
+			return 0, fmt.Errorf("failed to lookup device ID, err: %v", err)
+		}
+		deviceInfo, present := v.Val()
 		if present && deviceInfo.NodeId != nil {
 			return *deviceInfo.NodeId, nil
 		}
 		// Configure default device ID on the switch.
-		gnmi.Replace(t, d, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().Config(), defaultDeviceID)
+		_, err = ygnmi.Replace(ctx, yc, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().Config(), defaultDeviceID)
+		if err != nil {
+			return 0, fmt.Errorf("failed to configure default device ID, err: %v", err)
+		}
 		// Verify that default device ID has been configured and return that.
-		if got, want := gnmi.Get(t, d, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().State()), defaultDeviceID; got != want {
-			return 0, errors.Errorf("failed to configure default device ID")
+		devID, err := ygnmi.Await(ctx, yc, gnmi.OC().Component(icName).IntegratedCircuit().NodeId().State(), defaultDeviceID, nil)
+		if err != nil {
+                    have := "<unknown>"
+                    if devID != nil {
+                        have = devID.String()
+                    }
+		    return 0, fmt.Errorf("waiting for device ID to be %v failed, have %v, err: %v", defaultDeviceID, have, err)
 		}
 		return defaultDeviceID, nil
 	}
@@ -140,11 +162,15 @@ func (p *P4RTClient) P4Info() (*p4infopb.P4Info, error) {
 	err := fmt.Errorf("P4Info is not implemented")
 
 	// Read P4Info from file.
-	p4Info = &p4infopb.P4Info{}
-	data, err := os.ReadFile("ondatra/data/p4rtconfig.prototext")
+	file, err := bazel.Runfile("ondatra/data/p4rtconfig.prototext")
 	if err != nil {
 		return nil, err
 	}
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return nil, err
+	}
+        p4Info = &p4infopb.P4Info{}
 	err = prototext.Unmarshal(data, p4Info)
 
 	return p4Info, err
@@ -179,6 +205,20 @@ func (p *P4RTClient) PushP4Info() error {
 	config := &p4pb.ForwardingPipelineConfig{
 		P4Info: p.p4Info,
 	}
+	// Save the config to artifacts.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		dn := testhelperDUTNameGet(p.dut)
+		artifactName := fmt.Sprintf("p4_push_%v.txt", time.Now().UnixNano())
+		fp := path.Join(dn, artifactName)
+		log.Infof("Saving P4Info to artifacts at path: %v", fp)
+		if err := SaveToArtifact(prototext.Format(p.p4Info), fp); err != nil {
+			log.Warningf("Failed to save P4Info for dut: %v to artifacts, err: %v", dn, err)
+		}
+	}()
+	defer wg.Wait()
 	req := &p4pb.SetForwardingPipelineConfigRequest{
 		DeviceId:   p.deviceID,
 		ElectionId: p.electionID,
