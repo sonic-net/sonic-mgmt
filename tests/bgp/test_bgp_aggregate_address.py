@@ -48,9 +48,12 @@ def _is_multi_asic_host(host) -> bool:
     Works for both MultiAsicSonicHost and SonicHost.
     Prefer attribute when present; fallback to facts.
     """
+    logger.info(f"Trying to check is multi asic for host:{host.hostname}")
     # Attribute path (MultiAsicSonicHost)
     if hasattr(host, "is_multi_asic"):
         try:
+            is_multi_asic = getattr(host, "is_multi_asic")
+            logger.info(f"The attr is_multi_asic: {is_multi_asic} of host:{host.hostname}")
             return bool(getattr(host, "is_multi_asic"))
         except Exception:
             pass
@@ -58,6 +61,7 @@ def _is_multi_asic_host(host) -> bool:
     # Defensive fallback via facts
     try:
         num = int(host.facts.get("num_asic", 0))
+        logger.info(f"There are {num} asic in host:{host.hostname}")
         return num > 1
     except Exception:
         return False
@@ -69,6 +73,8 @@ def skip_on_multi_asic(duthosts):
     Skip the ENTIRE module if ANY DUT is multi-ASIC.
     Runs before other module fixtures (e.g., setup_teardown).
     """
+    logger.info("Trying to skip multi asic hosts:")
+
     for host in duthosts:
         if _is_multi_asic_host(host):
             pytest.skip("Skipped on multi-ASIC testbed", allow_module_level=True)
