@@ -2,7 +2,7 @@ import logging
 import json
 import os
 from ptf.mask import Mask
-from ptf.packet import Ether, IP, UDP, TCP
+from ptf.packet import Ether, IP, UDP, TCP, Dot1Q
 import ptf.testutils as testutils
 import pytest
 import time
@@ -39,7 +39,7 @@ ACL_TABLE_NAME = "INNER_SRC_MAC_REWRITE_TABLE"
 def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_info, test_configs):
     logger.info("Starting WL to T1 VXLAN encapsulation test...")
 
-    for key, val in subintfs_info.items():
+    for _, val in subintfs_info.items():
         # Build inner TCP packet to inject from southbound side
         pkt_opts = {
             "eth_dst": duthost.facts['router_mac'],
@@ -48,6 +48,8 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_i
             "ip_src": INNER_SRC_IP,
             "ip_id": 105,
             "ip_ttl": 64,
+            "dl_vlan_enable": True,
+            "vlan_vid": val["vlan"],
             "tcp_sport": 1234,
             "tcp_dport": 5000,
             "pktlen": 100
@@ -60,6 +62,8 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_i
         pkt_opts["eth_src"] = INNER_SRC_MAC  # expected rewritten inner src mac
         pkt_opts["eth_dst"] = vxlan_router_mac['stdout'].strip()
         pkt_opts["ip_ttl"] = 63
+        pkt_opts["dl_vlan_enable"] = False
+        pkt_opts["pktlen"] = 96  # 100 - 4, remove vlan tag length
 
         inner_exp_pkt = testutils.simple_tcp_packet(**pkt_opts)
 
@@ -85,6 +89,8 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_i
         masked_expected_pkt.set_do_not_care_packet(IP, "ttl")
         masked_expected_pkt.set_do_not_care_packet(IP, "chksum")
         masked_expected_pkt.set_do_not_care_packet(IP, "id")
+        masked_expected_pkt.set_do_not_care_packet(IP, "len")
+        masked_expected_pkt.set_do_not_care_packet(IP, "tos")
 
         # Clear packet queue on all ports and get initial acl counter
         ptfadapter.dataplane.flush()
@@ -101,29 +107,45 @@ def validate_encap_wl_to_t1(duthost, ptfadapter, wl_portchannel_info, subintfs_i
 def validate_decap_t1_to_wl(duthost, ptfadapter, wl_portchannel_info, subintfs_info, test_configs):
     logger.info("Starting T1 to WL VXLAN decapsulation test...")
 
-    for key, val in subintfs_info.items():
+    ports_per_vnet = {}
+    for _, val in subintfs_info.items():
+        vni = val["vnet_vni"]
+        if vni not in ports_per_vnet:
+            ports_per_vnet[vni] = []
+        ports_per_vnet[vni].append(val["ptf_port_index"])
+
+    for _, val in subintfs_info.items():
+        pkt_opts = {
+            "eth_dst": "aa:bb:cc:dd:ee:ff",
+            "eth_src": duthost.facts['router_mac'],
+            "ip_src": "8.8.8.8",
+            "ip_dst": "193.5.0.0",
+            "tcp_sport": 1234,
+            "tcp_dport": 4321,
+            "pktlen": 100
+        }
+
         # Build inner TCP packet expected on WL port
-        expected_inner_pkt = testutils.simple_tcp_packet(
-            eth_dst="aa:bb:cc:dd:ee:ff",
-            eth_src=duthost.facts['router_mac'],
-            ip_src="8.8.8.8",
-            ip_dst="193.5.0.0",
-            tcp_sport=1234,
-            tcp_dport=4321,
-        )
+        inner_pkt = testutils.simple_tcp_packet(**pkt_opts)
 
         # Build VXLAN encapsulated packet to inject from T1 side
         vxlan_pkt = testutils.simple_vxlan_packet(
             eth_dst=duthost.facts['router_mac'],
-            eth_src=ptfadapter.dataplane.get_mac(0, test_configs["t1_ptf_port_num"][0]),
+            eth_src=ptfadapter.dataplane.get_mac(0, test_configs["t1_ptf_port_nums"][0]),
             ip_src="1.1.1.1",
             ip_dst=test_configs["loopback_ip"],
             udp_sport=1234,
             udp_dport=VXLAN_PORT,
             with_udp_chksum=False,
             vxlan_vni=int(val["vnet_vni"]),
-            inner_frame=expected_inner_pkt
+            inner_frame=inner_pkt
         )
+
+        # Build expected inner packet after decapsulation
+        pkt_opts["vlan_vid"] = val["vlan"]
+        pkt_opts["dl_vlan_enable"] = True
+        pkt_opts["pktlen"] = 104     # 100 + 4, add vlan tag length
+        expected_inner_pkt = testutils.simple_tcp_packet(**pkt_opts)
 
         masked_expected_pkt = Mask(expected_inner_pkt)
         masked_expected_pkt.set_ignore_extra_bytes()
@@ -132,20 +154,22 @@ def validate_decap_t1_to_wl(duthost, ptfadapter, wl_portchannel_info, subintfs_i
         masked_expected_pkt.set_do_not_care_packet(IP, "chksum")
         masked_expected_pkt.set_do_not_care_packet(IP, "id")
         masked_expected_pkt.set_do_not_care_packet(TCP, 'chksum')
+        masked_expected_pkt.set_do_not_care_packet(IP, "len")
+        masked_expected_pkt.set_do_not_care_packet(IP, "tos")
 
         # Clear packet queue on all ports
         ptfadapter.dataplane.flush()
 
         # Send VXLAN encapsulated pkt from T1 port
-        testutils.send(ptfadapter, test_configs["t1_ptf_port_num"][0], vxlan_pkt)
+        testutils.send(ptfadapter, test_configs["t1_ptf_port_nums"][0], vxlan_pkt)
 
         # Verify decapsulated unencapsulated packet on southbound port
-        testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, val['ptf_port_index'], timeout=2)
+        testutils.verify_packet_any_port(ptfadapter, masked_expected_pkt, ports_per_vnet[val["vnet_vni"]], timeout=2)
 
     logger.info("T1 to WL VXLAN decapsulation test passed.")
 
 
-def cleanup(duthost, ptfhost, wl_portchannel_info=None, subintfs_info=None):
+def cleanup(duthost, ptfhost, wl_portchannel_info, subintfs_info):
     """
     Return duthost and ptfhost to original state.
 
@@ -161,8 +185,20 @@ def cleanup(duthost, ptfhost, wl_portchannel_info=None, subintfs_info=None):
     config_reload(duthost, safe_reload=True, check_intf_up_ports=True)
 
     cmds = []
+    # Remove sub port
+    try:
+        for _, val in subintfs_info.items():
+            sub_port = val["bond_name"]
+            ip = val['ptf_ip']
+            cmds.append("ip address del {} dev {}".format(ip, sub_port))
+            cmds.append("ip link del {}".format(sub_port))
+        ptfhost.shell_cmds(cmds=cmds)
+    except Exception as e:
+        logger.error(f"Error occurred while cleaning up sub interfaces: {e}")
+
+    cmds = []
     # Remove bond ports
-    if wl_portchannel_info:
+    try:
         for key, val in wl_portchannel_info.items():
             bond_port = val["bond_port"]
             port_name = val["ptf_port_name"]
@@ -170,16 +206,9 @@ def cleanup(duthost, ptfhost, wl_portchannel_info=None, subintfs_info=None):
             cmds.append("ip link set {} nomaster".format(port_name))
             cmds.append("ip link set {} up".format(port_name))
             cmds.append("ip link del {}".format(bond_port))
-
-    # Remove sub port
-    if subintfs_info:
-        for key, val in subintfs_info.items():
-            sub_port = key
-            ip = val['ptf_ip']
-            cmds.append("ip address del {} dev {}".format(ip, sub_port))
-            cmds.append("ip link del {}".format(sub_port))
-
-    ptfhost.shell_cmds(cmds=cmds)
+        ptfhost.shell_cmds(cmds=cmds)
+    except Exception as e:
+        logger.error(f"Error occurred while cleaning up bond interfaces: {e}")
 
     # Stop exabgp process
     kill_exabgp = f"""
@@ -243,21 +272,53 @@ def get_available_vlan_id_and_ports(cfg_facts, num_ports_needed):
     return vlan_id, available_ports
 
 
-def generate_subintfs_ips(num_subintfs, start_ip_int, prefix_size=31):
-    block_size = 2 ** (32 - prefix_size)
-    pytest_assert(num_subintfs * block_size + start_ip_int < 0xFFFFFFFF, "Not enough IPs available to assign to subinterfaces.")
-    subintf_ips = []
-    ptf_ips = []
-    for i in range(num_subintfs):
-        ip_int = start_ip_int + i * 2
-        subintf_ips.append(
-            f"{ip_int >> 24 & 0xFF}.{ip_int >> 16 & 0xFF}.{ip_int >> 8 & 0xFF}.{ip_int & 0xFF}/{prefix_size}"
-        )
-        ptf_ips.append(
-            f"{(ip_int + 1) >> 24 & 0xFF}.{(ip_int + 1) >> 16 & 0xFF}.{(ip_int + 1) >> 8 & 0xFF}.{(ip_int + 1) & 0xFF}/{prefix_size}"
-        )
+def convert_ip_int_to_str(ip_int, prefix_size=31):
+    """
+    Convert integer IP to string format with prefix size.
+    """
+    return f"{ip_int >> 24 & 0xFF}.{ip_int >> 16 & 0xFF}.{ip_int >> 8 & 0xFF}.{ip_int & 0xFF}/{prefix_size}"
 
-    return subintf_ips, ptf_ips
+
+def convert_str_to_ip_int(ip_str):
+    """
+    Convert string IP to integer format.
+    """
+    ip_parts = ip_str.split('/')
+    ip = ip_parts[0]
+    octets = ip.split('.')
+    ip_int = int(octets[0]) << 24 | int(octets[1]) << 16 | int(octets[2]) << 8 | int(octets[3])
+    prefix = int(ip_parts[1]) if len(ip_parts) > 1 else 32
+    return ip_int, prefix
+
+
+def generate_subintfs_ips(num_vnets, num_portchannels, start_ip_int, prefix_size=31):
+    """
+    Generate subnets for subintfs, incrementing third octect for each vnet, and fourth octet for each portchannel.
+    """
+    num_ips_per_prefix = 2 ** (32 - prefix_size)
+    pytest_assert(num_ips_per_prefix * num_portchannels + (start_ip_int & 0xFF) < 0xFF, "Not enough IP addresses in last octet to allocate for subinterfaces.")
+    pytest_assert(num_vnets + (start_ip_int >> 8 & 0xFF) < 0xFF, "Not enough IP addresses in third octet to allocate for subinterfaces.")
+
+    all_subintf_ips = []
+    all_ptf_ips = []
+
+    for i in range(num_portchannels):
+        subintf_ips = []
+        ptf_ips = []
+        fourth_octet_offset = i * num_ips_per_prefix
+        for j in range(num_vnets):
+            ip_int = start_ip_int + fourth_octet_offset + (j << 8)
+            subintf_ips.append(
+                convert_ip_int_to_str(ip_int, prefix_size)
+            )
+            ptf_ips.append(
+                convert_ip_int_to_str(ip_int + 1, prefix_size)
+            )
+
+        all_subintf_ips.append(subintf_ips)
+        all_ptf_ips.append(ptf_ips)
+
+    return all_subintf_ips, all_ptf_ips
 
 
 def apply_patch_helper(duthost, op, path, value, filename="test_config"):
@@ -315,9 +376,10 @@ def setup_acl_config(duthost, ports, vnet_vnis):
     acl_table = duthost.shell(f"sonic-db-cli STATE_DB HGET 'ACL_TABLE_TABLE|{ACL_TABLE_NAME}' 'status'")
     pytest_assert(acl_table['stdout'].strip().lower() == "active", f"ACL table {ACL_TABLE_NAME} not active.")
 
-    acl_rule = duthost.shell(f"sonic-db-cli STATE_DB HGET 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_1' 'status'")
-    pytest_assert(acl_rule['stdout'].strip().lower() == "active",
-                  f"ACL rule 'rule_1' for {ACL_TABLE_NAME} not active.")
+    for vni in vnet_vnis:
+        acl_rule = duthost.shell(f"sonic-db-cli STATE_DB HGET 'ACL_RULE_TABLE|{ACL_TABLE_NAME}|rule_{vni}' 'status'")
+        pytest_assert(acl_rule['stdout'].strip().lower() == "active",
+                      f"ACL rule 'rule_{vni}' for {ACL_TABLE_NAME} not active.")
 
 
 def setup_vnet_routes(duthost, vnet_vnis):
@@ -325,7 +387,7 @@ def setup_vnet_routes(duthost, vnet_vnis):
         f"Vnet{vni}|0.0.0.0/0": {
             "endpoint": TUNNEL_ENDPOINT
         } for vni in vnet_vnis
-    }, f"vnet_route_{vni}")
+    }, f"vnet_routes")
 
     # Check vnet routes are set
     time.sleep(5)
@@ -336,18 +398,18 @@ def setup_vnet_routes(duthost, vnet_vnis):
                       f"VNET route tunnel for Vnet{vni} not active.")
 
 
-def setup_bgp(duthost, ptfhost, vnet_vnis, dut_ips, ptf_ips, bgp_port, vnet_route_ip):
+def setup_bgp(duthost, ptfhost, vnet_vnis, dut_ips, ptf_ips, subnet_ip, loopback_ip, bgp_port, vnet_route_ip):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
     dut_asn = config_facts['DEVICE_METADATA']['localhost']['bgp_asn']
     neighbors = config_facts['BGP_NEIGHBOR']
     peer_asn = list(neighbors.values())[0]["asn"]
     
-    for vni in vnet_vnis:
-        apply_patch_helper(duthost, "add", f"BGP_PEER_RANGE/Vnet{vni}|WLPARTNER_PASSIVE_V4", {
-            "ip_range": [dut_ips[vni]],
+    for i, vni in enumerate(vnet_vnis):
+        apply_patch_helper(duthost, "add", f"/BGP_PEER_RANGE/Vnet{vni}|WLPARTNER_PASSIVE_V4", {
+            "ip_range": [subnet_ip],
             "name": "WLPARTNER_PASSIVE_V4",
             "peer_asn": peer_asn,
-            "src_address": dut_ips[vni].split('/')[0]
+            "src_address": loopback_ip
         }, f"bgp_peer_{vni}")
 
     exabgp_config = f"""
@@ -357,8 +419,9 @@ process api-vnets {{
 }}
 """
 
-    for dut_ip, ptf_ip in zip(dut_ips, ptf_ips):
-        exabgp_config += f"""
+    for dut_ips_per_portchannel, ptf_ips_per_portchannel in zip(dut_ips, ptf_ips):
+        for dut_ip, ptf_ip in zip(dut_ips_per_portchannel, ptf_ips_per_portchannel):
+            exabgp_config += f"""
 neighbor {dut_ip.split('/')[0]} {{
     router-id {ptf_ip.split('/')[0]};
     local-address {ptf_ip.split('/')[0]};
@@ -376,13 +439,14 @@ neighbor {dut_ip.split('/')[0]} {{
 }}
 """
         
-    with open(EXABGP_CONFIG_PATH, "w") as f:
+    with open('/tmp/exabgp_update.conf', "w") as f:
         f.write(exabgp_config)
 
+    ptfhost.copy(src='/tmp/exabgp_update.conf', dest=EXABGP_CONFIG_PATH)
     ptfhost.shell(f"nohup exabgp {EXABGP_CONFIG_PATH} > /var/log/exabgp_all_vnets.log 2>&1 &")
 
     # Check vrf bgp session is up
-    time.sleep(5)
+    time.sleep(40)
     for vni in vnet_vnis:
         vnet_bgps = duthost.show_and_parse(f"show ip bgp vrf Vnet{vni} summary")
         pytest_assert(len(vnet_bgps) > 0 and vnet_bgps[0]["neighborname"] == "WLPARTNER_PASSIVE_V4"
@@ -391,12 +455,12 @@ neighbor {dut_ip.split('/')[0]} {{
 
 def setup_portchannel_subintfs(duthost, ptfhost, portchannel_info, vnet_vnis, base_vlan, dut_ips, ptf_ips):
     config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
-    has_subintfs = len(config_facts.get("VNET", {})) > 0
+    has_subintfs = len(config_facts.get("VLAN_SUB_INTERFACE", {})) > 0
 
     subintfs_info = {}
 
     cmds = []
-    for i in range(vnet_vnis):
+    for i in range(len(vnet_vnis)):
         for j, (key, val) in enumerate(portchannel_info.items()):
             po_num = val["portchannel_num"]
             bond_port = val["bond_port"]
@@ -406,30 +470,32 @@ def setup_portchannel_subintfs(duthost, ptfhost, portchannel_info, vnet_vnis, ba
                 apply_patch_helper(duthost, "add", f"/VLAN_SUB_INTERFACE", {
                     subintf_name: {
                         "admin_status": "up",
-                        "vlan": base_vlan + i,
+                        "vlan": str(base_vlan + i),
                         "vnet_name": f"Vnet{vnet_vnis[i]}"
                     },
-                    f"{subintf_name}|{dut_ips[j]}": {}
+                    f"{subintf_name}|{dut_ips[j][i]}": {}
                 }, subintf_name)
                 has_subintfs = True
             else:
                 apply_patch_helper(duthost, "add", f"/VLAN_SUB_INTERFACE/{subintf_name}", {
                     "admin_status": "up",
-                    "vlan": base_vlan + i,
+                    "vlan": str(base_vlan + i),
                     "vnet_name": f"Vnet{vnet_vnis[i]}"
                 }, subintf_name)
-                apply_patch_helper(duthost, "add", f"/VLAN_SUB_INTERFACE/{subintf_name}|{dut_ips[j]}", {}, f"{subintf_name}_ip")
+                apply_patch_helper(duthost, "add", f"/VLAN_SUB_INTERFACE/{subintf_name}|{dut_ips[j][i].replace('/','~1')}", {}, f"{subintf_name}_ip")
 
             # Configure ptf port commands
             cmds.append(f"ip link add link {bond_port} name {bond_port}.{base_vlan + i} type vlan id {base_vlan + i}")
-            cmds.append(f"ip address add {ptf_ips[j]} dev {bond_port}.{base_vlan + i}")
+            cmds.append(f"ip address add {ptf_ips[j][i]} dev {bond_port}.{base_vlan + i}")
             cmds.append(f"ip link set {bond_port}.{base_vlan + i} up")
 
             subintfs_info[subintf_name] = {
                 "portchannel_name": key,
                 "portchannel_num": po_num,
-                "dut_ip": dut_ips[j],
-                "ptf_ip": ptf_ips[j],
+                "ptf_port_index": val["ptf_port_index"],
+                "bond_name": f"{bond_port}.{base_vlan + i}",
+                "dut_ip": dut_ips[j][i],
+                "ptf_ip": ptf_ips[j][i],
                 "vlan": base_vlan + i,
                 "vnet": f"Vnet{vnet_vnis[i]}",
                 "vnet_vni": vnet_vnis[i],
@@ -511,9 +577,10 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
     ecmp_utils.Constants["KEEP_TEMP_FILES"] = False
     ecmp_utils.Constants["DEBUG"] = True
 
+    wl_portchannel_info = None
+    subintfs_info = None
+
     try:
-        wl_portchannel_info = None
-        subintfs_info = None
         config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
 
         port_indexes = config_facts['port_index_map']  # map of dut port name to dut port index
@@ -536,6 +603,9 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
         duthost.shell("config int ip add Loopback6 10.10.1.1")
         loopback_ip = "10.10.1.1"
 
+        subnet_ip = "10.11.0.0/16"
+        subnet_ip_int, _ = convert_str_to_ip_int(subnet_ip)
+
         # Set up vxlan
         setup_vxlan_tunnel(duthost, "tunnel_v4", loopback_ip)
 
@@ -546,11 +616,11 @@ def common_setup_and_teardown(tbinfo, duthosts, rand_one_dut_hostname, ptfhost, 
         wl_portchannel_info = setup_portchannels(duthost, ptfhost, config_facts, port_indexes, ptf_ports_available_in_topo)
 
         # Set up subintfs
-        dut_ips, ptf_ips = generate_subintfs_ips(NUM_VNETS, start_ip_int=((10 << 24) + (11 << 16)))
+        dut_ips, ptf_ips = generate_subintfs_ips(NUM_VNETS, len(PORTCHANNEL_NAMES), start_ip_int=subnet_ip_int)
         subintfs_info = setup_portchannel_subintfs(duthost, ptfhost, wl_portchannel_info, vnet_vnis, base_vlan=10, dut_ips=dut_ips, ptf_ips=ptf_ips)
 
         # Set up bgps
-        setup_bgp(duthost, ptfhost, vnet_vnis, dut_ips, ptf_ips, bgp_port=EXABGP_PORT, vnet_route_ip="193.5.0.0/16")
+        setup_bgp(duthost, ptfhost, vnet_vnis, dut_ips, ptf_ips, subnet_ip, loopback_ip, bgp_port=EXABGP_PORT, vnet_route_ip="193.5.0.0/16")
 
         # Set up vnet routes
         setup_vnet_routes(duthost, vnet_vnis)
