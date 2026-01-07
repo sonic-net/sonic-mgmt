@@ -339,6 +339,7 @@ class Test_VxLAN_route_Advertisement():
         Create a tunnel route and advertise the tunnel route to all neighbor without community id
         Result: All BGP neighbors can recieve the advertised BGP routes
         '''
+
         self.vxlan_test_setup = setUp
         self.duthost = duthost
         if encap_type == 'v4_in_v4':
