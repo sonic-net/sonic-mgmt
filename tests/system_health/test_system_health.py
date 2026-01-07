@@ -132,35 +132,33 @@ def test_service_checker(duthosts, enum_rand_one_per_hwsku_hostname):
 def test_service_checker_with_process_exit(duthosts, enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     wait_system_health_boot_up(duthost)
-    with ConfigFileContext(duthost, os.path.join(FILES_DIR, IGNORE_DEVICE_CHECK_CONFIG_FILE)):
-        processes_status = duthost.all_critical_process_status()
-        containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
-                      "bgp" not in x and "swss" not in x]
-        logging.info('Test containers: {}'.format(containers))
-        random.shuffle(containers)
-        for container in containers:
-            running_critical_process = processes_status[container]['running_critical_process']
-            if not running_critical_process:
-                continue
+    processes_status = duthost.all_critical_process_status()
+    containers = [x for x in list(processes_status.keys()) if "syncd" not in x and "database" not in x and
+                  "bgp" not in x and "swss" not in x]
+    logging.info('Test containers: {}'.format(containers))
+    random.shuffle(containers)
+    for container in containers:
+        running_critical_process = processes_status[container]['running_critical_process']
+        if not running_critical_process:
+            continue
 
-            critical_process = random.sample(running_critical_process, 1)[0]
-            with ProcessExitContext(duthost, container, critical_process):
-                # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
-                # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
-                category = '{}:{}'.format(container, critical_process)
-                expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
-                                   "'{}' is not running".format(critical_process)]
-                result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
-                                    expected_values)
+        critical_process = random.sample(running_critical_process, 1)[0]
+        with ProcessExitContext(duthost, container, critical_process):
+            # use wait_until to check if SYSTEM_HEALTH_INFO has expected content
+            # avoid waiting for too long or DEFAULT_INTERVAL is not long enough to refresh db
+            category = '{}:{}'.format(container, critical_process)
+            expected_values = ["Process '{}' in container '{}' is not running".format(critical_process, container),
+                               "'{}' is not running".format(critical_process)]
+            result = wait_until(WAIT_TIMEOUT, 10, 2, check_system_health_info_any_of, duthost, category,
+                                expected_values)
 
-                assert result is True, '{} is not recorded'.format(
-                    critical_process)
-                summary = redis_get_field_value(
-                    duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
-                assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(
-                    SUMMARY_NOT_OK, summary)
-                check_system_health_led_info(duthost)
-            break
+            assert result is True, '{} is not recorded'.format(critical_process)
+            summary = redis_get_field_value(
+                duthost, STATE_DB, HEALTH_TABLE_NAME, 'summary')
+            assert summary == SUMMARY_NOT_OK, 'Expect summary {}, got {}'.format(
+                SUMMARY_NOT_OK, summary)
+            check_system_health_led_info(duthost)
+        break
 
 
 @pytest.mark.disable_loganalyzer
