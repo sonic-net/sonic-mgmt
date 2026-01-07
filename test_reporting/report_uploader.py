@@ -161,6 +161,15 @@ python3 report_uploader.py tests/files/sample_tr.xml -e TRACKING_ID#22
                 kusto_db.upload_sai_header_def_report_file(path_name)
             except Exception as e:
                 print("Failed to ingest file '{}', exception: {}".format(path_name, repr(e)))
+    elif args.category == "lock_timing":
+        for path_name in args.path_list:
+            try:
+                with open(path_name) as f:
+                    lock_timing_data = json.load(f)
+                kusto_db.upload_lock_timing_data(lock_timing_data)
+                print(f"Successfully uploaded lock timing data from {path_name}")
+            except Exception as e:
+                print("Failed to upload lock timing data '{}', exception: {}".format(path_name, repr(e)))
 
     else:
         print('Unknown category "{}"'.format(args.category))
