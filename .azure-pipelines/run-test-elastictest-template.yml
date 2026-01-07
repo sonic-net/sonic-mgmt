@@ -264,6 +264,16 @@ steps:
       else
         echo "Azure CLI is already installed"
       fi
+      
+      # Install python requirements for test reporting
+      if pip install -r ./test_reporting/requirements.txt; then
+        echo "##vso[task.setvariable variable=TEST_REPORTING_REQUIREMENTS_INSTALLED]true"
+        echo "Successfully installed test_reporting requirements"
+      else
+        echo "##vso[task.setvariable variable=TEST_REPORTING_REQUIREMENTS_INSTALLED]false"
+        echo "WARNING: Failed to install test_reporting requirements. Lock timing upload will be skipped."
+      fi
+
     displayName: "Install Azure-CLI"
 
   - script: |
@@ -375,6 +385,65 @@ steps:
           echo "All testplan failed, cancel following steps"
           exit 3
       fi
+
+      # Check if test_reporting requirements were installed successfully
+      if [ "$TEST_REPORTING_REQUIREMENTS_INSTALLED" != "true" ]; then
+          echo "Skipping lock timing upload, test_reporting requirements not installed"
+      elif [ "${{ parameters.PLATFORM }}" == "kvm" ] && [ -f "lock_timing.json" ]; then
+          echo "Attempting to upload lock timing data to Kusto..."
+          
+          LOCK_TIMING_UPLOAD_SUCCESS=true
+          
+          # Add testbed configuration to lock timing data before upload
+          python ./.azure-pipelines/add_lock_timing_info.py \
+            --input-file lock_timing.json \
+            --min-worker "${{ parameters.MIN_WORKER }}" \
+            --max-worker "${{ parameters.MAX_WORKER }}" \
+            --platform "${{ parameters.PLATFORM }}" \
+            --topology "${{ parameters.TOPOLOGY }}" || {
+              echo "WARNING: Failed to get lock timing data. Continuing without upload."
+              LOCK_TIMING_UPLOAD_SUCCESS=false
+          }
+          
+          if [ "$LOCK_TIMING_UPLOAD_SUCCESS" = true ]; then
+              az login --identity --client-id $(SONIC_AUTOMATION_UMI) || {
+                  echo "WARNING: Azure login failed. Continuing without lock timing upload."
+                  LOCK_TIMING_UPLOAD_SUCCESS=false
+              }
+          fi
+          
+          if [ "$LOCK_TIMING_UPLOAD_SUCCESS" = true ]; then
+              accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv) || {
+                  echo "WARNING: Failed to get Kusto access token. Continuing without lock timing upload."
+                  LOCK_TIMING_UPLOAD_SUCCESS=false
+              }
+              
+              if [ -n "$accessToken" ]; then
+                  export ACCESS_TOKEN=$accessToken
+                  export TEST_REPORT_INGEST_KUSTO_CLUSTER=$(TEST_REPORT_INGEST_KUSTO_CLUSTER)
+                  
+                  python ./test_reporting/report_uploader.py -c "lock_timing" lock_timing.json SonicTestData || {
+                      echo "WARNING: Failed to upload lock timing data to Kusto."
+                      LOCK_TIMING_UPLOAD_SUCCESS=false
+                  }
+              else
+                  echo "WARNING: Access token is empty. Continuing without lock timing upload."
+                  LOCK_TIMING_UPLOAD_SUCCESS=false
+              fi
+          fi
+          
+          if [ "$LOCK_TIMING_UPLOAD_SUCCESS" = true ]; then
+              echo "Lock timing data successfully uploaded to Kusto"
+          else
+              echo "Lock timing upload skipped or failed (non-critical)"
+          fi
+          
+      elif [ "${{ parameters.PLATFORM }}" != "kvm" ]; then
+          echo "Skipping lock timing upload - only enabled for KVM platform (current: ${{ parameters.PLATFORM }})"
+      else
+          echo "INFO: lock_timing.json not found."
+      fi
+
 
       echo -e "\033[33mSONiC PR system-level test is powered by SONiC Elastictest, for any issue, please send email to sonicelastictest@microsoft.com \033[0m"
 
