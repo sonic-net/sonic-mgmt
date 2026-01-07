@@ -2,22 +2,24 @@ package testhelper
 
 import (
 	"context"
-        "fmt"
-	"os"
-	"testing"
-        "time"
-
+	"fmt"
+	"github.com/bazelbuild/rules_go/go/tools/bazel"
+	log "github.com/golang/glog"
+	gpb "github.com/openconfig/gnmi/proto/gnmi"
 	closer "github.com/openconfig/gocloser"
 	"github.com/openconfig/ondatra"
 	"github.com/openconfig/ondatra/gnmi"
-        "github.com/openconfig/ondatra/gnmi/oc"
+	"github.com/openconfig/ondatra/gnmi/oc"
 	"github.com/openconfig/ondatra/gnmi/oc/system"
 	"github.com/openconfig/ygnmi/ygnmi"
-        "github.com/openconfig/ygot/ytypes"
+	"github.com/openconfig/ygot/ytypes"
 	"github.com/pkg/errors"
 	"google.golang.org/grpc"
-
-	gpb "github.com/openconfig/gnmi/proto/gnmi"
+	"os"
+	"path"
+	"sync"
+	"testing"
+	"time"
 )
 
 // Function pointers that interact with the switch. They enable unit testing
@@ -34,7 +36,8 @@ var (
 		return c.Subscribe(ctx, opts...)
 	}
 	gnmiSet = func(t *testing.T, d *ondatra.DUTDevice, req *gpb.SetRequest) (*gpb.SetResponse, error) {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+		defer cancel()
 		c, err := d.RawAPIs().BindingDUT().DialGNMI(ctx)
 		if err != nil {
 			return nil, err
@@ -131,7 +134,11 @@ func GNMIAble(t *testing.T, d *ondatra.DUTDevice) error {
 
 // ConfigGet returns a full config for the given DUT.
 func (d GNMIConfigDUT) ConfigGet(t *testing.T) ([]byte, error) {
-	return os.ReadFile("ondatra/data/config.json")
+	file, err := bazel.Runfile("ondatra/data/config.json")
+	if err != nil {
+		t.Errorf("When reading file %s got error %s", file, err)
+	}
+	return os.ReadFile(file)
 }
 
 // ConfigPush pushes the given config onto the DUT. If nil is passed in for config,
@@ -154,7 +161,20 @@ func ConfigPush(t *testing.T, dut *ondatra.DUTDevice, config []byte) error {
 			Val:  &gpb.TypedValue{Value: &gpb.TypedValue_JsonIetfVal{JsonIetfVal: config}},
 		}},
 	}
-	t.Logf("Pushing config on %v: %v", testhelperDUTNameGet(dut), setRequest)
+	// Save the config to artifacts.
+	wg := sync.WaitGroup{}
+	wg.Add(1)
+	go func(config []byte) {
+		defer wg.Done()
+		dn := testhelperDUTNameGet(dut)
+		artifactName := fmt.Sprintf("config_push_%v.txt", time.Now().UnixNano())
+		fp := path.Join(dn, artifactName)
+		log.Infof("Saving pushed config to artifacts at path: %v", fp)
+		if err := SaveToArtifact(string(config), fp); err != nil {
+			log.Warningf("Failed to save config for dut: %v to artifacts, err: %v", dn, err)
+		}
+	}(config)
+	defer wg.Wait()
 	_, err = gnmiSet(t, dut, setRequest)
 	return err
 }
