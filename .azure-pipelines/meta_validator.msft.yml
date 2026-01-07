@@ -149,6 +149,11 @@ validators:
       - str3-7808-sup-2           # IPv4/IPv6 mismatch
       - str3-acs-serv-76          # IPv4/IPv6 mismatch
       - str3-t0-8102-smartswitch-01  # IPv4/IPv6 mismatch
+      - str3-8800-sup-1           # IPv4/IPv6 mismatch
+      - str3-8800-lc1-1           # IPv4/IPv6 mismatch
+      - str3-8800-lc2-1           # IPv4/IPv6 mismatch
+      - str3-8800-lc3-1           # IPv4/IPv6 mismatch
+      - str3-8800-lc4-1           # IPv4/IPv6 mismatch
       - str-7250x3b-1             # IPv4/IPv6 mismatch
       - str-7250x3b-2             # IPv4/IPv6 mismatch
       - str-7280dr3-1             # IPv4/IPv6 mismatch
