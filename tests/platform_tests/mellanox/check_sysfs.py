@@ -65,7 +65,7 @@ def check_sysfs(dut):
 
     logging.info("Check fan related sysfs")
     for fan_id, fan_info in list(sysfs_facts['fan_info'].items()):
-        if platform_data["fans"]["hot_swappable"]:
+        if platform_data["fans"].get("hot_swappable"):
             assert fan_info['status'] == '1', "Fan {} status {} is not 1".format(
                 fan_id, fan_info['status'])
 
@@ -116,7 +116,7 @@ def check_sysfs(dut):
             cpu_temp_high_counter)
 
     logging.info("Check PSU related sysfs")
-    if platform_data["psus"]["hot_swappable"]:
+    if platform_data["psus"].get("hot_swappable"):
         for psu_id, psu_info in list(sysfs_facts['psu_info'].items()):
             psu_id = int(psu_id)
             psu_status = int(psu_info["status"])
@@ -195,7 +195,7 @@ def check_psu_sysfs(dut, psu_id, psu_state):
                                                    psu_exist, psu_exist_content["stdout"])
     else:
         platform_data = get_platform_data(dut)
-        hot_swappable = platform_data["psus"]["hot_swappable"]
+        hot_swappable = platform_data["psus"].get("hot_swappable")
         if hot_swappable:
             psu_exist_content = dut.command("cat {}".format(psu_exist))
             logging.info("PSU state {} file {} read {}".format(
@@ -260,7 +260,7 @@ def generate_sysfs_config(dut, platform_data):
         config.append(generate_sysfs_cpu_pack_config())
     config.append(generate_sysfs_cpu_core_config(platform_data))
     config.append(generate_sysfs_fan_config(platform_data))
-    if platform_data['psus']['hot_swappable']:
+    if platform_data['psus'].get("hot_swappable"):
         config.append(generate_sysfs_psu_config(dut, platform_data))
     config.append(generate_sysfs_sfp_config(platform_data))
     return config
@@ -325,7 +325,7 @@ def generate_sysfs_fan_config(platform_data):
             }
         ]
     }
-    if not platform_data['fans']['hot_swappable']:
+    if not platform_data['fans'].get("hot_swappable"):
         fan_config['properties'] = fan_config['properties'][1:]
     return fan_config
 

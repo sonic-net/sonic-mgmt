@@ -75,9 +75,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>

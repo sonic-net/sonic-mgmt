@@ -577,6 +577,18 @@ class Muxes(object):
             if mux.isvalid:
                 self.muxes[bridge] = mux
 
+        self._recover_unhealthy_muxes()
+
+    def _recover_unhealthy_muxes(self):
+        """Recover unhealthy muxes by resetting their flows."""
+        unhealthy_muxes = [mux for mux in self.muxes.values() if not mux.status['healthy']]
+        if len(unhealthy_muxes) == 0:
+            return
+
+        app.logger.info('Recovering unhealthy muxes: {}'.format(
+            [mux.bridge for mux in unhealthy_muxes]))
+        list(self.thread_pool.map(lambda mux: mux.reset_flows(), unhealthy_muxes))
+
     def _mux_bridges(self):
         """Only collect bridges belong to self.vm_set
 
