@@ -102,7 +102,7 @@ def setup(duthosts, rand_selected_dut, tbinfo):
     )
 
     upstream_neigh_type = get_upstream_neigh_type(tbinfo)
-    downstream_neigh_type = get_downstream_neigh_type(topo)
+    downstream_neigh_type = get_downstream_neigh_type(tbinfo)
     pytest_require(
         upstream_neigh_type is not None and downstream_neigh_type is not None,
         "Cannot get neighbor type for unsupported topo: {}".format(topo),
