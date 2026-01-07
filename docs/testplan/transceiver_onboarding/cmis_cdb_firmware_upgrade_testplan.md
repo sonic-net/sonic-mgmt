@@ -74,9 +74,9 @@ The following table summarizes the key attributes used in CDB firmware upgrade t
 | Attribute Name | Type | Default | Mandatory | Override Levels | Description |
 |-----------|------|---------|------------|-------------|-------------|
 | port_under_test | List | All | No | None | A list under `dut.dut_name` containing the ports to be tested for cmis fw upgrade test only.<br>This attribute must exist only under `dut` field. |
-| firmware_versions | List | None | Yes | transceivers | A list containing firmware versions to be tested as its values. |
+| firmware_versions | List | None | Yes | transceivers | A list containing firmware versions to be tested as its values. The last value of the list shows the final active firmware version after the test is completed. |
 | firmware_download_timeout_minutes | Int | 30 | No | transceivers |Firmware download timeout value in minutes as the integer value |
-| restore_initial_firmwares | Bool | False | No | dut |A flag indicating whether to restore the initial active and inactive firmware versions after testing is completed |
+| restore_initial_inactive_firmware | Bool | False | No | dut |A flag indicating whether to restore the initial inactive firmware version after testing is completed |
 | firmware_download_stress_iterations | Int | 5 | No | dut | The number of iterations to stress test the firmware download process |
 | firmware_activation_stress_iterations | Int | 5 | No | dut | The number of iterations to stress test the firmware activation process |
 | firmware_read_stress_iterations | Int | 5 | No | dut | The number of iterations to stress test the firmware read process |
