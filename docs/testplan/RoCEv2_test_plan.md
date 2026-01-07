@@ -589,7 +589,7 @@
 - Uses Test Topology 2.
 
 <p float="left">
-  <img src="Img/RoCEv2_Topology_2_single_link_failover.png" width="350"  hspace="200"/>
+  <img src="Img/RoCEv2_Topology_2.png" width="350"  hspace="200"/>
 </p>
 
 ### Test Steps
