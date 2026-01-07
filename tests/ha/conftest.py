@@ -4,10 +4,13 @@ from collections import defaultdict
 import re
 import os
 import json
+import ast
 
 import pytest
 
 from tests.common.helpers.constants import DEFAULT_NAMESPACE
+from tests.common.utilities import wait_until
+
 
 from common.ha.smartswitch_ha_helper import (
     PtfTcpTestAdapter,
@@ -175,27 +178,52 @@ def build_dash_ha_scope_args(fields):
     )
 
 
-def extract_pending_operation_id(text):
+def extract_pending_operations(text):
     """
-    Extract pending_operation_ids UUID from swbus-cli output
+    Extract pending_operation_ids and pending_operation_types
+    and return list of (type, id) tuples.
     """
-    match = re.search(
-        r'pending_operation_ids\s+\|\s+([0-9a-fA-F-]+)',
-        text
+    ids_match = re.search(
+        r'pending_operation_ids\s+\|\s+(\[.*?\])',
+        text,
+        re.DOTALL,
     )
-    return match.group(1) if match else None
+    types_match = re.search(
+        r'pending_operation_types\s+\|\s+(\[.*?\])',
+        text,
+        re.DOTALL,
+    )
+
+    if not ids_match or not types_match:
+        return []
+
+    try:
+        ids = ast.literal_eval(ids_match.group(1))
+        types = ast.literal_eval(types_match.group(1))
+    except Exception:
+        return []
+
+    return list(zip(types, ids))
 
 
-def get_pending_operation_id(duthost, scope_key):
+def get_pending_operation_id(duthost, scope_key, expected_op_type):
     """
     scope_key example: vdpu0_0:haset0_0
+    expected_op_type example: ACTIVATE_ROLE
     """
     cmd = (
         "docker exec dash-hadpu0 swbus-cli show hamgrd actor "
         f"/hamgrd/0/ha-scope/{scope_key}"
     )
     res = duthost.shell(cmd)
-    return extract_pending_operation_id(res["stdout"])
+
+    pending_ops = extract_pending_operations(res["stdout"])
+
+    for op_type, op_id in pending_ops:
+        if op_type == expected_op_type:
+            return op_id
+
+    return None
 
 
 def build_dash_ha_scope_activate_args(fields, pending_id):
@@ -208,6 +236,50 @@ def build_dash_ha_scope_activate_args(fields, pending_id):
         f'approved_pending_operation_ids '
         f'[\"{pending_id}\"]'
     )
+
+
+def proto_utils_hset(duthost, table, key, args):
+    """
+    Wrapper around proto_utils.py hset
+
+    Args:
+        duthost: pytest duthost fixture
+        table (str): Redis table name
+        key (str): Redis key
+        args (str): Already-built proto args string
+    """
+    cmd = (
+        "docker exec swss python /etc/sonic/proto_utils.py hset "
+        f'"{table}:{key}" {args}'
+    )
+    duthost.shell(cmd)
+
+
+def wait_for_pending_operation_id(
+    duthost,
+    scope_key,
+    expected_op_type,
+    timeout=60,
+    interval=2,
+):
+    """
+    Wait until the expected pending_operation_id appears.
+    """
+    def _get_pending_id():
+        return get_pending_operation_id(
+            duthost,
+            scope_key,
+            expected_op_type,
+        )
+
+    success, result = wait_until(
+        timeout,
+        interval,
+        _get_pending_id,
+        delay=0,
+    )
+
+    return result if success else None
 
 
 @pytest.fixture(scope="module")
@@ -223,12 +295,12 @@ def setup_dash_ha_from_json(duthosts):
     # -------------------------------------------------
     for duthost in duthosts:
         for key, fields in ha_set_data.items():
-            cmd = (
-                "docker exec swss python /etc/sonic/proto_utils.py hset "
-                f"DASH_HA_SET_CONFIG_TABLE:{key} "
-                f"{build_dash_ha_set_args(fields)}"
+            proto_utils_hset(
+                duthost,
+                table="DASH_HA_SET_CONFIG_TABLE",
+                key=key,
+                args=build_dash_ha_set_args(fields),
             )
-            duthost.shell(cmd)
 
     # -------------------------------------------------
     # Step 2: Initial HA SCOPE per DUT
@@ -238,7 +310,7 @@ def setup_dash_ha_from_json(duthosts):
             "vdpu0_0:haset0_0",
             {
                 "version": "1",
-                "disabled": "false",
+                "disabled": "true",
                 "desired_ha_state": "active",
                 "ha_set_id": "haset0_0",
                 "owner": "dpu",
@@ -257,18 +329,17 @@ def setup_dash_ha_from_json(duthosts):
     ]
 
     for duthost, (key, fields) in zip(duthosts, ha_scope_per_dut):
-        cmd = (
-            "docker exec swss python /etc/sonic/proto_utils.py hset "
-            f'"DASH_HA_SCOPE_CONFIG_TABLE:{key}" '
-            f"{build_dash_ha_scope_args(fields)}"
+        proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=key,
+            args=build_dash_ha_scope_args(fields),
         )
-        duthost.shell(cmd)
 
     # -------------------------------------------------
     # Step 4: Activate Role (using pending_operation_ids)
     # -------------------------------------------------
     activate_scope_per_dut = [
-        # DUT-1
         (
             "vdpu0_0:haset0_0",
             {
@@ -279,7 +350,6 @@ def setup_dash_ha_from_json(duthosts):
                 "owner": "dpu",
             },
         ),
-        # DUT-2
         (
             "vdpu1_0:haset0_0",
             {
@@ -293,15 +363,24 @@ def setup_dash_ha_from_json(duthosts):
     ]
 
     for duthost, (key, fields) in zip(duthosts, activate_scope_per_dut):
-        pending_id = get_pending_operation_id(duthost, key)
-        assert pending_id, f"No pending_operation_id found for {key}"
-
-        cmd = (
-            "docker exec swss python /etc/sonic/proto_utils.py hset "
-            f'"DASH_HA_SCOPE_CONFIG_TABLE:{key}" '
-            f"{build_dash_ha_scope_activate_args(fields, pending_id)}"
+        pending_id = wait_for_pending_operation_id(
+            duthost,
+            scope_key=key,
+            expected_op_type="active",
+            timeout=60,
+            interval=2
         )
-        duthost.shell(cmd)
+        assert pending_id, (
+            f"Timed out waiting for active pending_operation_id "
+            f"for scope {key}"
+        )
+
+        proto_utils_hset(
+            duthost,
+            table="DASH_HA_SCOPE_CONFIG_TABLE",
+            key=key,
+            args=build_dash_ha_scope_activate_args(fields, pending_id),
+        )
 
     print("DASH HA Step-4 Activate Role completed")
     yield
