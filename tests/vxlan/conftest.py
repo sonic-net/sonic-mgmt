@@ -377,22 +377,22 @@ def vnet_config(minigraph_facts, vnet_test_params, scaled_vnet_params):
 
 
 
-@pytest.fixture(scope="module", autouse=True)
-def dump_syslog(duthosts, rand_one_dut_hostname):
-    duthost = duthosts[rand_one_dut_hostname]
-    logger.info("##### dump_syslog before running tests #####")
-    cmd = "logrotate -f /etc/logrotate.conf"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
-    logger.info("##### dump_syslog before running tests done #####")
+# @pytest.fixture(scope="module", autouse=True)
+# def dump_syslog(duthosts, rand_one_dut_hostname):
+#     duthost = duthosts[rand_one_dut_hostname]
+#     logger.info("##### dump_syslog before running tests #####")
+#     cmd = "logrotate -f /etc/logrotate.conf"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     logger.info("##### dump_syslog before running tests done #####")
 
-    yield
+#     yield
 
-    logger.info("##### dump_syslog after running tests #####")
-    cmd = "cat /var/log/syslog"
-    cmd_response = duthost.shell(cmd, module_ignore_errors=True)
-    logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
-    logger.info("##### dump_syslog after running tests done #####")
+#     logger.info("##### dump_syslog after running tests #####")
+#     cmd = "cat /var/log/syslog"
+#     cmd_response = duthost.shell(cmd, module_ignore_errors=True)
+#     logger.info("cmd {} response: {}".format(cmd, cmd_response.get('stdout', None)))
+#     logger.info("##### dump_syslog after running tests done #####")
 
 
 
