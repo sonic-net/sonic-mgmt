@@ -3,8 +3,12 @@ from tests.common.constants import CounterpollConstants
 
 class ConterpollHelper:
     @staticmethod
-    def get_counterpoll_show_output(duthost):
-        return duthost.show_and_parse(CounterpollConstants.COUNTERPOLL_SHOW)
+    def get_counterpoll_show_output(duthost, asic=None):
+        if asic:
+            cmd = CounterpollConstants.COUNTERPOLL_SHOW + " -n asic{}".format(asic.asic_index)
+        else:
+            cmd = CounterpollConstants.COUNTERPOLL_SHOW
+        return duthost.show_and_parse(cmd)
 
     @staticmethod
     def get_available_counterpoll_types(duthost):
@@ -39,14 +43,16 @@ class ConterpollHelper:
                         counterpoll_before[counterpoll][CounterpollConstants.STATUS]))
 
     @staticmethod
-    def disable_counterpoll(duthost, counter_type_list):
+    def disable_counterpoll(duthost, counter_type_list, asic=None):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type))
+            asic_index = " -n asic{}".format(asic.asic_index) if asic else ""
+            duthost.command(CounterpollConstants.COUNTERPOLL_DISABLE.format(counterpoll_type, asic_index))
 
     @staticmethod
-    def enable_counterpoll(duthost, counter_type_list):
+    def enable_counterpoll(duthost, counter_type_list, asic=None):
         for counterpoll_type in counter_type_list:
-            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type))
+            asic_index = " -n asic{}".format(asic.asic_index) if asic else ""
+            duthost.command(CounterpollConstants.COUNTERPOLL_ENABLE.format(counterpoll_type, asic_index))
 
     @staticmethod
     def set_counterpoll_interval(duthost, counterpoll_type, interval):

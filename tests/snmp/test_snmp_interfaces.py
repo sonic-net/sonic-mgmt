@@ -32,11 +32,19 @@ def disable_conterpoll(duthost):
     :param duthost: DUT host object
     :return: dict with data collected from DUT per each port
     """
-    ConterpollHelper.disable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
-                                                                     CounterpollConstants.RIF])
+    counter_type_list = [CounterpollConstants.PORT,
+                         CounterpollConstants.RIF]
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            ConterpollHelper.disable_counterpoll(duthost, counter_type_list, asic)
+    else:
+        ConterpollHelper.disable_counterpoll(duthost, counter_type_list)
     yield
-    ConterpollHelper.enable_counterpoll(duthost, counter_type_list=[CounterpollConstants.PORT,
-                                                                    CounterpollConstants.RIF])
+    if duthost.is_multi_asic:
+        for asic in duthost.asics:
+            ConterpollHelper.enable_counterpoll(duthost, counter_type_list, asic)
+    else:
+        ConterpollHelper.enable_counterpoll(duthost, counter_type_list)
 
 
 def get_interfaces(duthost, tbinfo):
