@@ -5,6 +5,7 @@ import os
 import shutil
 import signal
 import tempfile
+import threading
 import time
 import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
@@ -15,6 +16,33 @@ from psutil import wait_procs
 from tests.common.helpers.assertions import pytest_assert as pt_assert
 
 logger = logging.getLogger(__name__)
+
+
+# NOTE: https://github.com/google/python-atfork/blob/main/atfork/stdlib_fixer.py
+# This is to avoid any deadlock issues with logging module after fork.
+_forked_handlers = set()
+_forked_handlers_lock = threading.Lock()
+os.register_at_fork(before=logging._acquireLock,
+                    after_in_parent=logging._releaseLock,
+                    after_in_child=logging._releaseLock)
+
+
+def _fix_logging_handler_fork_lock():
+    """Prevent logging handlers from deadlocking after fork."""
+    # Collect all loggers including root
+    loggers = [logging.getLogger()] + list(logging.Logger.manager.loggerDict.values())
+    handlers = set()
+    for logger in loggers:
+        if hasattr(logger, 'handlers'):
+            handlers.update(logger.handlers)
+    for handler in handlers:
+        with _forked_handlers_lock:
+            if handler not in _forked_handlers and handler.lock:
+                os.register_at_fork(before=handler.lock.acquire,
+                                    after_in_parent=handler.lock.release,
+                                    after_in_child=handler.lock.release)
+                logging.debug("Add handler %s to forked handlers list", handler)
+                _forked_handlers.add(handler)
 
 
 class SonicProcess(Process):
@@ -135,6 +163,10 @@ def parallel_run(
         len(nodes)/float(concurrent_tasks)
     ) if timeout else None
     failed_processes = {}
+
+    # Before spawning the child process, ensure current thread is
+    # holding the logging handler locks to avoid deadlock in child process.
+    _fix_logging_handler_fork_lock()
 
     while tasks_done < total_tasks:
         # If execution time of processes exceeds timeout, need to force
