@@ -414,6 +414,64 @@ def compress_expected_routes(expected_routes):
     return b64_str
 
 
+def get_route_programming_start_time_from_syslog(duthost, connection_type, action, LOG_STAMP, syslog='/var/log/syslog'):
+    """
+    Parse syslog for the first route programming event time. Returns the timestamp of the first route change event.
+    """
+    state = 'down' if action == 'shutdown' else 'up'
+    if connection_type == 'ports':
+        cmd = f'grep "swss#portmgrd: " | grep "admin status to {state}"'
+    elif connection_type == 'bgp_sessions':
+        cmd = f'grep "admin state is set to \'{state}\'"'
+    else:
+        logger.info("[FLAP TEST] No RP analysis for connection_type: %s", connection_type)
+        return None
+    log_pattern = f'/{LOG_STAMP}/ {{found=1}} found'
+    pattern = f'sudo awk "{log_pattern}" {syslog} | {cmd} | head -n 1'
+    syslog_stamp = duthost.shell(pattern)['stdout'].strip()
+    shut_time_str = " ".join(syslog_stamp.split()[:4])
+    rp_start_time = datetime.datetime.strptime(shut_time_str, "%Y %b %d %H:%M:%S.%f")
+    return rp_start_time
+
+
+def get_route_programming_metrics_from_sairedis_replay(duthost, start_time, sairedislog='/var/log/swss/sairedis.rec'):
+    nhg_pattern = "|r|SAI_OBJECT_TYPE_NEXT_HOP_GROUP:"
+    route_pattern = "|R|SAI_OBJECT_TYPE_ROUTE_ENTRY"
+    ts_regex = re.compile(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+')
+
+    def read_lines(path):
+        try:
+            return duthost.shell(f"sudo grep -e '{nhg_pattern}' -e '{route_pattern}' {path}")['stdout'].splitlines()
+        except Exception as e:
+            logger.warning("Failed to read %s: %s", path, e)
+            return []
+    lines = read_lines(sairedislog)
+    if not lines:
+        logger.warning("No RP events in %s, trying fallback", sairedislog)
+        lines = read_lines(sairedislog + ".1")
+    if not lines:
+        return {
+            "RP Start Time": start_time,
+            "Route Programming Duration": None,
+            "RP Error": "No RP events found"
+        }
+    deltas = []
+    route_events_count = 0
+    for line in lines:
+        m = ts_regex.search(line)
+        if not m:
+            continue
+        ts = datetime.datetime.strptime(m.group(0), "%Y-%m-%d.%H:%M:%S.%f")
+        if ts <= start_time:
+            continue
+        if nhg_pattern in line:
+            deltas.append((ts - start_time).total_seconds())
+        elif route_pattern in line:
+            route_events_count += 1
+    return {"RP Start Time": start_time, "Route Programming Duration": deltas[-1] if deltas else None,
+            "Route Events Count": route_events_count, "NextHopGroup Events Count": len(deltas)}
+
+
 def _select_targets_to_flap(bgp_peers_info, all_flap, flapping_count):
     """Selects flapping_neighbors, injection_neighbor, flapping_ports, injection_port"""
     bgp_neighbors = list(bgp_peers_info.keys())
@@ -449,6 +507,7 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
       - On startup action: Reuses the previously determined injection/flapping selections to restore connectivity and
         again validates route convergence and traffic recovery.
       - Measures and validates data plane downtime across the operations, helping to detect issues in convergence times.
+      - Reports and validates route programming data from syslog/sairedis logs for control plane convergence.
       - Returns details about the selected connections and test traffic for subsequent phases.
 
     Returns:
@@ -482,11 +541,14 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         expected_routes = deepcopy(startup_routes)
         remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
         compressed_routes = compress_expected_routes(expected_routes)
-    else:
+    elif action == 'startup':
         compressed_routes = transient_setup['compressed_startup_routes']
         injection_port = transient_setup['injection_port']
         flapping_connections = transient_setup['flapping_connections']
         prefixes = transient_setup['prefixes']
+    else:
+        logger.warning(f"Action {action} provided is not supported, skipping flapper function")
+        return {}
 
     pkts = generate_packets(
         prefixes,
@@ -503,6 +565,8 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
     flush_counters(pdp, exp_mask)
     traffic_thread.start()
     start_time = datetime.datetime.now()
+    LOG_STAMP = "RP_ANALYSIS_STAMP_%s" % start_time.strftime("%Y%m%d_%H%M%S")
+    duthost.shell('sudo logger "%s"' % LOG_STAMP)
     try:
         result = check_bgp_routes_converged(
             duthost=duthost,
@@ -528,6 +592,18 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         # Ensure traffic is stopped
         terminated.set()
         traffic_thread.join()
+    rp_start_time = get_route_programming_start_time_from_syslog(duthost, connection_type, action, LOG_STAMP)
+    if rp_start_time:
+        RP_metrics = get_route_programming_metrics_from_sairedis_replay(duthost, rp_start_time)
+        logger.info(f"[FLAP TEST] Route programming metrics after {action}: {RP_metrics}")
+        test_results[f"{current_test}_RP"] = RP_metrics
+        RP_duration = RP_metrics.get('Route Programming Duration')
+        if RP_duration is not None and RP_duration > _get_max_time('controlplane_convergence'):
+            _restore(duthost, connection_type, flapping_connections, all_flap)
+            pytest.fail(f"RP Time during {current_test} is too long: {RP_duration} seconds")
+    else:
+        logger.info(f"[FLAP TEST] No Route Programming metrics found after {action}")
+        test_results[f"{current_test}_RP"] = "No RP metrics found"
 
     return {
         "flapping_connections": flapping_connections,
@@ -535,95 +611,6 @@ def flapper(duthost, pdp, bgp_peers_info, transient_setup, flapping_count, conne
         "compressed_startup_routes": compress_expected_routes(startup_routes),
         "prefixes": prefixes
     } if action == 'shutdown' else {}
-
-
-def test_port_flap_with_syslog(
-    request,
-    duthost,
-    bgp_peers_info,
-    setup_routes_before_test
-):
-    global current_test, test_results
-    current_test = request.node.name
-    TIMESTAMP = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-    LOG_STAMP = "ONLY_ANALYSIS_LOGS_AFTER_THIS_LINE_%s" % TIMESTAMP
-    TMP_SYSLOG_FILEPATH = "/tmp/syslog_after_bgp_flapping_%s.log" % TIMESTAMP
-    bgp_neighbors = [hostname for hostname in bgp_peers_info.keys()]
-    flapping_neighbor = random.choice(bgp_neighbors)
-    flapping_ports = [bgp_peers_info[flapping_neighbor][DUT_PORT]]
-    logger.info("Flapping port: %s", flapping_ports)
-
-    startup_routes = get_all_bgp_ipv6_routes(duthost, True)
-    nexthops_to_remove = [b[IPV6_KEY] for b in bgp_peers_info.values() if b[DUT_PORT] in flapping_ports]
-    expected_routes = deepcopy(startup_routes)
-    remove_routes_with_nexthops(startup_routes, nexthops_to_remove, expected_routes)
-    compressed_expected_routes = compress_expected_routes(expected_routes)
-    duthost.shell('sudo logger "%s"' % LOG_STAMP)
-    try:
-        result = check_bgp_routes_converged(
-            duthost=duthost,
-            expected_routes=compressed_expected_routes,
-            shutdown_connections=flapping_ports,
-            connection_type='ports',
-            shutdown_all_connections=False,
-            timeout=_get_max_time('controlplane_convergence'),
-            compressed=True,
-            action='shutdown'
-        )
-
-        if not result.get("converged"):
-            pytest.fail("BGP routes are not stable in long time")
-
-        duthost.shell('sudo logger -f /var/log/swss/sairedis.rec')
-        duthost.shell('sudo awk "/%s/ {found=1; next} found" %s > %s'
-                      % (LOG_STAMP, '/var/log/syslog', TMP_SYSLOG_FILEPATH))
-
-        last_group_update = duthost.shell('sudo cat %s | grep "|C|SAI_OBJECT_TYPE_NEXT_HOP_GROUP_MEMBER||" | tail -n 1'
-                                          % TMP_SYSLOG_FILEPATH)['stdout']
-        last_group_update_time_str = re.search(r'\d{4}-\d{2}-\d{2}\.\d{2}:\d{2}:\d{2}\.\d+', last_group_update).group(0)
-        last_group_update_time = datetime.datetime.strptime(last_group_update_time_str, "%Y-%m-%d.%H:%M:%S.%f")
-
-        port_shut_log = duthost.shell('sudo cat %s | grep "Configure %s admin status to down" | tail -n 1'
-                                      % (TMP_SYSLOG_FILEPATH, flapping_ports[0]))['stdout']
-        port_shut_time_str = " ".join(port_shut_log.split()[:4])
-        port_shut_time = datetime.datetime.strptime(port_shut_time_str, "%Y %b %d %H:%M:%S.%f")
-
-        time_gap = (last_group_update_time - port_shut_time).total_seconds()
-        if time_gap > _get_max_time('controlplane_convergence'):
-            pytest.fail("Time is too long, from port shut to last group update is %s seconds" % time_gap)
-        logger.info("Time difference between port shut and last nexthop group update is %s seconds", time_gap)
-        test_results[current_test] = "Time between port shut and last nexthop group update is %s seconds" % time_gap
-    finally:
-        duthost.no_shutdown_multiple(flapping_ports)
-
-
-@pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
-def test_sessions_flapping(
-    request,
-    duthost,
-    ptfadapter,
-    bgp_peers_info,
-    flapping_port_count,
-    setup_routes_before_test
-):
-    '''
-    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
-    flapped (brought down and back up), simulating various failure or maintenance scenarios.
-
-    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
-
-    Parameters range from flapping a single session to all sessions.
-
-    Expected result:
-        Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
-    '''
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
-
-    # Measure shutdown convergence
-    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
-    # Measure startup convergence
-    flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup')
 
 
 def test_nexthop_group_member_scale(
@@ -785,3 +772,32 @@ def test_nexthop_group_member_scale(
     validate_rx_tx_counters(pdp, end_time, start_time, exp_mask, _get_max_time('dataplane_downtime', 1))
     if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
+
+
+@pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
+def test_sessions_flapping(
+    request,
+    duthost,
+    ptfadapter,
+    bgp_peers_info,
+    flapping_port_count,
+    setup_routes_before_test
+):
+    '''
+    Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
+    flapped (brought down and back up), simulating various failure or maintenance scenarios.
+
+    Uses the flapper function to orchestrate the flapping of BGP sessions and measure convergence times.
+
+    Parameters range from flapping a single session to all sessions.
+
+    Expected result:
+        Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
+    '''
+    pdp = ptfadapter.dataplane
+    pdp.set_qlen(PACKET_QUEUE_LENGTH)
+
+    # Measure shutdown convergence
+    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
+    # Measure startup convergence
+    flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup')
