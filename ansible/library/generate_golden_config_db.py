@@ -67,6 +67,7 @@ class GenerateGoldenConfigDBModule(object):
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
+        self.platform, _ = device_info.get_platform_and_hwsku()
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_light_mode = self.module.params['is_light_mode']
@@ -143,6 +144,11 @@ class GenerateGoldenConfigDBModule(object):
                "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
+        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
+            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
+            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
 
         return json.dumps(golden_config_db, indent=4)
 
