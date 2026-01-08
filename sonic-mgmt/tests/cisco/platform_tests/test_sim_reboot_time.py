@@ -11,6 +11,7 @@ from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.helpers.assertions import pytest_assert
 from tests.cisco.common.utils import CheckEnvironment
+from tests.platform_tests.conftest import xcvr_skip_list, dpu_npu_port_list
 
 pytestmark = [
     pytest.mark.disable_loganalyzer,
