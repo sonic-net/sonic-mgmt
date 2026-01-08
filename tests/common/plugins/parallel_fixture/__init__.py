@@ -559,7 +559,12 @@ def pytest_runtest_setup(item):
         if not fixture_defs:
             fixture_scope = current_fixture_scopes[-1]
         else:
-            fixture_scope = TaskScope[fixture_defs[0].scope.upper()].value
+            try:
+                fixture_scope = TaskScope[fixture_defs[0].scope.upper()].value
+            except Exception:
+                logging.debug("[Parallel Fixture] Unknown fixture scope for %r,"
+                              "default to previous scope", fixture_defs)
+                fixture_scope = current_fixture_scopes[-1]
         current_fixture_scopes.append(fixture_scope)
 
     # NOTE: Inject the barriers to ensure they are running last
@@ -640,7 +645,7 @@ def pytest_runtest_teardown(item, nextitem):
     parallel_manager = _PARALLEL_MANAGER
     if parallel_manager:
         parallel_manager.reset()
-    parallel_manager.current_scope = TaskScope.FUNCTION
+        parallel_manager.current_scope = TaskScope.FUNCTION
 
 
 def pytest_runtest_logreport(report):
