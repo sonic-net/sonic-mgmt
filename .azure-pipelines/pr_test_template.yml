@@ -79,6 +79,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -114,6 +115,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -148,6 +150,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -182,6 +185,7 @@ jobs:
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -221,6 +225,7 @@ jobs:
               {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
               {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -258,6 +263,7 @@ jobs:
           SPECIFIC_PARAM: '[
               {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -294,6 +300,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -329,5 +336,6 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
