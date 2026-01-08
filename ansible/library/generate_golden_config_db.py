@@ -67,6 +67,7 @@ class GenerateGoldenConfigDBModule(object):
         self.macsec_profile = self.module.params['macsec_profile']
         self.num_asics = self.module.params['num_asics']
         self.hwsku = self.module.params['hwsku']
+        self.platform, _ = device_info.get_platform_and_hwsku()
 
         self.vm_configuration = self.module.params['vm_configuration']
         self.is_light_mode = self.module.params['is_light_mode']
@@ -143,6 +144,11 @@ class GenerateGoldenConfigDBModule(object):
                "default_pfcwd_status" in golden_config_db["DEVICE_METADATA"]["localhost"]):
                 golden_config_db["DEVICE_METADATA"]["localhost"]["default_pfcwd_status"] = "disable"
                 golden_config_db["DEVICE_METADATA"]["localhost"]["buffer_model"] = "traditional"
+
+        # set counterpoll interval to 2000ms as workaround for Slowness observed in nexthop group and member programming
+        if "FLEX_COUNTER_TABLE" in ori_config_db and 'sn5640' in self.platform:
+            golden_config_db["FLEX_COUNTER_TABLE"] = ori_config_db["FLEX_COUNTER_TABLE"]
+            golden_config_db["FLEX_COUNTER_TABLE"]["PORT"]["POLL_INTERVAL"] = "2000"
 
         return json.dumps(golden_config_db, indent=4)
 
@@ -588,19 +594,6 @@ class GenerateGoldenConfigDBModule(object):
 
         return json.dumps({"PORT": port_config}, indent=4)
 
-    def generate_dummy_hft_config_db(self, config):
-        json_config = json.loads(config)
-        json_config["HIGH_FREQUENCY_TELEMETRY_PROFILE"] = {
-            "default": {
-                "stream_state": "disabled",
-                "poll_interval": "10000"
-            }
-        }
-        json_config["HIGH_FREQUENCY_TELEMETRY_GROUP"] = {
-            "default|PORT": {}
-        }
-        return json.dumps(json_config, indent=4)
-
     def generate(self):
         module_msg = "Success to generate golden_config_db.json"
         # topo check
@@ -653,10 +646,6 @@ class GenerateGoldenConfigDBModule(object):
                     "has_per_asic_scope": "True",
                 }
             })
-
-        # Generate dummy table for HFT
-        if not multi_asic.is_multi_asic():
-            config = self.generate_dummy_hft_config_db(config)
 
         with open(GOLDEN_CONFIG_DB_PATH, "w") as temp_file:
             temp_file.write(config)
