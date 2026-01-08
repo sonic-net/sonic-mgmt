@@ -280,6 +280,7 @@ To ensure only the necessary firmware binaries are present for each transceiver:
 5. **Network connectivity:** The DUT must have network access to the firmware server specified in `cmis_cdb_firmware_base_url.csv` for downloading firmware binaries.
 
 **Common verification procedures:**
+
 The following verification procedures should be performed after each test case:
 1. Verify that there are no kernel error messages in syslog if `monitor_kernel_errors` flag is set.
 2. Verify that critical processes such as `xcvrd`, `syncd`, and `orchagent` do not crash or restart.
