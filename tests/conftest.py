@@ -1183,6 +1183,10 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
     if 'servers' in tbinfo:
         servers_dut_interfaces = {value['ptf_ip'].split("/")[0]: value['dut_interfaces']
                                   for value in tbinfo['servers'].values()}
+
+    # Check if logs directory exists, otherwise use /tmp
+    log_path = "logs" if os.path.isdir("logs") else "/tmp"
+
     for ptfhost in ptfhosts:
         ptf_ip = ptfhost.mgmt_ip
         res = localhost.announce_routes(
@@ -1190,7 +1194,7 @@ def topo_bgp_routes(localhost, ptfhosts, tbinfo):
             ptf_ip=ptf_ip,
             action='generate',
             path="../ansible/",
-            log_path="logs",
+            log_path=log_path,
             dut_interfaces=servers_dut_interfaces.get(ptf_ip) if servers_dut_interfaces else None,
         )
         if 'topo_routes' not in res:
