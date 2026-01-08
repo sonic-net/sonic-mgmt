@@ -1216,8 +1216,6 @@ class TestConfigInterface():
         # Set speed to configure
         configure_speed = supported_speeds[0] if supported_speeds else native_speed
 
-        ignore_host_lane_count_loganalyzer(ignore_condition=duthost.facts['hwsku'] in ["Arista-7060X6-64PE-P32O64",
-                                                                                       "Arista-7060X6-64PE-P64"])
 
         if not self.check_speed_change(duthost, asic_index, interface, configure_speed):
             pytest.skip(
