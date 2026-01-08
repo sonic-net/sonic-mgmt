@@ -55,21 +55,20 @@ class AnsibleHostBase(object):
 
     def __getattr__(self, module_name):
         if self.host.has_module(module_name):
-            self.module_name = module_name
-            self.module = getattr(self.host, module_name)
-
-            return self._run
+            def _run_wrapper(*module_args, **kwargs):
+                return self._run(module_name, *module_args, **kwargs)
+            return _run_wrapper
         raise AttributeError(
             "'%s' object has no attribute '%s'" % (self.__class__, module_name)
             )
 
-    def _run(self, *module_args, **complex_args):
+    def _run(self, module_name, *module_args, **complex_args):
 
         previous_frame = inspect.currentframe().f_back
         filename, line_number, function_name, lines, index = inspect.getframeinfo(previous_frame)
 
         verbose = complex_args.pop('verbose', True)
-
+        module = getattr(self.host, module_name)
         if verbose:
             logger.debug(
                 "{}::{}#{}: [{}] AnsibleModule::{}, args={}, kwargs={}".format(
@@ -77,7 +76,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name,
+                    module_name,
                     json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder),
                     json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder)
                 )
@@ -89,7 +88,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name
+                    module_name
                 )
             )
 
@@ -98,7 +97,7 @@ class AnsibleHostBase(object):
 
         if module_async:
             def run_module(module_args, complex_args):
-                return self.module(*module_args, **complex_args)[self.hostname]
+                return module(*module_args, **complex_args)[self.hostname]
             pool = ThreadPool()
             result = pool.apply_async(run_module, (module_args, complex_args))
             return pool, result
@@ -106,9 +105,9 @@ class AnsibleHostBase(object):
         module_args = json.loads(json.dumps(module_args, cls=AnsibleHostBase.CustomEncoder))
         complex_args = json.loads(json.dumps(complex_args, cls=AnsibleHostBase.CustomEncoder))
 
-        adhoc_res: AdHocResult = self.module(*module_args, **complex_args)
+        adhoc_res: AdHocResult = module(*module_args, **complex_args)
 
-        if self.module_name == "meta":
+        if module_name == "meta":
             # The meta module is special in Ansible - it doesn't execute on remote hosts, it controls Ansible's behavior
             # There are no per-host ModuleResults contained within it
             return
@@ -123,7 +122,7 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
+                    module_name, json.dumps(hostname_res, cls=AnsibleHostBase.CustomEncoder)
                 )
             )
         else:
@@ -133,14 +132,14 @@ class AnsibleHostBase(object):
                     function_name,
                     line_number,
                     self.hostname,
-                    self.module_name,
+                    module_name,
                     hostname_res.is_failed,
                     hostname_res.get('rc', None)
                 )
             )
 
         if (hostname_res.is_failed or 'exception' in hostname_res) and not module_ignore_errors:
-            raise RunAnsibleModuleFail("run module {} failed".format(self.module_name), hostname_res)
+            raise RunAnsibleModuleFail("run module {} failed".format(module_name), hostname_res)
 
         return hostname_res
 
