@@ -60,7 +60,7 @@ def test_fwutil_install_bad_path(duthost, component):
     """Tests that fwutil install validates firmware paths correctly."""
     out = duthost.command(f"fwutil install chassis component {component} fw BAD.pkg",
                           module_ignore_errors=True)
-    pattern = re.compile(r'.*Error: Invalid value for "<fw_path>"*.')
+    pattern = re.compile(r'''.*Error: Invalid value for ['"]<fw_path>['"]''')
     assert find_pattern(out['stderr_lines'], pattern)
 
 
