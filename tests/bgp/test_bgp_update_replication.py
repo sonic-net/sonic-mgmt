@@ -31,7 +31,6 @@ pytestmark = [
 '''
 
 
-
 def generate_routes(num_routes, nexthop, is_ipv6=False):
     '''
     Generator which yields specified amount of dummy routes, in a dict that the route injector
@@ -49,7 +48,6 @@ def generate_routes(num_routes, nexthop, is_ipv6=False):
                 "prefix": SUBNET_TMPL.format(first_iter=first_iter, second_iter=second_iter),
                 "nexthop": nexthop
             }
-
 
 
 def measure_stats(dut, is_ipv6=False):
