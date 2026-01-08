@@ -9,7 +9,7 @@
 #include "dvaas/test_vector.pb.h"
 #include "glog/logging.h"
 #include "gtest/gtest.h"
-#include "gutil/testing.h"
+#include "gutil/gutil/testing.h"
 #include "infrastructure/thinkit/ondatra_params.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
