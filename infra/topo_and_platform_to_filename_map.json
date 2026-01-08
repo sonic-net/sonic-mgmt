@@ -156,6 +156,18 @@
             "topo_file": "../spytest_tb_files/g200_udf_qpid_vxlan_topo.yaml"
         }
     },
+    "t0-t1-5d-202505": {
+        "lightning": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_spytest_5D_linux_ixia_lightning.yaml",
+            "topo_file": "../spytest_tb_files/tortuga_spytest_202505.yaml"
+        }
+    },
+    "t0-t1-2d": {
+        "churchill-mono": {
+            "pyvxr_yaml_file": "../pyvxr_yaml_files/tgen_topo.yaml",
+            "topo_file": "../spytest_tb_files/tgen_2D.yaml"
+        }
+    },
     "tortuga-controller-2x2": {
         "churchill-mono": {
             "pyvxr_yaml_file": "../pyvxr_yaml_files/tortuga_controller_2x2.yaml"
