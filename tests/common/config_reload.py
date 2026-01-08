@@ -244,6 +244,7 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
 
         # Wait for Redis to be fully operational before other services start
         logger.info("Waiting for Redis database to be fully operational...")
+
         def check_redis_ready():
             try:
                 result = sonic_host.shell("docker exec database redis-cli PING", module_ignore_errors=True)
