@@ -1039,7 +1039,7 @@ class TestVrfLoopbackIntf():
 
         # vrf1 args, vrf2 use the same as vrf1
         peer_range = IPNetwork(
-            cfg_facts['BGP_PEER_RANGE']['BGPSLBPassive']['ip_range'][0])
+            cfg_facts['BGP_PEER_RANGE']['Vrf1|BGPSLBPassive']['ip_range'][0])
         ptf_speaker_ip = IPNetwork(
             "{}/{}".format(peer_range[1], peer_range.prefixlen))
         vlan_port = get_vlan_members('Vlan1000', cfg_facts)[0]
@@ -1088,7 +1088,7 @@ class TestVrfLoopbackIntf():
                          dest="%s/%s" % (exabgp_dir, 'start.sh'), mode="u+rwx")
 
         # kill exabgp if any
-        ptfhost.shell("pkill exabgp || true")
+        ptfhost.shell("ps -ef | grep -v grep | grep exabgp | grep config | awk {'print $2'} | xargs -r kill -9")
 
         # start exabgp instance
         ptfhost.shell("bash %s/start.sh" % exabgp_dir)
@@ -1111,7 +1111,7 @@ class TestVrfLoopbackIntf():
                 peer_range, ips['ipv4'][0], vrf))
 
         # kill exabgp
-        ptfhost.shell("pkill exabgp || true")
+        ptfhost.shell("ps -ef | grep -v grep | grep exabgp | grep config | awk {'print $2'} | xargs -r kill -9")
 
         # del speaker ips from ptf ports
         for vrf, vlan_peer_port in g_vars['vlan_peer_ips']:
@@ -1126,7 +1126,7 @@ class TestVrfLoopbackIntf():
     def test_bgp_with_loopback(self, duthosts, rand_one_dut_hostname, cfg_facts):
         duthost = duthosts[rand_one_dut_hostname]
         peer_range = IPNetwork(
-            cfg_facts['BGP_PEER_RANGE']['BGPSLBPassive']['ip_range'][0])
+            cfg_facts['BGP_PEER_RANGE']['Vrf1|BGPSLBPassive']['ip_range'][0])
         ptf_speaker_ip = IPNetwork(
             "{}/{}".format(peer_range[1], peer_range.prefixlen))
 
