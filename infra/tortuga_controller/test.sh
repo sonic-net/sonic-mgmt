@@ -3,7 +3,7 @@
 # PROPRIETARY AND CONFIDENTIAL. Cisco Systems, Inc. considers the contents of this
 # file to be highly confidential trade secret information.
 #
-# COPYRIGHT 2023-2025 Cisco Systems, Inc., All rights reserved.
+# COPYRIGHT 2023-2026 Cisco Systems, Inc., All rights reserved.
 #
 # Take a look at config-gen.pptx for more details on tests.
 #
@@ -43,7 +43,7 @@ PYVXR_BGPPEERS="*"
 PYVXR_CHANNELS="*"
 PYVXR_VRFS=""
 PYVXR_STPS="*"
-CLOUD_URL=https://tortuga-k8s-a.cisco.com:30709
+CLOUD_URL=https://tortuga-k8s-a.cisco.com:30166
 START_TIME=$(date +%s)
 TEST_TAGS="ipv4,ipv6,bgp-debug"
 CGEN_TEST=extended
@@ -55,7 +55,6 @@ LAG=true
 BREAKOUT="breakout"
 LOADTEST="*"
 TIMEOUT="15m"
-BULK_MODE=true   # Enable bulk config load.
 BULK_PATCH=false # Enable bulk config patch.
 LLDP_CHECK=true  # Check and assert for LLDP system description.
 IPSLA=true       # Enable IpSla tests.
@@ -154,10 +153,6 @@ do
   -no-ipsla)
     IPSLA=false
     shift;;
-  -no-bulk-mode)
-    BULK_MODE=false
-    BULK_PATCH=false
-    shift;;
   -bulk-patch)
     BULK_PATCH=true
     shift;;
@@ -182,14 +177,16 @@ done
 LENGTH=$(echo "${LEAF_PORTS}" | tr -cd , | wc -c)
 LENGTH=$((LENGTH + 1))
 LENGTH=$((LENGTH / FABRIC_COUNT))
-if [[ ${LENGTH} -eq 1 ]] || [[ "${SPINE_PORTS}" == "0" ]]; then
+
+# Disable southbound spine peering in following cases.
+# - If there is only one switch.
+# - In mesh topology (no spines).
+# - In DCI mode (spines cannot have VRF).
+if [[ ${LENGTH} -eq 1 ]] || [[ ${SPINE_PORTS} -eq 0 ]] || [[ ${FABRIC_COUNT} -gt 1 ]]; then
   SB_SPINE=false
 fi
 
-# Enable bulk-mode config.
-if [[ "${BULK_MODE}" == true ]]; then
-  TEST_TAGS="${TEST_TAGS},bulk-config"
-fi
+# Enable bulk patch.
 if [[ "${BULK_PATCH}" == true ]]; then
   TEST_TAGS="${TEST_TAGS},bulk-patch"
 fi
@@ -220,8 +217,8 @@ PYVXR_ROUTES="Vrf12000000|6.6.6.0/24#blackhole|10.10.10.0/24#41.240.10.2|10.10.1
 # custom policies. Custom export policy re-writes next-hop to leaf0's Loopback IPs. By default,
 # FRR assigns connected port's IP as next-hop, and that would create traffic failures. Following
 # scripts add IP 41.230.10.0/31 on eth2 of host3.
-PYVXR_POLICIES="export-nb#true#41.220.200.200#fc00:dead:face::200:200|false#*#9999:99|false#*#GREEN|true#*#8888:88|false#*#0.0.0.0/0#41.220.0.0/16@GE@16|true#*"
-PYVXR_POLICIES="${PYVXR_POLICIES},import-nb#false#*|true#9999:99"
+PYVXR_POLICIES="export-nb#true#41.220.200.200#fc00:dead:face::200:200|false#*#9999:99|false#*#RED|true#*#PURPLE|true#*#8888:88|false#*#0.0.0.0/0#41.220.0.0/16@GE@16|true#*"
+PYVXR_POLICIES="${PYVXR_POLICIES},import-nb#false#*|true#9999:99+"
 PYVXR_BGPPEERS="Vrf40000|northbound#4000#*#host3@41.230.10.0/31@eth2#leaf0|41.230.10.0#4500|leaf0#${ROUTED_PORT1}|export-nb#import-nb"
 
 # Add a IPv6 northbound BGP peer on third host of last leaf.
@@ -239,38 +236,25 @@ PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|ipv6-nb#5000#*#${V6HOST}@50.50.50.2/2
 PYVXR_ROUTES="${PYVXR_ROUTES},*#${V6HOST}|fc00:dead:face::0/96#5000::1"
 PYVXR_IPS="50.50.50.2#5000::2"
 
-# We use leaf0, leaf1 and leaf2 Loopbacks for southbound peering. However, Loopbacks on
-# the spines are used for 2x2 fabric. This is to test spine based southbound peering.
-SB_ANNOTATIONS="host1@41.216.1.2#leaf0#host5@41.216.1.3#leaf1#host8@41.216.1.4#leaf2"
+# We use leaf0 Loopback for southbound peering when spine based peering is disabled.
+SB_ANNOTATIONS="host1@41.216.1.2#leaf0"
 SB_NODE1=leaf0
-SB_NODE2=leaf1
-SB_NODE3=leaf2
 if [[ "${SB_SPINE}" == true ]]; then
   SB_NODE1=spine0
-  SB_NODE2=
-  SB_ANNOTATIONS="host1@41.216.1.2#leaf0"
 fi
 
-# Southbound BGP peer is on leaf0 and leaf1, and uses custom policies.
+# Southbound BGP peer is on leaf0, and uses custom policies.
 # Annotations are used by config-gen to configure FRR on hosts.
 if [[ "${SB_PEER}" == true ]]; then
   PYVXR_POLICIES="${PYVXR_POLICIES},export-sb#true#*|true#*#9999:99#8888:88|false#*#BLACK|false#*#0.0.0.0/0|true#*"
-  PYVXR_POLICIES="${PYVXR_POLICIES},import-sb#false#*|true#8888:88"
+  PYVXR_POLICIES="${PYVXR_POLICIES},import-sb#false#*|true#8888:88+"
   PYVXR_BGPPEERS="${PYVXR_BGPPEERS},Vrf40000|southbound#3000#*#${SB_ANNOTATIONS}|41.216.1.0/28#3500#20|${SB_NODE1}#Loopback10"
-  if [[ ${LENGTH} -gt 1 ]]; then
-    if [[ -n "${SB_NODE2}" ]]; then
-      PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#${SB_NODE2}#Loopback10"
-    fi
-  fi
-  if [[ ${LENGTH} -gt 2 ]]; then
-    PYVXR_BGPPEERS="${PYVXR_BGPPEERS}#${SB_NODE3}#Loopback10"
-  fi
   PYVXR_BGPPEERS="${PYVXR_BGPPEERS}|export-sb#import-sb"
 fi
 
-# Add static routes for Vrf400000
+# Add static routes for Vrf40000
 PYVXR_IPS="${PYVXR_IPS}#7.7.7.1"
-PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000|8.8.8.2/32#41.216.0.3#GREEN|8.8.8.3/32#41.216.0.3#RED|7.7.7.1/32#41.216.0.2#BLUE"
+PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000|8.8.8.2/32#41.216.0.3#RED|8.8.8.3/32#41.216.0.3#GREEN|7.7.7.1/32#41.216.0.2#BLUE"
 
 # Add PortChannels for single switch setup.
 PYVXR_CHANNELS="PortChannel1|leaf0:${LAG_PORT1}#leaf0:${LAG_PORT2}|10|false|eth1#eth2"
@@ -301,7 +285,7 @@ if [[ ${LENGTH} -gt 4 ]]; then
   PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.4/32#41.216.0.5#BLUE|7.7.7.5/32#41.216.0.6#3|7.7.7.6/32#41.216.0.7#BLUE"
 fi
 
-# Add PortChannels for nine leaf fabric: MLAG on seventh and eighth leaves, and LAG on nineth leaf.
+# Add PortChannels for nine leaf fabric: MLAG on seventh and eighth leaves, and LAG on ninth leaf.
 if [[ ${LENGTH} -gt 7 ]]; then
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel60|leaf6:${LAG_PORT1}#leaf7:${LAG_PORT2}|10|false|eth1#eth2"
   PYVXR_CHANNELS="${PYVXR_CHANNELS},PortChannel70|leaf7:${LAG_PORT1}#leaf6:${LAG_PORT2}|10|false|eth1#eth2"
@@ -309,8 +293,6 @@ if [[ ${LENGTH} -gt 7 ]]; then
   PYVXR_IPS="${PYVXR_IPS}#7.7.7.7#7.7.7.8#7.7.7.9"
   PYVXR_ROUTES="${PYVXR_ROUTES}|7.7.7.7/32#41.216.0.8#BLUE|7.7.7.8/32#41.216.0.9#3|7.7.7.9/32#41.216.0.10#BLUE"
 fi
-
-PYVXR_IPS="Vrf40000|${PYVXR_IPS}|10"
 
 # Enable STP for PyVxr. STP is always on leaf0.
 if [[ "${STP}" == true ]]; then
@@ -353,15 +335,20 @@ if [[ "${LAG}" == false ]]; then
   PYVXR_CHANNELS="*"
 fi
 
-TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP},${BREAKOUT}"
+# Add a routed port on leaf1 and add host IP to host6 (last host on leaf1).
+# This route is going to be used as the IP/SLA route on leaf1.
+if [[ ${LENGTH} -gt 1 ]]; then
+  PYVXR_PORTS="${PYVXR_PORTS},leaf1|${ROUTED_PORT1}#41.230.20.1/24#Vrf40000#host6@eth2@41.230.20.2/24"
+  PYVXR_IPS="${PYVXR_IPS}#41.230.20.2"
+fi
 
 # Configure IP/SLA and static routes for traffic-gen running in host0 and
 # host4. For single switch setup, enable traffic-gen on host0 and host1.
 if [[ "${IPSLA}" == true ]]; then
   if [[ ${LENGTH} -gt 2 ]]; then
-    PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host4@host7|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.0.3|20.20.20.2/32#41.216.0.4"
+    PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host6@host7|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.230.20.2|20.20.20.2/32#41.216.0.4"
   elif [[ ${LENGTH} -gt 1 ]]; then
-     PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host4|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.0.3"
+     PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host6|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.230.20.2"
   else
     PYVXR_ROUTES="${PYVXR_ROUTES},Vrf40000#ip-sla-routes#host0@host1|20.20.20.2/32#41.216.0.2|20.20.20.2/32#41.216.1.2"
   fi
@@ -370,6 +357,11 @@ if [[ "${IPSLA}" == true ]]; then
 else
   PYVXR_IPSLAS="*"
 fi
+
+# Append VLAN to the IPs. Following lines MUST BE the last lines before
+# invoking config-gen.
+PYVXR_IPS="Vrf40000|${PYVXR_IPS}|10"
+TEST_TAGS="${TEST_TAGS},dhcp-${DHCP},${DSCP},${BREAKOUT}"
 
 function run_pyvxr() {
   "${CONFIG_GEN}" \
