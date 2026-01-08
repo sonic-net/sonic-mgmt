@@ -620,7 +620,7 @@ def pytest_exception_interact(call, report):
     the rest running tasks and terminate the parallel manager.
     """
     parallel_manager = _PARALLEL_MANAGER
-    if report.when == "setup":
+    if parallel_manager and report.when == "setup":
         reraise = not isinstance(call.excinfo.value, ParallelTaskRuntimeError)
         logging.debug("[Parallel Fixture] Wait for tasks to finish after exception occurred in setup %s",
                       call.excinfo.value)
