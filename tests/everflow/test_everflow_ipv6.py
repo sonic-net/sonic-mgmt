@@ -218,7 +218,8 @@ class EverflowIPv6Tests(BaseEverflowTest):
 
             self.apply_acl_rule_config(duthost, table_name, setup_mirror_session["session_name"],
                                        config_method, rules=EVERFLOW_V6_RULES)
-            self.apply_ip_type_rule(duthost, 6)
+            if self.acl_stage() == "egress":
+                self.apply_ip_type_rule(duthost, 6)
 
         yield
 
