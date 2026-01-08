@@ -375,6 +375,14 @@ def load_basic_facts(dut_name, session):
 
     tbinfo = TestbedInfo(testbed_file).testbed_topo.get(testbed_name, None)
 
+    if tbinfo is None:
+        logger.error("Testbed '{}' not found in testbed file '{}'. "
+                     "Available testbeds: {}".format(
+                         testbed_name, testbed_file,
+                         list(TestbedInfo(testbed_file).testbed_topo.keys())))
+        raise ValueError("Testbed '{}' not found in testbed file '{}'".format(
+            testbed_name, testbed_file))
+
     results['topo_type'] = tbinfo['topo']['type']
     results['topo_name'] = tbinfo['topo']['name']
     results['testbed'] = testbed_name
