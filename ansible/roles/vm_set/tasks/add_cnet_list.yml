@@ -1,0 +1,10 @@
+- name: Create VMs network
+  become: yes
+  vm_topology:
+    cmd:          'create'
+    vm_names:     "{{ VM_hosts }}"
+    fp_mtu:       "{{ fp_mtu_size }}"
+    max_fp_num:   "{{ max_fp_num }}"
+
+- include_tasks: add_cnet.yml
+  with_items: "{{ VM_targets }}"
