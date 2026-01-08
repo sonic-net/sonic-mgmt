@@ -3697,12 +3697,35 @@ def yang_validation_check(request, duthosts):
         for duthost in duthosts:
             logger.info(f"Running YANG validation on {duthost.hostname} ({stage})")
             try:
-                # Ensure database is running before YANG validation
+                # Ensure database is running and accepting connections before YANG validation
                 # as config command requires database connection
                 if not duthost.is_critical_processes_running_per_asic_or_host("database"):
                     logger.warning(f"Database not running on {duthost.hostname}, attempting to start...")
                     duthost.shell("docker exec database supervisorctl start redis redis_bmp", module_ignore_errors=True)
                     time.sleep(10)  # Give database time to start
+
+                # Wait for Redis to accept connections
+                logger.info(f"Waiting for Redis to accept connections on {duthost.hostname}...")
+                redis_ready = False
+                for _ in range(30):  # Try for up to 60 seconds
+                    try:
+                        result = duthost.shell("docker exec database redis-cli PING", module_ignore_errors=True)
+                        if result.get('rc') == 0 and 'PONG' in result.get('stdout', ''):
+                            redis_ready = True
+                            break
+                    except Exception:
+                        pass
+                    time.sleep(2)
+
+                if not redis_ready:
+                    logger.error(f"Redis not accepting connections on {duthost.hostname}")
+                    validation_results[duthost.hostname] = {
+                        'failed': True,
+                        'error': 'Redis database not accepting connections'
+                    }
+                    continue
+
+                time.sleep(5)  # Extra settle time
 
                 result = duthost.shell(
                     'echo "[]" | sudo config apply-patch /dev/stdin',

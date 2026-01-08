@@ -478,6 +478,34 @@ def ensure_process_is_running(duthost, container_name, critical_process):
             pytest.fail("Failed to start process '{}' in container '{}'.".format(critical_process, container_name))
 
 
+def wait_for_database_ready(duthost, timeout=120):
+    """Wait for Redis database to be fully operational and accepting connections.
+
+    Args:
+        duthost: Hostname of DUT.
+        timeout: Maximum time to wait in seconds.
+
+    Returns:
+        True if database is ready, False otherwise.
+    """
+    logger.info("Waiting for database to be ready and accepting connections...")
+    start_time = time.time()
+    while time.time() - start_time < timeout:
+        try:
+            # Check if Redis is responding to PING
+            result = duthost.shell("docker exec database redis-cli PING", module_ignore_errors=True)
+            if result.get('rc') == 0 and 'PONG' in result.get('stdout', ''):
+                logger.info("Database is ready and accepting connections")
+                # Extra wait for database to settle
+                time.sleep(5)
+                return True
+        except Exception as e:
+            logger.debug(f"Database not ready yet: {e}")
+        time.sleep(2)
+    logger.error("Database failed to become ready within timeout")
+    return False
+
+
 def ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=False):
     """Checks whether each critical process is running and starts it if it is not running.
 
@@ -528,6 +556,12 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces, pri
                 group_program_info = get_group_program_info(duthost, container_name_in_namespace, critical_group)
                 for program_name in group_program_info:
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
+
+        # If we just recovered database container, wait for it to be fully operational
+        if container_name == 'database':
+            logger.info("Database processes recovered, waiting for Redis to accept connections...")
+            if not wait_for_database_ready(duthost):
+                pytest_assert(False, "Database processes running but Redis not accepting connections")
 
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
@@ -639,6 +673,11 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
         # Perform config reload to recover the system
         logger.info("Performing config reload to recover critical processes...")
         config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+
+        # Ensure database is fully operational before other services
+        logger.info("Ensuring database is fully operational...")
+        if not wait_for_database_ready(duthost):
+            pytest.fail("Database failed to become ready after config reload")
 
         # Ensure all critical processes are recovered, prioritizing database
         logger.info("Ensuring all critical processes are running after recovery...")
