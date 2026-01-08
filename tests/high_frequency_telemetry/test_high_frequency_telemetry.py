@@ -3,6 +3,10 @@ import logging
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.high_frequency_telemetry.counter_profiles import (
+    CounterObjectType,
+    get_support_counter_list,
+)
 from tests.high_frequency_telemetry.utilities import (
     setup_hft_profile,
     setup_hft_group,
@@ -15,7 +19,10 @@ from tests.high_frequency_telemetry.utilities import (
     validate_config_state_transitions,
     validate_port_state_transitions,
     validate_counter_output,
-    get_available_ports
+    get_available_ports,
+    get_configured_queue_objects,
+    get_configured_buffer_queue_objects,
+    get_configured_buffer_pools
 )
 
 logger = logging.getLogger(__name__)
@@ -96,25 +103,28 @@ def test_hft_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         cleanup_hft_config(duthost, profile_name, [group_name])
 
 
-@pytest.mark.skip(reason="Queue-based high frequency telemetry "
-                         "not yet supported")
-def test_hft_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
-                            disable_flex_counters, tbinfo):
+def test_hft_full_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
+                                 disable_flex_counters):
     """
-    Test high frequency telemetry for queue counters.
+    Test high frequency telemetry for every configured queue.
 
-    This test demonstrates a different configuration with queue objects.
+    This test derives queue objects directly from the DUT config facts so
+    it exercises all queues that are defined on the device.
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     profile_name = "queue_profile"
     group_name = "QUEUE"
 
-    # Get available ports from topology (try for 2 ports, min 1 required)
-    test_ports = get_available_ports(duthost, tbinfo, desired_ports=2,
-                                     min_ports=1)
-    # Format queue objects with index
-    queue_objects = [f"{port}|0" for port in test_ports]
+    queue_objects = get_configured_queue_objects(duthost)
+    if not queue_objects:
+        pytest.skip("No queue objects defined in CONFIG_DB; can't run queue telemetry test")
 
+    object_counters = get_support_counter_list(
+        duthost,
+        CounterObjectType.QUEUE
+    )
+    if not object_counters:
+        pytest.skip("No queue counters supported on this platform")
     logger.info(f"Using queue objects for testing: {queue_objects}")
 
     try:
@@ -132,7 +142,7 @@ def test_hft_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
             profile_name=profile_name,
             group_name=group_name,
             object_names=queue_objects,  # Queue objects with index
-            object_counters=["QUEUE_STAT_PACKETS"]
+            object_counters=object_counters
         )
 
         logger.info("Queue high frequency telemetry configuration completed")
@@ -154,7 +164,153 @@ def test_hft_queue_counters(duthosts, enum_rand_one_per_hwsku_hostname,
         cleanup_hft_config(duthost, profile_name)
 
 
-@pytest.mark.skip(reason="Some PORT stats haven't been supported yet")
+def test_hft_full_ingress_priority_group_counters(duthosts, enum_rand_one_per_hwsku_hostname,
+                                                  disable_flex_counters):
+    """Test high frequency telemetry for all configured buffer queues (ingress priority groups)."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    profile_name = "ingress_pg_profile"
+    group_name = "INGRESS_PRIORITY_GROUP"
+
+    buffer_queue_objects = get_configured_buffer_queue_objects(duthost)
+    if not buffer_queue_objects:
+        pytest.skip("No BUFFER_QUEUE entries defined in CONFIG_DB; can't run ingress PG telemetry test")
+
+    object_counters = get_support_counter_list(
+        duthost,
+        CounterObjectType.INGRESS_PRIORITY_GROUP
+    )
+    if not object_counters:
+        pytest.skip("No ingress priority group counters supported on this platform")
+
+    try:
+        setup_hft_profile(
+            duthost=duthost,
+            profile_name=profile_name,
+            poll_interval=10000,
+            stream_state="enabled"
+        )
+
+        setup_hft_group(
+            duthost=duthost,
+            profile_name=profile_name,
+            group_name=group_name,
+            object_names=buffer_queue_objects,
+            object_counters=object_counters
+        )
+
+        result = run_countersyncd_and_capture_output(duthost, timeout=360)
+        validate_counter_output(
+            output=result['stdout'],
+            min_counter_value=0,
+            expected_poll_interval=10000
+        )
+    finally:
+        cleanup_hft_config(duthost, profile_name)
+
+
+def test_hft_full_buffer_pool_counters(duthosts, enum_rand_one_per_hwsku_hostname,
+                                       disable_flex_counters):
+    """Test high frequency telemetry for all configured buffer pools."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    profile_name = "buffer_pool_profile"
+    group_name = "BUFFER_POOL"
+
+    buffer_pools = get_configured_buffer_pools(duthost)
+    if not buffer_pools:
+        pytest.skip("No BUFFER_POOL entries defined in CONFIG_DB; can't run buffer pool telemetry test")
+
+    object_counters = get_support_counter_list(
+        duthost,
+        CounterObjectType.BUFFER_POOL
+    )
+    if not object_counters:
+        pytest.skip("No buffer pool counters supported on this platform")
+
+    try:
+        setup_hft_profile(
+            duthost=duthost,
+            profile_name=profile_name,
+            poll_interval=10000,
+            stream_state="enabled"
+        )
+
+        setup_hft_group(
+            duthost=duthost,
+            profile_name=profile_name,
+            group_name=group_name,
+            object_names=buffer_pools,
+            object_counters=object_counters
+        )
+
+        result = run_countersyncd_and_capture_output(duthost, timeout=360)
+        validate_counter_output(
+            output=result['stdout'],
+            min_counter_value=0,
+            expected_poll_interval=10000
+        )
+    finally:
+        cleanup_hft_config(duthost, profile_name)
+
+
+def test_hft_full_counters(duthosts, enum_rand_one_per_hwsku_hostname,
+                           disable_flex_counters, tbinfo):
+    """Test high frequency telemetry for all supported object types in one profile."""
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    profile_name = "full_hft_profile"
+
+    # Collect objects and counters per type
+    port_objects = get_available_ports(duthost, tbinfo, desired_ports=None, min_ports=1)
+    port_counters = get_support_counter_list(duthost, CounterObjectType.PORT)
+
+    queue_objects = get_configured_queue_objects(duthost)
+    queue_counters = get_support_counter_list(duthost, CounterObjectType.QUEUE)
+
+    pg_objects = get_configured_buffer_queue_objects(duthost)
+    pg_counters = get_support_counter_list(duthost, CounterObjectType.INGRESS_PRIORITY_GROUP)
+
+    pool_objects = get_configured_buffer_pools(duthost)
+    pool_counters = get_support_counter_list(duthost, CounterObjectType.BUFFER_POOL)
+
+    groups_to_configure = []
+    if port_objects and port_counters:
+        groups_to_configure.append(("PORT", port_objects, port_counters))
+    if queue_objects and queue_counters:
+        groups_to_configure.append(("QUEUE", queue_objects, queue_counters))
+    if pg_objects and pg_counters:
+        groups_to_configure.append(("INGRESS_PRIORITY_GROUP", pg_objects, pg_counters))
+    if pool_objects and pool_counters:
+        groups_to_configure.append(("BUFFER_POOL", pool_objects, pool_counters))
+
+    if not groups_to_configure:
+        pytest.skip("No counters or objects available for any HFT group")
+
+    try:
+        setup_hft_profile(
+            duthost=duthost,
+            profile_name=profile_name,
+            poll_interval=10000,
+            stream_state="enabled"
+        )
+
+        for group_name, objects, counters in groups_to_configure:
+            setup_hft_group(
+                duthost=duthost,
+                profile_name=profile_name,
+                group_name=group_name,
+                object_names=objects,
+                object_counters=counters
+            )
+
+        result = run_countersyncd_and_capture_output(duthost, timeout=360)
+        validate_counter_output(
+            output=result['stdout'],
+            min_counter_value=0,
+            expected_poll_interval=10000
+        )
+    finally:
+        cleanup_hft_config(duthost, profile_name)
+
+
 def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
                                 disable_flex_counters, tbinfo):
     """
@@ -178,19 +334,12 @@ def test_hft_full_port_counters(duthosts, enum_rand_one_per_hwsku_hostname,
     )
 
     # All available port counters
-    all_port_counters = [
-        "IF_IN_OCTETS",
-        "IF_IN_UCAST_PKTS",
-        "IF_IN_DISCARDS",
-        "IF_IN_ERRORS",
-        "IN_CURR_OCCUPANCY_BYTES",
-        "IF_OUT_OCTETS",
-        "IF_OUT_DISCARDS",
-        "IF_OUT_ERRORS",
-        "IF_OUT_UCAST_PKTS",
-        "OUT_CURR_OCCUPANCY_BYTES",
-        "TRIM_PACKETS"
-    ]
+    all_port_counters = get_support_counter_list(
+        duthost,
+        CounterObjectType.PORT
+    )
+    if not all_port_counters:
+        pytest.skip("No port counters supported on this platform")
 
     logger.info(
             f"Testing all {len(all_available_ports)} available ports: "

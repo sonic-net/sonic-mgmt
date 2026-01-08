@@ -11,6 +11,7 @@ import re
 import threading
 import time
 from datetime import datetime, timedelta, timezone
+from collections.abc import Iterable
 
 import pytest
 import ptf.testutils as testutils
@@ -108,6 +109,81 @@ def get_available_ports(duthost, tbinfo, desired_ports=2, min_ports=None):
         return available_ports
 
 
+def _expand_queue_key(queue_key):
+    """Expand a queue key that may be a range (e.g., "0-6") into a list of ids."""
+    if isinstance(queue_key, str) and '-' in queue_key:
+        parts = queue_key.split('-', 1)
+        try:
+            start = int(parts[0])
+            end = int(parts[1])
+        except (ValueError, IndexError):
+            return [queue_key]
+        if start > end:
+            start, end = end, start
+        return [str(i) for i in range(start, end + 1)]
+    return [queue_key]
+
+
+def get_configured_queue_objects(duthost, source="persistent"):
+    """Return all queue objects from CONFIG_DB as <port>|<queue_id> strings, expanding ranges."""
+    cfg_facts = duthost.config_facts(
+        host=duthost.hostname, source=source)['ansible_facts']
+    queue_table = cfg_facts.get('QUEUE', {})
+
+    if not queue_table:
+        logger.info("No QUEUE entries found in config facts")
+        return []
+
+    queue_objects = []
+    for port in natsorted(queue_table.keys()):
+        queue_entries = queue_table.get(port, {}) or {}
+        for queue_id in natsorted(queue_entries.keys()):
+            for expanded_id in _expand_queue_key(queue_id):
+                queue_objects.append(f"{port}|{expanded_id}")
+
+    # Deduplicate while preserving order
+    queue_objects = list(dict.fromkeys(queue_objects))
+    logger.info(f"Found {len(queue_objects)} queue objects: {queue_objects}")
+    return queue_objects
+
+
+def get_configured_buffer_queue_objects(duthost, source="persistent"):
+    """Return all buffer queue objects as <port>|<queue_id> strings, expanding ranges."""
+    cfg_facts = duthost.config_facts(
+        host=duthost.hostname, source=source)['ansible_facts']
+    buffer_queue_table = cfg_facts.get('BUFFER_QUEUE', {})
+
+    if not buffer_queue_table:
+        logger.info("No BUFFER_QUEUE entries found in config facts")
+        return []
+
+    buffer_queue_objects = []
+    for port in natsorted(buffer_queue_table.keys()):
+        entries = buffer_queue_table.get(port, {}) or {}
+        for queue_id in natsorted(entries.keys()):
+            for expanded_id in _expand_queue_key(queue_id):
+                buffer_queue_objects.append(f"{port}|{expanded_id}")
+
+    buffer_queue_objects = list(dict.fromkeys(buffer_queue_objects))
+    logger.info(f"Found {len(buffer_queue_objects)} buffer queue objects: {buffer_queue_objects}")
+    return buffer_queue_objects
+
+
+def get_configured_buffer_pools(duthost, source="persistent"):
+    """Return all buffer pool names from CONFIG_DB."""
+    cfg_facts = duthost.config_facts(
+        host=duthost.hostname, source=source)['ansible_facts']
+    buffer_pools = natsorted(cfg_facts.get('BUFFER_POOL', {}).keys())
+    buffer_pools = list(dict.fromkeys(buffer_pools))
+
+    if not buffer_pools:
+        logger.info("No BUFFER_POOL entries found in config facts")
+    else:
+        logger.info(f"Found {len(buffer_pools)} buffer pools: {buffer_pools}")
+
+    return buffer_pools
+
+
 def setup_hft_profile(duthost, profile_name, poll_interval=10000,
                       stream_state="enabled", otel_endpoint=None,
                       otel_certs=None):
@@ -148,6 +224,14 @@ def setup_hft_profile(duthost, profile_name, poll_interval=10000,
     return result
 
 
+def _stringify_sequence(value):
+    if isinstance(value, str):
+        return value
+    if isinstance(value, Iterable):
+        return ",".join(str(item) for item in value)
+    return str(value)
+
+
 def setup_hft_group(duthost, profile_name, group_name,
                     object_names, object_counters):
     """
@@ -160,10 +244,8 @@ def setup_hft_group(duthost, profile_name, group_name,
         object_names: List of object names or comma-separated string
         object_counters: List of counter names or comma-separated string
     """
-    if isinstance(object_names, list):
-        object_names = ",".join(object_names)
-    if isinstance(object_counters, list):
-        object_counters = ",".join(object_counters)
+    object_names = _stringify_sequence(object_names)
+    object_counters = _stringify_sequence(object_counters)
 
     group_cmd = (
         f'redis-cli -n 4 HSET "HIGH_FREQUENCY_TELEMETRY_GROUP|'
