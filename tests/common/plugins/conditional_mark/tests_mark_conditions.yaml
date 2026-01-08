@@ -3505,12 +3505,13 @@ mvrf:
 
 mvrf/test_mgmtvrf.py:
   skip:
-    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox, nvidia and broadcom asic from 202411 and later"
+    reason: "mvrf is not supported in x86_64-nokia_ixr7250e_36x400g-r0 platform, M* topo, kvm testbed, mellanox, nvidia and broadcom asic from 202411 and later and  test skipped due to github issue #3589"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia', 'broadcom']"
       - "topo_type in ['m0', 'mx', 'm1']"
       - "platform in ['x86_64-nokia_ixr7250e_36x400g-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/3589"
 
 mvrf/test_mgmtvrf.py::TestReboot::test_fastboot:
   skip:
@@ -4442,6 +4443,12 @@ scripts:
 #######################################
 #####              sflow          #####
 #######################################
+sflow/test_sflow.py:
+  skip:
+    reason: "The testcase is skipped due to github issue #21701"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21701"
+
 sflow/test_sflow.py::TestReboot::testFastreboot:
   skip:
     reason: "Dualtor topology doesn't support advanced-reboot"
@@ -5131,11 +5138,12 @@ voq/test_voq_fabric_status_all.py:
 #######################################
 vrf/test_vrf.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently  and skipped due to github issue #21700"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
       - "topo_type not in ['t0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21700"
 
 vrf/test_vrf.py::TestVrfAclRedirect:
   skip:
@@ -5159,11 +5167,12 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
 
 vrf/test_vrf_attr.py:
   skip:
-    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
+    reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently and skipped due to github issue #21700"
     conditions_logical_operator: or
     conditions:
       - "asic_type in ['vs', 'mellanox', 'nvidia']"
       - "topo_type not in ['t0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21700"
 
 vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac:
   skip:
