@@ -11,6 +11,7 @@
     tables_to_keep:
       - DEVICE_METADATA
       - MGMT_INTERFACE
+      - MGMT_PORT
       - BANNER_MESSAGE
       - FEATURE
       - FLEX_COUNTER_TABLE
