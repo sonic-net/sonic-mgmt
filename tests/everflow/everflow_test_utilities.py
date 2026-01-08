@@ -965,13 +965,16 @@ class BaseEverflowTest(object):
         Returns:
             Bool value
         """
-        res = duthost.shell("aclshow -a")['stdout_lines']
-        if len(res) <= 2 or [line for line in res if 'N/A' in line]:
+        res = duthost.shell("show acl rule")['stdout_lines']
+        if "Status" not in res[0]:
             return False
-        else:
-            return True
+        status_index = res[0].index("Status")
+        for line in res[2:]:
+            if line[status_index:] != 'Active':
+                return False
+        return True
 
-    def apply_non_openconfig_acl_rle(self, duthost, extra_vars, rule_file):
+    def apply_non_openconfig_acl_rule(self, duthost, extra_vars, rule_file):
         """
         Not all ACL match groups are valid in openconfig-acl format used in rest of these
         tests. Instead we must load these uing SONiC-style acl jsons.
@@ -1011,7 +1014,7 @@ class BaseEverflowTest(object):
             'table_name': table_name,
             'action': action
         }
-        self.apply_non_openconfig_acl_rle(duthost, extra_vars, rule_file)
+        self.apply_non_openconfig_acl_rule(duthost, extra_vars, rule_file)
 
     def send_and_check_mirror_packets(self,
                                       setup,
