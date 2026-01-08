@@ -1749,8 +1749,6 @@ class TestMultiBindingAcl(TestBasicAcl):
 
     def setup_rules(self, dut, acl_table, ip_version, tbinfo, gnmi_connection):
         """Setup ACL rules for multi-binding ACL testing."""
-        if 'dualtor' not in tbinfo['topo']['name']:
-            pytest.skip("Not a dual-tor testbed")
 
         dut.host.options["variable_manager"].extra_vars.update(
             {"dualtor": True})
