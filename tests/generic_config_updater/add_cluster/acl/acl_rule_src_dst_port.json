@@ -1,0 +1,44 @@
+{
+    "acl": {
+        "acl-sets": {
+            "acl-set": {
+                "L3_TRANSPORT_TEST": {
+                    "acl-entries": {
+                        "acl-entry": {
+                            "100": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "ACCEPT"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 100
+                                },
+                                "transport": {
+                                    "config": {
+                                        "source-port": "5000"
+                                    }
+                                }
+                            },
+                            "200": {
+                                "actions": {
+                                    "config": {
+                                        "forwarding-action": "DROP"
+                                    }
+                                },
+                                "config": {
+                                    "sequence-id": 200
+                                },
+                                "transport": {
+                                    "config": {
+                                        "destination-port": "8080"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

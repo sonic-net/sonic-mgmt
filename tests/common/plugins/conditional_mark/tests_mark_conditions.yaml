@@ -2464,6 +2464,12 @@ generic_config_updater:
     conditions:
       - "('t2' == topo_type) and (release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311'])"
 
+generic_config_updater/add_cluster/test_add_cluster.py:
+  skip:
+    reason: This test case either cannot pass or should be skipped on virtual chassis
+    conditions:
+      - asic_type in ['vs']
+
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
