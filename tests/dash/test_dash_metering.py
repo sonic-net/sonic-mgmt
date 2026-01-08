@@ -200,12 +200,14 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
     dpuhost = dpuhosts[dpu_index]
     pkt_sets = list()
 
-    #single_endpoint = True
-    num_packets = 10
-    tx_payload_len = 100
-    rx_payload_len = 80
-    exp_rx_bytes = num_packets * rx_payload_len
-    exp_tx_bytes = num_packets * tx_payload_len
+    if single_endpoint:
+        num_packets = 5
+    else:
+        # need a lot of packets to check ECMP distribution
+        num_packets = 1000
+
+    exp_rx_bytes = num_packets * 80
+    exp_tx_bytes = num_packets * 100
 
     # Associate Route-Group2 with ENI
     if metering_tc == 'ROUTE_METERCLASS_OR_HIT' or metering_tc == 'ROUTE_MAPPING_METERCLASS_OR_HIT':
@@ -250,7 +252,7 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
         vm_to_dpu_pkt, exp_dpu_to_pe_pkt, pe_to_dpu_pkt, exp_dpu_to_vm_pkt = rand_udp_port_packets(
             dash_pl_config, floating_nic=True, outbound_vni=pl.ENI_TRUSTED_VNI
         )
-        # Usually `testutils.send` automatically updates the packet payload to include the test nome
+        # Usually `testutils.send` automatically updates the packet payload to include the test name
         # and `testutils.verify_packet*` updates the expected packet payload to match. Since we are polling
         # the dataplane directly for the DPU to VM packet, we need to manually update the payload
         exp_dpu_to_vm_pkt = ptfadapter.update_payload(exp_dpu_to_vm_pkt)
@@ -273,29 +275,24 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
             exp_dpu_to_vm_pkt,
             tunnel_endpoint_counts
         )
-
+    # Just waiting for 10 sec to get all complete statistics
+    time.sleep(10)
     recvd_pkts = sum(tunnel_endpoint_counts.values())
     logger.info(f"Received packets: {recvd_pkts}, Tunnel endpoint counts: {tunnel_endpoint_counts}")
-    time.sleep(60)
 
     pytest_assert(
         recvd_pkts == num_packets,
         f"Expected {num_packets} packets, but received {recvd_pkts} packets. " f"Counts: {tunnel_endpoint_counts}",
     )
 
-    expected_pkt_per_endpoint = num_packets // len(tunnel_endpoint_counts)
-    pkt_count_low = expected_pkt_per_endpoint * 0.5
-    pkt_count_high = expected_pkt_per_endpoint * 1.5
-
     # Get eni oid
     eni = pl.ENI_ID
     eni_oid = get_eni_counter_oid(dpuhost, eni)
-    logger.info(f'ENI OID: {eni_oid}')
+    logger.info(f'Expecting meterclass stats {exp_meterclass} to be incremented for ENI {eni_oid}')
 
-    # Fetch SAI Meter stats
+    # Get DPU SAI Meter statistics
     meter_stats = get_eni_meter_counters(dpuhost, eni_oid)
-    logger.info(f'Meterclass stats: {meter_stats}')
-    logger.info(f'Expected meterclass stats {exp_meterclass} for ENI {eni_oid}')
+    logger.info(f'Actual DPU Meterclass stats: {meter_stats}')
 
     # verify Meter class stats
     if exp_meterclass in meter_stats[eni_oid]:
@@ -309,6 +306,10 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
             )
     else:
         pytest_assert(False, "Expected MeterClass stats is not getting updated")
+
+    expected_pkt_per_endpoint = num_packets // len(tunnel_endpoint_counts)
+    pkt_count_low = expected_pkt_per_endpoint * 0.75
+    pkt_count_high = expected_pkt_per_endpoint * 1.25
 
     for ip, count in tunnel_endpoint_counts.items():
         logger.info(f'Received packet count for {ip} is {count}')
