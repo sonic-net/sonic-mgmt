@@ -56,6 +56,7 @@ class ControlPlaneBaseTest(BaseTest):
     DEFAULT_PRE_SEND_INTERVAL_SEC = 1
     DEFAULT_SEND_INTERVAL_SEC = 30
     DEFAULT_RECEIVE_WAIT_TIME = 3
+    PTF_TIMEOUT = 30
 
     def __init__(self):
         BaseTest.__init__(self)
@@ -151,7 +152,7 @@ class ControlPlaneBaseTest(BaseTest):
                 pre_send_count += 1
 
             rcv_pkt_cnt = testutils.count_matched_packets_all_ports(
-                self, packet, [recv_intf[1]], recv_intf[0], timeout=5)
+                self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
             self.log("Send %d and receive %d packets in the first second (PolicyTest)" % (
                 pre_send_count, rcv_pkt_cnt))
 
@@ -180,7 +181,7 @@ class ControlPlaneBaseTest(BaseTest):
         # Wait a little bit for all the packets to make it through
         time.sleep(self.DEFAULT_RECEIVE_WAIT_TIME)
         recv_count = testutils.count_matched_packets_all_ports(
-            self, packet, [recv_intf[1]], recv_intf[0], timeout=10)
+            self, packet, [recv_intf[1]], recv_intf[0], timeout=self.PTF_TIMEOUT)
         self.log("Received %d packets after sleep %ds" %
                  (recv_count, self.DEFAULT_RECEIVE_WAIT_TIME))
 
@@ -354,7 +355,7 @@ class DHCPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -403,7 +404,7 @@ class DHCP6Test(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -471,7 +472,7 @@ class LLDPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -507,7 +508,7 @@ class UDLDTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
         # Marvell based platforms have cir/cbs in steps of 125
-        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215", "Nokia-7215-A1"}:
+        if self.hw_sku in {"Nokia-M0-7215", "Nokia-7215"} or self.hw_sku.startswith("Nokia-7215-A1"):
             self.PPS_LIMIT = 250
         # Cisco G100 based platform has CIR 600
         elif self.asic_type == "cisco-8000" and "8111" in self.platform:
@@ -547,9 +548,11 @@ class UDLDTest(PolicyTest):
 class BGPTest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("BGPTest")
+        self.log("BGPTest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def construct_packet(self, port_number):
@@ -557,6 +560,7 @@ class BGPTest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_dst=dst_mac,
             ip_dst=dst_ip,
             ip_ttl=1,
@@ -676,9 +680,11 @@ class SSHTest(PolicyTest):
 class IP2METest(PolicyTest):
     def __init__(self):
         PolicyTest.__init__(self)
+        test_params = testutils.test_params_get()  # Get a fresh copy to be safe
+        self.packet_size = int(test_params.get('packet_size', 100))
 
     def runTest(self):
-        self.log("IP2METest")
+        self.log("IP2METest with packet size: {}".format(self.packet_size))
         self.run_suite()
 
     def one_port_test(self, port_number):
@@ -700,6 +706,7 @@ class IP2METest(PolicyTest):
         dst_ip = self.peerip
 
         packet = testutils.simple_tcp_packet(
+            pktlen=self.packet_size,
             eth_src=src_mac,
             eth_dst=dst_mac,
             ip_dst=dst_ip
