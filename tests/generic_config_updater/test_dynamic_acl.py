@@ -187,13 +187,13 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
                     upstream_port_ids.append(port_id)
     else:
         downstream_ports = list(mg_facts["minigraph_vlans"][vlan_name]["members"])
-        # Put all portchannel members into dst_ports
+        # Put all upstream ports into dst_ports
         upstream_port_ids = []
         upstream_ports = []
-        for _, v in mg_facts['minigraph_portchannels'].items():
-            for member in v['members']:
-                upstream_port_ids.append(mg_facts['minigraph_ptf_indices'][member])
-                upstream_ports.append(member)
+        for port in mg_facts['minigraph_ports']:
+            if port not in downstream_ports and port in mg_facts['minigraph_ptf_indices']:
+                upstream_port_ids.append(mg_facts['minigraph_ptf_indices'][port])
+                upstream_ports.append(port)
 
     for port in downstream_ports:
         if port in mg_facts['minigraph_port_name_to_alias_map']:
