@@ -669,4 +669,3 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
             duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config mux mode auto all')
             unselected_duthost.shell('config save -y')
-
