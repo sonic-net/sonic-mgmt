@@ -47,6 +47,9 @@ def common_setup_teardown(
 
     dut_asn = mg_facts["minigraph_bgp_asn"]
 
+    confed_asn = duthost.get_bgp_confed_asn()
+    use_vtysh = False
+
     dut_type = ""
     for k, v in list(mg_facts["minigraph_devices"].items()):
         if k == duthost.hostname:
@@ -56,6 +59,9 @@ def common_setup_teardown(
         neigh_type = "LeafRouter"
     elif dut_type in ["UpperSpineRouter", "FabricSpineRouter"]:
         neigh_type = "LowerSpineRouter"
+        if dut_type == "FabricSpineRouter" and confed_asn is not None:
+            # For FT2, we need to use vtysh to configure BGP neigh if BGP confed is enabled
+            use_vtysh = True
     else:
         neigh_type = "ToRRouter"
     logging.info(
@@ -74,7 +80,7 @@ def common_setup_teardown(
             ptfhost,
             "pseudoswitch0",
             conn0["neighbor_addr"].split("/")[0],
-            dut_asn if dut_type == "FabricSpineRouter" else NEIGHBOR_ASN0,
+            NEIGHBOR_ASN0,
             conn0["local_addr"].split("/")[0],
             dut_asn,
             NEIGHBOR_PORT0,
@@ -82,10 +88,12 @@ def common_setup_teardown(
             conn0_ns,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False,
+            confed_asn=confed_asn,
+            use_vtysh=use_vtysh
         )
     )
 
-    yield bgp_neighbor
+    yield bgp_neighbor, use_vtysh
 
     # Cleanup suppress-fib-pending config
     delete_tacacs_json = [
@@ -147,7 +155,7 @@ def match_bgp_notification(packet, src_ip, dst_ip, action, bgp_session_down_time
         # error_code 6: Cease, error_subcode 3: Peer De-configured. References: RFC 4271
         return (bgp_fields["error_code"] == 6 and
                 bgp_fields["error_subcode"] == 3 and
-                float(packet.time) < bgp_session_down_time)
+                (bgp_session_down_time is None or float(packet.time) < bgp_session_down_time))
     else:
         return False
 
@@ -195,7 +203,7 @@ def test_bgp_peer_shutdown(
     tbinfo
 ):
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    n0 = common_setup_teardown
+    n0, use_vtysh = common_setup_teardown
     is_v6_topo = is_ipv6_only_topology(tbinfo)
     announced_route = {"prefix": "fc00:10::/64", "nexthop": n0.ip} if is_v6_topo else \
                       {"prefix": "10.10.100.0/27", "nexthop": n0.ip}
@@ -240,7 +248,11 @@ def test_bgp_peer_shutdown(
                     bgp_packet.show(dump=True),
                 )
 
-                bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)
+                if not use_vtysh:
+                    bgp_session_down_time = get_bgp_down_timestamp(duthost, n0.namespace, n0.ip, timestamp_before_teardown)  # noqa: E501
+                else:
+                    # There is no syslog if use vtysh to manage BGP neigh
+                    bgp_session_down_time = None
                 if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time,
                                               is_v6_topo):
                     pytest.fail("BGP notification packet does not match expected values")
