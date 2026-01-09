@@ -501,7 +501,8 @@ class TestQoSSaiDSCPQueueMapping_IPIP_Base():
             self._run_test(ptfadapter, duthost, tbinfo, test_params, inner_dst_ip_list, dut_qos_maps_module, dscp_mode)
 
         if completeness_level != "basic" and \
-                not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch"):
+                not duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts'].get("is_smartswitch") and \
+                "dualtor" not in tbinfo["topo"]["name"]:
             with allure.step("Do warm-reboot"):
                 reboot(duthost, localhost, reboot_type="warm", safe_reboot=True, check_intf_up_ports=True,
                        wait_warmboot_finalizer=True)
