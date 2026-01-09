@@ -78,6 +78,7 @@ class PfcPauseTest(BaseTest):
         tos_bg = self.dscp_bg << 2
 
         pkt_args = {
+            'pktlen' : 1500,
             'eth_dst': self.mac_dst,
             'eth_src': self.mac_src,
             'ip_src': self.ip_src,
@@ -94,6 +95,7 @@ class PfcPauseTest(BaseTest):
         pkt = simple_udp_packet(**pkt_args)
 
         pkt_bg_args = {
+            'pktlen' : 1500,
             'eth_dst': self.mac_dst,
             'eth_src': self.mac_src,
             'ip_src': self.ip_src,
@@ -110,6 +112,7 @@ class PfcPauseTest(BaseTest):
         pkt_bg = simple_udp_packet(**pkt_bg_args)
 
         exp_pkt_args = {
+            'pktlen' : 1500,
             'ip_src': self.ip_src,
             'ip_dst': self.ip_dst,
             'ip_tos': tos_bg,
