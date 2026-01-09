@@ -30,8 +30,6 @@ LEAF0_VXLAN_IP = 'fd27::233:d0c6:fefb'
 LEAF1_VXLAN_IP = 'fd27::2dc:c1c9:e17c'
 LEAF2_VXLAN_IP = 'fd27::2d9:76fd:4c43'
 
-leaf_duts = ["leaf0", "leaf1", "leaf2"]
-
 SEQ_IDS = OrderedDict([
     ('LEAF0', {'local' : 0, 'remote' : 0}),
     ('LEAF1', {'local' : 0, 'remote' : 0}),
@@ -285,13 +283,13 @@ def l3_traffic_test(stream_list, del_stream=True):
 
 def clear_arp():
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             st.show(dut, 'sonic-clear arp', skip_tmpl=True)
 
 def get_cli_out():
     cmds = ["show vxlan interface", "show mac", "show arp", "show interface counters", "show vxlan counters", "show evpn es", "ip nexthop"]
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             for item in cmds:
                 output = st.show(dut, item, skip_tmpl=True)
                 st.log(output)
@@ -1291,7 +1289,7 @@ def test_mac_IP_move_SH():
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': vars.D4T1P1, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
@@ -1299,7 +1297,7 @@ def test_mac_IP_move_SH():
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d2p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1341,14 +1339,14 @@ def test_mac_IP_move_SH():
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d2p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1448,7 +1446,7 @@ def test_mac_IP_move_SH_to_MH():
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': "PortChannel2", 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': "03:00:44:33:22:11:00:00:00:02", 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H1"])
@@ -1456,7 +1454,7 @@ def test_mac_IP_move_SH_to_MH():
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d2p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1506,14 +1504,14 @@ def test_mac_IP_move_SH_to_MH():
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move, dut:{} frr:{}".format(dut, frr))
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d2p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d2p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1584,7 +1582,7 @@ def test_mac_IP_move_remote_SH_to_MH():
                        'leaf1': {'mac_address':data.t1d4p1_mac_addr, 'type':'local', 'vtep': "PortChannel2", 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': "03:00:44:33:22:11:00:00:00:02", 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d4p1_mac_addr, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H2"], port_name_map["H3"])
@@ -1593,7 +1591,7 @@ def test_mac_IP_move_remote_SH_to_MH():
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d4p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d4p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1643,14 +1641,14 @@ def test_mac_IP_move_remote_SH_to_MH():
                        'leaf1': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d4p1_mac_addr, 'type':'local', 'vtep': vars.D4T1P1, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d4p1_mac_addr, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac was moved back")
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.t1d4p1_ip_addr)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.t1d4p1_mac_addr)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1736,7 +1734,7 @@ def _test_mac_IP_move_MH_to_SH():
                        'leaf1': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.lag_mac, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H1"], port_name_map["H2"])
@@ -1744,7 +1742,7 @@ def _test_mac_IP_move_MH_to_SH():
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1794,14 +1792,14 @@ def _test_mac_IP_move_MH_to_SH():
                        'leaf2': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "03:00:44:33:22:11:00:00:00:02", 'seq': updated_seq_ids[2]}}
 
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.lag_mac, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1890,7 +1888,7 @@ def test_mac_IP_move_MH_to_remote_SH():
                        'leaf2': {'mac_address':data.lag_mac, 'type':'local', 'vtep': "Ethernet1/9", 'seq': updated_seq_ids[2]}}
 
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.lag_mac, expected_frr_op)
             if not frr:
                 st.log("FRR verification failed, reseting topology")
@@ -1899,7 +1897,7 @@ def test_mac_IP_move_MH_to_remote_SH():
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -1950,14 +1948,14 @@ def test_mac_IP_move_MH_to_remote_SH():
                        'leaf1': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "PortChannel2", 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "03:00:44:33:22:11:00:00:00:02", 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.lag_mac, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not (kernel_ip_flag or kernel_mac_flag):
@@ -2037,7 +2035,7 @@ def _IP_only_move_MH_to_remote_SH():
                        'leaf1': {'mac_address':"00:00:00:00:00:22", 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/0'},
                        'leaf2': {'mac_address':"00:00:00:00:00:22", 'type':'remote', 'vtep': "Ethernet1/9", 'seq':'0/0'}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, "00:00:00:00:00:22", expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
@@ -2050,7 +2048,7 @@ def _IP_only_move_MH_to_remote_SH():
                        'leaf1': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '0/1'},
                        'leaf2': {'ip_address':data.lag_ip, 'type':'local', 'vtep': '', 'seq':'1/0'}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_ip_db(nodes, dut, "10.212.10.2", expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
@@ -2058,14 +2056,14 @@ def _IP_only_move_MH_to_remote_SH():
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             if not kernel_ip_flag:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{}".format(dut, kernel_ip_flag))
 
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not kernel_mac_flag:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H2"])
@@ -2105,7 +2103,7 @@ def _IP_only_move_MH_to_remote_SH():
                        'leaf1': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "PortChannel2", 'seq':'4/3'},
                        'leaf2': {'mac_address':data.lag_mac, 'type':'remote', 'vtep': "03:00:44:33:22:11:00:00:00:02", 'seq':'3/4'}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.lag_mac, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
@@ -2117,20 +2115,20 @@ def _IP_only_move_MH_to_remote_SH():
                        'leaf1': {'ip_address':data.lag_ip, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq': '2/1'},
                        'leaf2': {'ip_address':data.lag_ip, 'type':'local', 'vtep': '', 'seq':'1/2'}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_ip_db(nodes, dut, "10.212.10.2", expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect for IP in zebra after IP move")
 
     #kernel verification
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_ip_flag = vxlan_obj.is_ip_neigh_present_in_kernel(nodes, dut, data.lag_ip)
             if not kernel_ip_flag:
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_ip_flag:{}".format(dut, kernel_ip_flag))
 
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             kernel_mac_flag = vxlan_obj.is_mac_present_in_kernel(nodes, dut, data.lag_mac)
             if not kernel_mac_flag:
                 report_fail(nodes[dut], "kernel is incorrectly programmed for ip/mac, dut:{} kernel_mac_flag:{}".format(dut, kernel_mac_flag))
@@ -2216,7 +2214,7 @@ def test_SH_mac_IP_move_H1_H5():
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'local', 'vtep': vars.D3T1P2, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF1_VXLAN_IP, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H5"], port_name_map["H1"])
@@ -2251,7 +2249,7 @@ def test_SH_mac_IP_move_H1_H5():
                        'leaf1': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[1]},
                        'leaf2': {'mac_address':data.t1d2p1_mac_addr, 'type':'remote', 'vtep': LEAF0_VXLAN_IP, 'seq': updated_seq_ids[2]}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d2p1_mac_addr, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")
@@ -2460,7 +2458,7 @@ def test_SH_mac_IP_move_H3_H4():
                        'leaf1': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/0'},
                        'leaf2': {'mac_address':data.t1d4p1_mac_addr, 'type':'local', 'vtep': vars.D4T1P2, 'seq':'0/0'}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d4p1_mac_addr, expected_frr_op)
             if not frr:
                 reset_topology_after_mac_move(port_name_map["H3"], port_name_map["H1"])
@@ -2495,7 +2493,7 @@ def test_SH_mac_IP_move_H3_H4():
                        'leaf1': {'mac_address':data.t1d4p1_mac_addr, 'type':'remote', 'vtep': LEAF2_VXLAN_IP, 'seq':'0/0'},
                        'leaf2': {'mac_address':data.t1d4p1_mac_addr, 'type':'local', 'vtep': vars.D4T1P1, 'seq':'0/0'}}
     for dut in st.get_dut_names():
-        if dut in leaf_duts:
+        if "leaf" in dut:
             frr = verify_frr_db(nodes, dut, data.t1d4p1_mac_addr, expected_frr_op)
             if not frr:
                 report_fail(nodes[dut], "seq id is incorrect in zebra after mac move")

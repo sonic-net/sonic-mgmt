@@ -52,7 +52,7 @@ def create_portchannel(dut, portchannel_list=[], fallback=False, min_link="", st
     enhance_action = kwargs.get('enhance_action', False)
     config_type = kwargs.get('config_type', 'yes')
     system_mac = kwargs.get('system_mac', False)
-    st.log("Creating port channel {} ..".format(portchannel_list), dut=dut)
+    st.log("New Log: Creating port channel {} ..".format(portchannel_list), dut=dut)
     if static and fallback:
         st.log("Fallback is not supported for Static LAGs")
         return False
