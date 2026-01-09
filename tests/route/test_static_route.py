@@ -239,7 +239,7 @@ def apply_static_route_config(duthost, unselected_duthost, prefix, nexthop_addrs
 
 @contextmanager
 def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
-                         prefix, nexthop_count, is_route_flow_counter_supported, ipv6=False):
+                         prefix, nexthop_count, is_route_flow_counter_supported_flag, ipv6=False):
     """
     Context manager for static route testing that handles setup, verification, and cleanup.
 
@@ -273,7 +273,7 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
     try:
         # Configure static route
         apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
-                                 prefix, nexthop_addrs, op="add")
+                                  prefix, nexthop_addrs, op="add")
 
         time.sleep(5)
 
@@ -289,7 +289,7 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
             duthost.shell(ping_cmd.format(nexthop_addr), module_ignore_errors=True)
 
         with RouteFlowCounterTestContext(
-            is_route_flow_counter_supported,
+            is_route_flow_counter_supported_flag,
             duthost,
             [prefix],
             {prefix: {'packets': COUNT}}
@@ -319,7 +319,7 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
 
         # Verify traffic forwarding after operation
         with RouteFlowCounterTestContext(
-            is_route_flow_counter_supported,
+            is_route_flow_counter_supported_flag,
             duthost,
             [prefix],
             {prefix: {'packets': COUNT}}
@@ -332,7 +332,7 @@ def static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinf
     finally:
         # Cleanup: Remove static route
         apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
-                                 prefix, op="del")
+                                  prefix, op="del")
 
         # Cleanup: Delete IP addresses in PTF
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
@@ -368,7 +368,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
     try:
         # Add static route
         apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
-                                 prefix, nexthop_addrs, op="add")
+                                  prefix, nexthop_addrs, op="add")
 
         time.sleep(5)
 
@@ -423,7 +423,7 @@ def run_static_route_test(duthost, unselected_duthost, ptfadapter, ptfhost, tbin
     finally:
         # Remove static route
         apply_static_route_config(duthost, unselected_duthost if is_dual_tor else None,
-                                 prefix, op="del")
+                                  prefix, op="del")
 
         # Delete ipaddresses in ptf
         del_ipaddr(ptfhost, nexthop_addrs, prefix_len, nexthop_devs, ipv6=ipv6)
@@ -569,12 +569,12 @@ def test_static_route_warmboot(localhost, rand_selected_dut, rand_unselected_dut
     prefix = "3.3.3.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
-                             prefix, nexthop_count=1, is_route_flow_counter_supported=is_route_flow_counter_supported,
-                             ipv6=False):
+                              prefix, nexthop_count=1,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-
 
 
 @pytest.mark.disable_loganalyzer
@@ -594,12 +594,12 @@ def test_static_route_ecmp_warmboot(localhost, rand_selected_dut, rand_unselecte
     prefix = "4.4.4.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
-                             prefix, nexthop_count=3, is_route_flow_counter_supported=is_route_flow_counter_supported,
-                             ipv6=False):
+                              prefix, nexthop_count=3,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
         # Save config and perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-
 
 
 @pytest.mark.disable_loganalyzer
@@ -619,12 +619,12 @@ def test_static_route_ipv6_warmboot(localhost, rand_selected_dut, rand_unselecte
     prefix = "2000:3::/64"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
-                             prefix, nexthop_count=1, is_route_flow_counter_supported=is_route_flow_counter_supported,
-                             ipv6=True):
+                              prefix, nexthop_count=1,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=True):
         # Perform warmboot
         duthost.shell('config save -y')
         reboot(duthost, localhost, reboot_type='warm', wait_warmboot_finalizer=True, safe_reboot=True)
-
 
 
 @pytest.mark.disable_loganalyzer
@@ -645,8 +645,9 @@ def test_static_route_config_reload_with_traffic(rand_selected_dut, rand_unselec
     prefix = "5.5.5.0/24"
 
     with static_route_context(duthost, unselected_duthost, ptfadapter, ptfhost, tbinfo,
-                             prefix, nexthop_count=2, is_route_flow_counter_supported=is_route_flow_counter_supported,
-                             ipv6=False):
+                              prefix, nexthop_count=2,
+                              is_route_flow_counter_supported_flag=is_route_flow_counter_supported,
+                              ipv6=False):
         # Perform config reload
         duthost.shell('config save -y')
         if duthost.facts["platform"] == "x86_64-cel_e1031-r0":
