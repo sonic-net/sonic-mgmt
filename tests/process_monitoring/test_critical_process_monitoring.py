@@ -435,6 +435,9 @@ def stop_critical_processes(duthost, containers_in_namespaces):
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
                     continue
 
+                if "database" in container_name_in_namespace and "redis" in critical_process:
+                    continue
+
                 program_status, program_pid = get_program_info(duthost, container_name_in_namespace, critical_process)
                 check_and_kill_process(duthost, container_name_in_namespace,
                                        critical_process, program_status, program_pid)
@@ -513,6 +516,10 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
                     continue
+                
+                # skip 'redis' process in 'database' container since it is set to auto-restart if exited unexpectedly.
+                if "database" in container_name_in_namespace and "redis" in critical_process:
+                    continue
 
                 ensure_process_is_running(duthost, container_name_in_namespace, critical_process)
 
@@ -524,7 +531,8 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    skip_containers.append("database")
+    # remove skipping of database container from this testcase, and ensure that the expected syslog is generated
+    # skip_containers.append("database")
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
