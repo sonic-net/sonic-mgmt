@@ -150,12 +150,6 @@ FWD:
         - ipfwd/test_mtu.py
         - ipfwd/test_nhop_group.py
 
-  t1:
-    lightning,superbolt:
-      sim:
-        - hash/test_generic_hash.py::test_algorithm_config
-        - hash/test_generic_hash.py::test_backend_error_messages
-
 PLT:
   t0-64:
     mth64:
