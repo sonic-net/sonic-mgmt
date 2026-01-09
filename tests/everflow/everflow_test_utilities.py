@@ -956,9 +956,9 @@ class BaseEverflowTest(object):
 
         return new_packet
 
-    def check_rule_counters(self, duthost):
+    def check_rule_active(self, duthost):
         """
-        Check if Acl rule counters initialized
+        Check if Acl rule initialized
 
         Args:
             duthost: DUT host object
@@ -970,6 +970,8 @@ class BaseEverflowTest(object):
             return False
         status_index = res[0].index("Status")
         for line in res[2:]:
+            if len(line) < status_index:
+                continue
             if line[status_index:] != 'Active':
                 return False
         return True
@@ -991,7 +993,7 @@ class BaseEverflowTest(object):
         duthost.shell("config load -y {}".format(dest_path))
 
         if duthost.facts['asic_type'] != 'vs':
-            pytest_assert(wait_until(60, 2, 0, self.check_rule_counters, duthost), "Acl rule counters are not ready")
+            pytest_assert(wait_until(60, 2, 0, self.check_rule_active, duthost), "Acl rule counters are not ready")
 
     def apply_ip_type_rule(self, duthost, ip_version):
         """
