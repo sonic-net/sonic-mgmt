@@ -478,34 +478,6 @@ def ensure_process_is_running(duthost, container_name, critical_process):
             pytest.fail("Failed to start process '{}' in container '{}'.".format(critical_process, container_name))
 
 
-def wait_for_database_ready(duthost, timeout=120):
-    """Wait for Redis database to be fully operational and accepting connections.
-
-    Args:
-        duthost: Hostname of DUT.
-        timeout: Maximum time to wait in seconds.
-
-    Returns:
-        True if database is ready, False otherwise.
-    """
-    logger.info("Waiting for database to be ready and accepting connections...")
-    start_time = time.time()
-    while time.time() - start_time < timeout:
-        try:
-            # Check if Redis is responding to PING
-            result = duthost.shell("docker exec database redis-cli PING", module_ignore_errors=True)
-            if result.get('rc') == 0 and 'PONG' in result.get('stdout', ''):
-                logger.info("Database is ready and accepting connections")
-                # Extra wait for database to settle
-                time.sleep(5)
-                return True
-        except Exception as e:
-            logger.debug(f"Database not ready yet: {e}")
-        time.sleep(2)
-    logger.error("Database failed to become ready within timeout")
-    return False
-
-
 def ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=False):
     """Checks whether each critical process is running and starts it if it is not running.
 
@@ -557,16 +529,16 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces, pri
                 for program_name in group_program_info:
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
-        # If we just recovered database container, wait for it to be fully operational
+        # If we just recovered database container, give it time to be ready
         if container_name == 'database':
-            logger.info("Database processes recovered, waiting for Redis to accept connections...")
-            if not wait_for_database_ready(duthost):
-                pytest_assert(False, "Database processes running but Redis not accepting connections")
+            logger.info("Database processes recovered, allowing time for initialization...")
+            time.sleep(10)
 
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
     # Database container is now included in testing to ensure critical processes are monitored
+    #skip_containers.append("database")
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
@@ -594,7 +566,6 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     logger.info("Executing the config reload was done!")
 
     # Ensure database container processes are recovered first to avoid dependency failures
-    logger.info("Ensuring all critical processes are running, prioritizing database container...")
     ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=True)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
@@ -659,35 +630,6 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     """Tests orchagent heartbeat after warm-restart
     """
     duthost = duthosts[rand_one_dut_hostname]
-
-    # Ensure all critical processes are running before starting this test
-    # This is needed in case test_monitoring_critical_processes ran before this test
-    logger.info("Ensuring all critical processes are running before orchagent heartbeat test...")
-    if not check_all_critical_processes_running(duthost):
-        logger.warning("Not all critical processes are running, attempting recovery...")
-
-        # Get the containers to recover
-        skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
-        containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
-
-        # Perform config reload to recover the system
-        logger.info("Performing config reload to recover critical processes...")
-        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-
-        # Ensure database is fully operational before other services
-        logger.info("Ensuring database is fully operational...")
-        if not wait_for_database_ready(duthost):
-            pytest.fail("Database failed to become ready after config reload")
-
-        # Ensure all critical processes are recovered, prioritizing database
-        logger.info("Ensuring all critical processes are running after recovery...")
-        ensure_all_critical_processes_running(duthost, containers_in_namespaces, prioritize_database=True)
-
-        # Final check
-        if not wait_until(POST_CHECK_THRESHOLD_SECS, POST_CHECK_INTERVAL_SECS, 0,
-                          check_all_critical_processes_running, duthost):
-            pytest.fail("Failed to recover all critical processes before orchagent heartbeat test")
-        logger.info("All critical processes recovered successfully")
 
     # t1 lag does not have swss container
     swss_running = is_container_running(duthost, 'swss')

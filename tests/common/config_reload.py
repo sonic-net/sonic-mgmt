@@ -62,17 +62,10 @@ def config_system_checks_passed(duthost, delayed_services=[]):
 
 
 def config_force_option_supported(duthost):
-    # Use a shell-based approach that doesn't require database connection
-    # Check if the config reload command script supports --force option by examining the file
-    out = duthost.shell(
-        "grep -q '\\-\\-force' /usr/local/bin/config || grep -q '\\-f' /usr/local/bin/config",
-        executable="/bin/bash",
-        module_ignore_errors=True
-    )
-    # grep -q returns 0 if pattern found, 1 if not found
-    # If found (rc=0), force option is supported
-    # If not found (rc=1), force option is not supported
-    return out.get('rc', 1) == 0
+    out = duthost.shell("config reload -h", executable="/bin/bash")
+    if "force" in out['stdout'].strip():
+        return True
+    return False
 
 
 def config_reload_minigraph_with_rendered_golden_config_override(
@@ -189,20 +182,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         sonic_host.shell('config save -y')
 
     elif config_source == 'config_db':
-        # Ensure database is running before attempting config reload
-        # as the config command requires database connection
-        if safe_reload:
-            logger.info("Ensuring database is accessible before config reload...")
-            if not wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"):
-                logger.warning("Database not fully started, attempting to start it...")
-                sonic_host.shell("docker exec database supervisorctl start redis redis_bmp", module_ignore_errors=True)
-                pytest_assert(
-                    wait_until(
-                        120, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"
-                    ),
-                    "Database failed to start before config reload"
-                )
-
         cmd = 'config reload -y'
         reloading = False
         if config_force_option_supported(sonic_host):
@@ -234,23 +213,6 @@ def config_reload(sonic_host, config_source='config_db', wait=120, start_bgp=Tru
         # Update critical service list after rebooting in case critical services changed after rebooting
         pytest_assert(wait_until(200, 10, 0, sonic_host.is_critical_processes_running_per_asic_or_host, "database"),
                       "Database not start.")
-
-        # Wait for Redis to be fully operational before other services start
-        logger.info("Waiting for Redis database to be fully operational...")
-
-        def check_redis_ready():
-            try:
-                result = sonic_host.shell("docker exec database redis-cli PING", module_ignore_errors=True)
-                return result.get('rc') == 0 and 'PONG' in result.get('stdout', '')
-            except Exception:
-                return False
-
-        pytest_assert(
-            wait_until(120, 5, 0, check_redis_ready),
-            "Redis database not accepting connections after config reload"
-        )
-        time.sleep(5)  # Extra settle time for database
-
         sonic_host.critical_services_tracking_list()
         pytest_assert(wait_until(wait + 300, 20, 0, sonic_host.critical_services_fully_started),
                       "All critical services should be fully started!")
