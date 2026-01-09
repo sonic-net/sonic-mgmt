@@ -5002,10 +5002,6 @@ telemetry/test_telemetry_srv6.py::test_poll_mode_srv6_sid_counters:
 #####           nbr               #####
 #######################################
 test_nbr_health.py:
-  skip:
-    reason: "Skip nbr health test on the t1-isolated-d448u15-lag topo on nvidia sn5640 platform."
-    conditions:
-      - "'t1-isolated-d448u15-lag' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
     conditions:
