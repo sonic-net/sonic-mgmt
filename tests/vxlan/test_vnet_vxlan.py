@@ -6,6 +6,7 @@ import pytest
 from datetime import datetime
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory, copy_arp_responder_py
 from tests.ptf_runner import ptf_runner
 from .vnet_constants import CLEANUP_KEY, VXLAN_UDP_SPORT_KEY,\
     VXLAN_UDP_SPORT_MASK_KEY, VXLAN_RANGE_ENABLE_KEY, DUT_VNET_NBR_JSON
@@ -31,7 +32,7 @@ vlan_tagging_mode = ""
 @pytest.fixture(scope='module', autouse=True)
 def load_minigraph_after_test(rand_selected_dut):
     """
-    Restore config_db as vnet with wram-reboot will write testing config into
+    Restore config_db as vnet with warm-reboot will write testing config into
     config_db.json
     """
     yield
