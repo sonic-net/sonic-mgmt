@@ -9,26 +9,6 @@ simulation:
   skip_auto_bringup: false
 
 devices:
-  client: &linux_host
-    data_ports:
-      - eth1
-      - eth2
-    data_port_attributes:
-      transport: e1000
-    linux_username: vxr
-    linux_password: cisco123
-    linux_prompt: vxr@ubuntu:~\$
-    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
-    memory: 4GB
-    platform: linux
-    vcpu: 4
-    xr_port_redir:
-      - 22
-    qemu_args: "-boot order=n -boot menu=on -global iPXE.dhcp_timeout=60"
-    cli_commands: |
-        echo "cisco123" | sudo -S apt remove python2.7 -y
-        sudo apt autoremove -y
-
   SD1: &sonic_router
     image: /auto/vxr/images/onie-sonic/onie-recovery-x86_64-cisco_8000-r0.iso
     linecard_types: [churchill]
@@ -73,7 +53,7 @@ devices:
       chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
       load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
     data_ports:
-      - data[0..9]
+      - data[0..7]
 
   sonic_mgmt :
     platform: linux
@@ -111,15 +91,3 @@ connections:
     hub7:
       - SD2.Ethernet[12..13]
       - ixia.data[6..7]
-    hub8:
-      - SD4.Ethernet[10..13]
-      - SD5.Ethernet[10..13]
-    hub9:
-      - SD5.Ethernet[0..1]
-      - ixia.data[8..9]
-    hub10:
-      - SD2.Ethernet14
-      - client.eth1
-    hub11:
-      - SD3.Ethernet14
-      - client.eth2

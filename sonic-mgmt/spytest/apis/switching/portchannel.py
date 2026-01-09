@@ -44,15 +44,11 @@ def create_portchannel(dut, portchannel_list=[], fallback=False, min_link="", st
     """
     cli_type = st.get_ui_type(dut, cli_type=cli_type)
     fast_rate = kwargs.get('fast_rate', False)
-    if not fast_rate:
-       fast_rate_flag = ""
-    else:
-       fast_rate_flag = "--fast-rate true"
     neg_check = kwargs.get('neg_check', False)
     enhance_action = kwargs.get('enhance_action', False)
     config_type = kwargs.get('config_type', 'yes')
     system_mac = kwargs.get('system_mac', False)
-    st.log("New Log: Creating port channel {} ..".format(portchannel_list), dut=dut)
+    st.log("Creating port channel {} ..".format(portchannel_list), dut=dut)
     if static and fallback:
         st.log("Fallback is not supported for Static LAGs")
         return False
@@ -107,16 +103,16 @@ def create_portchannel(dut, portchannel_list=[], fallback=False, min_link="", st
                     static_flag = "--static=true" if static else "--static=false"
                 else:
                     static_flag = ""
-                command = "config portchannel add {} {} {}".format(portchannel_name, static_flag, fast_rate_flag)
+                command = "config portchannel add {} {} ".format(portchannel_name, static_flag)
                 if min_link:
                     command += "--min-links {}".format(min_link)
             else:
                 if static:
                     return False
                 if not min_link:
-                    command = "config portchannel add {} --fallback=true {}".format(portchannel_name, fast_rate_flag)
+                    command = "config portchannel add {} --fallback=true".format(portchannel_name)
                 else:
-                    command = "config portchannel add {} --fallback=true --min-links {} {}".format(portchannel_name, min_link, fast_rate_flag)
+                    command = "config portchannel add {} --fallback=true --min-links {}".format(portchannel_name, min_link)
             st.config(dut, command, skip_error_check=True)
         return True
     elif cli_type == "klish":
@@ -855,41 +851,6 @@ def verify_portchannel_member_state(dut, portchannel, members_list, state='up', 
     st.log("Portchannel all member state verification successful with state {}".format(STATE), dut=dut)
     return True
 
-def verify_portchannel_member_state_fallback(dut, portchannel, portchannel_state, member_port_state_dict, cli_type=""):
-    if not verify_portchannel_state(dut, portchannel, state=portchannel_state):
-        return False
-
-    cli_type = st.get_ui_type(dut, cli_type=cli_type)
-    st.log("Verifying portchannel member states with fallback ...", dut=dut)
-
-    supported_states = ['S', 'D', 'S*', 'D*']
-
-    # Validate all states in the dictionary
-    for port, expected_state in member_port_state_dict.items():
-        if expected_state not in supported_states:
-            st.error("Invalid state '{}' provided for port {}. Supported states: {}".format(
-                expected_state, port, supported_states))
-            return False
-
-    # Get portchannel members with state information
-    members = get_portchannel_members(dut, portchannel, with_state=True, cli_type=cli_type)
-    if not members:
-        st.error("PortChannel {} members not found".format(portchannel))
-        return False
-
-    st.log("PortChannel members: {}".format(members), dut=dut)
-
-    # Verify each port state
-    for port, expected_state in member_port_state_dict.items():
-        member_state_match = '{}({})'.format(port, expected_state)
-
-        if member_state_match not in members:
-            st.error("Portchannel member {} state verification failed. Expected state: {}, Members info: {}".format(
-                port, expected_state, members))
-            return False
-
-    st.log("All portchannel member states verified successfully", dut=dut)
-    return True
 
 def verify_portchannel_fallback(dut, portchannel, cli_type=""):
     """

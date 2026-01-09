@@ -37,18 +37,6 @@ devices:
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
-    leaf3:
-        device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.155, port: 22}
-        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
-        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
-    client:
-        device_type: linux
-        access: {protocol: ssh, ip: 192.168.122.199, port: 22}
-        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
-        credentials: {username: vxr, password: cisco123, altpassword: YourPaSsWoRd}
-        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
         device_type: TGEN
         properties: {type: ixia, version: 9.20, ip: 192.168.122.248, ix_server: 192.168.122.168}
@@ -73,7 +61,6 @@ topology:
         interfaces:
             Ethernet48: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
             Ethernet52: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
-            Ethernet56: {EndDevice: client, EndPort: eth1, params: def_link}
   
     leaf1:
         interfaces:
@@ -81,17 +68,8 @@ topology:
             Ethernet36: {EndDevice: T1, EndPort: 1/2, params: def_tg_link}
             Ethernet40: {EndDevice: T1, EndPort: 1/3, params: def_tg_link}
             Ethernet44: {EndDevice: T1, EndPort: 1/4, params: def_tg_link}
-            Ethernet56: {EndDevice: client, EndPort: eth2, params: def_link}
 
     leaf2:
         interfaces:
             Ethernet32: {EndDevice: T1, EndPort: 1/5, params: def_tg_link}
             Ethernet36: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
-            Ethernet40: {EndDevice: leaf3, EndPort: Ethernet40, params: def_link}
-            Ethernet44: {EndDevice: leaf3, EndPort: Ethernet44, params: def_link}
-            Ethernet48: {EndDevice: leaf3, EndPort: Ethernet48, params: def_link}
-            Ethernet52: {EndDevice: leaf3, EndPort: Ethernet52, params: def_link}
-    leaf3:
-        interfaces:
-            Ethernet0: {EndDevice: T1, EndPort: 1/9, params: def_tg_link}
-            Ethernet4: {EndDevice: T1, EndPort: 1/10, params: def_tg_link}

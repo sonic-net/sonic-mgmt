@@ -35,12 +35,6 @@ devices:
         rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
         credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
         properties: {config: default, build: default, services: default, params: def_dut, speed: default}
-    leaf2:
-        device_type: DevSonic
-        access: {protocol: ssh, ip: 192.168.122.155, port: 22}
-        rps: {model: Raritan, ip: 2.3.4.5, outlet: 13, username: admin, password: admin}
-        credentials: {username: cisco, password: cisco123, altpassword: YourPaSsWoRd}
-        properties: {config: default, build: default, services: default, params: def_dut, speed: default}
     T1:
         device_type: TGEN
         properties: {type: ixia, version: 9.20, ip: 192.168.122.248, ix_server: 192.168.122.168}
@@ -72,12 +66,5 @@ topology:
             Ethernet1_6: {EndDevice: T1, EndPort: 1/6, params: def_tg_link}
             Ethernet1_7: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
             Ethernet1_8: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
-            Ethernet1_9: {EndDevice: leaf2, EndPort: Ethernet1_9, params: def_link}
-            Ethernet1_10: {EndDevice: leaf2, EndPort: Ethernet1_10, params: def_link}
-            Ethernet1_11: {EndDevice: leaf2, EndPort: Ethernet1_11, params: def_link}
-            Ethernet1_12: {EndDevice: leaf2, EndPort: Ethernet1_12, params: def_link}
+           
 
-    leaf2:
-        interfaces:
-            Ethernet1_1: {EndDevice: T1, EndPort: 1/9, params: def_tg_link}
-            Ethernet1_2: {EndDevice: T1, EndPort: 1/10, params: def_tg_link}
