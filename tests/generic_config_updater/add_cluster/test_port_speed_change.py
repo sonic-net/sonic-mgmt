@@ -68,6 +68,18 @@ def selected_random_port_alias(mg_facts, selected_random_port):
     return mg_facts['minigraph_port_name_to_alias_map'].get(selected_random_port, selected_random_port)
 
 
+@pytest.fixture(autouse=True)
+def ignore_port_speed_loganalyzer_exceptions(duthosts, enum_downstream_dut_hostname, loganalyzer):
+    """
+       Ignore expected yang validation failure during port speed change
+    """
+    duthost = duthosts[enum_downstream_dut_hostname]
+    if loganalyzer:
+        ignoreRegex = [
+            ".*ERR swss[0-9]*#orchagent.*doPortTask: Unsupported port.*speed",
+        ]
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignoreRegex)
+
 # -----------------------------
 # Helper functions
 # -----------------------------
@@ -146,7 +158,7 @@ def get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_s
     supported_statedb_fecs = get_supported_port_fecs(duthost, cli_namespace_prefix, selected_random_port)
     logger.info(f"Supported valid fecs for port based on STATE_DB: {supported_statedb_fecs}")
     supported_fecs_per_speed = get_fec_for_speed(duthost, target_speed)
-    pytest_assert(supported_fecs_per_speed, "Failed to find any fec for speed {target_speed}.")
+    pytest_assert(supported_fecs_per_speed, f"Failed to find any fec for speed {target_speed}.")
     logger.info(f"Supported test fecs for port based on targeted speed: {supported_fecs_per_speed}")
     for fec in supported_fecs_per_speed:
         if fec in supported_statedb_fecs:
@@ -207,27 +219,26 @@ def get_interface_neighbor_and_intfs(mg_facts, selected_random_port):
     vm_neighbors = mg_facts['minigraph_neighbors']
     dut_interface = selected_random_port
     # if the interface is a portchannel member, resolve to actual member
-    if (port_channel := mg_facts.get('minigraph_portchannels', {}).get(dut_interface)):
+    if (port_channel := mg_facts.get('minigraph_portchannels', {}).get(dut_interface)) is not None:
         dut_interface = port_channel['members'][0]
     neighbor_name = vm_neighbors[dut_interface]['name']
     neighbor_info = mg_facts['minigraph_bgp']
     neighbor_addr = []
-    neighbor_peer_addr = []
     neighbor_ipv4_addr = ""
     neighbor_ipv6_addr = ""
     for neigh in neighbor_info:
         if neigh['name'] == neighbor_name:
             neighbor_addr.append(neigh['addr'])
-            neighbor_peer_addr.append(neigh['peer_addr'])
             if is_ipv4_address(neigh['addr']):
                 neighbor_ipv4_addr = neigh['addr']
             elif is_ipv6_address(neigh['addr']):
                 neighbor_ipv6_addr = neigh['addr']
     neighbor_addr = list(set(neighbor_addr))
-    neighbor_peer_addr = list(set(neighbor_peer_addr))
-    logger.info("Found neighbor {} with interfaces {} for duthost port {}. \
-                IPV4 interface: {} IPV6 interface: {}".format(
-        neighbor_name, neighbor_addr, selected_random_port, neighbor_ipv4_addr, neighbor_ipv6_addr))
+    logger.info(
+        "Found neighbor {} with interfaces {} for duthost port {}. "
+        "IPV4 interface: {} IPV6 interface: {}".format(
+            neighbor_name, neighbor_addr, selected_random_port, neighbor_ipv4_addr, neighbor_ipv6_addr)
+    )
     return neighbor_name, neighbor_addr, neighbor_ipv4_addr, neighbor_ipv6_addr
 
 
@@ -263,7 +274,10 @@ def apply_patch_change_port_cluster(config_facts,
                                     enum_rand_one_asic_namespace,
                                     selected_random_port,
                                     selected_random_port_alias,
-                                    operation=None):
+                                    cli_namespace_prefix,
+                                    target_speed,
+                                    operation=None,
+                                    dry_run=False):
     """
     Apply patch to change cluster information for a port.
     """
@@ -272,26 +286,31 @@ def apply_patch_change_port_cluster(config_facts,
         selected_random_port, enum_rand_one_asic_namespace))
     json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
 
+    ##############
+    # Patch Operation No.1
+    ##############
     json_patch = []
 
-    # ACL references
+    # ACL
     json_patch_acl = []
     for acl_table in ["DATAACL", "EVERFLOW", "EVERFLOWV6"]:
         if operation == "add":
             json_patch_acl.append({
                 "op": "add",
-                "path": "{}/ACL_TABLE/{}".format(json_namespace, acl_table),
-                "value": config_facts["ACL_TABLE"][acl_table]
+                "path": "{}/ACL_TABLE/{}/ports/-".format(json_namespace, acl_table),
+                "value": selected_random_port
             })
         elif operation == "remove":
             if acl_table not in config_facts["ACL_TABLE"]:
                 continue
-            pindex = get_port_index_in_acl_table(duthost, enum_rand_one_asic_namespace, acl_table, selected_random_port)
-            if pindex is not None:
+            port_index = get_port_index_in_acl_table(
+                duthost, enum_rand_one_asic_namespace, acl_table, selected_random_port)
+            if port_index is not None:
                 json_patch_acl.append({
                     "op": "remove",
-                    "path": "{}/ACL_TABLE/{}/ports/{}".format(json_namespace, acl_table, pindex)
+                    "path": "{}/ACL_TABLE/{}/ports/{}".format(json_namespace, acl_table, port_index)
                 })
+
     # BGP_NEIGHBOR, DEVICE_NEIGHBOR, DEVICE_NEIGHBOR_METADATA
     bgp_neigh_name, bgp_neigh_intfs, bgp_neigh_ipv4, bgp_neigh_ipv6 = get_interface_neighbor_and_intfs(
         mg_facts, selected_random_port)
@@ -328,7 +347,6 @@ def apply_patch_change_port_cluster(config_facts,
             "op": "remove",
             "path": "/localhost/DEVICE_NEIGHBOR/{}".format(selected_random_port_alias.replace("/", "~1"))
         })
-    # asic
     for bgp_neigh_intf in bgp_neigh_intfs:
         bgp_neigh_intf = bgp_neigh_intf.lower()
         if operation == "add":
@@ -373,7 +391,6 @@ def apply_patch_change_port_cluster(config_facts,
             interface_dict[updated_key] = value
         else:
             continue
-    # this is in order to avoid dependency errors when adding/removing interface and interafce ip-prefix
     if operation == "add":
         interface_dict = move_key_first(interface_dict, selected_random_port)
     elif operation == "remove":
@@ -390,18 +407,14 @@ def apply_patch_change_port_cluster(config_facts,
             updated_key = mg_facts['minigraph_port_name_to_alias_map'].get(key, key)
         updated_key = updated_key.replace("/", "~1")
         localhost_interface_dict[updated_key] = value
-
     intf_paths_list = []
     intf_values_list = []
-
     for key, value in interface_dict.items():
         intf_paths_list.append(f"{json_namespace}/INTERFACE/{key}")
         intf_values_list.append(value)
-
     for key, value in localhost_interface_dict.items():
         intf_paths_list.append(f"/localhost/INTERFACE/{key}")
         intf_values_list.append(value)
-
     for path, value in zip(intf_paths_list, intf_values_list):
         if operation == "add":
             json_patch.append({
@@ -433,12 +446,75 @@ def apply_patch_change_port_cluster(config_facts,
             "value": f"{lowest}m"
         })
 
-    # PORT|modify: admin_status
+    # PFC_WD
+    if 'PFC_WD' in config_facts:
+        if operation == "add":
+            json_patch.append({
+                "op": "add",
+                "path": f"{json_namespace}/PFC_WD/{selected_random_port}",
+                "value": config_facts["PFC_WD"][selected_random_port]
+            })
+        elif operation == "remove":
+            json_patch.append({
+                "op": "remove",
+                "path": f"{json_namespace}/PFC_WD/{selected_random_port}"
+            })
+
+    # QUEUE
+    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
+        'QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
+    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
+    queue_keys = [k.strip() for k in output.splitlines() if k.strip()]
+    pytest_assert(queue_keys, f"No QUEUE keys found for port {selected_random_port}")
+    for key in queue_keys:
+        json_patch.append({
+            "op": "remove",
+            "path": f"{json_namespace}/{key.replace('QUEUE|', 'QUEUE/')}"
+        })
+
+    # PORT
     json_patch.append({
         "op": "add",
         "path": f"{json_namespace}/PORT/{selected_random_port}/admin_status",
         "value": "down"
     })
+    current_lanes = get_port_lanes(duthost, cli_namespace_prefix, selected_random_port)
+    start_lane = int(current_lanes[0])
+    target_num_lanes = get_num_lanes_per_speed(duthost, target_speed)
+    pytest_assert(target_num_lanes is not None, f"Could not determine num lanes for speed {target_speed}")
+    new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))
+    json_patch.append({
+        "op": "add",
+        "path": f"{json_namespace}/PORT/{selected_random_port}/lanes",
+        "value": new_lanes
+    })
+    json_patch.append({
+        "op": "add",
+        "path": f"{json_namespace}/PORT/{selected_random_port}/speed",
+        "value": target_speed
+    })
+    current_fec = get_port_fec(duthost, cli_namespace_prefix, selected_random_port)
+    # target_fec = get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_speed)
+    target_fec = None
+    if operation == "add":
+        target_fec = config_facts["PORT"][selected_random_port].get("fec", None)
+    elif operation == "remove":
+        fec_values = get_fec_for_speed(duthost, target_speed)
+        if fec_values:
+            target_fec = random.choice(get_fec_for_speed(duthost, target_speed))
+    if target_fec == "N/A":
+        if current_fec:
+            json_patch.append({
+                "op": "remove",
+                "path": f"{json_namespace}/PORT/{selected_random_port}/fec"
+            })
+    elif target_fec:
+        json_patch.append({
+            "op": "add",
+            "path": f"{json_namespace}/PORT/{selected_random_port}/fec",
+            "value": target_fec
+        })
+
     # BUFFER_PG
     if operation == "add":
         json_patch.append({
@@ -480,146 +556,39 @@ def apply_patch_change_port_cluster(config_facts,
             })
     elif operation == "remove":
         json_patch = json_patch_acl + json_patch
-    # apply patch
+
+    # APPLY PATCH NO.1
     tmpfile = generate_tmpfile(duthost)
     try:
-        logger.info(f"Applying patch to change port cluster info. Operation {operation}")
+        logger.info(f"Applying patch to change port cluster info. Operation {operation}. Dry-run {dry_run}")
         logger.info(f"Patch content: {json_patch}")
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        if not dry_run:
+            output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+            expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
+    ##############
+    # Patch Operation No.2: QUEUE
+    ##############
 
-def apply_patch_change_port_speed(config_facts,
-                                  duthost,
-                                  enum_rand_one_asic_namespace,
-                                  selected_random_port,
-                                  cli_namespace_prefix,
-                                  target_speed,
-                                  operation=None):
-    """
-    Apply patch to change speed.
-    """
-
-    logger.info("Changing speed via apply-patch to {} for interface {} of {} .".format(
-        target_speed, selected_random_port, enum_rand_one_asic_namespace))
-
-    json_patch = []
-    json_namespace = '' if enum_rand_one_asic_namespace is None else '/' + enum_rand_one_asic_namespace
-
-    # BUFFER-QUEUE|remove
-    # Open Issue https://github.com/sonic-net/sonic-buildimage/issues/24310
-    json_patch_queues_remove = []
-    json_patch_queues_add = []
-    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
-        'BUFFER_QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
-    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-    keys = [k.strip() for k in output.splitlines() if k.strip()]
-    pytest_assert(keys, f"No BUFFER-QUEUE keys found for port {selected_random_port}")
-    for key in keys:
-        json_patch_queues_remove.append({
-            "op": "remove",
-            "path": f"{json_namespace}/{key.replace('BUFFER_QUEUE|', 'BUFFER_QUEUE/')}"
-        })
-        json_patch_queues_add.append({
-            "op": "add",
-            "path": f"{json_namespace}/{key.replace('BUFFER_QUEUE|', 'BUFFER_QUEUE/')}",
-            "value": config_facts["BUFFER_QUEUE"][duthost.hostname][key.replace
-                                                                    (f'BUFFER_QUEUE|{duthost.hostname}|', '')]
-        })
-
-    # QUEUE|remove
-    cmd = f"sudo sonic-db-cli {cli_namespace_prefix} CONFIG_DB keys \
-        'QUEUE|{duthost.hostname}|{enum_rand_one_asic_namespace}|{selected_random_port}*'"
-    output = duthost.shell(cmd, module_ignore_errors=True)['stdout']
-    keys = [k.strip() for k in output.splitlines() if k.strip()]
-    pytest_assert(keys, f"No QUEUE keys found for port {selected_random_port}")
-    for key in keys:
-        json_patch_queues_remove.append({
-            "op": "remove",
-            "path": f"{json_namespace}/{key.replace('QUEUE|', 'QUEUE/')}"
-        })
-        json_patch_queues_add.append({
+    # QUEUE
+    json_patch_queues = []
+    for key in queue_keys:
+        json_patch_queues.append({
             "op": "add",
             "path": f"{json_namespace}/{key.replace('QUEUE|', 'QUEUE/')}",
             "value": config_facts["QUEUE"][duthost.hostname][key.replace(f'QUEUE|{duthost.hostname}|', '')]
         })
 
-    # PORT|modify: admin_status, lanes, speed, fec
-    json_patch.append({
-        "op": "add",
-        "path": f"{json_namespace}/PORT/{selected_random_port}/admin_status",
-        "value": "down"
-    })
-
-    # lanes
-    current_lanes = get_port_lanes(duthost, cli_namespace_prefix, selected_random_port)
-    start_lane = int(current_lanes[0])
-    target_num_lanes = get_num_lanes_per_speed(duthost, target_speed)
-    pytest_assert(target_num_lanes is not None, f"Could not determine num lanes for speed {target_speed}")
-    new_lanes = ",".join(str(i) for i in range(start_lane, start_lane + target_num_lanes))
-    json_patch.append({
-        "op": "add",
-        "path": f"{json_namespace}/PORT/{selected_random_port}/lanes",
-        "value": new_lanes
-    })
-
-    # speed
-    json_patch.append({
-        "op": "add",
-        "path": f"{json_namespace}/PORT/{selected_random_port}/speed",
-        "value": target_speed
-    })
-
-    # fec
-    current_fec = get_port_fec(duthost, cli_namespace_prefix, selected_random_port)
-    # target_fec = get_target_fec(duthost, cli_namespace_prefix, selected_random_port, target_speed)
-    target_fec = None
-    if operation == "add":
-        target_fec = config_facts["PORT"][selected_random_port].get("fec", None)
-    elif operation == "remove":
-        fec_values = get_fec_for_speed(duthost, target_speed)
-        if fec_values:
-            target_fec = random.choice(get_fec_for_speed(duthost, target_speed))
-    if target_fec == "N/A":
-        if current_fec:
-            json_patch.append({
-                "op": "remove",
-                "path": f"{json_namespace}/PORT/{selected_random_port}/fec"
-            })
-    elif target_fec:
-        json_patch.append({
-            "op": "add",
-            "path": f"{json_namespace}/PORT/{selected_random_port}/fec",
-            "value": target_fec
-        })
-
-    # apply patches in order: remove queues, change port, add queues
+    # APPLY PATCH NO.2
     tmpfile = generate_tmpfile(duthost)
     try:
-        logger.info("Applying patch to remove queues before changing speed. Open issue #24310.")
-        logger.info(f"Patch content: {json_patch_queues_remove}")
-        output = apply_patch(duthost, json_data=json_patch_queues_remove, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    tmpfile = generate_tmpfile(duthost)
-    try:
-        logger.info(f"Applying patch to change speed. Operation {operation}")
-        logger.info(f"Patch content: {json_patch}")
-        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
-        expect_op_success(duthost, output)
-    finally:
-        delete_tmpfile(duthost, tmpfile)
-
-    tmpfile = generate_tmpfile(duthost)
-    try:
-        logger.info("Applying patch to add queues before changing speed. Open issue #24310.")
-        logger.info(f"Patch content: {json_patch_queues_add}")
-        output = apply_patch(duthost, json_data=json_patch_queues_add, dest_file=tmpfile)
-        expect_op_success(duthost, output)
+        logger.info(f"Applying patch to add queues info. Dry-run {dry_run}")
+        logger.info(f"Patch content: {json_patch_queues}")
+        if not dry_run:
+            output = apply_patch(duthost, json_data=json_patch_queues, dest_file=tmpfile)
+            expect_op_success(duthost, output)
     finally:
         delete_tmpfile(duthost, tmpfile)
 
@@ -630,11 +599,7 @@ def apply_patch_change_port_speed(config_facts,
 def setup_acl_config(duthost, ip_netns_namespace_prefix):
     logger.info("Adding acl config.")
     remove_dataacl_table_single_dut("DATAACL", duthost)
-    # duthost.command("{} config acl add table {} {} -s {}" \
-    # .format(ip_netns_namespace_prefix, ACL_TABLE_NAME, ACL_TABLE_TYPE_L3, ACL_TABLE_STAGE_EGRESS))
     duthost.copy(src=ACL_RULE_FILE_PATH, dest=ACL_RULE_DST_FILE)
-    # duthost.shell("{} acl-loader update full --table_name {} {}" \
-    # .format(ip_netns_namespace_prefix, ACL_TABLE_NAME, ACL_RULE_DST_FILE))
     cmds = [
             "config acl add table {} {} -s {}".format(ACL_TABLE_NAME, ACL_TABLE_TYPE_L3, ACL_TABLE_STAGE_EGRESS),
             "acl-loader update full --table_name {} {}".format(ACL_TABLE_NAME, ACL_RULE_DST_FILE)
@@ -707,14 +672,10 @@ def setup_port_speed_change(duthosts,
                                         enum_rand_one_asic_namespace,
                                         selected_random_port,
                                         selected_random_port_alias,
-                                        operation='remove')
-        apply_patch_change_port_speed(config_facts,
-                                      duthost,
-                                      enum_rand_one_asic_namespace,
-                                      selected_random_port,
-                                      cli_namespace_prefix,
-                                      speed_b,
-                                      operation='remove')
+                                        cli_namespace_prefix,
+                                        speed_b,
+                                        operation='remove',
+                                        dry_run=False)
 
     with allure.step("Re-enabling loganalyzer before removing cluster - changing speeds."):
         if loganalyzer and loganalyzer[duthost.hostname]:
@@ -753,10 +714,11 @@ def test_port_speed_change(tbinfo,
                            ptfadapter,
                            setup_port_speed_change):
     """
-    Validates the functionality of the Downstream Linecard after adding a cluster.
-
-    Performs lossless data traffic scenarios for both ACL and non-ACL cases.
-    Verifies successful data transmission, queue counters, and ACL rule match counters.
+    Validates port speed change functionality via Generic Config Updater (GCU).
+    This test verifies that port speed changes are correctly applied, including updates to
+    the configuration database, buffer profiles, and hardware state. It also performs
+    traffic scenarios with and without ACL rules to ensure successful data transmission,
+    correct queue counters, and accurate ACL rule match counters.
     """
 
     # initial test env
@@ -796,18 +758,9 @@ def test_port_speed_change(tbinfo,
     initial_speed = config_facts["PORT"][selected_random_port]["speed"]
     initial_cable_length = config_facts["CABLE_LENGTH"]["AZURE"][selected_random_port]
     initial_pg_lossless_profile_name = 'pg_lossless_{}_{}_profile'.format(initial_speed, initial_cable_length)
-    # initial_buffer_pg_info = config_facts["BUFFER_PG"]
 
     with allure.step("Changing speed to initial speed (A) [{}]. Adding cluster info. \
                      Expecting success operation AND ports up.".format(initial_speed)):
-        apply_patch_change_port_speed(config_facts,
-                                      duthost,
-                                      enum_rand_one_asic_namespace,
-                                      selected_random_port,
-                                      cli_namespace_prefix,
-                                      initial_speed,
-                                      operation='add')
-
         apply_patch_change_port_cluster(config_facts,
                                         config_facts_localhost,
                                         mg_facts,
@@ -815,7 +768,11 @@ def test_port_speed_change(tbinfo,
                                         enum_rand_one_asic_namespace,
                                         selected_random_port,
                                         selected_random_port_alias,
-                                        operation='add')
+                                        cli_namespace_prefix,
+                                        initial_speed,
+                                        operation='add',
+                                        dry_run=False)
+
     with allure.step("Verify speed A updated in DBs - ports should be up"):
         verify_port_speed_in_dbs(duthost, enum_rand_one_frontend_asic_index, cli_namespace_prefix,
                                  selected_random_port, verify=True)
@@ -832,10 +789,6 @@ def test_port_speed_change(tbinfo,
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info,
                       "Expected buffer profile {} was not created in CONFIG_DB.".format(
                           initial_pg_lossless_profile_name))
-        # needs formatting before comparison
-        # pytest_assert(current_buffer_pg_info == initial_buffer_pg_info,
-        #              "Didn't find expected BUFFER_PG info in CONFIG_DB.")
-
         cmd = "sonic-db-cli -n {} APPL_DB keys BUFFER_PROFILE_TABLE:*".format(enum_rand_one_asic_namespace)
         current_buffer_profile_info_appl_db = duthost.shell(cmd)["stdout"]
         pytest_assert(initial_pg_lossless_profile_name in current_buffer_profile_info_appl_db,
@@ -870,7 +823,7 @@ def test_port_speed_change(tbinfo,
             src_duthost = duthost
             src_asic_index = asic_id_src
         else:
-            pytest_assert("Unsupported direction for traffic scenario {}.".format(traffic_scenario["direction"]))
+            pytest.fail("Unsupported direction for traffic scenario {}.".format(traffic_scenario["direction"]))
 
         duthost.shell('{} aclshow -c'.format(ip_netns_namespace_prefix))
         # send traffic
