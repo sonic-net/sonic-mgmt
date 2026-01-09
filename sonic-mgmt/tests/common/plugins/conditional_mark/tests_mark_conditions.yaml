@@ -5103,6 +5103,12 @@ vrf/test_vrf.py::TestVrfWarmReboot::test_vrf_system_warm_reboot:
     conditions:
       - "topo_name in ['dualtor', 'dualtor-56', 'dualtor-120', 'dualtor-aa', 'dualtor-aa-56', 'dualtor-aa-64-breakout']"
 
+vrf/test_vrf.py::TestVrfCapacity:
+  skip:
+    reason: "Not supported by the SAI SDK on cisco"
+    conditions:
+      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8101_32fh_o_c01-r0', 'x86_64-8102_64h_o-r0']"
+
 vrf/test_vrf_attr.py:
   skip:
     reason: "Vrf tests are skipped in PR testing, not supported on mellanox and nvidia asic from 202411 and later, not support for non t0 topology currently"
@@ -5116,6 +5122,30 @@ vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_default_router_mac
     reason: "RIF MAC taking precedence over VRF MAC / Vrf test are skipped in PR testing."
     conditions:
       - "asic_type in ['barefoot', 'vs']"
+
+vrf/test_vrf_attr.py::TestVrfAttrIpAction::test_vrf2_fwd_pkts_with_ip_opt:
+  skip:
+    reason: "Not supported by the SAI SDK on cisco"
+    conditions:
+      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8101_32fh_o_c01-r0', 'x86_64-8102_64h_o-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrTTL::test_vrf1_fwd_pkts_with_ttl_2:
+  skip:
+    reason: "Not supported by the SAI SDK on cisco"
+    conditions:
+      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8101_32fh_o_c01-r0', 'x86_64-8102_64h_o-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrTTL::test_vrf2_fwd_pkts_with_ttl_1:
+  skip:
+    reason: "Not supported by the SAI SDK on cisco"
+    conditions:
+      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8101_32fh_o_c01-r0', 'x86_64-8102_64h_o-r0']"
+
+vrf/test_vrf_attr.py::TestVrfAttrSrcMac::test_vrf1_neigh_with_new_router_mac:
+  skip:
+    reason: "Failures due to an upstream issue adding a RIF to a VRF does not inherit the VRF MAC address GitHub issue https://github.com/sonic-net/sonic-swss/issues/1833"
+    conditions:
+      - "platform in ['x86_64-8101_32fh_o-r0', 'x86_64-8101_32fh_o_c01-r0', 'x86_64-8102_64h_o-r0']"
 
 #######################################
 #####           vxlan            #####
