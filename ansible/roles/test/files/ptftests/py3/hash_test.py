@@ -243,11 +243,12 @@ class HashTest(BaseTest):
 
     def _get_ip_proto(self, ipv6=False):
         # ip_proto 2 is IGMP, should not be forwarded by router
-        # ip_proto 4 and 41 are encapsulation protocol, ip payload will be malformat
+        # ip_proto 4, 41 and 47 are encapsulation protocol, ip payload will be malformat
         # ip_proto 60 is redirected to ip_proto 4 as encapsulation protocol, ip payload will be malformat
         # ip_proto 254 is experimental
         # MLNX ASIC can't forward ip_proto 254, BRCM is OK, skip for all for simplicity
-        skip_protos = [2, 253, 4, 41, 60, 254]
+        skip_protos = [2, 253, 4, 41, 47, 60, 254]
+
         if self.is_active_active_dualtor:
             # Skip ICMP for active-active dualtor as it is duplicated to both ToRs
             skip_protos.append(1)
@@ -650,6 +651,13 @@ class IPinIPHashTest(HashTest):
     for IPinIP packet.
     '''
 
+    def send_and_verify_packets(self, src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False, logs=[]):
+        """
+        @summary: Send an IPinIP encapsulated packet and verify it is received on expected ports.
+        """
+        return super().send_and_verify_packets(src_port, pkt, masked_exp_pkt, dst_port_lists, is_timeout=False,
+                                               logs=logs)
+
     def create_packets_logs(
             self, src_port, sport, dport, version='IP', pkt=None, ipinip_pkt=None,
             vxlan_pkt=None, nvgre_pkt=None, inner_pkt=None, outer_sport=None,
@@ -672,9 +680,9 @@ class IPinIPHashTest(HashTest):
                             next_header_key,
                             outer_proto,
                             version,
-                            pkt[version].src,
-                            pkt[version].dst,
-                            pkt[version].proto if version == 'IP' else pkt['IPv6'].nh,
+                            inner_pkt[version].src,
+                            inner_pkt[version].dst,
+                            inner_pkt[version].proto if version == 'IP' else inner_pkt['IPv6'].nh,
                             sport,
                             dport,
                             src_port))

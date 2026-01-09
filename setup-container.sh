@@ -161,8 +161,6 @@ function pull_sonic_mgmt_docker_image() {
 
         if eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_SONIC_MGMT}$"; then
             IMAGE_ID="${DOCKER_SONIC_MGMT}"
-        elif eval "${DOCKER_IMAGES_CMD}" | grep -q "^${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}$"; then
-            IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         elif log_info "pulling docker image from a registry ..." && eval "${DOCKER_PULL_CMD}"; then
             IMAGE_ID="${DOCKER_REGISTRY}/${DOCKER_SONIC_MGMT}"
         else
