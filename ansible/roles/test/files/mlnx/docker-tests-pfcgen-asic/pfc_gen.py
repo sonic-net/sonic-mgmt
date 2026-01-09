@@ -252,6 +252,7 @@ def main():
     logger.setLevel(logging.DEBUG)
     # Configure logging
     handler = logging.handlers.SysLogHandler(address=(args.rsyslog_server, 514))
+    handler.ident = 'pfc_gen: '
     logger.addHandler(handler)
 
     if args.disable:
