@@ -781,7 +781,7 @@ def test_nexthop_group_member_scale(
     if not result.get("converged"):
         pytest.fail("BGP routes are not stable in long time")
 
-        
+
 @pytest.mark.parametrize("flapping_neighbor_count", [1, 10])
 def test_bgp_admin_flap(
     request,
@@ -807,7 +807,7 @@ def test_bgp_admin_flap(
     transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_neighbor_count, 'bgp_sessions', 'shutdown')
     # Measure startup convergence
     flapper(duthost, pdp, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
-    
+
 
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
 def test_sessions_flapping(
