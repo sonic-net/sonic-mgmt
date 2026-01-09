@@ -323,6 +323,10 @@ def get_expected_alerting_messages_supervisor(duthost, containers_in_namespaces)
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
                     continue
+
+                if "database" in container_name_in_namespace and "redis" in critical_process:
+                    continue
+
                 logger.info("Generating the regex of expected alerting message for process '{}' in container '{}'"
                             .format(critical_process, container_name_in_namespace))
                 expected_alerting_messages.append(".*Process '{}' is not running in namespace '{}'.*"
@@ -515,10 +519,6 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                 # Skip 'dsserve' process since it was not managed by supervisord
                 # TODO: Should remove the following two lines once the issue was solved in the image.
                 if "syncd" in container_name_in_namespace and critical_process == "dsserve":
-                    continue
-                
-                # skip 'redis' process in 'database' container since it is set to auto-restart if exited unexpectedly.
-                if "database" in container_name_in_namespace and "redis" in critical_process:
                     continue
 
                 ensure_process_is_running(duthost, container_name_in_namespace, critical_process)
