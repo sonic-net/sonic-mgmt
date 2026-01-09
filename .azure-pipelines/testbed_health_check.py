@@ -170,6 +170,9 @@ class TestbedHealthChecker:
                                                                             "fanout_sonic_password")
                     fanouthost.vm.extra_vars.update(
                         {"ansible_ssh_user": fanout_sonic_user, "ansible_ssh_password": fanout_sonic_password})
+                else:
+                    fanouthost.vm.extra_vars.pop("ansible_ssh_user", None)
+                    fanouthost.vm.extra_vars.pop("ansible_ssh_password", None)
 
                 is_reachable, result = fanouthost.reachable()
 
