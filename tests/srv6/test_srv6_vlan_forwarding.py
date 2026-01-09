@@ -8,9 +8,10 @@ from scapy.all import Raw
 from scapy.layers.inet6 import IPv6, UDP
 from scapy.layers.l2 import Ether
 
-from ptf.testutils import simple_ipv6_sr_packet, send, verify_no_packet_any
+from ptf.testutils import simple_ipv6_sr_packet, send
 from srv6_utils import runSendReceive, get_neighbor_mac
-from tests.common.helpers.assertions import pytest_require
+from tests.common.helpers.assertions import pytest_require, pytest_assert
+from tests.common.portstat_utilities import parse_portstat
 
 
 logger = logging.getLogger(__name__)
@@ -49,6 +50,20 @@ def run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_por
         expected_pkt['IPv6'].hlim -= 1
         logger.debug("Expected packet #{}: {}".format(i, expected_pkt.summary()))
         runSendReceive(injected_pkt, ptf_src_port, expected_pkt, [ptf_dst_port], True, ptfadapter)
+
+
+def verify_no_flooding(before_portstat, after_portstat, threshold=10):
+    """
+    Verify no flooding happened on the given downstream ports by checking portstat
+    """
+    for intf in before_portstat:
+        tmp_ok_cnt = before_portstat[intf]['tx_ok'].replace(',', '')
+        tx_ok_before = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        tmp_ok_cnt = after_portstat[intf]['tx_ok'].replace(',', '')
+        tx_ok_after = int(0 if tmp_ok_cnt == 'N/A' else tmp_ok_cnt)
+        pytest_assert(tx_ok_before + threshold >= tx_ok_after,
+                      'TX_OK count changed on port {}: before {}, after {}'.format(
+                        intf, tx_ok_before, tx_ok_after))
 
 
 @pytest.fixture
@@ -146,6 +161,11 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
             break
     assert dut_downstream_port, "No downstream port on DUT found for {}".format(ptf_dst_port)
 
+    # pick another downstream port that is not the ptf_dst_port as the VLAN port for sending traffic to DUT
+    downstream_port_ids.remove(ptf_dst_port)
+    vlan_ptf_src_port = random.choice(downstream_port_ids)
+    downstream_port_ids.append(ptf_dst_port)  # add it back for later use
+
     logger.info("Doing test on DUT port {} | PTF src port {} | PTF dst port {}".format(
         dut_port, ptf_src_port, ptf_dst_port))
 
@@ -172,6 +192,7 @@ def setup_downstream_uN(rand_selected_dut, ptfhost, tbinfo):
         "dut_port": dut_port,
         "dut_downstream_port": dut_downstream_port,
         "ptf_src_port": ptf_src_port,
+        "vlan_ptf_src_port": vlan_ptf_src_port,
         "ptf_dst_port": ptf_dst_port,
         "downstream_port_ids": downstream_port_ids,
         "neighbor_ip": server_neighbor_ip,
@@ -197,10 +218,16 @@ def test_srv6_uN_forwarding_towards_vlan(setup_downstream_uN, ptfadapter, ptfhos
     duthost = setup_downstream_uN['duthost']
     dut_mac = setup_downstream_uN['dut_mac']
     ptf_src_port = setup_downstream_uN['ptf_src_port']
+    vlan_ptf_src_port = setup_downstream_uN['vlan_ptf_src_port']
     ptf_dst_port = setup_downstream_uN['ptf_dst_port']
     neighbor_ip = setup_downstream_uN['neighbor_ip']
 
+    # run upstream to downstream traffic test
     run_srv6_downstrean_traffic_test(duthost, dut_mac, ptf_src_port, ptf_dst_port,
+                                     neighbor_ip, ptfadapter, ptfhost, with_srh)
+
+    # run traffic test within the VLAN
+    run_srv6_downstrean_traffic_test(duthost, dut_mac, vlan_ptf_src_port, ptf_dst_port,
                                      neighbor_ip, ptfadapter, ptfhost, with_srh)
 
 
@@ -209,16 +236,22 @@ def test_srv6_uN_no_vlan_flooding(setup_downstream_uN, proxy_arp_enabled, ptfada
     duthost = setup_downstream_uN['duthost']
     dut_mac = setup_downstream_uN['dut_mac']
     ptf_src_port = setup_downstream_uN['ptf_src_port']
+    vlan_ptf_src_port = setup_downstream_uN['vlan_ptf_src_port']
     dut_downstream_port = setup_downstream_uN['dut_downstream_port']
-    ptf_downstream_ports = setup_downstream_uN['downstream_port_ids']
-    neighbor_ip = setup_downstream_uN['neighbor_ip']
 
     # shutdown DUT downstream port
     duthost.shell("config interface shutdown {}".format(dut_downstream_port))
     duthost.shell("sonic-clear fdb all")
     time.sleep(5)
 
-    # run traffic test and verify no flooding in vlan
+    # clear counters before test
+    duthost.command('sonic-clear counters', module_ignore_errors=True)
+
+    # collect portstat before test
+    before_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
+    pytest_assert(before_portstat, 'No parsed command output')
+
+    # run upstream to downstream traffic test and verify no flooding in vlan
     ptfadapter.dataplane.flush()
     # generate a random payload
     payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
@@ -230,20 +263,49 @@ def test_srv6_uN_no_vlan_flooding(setup_downstream_uN, proxy_arp_enabled, ptfada
             ipv6_dst="fcbb:bbbb:1:2::",
             srh_seg_left=0,
             srh_nh=41,
-            inner_frame=IPv6() / UDP(dport=4791) / Raw(load=payload)
+            inner_frame=IPv6() / UDP() / Raw(load=payload)
         )
     else:
         injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, ptf_src_port).decode()) \
             / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
-            / IPv6() / UDP(dport=4791) / Raw(load=payload)
+            / IPv6() / UDP() / Raw(load=payload)
 
-    expected_pkt = injected_pkt.copy()
-    expected_pkt['Ether'].dst = get_neighbor_mac(duthost, neighbor_ip)
-    expected_pkt['Ether'].src = dut_mac
-    expected_pkt['IPv6'].dst = "fcbb:bbbb:2::"
-    expected_pkt['IPv6'].hlim -= 1
     send(ptfadapter, ptf_src_port, injected_pkt, count=100)
-    verify_no_packet_any(ptfadapter, expected_pkt, ptf_downstream_ports, timeout=5)
+    time.sleep(5)
+
+    # collect portstat after test
+    after_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
+    pytest_assert(after_portstat, 'No parsed command output')
+
+    verify_no_flooding(before_portstat, after_portstat, 100)
+
+    # run intra-VLAN traffic test and verify no flooding in vlan
+    # collect portstat before test
+    before_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
+    pytest_assert(before_portstat, 'No parsed command output')
+    # generate a random payload
+    payload = ''.join(random.choices(string.ascii_letters + string.digits, k=20))
+    if with_srh:
+        injected_pkt = simple_ipv6_sr_packet(
+            eth_dst=dut_mac,
+            eth_src=ptfadapter.dataplane.get_mac(0, vlan_ptf_src_port).decode(),
+            ipv6_src=ptfhost.mgmt_ipv6,
+            ipv6_dst="fcbb:bbbb:1:2::",
+            srh_seg_left=0,
+            srh_nh=41,
+            inner_frame=IPv6() / UDP() / Raw(load=payload)
+        )
+    else:
+        injected_pkt = Ether(dst=dut_mac, src=ptfadapter.dataplane.get_mac(0, vlan_ptf_src_port).decode()) \
+            / IPv6(src=ptfhost.mgmt_ipv6, dst="fcbb:bbbb:1:2::") \
+            / IPv6() / UDP() / Raw(load=payload)
+
+    send(ptfadapter, vlan_ptf_src_port, injected_pkt, count=100)
+    # collect portstat after test
+    after_portstat = parse_portstat(duthost.command('portstat')['stdout_lines'])
+    pytest_assert(after_portstat, 'No parsed command output')
+
+    verify_no_flooding(before_portstat, after_portstat, 100)
 
     # bring DUT downstream port back up
     duthost.shell("config interface startup {}".format(dut_downstream_port))
