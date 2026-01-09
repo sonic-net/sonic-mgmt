@@ -218,7 +218,7 @@ def check_mux_status(duthost, expected_status):
 
 def apply_static_route_config(duthost, unselected_duthost, prefix, nexthop_addrs=None, op="add"):
     """Apply static route configuration (add/delete) to CONFIG_DB on one or both ToRs.
-    
+
     Args:
         duthost: Primary DUT host object
         unselected_duthost: Secondary DUT host object (for dual-ToR), can be None
@@ -228,11 +228,11 @@ def apply_static_route_config(duthost, unselected_duthost, prefix, nexthop_addrs
     """
     cmd_op = "hmset" if op == "add" else "del"
     cmd_suffix = " nexthop {}".format(",".join(nexthop_addrs)) if op == "add" else ""
-    
+
     cmd = "sonic-db-cli CONFIG_DB {} 'STATIC_ROUTE|{}'{}".format(cmd_op, prefix, cmd_suffix)
-    
+
     duthost.shell(cmd, module_ignore_errors=True)
-    
+
     if unselected_duthost:
         unselected_duthost.shell(cmd, module_ignore_errors=True)
 
