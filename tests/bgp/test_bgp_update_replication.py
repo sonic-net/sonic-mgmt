@@ -12,7 +12,7 @@ from tests.common.helpers.constants import DEFAULT_NAMESPACE
 from tests.bgp.bgp_helpers import is_neighbor_sessions_established
 
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 
 logger = logging.getLogger(__name__)
 
@@ -31,12 +31,15 @@ pytestmark = [
 '''
 
 
-def generate_routes(num_routes, nexthop):
+def generate_routes(num_routes, nexthop, is_ipv6=False):
     '''
     Generator which yields specified amount of dummy routes, in a dict that the route injector
     can use to announce and withdraw these routes.
     '''
-    SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
+    if is_ipv6:
+        SUBNET_TMPL = "2001:db8:{first_iter:x}:{second_iter:x}::/64"
+    else:
+        SUBNET_TMPL = "10.{first_iter}.{second_iter}.0/24"
     loop_iterations = math.floor(num_routes ** 0.5)
 
     for first_iter in range(1, loop_iterations + 1):
@@ -47,7 +50,7 @@ def generate_routes(num_routes, nexthop):
             }
 
 
-def measure_stats(dut):
+def measure_stats(dut, is_ipv6=False):
     '''
     Validates that the provided DUT is responsive during test, and that device stats do not
     exceed specified thresholds, and if so, returns a dictionary containing device statistics
@@ -64,7 +67,8 @@ def measure_stats(dut):
     proc_cpu = dut.shell("show processes cpu | head -n 10", module_ignore_errors=True)['stdout']
     time_first_cmd = time.process_time()
 
-    bgp_sum = dut.shell("show ip bgp summary | grep memory", module_ignore_errors=True)['stdout']
+    bgp_cmd = f"show ip{'v6' if is_ipv6 else ''} bgp summary | grep memory"
+    bgp_sum = dut.shell(bgp_cmd, module_ignore_errors=True)['stdout']
     time_second_cmd = time.process_time()
 
     num_cores = dut.shell('cat /proc/cpuinfo | grep "cpu cores" | uniq', module_ignore_errors=True)['stdout']
@@ -187,6 +191,7 @@ def setup_bgp_peers(
             dut_asn=dut_asn,
             port=peer_port,
             neigh_type=neigh_type,
+            is_ipv6_only=is_ipv6_only_topology(tbinfo),
             namespace=connection_namespace,
             is_multihop=is_quagga or is_dualtor,
             is_passive=False
@@ -212,12 +217,14 @@ def setup_bgp_peers(
 
 def test_bgp_update_replication(
     duthost,
+    tbinfo,
     setup_bgp_peers,
     setup_duthost_intervals,
 ):
     NUM_ROUTES = 10_000
     bgp_peers: list[BGPNeighbor] = setup_bgp_peers
     duthost_intervals: list[float] = setup_duthost_intervals
+    is_ipv6 = is_ipv6_only_topology(tbinfo)
 
     # Ensure new sessions are ready
     if not wait_until(
@@ -234,7 +241,7 @@ def test_bgp_update_replication(
 
     logger.info(f"Route injector: '{route_injector}', route receivers: '{route_receivers}'")
 
-    results = [measure_stats(duthost)]
+    results = [measure_stats(duthost, is_ipv6)]
     base_rib = int(results[0]["num_rib"])
     min_expected_rib = base_rib + NUM_ROUTES
     max_expected_rib = base_rib + (2 * NUM_ROUTES)
@@ -244,12 +251,16 @@ def test_bgp_update_replication(
         # Repeat 20 times
         for _ in range(20):
             # Inject 10000 routes
-            route_injector.announce_routes_batch(generate_routes(num_routes=NUM_ROUTES, nexthop=route_injector.ip))
-
+            route_injector.announce_routes_batch(
+                generate_routes(
+                    num_routes=NUM_ROUTES, nexthop=route_injector.ip,
+                    is_ipv6=is_ipv6
+                )
+            )
             time.sleep(interval)
 
             # Measure after injection
-            results.append(measure_stats(duthost))
+            results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been received
             curr_num_rib = int(results[-1]["num_rib"])
@@ -263,12 +274,16 @@ def test_bgp_update_replication(
                 )
 
             # Remove routes
-            route_injector.withdraw_routes_batch(generate_routes(num_routes=NUM_ROUTES, nexthop=route_injector.ip))
-
+            route_injector.withdraw_routes_batch(
+                generate_routes(
+                    num_routes=NUM_ROUTES, nexthop=route_injector.ip,
+                    is_ipv6=is_ipv6
+                )
+            )
             time.sleep(interval)
 
             # Measure after removal
-            results.append(measure_stats(duthost))
+            results.append(measure_stats(duthost, is_ipv6))
 
             # Validate all routes have been withdrawn
             curr_num_rib = int(results[-1]["num_rib"])
@@ -281,7 +296,7 @@ def test_bgp_update_replication(
                     f"All announcements have not been withdrawn: current '{curr_num_rib}', expected: '{base_rib}'"
                 )
 
-    results.append(measure_stats(duthost))
+    results.append(measure_stats(duthost, is_ipv6))
 
     # Output results as TSV for analysis in other programs
     results_tsv = tabulate(results, headers="keys", tablefmt="tsv")
