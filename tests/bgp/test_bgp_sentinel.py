@@ -8,11 +8,18 @@ import requests
 import ipaddress
 from jinja2 import Template
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.utilities import wait_until, wait_tcp_connection, get_upstream_neigh_type
+from tests.common.utilities import (
+    wait_until,
+    wait_tcp_connection,
+    get_upstream_neigh_type,
+    is_ipv6_only_topology,
+)
 from bgp_helpers import CONSTANTS_FILE, BGPSENTINEL_CONFIG_FILE
 from bgp_helpers import BGP_SENTINEL_PORT_V4, BGP_SENTINEL_NAME_V4
 from bgp_helpers import BGP_SENTINEL_PORT_V6, BGP_SENTINEL_NAME_V6
 from bgp_helpers import BGPMON_TEMPLATE_FILE, BGPMON_CONFIG_FILE, BGP_MONITOR_NAME
+from tests.common.helpers.generators import generate_ip_through_default_route
+from netaddr import IPNetwork
 
 
 pytestmark = [
@@ -28,6 +35,17 @@ BGP_SENTINEL_TMPL = '''\
             "name": "BGPSentinel",
             "src_address": "{{ v4_src_address }}"
         },
+        "BGPSentinelV6": {
+            "ip_range": {{ v6_listen_range }},
+            "name": "BGPSentinelV6",
+            "src_address": "{{ v6_src_address }}"
+        }
+    }
+}'''
+
+BGP_SENTINEL_V6_ONLY_TMPL = '''\
+{
+    "BGP_SENTINELS": {
         "BGPSentinelV6": {
             "ip_range": {{ v6_listen_range }},
             "name": "BGPSentinelV6",
@@ -86,17 +104,25 @@ def is_bgp_monv6_supported(duthost):
 
 def get_dut_listen_range(tbinfo):
     # Find spine route and get the bp_interface's network
-    ipv4_subnet, ipv6_subnet, = None, None
+    ipv4_subnet, ipv6_subnet = None, None
     spine_bp_addr = {}
     upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
+
     for k, v in tbinfo['topo']['properties']['configuration'].items():
         if ((upstream_nbr_type == 'T0' and 'tor' in v['properties']) or
                 (upstream_nbr_type == 'T2' and 'spine' in v['properties'])):
-            ipv4_addr = ipaddress.ip_interface(v['bp_interface']['ipv4'].encode().decode())
-            ipv6_addr = ipaddress.ip_interface(v['bp_interface']['ipv6'].encode().decode())
-            ipv4_subnet = str(ipv4_addr.network)
+            bp_if = v['bp_interface']
+            if not is_ipv6_only:
+                ipv4_addr = ipaddress.ip_interface(bp_if['ipv4'].encode().decode())
+                ipv4_subnet = str(ipv4_addr.network)
+            ipv6_addr = ipaddress.ip_interface(bp_if['ipv6'].encode().decode())
             ipv6_subnet = str(ipv6_addr.network)
-            spine_bp_addr[k] = {'ipv4': str(ipv4_addr.ip), 'ipv6': str(ipv6_addr.ip)}
+            spine_bp_addr[k] = {}
+            if not is_ipv6_only:
+                spine_bp_addr[k]['ipv4'] = str(ipv4_addr.ip)
+            spine_bp_addr[k]['ipv6'] = str(ipv6_addr.ip)
+
     return ipv4_subnet, ipv6_subnet, spine_bp_addr
 
 
@@ -110,7 +136,7 @@ def is_bgp_sentinel_session_established(duthost, ibgp_sessions):
     return False
 
 
-def is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions):
+def is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only=False):
     """ Check if the route is advertised to peers
     """
     ip_family = None
@@ -132,14 +158,22 @@ def is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions):
                     peer_info.remove(item) if item in peer_info else None
                 if len(peer_info) > 0:
                     return True
+
+    if is_ipv6_only and 'advertisedTo' in output:
+        peer_info = list(output['advertisedTo'].keys())
+        for item in ibgp_sessions:
+            peer_info.remove(item) if item in peer_info else None
+        if len(peer_info) > 0:
+            return True
+
     return False
 
 
-def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
+def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only=False, ptf_bp_v6=None):
     ipv4_nh, ipv6_nh = None, None
     for _, v in spine_bp_addr.items():
         # Add ptf route to dut lo address
-        if ipv4_nh is None:
+        if not is_ipv6_only and ipv4_nh is None:
             ptfhost.shell("ip route add {} via {}".format(lo_ipv4_addr, v['ipv4']), module_ignore_errors=True)
             time.sleep(5)
             ipv4_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv4_addr), module_ignore_errors=True)
@@ -149,13 +183,29 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
                 ipv4_nh = v['ipv4']
 
         if ipv6_nh is None:
-            ptfhost.shell("ip route add {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
-            time.sleep(5)
-            ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
-            if ipv6_res['rc'] != 0:
-                ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+            if is_ipv6_only:
+                gateway = v['ipv6']
+                ptfhost.shell(
+                    "ip -6 route add {}/128 via {}".format(lo_ipv6_addr, gateway),
+                    module_ignore_errors=True,
+                )
+                time.sleep(5)
+                ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
+                if ipv6_res['rc'] != 0:
+                    ptfhost.shell(
+                        "ip -6 route del {}/128 via {}".format(lo_ipv6_addr, gateway),
+                        module_ignore_errors=True,
+                    )
+                else:
+                    ipv6_nh = v['ipv6']
             else:
-                ipv6_nh = v['ipv6']
+                ptfhost.shell("ip route add {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+                time.sleep(5)
+                ipv6_res = ptfhost.shell("ping {} -c 3 -I backplane".format(lo_ipv6_addr), module_ignore_errors=True)
+                if ipv6_res['rc'] != 0:
+                    ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, v['ipv6']), module_ignore_errors=True)
+                else:
+                    ipv6_nh = v['ipv6']
 
     return ipv4_nh, ipv6_nh
 
@@ -164,8 +214,9 @@ def add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr):
 def dut_lo_addr(rand_selected_dut):
     duthost = rand_selected_dut
     lo_facts = duthost.setup()['ansible_facts']['ansible_Loopback0']
-    lo_ipv4_addr, lo_ipv6_addr = lo_facts['ipv4']['address'], None
-    for item in lo_facts['ipv6']:
+    lo_ipv4_addr = lo_facts.get('ipv4', {}).get('address')
+    lo_ipv6_addr = None
+    for item in lo_facts.get('ipv6', []):
         if item['address'].startswith('fe80'):
             continue
         lo_ipv6_addr = item['address']
@@ -173,23 +224,53 @@ def dut_lo_addr(rand_selected_dut):
     return lo_ipv4_addr, lo_ipv6_addr
 
 
+def cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6):
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinel'", asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_SENTINELS|BGPSentinelV6'", asic_index='all')
+    duthost.run_sonic_db_cli_cmd("CONFIG_DB del 'BGP_MONITORS|{}'".format(ptf_bp_v6), asic_index='all')
+
+
 @pytest.fixture(scope="module", params=['BGPSentinel', 'BGPMonV6'])
 def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr = dut_lo_addr
     ipv4_subnet, ipv6_subnet, spine_bp_addr = get_dut_listen_range(tbinfo)
-    ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     ptf_bp_v6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6'].lower()
+
+    cleanup_leftovers_bgp_config(duthost, tbinfo, ptf_bp_v6)
+
+    if is_ipv6_only:
+        ptf_bp_v4 = generate_ip_through_default_route(duthost)
+        ptf_bp_v4 = str(IPNetwork(ptf_bp_v4).ip)
+    else:
+        ptf_bp_v4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
+
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
     if request.param == 'BGPSentinel':
         # render template and write to DB, check running configuration for BGP_sentinel
-        bgp_sentinelv4_tmpl = Template(BGP_SENTINEL_TMPL)
-        duthost.copy(content=bgp_sentinelv4_tmpl.render(v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
-                                                        v4_src_address=lo_ipv4_addr,
-                                                        v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
-                                                        v6_src_address=lo_ipv6_addr),
-                     dest=BGPSENTINEL_CONFIG_FILE)
+        if is_ipv6_only:
+            bgp_sentinel_tmpl = Template(BGP_SENTINEL_V6_ONLY_TMPL)
+            duthost.copy(
+                content=bgp_sentinel_tmpl.render(
+                    v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                    v6_src_address=lo_ipv6_addr,
+                ),
+                dest=BGPSENTINEL_CONFIG_FILE,
+            )
+        else:
+            bgp_sentinel_tmpl = Template(BGP_SENTINEL_TMPL)
+            duthost.copy(
+                content=bgp_sentinel_tmpl.render(
+                    v4_listen_range=json.dumps([ipv4_subnet, ptf_bp_v4 + '/32']),
+                    v4_src_address=lo_ipv4_addr,
+                    v6_listen_range=json.dumps([ipv6_subnet, ptf_bp_v6 + '/128']),
+                    v6_src_address=lo_ipv6_addr,
+                ),
+                dest=BGPSENTINEL_CONFIG_FILE,
+            )
+
         duthost.shell("sonic-cfggen -j {} -w".format(BGPSENTINEL_CONFIG_FILE))
 
     elif request.param == 'BGPMonV6':
@@ -199,11 +280,10 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
             'peer_addr': ptf_bp_v6,
             'asn': dut_asn,
             'local_addr': "fc00:1::32",
-            'peer_name': BGP_MONITOR_NAME
+            'peer_name': BGP_MONITOR_NAME,
         }
         bgpmon_template = Template(open(BGPMON_TEMPLATE_FILE).read())
-        duthost.copy(content=bgpmon_template.render(**bgpmon_args),
-                     dest=BGPMON_CONFIG_FILE)
+        duthost.copy(content=bgpmon_template.render(**bgpmon_args), dest=BGPMON_CONFIG_FILE)
         duthost.shell("sonic-cfggen -j {} -w".format(BGPMON_CONFIG_FILE))
 
     duthost.shell("vtysh -c \"configure terminal\" -c \"ipv6 nht resolve-via-default\"")
@@ -221,46 +301,63 @@ def dut_setup_teardown(rand_selected_dut, tbinfo, dut_lo_addr, request):
         duthost.file(path=BGPMON_CONFIG_FILE, state='absent')
 
 
+def cleanup_leftovers_exbgp_instances(ptfhost, is_ipv6_only):
+    if not is_ipv6_only:
+        ptfhost.exabgp(name=BGP_SENTINEL_NAME_V4, state="absent")
+    ptfhost.exabgp(name=BGP_SENTINEL_NAME_V6, state="absent")
+
+
 @pytest.fixture(scope="module")
 def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     duthost = rand_selected_dut
     lo_ipv4_addr, lo_ipv6_addr, spine_bp_addr, ptf_bp_v4, ptf_bp_v6, case_type = dut_setup_teardown
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
-    if case_type == 'BGPSentinel':
-        if not is_bgp_sentinel_supported(duthost):
-            pytest.skip("BGP sentinel is not supported on this image")
-    elif case_type == 'BGPMonV6':
-        if not is_bgp_monv6_supported(duthost):
-            pytest.skip("BGPMonV6 is not supported on this image")
+    if not is_ipv6_only:
+        if case_type == 'BGPSentinel':
+            if not is_bgp_sentinel_supported(duthost):
+                pytest.skip("BGP sentinel is not supported on this image")
+        elif case_type == 'BGPMonV6':
+            if not is_bgp_monv6_supported(duthost):
+                pytest.skip("BGPMonV6 is not supported on this image")
 
     dut_asn = tbinfo['topo']['properties']['configuration_properties']['common']['dut_asn']
 
+    cleanup_leftovers_exbgp_instances(ptfhost, is_ipv6_only)
+
     # Start exabgp process to simulate bgp sentinel
-    ptfhost.exabgp(name=BGP_SENTINEL_NAME_V4,
-                   state="started",
-                   local_ip=ptf_bp_v4,
-                   router_id=ptf_bp_v4,
-                   peer_ip=lo_ipv4_addr,
-                   local_asn=dut_asn,
-                   peer_asn=dut_asn,
-                   port=BGP_SENTINEL_PORT_V4)
+    if not is_ipv6_only:
+        ptfhost.exabgp(
+            name=BGP_SENTINEL_NAME_V4,
+            state="started",
+            local_ip=ptf_bp_v4,
+            router_id=ptf_bp_v4,
+            peer_ip=lo_ipv4_addr,
+            local_asn=dut_asn,
+            peer_asn=dut_asn,
+            port=BGP_SENTINEL_PORT_V4,
+        )
 
-    ptfhost.exabgp(name=BGP_SENTINEL_NAME_V6,
-                   state="started",
-                   local_ip=ptf_bp_v6,
-                   router_id=ptf_bp_v4,
-                   peer_ip=lo_ipv6_addr,
-                   local_asn=dut_asn,
-                   peer_asn=dut_asn,
-                   port=BGP_SENTINEL_PORT_V6)
+        if not wait_tcp_connection(ptfhost, ptfhost.mgmt_ip, BGP_SENTINEL_PORT_V4, timeout_s=60):
+            raise RuntimeError("Failed to start BGPSentinel neighbor %s" % lo_ipv4_addr)
 
-    if not wait_tcp_connection(ptfhost, ptfhost.mgmt_ip, BGP_SENTINEL_PORT_V4, timeout_s=60):
-        raise RuntimeError("Failed to start BGPSentinel neighbor %s" % lo_ipv4_addr)
+    ptfhost.exabgp(
+        name=BGP_SENTINEL_NAME_V6,
+        state="started",
+        local_ip=ptf_bp_v6,
+        router_id=ptf_bp_v4,
+        peer_ip=lo_ipv6_addr,
+        local_asn=dut_asn,
+        peer_asn=dut_asn,
+        port=BGP_SENTINEL_PORT_V6,
+    )
 
     if not wait_tcp_connection(ptfhost, ptfhost.mgmt_ip, BGP_SENTINEL_PORT_V6, timeout_s=60):
         raise RuntimeError("Failed to start BGPSentinelV6 neighbor %s" % lo_ipv6_addr)
 
-    ipv4_nh, ipv6_nh = add_route_to_dut_lo(ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr)
+    ipv4_nh, ipv6_nh = add_route_to_dut_lo(
+        ptfhost, spine_bp_addr, lo_ipv4_addr, lo_ipv6_addr, is_ipv6_only, ptf_bp_v6
+    )
     if case_type == 'BGPMonV6':
         ipv4_nh = None
 
@@ -270,23 +367,29 @@ def ptf_setup_teardown(dut_setup_teardown, rand_selected_dut, ptfhost, tbinfo):
     if ipv4_nh is not None:
         ptfhost.shell("ip route del {} via {}".format(lo_ipv4_addr, ipv4_nh), module_ignore_errors=True)
     if ipv6_nh is not None:
-        ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, ipv6_nh), module_ignore_errors=True)
+        if is_ipv6_only:
+            ptfhost.shell("ip -6 route del {}/128".format(lo_ipv6_addr), module_ignore_errors=True)
+        else:
+            ptfhost.shell("ip route del {} via {}".format(lo_ipv6_addr, ipv6_nh), module_ignore_errors=True)
 
-    # Stop exabgp process
-    ptfhost.exabgp(name=BGP_SENTINEL_NAME_V4, state="absent")
-    ptfhost.exabgp(name=BGP_SENTINEL_NAME_V6, state="absent")
+    cleanup_leftovers_exbgp_instances(ptfhost, is_ipv6_only)
 
 
 @pytest.fixture(scope="module")
-def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost):
+def common_setup_teardown(rand_selected_dut, ptf_setup_teardown, ptfhost, tbinfo):
     ptfip = ptfhost.mgmt_ip
     duthost = rand_selected_dut
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     logger.info("ptfip=%s" % ptfip)
 
     lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ptf_bp_v4, ptf_bp_v6 = ptf_setup_teardown
 
-    if ipv4_nh is None and ipv6_nh is None:
-        pytest.skip("Failed to add route to dut lo address")
+    if is_ipv6_only:
+        if ipv6_nh is None:
+            pytest.skip("Failed to add IPv6 route to dut lo address")
+    else:
+        if ipv4_nh is None and ipv6_nh is None:
+            pytest.skip("Failed to add route to dut lo address")
 
     ibgp_sessions = []
     if ipv4_nh is not None:
@@ -327,30 +430,48 @@ def change_route(operation, ptfip, neighbor, route, nexthop, port, community):
     assert r.status_code == 200
 
 
-def get_target_routes(duthost):
+def get_target_routes(duthost, tbinfo):
     v4_peer, v6_peer = None, None
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
     bgp_summary = json.loads(duthost.shell("vtysh -c \"show bgp summary json\"")['stdout'])
-    for k, v in bgp_summary['ipv4Unicast']['peers'].items():
-        if 'desc' in v and 'T0' in v['desc'] and v['pfxRcd'] != 0:
+
+    # IPv4 peers are optional (none on IPv6-only topo); IPv6 peer is required
+    for k, v in bgp_summary.get('ipv4Unicast', {}).get('peers', {}).items():
+        if 'desc' in v and 'T0' in v['desc'] and v.get('pfxRcd', 0) != 0:
             v4_peer = k
             break
 
-    for k, v in bgp_summary['ipv6Unicast']['peers'].items():
-        if 'desc' in v and 'T0' in v['desc'] and v['pfxRcd'] != 0:
+    for k, v in bgp_summary.get('ipv6Unicast', {}).get('peers', {}).items():
+        if 'desc' in v and 'T0' in v['desc'] and v.get('pfxRcd', 0) != 0:
             v6_peer = k
             break
 
-    if v4_peer is None or v6_peer is None:
-        pytest.skip("No bgp session to T0")
+    if is_ipv6_only:
+        if v6_peer is None:
+            pytest.skip("No IPv6 bgp session to T0")
+    else:
+        if v4_peer is None or v6_peer is None:
+            pytest.skip("No bgp session to T0")
 
-    bgp_v4_routes = json.loads(duthost.shell(
-        "vtysh -c \'show bgp ipv4 neighbors {} received-routes json\'".format(v4_peer))['stdout'])
-    bgp_v6_routes = json.loads(duthost.shell(
-        "vtysh -c \'show bgp ipv6 neighbors {} received-routes json\'".format(v6_peer))['stdout'])
+    bgp_v4_routes = {'receivedRoutes': {}}
+    if not is_ipv6_only and v4_peer is not None:
+        bgp_v4_routes = json.loads(
+            duthost.shell(
+                "vtysh -c \'show bgp ipv4 neighbors {} received-routes json\'".format(v4_peer)
+            )['stdout']
+        )
+
+    bgp_v6_routes = json.loads(
+        duthost.shell(
+            "vtysh -c \'show bgp ipv6 neighbors {} received-routes json\'".format(v6_peer)
+        )['stdout']
+    )
 
     # Exclude /128 route and dc4a route, dc4a routes are not advertised to peers
-    target_v6_routes = [route for route in bgp_v6_routes['receivedRoutes'].keys()
-                        if '/128' not in route and not route.startswith('dc4a')]
+    target_v6_routes = [
+        route for route in bgp_v6_routes['receivedRoutes'].keys()
+        if '/128' not in route and not route.startswith('dc4a')
+    ]
     return list(bgp_v4_routes['receivedRoutes'].keys()), target_v6_routes
 
 
@@ -367,6 +488,10 @@ def bgp_community(sentinel_community, request):
 def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_community, request, tbinfo):
     duthost = rand_selected_dut
     ptfip, lo_ipv4_addr, lo_ipv6_addr, ipv4_nh, ipv6_nh, ibgp_sessions, ptf_bp_v4, ptf_bp_v6 = common_setup_teardown
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
+
+    if is_ipv6_only and request.param == "IPv4":
+        pytest.skip("IPv4 tests are not supported on IPv6-only topology")
 
     if ipv4_nh is None and request.param == "IPv4":
         pytest.skip("IPv4 IBGP session is not established")
@@ -374,7 +499,7 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
     if ipv6_nh is None and request.param == "IPv6":
         pytest.skip("IPv6 IBGP session is not established")
 
-    ipv4_routes, ipv6_routes = get_target_routes(duthost)
+    ipv4_routes, ipv6_routes = get_target_routes(duthost, tbinfo)
     upstream_nbr_type = get_upstream_neigh_type(tbinfo, is_upper=True)
 
     if upstream_nbr_type == "T0" and "0.0.0.0/0" in ipv4_routes:
@@ -385,8 +510,10 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
 
     # Check if the routes are announced to peers
     for route in ipv4_routes + ipv6_routes:
-        pytest_assert(is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
-                      "Route {} is not advertised to bgp peers".format(route))
+        pytest_assert(
+            is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+            "Route {} is not advertised to bgp peers".format(route),
+        )
 
     community = bgp_community
 
@@ -427,11 +554,15 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
         logger.debug("route: {}, status: {}".format(route, output))
 
         if 'no-export' in community:
-            pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
-                          "Route {} should not be advertised to bgp peers".format(route))
+            pytest_assert(
+                not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+                "Route {} should not be advertised to bgp peers".format(route),
+            )
         else:
-            pytest_assert(is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
-                          "Route {} is not advertised to bgp peers".format(route))
+            pytest_assert(
+                is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+                "Route {} is not advertised to bgp peers".format(route),
+            )
 
     if request.param == "IPv4":
         yield ptf_bp_v4, ipv4_routes + ipv6_routes, ibgp_sessions, community
@@ -455,14 +586,17 @@ def prepare_bgp_sentinel_routes(rand_selected_dut, common_setup_teardown, bgp_co
     time.sleep(10)
     # Check if the routes are announced to ebgp peers
     for route in ipv4_routes + ipv6_routes:
-        pytest_assert(is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
-                      "Route {} is not advertised to bgp peers".format(route))
+        pytest_assert(
+            is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+            "Route {} is not advertised to bgp peers".format(route),
+        )
 
 
 @pytest.mark.parametrize("reset_type", ["none", "soft", "hard"])
-def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type):
+def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type, tbinfo):
     duthost = rand_selected_dut
     ibgp_nbr, target_routes, ibgp_sessions, community = prepare_bgp_sentinel_routes
+    is_ipv6_only = is_ipv6_only_topology(tbinfo)
 
     if reset_type == "none":
         return
@@ -479,9 +613,13 @@ def test_bgp_sentinel(rand_selected_dut, prepare_bgp_sentinel_routes, reset_type
     # Check if the routes are not announced to ebgp peers
     for route in target_routes:
         if 'no-export' in community:
-            pytest_assert(not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
-                          "Route {} should not be advertised to bgp peers".format(route))
+            pytest_assert(
+                not is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+                "Route {} should not be advertised to bgp peers".format(route),
+            )
         else:
-            pytest_assert(is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions),
-                          "Route {} is not advertised to bgp peers".format(route))
+            pytest_assert(
+                is_route_advertised_to_ebgp_peers(duthost, route, ibgp_sessions, is_ipv6_only),
+                "Route {} is not advertised to bgp peers".format(route),
+            )
     return
