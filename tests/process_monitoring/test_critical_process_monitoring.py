@@ -542,8 +542,8 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
 
 
 @pytest.fixture
-def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container, 
-                                get_pdu_controller, localhost):
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
+                               get_pdu_controller, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
@@ -560,7 +560,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         pdu_ctrl = get_pdu_controller(duthost)
         if pdu_ctrl is None:
             pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                       .format(duthost.hostname))
+                        .format(duthost.hostname))
 
         # Perform PDU reboot (cold reboot)
         if not pdu_reboot(pdu_ctrl):
