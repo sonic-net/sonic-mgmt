@@ -470,6 +470,12 @@ class EverflowIPv4Tests(BaseEverflowTest):
         everflow_dut = setup_info[dest_port_type]['everflow_dut']
         remote_dut = setup_info[dest_port_type]['remote_dut']
 
+        # VOQ switches use recycle port as mirror destination. Hence there is no
+        # control on which ECMP nexthop the traffic will egress from after the packet
+        # gets recycled.
+        if everflow_dut.facts['switch_type'] == "voq":
+            pytest.skip("Skip test as is not supported on a VoQ switch.")
+
         # Create two ECMP next hops
         tx_port = setup_info[dest_port_type]["dest_port"][0]
         peer_ip_0 = everflow_utils.get_neighbor_info(remote_dut, tx_port, tbinfo, ip_version=erspan_ip_ver)
