@@ -540,7 +540,7 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     return skip_containers
 
 
-@pytest.fixture
+@pytest.fixture(scope='function')
 def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
                                get_pdu_controller, localhost):
     duthost = duthosts[rand_one_dut_hostname]
@@ -551,19 +551,36 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # Check if database container is being tested
     is_testing_database = "database" not in skip_containers
 
+    # add log to indicate start of yield
+    logger.info("Starting test to monitor critical processes...")
     yield
+
+    # add log to indicate end of yield
+    logger.info("Test to monitor critical processes is done, starting recovery...")
 
     # Special handling for database container - use cold reboot via PDU
     if is_testing_database:
         logger.info("Database container was tested - performing cold reboot via PDU...")
-        pdu_ctrl = get_pdu_controller(duthost)
-        if pdu_ctrl is None:
-            pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                        .format(duthost.hostname))
+        try:
+            pdu_ctrl = get_pdu_controller(duthost)
+            logger.info("PDU controller obtained: {}".format(pdu_ctrl))
 
-        # Perform PDU reboot (cold reboot)
-        if not pdu_reboot(pdu_ctrl):
-            pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+            if pdu_ctrl is None:
+                logger.error("No PDU controller available for {}, cannot recover from database container test"
+                           .format(duthost.hostname))
+                pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                           .format(duthost.hostname))
+
+            # Perform PDU reboot (cold reboot)
+            logger.info("Starting PDU reboot...")
+            if not pdu_reboot(pdu_ctrl):
+                logger.error("PDU reboot failed for {}".format(duthost.hostname))
+                pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+            
+            logger.info("PDU reboot completed, waiting for DUT to boot up...")
+        except Exception as e:
+            logger.error("Exception during PDU reboot: {}".format(str(e)))
+            raise
 
         logger.info("Waiting for DUT to boot up after cold reboot...")
         # Wait for DUT to come back up after PDU power cycle
