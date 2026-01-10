@@ -573,7 +573,10 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
                 # Use kernel's SysRq trigger to force immediate reboot
                 # This bypasses all userspace processes and goes directly to kernel
                 # 'b' = immediately reboot the system without syncing or unmounting
-                duthost.shell('nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &', module_ignore_errors=True)
+                duthost.shell(
+                    'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" '
+                    '> /dev/null 2>&1 &',
+                    module_ignore_errors=True)
                 logger.info("Kernel reboot trigger command issued successfully")
             except Exception as e:
                 logger.info("Reboot trigger command execution (expected to disconnect): {}".format(str(e)))
