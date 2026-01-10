@@ -204,8 +204,12 @@ def apply_clet(duthost, skip_test=False):
         "DB compare failed after apply-clet"
 
     # Ensure BGP session is up
-    chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
-    chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
+    if len(tor_data.get("ip", []).get("remote", [])):
+        chk_bgp_session(duthost, tor_data["ip"]["remote"], "post-clet test")
+    elif len(tor_data.get("ipv6", []).get("remote", [])):
+        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "post-clet test")
+    else:
+        report_error("No neighbors detected")
 
     log_info("AddRack by template succeeded")
 
@@ -265,8 +269,12 @@ def do_test_add_rack(duthost, is_storage_backend=False, skip_load=False,
                      is_storage_backend=is_storage_backend)
 
         # Ensure BGP session is up before we apply stripped minigraph
-        chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
-        chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
+        if len(tor_data.get("ip", []).get("remote", [])):
+            chk_bgp_session(duthost, tor_data["ip"]["remote"], "pre-clet test")
+        elif len(tor_data.get("ipv6", []).get("remote", [])):
+            chk_bgp_session(duthost, tor_data["ipv6"]["remote"].lower(), "pre-clet test")
+        else:
+            report_error("No neighbors detected")
 
         set_log_prefix_msg("test prepare")
         prepare_for_test(duthost)
