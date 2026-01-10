@@ -13,12 +13,15 @@ from tests.common import config_reload
 from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.reboot import wait_for_startup
+from tests.common.platform.processes_utils import wait_critical_processes
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until, kill_process_by_pid
 
 logger = logging.getLogger(__name__)
 
@@ -524,7 +527,7 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
 
 def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
     skip_containers = []
-    skip_containers.append("database")
+    # Skip database container for generate redis crash alerting messages.
     skip_containers.append("gbsyncd")
     # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
     # which will not trigger alarm message.
@@ -539,19 +542,60 @@ def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
 
 
 @pytest.fixture
-def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container, 
+                                get_pdu_controller, localhost):
     duthost = duthosts[rand_one_dut_hostname]
     up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
     skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
+    # Check if database container is being tested
+    is_testing_database = "database" not in skip_containers
+
     yield
 
-    logger.info("Executing the config reload...")
-    config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
-    logger.info("Executing the config reload was done!")
+    # Special handling for database container - use cold reboot via PDU
+    if is_testing_database:
+        logger.info("Database container was tested - performing cold reboot via PDU...")
+        pdu_ctrl = get_pdu_controller(duthost)
+        if pdu_ctrl is None:
+            pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                       .format(duthost.hostname))
 
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+        # Perform PDU reboot (cold reboot)
+        if not pdu_reboot(pdu_ctrl):
+            pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+
+        logger.info("Waiting for DUT to boot up after cold reboot...")
+        # Wait for DUT to come back up after PDU power cycle
+        # Get timeout values based on chassis type
+        timeout = 300
+        wait_time = 120
+        if duthost.get_facts().get("modular_chassis"):
+            wait_time = max(wait_time, 600)
+            timeout = max(timeout, 420)
+
+        # Wait for SSH to come back up
+        wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+        logger.info("SSH is up, waiting for critical processes...")
+
+        # Wait for all critical processes to be healthy
+        wait_critical_processes(duthost)
+        logger.info("All critical processes are running")
+
+        # Wait for interfaces to come up
+        logger.info("Checking interface status...")
+        check_interface_status_of_up_ports(duthost, timeout=300)
+        logger.info("All interfaces are up")
+
+        logger.info("DUT recovered successfully after cold reboot!")
+    else:
+        # Normal recovery for other containers
+        logger.info("Executing the config reload...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("Executing the config reload was done!")
+
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
 
     if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
         pytest.fail("Post-check failed after testing the process monitoring!")
