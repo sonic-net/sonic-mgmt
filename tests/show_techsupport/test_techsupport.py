@@ -55,7 +55,6 @@ IPV6_IPS = {'src_ip': "2001::1", 'dst_ip': "2001::2"}
 
 DPU_PLATFORM_DUMP_FILES = ["sysfs_tree", "sys_version", "dmesg",
                            "dmidecode", "lsmod", "lspci", "top", "bin/platform-dump.sh"]
-
 # ACL PART #
 
 
