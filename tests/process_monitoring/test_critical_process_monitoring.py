@@ -558,31 +558,50 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
     # add log to indicate end of yield
     logger.info("Test to monitor critical processes is done, starting recovery...")
 
-    # Special handling for database container - use cold reboot via PDU
+    # Special handling for database container - use power cycle
     if is_testing_database:
-        logger.info("Database container was tested - performing cold reboot via PDU...")
-        try:
-            pdu_ctrl = get_pdu_controller(duthost)
-            logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+        logger.info("Database container was tested - performing power cycle...")
 
-            if pdu_ctrl is None:
-                logger.error("No PDU controller available for {}, cannot recover from database container test"
-                             .format(duthost.hostname))
-                pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                            .format(duthost.hostname))
+        # Check if this is a KVM testbed (no PDU available)
+        is_kvm = duthost.facts.get('platform') == KVM_PLATFORM
 
-            # Perform PDU reboot (cold reboot)
-            logger.info("Starting PDU reboot...")
-            if not pdu_reboot(pdu_ctrl):
-                logger.error("PDU reboot failed for {}".format(duthost.hostname))
-                pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+        if is_kvm:
+            # For KVM testbed, use kernel-level reboot since config DB is corrupted
+            # and normal reboot commands won't work
+            logger.info("KVM testbed detected - using kernel SysRq trigger for immediate reboot...")
+            try:
+                # Use kernel's SysRq trigger to force immediate reboot
+                # This bypasses all userspace processes and goes directly to kernel
+                # 'b' = immediately reboot the system without syncing or unmounting
+                duthost.shell('nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" > /dev/null 2>&1 &', module_ignore_errors=True)
+                logger.info("Kernel reboot trigger command issued successfully")
+            except Exception as e:
+                logger.info("Reboot trigger command execution (expected to disconnect): {}".format(str(e)))
+        else:
+            # For physical testbed, use PDU reboot
+            logger.info("Physical testbed - performing power cycle via PDU...")
+            try:
+                pdu_ctrl = get_pdu_controller(duthost)
+                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
 
-            logger.info("PDU reboot completed, waiting for DUT to boot up...")
-        except Exception as e:
-            logger.error("Exception during PDU reboot: {}".format(str(e)))
-            raise
+                if pdu_ctrl is None:
+                    logger.error("No PDU controller available for {}, cannot recover from database container test"
+                                 .format(duthost.hostname))
+                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                                .format(duthost.hostname))
 
-        logger.info("Waiting for DUT to boot up after cold reboot...")
+                # Perform PDU reboot (power cycle)
+                logger.info("Starting PDU reboot...")
+                if not pdu_reboot(pdu_ctrl):
+                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
+                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+
+                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+            except Exception as e:
+                logger.error("Exception during PDU reboot: {}".format(str(e)))
+                raise
+
+        logger.info("Waiting for DUT to boot up after power cycle...")
         # Wait for DUT to come back up after PDU power cycle
         # Get timeout values based on chassis type
         timeout = 300
@@ -604,7 +623,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         check_interface_status_of_up_ports(duthost, timeout=300)
         logger.info("All interfaces are up")
 
-        logger.info("DUT recovered successfully after cold reboot!")
+        logger.info("DUT recovered successfully after power cycle!")
     else:
         # Normal recovery for other containers
         logger.info("Executing the config reload...")
