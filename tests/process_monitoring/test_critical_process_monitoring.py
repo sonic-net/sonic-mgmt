@@ -567,9 +567,9 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
 
             if pdu_ctrl is None:
                 logger.error("No PDU controller available for {}, cannot recover from database container test"
-                           .format(duthost.hostname))
+                             .format(duthost.hostname))
                 pytest.fail("No PDU controller available for {}, cannot recover from database container test"
-                           .format(duthost.hostname))
+                            .format(duthost.hostname))
 
             # Perform PDU reboot (cold reboot)
             logger.info("Starting PDU reboot...")
