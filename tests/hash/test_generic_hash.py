@@ -20,7 +20,7 @@ from tests.common.reboot import reboot
 from tests.common.config_reload import config_reload
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
 from tests.common.dualtor.dual_tor_utils import toggle_all_aa_ports_to_rand_selected_tor  # noqa F401
-
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor # noqa F401
 DEFAULT_VXLAN_PORT = 4789
 PTF_LOG_PATH = "/tmp/generic_hash_test.GenericHashTest.log"
 
@@ -131,7 +131,8 @@ def test_hash_capability(duthost, global_hash_capabilities):  # noqa:F811
 
 
 def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, global_hash_capabilities,  # noqa:F811
-                   restore_vxlan_port, toggle_all_aa_ports_to_rand_selected_tor):                        # noqa:F811
+                   restore_vxlan_port, toggle_all_simulator_ports_to_rand_selected_tor,                  # noqa:F811
+                   toggle_all_aa_ports_to_rand_selected_tor):                                            # noqa:F811
     """
     Test case to validate the ecmp hash. The hash field to test is randomly chosen from the supported hash fields.
     Args:
@@ -189,7 +190,9 @@ def test_ecmp_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, gl
 
 
 def test_lag_hash(rand_selected_dut, ptfhost, tbinfo, fine_params, mg_facts, restore_configuration,         # noqa:F811
-                  restore_vxlan_port, global_hash_capabilities, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+                  restore_vxlan_port, global_hash_capabilities,                                             # noqa:F811
+                  toggle_all_simulator_ports_to_rand_selected_tor,                                          # noqa:F811
+                  toggle_all_aa_ports_to_rand_selected_tor):                                                # noqa:F811
     """
     Test case to validate the lag hash. The hash field to test is randomly chosen from the supported hash fields.
     When hash field is in [DST_MAC, ETHERTYPE, VLAN_ID], need to re-configure the dut for L2 traffic.
@@ -272,6 +275,7 @@ def config_all_hash_algorithm(duthost, ecmp_algorithm, lag_algorithm):  # noqa:F
 
 def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                     # noqa:F811
                            global_hash_capabilities,  restore_vxlan_port, get_supported_hash_algorithms,  # noqa:F811
+                           toggle_all_simulator_ports_to_rand_selected_tor,                               # noqa:F811
                            toggle_all_aa_ports_to_rand_selected_tor):                                     # noqa:F811
     """
     Test case to validate the hash behavior when both ecmp and lag hash are configured with a same field.
@@ -324,9 +328,9 @@ def test_ecmp_and_lag_hash(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_f
             is_python3=True
         )
 
-
 def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_interfaces,  # noqa:F811
                       restore_vxlan_port, global_hash_capabilities, get_supported_hash_algorithms,    # noqa:F811
+                      toggle_all_simulator_ports_to_rand_selected_tor,                                # noqa:F811
                       toggle_all_aa_ports_to_rand_selected_tor):                                      # noqa:F811
     """
     Test case to validate the ecmp hash when there is nexthop flapping.
@@ -421,7 +425,8 @@ def test_nexthop_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,
 
 def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts, restore_configuration,  # noqa:F811
                          restore_interfaces, global_hash_capabilities, restore_vxlan_port,                  # noqa:F811
-                         get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):          # noqa:F811
+                         get_supported_hash_algorithms, toggle_all_simulator_ports_to_rand_selected_tor,    # noqa:F811
+                         toggle_all_aa_ports_to_rand_selected_tor):                                         # noqa:F811
     """
     Test case to validate the lag hash when there is lag member flapping.
     The hash field to test is randomly chosen from the supported hash fields.
@@ -521,7 +526,9 @@ def test_lag_member_flap(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_fac
 def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, mg_facts,                 # noqa:F811
                                restore_configuration, restore_interfaces,                                 # noqa:F811
                                global_hash_capabilities, restore_vxlan_port,                              # noqa:F811
-                               get_supported_hash_algorithms, toggle_all_aa_ports_to_rand_selected_tor):  # noqa:F811
+                               get_supported_hash_algorithms,                                             # noqa:F811
+                               toggle_all_simulator_ports_to_rand_selected_tor,                           # noqa:F811
+                               toggle_all_aa_ports_to_rand_selected_tor):                                 # noqa:F811
     """
     Test case to validate the lag hash when a lag member is removed from the lag and added back for
     a few times.
@@ -620,6 +627,7 @@ def test_lag_member_remove_add(rand_selected_dut, tbinfo, ptfhost, fine_params, 
 @pytest.mark.disable_loganalyzer
 def test_reboot(rand_selected_dut, tbinfo, ptfhost, localhost, fine_params, mg_facts, restore_vxlan_port,  # noqa:F811
                 global_hash_capabilities, reboot_type, get_supported_hash_algorithms,                      # noqa:F811
+                toggle_all_simulator_ports_to_rand_selected_tor,                                           # noqa:F811
                 toggle_all_aa_ports_to_rand_selected_tor):                                                 # noqa:F811
     """
     Test case to validate the hash behavior after fast/warm/cold reboot.
