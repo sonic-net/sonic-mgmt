@@ -107,7 +107,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/monitrc /home/admin/monitrc.backup")
 
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
@@ -119,7 +119,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     yield
 
     logger.info("Restore original Monit configuration ...")
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /home/admin/monitrc.backup /etc/monit/monitrc")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
