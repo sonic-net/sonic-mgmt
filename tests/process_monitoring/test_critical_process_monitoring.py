@@ -580,7 +580,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
         logger.info("SSH is up, waiting for critical processes...")
 
         # Wait for all critical processes to be healthy
-        wait_critical_processes(duthost)
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
         logger.info("All critical processes are running")
 
         # Wait for interfaces to come up
