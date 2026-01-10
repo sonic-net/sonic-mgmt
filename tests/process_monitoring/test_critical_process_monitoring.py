@@ -14,7 +14,6 @@ from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
 from tests.common.reboot import wait_for_startup
-from tests.common.platform.processes_utils import wait_critical_processes
 from tests.common.platform.interface_utils import check_interface_status_of_up_ports
 from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
