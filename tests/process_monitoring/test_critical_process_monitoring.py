@@ -576,7 +576,7 @@ def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_ven
             if not pdu_reboot(pdu_ctrl):
                 logger.error("PDU reboot failed for {}".format(duthost.hostname))
                 pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
-            
+
             logger.info("PDU reboot completed, waiting for DUT to boot up...")
         except Exception as e:
             logger.error("Exception during PDU reboot: {}".format(str(e)))
