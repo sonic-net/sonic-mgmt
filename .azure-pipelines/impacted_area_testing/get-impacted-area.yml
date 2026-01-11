@@ -102,17 +102,53 @@ steps:
       fi
     done
 
-    TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
+    # Generate TEST_SCRIPTS with retry logic for JSON validation
+    MAX_RETRIES=3
+    RETRY_COUNT=0
 
-    if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get test scripts fails."
-      exit 1
-    fi
+    while [ $RETRY_COUNT -lt $MAX_RETRIES ]; do
+      echo "Attempt $((RETRY_COUNT + 1)): Generating test scripts..."
 
-    PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+      TEST_SCRIPTS=$(python ./.azure-pipelines/impacted_area_testing/get_test_scripts.py --features ${FINAL_FEATURES} --location tests)
 
-    if [[ $? -ne 0 ]]; then
-      echo "##vso[task.complete result=Failed;]Get valid PR checkers fails."
+      if [[ $? -ne 0 ]]; then
+        echo "Get test scripts command failed on attempt $((RETRY_COUNT + 1))"
+        RETRY_COUNT=$((RETRY_COUNT + 1))
+        if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+          echo "Retrying in 2 seconds..."
+          sleep 2
+        fi
+        continue
+      fi
+
+      # Validate TEST_SCRIPTS is valid JSON
+      if echo "$TEST_SCRIPTS" | jq empty > /dev/null 2>&1; then
+        echo "TEST_SCRIPTS is valid JSON: $TEST_SCRIPTS"
+
+        # Generate PR_CHECKERS
+        PR_CHECKERS=$(echo "${TEST_SCRIPTS}" | jq -c 'keys')
+
+        if [[ $? -eq 0 ]] && echo "$PR_CHECKERS" | jq empty > /dev/null 2>&1; then
+          echo "PR_CHECKERS is valid list: $PR_CHECKERS"
+          echo "All validations passed successfully"
+          break
+        else
+          echo "PR_CHECKERS generation failed or invalid list: $PR_CHECKERS"
+        fi
+      else
+        echo "TEST_SCRIPTS is not valid JSON: $TEST_SCRIPTS"
+      fi
+
+      RETRY_COUNT=$((RETRY_COUNT + 1))
+      if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
+        echo "Retrying in 2 seconds..."
+        sleep 2
+      fi
+    done
+
+    # Final validation
+    if [ $RETRY_COUNT -eq $MAX_RETRIES ]; then
+      echo "##vso[task.complete result=Failed;]Failed to generate valid JSON after $MAX_RETRIES attempts. Last TEST_SCRIPTS: $TEST_SCRIPTS"
       exit 1
     fi
 
