@@ -107,7 +107,7 @@ class BGPNeighbor(object):
         self.is_multihop = not is_passive and is_multihop
         self.debug = debug
         self.is_ipv6_neighbor = is_ipv6_only
-        if self.is_ipv6_neighbor:
+        if not self.is_ipv6_neighbor:
             self.router_id = router_id or self.ip
         else:
             # Generate router ID by combining 20.0.0.0 base with last 3 bytes of IPv6 addr
