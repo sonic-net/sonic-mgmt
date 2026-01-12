@@ -1429,6 +1429,11 @@ def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected
     """In a dual ToR setup, confirm that standby drop rules take priority over active forward rules,
     even when these rules are in different ACL tables."""
 
+    if not setup["is_dualtor"]:
+        pytest.skip("Test only valid for active-standby dual ToR setups, skipping on non dual ToR device.")
+    if "dualtor-aa" in setup["topo"]:
+        pytest.skip("Test not valid for dualtor active-active setups, skipping on dualtor active-active device.")
+
     itfs, _ = rand_selected_interface
     set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports) # noqa: F405
     time.sleep(10)
@@ -1441,8 +1446,6 @@ def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected
                                src_port=tx_port,
                                is_standby=True,
                                itfs=itfs)
-
-    time.sleep(5)
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
