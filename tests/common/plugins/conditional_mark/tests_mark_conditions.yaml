@@ -3837,6 +3837,7 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
+      - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
 
 #######################################
 #####     ptftests      #####
