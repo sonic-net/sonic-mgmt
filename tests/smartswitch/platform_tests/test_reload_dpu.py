@@ -220,10 +220,9 @@ def test_dpu_status_post_dpu_kernel_panic(duthosts, dpuhosts,
         dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
+    reboot_cause_pattern = r"reboot|Non-Hardware"
     if is_mellanox_devices(duthost.facts['hwsku']):
         reboot_cause_pattern = r"Watchdog"
-    else:
-        reboot_cause_pattern = r"reboot"
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
                          num_dpu_modules,
@@ -276,10 +275,10 @@ def test_dpu_check_post_dpu_mem_exhaustion(duthosts, dpuhosts,
         dpus_startup_and_check(duthost, dpu_on_list, num_dpu_modules)
 
     logging.info("Executing post test dpu check")
+    reboot_cause_pattern = r"reboot|Non-Hardware"
     if is_mellanox_devices(duthost.facts['hwsku']):
         reboot_cause_pattern = r"Watchdog"
-    else:
-        reboot_cause_pattern = r"reboot"
+
     post_test_dpus_check(duthost, dpuhosts,
                          dpu_on_list, ip_address_list,
                          num_dpu_modules,
