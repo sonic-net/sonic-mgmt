@@ -1,5 +1,6 @@
 import logging
 import sys
+import json
 from io import StringIO
 import ptf.testutils as testutils
 import ptf.packet as scapy
@@ -597,3 +598,30 @@ def validate_srv6_route(duthost, route_prefix):
 
     except Exception as err:
         raise Exception(f"Failed to validate SRv6 route {route_prefix}::/16: {str(err)}")
+
+
+def is_bgp_route_synced(duthost):
+    cmd = 'vtysh -c "show ip bgp neighbors json"'
+    output = duthost.command(cmd)['stdout']
+    bgp_info = json.loads(output)
+    for neighbor, info in bgp_info.items():
+        if 'gracefulRestartInfo' in info:
+            if "ipv4Unicast" in info['gracefulRestartInfo']:
+                if not info['gracefulRestartInfo']["ipv4Unicast"]['endOfRibStatus']['endOfRibSend']:
+                    logger.info(f"BGP neighbor {neighbor} is sending updates")
+                    return False
+                if not info['gracefulRestartInfo']["ipv4Unicast"]['endOfRibStatus']['endOfRibRecv']:
+                    logger.info(
+                        f"BGP neighbor {neighbor} is receiving updates")
+                    return False
+
+            if "ipv6Unicast" in info['gracefulRestartInfo']:
+                if not info['gracefulRestartInfo']["ipv6Unicast"]['endOfRibStatus']['endOfRibSend']:
+                    logger.info(f"BGP neighbor {neighbor} is sending updates")
+                    return False
+                if not info['gracefulRestartInfo']["ipv6Unicast"]['endOfRibStatus']['endOfRibRecv']:
+                    logger.info(
+                        f"BGP neighbor {neighbor} is receiving updates")
+                    return False
+    logger.info("BGP routes are synced")
+    return True
