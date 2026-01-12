@@ -33,9 +33,13 @@ from tests.common.gu_utils import expect_acl_rule_match, expect_acl_rule_removed
 from tests.common.gu_utils import expect_acl_table_match_multiple_bindings
 from tests.generic_config_updater.gu_utils import format_and_apply_template, load_and_apply_json_patch
 from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports_to_rand_selected_tor  # noqa: F401
+from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_ports  # noqa: F401
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor  # noqa: F401
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type, \
     increment_ipv4_addr, increment_ipv6_addr, is_ipv6_only_topology
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface # noqa: F401
+from tests.common.dualtor.dual_tor_mock import set_mux_state  # noqa: F401
+
 
 pytestmark = [
     pytest.mark.topology('t0', 'm0'),
@@ -130,6 +134,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     """Setup various variables neede for different tests"""
 
     mg_facts = rand_selected_dut.get_extended_minigraph_facts(tbinfo)
+    config_facts = rand_selected_dut.get_running_config_facts()
     is_dualtor = False
     if "dualtor" in tbinfo["topo"]["name"]:
         vlan_name = list(mg_facts['minigraph_vlans'].keys())[0]
@@ -194,7 +199,7 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
             for member in v['members']:
                 upstream_port_ids.append(mg_facts['minigraph_ptf_indices'][member])
                 upstream_ports.append(member)
-
+                
     for port in downstream_ports:
         if port in mg_facts['minigraph_port_name_to_alias_map']:
             break
@@ -208,6 +213,15 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
     block_src_port_alias = mg_facts['minigraph_port_name_to_alias_map'][block_src_port]
     unblocked_src_port_indice = mg_facts['minigraph_ptf_indices'][unblocked_src_port]
     scale_ports_indices = [mg_facts['minigraph_ptf_indices'][port_name] for port_name in scale_ports]
+
+    # Get the PTF portchannel ports connected to the T1 switchs.
+    t1_pc_ports = {}
+    for pc in list(config_facts['PORTCHANNEL'].keys()):
+        t1_pc_ports[pc] = []
+        for intf in config_facts["PORTCHANNEL"][pc]["members"]:
+            ptf_port_index = mg_facts["minigraph_ptf_indices"][intf]
+            intf_name = "eth{}".format(ptf_port_index)
+            t1_pc_ports[pc].append(intf_name)
 
     # stop garp service for single tor
     if 'dualtor' not in tbinfo['topo']['name']:
@@ -290,6 +304,8 @@ def setup(rand_selected_dut, rand_unselected_dut, tbinfo, vlan_name, topo_scenar
         "ipv4_vlan_mac": v4_vlan_mac,
         "uplink_mac": uplink_mac,
         "topo": topo,
+        "minigraph_ptf_indices": mg_facts['minigraph_ptf_indices'],
+        "t1_ptf_pc_ports": t1_pc_ports,
     }
 
     return setup_information
@@ -647,6 +663,20 @@ def verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop):
     else:
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=setup["dst_port_indices"], timeout=20)
 
+def verify_expected_packet_behavior_standby(exp_pkt, ptfadapter, setup, itfs, expect_drop):
+    """Verify that a packet was either dropped or forwarded"""
+
+    port_channels = setup['t1_ptf_pc_ports']
+    rx_ports = []
+    for v in list(port_channels.values()):
+        rx_ports += v
+    rx_ports = [int(x.strip('eth')) for x in rx_ports]
+
+    if expect_drop:
+        testutils.verify_no_packet_any(ptfadapter, exp_pkt, rx_ports)
+    else:
+        testutils.verify_packet_any_port(ptfadapter, exp_pkt, rx_ports, timeout=20)
+
 
 def generate_packets(setup, tbinfo, dst_ip=DST_IP_FORWARDED_ORIGINAL, dst_ipv6=DST_IPV6_FORWARDED_ORIGINAL):
     """Generate packets that match the destination IP of given ips.
@@ -936,7 +966,7 @@ def dynamic_acl_create_dhcp_forward_rule(duthost, setup):
     expect_acl_rule_match(duthost, "DHCPV6_RULE", expected_v6_rule_content, setup)
 
 
-def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None):
+def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_port=None, is_standby=False, itfs=None):
     """Verify that the given packets are either dropped/forwarded correctly
 
     Args:
@@ -957,7 +987,10 @@ def dynamic_acl_verify_packets(setup, ptfadapter, packets, packets_dropped, src_
         # Send and verify packet
         ptfadapter.dataplane.flush()
         testutils.send(ptfadapter, pkt=pkt, port_id=src_port)
-        verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop=packets_dropped)
+        if is_standby:
+            verify_expected_packet_behavior_standby(exp_pkt, ptfadapter, setup, itfs, expect_drop=packets_dropped)
+        else:
+            verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop=packets_dropped)
 
 
 def dynamic_acl_remove_third_drop_rule(duthost, setup):
@@ -1383,6 +1416,33 @@ def test_gcu_acl_scale_rules(rand_selected_dut, rand_unselected_dut, ptfadapter,
                                generate_packets(setup, tbinfo, DST_IP_BLOCKED, DST_IPV6_BLOCKED),
                                packets_dropped=True,
                                src_port=blocked_scale_port)
+
+
+def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected_dut,
+                                                                   rand_unselected_dut,
+                                                                   ptfadapter,
+                                                                   setup,
+                                                                   dynamic_acl_Create_table,
+                                                                   toggle_all_simulator_ports,  # noqa:F811
+                                                                   tbinfo,
+                                                                   rand_selected_interface):  # noqa:F811
+    """In a dual ToR setup, confirm that standby drop rules take priority over active forward rules,
+    even when these rules are in different ACL tables."""
+
+    itfs, _ = rand_selected_interface
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports) # noqa: F405
+    time.sleep(10)
+    dynamic_acl_create_forward_rules(rand_selected_dut, setup)
+    tx_port = setup['minigraph_ptf_indices'][itfs]
+    dynamic_acl_verify_packets(setup,
+                               ptfadapter,
+                               generate_packets(setup, tbinfo),
+                               packets_dropped=True,
+                               src_port=tx_port,
+                               is_standby=True,
+                               itfs=itfs)
+
+    time.sleep(5)
 
 
 def test_gcu_acl_nonexistent_rule_replacement(rand_selected_dut,
