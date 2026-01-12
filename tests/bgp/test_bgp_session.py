@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 vrfname = 'default'
 
 pytestmark = [
-    pytest.mark.topology("t0", "t1", 'm1'),
+    pytest.mark.topology("t0", "t1", 'm1', 'lt2', 'ft2'),
 ]
 
 
@@ -230,9 +230,9 @@ def test_bgp_session_interface_down(duthosts, rand_one_dut_hostname, fanouthosts
 
     try:
         if test_type == "bgp_docker":
-            duthost.shell("docker restart bgp")
+            duthost.shell("systemctl restart bgp")
         elif test_type == "swss_docker":
-            duthost.shell("docker restart swss")
+            duthost.shell("systemctl restart swss")
         elif test_type == "reboot":
             # Use warm reboot for t0, cold reboot for others
             topo_name = tbinfo["topo"]["name"]
