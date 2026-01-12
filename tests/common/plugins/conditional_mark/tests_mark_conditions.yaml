@@ -3430,8 +3430,10 @@ lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
       - "topo_type in ['m0', 'mx', 'm1']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20377 and asic_type in ['mellanox', 'nvidia']"
 
 lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
   xfail:
