@@ -864,11 +864,12 @@ def duthosts_ipv6_mgmt_only(duthosts, backup_and_restore_config_db_on_duts):
 
 
 @pytest.fixture(scope="module")
-def duthost_mgmt_ip(duthost):
+def duthost_mgmt_ip(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     Gets the management IP address (v4 or v6) on eth0.
     Defaults to IPv4 on a dual stack configuration.
     """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     ipv4_regex = re.compile(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/\d+")
     ipv6_regex = re.compile(r"([a-fA-F0-9:]+)/\d+")
 
