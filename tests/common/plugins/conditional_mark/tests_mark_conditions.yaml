@@ -546,6 +546,12 @@ bgp/test_bgp_suppress_fib.py::test_bgp_route_without_suppress:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
+bgp/test_bgp_suppress_fib.py::test_credit_loop:
+  xfail:
+    reason: "xfail for Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
+
 bgp/test_bgp_update_replication.py:
   xfail:
     reason: "Testcase is not stable on dualtor-aa setup due to GH issue: https://github.com/sonic-net/sonic-mgmt/issues/21110"
