@@ -59,7 +59,7 @@ def populate_fdb(ptfadapter, vlan_ports_list, vlan_intfs_dict):
                 testutils.send(ptfadapter, port_id, pkt)
 
 
-def ptf_teardown(ptfhost, ptf_lag_map):
+def ptf_teardown(ptfhost, ptf_lag_map=None):
     """
     Restore PTF configuration
 
@@ -68,7 +68,7 @@ def ptf_teardown(ptfhost, ptf_lag_map):
 
     Args:
         ptfhost: PTF host object
-        ptf_lag_map: imformation about lag in ptf
+        ptf_lag_map: information about lag in ptf
     """
     # Check if LAG was created with teamd by looking for supervisor process
     teamd_check = ptfhost.shell(
@@ -81,15 +81,23 @@ def ptf_teardown(ptfhost, ptf_lag_map):
         logging.info("Cleaning up teamd-based LAG")
         portchannel_config = {PTF_LAG_NAME: {"intfs": []}}
         ptfhost.ptf_portchannel(cmd="stop", portchannel_config=portchannel_config)
+
+        if ptf_lag_map is not None:
+            for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
+                ptfhost.shell("ip link set dev {} nomaster 2>/dev/null".format(ptf_lag_member),
+                              module_ignore_errors=True)
+                ptfhost.shell("ip link set dev {} up".format(ptf_lag_member), module_ignore_errors=True)
     else:
         logging.info("Cleaning up kernel bonding LAG")
-        ptfhost.set_dev_no_master(PTF_LAG_NAME)
+        ptfhost.set_dev_no_master(PTF_LAG_NAME, module_ignore_errors=True)
 
-        for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
-            ptfhost.set_dev_no_master(ptf_lag_member)
-            ptfhost.set_dev_up_or_down(ptf_lag_member, True)
+        if ptf_lag_map is not None:
+            for ptf_lag_member in ptf_lag_map[PTF_LAG_NAME]["port_list"]:
+                ptfhost.set_dev_no_master(ptf_lag_member, module_ignore_errors=True)
+                ptfhost.set_dev_up_or_down(ptf_lag_member, True)
 
-        ptfhost.shell("ip link del {}".format(PTF_LAG_NAME))
+    ptfhost.shell("ip link set dev {} down 2>/dev/null".format(PTF_LAG_NAME), module_ignore_errors=True)
+    ptfhost.shell("ip link del {} 2>/dev/null".format(PTF_LAG_NAME), module_ignore_errors=True)
 
     ptfhost.ptf_nn_agent()
 
@@ -527,7 +535,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     if "bgp_asn" not in cfg_facts["DEVICE_METADATA"]["localhost"]:
         yield
         return
-    ptf_lag_map = None
+
     # --------------------- Setup -----------------------
     try:
         dut_lag_map, ptf_lag_map, src_vlan_id = setup_dut_ptf(ptfhost, duthost, tbinfo, vlan_intfs_dict)
@@ -539,8 +547,7 @@ def setup_po2vlan(duthosts, ptfhost, rand_one_dut_hostname, rand_selected_dut, p
     # --------------------- Teardown -----------------------
     finally:
         config_reload(duthost, safe_reload=True)
-        if ptf_lag_map is not None:
-            ptf_teardown(ptfhost, ptf_lag_map)
+        ptf_teardown(ptfhost, ptf_lag_map)
 
 
 def has_portchannels(duthosts, rand_one_dut_hostname):
