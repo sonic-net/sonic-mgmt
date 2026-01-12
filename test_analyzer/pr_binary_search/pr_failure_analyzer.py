@@ -11,6 +11,7 @@ PR Failure Analyzer
 
 import os
 import sys
+import json
 import logging
 import requests
 import argparse
@@ -86,15 +87,13 @@ def get_all_commits_info(failure_details):
         branch = detail["branch"]
         start_time = detail["start_time"]
         end_time = detail["end_time"]
+        test_scripts = {detail["checker"]: [detail["file_path"]]}
         commits = get_github_commits(repo, branch, start_time, end_time)
         if len(commits) > 0:
             commit_info = {
                 "repo": repo,
                 "branch": branch,
-                "testbed": detail["testbed"],
-                "testcase": detail["testcase"],
-                "file_path": detail["file_path"],
-                "module_path": detail["module_path"],
+                "test_scripts": test_scripts,
                 "commits": commits
             }
             all_commit_info.append(commit_info)
@@ -110,12 +109,12 @@ def get_pr_result_summary(kusto, start, end):
     | where TotalCount > {TOTAL_COUNT_THRESHOLD}
     | where SourceRepo in ({', '.join(f'"{repo}"' for repo in SUPPORTED_PUBLIC_REPOS)})
     | summarize Success=sum(SuccessCount), Total=sum(TotalCount), Skip=sum(SkipCount), Failure=sum(FailureCount), \
-        Error=sum(ErrorCount) by RunDate, SourceRepo, Branch, TestbedName, FilePath, ModulePath, TestCase, TriggerType
+        Error=sum(ErrorCount) by RunDate, SourceRepo, Branch, CheckerType, FilePath, ModulePath, TestCase, TriggerType
     | where Total != Skip
-    | project RunDate, TriggerType, SourceRepo, Branch, TestbedName, TestCase, FilePath, ModulePath, \
+    | project RunDate, TriggerType, SourceRepo, Branch, CheckerType, TestCase, FilePath, ModulePath, \
         Success, Failure, Error, Skip, Total
     | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
-    | project TriggerType, SourceRepo, Branch, TestbedName, FilePath, ModulePath, TestCase, SuccessRate, RunDate
+    | project TriggerType, SourceRepo, Branch, CheckerType, FilePath, ModulePath, TestCase, SuccessRate, RunDate
     '''
     query_result = kusto.execute_query(DATABASE, query).primary_results[0].to_dict()['data']
     baseline_failures = []
@@ -129,10 +128,10 @@ def get_pr_result_summary(kusto, start, end):
 
     # Check if baseline and pr failures have common entries
     # If so, remove them from pr_failures to avoid duplicate analysis
-    pr_keys = {(row['SourceRepo'], row['Branch'], row['TestbedName'], row['ModulePath'], row['TestCase'])
+    pr_keys = {(row['SourceRepo'], row['Branch'], row['TriggerType'], row['ModulePath'], row['TestCase'])
                for row in pr_failures}
     baseline_failures = [row for row in baseline_failures if (
-        row['SourceRepo'], row['Branch'], row['TestbedName'], row['ModulePath'], row['TestCase']) not in pr_keys]
+        row['SourceRepo'], row['Branch'], row['TriggerType'], row['ModulePath'], row['TestCase']) not in pr_keys]
 
     return baseline_failures, pr_failures
 
@@ -145,14 +144,14 @@ def get_failure_details(kusto, failure_details, failures, trigger_type):
         | where TriggerType == "{trigger_type}"
         | where SourceRepo == "{row['SourceRepo']}"
         | where Branch == "{row['Branch']}"
-        | where TestbedName == "{row['TestbedName']}"
+        | where CheckerType == "{row['CheckerType']}"
         | where FilePath == "{row['FilePath']}"
         | where ModulePath == "{row['ModulePath']}"
         | where TestCase == "{row['TestCase']}"
         | summarize Success=sum(SuccessCount), Total=sum(TotalCount), Skip=sum(SkipCount), Failure=sum(FailureCount), \
-            Error=sum(ErrorCount) by RunDate, SourceRepo, Branch, TestbedName, \
+            Error=sum(ErrorCount) by RunDate, SourceRepo, Branch, CheckerType, \
             FilePath, ModulePath, TestCase, TriggerType
-        | project RunDate, SourceRepo, Branch, TestbedName, TestCase, FilePath, ModulePath, \
+        | project RunDate, SourceRepo, Branch, CheckerType, TestCase, FilePath, ModulePath, \
             Success, Failure, Error, Skip, Total
         | where Total != Skip and Total > 0
         | extend SuccessRate = todouble(Success) / todouble(Success + Failure + Error)
@@ -175,7 +174,7 @@ def get_failure_details(kusto, failure_details, failures, trigger_type):
         failure_details.append({
             "repo": row['SourceRepo'],
             "branch": row['Branch'],
-            "testbed": row['TestbedName'],
+            "checker": row['CheckerType'],
             "testcase": row['TestCase'],
             "file_path": row['FilePath'],
             "module_path": row['ModulePath'],
@@ -188,11 +187,11 @@ def get_failure_details(kusto, failure_details, failures, trigger_type):
 
 
 def remove_duplicates_failures(failure_details):
-    # For same repo, branch, testbed, testcase, file_path, module_path
+    # For same repo, branch, checker, testcase, file_path, module_path
     # Only keep earliest start_checking_time and latest end_checking_time
     unique_failures = {}
     for detail in failure_details:
-        key = (detail["repo"], detail["branch"], detail["testbed"], detail["testcase"],
+        key = (detail["repo"], detail["branch"], detail["checker"], detail["testcase"],
                detail["file_path"], detail["module_path"])
         if key not in unique_failures:
             unique_failures[key] = detail
@@ -205,12 +204,11 @@ def remove_duplicates_failures(failure_details):
     return list(unique_failures.values())
 
 
-def analyze_candidates(kusto, lookback_days):
+def analyze_candidates(kusto, lookback_days, failure_info_file):
     now = dt.datetime.now(tz=timezone.utc)
     start = now - timedelta(days=lookback_days)
     end = now
 
-    # 1) aggregated PR vs Baseline
     failure_details = []
     baseline_failures, pr_failures = get_pr_result_summary(kusto, start, end)
     if len(baseline_failures) > 0:
@@ -226,17 +224,29 @@ def analyze_candidates(kusto, lookback_days):
     all_commit_info = get_all_commits_info(failure_details)
     logger.info(f"Total commit info entries found: {all_commit_info}")
 
+    if failure_info_file:
+        with open(failure_info_file, "w") as f:
+            json.dump(all_commit_info, f, indent=2)
+        logger.info(f"Failure info written to {failure_info_file}")
+
     return all_commit_info
 
 
 def main():
     p = argparse.ArgumentParser()
-    p.add_argument("--lookback-days", type=int, default=QUERY_DAYS_RANGE)
+    p.add_argument("--lookback_days", type=int, default=QUERY_DAYS_RANGE, help="Lookback days")
+    p.add_argument("--failure_info_file", type=str, default="failure_info.json", help="Output failure info file")
     args = p.parse_args()
 
     kcsb = KustoConnectionStringBuilder.with_aad_application_token_authentication(cluster, access_token)
     kusto_client = KustoClient(kcsb)
-    analyze_candidates(kusto_client, args.lookback_days)
+    logger.info(
+        f"Using thresholds: TOTAL_COUNT_THRESHOLD={TOTAL_COUNT_THRESHOLD}, "
+        f"PREVIOUS_SUCCESS_THRESHOLD={PREVIOUS_SUCCESS_THRESHOLD}, "
+        f"PR_LOW_SUCCESS_THRESHOLD={PR_LOW_SUCCESS_THRESHOLD}, "
+        f"BASELINE_LOW_SUCCESS_THRESHOLD={BASELINE_LOW_SUCCESS_THRESHOLD}")
+    logger.info(f"Supported public repos: {SUPPORTED_PUBLIC_REPOS}")
+    analyze_candidates(kusto_client, args.lookback_days, args.failure_info_file)
 
 
 if __name__ == "__main__":

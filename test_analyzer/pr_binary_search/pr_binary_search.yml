@@ -1,0 +1,96 @@
+# This job is for periodically polling testbed health and upload polling results to Kusto
+
+name: $(Build.DefinitionName)_$(SourceBranchName)_$(Build.BuildId)_$(Date:yyyyMMdd)$(Rev:.r)
+
+trigger: none
+pr: none
+
+schedules:
+  - cron: "0 22 * * *"
+    displayName: PRFailureAnalyzer
+    branches:
+      include:
+        - internal
+    always: true
+
+parameters:
+  - name: LOOKBACK_DAYS
+    type: number
+    default: 7
+    displayName: "Lookback Days"
+
+  - name: FAILURE_INFO_FILE
+    type: string
+    default: "failure_info.json"
+    displayName: "Failure Info File"
+
+  - name: MAX_PARALLEL
+    type: number
+    default: 5
+    displayName: "Max Parallel"
+
+stages:
+  - stage: PRFailureAnalyzer
+    jobs:
+      - job: PRFailureAnalyzer
+        timeoutInMinutes: 1440
+        variables:
+          - group: KUSTO_SECRETS
+          - group: GIT_SECRETS
+          - group: PR Regression
+          - group: sonicbld
+          - name: skipComponentGovernanceDetection
+            value: true
+
+        steps:
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 3
+            displayName: Run PR failure analyzer script
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                set -x
+
+                cd test_analyzer
+                pip install -r requirements.txt
+                cd pr_binary_search
+
+                python pr_failure_analyzer.py --lookback_days ${{ parameters.LOOKBACK_DAYS }} --failure_info_file ${{ parameters.FAILURE_INFO_FILE }}
+            env:
+              KUSTO_CLUSTER_INGEST_URL: $(TEST_REPORT_INGEST_KUSTO_CLUSTER_BACKUP)
+              GIT_API_TOKEN: $(GIT_API_TOKEN)
+              TEST_BASELINE_LOW_SUCCESS_THRESHOLD: $(TEST_BASELINE_LOW_SUCCESS_THRESHOLD)
+              TEST_PR_LOW_SUCCESS_THRESHOLD: $(TEST_PR_LOW_SUCCESS_THRESHOLD)
+              TEST_PREVIOUS_SUCCESS_THRESHOLD: $(TEST_PREVIOUS_SUCCESS_THRESHOLD)
+              TOTAL_TEST_COUNT_THRESHOLD: $(TOTAL_TEST_COUNT_THRESHOLD)
+              TEST_QUERY_DAYS_RANGE: $(TEST_QUERY_DAYS_RANGE)
+
+          - task: AzureCLI@2
+            retryCountOnTaskFailure: 3
+            displayName: Run PR binary search
+            inputs:
+              azureSubscription: "SONiC-Automation"
+              scriptType: 'bash'
+              scriptLocation: 'inlineScript'
+              inlineScript: |
+                pwd
+
+                accessToken=$(az account get-access-token --resource https://api.kusto.windows.net --query accessToken -o tsv)
+                export ACCESS_TOKEN=$accessToken
+
+                set -x
+
+                cd test_analyzer
+                pip install -r requirements.txt
+                cd pr_binary_search
+
+                python pr_binary_search.py --failure_info_file ${{ parameters.FAILURE_INFO_FILE }} --max_parallel ${{ parameters.MAX_PARALLEL }}
+            env:
+              MSSONIC_TOKEN: $(MSSONIC-TOKEN)
