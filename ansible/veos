@@ -567,7 +567,7 @@ vm_host_27:
 vm_host_28:
   hosts:
     STR2-ACS-SERV-28:
-      ansible_host: 10.64.246.225
+      ansible_host: 10.64.246.239
 vm_host_29:
   hosts:
     STR2-ACS-SERV-29:
