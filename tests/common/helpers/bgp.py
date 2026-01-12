@@ -113,7 +113,7 @@ class BGPNeighbor(object):
             # Generate router ID by combining 20.0.0.0 base with last 3 bytes of IPv6 addr
             router_id_base = ipaddress.IPv4Address("20.0.0.0")
             ipv6_addr = ipaddress.IPv6Address(self.ip)
-            self.router_id = str(ipaddress.IPv4Address(int(router_id_base) | int(ipv6_addr) & 0xFFFFFF))
+            self.router_id = router_id or str(ipaddress.IPv4Address(int(router_id_base) | int(ipv6_addr) & 0xFFFFFF))
 
     def start_session(self):
         """Start the BGP session."""
