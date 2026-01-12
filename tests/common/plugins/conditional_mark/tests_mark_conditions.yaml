@@ -4949,10 +4949,6 @@ telemetry/test_events.py:
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_events.py::test_events:
-  xfail:
-    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20758"
-    conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/20758 and '-v6-' in topo_name"
   skip:
     reason: "dut ipv6 mgmt ip not supported"
     conditions_logical_operator: and
