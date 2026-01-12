@@ -1450,9 +1450,10 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
+everflow/test_everflow_ipv6.py::Test(In|E)gressEverflowIPv6::test_[a-zA-Z0-9_]+\[erspan_ipv4-:
+  regex: true
+  xfail:
+    reason: "Xfail for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
 
