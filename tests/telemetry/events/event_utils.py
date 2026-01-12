@@ -4,7 +4,7 @@ import pytest
 import ptf.packet as scapy
 import ptf.testutils as testutils
 
-from tests.common.utilities import wait_until
+from tests.common.utilities import wait_until, is_ipv6_only_topology
 from tests.common.helpers.assertions import pytest_assert
 
 logger = logging.getLogger(__name__)
@@ -114,31 +114,38 @@ def verify_counter_increase(duthost, current_value, increase, stat):
     return current_stat_counter >= current_value + increase
 
 
-def find_test_vlan(duthost):
+def find_test_vlan(duthost, tbinfo=None):
     """Returns vlan information for dhcp_relay tests
     Returns dictionary of vlan port name, dhcrelay process name, ipv4 address,
     dhc6relay process name, ipv6 address, and member interfaces
     """
+    is_ipv6_only = tbinfo and is_ipv6_only_topology(tbinfo)
     vlan_brief = duthost.get_vlan_brief()
     for vlan in vlan_brief:
+        dhcrelay_process = None
+        interface_ipv4 = None
         # Find dhcrelay process
-        dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
-                                         | grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
+        if not is_ipv6_only:
+            dhcrelay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
+                                            | grep isc-dhcpv4-relay-%s | awk '{print $1}'" % vlan)['stdout']
+            interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
         dhcp6relay_process = duthost.shell("docker exec dhcp_relay supervisorctl status \
                                            | grep dhcp6relay | awk '{print $1}'")['stdout']
-        interface_ipv4 = vlan_brief[vlan]['interface_ipv4']
         interface_ipv6 = vlan_brief[vlan]['interface_ipv6']
         members = vlan_brief[vlan]['members']
 
         # Check all returning fields are non empty
-        results = [dhcrelay_process, interface_ipv4, dhcp6relay_process, interface_ipv6, members]
+        if is_ipv6_only:
+            results = [dhcp6relay_process, interface_ipv6, members]
+        else:
+            results = [dhcrelay_process, interface_ipv4, dhcp6relay_process, interface_ipv6, members]
         if all(result for result in results):
             return {
                 "vlan": vlan,
                 "dhcrelay_process": dhcrelay_process,
-                "ipv4_address": interface_ipv4[0],
+                "ipv4_address": interface_ipv4[0] if interface_ipv4 else None,
                 "dhcp6relay_process": dhcp6relay_process,
-                "ipv6_address": interface_ipv6[0],
+                "ipv6_address": interface_ipv6[0] if interface_ipv6 else None,
                 "member_interface": members
             }
     return {}

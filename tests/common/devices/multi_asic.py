@@ -424,8 +424,8 @@ class MultiAsicSonicHost(object):
 
         return False
 
-    def is_bgp_state_idle(self, ip6=False):
-        return self.sonichost.is_bgp_state_idle(ip6)
+    def is_bgp_state_idle(self, ipv6=False):
+        return self.sonichost.is_bgp_state_idle(ipv6)
 
     def is_service_running(self, service_name, docker_name=None):
         docker_name = service_name if docker_name is None else docker_name

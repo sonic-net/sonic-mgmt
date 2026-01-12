@@ -20,9 +20,6 @@ def test_event(duthost, gnxi_path, ptfhost, ptfadapter, data_dir, validate_yang,
 
 def drop_tcp_packets(duthost, tbinfo=None):
     is_ipv6_only = tbinfo and is_ipv6_only_topology(tbinfo)
-    # Check if DUT management is IPv6-only and select appropriate BGP neighbor
-    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
-    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
     # Get all BGP neighbors and filter by IP version based on management interface
     all_bgp_neighbors = duthost.get_bgp_neighbors()
     bgp_neighbor = None
@@ -36,7 +33,11 @@ def drop_tcp_packets(duthost, tbinfo=None):
         if bgp_neighbor is None:
             raise Exception("No IPv6 BGP neighbors found for IPv6-only management interface")
         iptables_cmd = "ip6tables"
-        logger.info("Using IPv6 BGP neighbor {} and ip6tables for IPv6-only DUT management interface".format(bgp_neighbor))
+        logger.info(
+            "Using IPv6 BGP neighbor {} and ip6tables for IPv6-only DUT management interface".format(
+                bgp_neighbor
+            )
+        )
     else:
         # Find an IPv4 BGP neighbor (or just use the first one)
         for neighbor_ip in all_bgp_neighbors.keys():
