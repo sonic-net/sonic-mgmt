@@ -503,7 +503,7 @@ class HashTest(BaseTest):
         logs = self.create_packets_logs(
             src_port=src_port,
             pkt=pkt,
-            ipinip_pkt=inner_pkt,
+            ipinip_pkt=pkt,
             vxlan_pkt=pkt,
             nvgre_pkt=pkt,
             inner_pkt=inner_pkt,
@@ -743,7 +743,7 @@ class IPinIPHashTest(HashTest):
                 inner_frame=pkt[version])
             exp_pkt = ipinip_pkt.copy()
             exp_pkt['IP'].ttl -= 1
-        return pkt, exp_pkt, ipinip_pkt
+        return ipinip_pkt, exp_pkt, pkt
 
     def apply_mask_to_exp_pkt(self, masked_exp_pkt, version='IP'):
         masked_exp_pkt.set_do_not_care_scapy(scapy.Ether, "src")
