@@ -7,6 +7,7 @@ import pytest
 import time
 
 from tests.common.helpers.assertions import pytest_assert
+from tests.common.utilities import is_ipv6_only_topology
 from bgp_helpers import apply_bgp_config
 from bgp_helpers import get_no_export_output
 from bgp_helpers import BGP_ANNOUNCE_TIME
@@ -16,7 +17,7 @@ pytestmark = [
 ]
 
 
-def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export_bgp_config, backup_bgp_config):
+def test_bgp_bounce(duthost, nbrhosts, tbinfo, deploy_plain_bgp_config, deploy_no_export_bgp_config, backup_bgp_config):
     """
     Verify bgp community no export functionality
 
@@ -33,6 +34,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     """
     bgp_plain_config = deploy_plain_bgp_config
     bgp_no_export_config = deploy_no_export_bgp_config
+    ipv6_only = is_ipv6_only_topology(tbinfo)
 
     # Get random ToR VM
     vm_name = random.choice([vm_name for vm_name in list(nbrhosts.keys()) if vm_name.endswith('T0')])
@@ -48,7 +50,7 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM
-    no_export_route_num = get_no_export_output(vm_host)
+    no_export_route_num = get_no_export_output(vm_host, ipv6=ipv6_only)
     pytest_assert(not no_export_route_num, "Routes has no_export attribute")
 
     # Apply bgp no export config
@@ -58,5 +60,5 @@ def test_bgp_bounce(duthost, nbrhosts, deploy_plain_bgp_config, deploy_no_export
     time.sleep(BGP_ANNOUNCE_TIME)
 
     # Take action on one of the ToR VM
-    no_export_route_num = get_no_export_output(vm_host)
+    no_export_route_num = get_no_export_output(vm_host, ipv6=ipv6_only)
     pytest_assert(no_export_route_num, "Routes received on T1 are no-export")
