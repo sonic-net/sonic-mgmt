@@ -31,7 +31,7 @@ parameters:
 
   - name: IMAGE_URL
     type: string
-    default: $(BJW_IMAGE_CISCO_INTERNAL)
+    default: $(BJW_IMAGE_CISCO_202505)
     displayName: "Image URL"
 
   - name: MGMT_BRANCH
@@ -70,7 +70,7 @@ parameters:
 
   - name: COMMON_EXTRA_PARAMS
     type: string
-    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_INTERNAL)"
+    default: "--topology t1,any --py_saithrift_url=$(SAITHRIFT_BRCM_202505)"
     displayName: "Common test parameters"
 
   - name: MAX_RUN_TEST_MINUTES
