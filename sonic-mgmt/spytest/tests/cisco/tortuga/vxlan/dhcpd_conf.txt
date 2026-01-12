@@ -1,0 +1,26 @@
+# dhcpd.conf
+#
+# Sample configuration file for ISC dhcpd
+#
+
+# option definitions common to all supported networks...
+option domain-name "example.org";
+option domain-name-servers ns1.example.org, ns2.example.org;
+
+default-lease-time 600;
+max-lease-time 7200;
+
+# The ddns-updates-style parameter controls whether or not the server will
+# attempt to do a DNS update when a lease is confirmed. We default to the
+# behavior of the version 2 packages ('none', since DHCP v2 didn't
+# have support for DDNS.)
+ddns-update-style none;
+
+
+INTERFACES="Vlan10";
+
+subnet 10.212.10.0 netmask 255.255.255.0 {
+    range 10.212.10.60 10.212.10.70;
+    option routers 10.212.10.30;
+}
+

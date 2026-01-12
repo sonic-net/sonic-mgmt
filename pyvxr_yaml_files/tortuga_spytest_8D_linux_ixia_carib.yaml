@@ -70,6 +70,25 @@ devices:
   SD8:
       <<: *linux_host
 
+  SD9: &pxe_client
+    data_ports:
+      - eth1
+      - eth2
+    data_port_attributes:
+      transport: e1000
+    linux_username: vxr
+    linux_password: cisco123
+    linux_prompt: vxr@ubuntu:~\$
+    image: /auto/vxr1/images/linux/ubuntu_serial.qcow2
+    memory: 4GB
+    platform: linux
+    vcpu: 4
+    xr_port_redir:
+      - 22
+    qemu_args: "-boot order=n -boot menu=on -global iPXE.dhcp_timeout=60"
+    cli_commands: |
+         echo "cisco123" | sudo -S apt remove python2.7 -y
+         sudo apt autoremove -y
   ixia:
     platform: ixia-web
     ixia_images:
@@ -77,7 +96,7 @@ devices:
       chassis: /auto/vxr/images/ixia/Ixia_Virtual_Chassis_9.20_KVM.qcow2
       load: /auto/vxr/images/ixia/Ixia_Virtual_Load_Module_9.20_KVM.qcow2
     data_ports:
-      - data[0..7]
+      - data[0..9]
 
   sonic_mgmt :
     platform: linux
@@ -116,8 +135,8 @@ connections:
       - SD4.Ethernet[6..7]
       - SD6.Ethernet[2..3]
     hub8:
-      - SD5.Ethernet[4..5]
-      - SD6.Ethernet[4..5]
+      - SD5.Ethernet[4..7]
+      - SD6.Ethernet[4..7]
     hub9:
       - SD3.Ethernet[8..9]
       - ixia.data[0..1]
@@ -142,3 +161,18 @@ connections:
     hub16:
       - SD3.Ethernet12
       - SD3.Ethernet13
+    hub17:
+      - SD1.Ethernet[4..5]
+      - ixia.data[4..5]
+    hub18:
+      - SD1.Ethernet6
+      - SD9.eth1
+    hub19:
+      - SD2.Ethernet[4..5]
+      - ixia.data[6..7]
+    hub20:
+      - SD2.Ethernet6
+      - SD9.eth2
+    hub21:
+      - SD5.Ethernet[8..9]
+      - ixia.data[8..9]
