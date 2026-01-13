@@ -147,12 +147,12 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
                             dpuhosts, dpu_index, metering_tc, single_endpoint):
     """
     Testcases:
-    ENI_METERPOLICY_HIT: 
+    ENI_METERPOLICY_HIT:
        [Test: ENI MeterPolicy]
        Associate Meter policy on ENI and verify meter-rule specific meterclass
        stats 520 is getting incremented
 
-    MAPPING_METERCLASS_HIT: 
+    MAPPING_METERCLASS_HIT:
        [Test: Mapping Meter_class_or]
        Associate meterclass_or(1038) to Mapping entries and verify mapping
        meterclass(1038) stats is getting incremented.
@@ -162,7 +162,7 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
 
     ROUTE_METERCLASS_OR_HIT:
        [Test: Route meter_class_or]
-       Associate meterclass_or(2566) to Route entries and verify 
+       Associate meterclass_or(2566) to Route entries and verify
        meterclass(2566) stats is getting incremented.
              Route entry meterclass_or : 2566
              Default meterclass_and    : 0xfff (default value)
@@ -177,7 +177,7 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
              Mapping entry meterclass_or : 1038
              Aggegate meterclass_or      : 2566 || 1038 = 3598
              Default meterclass_and      : 0xfff (default value)
-             Final derived meterclass    : 3598 && 0xfff = 3598 
+             Final derived meterclass    : 3598 && 0xfff = 3598
 
     ROUTE_METERCLASS_AND_HIT:
        [Test: Route meter_class_or, Route meter_class_and]
