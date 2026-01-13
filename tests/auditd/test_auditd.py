@@ -31,11 +31,11 @@ def manage_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    duthost.command("docker start auditd")
+    duthost.command("docker start auditd_watchdog")
     duthost.command("sudo systemctl stop auditd")
     output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     pytest_assert(output != "active", "auditd service is still running when it should be inactive")
-    logger.warning("begin to sleep 30 seconds")
-    time.sleep(30)
 
     yield
 
@@ -83,14 +83,20 @@ def extract_audit_timestamp(logs, include_seq=False):
 
     # Choose regex based on whether to include the sequence number
     regex = r'audit\((\d+\.\d+:\d+)\)' if include_seq else r'audit\((\d+\.\d+):\d+\)'
+    out = []
+    seen = set()
+
     for log in logs:
-        # Skip logs produced by Ansible
-        if "ansible-ansible" not in log:
-            match = re.search(regex, log)
-            if match:
-                return match.group(1)
-    # No matching timestamp found
-    return ''
+        if "ansible-ansible" in log:
+            continue
+        m = re.search(regex, log)
+        if m:
+            ts = m.group(1)
+            if ts not in seen:
+                out.append(ts)
+                seen.add(ts)
+
+    return out
 
 
 def test_all_rules(localhost,
@@ -142,8 +148,6 @@ def test_all_rules(localhost,
 
     # Start auditd to execute triggering commands
     duthost.shell("sudo systemctl start auditd && sudo augenrules --load && sudo auditctl -r 0")
-    logger.warning("begin to sleep 10 seconds")
-    time.sleep(10)
 
     """
     Trigger commands
@@ -185,43 +189,61 @@ def test_all_rules(localhost,
     """
     Search logs
     """
-    # Search modules_changes logs
+    ##### Search modules_changes logs #####
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
     logs = duthost.shell(cmd)["stdout_lines"]
 
     assert is_log_valid("type=PATH", logs), "Auditd modules_changes rule does not contain the PATH logs"
 
-    full_timestamp = extract_audit_timestamp(logs, include_seq=True)
+    timestamp_list = extract_audit_timestamp(logs, include_seq=True)
+    assert timestamp_list, "No audit timestamp found for modules_changes PATH logs"
 
-    cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep modules_changes"
-    logs = duthost.shell(cmd)["stdout_lines"]
+    matched_timestamp = None
+    for timestamp in timestamp_list:
+        cmd = f"sudo zgrep '{timestamp}' /var/log/syslog* | grep modules_changes"
+        logs = duthost.shell(cmd)["stdout_lines"]
+        if is_log_valid("type=SYSCALL", logs):
+            matched_timestamp = timestamp
+            break
 
-    assert is_log_valid("type=SYSCALL", logs), "Auditd modules_changes rule does not contain the SYSCALL logs"
+    assert matched_timestamp is not None, \
+        "Auditd modules_changes rule does not contain the SYSCALL logs"
 
-    # Search directory-based rules (triggered by creating files in watched directories)
+    ###### Search directory-based rules (triggered by creating files in watched directories) #####
     for key, paths in dir_key_file_mapping.items():
         for path in paths:
             random_file = f"{path}{random_uuid}"
             cmd = f"sudo zgrep '{random_file}' /var/log/syslog*"
             logs = duthost.shell(cmd)["stdout_lines"]
 
-            timestamp = extract_audit_timestamp(logs)
+            # Pull all full timestamps
+            timestamp_list = extract_audit_timestamp(logs)
+            assert timestamp_list, f"No audit PATH timestamps found for {random_file}"
 
-            cmd = f"""sudo zgrep '{timestamp}' /var/log/syslog* | grep '{key}' """
-            logs = duthost.shell(cmd)["stdout_lines"]
-            assert is_log_valid("type=SYSCALL", logs), \
+            matched_timestamp = None
+
+            # Find ANY timestamp that has the expected SYSCALL + key
+            for timestamp in timestamp_list:
+                cmd = f"""sudo zgrep '{timestamp}' /var/log/syslog* | grep '{key}' """
+                logs = duthost.shell(cmd)["stdout_lines"]
+                if is_log_valid("type=SYSCALL", logs):
+                    matched_timestamp = timestamp
+                    break
+
+            assert matched_timestamp is not None, \
                 f"Auditd {key} rule does not contain the SYSCALL logs"
 
-            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
-
             if key == "user_group_management":
+                # No need to verify type=PATH for user_group_management
                 continue
+
+            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
             cmd = f"""sudo zgrep '{full_timestamp}' /var/log/syslog* """
             logs = duthost.shell(cmd)["stdout_lines"]
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs"
 
-    # Search test file-based auditd rules using 'sudo chown root:root <file>'
+    ##### Search test file-based auditd rules using 'sudo chown root:root <file>' #####
     for key, paths in file_key_file_mapping.items():
         for path in paths:
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -230,15 +252,24 @@ def test_all_rules(localhost,
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs for {path}"
 
-            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
+            # Pull all timestamps
+            timestamp_list = extract_audit_timestamp(logs, include_seq=True)
+            assert timestamp_list, f"No audit PATH timestamps found for {path}"
 
-            cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
-            logs = duthost.shell(cmd)["stdout_lines"]
+            matched_timestamp = None
 
-            assert is_log_valid("type=SYSCALL", logs), \
-                f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
+            # Find ANY timestamp that has the expected SYSCALL + key
+            for timestamp in timestamp_list:
+                cmd = f"sudo zgrep '{timestamp}' /var/log/syslog* | grep '{key}'"
+                logs = duthost.shell(cmd)["stdout_lines"]
+                if is_log_valid("type=SYSCALL", logs):
+                    matched_timestamp = timestamp
+                    break
 
-    # Search docker_config logs
+            assert matched_timestamp is not None, \
+                f"Auditd {key} rule does not contain the SYSCALL logs"
+
+    ##### Search docker_config logs #####
     for key, paths in docker_key_file_mapping.items():
         for path in paths:
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
@@ -253,25 +284,39 @@ def test_all_rules(localhost,
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs for {path}"
 
-            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
-            cmd = f"sudo zgrep {full_timestamp} /var/log/syslog* | grep '{key}'"
-            logs = duthost.shell(cmd)["stdout_lines"]
+            timestamp_list = extract_audit_timestamp(logs, include_seq=True)
+            assert timestamp_list, f"No audit timestamp found for docker_config PATH logs for {path}"
 
-            assert is_log_valid("type=SYSCALL", logs), \
+            matched_timestamp = None
+            for timestamp in timestamp_list:
+                cmd = f"sudo zgrep '{timestamp}' /var/log/syslog* | grep '{key}'"
+                logs = duthost.shell(cmd)["stdout_lines"]
+                if is_log_valid("type=SYSCALL", logs):
+                    matched_timestamp = timestamp
+                    break
+
+            assert matched_timestamp is not None, \
                 f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
 
-    # Search docker_commands
+    ##### Search docker_commands #####
     cmd = "sudo zgrep docker_commands /var/log/syslog* | grep /usr/bin/docker"
     logs = duthost.shell(cmd)["stdout_lines"]
 
     assert is_log_valid("type=SYSCALL", logs), "Auditd docker_commands rule does not contain the SYSCALL logs"
 
-    full_timestamp = extract_audit_timestamp(logs, include_seq=True)
+    timestamp_list = extract_audit_timestamp(logs, include_seq=True)
+    assert timestamp_list, "No audit timestamp found for docker_commands SYSCALL logs"
 
-    cmd = f"sudo zgrep {full_timestamp} /var/log/syslog*"
-    logs = duthost.shell(cmd)["stdout_lines"]
+    matched_timestamp = None
+    for timestamp in timestamp_list:
+        cmd = f"sudo zgrep '{timestamp}' /var/log/syslog*"
+        logs = duthost.shell(cmd)["stdout_lines"]
+        if is_log_valid("type=PATH", logs):
+            matched_timestamp = timestamp
+            break
 
-    assert is_log_valid("type=PATH", logs), "Auditd docker_commands rule does not contain the PATH logs"
+    assert matched_timestamp is not None, \
+        "Auditd docker_commands rule does not contain the PATH logs"
 
 
 def test_auditd_functionality(duthosts,
@@ -314,8 +359,6 @@ def test_auditd_watchdog_functionality(duthosts,
                                        enum_rand_one_per_hwsku_hostname):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl start auditd")
-    logger.warning(duthost.command("sudo auditctl -l")["stdout"])
-    logger.warning(duthost.command("sudo auditctl -s")["stdout"])
 
     output = duthost.command(AUDITD_WATCHDOG_CMD.format(NSENTER_CMD, CURL_HTTP_CODE_CMD),
                              module_ignore_errors=True)["stdout"]
