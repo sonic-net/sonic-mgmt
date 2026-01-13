@@ -37,7 +37,7 @@ from tests.common.dualtor.mux_simulator_control import toggle_all_simulator_port
 from tests.common.dualtor.dual_tor_utils import setup_standby_ports_on_rand_unselected_tor  # noqa: F401
 from tests.common.utilities import get_all_upstream_neigh_type, get_all_downstream_neigh_type, \
     increment_ipv4_addr, increment_ipv6_addr, is_ipv6_only_topology
-from tests.common.dualtor.dual_tor_utils import rand_selected_interface # noqa: F401
+from tests.common.dualtor.dual_tor_utils import rand_selected_interface  # noqa: F401
 from tests.common.dualtor.dual_tor_mock import set_mux_state  # noqa: F401
 
 
@@ -662,6 +662,7 @@ def verify_expected_packet_behavior(exp_pkt, ptfadapter, setup, expect_drop):
         testutils.verify_no_packet_any(ptfadapter, exp_pkt, ports=setup["dst_port_indices"])
     else:
         testutils.verify_packet_any_port(ptfadapter, exp_pkt, ports=setup["dst_port_indices"], timeout=20)
+
 
 def verify_expected_packet_behavior_standby(exp_pkt, ptfadapter, setup, itfs, expect_drop):
     """Verify that a packet was either dropped or forwarded"""
@@ -1422,7 +1423,7 @@ def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected
                                                                    rand_unselected_dut,
                                                                    ptfadapter,
                                                                    setup,
-                                                                   dynamic_acl_Create_table,
+                                                                   dynamic_acl_create_table,
                                                                    toggle_all_simulator_ports,  # noqa:F811
                                                                    tbinfo,
                                                                    rand_selected_interface):  # noqa:F811
@@ -1435,7 +1436,7 @@ def test_gcu_acl_dualtor_standby_drop_takes_priority_across_tables(rand_selected
         pytest.skip("Test not valid for dualtor active-active setups, skipping on dualtor active-active device.")
 
     itfs, _ = rand_selected_interface
-    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports) # noqa: F405
+    set_mux_state(rand_selected_dut, tbinfo, 'standby', [itfs], toggle_all_simulator_ports)  # noqa: F405
     time.sleep(10)
     dynamic_acl_create_forward_rules(rand_selected_dut, setup)
     tx_port = setup['minigraph_ptf_indices'][itfs]
