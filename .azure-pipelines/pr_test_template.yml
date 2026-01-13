@@ -27,6 +27,7 @@ parameters:
     MAX_RUN_TEST_MINUTES: 240
     MGMT_COMMIT_HASH: ""
     PTF_MODIFIED: "False"
+    EXPECTED_RESULT: ""
 
 - name: OVERRIDE_PARAMS
   type: object
