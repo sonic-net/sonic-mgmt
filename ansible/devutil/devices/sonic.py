@@ -31,6 +31,18 @@ class SonicHosts(AnsibleHosts):
 
 def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
     try:
+        # Skip upgrade image on DPU hosts
+        target_hosts = []
+        for hostname in sonichosts.hostnames:
+            if "dpu" in hostname.lower():
+                logger.info("Skip upgrade image on DPU hosts: {}".format(hostname))
+            else:
+                target_hosts.append(hostname)
+
+        if len(target_hosts) == 0:
+            logger.info("No hosts to upgrade")
+            return True
+        
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
