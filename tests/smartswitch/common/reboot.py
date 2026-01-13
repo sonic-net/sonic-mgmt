@@ -1,7 +1,8 @@
 import logging
 import pytest
+from multiprocessing.pool import ThreadPool
 from tests.common.reboot import reboot_ss_ctrl_dict as reboot_dict, REBOOT_TYPE_HISTOYR_QUEUE, \
-    sync_reboot_history_queue_with_dut
+    sync_reboot_history_queue_with_dut, execute_reboot_smartswitch_command
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,14 @@ def log_and_perform_reboot(duthost, reboot_type, dpu_name):
                 logger.info("Sync reboot cause history queue with DUT reboot cause history queue")
                 sync_reboot_history_queue_with_dut(duthost)
 
-                logger.info("Rebooting the switch {} with type {}".format(hostname, reboot_type))
-                return duthost.command("sudo reboot")
+                with ThreadPool(processes=1) as pool:
+                    async_result = pool.apply_async(execute_reboot_smartswitch_command,
+                                                    (duthost, reboot_type, hostname))
+                    pool.terminate()
+
+                return {"failed": False,
+                        "result": async_result}
+
             else:
                 logger.info("Rebooting the DPU {} with type {}".format(dpu_name, reboot_type))
                 return duthost.command("sudo reboot -d {}".format(dpu_name))
@@ -51,7 +58,7 @@ def perform_reboot(duthost, reboot_type=REBOOT_TYPE_COLD, dpu_name=None):
         pytest.skip("Skipping the reboot test as the reboot type {} is not supported".format(reboot_type))
 
     res = log_and_perform_reboot(duthost, reboot_type, dpu_name)
-    if res['failed'] is True:
+    if res and res['failed'] is True:
         if dpu_name is None:
             pytest.fail("Failed to reboot the {} with type {}".format(duthost.hostname, reboot_type))
         else:
