@@ -336,6 +336,10 @@ def test_config_clock_timezone(duthosts, init_timezone):
             assert output == ClockConsts.OUTPUT_CMD_SUCCESS, \
                 f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
+    # wait some time for the timezone to be applied
+    logging.info('Wait 5 seconds for the timezone to be applied')
+    time.sleep(5)
+
     with allure.step(f'Verify timezone changed to "{new_timezone}"'):
         ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
