@@ -253,7 +253,6 @@ def test_bgp_peer_shutdown(
                 else:
                     # There is no syslog if use vtysh to manage BGP neigh
                     bgp_session_down_time = None
-
                 if not match_bgp_notification(bgp_packet, n0.ip, n0.peer_ip, "cease", bgp_session_down_time,
                                               is_v6_topo):
                     pytest.fail("BGP notification packet does not match expected values")
