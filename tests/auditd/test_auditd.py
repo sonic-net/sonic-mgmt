@@ -1,7 +1,6 @@
 import re
 import json
 import uuid
-import time
 import pytest
 import logging
 from tests.common.helpers.assertions import pytest_assert
@@ -189,7 +188,7 @@ def test_all_rules(localhost,
     """
     Search logs
     """
-    ##### Search modules_changes logs #####
+    # Search modules_changes logs
     cmd = f"sudo zgrep /lib/modules/{kernel_version}/kernel/drivers/net/dummy.ko /var/log/syslog* | grep type=PATH"
     logs = duthost.shell(cmd)["stdout_lines"]
 
@@ -209,7 +208,7 @@ def test_all_rules(localhost,
     assert matched_timestamp is not None, \
         "Auditd modules_changes rule does not contain the SYSCALL logs"
 
-    ###### Search directory-based rules (triggered by creating files in watched directories) #####
+    # Search directory-based rules (triggered by creating files in watched directories)
     for key, paths in dir_key_file_mapping.items():
         for path in paths:
             random_file = f"{path}{random_uuid}"
@@ -243,7 +242,7 @@ def test_all_rules(localhost,
             assert is_log_valid("type=PATH", logs), \
                 f"Auditd {key} rule does not contain the PATH logs"
 
-    ##### Search test file-based auditd rules using 'sudo chown root:root <file>' #####
+    # Search test file-based auditd rules using 'sudo chown root:root <file>' #
     for key, paths in file_key_file_mapping.items():
         for path in paths:
             cmd = f"sudo zgrep '{path}' /var/log/syslog*"
@@ -269,7 +268,7 @@ def test_all_rules(localhost,
             assert matched_timestamp is not None, \
                 f"Auditd {key} rule does not contain the SYSCALL logs"
 
-    ##### Search docker_config logs #####
+    # Search docker_config logs
     for key, paths in docker_key_file_mapping.items():
         for path in paths:
             ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'],
@@ -298,7 +297,7 @@ def test_all_rules(localhost,
             assert matched_timestamp is not None, \
                 f"Auditd {key} rule does not contain the SYSCALL logs for {path}"
 
-    ##### Search docker_commands #####
+    # Search docker_commands
     cmd = "sudo zgrep docker_commands /var/log/syslog* | grep /usr/bin/docker"
     logs = duthost.shell(cmd)["stdout_lines"]
 
