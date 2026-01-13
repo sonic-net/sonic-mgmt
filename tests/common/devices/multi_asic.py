@@ -83,7 +83,7 @@ class MultiAsicSonicHost(object):
 
         # NOTE: Add mux to critical services for dualtor
         if (
-            self.facts['router_subtype'] == 'DualToR' and
+            self.facts.get('router_subtype', '') == 'DualToR' and
             self.facts.get('features', {}).get('mux', {}).get('state', '') == 'enabled'
         ):
             service_list.append("mux")
