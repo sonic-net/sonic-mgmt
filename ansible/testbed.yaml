@@ -243,6 +243,11 @@
   dut:
   - STR-7050CX3-C19-U37
   inv_name: ixia
+  test_tags: []
+  l1s:
+  - str-ocs-dlx64-acs-06
+  tgs:
+  - msr-ixia-4
   auto_recover: 'False'
   comment: devojha
 
