@@ -30,8 +30,6 @@ def manage_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
-    duthost.command("docker start auditd")
-    duthost.command("docker start auditd_watchdog")
     duthost.command("sudo systemctl stop auditd")
     output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     pytest_assert(output != "active", "auditd service is still running when it should be inactive")
@@ -101,7 +99,8 @@ def extract_audit_timestamp(logs, include_seq=False):
 def test_all_rules(localhost,
                    duthosts,
                    enum_rand_one_per_hwsku_hostname,
-                   creds):
+                   creds,
+                   verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     dutip = duthost.mgmt_ip
 
@@ -319,7 +318,8 @@ def test_all_rules(localhost,
 
 
 def test_auditd_functionality(duthosts,
-                              enum_rand_one_per_hwsku_hostname):
+                              enum_rand_one_per_hwsku_hostname,
+                              verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl start auditd")
     output = duthost.command("file -L /bin/sh")["stdout"]
@@ -355,7 +355,8 @@ def test_auditd_functionality(duthosts,
 
 
 def test_auditd_watchdog_functionality(duthosts,
-                                       enum_rand_one_per_hwsku_hostname):
+                                       enum_rand_one_per_hwsku_hostname,
+                                       verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl start auditd")
 
@@ -388,7 +389,8 @@ def test_auditd_watchdog_functionality(duthosts,
 
 def test_auditd_host_failure(localhost,
                              duthosts,
-                             enum_rand_one_per_hwsku_hostname):
+                             enum_rand_one_per_hwsku_hostname,
+                             verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl stop auditd")
 
@@ -414,7 +416,8 @@ def test_auditd_host_failure(localhost,
 
 
 def test_32bit_failure(duthosts,
-                       enum_rand_one_per_hwsku_hostname):
+                       enum_rand_one_per_hwsku_hostname,
+                       verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
     hwsku = duthost.facts["hwsku"]
@@ -446,7 +449,8 @@ def read_watchdog(duthost):
 
 
 def test_rate_limit(duthosts,
-                    enum_rand_one_per_hwsku_hostname):
+                    enum_rand_one_per_hwsku_hostname,
+                    verify_auditd_containers_running):
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
     duthost.command("sudo systemctl start auditd")
 
