@@ -220,6 +220,14 @@ To install `snappi-trex` on your testbed server and run tests using your physica
 
 ---
 
+### 3.4 Viavi STC Path
+
+#### 3.3.1 Deploying the STC OTG Service
+
+To deploy the STC OTG service, follow these [steps](https://github.com/Spirent-STC/stc-otg-setup/blob/main/README.md).
+
+---
+
 ## 4 Provisioning the Testbed
 
 1. **Generate & deploy a minigraph** matching your topology:
@@ -290,6 +298,22 @@ sequenceDiagram
     Api->>Server: JSON-RPC (upstream 4500)
     Server-->>Api: Flow status & counters
     Api-->>Host: Test results
+```
+### 6.2 STC
+
+```mermaid
+sequenceDiagram
+    participant Host as sonic-mgmt-docker
+    participant OtgApi as OTG API-Docker
+    participant Labserver as Labserver
+    participant Chassis as STC Chassis
+
+    Host->>OtgApi: snappi.set_config()
+    OtgApi->>Labserver: API
+    Labserver->>Chassis: API
+    Chassis-->>Labserver: Status & statistics
+    Labserver-->>OtgApi: Status & statistics
+    OtgApi-->>Host: Test results
 ```
 
 ---
