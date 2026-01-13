@@ -97,6 +97,33 @@
         - is_ixia_testbed | bool
         - configure_l1 | default(false) | bool
 
+    - name: check if testbed is an stc testbed
+      set_fact:
+        is_stc_testbed: "{{ true if ptf_image == 'docker-stc-api-server' else false }}"
+
+    - block:
+        - name: Set L1 connection script path
+          set_fact:
+            script_path: "{{ playbook_dir }}/l1_port_mapper.py"
+            csv_dir: "{{ playbook_dir }}/files"
+
+        - name: Configure L1 switches
+          include_tasks: config_l1_testbed.yml
+          vars:
+            num_ports: "{{ num_ports_to_connect | default(3) }}"
+            target_sonic_host: "{{ sonic_hostname }}"
+          loop: "{{ groups['l1_switch'] }}"
+          loop_control:
+            loop_var: target_l1_switch
+          when:
+            - is_stc_testbed is defined
+            - is_stc_testbed | bool
+            - configure_l1 | default(false) | bool
+      when:
+        - is_stc_testbed is defined
+        - is_stc_testbed | bool
+        - configure_l1 | default(false) | bool
+
     - name: set vm
       set_fact:
         vm_base: "{% if 'vm_base' in testbed_facts and testbed_facts['vm_base'] != '' %}{{ testbed_facts['vm_base'] }}{% else %}''{% endif %}"
@@ -119,7 +146,7 @@
   - name: override group_file for route-conv
     set_fact:
       conn_graph_group: "{{ testbed_facts['inv_name'] }}"
-    when: is_ixia_testbed
+    when: is_ixia_testbed or is_stc_testbed
 
   - name: get connection graph if defined for dut (ignore any errors)
     conn_graph_facts:
@@ -251,7 +278,7 @@
   - name: enable tunnel_qos_remap for T1 in dualtor deployment
     set_fact:
       enable_tunnel_qos_remap: true
-    when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed)"
+    when: "(('leafrouter' == (vm_topo_config['dut_type'] | lower)) or ('backendleafrouter' == (vm_topo_config['dut_type'] | lower))) and (hwsku in hwsku_list_dualtor_t1) and not (is_ixia_testbed or is_stc_testbed)"
 
   - name: gather hwsku that supports ComputeAI deployment
     set_fact:
@@ -260,7 +287,7 @@
   - name: enable ComputeAI deployment
     set_fact:
       enable_compute_ai_deployment: true
-    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed) and 'isolated' in topo"
+    when: "(hwsku in hwsku_list_compute_ai) and not (is_ixia_testbed or is_stc_testbed) and 'isolated' in topo"
 
   - name: set default vm file path
     set_fact:
