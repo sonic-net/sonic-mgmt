@@ -80,10 +80,11 @@ def eni_counter_setup(dpuhost):
         logger.info("enable eni counter")
         set_eni_counter_status(dpuhost, "disable")
 
+
 def parse_meter_counters(dpuhost):
     _sai_meter_counters_dict = {}
 
-    cmd_get_counter_meter_name_map = "sonic-db-cli COUNTERS_DB keys \*"
+    cmd_get_counter_meter_name_map = 'sonic-db-cli COUNTERS_DB KEYS "*"'
     _counter_map = dpuhost.shell(cmd_get_counter_meter_name_map)['stdout']
 
     counter_eni_name_map = []

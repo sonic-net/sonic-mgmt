@@ -11,7 +11,7 @@ from tests.common.helpers.assertions import pytest_assert
 from configs.privatelink_config import TUNNEL1_ENDPOINT_IPS, TUNNEL2_ENDPOINT_IPS
 from tests.common import config_reload
 from tests.dash.dash_utils import verify_tunnel_packets
-from dash_eni_counter_utils import get_eni_counters, get_eni_counter_oid, get_eni_meter_counters
+from dash_eni_counter_utils import get_eni_counter_oid, get_eni_meter_counters
 
 logger = logging.getLogger(__name__)
 
@@ -90,7 +90,7 @@ def common_setup_teardown(
     logger.info(route_messages)
     apply_messages(localhost, duthost, ptfhost, route_messages, dpuhost.dpu_index)
 
-    #Route-Group2 rule creation
+    # Route-Group2 rule creation
     route_messages = {
         **pl.METERCLASSOR_PE_SUBNET_ROUTE_CONFIG,
         **rg2_vm_subnet_route_config,
@@ -98,7 +98,7 @@ def common_setup_teardown(
     logger.info(route_messages)
     apply_messages(localhost, duthost, ptfhost, route_messages, dpuhost.dpu_index)
 
-    #Route-Group3 rule creation
+    # Route-Group3 rule creation
     route_messages = {
         **pl.METERCLASSAND_PE_SUBNET_ROUTE_CONFIG,
         **rg3_vm_subnet_route_config,
@@ -138,6 +138,7 @@ def common_setup_teardown(
     # apply_messages(localhost, duthost, ptfhost, meter_rule_messages, dpuhost.dpu_index, False)
     # apply_messages(localhost, duthost, ptfhost, route_and_mapping_messages, dpuhost.dpu_index, False)
     # apply_messages(localhost, duthost, ptfhost, base_config_messages, dpuhost.dpu_index, False)
+
 
 @pytest.mark.parametrize("metering_tc", ['ENI_METERPOLICY_HIT', 'MAPPING_METERCLASS_HIT',
                                          'ROUTE_METERCLASS_OR_HIT', 'ROUTE_MAPPING_METERCLASS_OR_HIT',
@@ -239,7 +240,8 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
         exp_meterclass = pl.METERCLASSANDOR_RESULT
 
     # Configure MAPPING entries
-    if metering_tc in ['MAPPING_METERCLASS_HIT', 'ROUTE_MAPPING_METERCLASS_OR_HIT', 'ROUTE_MAPPING_METERCLASS_ANDOR_HIT']:
+    if metering_tc in ['MAPPING_METERCLASS_HIT', 'ROUTE_MAPPING_METERCLASS_OR_HIT',
+                       'ROUTE_MAPPING_METERCLASS_ANDOR_HIT']:
         pl.PE_VNET_MAPPING_CONFIG[f"DASH_VNET_MAPPING_TABLE:{pl.VNET1}:{pl.PE_CA}"]["metering_class_or"] = \
                           pl.MAPPING_METERCLASS_OR
     elif metering_tc in ['ROUTE_METERCLASS_AND_HIT', 'ROUTE_METERCLASS_OR_HIT', 'ENI_METERPOLICY_HIT']:
