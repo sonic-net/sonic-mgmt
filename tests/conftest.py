@@ -798,7 +798,7 @@ def ptfhosts(enhance_inventory, ansible_adhoc, tbinfo, duthost, request):
         return None
     if tbinfo['topo']['name'].startswith("nut-"):
         return None
-    if "ptf_image_name" in tbinfo and "docker-keysight-api-server" in tbinfo["ptf_image_name"]:
+    if "ptf_image_name" in tbinfo and ("docker-keysight-api-server" in tbinfo["ptf_image_name"] or "docker-stc-api-server" in tbinfo["ptf_image_name"]):
         return None
     if "ptf" in tbinfo:
         _hosts.append(PTFHost(ansible_adhoc, tbinfo["ptf"], duthost, tbinfo,
