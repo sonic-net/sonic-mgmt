@@ -45,9 +45,11 @@ jobs:
             import sys
             import json
 
+            from requests.auth import HTTPBasicAuth
+
             requests.packages.urllib3.util.connection.HAS_IPV6 = False
             debug_http = False
-            API_VERSION = '7.1-preview.1'
+            API_VERSION = '7.1'
 
             def find_agent_pool_id(organization, pool_name, token):
                 print(f'Finding agent pool ID for {pool_name}')
@@ -55,7 +57,7 @@ jobs:
                 params = {
                     'api-version': API_VERSION
                 }
-                resp = requests.get(url, params=params, auth=('dontcare', token))
+                resp = requests.get(url, params=params, auth=HTTPBasicAuth('dontcare', token))
                 for pool in resp.json()['value']:
                     if pool['name'] == pool_name:
                         print(f'Found pool ID: {pool["id"]}')
@@ -69,7 +71,7 @@ jobs:
                 params = {
                     'api-version': API_VERSION
                 }
-                resp = requests.get(url, params=params, auth=('dontcare', token))
+                resp = requests.get(url, params=params, auth=HTTPBasicAuth('dontcare', token))
                 return resp.json()['value']
 
             def del_agent(organization, pool_id, agent, token):
@@ -78,7 +80,10 @@ jobs:
                 params = {
                     'api-version': API_VERSION
                 }
-                requests.delete(url, params=params, auth=('dontcare', token))
+                response = requests.delete(url, params=params, auth=HTTPBasicAuth('dontcare', token))
+                if response.status_code != 204:
+                    print(f'Failed to delete agent, status code={response.status_code}, response={response.text}')
+                return response.status_code == 204
 
             # Main
             azure_org = os.getenv("AZURE_ORG")
@@ -86,13 +91,18 @@ jobs:
             token = os.getenv("TOKEN")
             pool_id = find_agent_pool_id(organization=azure_org, pool_name=pool_name, token=token)
             agents = get_agents(organization=azure_org, pool_id=pool_id, token=token)
-            n = 0
+            success_count = 0
+            fail_count = 0
             for agent in agents:
                 if agent['status'] == 'offline':
-                    print(f'Removing offline agent: {agent["id"]}, {agent["name"]}')
-                    del_agent(organization=azure_org, pool_id=pool_id, agent=agent, token=token)
-                    n += 1
-            print(f'Removed {n} offline agents')
+                    print(f'Removing offline agent, id={agent["id"]}, name={agent["name"]}')
+                    if del_agent(organization=azure_org, pool_id=pool_id, agent=agent, token=token):
+                        print("✓ Success")
+                        success_count += 1
+                    else:
+                        print("✗ Failed")
+                        fail_count += 1
+            print(f'Removed {success_count} offline agents, failed to remove {fail_count} offline agents')
 
         env:
           AZURE_ORG: ${{ parameters.AZURE_ORG }}
