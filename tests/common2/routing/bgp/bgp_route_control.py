@@ -94,7 +94,7 @@ class BGPRouteController:
         logger.info("BGP %s: URL=%s, Command=%s", operation, url, command)
 
         try:
-            response = requests.post(url, data=data, timeout=30)
+            response = requests.post(url, data=data, timeout=30, proxies={"http": None, "https": None})
             if response.status_code != 200:
                 raise AssertionError(f"HTTP request failed with status {response.status_code}")
         except requests.RequestException as e:
@@ -151,7 +151,7 @@ class BGPRouteController:
         logger.debug("BGP bulk command: %s", command)
 
         try:
-            response = requests.post(url, data=data, timeout=90)
+            response = requests.post(url, data=data, timeout=90, proxies={"http": None, "https": None})
             if response.status_code != 200:
                 raise AssertionError(
                     f"HTTP request failed with status {response.status_code}. URL: {url}. Data: {data}"
@@ -192,7 +192,7 @@ class BGPRouteController:
         logger.info("BGP update route: URL=%s, Data=%s", url, data)
 
         try:
-            response = requests.post(url, data=data, timeout=30)
+            response = requests.post(url, data=data, timeout=30, proxies={"http": None, "https": None})
             if response.status_code != 200:
                 raise AssertionError(f"HTTP request failed with status {response.status_code}")
         except requests.RequestException as e:

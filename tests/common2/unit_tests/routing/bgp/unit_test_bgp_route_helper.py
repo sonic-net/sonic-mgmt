@@ -81,7 +81,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_with_community(self, mock_post: Mock) -> None:
@@ -103,7 +108,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 community [1010:1010]"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_with_local_preference(self, mock_post: Mock) -> None:
@@ -125,7 +135,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 local-preference 150"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_route_with_all_attributes(self, mock_post: Mock) -> None:
@@ -151,7 +166,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
             "neighbor 10.0.0.1 announce route 192.168.10.0/24 "
             "next-hop 10.0.0.2 local-preference 150 community [1010:1010]"
         )
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_withdraw_route_basic(self, mock_post: Mock) -> None:
@@ -168,7 +188,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "neighbor 10.0.0.1 withdraw route 192.168.10.0/24 next-hop 10.0.0.2"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_withdraw_route_with_attributes(self, mock_post: Mock) -> None:
@@ -194,7 +219,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
             "neighbor 10.0.0.1 withdraw route 192.168.10.0/24 next-hop 10.0.0.2 "
             "local-preference 150 community [1010:1010]"
         )
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_http_error_handling_400(self, mock_post: Mock) -> None:
@@ -262,7 +292,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "announce attributes next-hop self nlri 192.168.1.0/24 192.168.2.0/24 192.168.3.0/24"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=90,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_announce_routes_bulk_with_custom_nexthop(self, mock_post: Mock) -> None:
@@ -280,7 +315,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "announce attributes next-hop 10.0.0.2 nlri 192.168.1.0/24 192.168.2.0/24"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=90,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_withdraw_routes_bulk(self, mock_post: Mock) -> None:
@@ -296,7 +336,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "withdraw attributes next-hop self nlri 192.168.1.0/24 192.168.2.0/24"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=90,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_bulk_operation_single_route(self, mock_post: Mock) -> None:
@@ -312,7 +357,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_command = "announce attributes next-hop self nlri 192.168.1.0/24"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=90,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.logger")
     @patch(f"{BGP_MODULE_PATH}.requests.post")
@@ -359,7 +409,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_msg = "announce route 192.168.10.0/24 next-hop 10.0.0.2 community 1010:1010 local-preference 150"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"commands": expected_msg},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_attributes_withdraw(self, mock_post: Mock) -> None:
@@ -377,7 +432,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_msg = "withdraw route 192.168.10.0/24 next-hop 10.0.0.2"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"commands": expected_msg},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_community_only(self, mock_post: Mock) -> None:
@@ -395,7 +455,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_msg = "announce route 192.168.10.0/24 next-hop 10.0.0.2 community 2020:2020"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"commands": expected_msg},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_update_route_with_local_preference_only(self, mock_post: Mock) -> None:
@@ -413,7 +478,12 @@ class TestBGPRouteController:  # pylint: disable=too-many-public-methods
 
         # Assert
         expected_msg = "announce route 192.168.10.0/24 next-hop 10.0.0.2 local-preference 200"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"commands": expected_msg}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"commands": expected_msg},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     def test_update_route_invalid_action(self) -> None:
         """Test update route with invalid action."""
@@ -677,7 +747,12 @@ class TestEdgeCases:
 
         # Assert
         expected_command = "neighbor 2001:db8::2 announce route 2001:db8:1::/64 next-hop 2001:db8::3"
-        mock_post.assert_called_once_with("http://2001:db8::1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://2001:db8::1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_large_route_list_bulk_operation(self, mock_post: Mock) -> None:
@@ -695,7 +770,12 @@ class TestEdgeCases:
         # Assert
         expected_nlri = " ".join(route_list)
         expected_command = f"announce attributes next-hop self nlri {expected_nlri}"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=90)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=90,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_special_characters_in_community(self, mock_post: Mock) -> None:
@@ -717,7 +797,12 @@ class TestEdgeCases:
 
         # Assert
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 community [65000:123]"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_zero_local_preference(self, mock_post: Mock) -> None:
@@ -739,7 +824,12 @@ class TestEdgeCases:
 
         # Assert
         expected_command = "neighbor 10.0.0.1 announce route 192.168.10.0/24 next-hop 10.0.0.2 local-preference 0"
-        mock_post.assert_called_once_with("http://192.168.1.1:5000", data={"command": expected_command}, timeout=30)
+        mock_post.assert_called_once_with(
+            "http://192.168.1.1:5000",
+            data={"command": expected_command},
+            timeout=30,
+            proxies={"http": None, "https": None},
+        )
 
     @patch(f"{BGP_MODULE_PATH}.requests.post")
     def test_high_port_number(self, mock_post: Mock) -> None:
