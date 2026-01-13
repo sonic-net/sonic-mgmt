@@ -187,3 +187,12 @@ def add_advanced_reboot_args(parser):
         "sonic_version is a template token that will be replaced with the actual sonic version of the device under " +
         "test. e.g. 202311"
     )
+
+    parser.addoption(
+        "--packet_capture_location",
+        action="store",
+        type=str,
+        choices=["physical_port", "ptf_port"],
+        default="ptf_port",
+        help="The packet capture location to be used in advanced-reboot test, such as physical_port or ptf_port"
+    )
