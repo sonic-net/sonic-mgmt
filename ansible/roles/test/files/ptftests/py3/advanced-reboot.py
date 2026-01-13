@@ -1957,7 +1957,7 @@ class ReloadTest(BaseTest):
         Start tcpdump sniffer on all data interfaces, and kill them after a specified timeout
         """
         interface = self.test_params['vmhost_external_port']
-        cmd = f"sudo nohup tcpdump -i {interface} {tcpdump_filter} -w {pcap_path}"
+        cmd = f"sudo nohup tcpdump -U -i {interface} {tcpdump_filter} -w {pcap_path}"
         self.vmhost_connection.execCommand(cmd + " > /dev/null 2>&1 &")
         self.log(f'Tcpdump sniffer starting on vmhost interface: {interface}')
         base_tcpdump_delay = 2
@@ -1985,6 +1985,8 @@ class ReloadTest(BaseTest):
                 break
             time_start = curr_time
 
+        # Give tcpdump a few seconds to flush buffers
+        time.sleep(2)
         self.log("Going to kill the tcpdump process by SIGTERM")
         self.vmhost_connection.execCommand(f'sudo pkill -f "{cmd}"')
         self.log("Killed the tcpdump process")
