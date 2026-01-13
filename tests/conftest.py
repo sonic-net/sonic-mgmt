@@ -3791,7 +3791,7 @@ def yang_validation_check(request, duthosts):
 
     if skip_yang:
         logger.info("Skipping YANG validation check due to --skip_yang flag")
-        return
+        yield
 
     def run_yang_validation(stage):
         """Run YANG validation and return results"""
