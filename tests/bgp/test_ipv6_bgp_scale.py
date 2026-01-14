@@ -812,7 +812,9 @@ def test_bgp_admin_flap(
     duthost,
     ptfadapter,
     bgp_peers_info,
-    flapping_neighbor_count
+    clean_ptf_dataplane,
+    flapping_neighbor_count,
+    setup_routes_before_test
 ):
     """
     Validates that both control plane and data plane remain functional with acceptable downtime when BGP sessions are
@@ -825,12 +827,10 @@ def test_bgp_admin_flap(
     Expected result:
         Dataplane downtime is less than MAX_BGP_SESSION_DOWNTIME or MAX_DOWNTIME_UNISOLATION for all ports.
     """
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
     # Measure shutdown convergence
-    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_neighbor_count, 'bgp_sessions', 'shutdown')
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_neighbor_count, 'bgp_sessions', 'shutdown')
     # Measure startup convergence
-    flapper(duthost, pdp, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
 
 
 @pytest.mark.parametrize("flapping_port_count", [1, 10, 20, 'all'])
@@ -839,6 +839,7 @@ def test_sessions_flapping(
     duthost,
     ptfadapter,
     bgp_peers_info,
+    clean_ptf_dataplane,
     flapping_port_count,
     setup_routes_before_test
 ):
@@ -853,10 +854,7 @@ def test_sessions_flapping(
     Expected result:
         Dataplane downtime is less than MAX_DOWNTIME_PORT_FLAPPING or MAX_DOWNTIME_UNISOLATION for all ports.
     '''
-    pdp = ptfadapter.dataplane
-    pdp.set_qlen(PACKET_QUEUE_LENGTH)
-
     # Measure shutdown convergence
-    transient_setup = flapper(duthost, pdp, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_port_count, 'ports', 'shutdown')
     # Measure startup convergence
-    flapper(duthost, pdp, None, transient_setup, flapping_port_count, 'ports', 'startup')
+    flapper(duthost, ptfadapter, None, transient_setup, flapping_port_count, 'ports', 'startup')
