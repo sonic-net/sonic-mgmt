@@ -221,7 +221,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
         for key, value in list(minigraph_neighbors.items()):
             if 'T1' in value['name'] or 'LT2' in value['name']:
                 dutA = a_dut
-                asic = value['namespace'][-1]
+                asic = value['namespace'][-1] if value['namespace'] else "0"
                 port = None
                 for port_ch, val in list(minigraph_portchannels.items()):
                     if key in val['members']:
@@ -301,7 +301,7 @@ def pick_ports(duthosts, all_cfg_facts, nbrhosts, tbinfo, port_type_a="ethernet"
             for key, value in list(minigraph_neighbors.items()):
                 if 'T3' in value['name']:
                     other_dut_to_use = dut
-                    asic = value['namespace'][-1]
+                    asic = value['namespace'][-1] if value['namespace'] else "0"
                     port = None
                     for port_ch, val in list(minigraph_portchannels.items()):
                         if key in val['members']:
