@@ -40,6 +40,15 @@ def delete_tmpfile(duthost, tmpfile):
     duthost.file(path=tmpfile, state='absent')
 
 
+def apply_gcu_patch(duthost, json_patch):
+    tmpfile = generate_tmpfile(duthost)
+    try:
+        output = apply_patch(duthost, json_data=json_patch, dest_file=tmpfile)
+        expect_op_success(duthost, output)
+    finally:
+        delete_tmpfile(duthost, tmpfile)
+
+
 def create_checkpoint(duthost, cp=DEFAULT_CHECKPOINT_NAME):
     """Run checkpoint on target duthost
 
