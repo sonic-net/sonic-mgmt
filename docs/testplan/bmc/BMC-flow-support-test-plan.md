@@ -224,3 +224,29 @@ The test will be supported on t0 and t1 topology.
 1. Run command 'show techsupport' to generate a switch dump
 2. Wait until the dump generated
 3. Extract the dump file and validate the BMC dump files existence
+
+### Test Case # 14 - Test CLIs commands for open and close BMC session
+1. Open a BMC session by command 'config bmc open-session'
+2. Validate the session ID and token are returned successfully
+3. Use curl command with the token to get session information by Redfish API
+   'curl -k -H "X-Auth-Token: <Token>" -X GET https://<BMC_IP>/redfish/v1/SessionService/Sessions'
+4. Validate the curl command returns valid response with session information
+5. Use curl command with the token to submit a test event by Redfish API
+   'curl -k -H "X-Auth-Token: <Token>" -H "Content-Type: application/json" -X POST https://<BMC_IP>/redfish/v1/EventService/Actions/EventService.SubmitTestEvent -d '{"EventType": "Alert", "Message": "Test event from valid token"}'
+6. Validate the curl command executes successfully
+7. Close the BMC session by command 'config bmc close-session --session-id <session-id>'
+8. Try to use the same token with GET request as in step 3 and validate the response is empty or returns error code
+9. Try to use the same token with POST request to submit a new test event with different message
+   'curl -k -H "X-Auth-Token: <Token>" -H "Content-Type: application/json" -X POST https://<BMC_IP>/redfish/v1/EventService/Actions/EventService.SubmitTestEvent -d '{"EventType": "Alert", "Message": "Test event from invalid token"}'
+10. Validate the response is empty or returns error code
+11. Open a new BMC session and validate new session ID and token are generated
+12. Use the new token to check EventLog entries by Redfish API
+    'curl -k -H "X-Auth-Token: <NewToken>" -X GET https://<BMC_IP>/redfish/v1/Systems/system/LogServices/EventLog/Entries'
+13. Validate only the event from step 5 (with message "Test event from valid token") exists in the log, and the event from step 9 (with message "Test event from invalid token") does not exist
+14. Close the new session and validate it closes successfully
+
+### Test Case # 15 - Test CLIs commands for open and close BMC session on a Non-BMC switch
+1. Run command 'config bmc open-session' on a Non-BMC switch
+2. Validate appropriate error message is returned indicating BMC is not available
+3. Run command 'config bmc close-session --session-id <invalid-session-id>' on a Non-BMC switch
+4. Validate appropriate error message is returned indicating BMC is not available
