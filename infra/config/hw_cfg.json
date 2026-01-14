@@ -1622,6 +1622,71 @@
                 "ls -l"
             ]
         },
+         "b2b-m5-16-tornado" : {
+            "ucs_host_name":"sonic-ucs-m5-16",
+            "ucs_host": "172.26.235.12",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.26.235.15"],
+            "telnet_port": ["2032", "2033"],
+            "telnet_details": ["172.26.235.15 2032", "172.26.235.15 2033"],
+            "dut_ssh": ["4.164.1.252", "4.164.1.253"],
+            "need_ucs_mount": "True",
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "onie_ip": "4.164.1.220",
+            "scp_ip": "4.164.1.220",
+            "max_timeout": 30,
+            "extra_timeout": 600,
+            "allure_flag": "false",
+            "docker_prompt":"@sonic-ucs-m5-16:",
+            "sonic_mgmt_container_202305": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202405": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202311": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202411": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202505": "spytest-tornado-b2b",
+            "sonic_mgmt_container_202501": "spytest-tornado-b2b",
+            "sonic_mgmt_container_master": "spytest-tornado-b2b",
+            "skip_tests": "",
+            "skip_folder":"",
+            "custom_result_url":"http://172.26.235.12/test_logs/spytest-b2b/cicd_runs/",
+            "lldp_count": 12,
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/tornado-b2b.yaml"
+                }
+            },
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "extra_onie_commands": [
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/Cisco-8101C01-C32",
+                    "sudo scp sonic@4.164.1.220:/var/www/html/tornado-b2b-cfg/tornado_b2b_dut1_platform_cisco_cfg.yaml platform_cisco_cfg.yaml", 
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot" 
+                ],
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8101_32fh_o_c01-r0/Cisco-8101C01-C32",
+                    "sudo scp sonic@4.164.1.220:/var/www/html/tornado-b2b-cfg/tornado_b2b_dut2_platform_cisco_cfg.yaml platform_cisco_cfg.yaml",
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot"
+                ]
+            ],
+            "special_run_commands": [
+                "unset http_proxy https_proxy",
+                "export SCID_TGEN_PATH=/data/projects/scid/tgen",
+                "export SCID_TCL85_BIN=/data/projects/scid/tcl/bin/tclsh8.5",
+                "cd /data/sonic-mgmt/spytest",                
+                "mkdir /run_logs/$image_folder",             
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
+                "ls -l"
+            ]
+        },
         "t0-m6-20-lightning" : {
             "ucs_host_name": "sonic-ucs-m6-20",
             "ucs_host": "172.26.235.20",
@@ -2262,6 +2327,7 @@
         "t1-m6-23-superbolt": "None",
         "b2b-m5-14-superbolt": "None",
         "b2b-m5-14-lightning": "None",
+        "b2b-m5-16-tornado": "None",
         "t0-m6-1-m64": "None",
         "t0-m6-33-laguna": [
             "cisco.202405c.2.tortuga.laguna.no-agents",
@@ -2326,6 +2392,7 @@
         "t1-m5-16-lightning": "ucs_m5_16",
         "b2b-m5-14-superbolt": "ucs_m5_14",
         "b2b-m5-14-lightning": "ucs_m5_14",
+        "b2b-m5-16-tornado": "ucs_m5_14",
         "t0-m6-33-laguna": "ucs_m6_33",
         "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10",
