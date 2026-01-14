@@ -194,7 +194,7 @@ def test_update_testbed_metadata(duthosts, tbinfo, fanouthosts):
     prepare_autonegtest_params(duthosts, fanouthosts)
 
 
-def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
+def test_disable_rsyslog_rate_limit(duthosts):
 
     def disable_rsyslog_rate_limit(dut):
         features_dict, succeed = dut.get_feature_status()
@@ -240,9 +240,6 @@ def test_disable_rsyslog_rate_limit(duthosts, enum_dut_hostname):
         if feature_exception_dict:
             pytest.fail(f"The test failed on some of the dockers. feature_exception_dict = {feature_exception_dict}")
 
-    duthost = duthosts[enum_dut_hostname]
-    # We don't need to recover the rate limit on vs testbed
-    pytest_require(duthost.facts['asic_type'] != 'vs', "Skip on vs testbed")
     with SafeThreadPoolExecutor(max_workers=len(duthosts)) as executor:
         for duthost in duthosts:
             executor.submit(disable_rsyslog_rate_limit, duthost)
