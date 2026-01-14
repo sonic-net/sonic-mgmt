@@ -42,7 +42,7 @@ def upgrade_by_sonic(sonichosts, localhost, image_url, disk_used_percent):
         if len(target_hosts) == 0:
             logger.info("No hosts to upgrade")
             return True
-        
+
         sonichosts.reduce_and_add_sonic_images(
             disk_used_pcent=disk_used_percent,
             new_image_url=image_url,
