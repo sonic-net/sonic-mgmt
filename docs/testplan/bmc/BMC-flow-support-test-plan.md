@@ -224,3 +224,25 @@ The test will be supported on t0 and t1 topology.
 1. Run command 'show techsupport' to generate a switch dump
 2. Wait until the dump generated
 3. Extract the dump file and validate the BMC dump files existence
+
+### Test Case # 14 - Test BMC serial owner switching
+1. Switch serial owner from CPU to BMC, validate BMC serial communication by running 'hostname'
+2. Switch serial owner from BMC to CPU, validate CPU serial communication by running 'hostname'
+3. Switch serial owner from CPU to BMC again, validate BMC serial communication by running 'hostname'
+4. Switch serial owner 100 times in a loop, validate final serial owner is BMC
+5. Validate BMC serial communication by running 'hostname' after 100 switches
+6. Switch serial owner from BMC to CPU, validate CPU serial communication by running 'hostname'
+
+### Test Case # 15 - Test BMC serial owner switching on a Non-BMC switch
+1. Run serial owner switching command on a Non-BMC switch, validate error message returned
+2. Run serial owner query command on a Non-BMC switch, validate error message returned
+
+### Test Case # 16 - Test BMC Redfish CLI wrapper
+1. Run Redfish GET request by CLI wrapper, validate the response returned correctly
+2. Run Redfish POST request by CLI wrapper, validate the response returned correctly
+3. Run 10 consecutive Redfish GET requests by CLI wrapper, validate session management works correctly
+4. Run CLI wrapper with invalid GET request inputs, validate error message returned
+
+### Test Case # 17 - Test BMC Redfish CLI wrapper on a Non-BMC switch
+1. Run Redfish GET request by CLI wrapper on a Non-BMC switch, validate error message returned
+2. Run Redfish POST request by CLI wrapper on a Non-BMC switch, validate error message returned
