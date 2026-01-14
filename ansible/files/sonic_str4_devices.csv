@@ -104,12 +104,11 @@ console-194,10.3.145.194,Cisco,ConsoleServer,ssh,
 console-196,10.3.145.196,Cisco,ConsoleServer,ssh,
 console-197,10.3.145.197,Cisco,ConsoleServer,ssh,
 console-199,10.3.145.199,Cisco,ConsoleServer,ssh,
-str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 console-175,10.3.145.175,Cisco,ConsoleServer,ssh,
 STR43-7060x6-512-C17-U08,10.64.246.198/25,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 STR43-7060x6-512-C17-U10,10.64.246.199/25,Arista-7060X6-64PE-B-C512S2,DevSonic,,sonic
 str43-0101-0400-05c0,10.3.150.231,Cisco,ConsoleServer,ssh,
 str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh,
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh,
-str43-0101-0400-08c0,10.3.150.33,Cisco,ConsoleServer,ssh,
+str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh,
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh,

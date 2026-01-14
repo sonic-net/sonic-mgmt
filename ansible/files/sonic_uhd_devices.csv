@@ -4,5 +4,5 @@ STR-IXIA-UHD400-C19-U36,10.64.246.177,UHD400T,,
 str43-0101-0400-05c0,10.3.150.231,Cisco,ConsoleServer,ssh
 str43-0101-0400-06c0,10.3.150.239,Cisco,ConsoleServer,ssh
 str43-0101-0400-07c0,10.3.150.241,Cisco,ConsoleServer,ssh
-str43-0101-0400-08c0,10.3.150.33,Cisco,ConsoleServer,ssh
+str43-0101-0400-08c0,10.3.152.33,Cisco,ConsoleServer,ssh
 str43-0101-0400-09c0,10.3.150.244,Cisco,ConsoleServer,ssh
