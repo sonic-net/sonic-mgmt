@@ -3551,17 +3551,9 @@ memory_checker/test_memory_checker.py:
 #######################################
 mpls:
   skip:
-    reason: "Skip running on dualtor testbed and '202412' for now"
-    conditions_logical_operator: "OR"
+    reason: "MPLS feature is not enabled with image version, skipped"
     conditions:
-      - "release in ['202412']"
-      - "'dualtor' in topo_name"
-
-mpls/test_mpls.py:
-  skip:
-    reason: "MPLS TCs are not supported on Barefoot plarforms"
-    conditions:
-      - "asic_type in ['barefoot']"
+      - "'mpls' not in feature_status"
 
 #######################################
 #####           mvrf              #####
