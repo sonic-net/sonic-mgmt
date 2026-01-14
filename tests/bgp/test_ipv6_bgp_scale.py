@@ -828,7 +828,8 @@ def test_bgp_admin_flap(
         Dataplane downtime is less than MAX_BGP_SESSION_DOWNTIME or MAX_DOWNTIME_UNISOLATION for all ports.
     """
     # Measure shutdown convergence
-    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_neighbor_count, 'bgp_sessions', 'shutdown')
+    transient_setup = flapper(duthost, ptfadapter, bgp_peers_info, None, flapping_neighbor_count,
+                              'bgp_sessions', 'shutdown')
     # Measure startup convergence
     flapper(duthost, ptfadapter, None, transient_setup, flapping_neighbor_count, 'bgp_sessions', 'startup')
 
