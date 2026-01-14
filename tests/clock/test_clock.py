@@ -346,12 +346,8 @@ def test_config_clock_timezone(duthosts, init_timezone):
             condition=lambda: ClockUtils.verify_timezone_value(
                 duthosts,
                 expected_tz_name=new_timezone
-            ),
-            reason=f'Timezone did not change to "{new_timezone}" within timeout'
+            )
         )
-
-    with allure.step(f'Verify timezone changed to "{new_timezone}"'):
-        ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
 
     with allure.step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
