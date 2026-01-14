@@ -19,12 +19,12 @@ def portchannel_fallback_module_hooks(request):
     data.portchannel_name = "PortChannel01"
 
     # Ensure 2-node topology with 4 links between them and IXIA connections
-    vars = st.ensure_min_topology("D5D7:4")
+    vars = st.ensure_min_topology("D5D6:4")
 
     data.dut1 = vars.D5
-    data.dut2 = vars.D7
-    data.members_dut1 = [vars.D5D7P1, vars.D5D7P2, vars.D5D7P3 ]
-    data.members_dut2 = [vars.D5D7P1, vars.D5D7P2, vars.D5D7P3 ]
+    data.dut2 = vars.D6
+    data.members_dut1 = [vars.D5D6P1, vars.D5D6P2, vars.D5D6P3 ]
+    data.members_dut2 = [vars.D5D6P1, vars.D5D6P2, vars.D5D6P3 ]
 
     yield
     module_unconfig()
