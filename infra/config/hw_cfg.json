@@ -1935,6 +1935,70 @@
                         "python3 ./do_hw_setup.py onie -i $BUILD_ID -t $TEST_BED"
                 ]
             }
+        },
+        "t2-m6-30-titan": {
+            "ucs_host_name": "sonic-TTAN-ucs-m6-30",
+            "ucs_host": "172.23.107.5",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "titan-t2-1-dut",
+            "scp_ip":"8.8.2.10",
+            "installer_mode":"sonic",
+            "ucs_tb": "ttn-t2",
+            "telnet_host": ["172.23.107.3"],
+            "telnet_port": ["2004"],
+            "telnet_details": ["172.23.107.3 2004"],
+            "dut_ssh": ["8.8.2.10"],
+            "topology": "t2",
+            "telnet_flag": "False",
+            "docker_prompt": "@sonic-ttan-ucs-m6-30",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202505": "cicd-prod-2025",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "",
+            "skip_folder": "",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ttn-t2 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo ttn-t2 ./lab",
+            "mtu_hack": {
+                "vms_count": 72
+            }
+        },
+        "t0-m6-41-titan": {
+            "ucs_host_name": "sonic-TTAN-ucs-m6-41",
+            "ucs_host": "172.23.107.7",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "mth_tb": "titan-t0-dut",
+            "scp_ip":"8.8.2.162",
+            "installer_mode":"sonic",
+            "ucs_tb": "ttan-t0",
+            "telnet_host": ["172.23.107.3"],
+            "telnet_port": ["2009"],
+            "telnet_details": ["172.23.107.3 2009"],
+            "dut_ssh": ["8.8.2.162"],
+            "topology": "t0",
+            "telnet_flag": "False",
+            "docker_prompt": "@sonic-ttan-ucs-m6-41",
+            "run_type_check": "run_tests",
+            "sonic_mgmt_container_202505": "cicd-202505-sonic-mgmt",
+            "sonic_installer_commands":[
+                "sudo show boot",
+                "sudo sonic-installer install $image_url --skip-package-migration",
+                "sudo show boot",
+                "sudo reboot"
+            ],
+            "skip_tests": "",
+            "skip_folder": "",
+            "remove_topo_cmd": "./testbed-cli.sh -k ceos remove-topo ttan-t0 ./lab",
+            "add_topo_cmd": "./testbed-cli.sh -k ceos add-topo ttan-t0 ./lab",
+            "mtu_hack": {
+                "vms_count": 4
+            }
         }
     },
     "testbed-streams" : {
@@ -2148,12 +2212,18 @@
         ],
         "lightning-spytest-plat": [
             "cisco.202505.1.signed"
+        ],
+        "t2-m6-30-titan": [
+            "cisco.202505.signed"
+        ],
+        "t0-m6-41-titan": [
+            "cisco.202505.signed"
         ]
     },
     "testbeds": {
-        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2"],
+        "t0" : ["t0-m5-3-m64", "t0-m6-13-cmono", "t0-m6-8-croc", "t0-m6-28-superbolt", "t0-m6-20-lightning", "t0-m6-1-m64", "t0-m6-33-laguna", "cmono-t0-2", "t0-m6-41-titan"],
         "t1" : ["t1-m6-22-m64", "t1-m5-5-cmono", "t1-topo5", "t1-m6-18-MtFuji", "t1-m6-27-m64", "t1-m4-3-croc", "t1-m5-2-m64", "t1-m3-4-cmono", "t1-m6-23-superbolt", "t1-m5-16-lightning", "t1-m5-11-hbm", "t1-m6-26-cmono"],
-        "t2" : ["aaa14-t2"],
+        "t2" : ["aaa14-t2", "t2-m6-30-titan"],
         "dualtor" : ["dualtor-m6-30-tornado", "dualtor-m6-31-tornado", "mathilda-dualtor-t0-1", "mathilda-dualtor-m5-6"],
         "dev-cicd-b2b": ["mtfuji-spytest-plat", "lightning-spytest-plat"]
     },
@@ -2202,7 +2272,9 @@
         "t0-m6-29-tornado": "ucs_m6_25",
         "t0-m6-24-lightning": "ucs_m5_16",
         "mtfuji-spytest-plat": "m6_platform",
-        "lightning-spytest-plat": "m6_platform"
+        "lightning-spytest-plat": "m6_platform",
+        "t2-m6-30-titan": "ucs_ttan_m6_30",
+        "t0-m6-41-titan": "ucs_ttan_m6_41"
     },
     "file_server_dict" : {
         "ucs_m3_1" : {
@@ -2436,6 +2508,24 @@
             "username": "sonic",
             "password": "roZes@123",
             "scp_prompt" : "sonic@172.25.168.41:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_ttan_m6_30": {
+            "host": "sonic-TTAN-ucs-m6-30",
+            "ip": "172.23.107.5",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.23.107.5:/var/www/html/IMAGES",
+            "images_folder" : "/var/www/html/IMAGES",
+            "wget" : "http_proxy= https_proxy= wget"
+        },
+        "ucs_ttan_m6_41": {
+            "host": "sonic-TTAN-ucs-m6-41",
+            "ip": "172.23.107.7",
+            "username": "sonic",
+            "password": "roZes@123",
+            "scp_prompt" : "sonic@172.23.107.7:/var/www/html/IMAGES",
             "images_folder" : "/var/www/html/IMAGES",
             "wget" : "http_proxy= https_proxy= wget"
         }
