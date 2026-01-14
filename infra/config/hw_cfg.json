@@ -1559,6 +1559,69 @@
                 "ls -l"
             ]
         },
+        "b2b-m5-14-lightning" : {
+            "ucs_host_name":"sonic-ucs-m5-14",
+            "ucs_host": "172.26.235.44",
+            "ucs_username": "sonic",
+            "ucs_password": "roZes@123",
+            "telnet_host": ["172.26.235.13","172.26.235.41"],
+            "telnet_port": ["2009", "2037"],
+            "telnet_details": ["172.26.235.13 2009", "172.26.235.41 2037"],
+            "dut_ssh": ["1.3.103.35", "1.3.103.37"],
+            "need_ucs_mount": "True",
+            "topology": "b2b",
+            "installer_mode": "sonic",
+            "onie_ip": "1.3.103.20",
+            "scp_ip": "1.3.103.20",
+            "max_timeout": 30,
+            "extra_timeout": 600,
+            "allure_flag": "false",
+            "docker_prompt":"@sonic-ucs-m5-14:",
+            "sonic_mgmt_container_202305": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202405": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202311": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202411": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202505": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_202501": "cicd_prod_master_ixia_v10_0",
+            "sonic_mgmt_container_master": "cicd_prod_master_ixia_v10_0",
+            "skip_tests": "",
+            "skip_folder":"",
+            "custom_result_url":"http://172.26.235.44/ixia_v10_cicd_logs",
+            "lldp_count": 13,
+            "external_ucs": "none",
+            "run_type_check": "/data/sonic-mgmt/spytest/tests/optics/test_optics.py",
+            "optional_run_params": {
+                "testbed_yaml": {
+                    "default": "/data/spytest_tb_files/lightning-b2b.yaml"
+                }
+            },
+            "extra_onie_check": [
+                "show lldp table"
+            ],
+            "extra_onie_commands": [
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O128S2",
+                    "sudo scp sonic@1.3.103.20:~/tools/lightning-b2b-1-platform_cisco_cfg.yaml platform_cisco_cfg.yaml",
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot" 
+                ],
+                [
+                    "sudo bash",
+                    "cd /usr/share/sonic/device/x86_64-8122_64eh_o-r0/Cisco-8122-O128S2",
+                    "sudo scp sonic@1.3.103.20:~/tools/lightning-b2b-2-platform_cisco_cfg.yaml platform_cisco_cfg.yaml",
+                    "sudo rm /etc/sonic/config_db.json",
+                    "sudo reboot"
+                ]
+            ],
+            "special_run_commands": [
+                "unset http_proxy https_proxy",
+                "cd /data/sonic-mgmt/spytest",                
+                "mkdir /run_logs/$image_folder",             
+                "./bin/spytest --testbed $testbed_yaml --device-feature-group master /data/sonic-mgmt/spytest/tests/optics/test_optics.py --logs-path /run_logs/$image_folder --skip-load-config base --skip-init-config --tc-max-timeout=36000 --module-init-max-timeout=36000",                
+                "ls -l"
+            ]
+        },
         "t0-m6-20-lightning" : {
             "ucs_host_name": "sonic-ucs-m6-20",
             "ucs_host": "172.26.235.20",
@@ -2198,6 +2261,7 @@
         ],
         "t1-m6-23-superbolt": "None",
         "b2b-m5-14-superbolt": "None",
+        "b2b-m5-14-lightning": "None",
         "t0-m6-1-m64": "None",
         "t0-m6-33-laguna": [
             "cisco.202405c.2.tortuga.laguna.no-agents",
@@ -2261,6 +2325,7 @@
         "t0-m6-20-lightning": "ucs_m5_16",
         "t1-m5-16-lightning": "ucs_m5_16",
         "b2b-m5-14-superbolt": "ucs_m5_14",
+        "b2b-m5-14-lightning": "ucs_m5_14",
         "t0-m6-33-laguna": "ucs_m6_33",
         "t0-m6-1-m64": "ucs_m4_3",
         "aaa14-t2": "ucs_m5_10",
