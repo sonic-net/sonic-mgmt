@@ -21,114 +21,16 @@ The recommded topology to use includes:
 
 ### Network Configuration
 
-The DUT should have SRv6 and route configurations as follows:
+Generally, the DUT should have SRv6 and route configurations as follows:
 - Every Device Under Test(DUT) should be configured with a number of SRv6 SIDs up to the maximum number of parallel links between DUT and the neighbors. If using fcbb:bbbb:: as the locator block, the SRv6 SIDs of a switch with I as device index in the topo and Q as the number of maximum parallel links can be configured to be fcbb:bbbb:hex(I << 8 + 1)::/48 ~ fcbb:bbbb:hex(I << 8 + Q)::/48.
 - Every Traffic Generator(TG) should also be configured a number of SRv6 SIDs each of which corresponds to a link between the traffic generator and the DUT. If using fcbb:bbbb:: as the locator block, the SRv6 SIDs of a traffic generator, with I as device index and N ports connected to the switch, can be as fcbb:bbbb:hex(I << 8 + 1)::/48 ~ fcbb:bbbb:hex(I << 8 + N)::/48.
 - The DUT should have a static route entry configured for each SRv6 SID that its neighbors (including both DUTs and TGs) have.
 
-An example configuration for snake topology is shown below:
-```
-{
-    "INTERFACE": {
-        "Ethernet0": {},
-        "Ethernet0|10.0.3.2/30": {},
-        "Ethernet0|fc0a::302/126": {},
-        "Ethernet1": {},
-        "Ethernet1|10.0.4.1/30": {},
-        "Ethernet1|fc0a::401/126": {},
-        "Ethernet2": {},
-        "Ethernet2|10.0.4.2/30": {},
-        "Ethernet2|fc0a::402/126": {},
-        "Ethernet3": {},
-        "Ethernet3|10.0.5.1/30": {},
-        "Ethernet3|fc0a::501/126": {},
-        "Ethernet4": {},
-        "Ethernet4|10.0.5.2/30": {},
-        "Ethernet4|fc0a::502/126": {},
-        "Ethernet5": {},
-        "Ethernet5|10.0.6.1/30": {},
-        "Ethernet5|fc0a::601/126": {},
-        "Ethernet6": {},
-        "Ethernet6|10.0.6.2/30": {},
-        "Ethernet6|fc0a::602/126": {},
-        "Ethernet7": {},
-        "Ethernet7|10.0.7.1/30": {},
-        "Ethernet7|fc0a::701/126": {},
-        "Ethernet8": {},
-        "Ethernet8|10.0.7.2/30": {},
-        "Ethernet8|fc0a::702/126": {},
-        "Ethernet9": {},
-        "Ethernet9|10.0.8.1/30": {},
-        "Ethernet9|fc0a::801/126": {}
-    },
-    "STATIC_ROUTE": {
-        "default|fcbb:bbbb:2::/48": {
-            "nexthop": "fc0a::402",
-            "ifname": "Ethernet1"
-        },
-        "default|fcbb:bbbb:3::/48": {
-            "nexthop": "fc0a::502",
-            "ifname": "Ethernet3"
-        },
-        "default|fcbb:bbbb:4::/48": {
-            "nexthop": "fc0a::602",
-            "ifname": "Ethernet5"
-        },
-        "default|fcbb:bbbb:5::/48": {
-            "nexthop": "fc0a::702",
-            "ifname": "Ethernet7"
-        },
-        "default|fcbb:bbbb:206::/48": {
-            "nexthop": "fc0a::802",
-            "ifname": "Ethernet9"
-        }
-    },
-    "SRV6_MY_LOCATORS": {
-        "loc1": {
-            "prefix": "fcbb:bbbb:1::",
-            "func_len": 0
-        },
-        "loc2": {
-            "prefix": "fcbb:bbbb:2::",
-            "func_len": 0
-        },
-        "loc3": {
-            "prefix": "fcbb:bbbb:3::",
-            "func_len": 0
-        },
-        "loc4": {
-            "prefix": "fcbb:bbbb:4::",
-            "func_len": 0
-        },
-        "loc5": {
-            "prefix": "fcbb:bbbb:5::",
-            "func_len": 0
-        }
-    },
-    "SRV6_MY_SIDS": {
-        "loc1|fcbb:bbbb:1::/48": {
-            "action": "uN",
-            "decap_dscp_mode": "pipe"
-        },
-        "loc2|fcbb:bbbb:2::/48": {
-            "action": "uN",
-            "decap_dscp_mode": "pipe"
-        },
-        "loc3|fcbb:bbbb:3::/48": {
-            "action": "uN",
-            "decap_dscp_mode": "pipe"
-        },
-        "loc4|fcbb:bbbb:4::/48": {
-            "action": "uN",
-            "decap_dscp_mode": "pipe"
-        },
-        "loc5|fcbb:bbbb:5::/48": {
-            "action": "uN",
-            "decap_dscp_mode": "pipe"
-        }
-    }
-}
-```
+For the snake topology, the network configuration will be more complex because:
+- Two router interfaces in SONiC cannot belong to the same subnet, so the interconnected pairs of switch ports need to be configured with different VRFs.
+- By default all SONiC router interfaces use the same router mac addresses but two interconnected interfaces cannot have the same mac address. One way to resolve this issue is to put every router interface in a VLAN and then customize the MAC address of the VLAN interface.
+- Different hardware platforms have different compatabilities between SRv6 and VRF. If the switch ASIC being used does not support SRv6 MY_SID lookup in non-default VRFs, the user should put the receiving interface in the default VRF and then set the successive static route to use an interface in a non-default VRF. To allow a single interface to carry both ingress and egress traffic, the user may configure two subinterfaces on it and then put one of the subinterface in the default VRF for ingress traffic while keeping the other subinterface in a non-default VRF for egress traffic.
+
 
 ### Traffic Generation Configuration
 
