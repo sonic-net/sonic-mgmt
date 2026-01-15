@@ -1,5 +1,5 @@
 # snmp variables
-snmp_rocommunity: strcommunity
+snmp_rocommunity: public
 snmp_location: str
 bgp_gr_timer: 700
 
