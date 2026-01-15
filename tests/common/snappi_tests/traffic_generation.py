@@ -854,9 +854,13 @@ def run_response_time_test(duthost,
     time.sleep(10)
     pre_pause_ti.StopStatelessTrafficBlocking()
     TI_Statistics = StatViewAssistant(ixnetwork, 'Traffic Item Statistics')
-    last_time_stamp = float(TI_Statistics.Rows[1]["Last TimeStamp"].split(':')[-1]) * 1000
-    ce.TransmissionControl.StartDelayUnits = 'milliseconds'
-    ce.TransmissionControl.StartDelay = int(last_time_stamp)
+    last_time_stamp = float(TI_Statistics.Rows[1]["Last TimeStamp"].split(':')[-1])
+    first_time_stamp = float(TI_Statistics.Rows[1]["First TimeStamp"].split(':')[-1])
+    Delay = (last_time_stamp - first_time_stamp) * 1000000000
+    # Consider Last timestamp - First timestamp as the delay for Pause frames.
+    # It will be in nanoseconds and convert accordingly.
+    ce.TransmissionControl.StartDelayUnits = 'nanoseconds'
+    ce.TransmissionControl.StartDelay = int(Delay)
 
     logger.info("Starting transmit on test flow ...")
     test_flow_ti = ixnetwork.Traffic.TrafficItem.find(Name='Test Flow Prio 3')[0]
@@ -938,7 +942,7 @@ def run_response_time_test(duthost,
     flow_metrics = api.get_metrics(request).flow_metrics
     logger.info("Stopping transmit on all remaining flows")
     cs = api.control_state()
-    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.START
+    cs.traffic.flow_transmit.state = cs.traffic.flow_transmit.STOP
     api.set_control_state(cs)
 
     return flow_metrics
