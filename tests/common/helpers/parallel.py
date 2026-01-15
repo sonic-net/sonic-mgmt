@@ -259,13 +259,20 @@ def reset_ansible_local_tmp(target):
         # Reset the ansible default local tmp directory for the current subprocess
         # Otherwise, multiple processes could share a same ansible default tmp directory and there could be conflicts
         from ansible import constants
+        original_default_local_tmp = constants.DEFAULT_LOCAL_TMP
         prefix = 'ansible-local-{}'.format(os.getpid())
         constants.DEFAULT_LOCAL_TMP = tempfile.mkdtemp(prefix=prefix)
+        logger.info(f"Change ansible local tmp directory from {original_default_local_tmp}"
+                    f" to {constants.DEFAULT_LOCAL_TMP}")
         try:
             target(*args, **kwargs)
         finally:
             # User of tempfile.mkdtemp need to take care of cleaning up.
             shutil.rmtree(constants.DEFAULT_LOCAL_TMP)
+            # in case the there's other ansible module calls after the reset_ansible_local_tmp
+            # in the same process, we need to restore back by default to avoid conflicts
+            constants.DEFAULT_LOCAL_TMP = original_default_local_tmp
+            logger.info(f"Restored ansible default local tmp directory to: {original_default_local_tmp}")
 
     wrapper.__name__ = target.__name__
 
