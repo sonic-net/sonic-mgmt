@@ -5151,3 +5151,18 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.166/17
+
+- conf-name: vms29-ut2-route-conv-7280
+  group-name: vms20-ixia-12
+  topo: tgen_t2_2lc_masic_route_conv
+  ptf_image_name: docker-keysight-api-server
+  ptf: vms20-ixia-12
+  ptf_ip: 10.64.247.89/26
+  ptf_ipv6:
+  server: server_20
+  vm_base:
+  dut:
+  - str-7280dr3-1
+  inv_name: ixia
+  auto_recover: 'False'
+  comment: yatishkoul
