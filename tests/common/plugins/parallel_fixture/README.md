@@ -86,7 +86,25 @@ The plugin relies on several pytest hooks to orchestrate the flow:
 * **`pytest_runtest_teardown`**: Restarts the parallel manager to prepare for the teardown phase.
 * **`pytest_runtest_logreport`**: Terminates the parallel manager gracefully after teardown is complete.
 
-## 6. Usage Example
+## 6. Deadlock Handling
+
+The Parallel Fixture Manager introduces multi-threading to the test execution environment. When combined with multi-processing (e.g., Ansible execution, `multiprocessing.Process`), this creates a risk of deadlocks, particularly involving logging locks.
+
+A common scenario is:
+1. Thread A (main thread) calls a logging function and acquires the logging lock.
+2. Thread B (parallel fixture manager worker) forks a new process (e.g., to run an Ansible task).
+3. The child process inherits the memory state, including the held logging lock.
+4. Since Thread A does not exist in the child process, the lock remains held indefinitely.
+5. If the child process tries to log something, it attempts to acquire the lock and deadlocks.
+
+To prevent this, the framework (in `tests/common/helpers/parallel.py`) leverages `os.register_at_fork` hooks to:
+*   Acquire logging locks before forking.
+*   Release logging locks after forking (in both parent and child).
+*   Handle Ansible display locks similarly.
+
+This ensures that **locks are always in a released state within the child process immediately after forking**.
+
+## 7. Usage Example
 
 Fixtures interact with the parallel manager via the `parallel_manager` fixture.
 
