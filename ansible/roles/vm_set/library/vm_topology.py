@@ -1223,32 +1223,32 @@ class VMTopology(object):
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ipv6,in_port=%s,nw_proto=89,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # added ovs rules for HA
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,action=output:%s" %
-                        (br_name, dut_iface_id, vm_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,action=output:%s" %
-                        (br_name, dut_iface_id, vm_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,action=output:%s" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_src=11364,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_src=11362,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_dst=11364,action=output:%s" %
                         (br_name, vm_iface_id, dut_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,action=output:%s" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_dst=11362,action=output:%s" %
                         (br_name, vm_iface_id, dut_iface_id))
 
         # Add flow for BFD Control packets (UDP port 3784)
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
-                        udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
+                        "udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp6,in_port=%s,\
-                        udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp6,in_port=%s,"
+                        "udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # Add flow for BFD Control packets (UDP port 3784)
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
-                        udp_src=49152,udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
+                        "udp_src=49152,udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp6,in_port=%s,\
-                        udp_src=49152,udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp6,in_port=%s,"
+                        "udp_src=49152,udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
 
         # Add flow from a ptf container to an external iface
-            bind_helper("ovs-ofctl add-flow %s 'table=0,in_port=%s,action=output:%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
                         (br_name, injected_iface_id, dut_iface_id))
 
             if all_cmds:
