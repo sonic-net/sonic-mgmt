@@ -1,4 +1,9 @@
 parameters:
+- name: AGENT_POOL
+  type: object
+  default:
+    name: sonic-ubuntu-1c
+
 - name: TIMEOUT_IN_MINUTES_PR_TEST
   type: number
   default: 480
@@ -27,6 +32,7 @@ parameters:
     MAX_RUN_TEST_MINUTES: 240
     MGMT_COMMIT_HASH: ""
     PTF_MODIFIED: "False"
+    EXPECTED_RESULT: ""
 
 - name: OVERRIDE_PARAMS
   type: object
@@ -37,7 +43,7 @@ jobs:
     displayName: "Get impacted area"
     timeoutInMinutes: 20
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -57,7 +63,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -79,6 +85,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -91,7 +98,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -114,6 +121,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -126,7 +134,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -148,6 +156,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -160,7 +169,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -182,6 +191,7 @@ jobs:
           COMMON_EXTRA_PARAMS: "--disable_loganalyzer --disable_sai_validation "
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -194,7 +204,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -221,6 +231,7 @@ jobs:
               {"name": "bgp/test_bgp_fact.py", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"},
               {"name": "macsec", "param": "--neighbor_type=sonic --enable_macsec --macsec_profile=128_SCI,256_XPN_SCI"}
             ]'
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -233,7 +244,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -258,6 +269,7 @@ jobs:
           SPECIFIC_PARAM: '[
               {"name": "dash/test_dash_vnet.py", "param": "--skip_dataplane_checking"}
             ]'
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -271,7 +283,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -294,6 +306,7 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
 
@@ -306,7 +319,7 @@ jobs:
       TEST_SCRIPTS: $[ dependencies.get_impacted_area.outputs['SetVariableTask.TEST_SCRIPTS'] ]
     timeoutInMinutes: ${{ parameters.TIMEOUT_IN_MINUTES_PR_TEST }}
     continueOnError: false
-    pool: sonic-ubuntu-1c
+    pool: ${{ parameters.AGENT_POOL }}
     steps:
       - ${{ if eq(parameters.CHECKOUT_SONIC_MGMT, true) }}:
         - checkout: ${{ parameters.SONIC_MGMT_NAME }}
@@ -329,5 +342,6 @@ jobs:
           KVM_IMAGE_BRANCH: $(BUILD_BRANCH)
           MGMT_BRANCH: $(BUILD_BRANCH)
           COMMON_EXTRA_PARAMS: "--disable_sai_validation "
+          EXPECTED_RESULT: "SUCCESS"
           ${{ each param in parameters.OVERRIDE_PARAMS }}:
             ${{ param.key }}: ${{ param.value }}
