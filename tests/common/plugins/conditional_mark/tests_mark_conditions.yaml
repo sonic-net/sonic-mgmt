@@ -35,12 +35,6 @@
           't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
           't1-isolated-v6-d128' ]
 
-test_pretest.py::test_disable_rsyslog_rate_limit:
-  skip:
-    reason: "We don't need to disable the rate limit on vs testbed"
-    conditions:
-      - "asic_type in ['vs']"
-
 #######################################
 #####          custom_acl         #####
 #######################################
@@ -5087,6 +5081,15 @@ test_pktgen.py:
     reason: "No need in M0/Mx/M1"
     conditions:
       - "topo_type in ['m0', 'mx', 'm1']"
+
+#######################################
+#####         pretest             #####
+#######################################
+test_pretest.py::test_disable_rsyslog_rate_limit:
+  skip:
+    reason: "We don't need to disable the rate limit on vs testbed"
+    conditions:
+      - "asic_type in ['vs']"
 
 #######################################
 #####         vs_chassis          #####
