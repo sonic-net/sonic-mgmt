@@ -2,43 +2,41 @@
 #####        Define Anchors       #####
 #######################################
 
-# yaml files don't let an anchor be defined outside a yaml entry, so this block just
-# creates an entry for pre-test but ensure it will always run, then the other
-# conditions can just be used to define anchors for further use in this file
-
-test_pretest.py:
-  skip:
-    reason: "Dummy entry to allow anchors to be defined at the top of this file"
-    conditions_logical_operator: and
-    conditions:
-      - "False" # Ensure pretest always runs
-      - &lossyTopos |
-          topo_name in [
-            't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
-            't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
-            't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
-            't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
-            't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
-            't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
-            't1-isolated-d224u8', 't1-isolated-v6-d224u8',
-            't1-isolated-d28u1', 't1-isolated-v6-d28u1',
-            't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
-            't1-isolated-d448u16', 't1-isolated-v6-d448u16',
-            't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
-            't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
-      - &noVxlanTopos |
-          topo_name in [
-            't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
-            't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
-            't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
-            't1-isolated-d56u2', 't1-isolated-d56u1-lag',
-            't1-isolated-d448u15-lag', 't1-isolated-d128',
-            't1-isolated-d32', 't1-isolated-v6-d56u2',
-            't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
-            't1-isolated-v6-d128' ]
+# This entry should not match any tests, it is just for defining anchors
+# yaml files don't let an anchor be defined outside a yaml entry, so this entry just
+# creates an entry defining anchors by &anchor_name. The anchors are like variables that can be reused
+# in later conditions by syntax like *anchor_name.
+# The name of this entry can ensure that is is sorted to the top of the file.
+# Because it does not match any tests, so the schema of this entry can be flexible.
+0000aaaa_dummy_entry:
+  anchors:
+    - &lossyTopos |
+        topo_name in [
+          't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
+          't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
+          't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
+          't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
+          't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
+          't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+          't1-isolated-d224u8', 't1-isolated-v6-d224u8',
+          't1-isolated-d28u1', 't1-isolated-v6-d28u1',
+          't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
+          't1-isolated-d448u16', 't1-isolated-v6-d448u16',
+          't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
+          't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
+    - &noVxlanTopos |
+        topo_name in [
+          't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
+          't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
+          't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
+          't1-isolated-d56u2', 't1-isolated-d56u1-lag',
+          't1-isolated-d448u15-lag', 't1-isolated-d128',
+          't1-isolated-d32', 't1-isolated-v6-d56u2',
+          't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
+          't1-isolated-v6-d128' ]
 
 #######################################
-#####          cutsom_acl         #####
+#####          custom_acl         #####
 #######################################
 acl:
   skip:
