@@ -428,9 +428,11 @@ _PARALLEL_MANAGER = None
 
 
 @pytest.fixture(scope="session", autouse=True)
-def parallel_manager():
+def parallel_manager(tbinfo):
+    dut_count = len(tbinfo.get("duts", []))
+    worker_count = max(dut_count * 8, 16)
     global _PARALLEL_MANAGER
-    _PARALLEL_MANAGER = ParallelFixtureManager(worker_count=16)
+    _PARALLEL_MANAGER = ParallelFixtureManager(worker_count=worker_count)
     _PARALLEL_MANAGER.current_scope = TaskScope.SESSION
     return _PARALLEL_MANAGER
 
