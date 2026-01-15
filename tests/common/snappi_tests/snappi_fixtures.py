@@ -341,7 +341,7 @@ def __portchannel_intf_config(config, port_config_list, duthost, snappi_ports):
         v4_entry = next((e for e in entries if __valid_ipv4_addr(e['addr'])), None)
         v6_entry = next((e for e in entries if not __valid_ipv4_addr(e['addr'])), None)
 
-        # Added fix to select member_port_id based on peer_port and peer_dut
+        # Added fix to select member_port_id based on peer_port and peer_dut.
         member_port_ids = [
             int(sp['port_id'])
             for sp in (snappi_ports)
