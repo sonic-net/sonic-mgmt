@@ -105,6 +105,7 @@ def verify_expected_loganalyzer_logs(
         ".*ERR.* mlnx_create_route_async.* Entry Already Exists.",
         ".*ERR.* object key SAI_OBJECT_TYPE_ROUTE_ENTRY:.* already exists.*",  # TODO move to expectRegex
         ".*ERR.* addRoutePost: Failed to create route.*",  # TODO move to expectRegex
+        r".*ERR pidof\[\d+\]: can't read from \d+\/stat.*"
     ]
     if loganalyzer:
         # Skip if loganalyzer is disabled
