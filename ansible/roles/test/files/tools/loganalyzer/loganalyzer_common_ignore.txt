@@ -437,3 +437,6 @@ r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
+
+# This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
+r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"
