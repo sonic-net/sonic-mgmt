@@ -118,6 +118,8 @@ pytest_plugins = ('tests.common.plugins.ptfadapter',
                   'tests.common.fixtures.duthost_utils',
                   'tests.common.plugins.parallel_fixture')
 
+patch_ansible_worker_process()
+
 
 patch_ansible_worker_process()
 fix_logging_handler_fork_lock()
