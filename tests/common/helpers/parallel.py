@@ -1,3 +1,4 @@
+import ansible
 import datetime
 import logging
 import math
@@ -10,6 +11,7 @@ import time
 import traceback
 from multiprocessing import Process, Manager, Pipe, TimeoutError
 from multiprocessing.pool import ThreadPool
+from ansible.executor.process.worker import WorkerProcess
 
 from psutil import wait_procs
 
@@ -25,6 +27,23 @@ _forked_handlers_lock = threading.Lock()
 os.register_at_fork(before=logging._acquireLock,
                     after_in_parent=logging._releaseLock,
                     after_in_child=logging._releaseLock)
+display = ansible.utils.display.Display()
+os.register_at_fork(before=display._lock.acquire,
+                    after_in_parent=display._lock.release,
+                    after_in_child=display._lock.release)
+
+
+def patch_ansible_worker_process():
+    """Patch AnsibleWorkerProcess to avoid logging deadlock after fork."""
+
+    def start(self):
+        self._save_stdin()
+        try:
+            return super(WorkerProcess, self).start()
+        finally:
+            self._new_stdin.close()
+
+    WorkerProcess.start = start
 
 
 def _fix_logging_handler_fork_lock():
@@ -36,13 +55,17 @@ def _fix_logging_handler_fork_lock():
         if hasattr(logger, 'handlers'):
             handlers.update(logger.handlers)
     for handler in handlers:
+        new_handlers = []
         with _forked_handlers_lock:
             if handler not in _forked_handlers and handler.lock:
                 os.register_at_fork(before=handler.lock.acquire,
                                     after_in_parent=handler.lock.release,
                                     after_in_child=handler.lock.release)
-                logging.debug("Add handler %s to forked handlers list", handler)
+                new_handlers.append(handler)
                 _forked_handlers.add(handler)
+
+        if new_handlers:
+            logging.debug("Add handler %s to forked handlers list", new_handlers)
 
 
 class SonicProcess(Process):
