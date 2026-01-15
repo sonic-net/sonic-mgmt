@@ -30,6 +30,8 @@ def manage_auditd(duthosts, enum_rand_one_per_hwsku_hostname):
     """
     duthost = duthosts[enum_rand_one_per_hwsku_hostname]
 
+    duthost.command("docker start auditd")
+    duthost.command("docker start auditd_watchdog")
     duthost.command("sudo systemctl stop auditd")
     output = duthost.command("sudo systemctl is-active auditd", module_ignore_errors=True)["stdout"]
     pytest_assert(output != "active", "auditd service is still running when it should be inactive")
@@ -59,7 +61,7 @@ def extract_audit_timestamp(logs, include_seq=False):
             - If True: extracts the full timestamp with sequence number (e.g., '1688329461.744:1123').
 
     Returns:
-        str: The extracted timestamp or full timestamp with sequence, or an empty string if not found.
+        list: Extracted timestamps or empty list if none found.
 
     Regex explanation:
         - r'audit\((\d+\.\d+):\d+\)' matches the timestamp only.
@@ -72,10 +74,10 @@ def extract_audit_timestamp(logs, include_seq=False):
 
     Example:
         log1: "type=SYSCALL msg=audit(1688329461.744:1123): arch=c000003e syscall=59 ..."
-        - extract_audit_timestamp([log1], include_seq=False) --> '1688329461.744'
+        - extract_audit_timestamp([log1], include_seq=False) --> ['1688329461.744']
 
         log2: "type=PATH msg=audit(1688329461.744:1124): item=0 name=\"/usr/bin/docker\" ..."
-        - extract_audit_timestamp([log2], include_seq=True) --> '1688329461.744:1124'
+        - extract_audit_timestamp([log2], include_seq=True) --> ['1688329461.744:1124']
     """
 
     # Choose regex based on whether to include the sequence number
@@ -181,7 +183,7 @@ def test_all_rules(localhost,
     # Trigger docker_commands
     ssh_remote_run(localhost, dutip, creds['sonicadmin_user'], creds['sonicadmin_password'], "docker ps")
 
-    # Stop auditd to seach for logs
+    # Stop auditd to search for logs
     duthost.command("sudo systemctl stop auditd")
 
     """
@@ -235,11 +237,12 @@ def test_all_rules(localhost,
                 # No need to verify type=PATH for user_group_management
                 continue
 
-            full_timestamp = extract_audit_timestamp(logs, include_seq=True)
-            cmd = f"""sudo zgrep '{full_timestamp}' /var/log/syslog* """
-            logs = duthost.shell(cmd)["stdout_lines"]
-            assert is_log_valid("type=PATH", logs), \
-                f"Auditd {key} rule does not contain the PATH logs"
+            timestamp_list = extract_audit_timestamp(logs, include_seq=True)
+            for timestamp in timestamp_list:
+                cmd = f"""sudo zgrep '{timestamp}' /var/log/syslog* """
+                logs = duthost.shell(cmd)["stdout_lines"]
+                assert is_log_valid("type=PATH", logs), \
+                    f"Auditd {key} rule does not contain the PATH logs"
 
     # Search test file-based auditd rules using 'sudo chown root:root <file>' #
     for key, paths in file_key_file_mapping.items():
