@@ -5134,3 +5134,20 @@
   comment: Beijing Lab
   ptf_extra_mgmt_ip:
     - 172.16.188.165/17
+
+- conf-name: testbed-bjw3-can-720dtm-1
+  group-name: bjw3-1-4
+  topo: mx
+  ptf_image_name: docker-ptf
+  ptf: bjw3-1-4
+  ptf_ip: 10.150.239.29/23
+  ptf_ipv6: 2404:f801:10:16::a96:ef1c/64
+  server: server_bjw3_1
+  vm_base: VM19000
+  dut:
+    - bjw3-can-720dtm-1
+  inv_name: bjw3
+  auto_recover: 'True'
+  comment: Beijing Lab
+  ptf_extra_mgmt_ip:
+    - 172.16.188.166/17
