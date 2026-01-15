@@ -325,6 +325,10 @@ class TestPlanManager(object):
         sonic_mgmt_pull_request_id = ""
         if MGMT_REPO_FLAG in kwargs.get("source_repo"):
             sonic_mgmt_pull_request_id = pr_id
+        sonic_metadata_pull_request_id = ""
+        # If triggered by metadata repo, use pull request id as the code base
+        if "sonic-metadata" in kwargs.get("source_repo"):
+            sonic_metadata_pull_request_id = pr_id
 
         # If triggered by buildimage repo, use image built from the buildId
         kvm_image_build_id = kvm_build_id
@@ -383,6 +387,7 @@ class TestPlanManager(object):
                 "sonic_metadata": {
                     "repo_url": INTERNAL_SONIC_METADATA_REPO,
                     "branch": "master",
+                    "pull_request_id": sonic_metadata_pull_request_id
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
