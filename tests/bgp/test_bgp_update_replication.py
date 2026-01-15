@@ -195,14 +195,16 @@ def setup_bgp_peers(
         bgp_peers.append(peer)
 
     # Start sessions
-    for peer in bgp_peers:
-        peer.start_session()
-
-    yield bgp_peers
-
-    # End sessions
-    for peer in bgp_peers:
-        peer.stop_session()
+    started_peers = []
+    try:
+        for peer in bgp_peers:
+            started_peers.append(peer)
+            peer.start_session()
+        yield bgp_peers
+    finally:
+    # Always cleanup, even on setup failure
+        for peer in started_peers:
+            peer.stop_session()
 
 
 '''
