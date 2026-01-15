@@ -77,7 +77,7 @@ def snappi_api(snappi_api_serv_ip,
         tbinfo (pytest fixture): fixture provides information about testbed.
     """
 
-    if not "ptf_image_name" in tbinfo:
+    if "ptf_image_name" not in tbinfo:
         logger.error('Cannot get ptf_image_name in tbinfo {}'.format(tbinfo))
         return None
 
