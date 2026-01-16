@@ -89,6 +89,7 @@ topology:
             Ethernet12: {EndDevice: SD4, EndPort: Ethernet12, params: def_link}
             Ethernet16: {EndDevice: T1, EndPort: 1/7, params: def_tg_link}
             Ethernet20: {EndDevice: T1, EndPort: 1/8, params: def_tg_link}
+            Ethernet28: {EndDevice: SD1, EndPort: Ethernet28, params: def_link}
 
     SD3:
         interfaces:
@@ -126,11 +127,15 @@ topology:
             eth1: {EndDevice: SD3, EndPort: Ethernet40, params: def_link}
             eth2: {EndDevice: SD4, EndPort: Ethernet40, params: def_link}
             eth3: {EndDevice: SD4, EndPort: Ethernet48, params: def_link}
+            eth4: {EndDevice: SD2, EndPort: Ethernet32, params: def_link}
+            eth5: {EndDevice: SD2, EndPort: Ethernet36, params: def_link}
+            eth6: {EndDevice: SD3, EndPort: Ethernet56, params: def_link}
 
     SD8:
         interfaces:
             eth1: {EndDevice: SD3, EndPort: Ethernet44, params: def_link}
             eth2: {EndDevice: SD4, EndPort: Ethernet44, params: def_link}
+            eth3: {EndDevice: SD4, EndPort: Ethernet52, params: def_link}
 
     SD9:
         interfaces:
