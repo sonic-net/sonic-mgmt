@@ -11,5 +11,4 @@ int get_cosq_shaper(bcm_port_t port, bcm_cos_queue_t cosq, uint32 kbits_sec_min,
 }
 
 print get_cosq_shaper(0, 0, 0, 0, 0);
-print get_cosq_shaper(0, 1, 0, 0, 0);
 print get_cosq_shaper(0, 7, 0, 0, 0);

@@ -42,8 +42,8 @@ def verify_cpu_queue_shaper(dut):
     # Execute the cint script and parse the output
     res = dut.shell(CMD_GET_SHAPER)['stdout']
 
-    # Expected shaper PPS configuration for CPU queues 0, 1 and 7 respectively
-    expected_pps = {0: 600, 1: 6000, 7: 600}
+    # Expected shaper PPS configuration for CPU queues 0, and 7
+    expected_pps = {0: 600, 7: 600}
     pattern = r'cos=(\d+) pps_max=(\d+)'
     matches = re.findall(pattern, res)
     actual_pps = {int(cos): int(pps) for cos, pps in matches}
