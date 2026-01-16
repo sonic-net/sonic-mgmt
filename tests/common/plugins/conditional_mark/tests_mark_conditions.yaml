@@ -2,43 +2,41 @@
 #####        Define Anchors       #####
 #######################################
 
-# yaml files don't let an anchor be defined outside a yaml entry, so this block just
-# creates an entry for pre-test but ensure it will always run, then the other
-# conditions can just be used to define anchors for further use in this file
-
-test_pretest.py:
-  skip:
-    reason: "Dummy entry to allow anchors to be defined at the top of this file"
-    conditions_logical_operator: and
-    conditions:
-      - "False" # Ensure pretest always runs
-      - &lossyTopos |
-          topo_name in [
-            't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
-            't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
-            't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
-            't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
-            't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
-            't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
-            't1-isolated-d224u8', 't1-isolated-v6-d224u8',
-            't1-isolated-d28u1', 't1-isolated-v6-d28u1',
-            't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
-            't1-isolated-d448u16', 't1-isolated-v6-d448u16',
-            't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
-            't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
-      - &noVxlanTopos |
-          topo_name in [
-            't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
-            't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
-            't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
-            't1-isolated-d56u2', 't1-isolated-d56u1-lag',
-            't1-isolated-d448u15-lag', 't1-isolated-d128',
-            't1-isolated-d32', 't1-isolated-v6-d56u2',
-            't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
-            't1-isolated-v6-d128' ]
+# This entry should not match any tests, it is just for defining anchors
+# yaml files don't let an anchor be defined outside a yaml entry, so this entry just
+# creates an entry defining anchors by &anchor_name. The anchors are like variables that can be reused
+# in later conditions by syntax like *anchor_name.
+# The name of this entry can ensure that is is sorted to the top of the file.
+# Because it does not match any tests, so the schema of this entry can be flexible.
+0000aaaa_dummy_entry:
+  anchors:
+    - &lossyTopos |
+        topo_name in [
+          't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
+          't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
+          't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
+          't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
+          't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
+          't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+          't1-isolated-d224u8', 't1-isolated-v6-d224u8',
+          't1-isolated-d28u1', 't1-isolated-v6-d28u1',
+          't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
+          't1-isolated-d448u16', 't1-isolated-v6-d448u16',
+          't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
+          't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
+    - &noVxlanTopos |
+        topo_name in [
+          't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
+          't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
+          't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
+          't1-isolated-d56u2', 't1-isolated-d56u1-lag',
+          't1-isolated-d448u15-lag', 't1-isolated-d128',
+          't1-isolated-d32', 't1-isolated-v6-d56u2',
+          't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
+          't1-isolated-v6-d128' ]
 
 #######################################
-#####          cutsom_acl         #####
+#####          custom_acl         #####
 #######################################
 acl:
   skip:
@@ -283,6 +281,12 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####            bgp              #####
 #######################################
+bgp/test_bgp_aggregate_address.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
 bgp/test_bgp_allow_list.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
@@ -3630,17 +3634,9 @@ metadata-scripts/test_multi_hop_upgrade_path.py:
 #######################################
 mpls:
   skip:
-    reason: "Skip running on dualtor testbed and '202412' for now"
-    conditions_logical_operator: "OR"
+    reason: "MPLS feature is not enabled with image version, skipped"
     conditions:
-      - "release in ['202412']"
-      - "'dualtor' in topo_name"
-
-mpls/test_mpls.py:
-  skip:
-    reason: "MPLS TCs are not supported on Barefoot plarforms"
-    conditions:
-      - "asic_type in ['barefoot']"
+      - "'mpls' not in feature_status"
 
 #######################################
 #####           mvrf              #####
@@ -5569,6 +5565,12 @@ vxlan/test_vxlan_decap.py:
     reason: "Skipped due to bug https://github.com/sonic-net/sonic-buildimage/issues/22056"
     conditions:
       - "topo_name in ['t0-isolated-d16u16s1','t0-isolated-d32u32s2'] and https://github.com/sonic-net/sonic-buildimage/issues/22056"
+
+vxlan/test_vxlan_decap_ttl.py:
+  skip:
+    reason: "VxLAN tunnel TTL decap mode test is not supported on multi-ASIC platform. Also this test can only run and currently passes only on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
 
 vxlan/test_vxlan_ecmp.py:
   skip:

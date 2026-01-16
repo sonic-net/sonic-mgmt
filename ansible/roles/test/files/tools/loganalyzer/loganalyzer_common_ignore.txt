@@ -452,6 +452,9 @@ r, ".*ERR pmon.*Failed to unfreeze VDM stats in contextmanager for port.*"
 # https://github.com/sonic-net/sonic-buildimage/issues/21186
 r, ".*ERR bgp\#bgpmon:\s+\*ERROR\*\s+Failed\s+with\s+rc:\d+\s+when\s+execute:\s+.*vtysh.*-c.*show\s+bgp\s+summary\s+json.*"
 
+# https://github.com/sonic-net/sonic-buildimage/issues/24966
+r, ".* ERR bgp#mgmtd.*mgmt_ds_lock: ERROR: lock already taken on DS:running by session-id.*"
+
 # This is an info log which matches the regex "kernel:.*\serr", not an err
 r, ".*ACPI.*System may be unstable or behave erratically.*"
 
@@ -463,3 +466,6 @@ r, ".*ERR .* SAI_API_SWITCH:brcm_sai_switch_pkt_trim_qos_tc_egr_entries_create:.
 
 # Ignore the error when the sysfs was accessed too soon, before sys creation has been completed.
 r, ".*ERR sfputil: Failed to read from file /sys/module/sx_core/asic\d+/module\d+/present - FileNotFoundError.*"
+
+# This is a deprecation warning not a functional error, which matches the regex "kernel:.*allocation", not an err.
+r, ".*kernel.*gpio.*Static allocation of GPIO base is deprecated.*"

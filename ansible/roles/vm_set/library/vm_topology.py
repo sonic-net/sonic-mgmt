@@ -495,14 +495,55 @@ class VMTopology(object):
         VMTopology.cmd('ifconfig %s up' % bridge_name)
 
     def destroy_bridges(self):
+        bridge_count = 0
         for vm in self.vm_names:
             for fp_num in range(self.max_fp_num):
                 fp_br_name = adaptive_name(OVS_FP_BRIDGE_TEMPLATE, vm, fp_num)
+                bridge_count += 1
                 self.destroy_ovs_bridge(fp_br_name)
 
     def destroy_ovs_bridge(self, bridge_name):
         logging.info('=== Destroy bridge %s ===' % bridge_name)
         VMTopology.cmd('ovs-vsctl --if-exists del-br %s' % bridge_name)
+
+    def wait_for_bridges_cleanup(self, bridge_count):
+        """
+        Wait the bridges to be cleaned up.
+        """
+        if bridge_count == 0:
+            logging.info('No bridges to clean up')
+            return
+
+        max_wait = bridge_count * 2
+        check_interval = 5
+        elapsed = 0
+
+        while elapsed < max_wait:
+            # Get remaining bridges
+            out = VMTopology.cmd('ovs-vsctl list-br', ignore_errors=True)
+            all_bridges = [br.strip() for br in out.split('\n') if br.strip()]
+
+            remaining_bridges = []
+            for vm in self.vm_names:
+                vm_bridge_pattern = OVS_FP_BRIDGE_REGEX % vm
+                for br in all_bridges:
+                    if re.match(vm_bridge_pattern, br):
+                        remaining_bridges.append(br)
+
+            remaining_count = len(remaining_bridges)
+
+            if remaining_count == 0:
+                logging.info('All bridges cleaned up successfully in %d seconds' % elapsed)
+                return
+
+            # Log progress every check interval
+            logging.info('Progress: Total %d bridges, %d remaining' % (bridge_count, remaining_count))
+
+            time.sleep(check_interval)
+            elapsed += check_interval
+
+        # Timeout
+        logging.error('Timeout after %d seconds, %d bridges may still exist' % (max_wait, remaining_count))
 
     def add_injected_fp_ports_to_docker(self):
         """
@@ -1223,32 +1264,32 @@ class VMTopology(object):
             bind_helper("ovs-ofctl add-flow %s table=0,priority=10,ipv6,in_port=%s,nw_proto=89,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # added ovs rules for HA
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,action=output:%s" %
-                        (br_name, dut_iface_id, vm_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,action=output:%s" %
-                        (br_name, dut_iface_id, vm_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,action=output:%s" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_src=11364,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_src=11362,action=output:%s,%s" %
+                        (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,udp_dst=11364,action=output:%s" %
                         (br_name, vm_iface_id, dut_iface_id))
-            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,action=output:%s" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,tcp,in_port=%s,tcp_dst=11362,action=output:%s" %
                         (br_name, vm_iface_id, dut_iface_id))
 
         # Add flow for BFD Control packets (UDP port 3784)
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
-                        udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
+                        "udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp6,in_port=%s,\
-                        udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp6,in_port=%s,"
+                        "udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
             # Add flow for BFD Control packets (UDP port 3784)
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp,in_port=%s,\
-                        udp_src=49152,udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp,in_port=%s,"
+                        "udp_src=49152,udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
-            bind_helper("ovs-ofctl add-flow %s 'table=0,priority=10,udp6,in_port=%s,\
-                        udp_src=49152,udp_dst=3784,action=output:%s,%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,priority=10,udp6,in_port=%s,"
+                        "udp_src=49152,udp_dst=3784,action=output:%s,%s" %
                         (br_name, dut_iface_id, vm_iface_id, injected_iface_id))
 
         # Add flow from a ptf container to an external iface
-            bind_helper("ovs-ofctl add-flow %s 'table=0,in_port=%s,action=output:%s'" %
+            bind_helper("ovs-ofctl add-flow %s table=0,in_port=%s,action=output:%s" %
                         (br_name, injected_iface_id, dut_iface_id))
 
             if all_cmds:
