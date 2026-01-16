@@ -700,7 +700,7 @@ function deploy_l1
   echo "Devices to generate config for: $devices"
   echo ""
 
-  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false$@
+  ansible-playbook -i "$inventory" deploy_config_on_testbed.yml --vault-password-file="$passfile" -l "$devices" -e testbed_name="$testbed_name" -e testbed_file=$tbfile -e deploy=true -e save=true -e config_duts=false -e reset_previous_connection=false$@
 
   echo Done
 }
