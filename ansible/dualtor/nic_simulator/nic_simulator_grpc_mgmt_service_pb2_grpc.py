@@ -36,7 +36,7 @@ class DualTorMgmtServiceStub(object):
         )
         self.SetNicServerAdminState = channel.unary_unary(
             '/DualTorMgmtService/SetNicServerAdminState',
-            request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,                                         # noqa E501
+            request_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,                                         # noqa: E501
             response_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,
         )
         self.QueryFlapCounter = channel.unary_unary(
@@ -122,7 +122,7 @@ def add_DualTorMgmtServiceServicer_to_server(servicer, server):
         'SetNicServerAdminState': grpc.unary_unary_rpc_method_handler(
             servicer.SetNicServerAdminState,
             request_deserializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.FromString,
-            response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.SerializeToString,                                          # noqa E501
+            response_serializer=nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.SerializeToString,                                          # noqa: E501
         ),
         'QueryFlapCounter': grpc.unary_unary_rpc_method_handler(
             servicer.QueryFlapCounter,
@@ -157,7 +157,7 @@ class DualTorMgmtService(object):
                                       timeout=None,
                                       metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryAdminForwardingPortState',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,                                         # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,                                         # noqa: E501
                                              nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -174,7 +174,7 @@ class DualTorMgmtService(object):
                                     timeout=None,
                                     metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetAdminForwardingPortState',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,                                         # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfAdminRequest.SerializeToString,                                         # noqa: E501
                                              nic__simulator__grpc__mgmt__service__pb2.ListOfAdminReply.FromString,
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -191,7 +191,7 @@ class DualTorMgmtService(object):
                                 timeout=None,
                                 metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryOperationPortState',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,                                     # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfOperationRequest.SerializeToString,                                     # noqa: E501
                                              nic__simulator__grpc__mgmt__service__pb2.ListOfOperationReply.FromString,
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -208,7 +208,7 @@ class DualTorMgmtService(object):
                 timeout=None,
                 metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetDrop',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,                                          # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfDropRequest.SerializeToString,                                          # noqa: E501
                                              nic__simulator__grpc__mgmt__service__pb2.ListOfDropReply.FromString,
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -225,8 +225,8 @@ class DualTorMgmtService(object):
                                timeout=None,
                                metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/SetNicServerAdminState',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,                           # noqa E501
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,                                    # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateRequest.SerializeToString,                           # noqa: E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfNiCServerAdminStateReply.FromString,                                    # noqa: E501
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -242,7 +242,7 @@ class DualTorMgmtService(object):
                          timeout=None,
                          metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/QueryFlapCounter',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,                                   # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,                                   # noqa: E501
                                              nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.FromString,
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
@@ -259,7 +259,7 @@ class DualTorMgmtService(object):
                          timeout=None,
                          metadata=None):
         return grpc.experimental.unary_unary(request, target, '/DualTorMgmtService/ResetFlapCounter',
-                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,                                   # noqa E501
+                                             nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterRequest.SerializeToString,                                   # noqa: E501
                                              nic__simulator__grpc__mgmt__service__pb2.ListOfFlapCounterReply.FromString,
                                              options, channel_credentials,
                                              insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

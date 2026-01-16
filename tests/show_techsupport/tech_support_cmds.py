@@ -79,8 +79,6 @@ frr_cmds = [
     "vtysh{} -c 'show mpls table'",
     "vtysh{} -c 'show mpls fec'",
     "vtysh{} -c 'show nexthop-group rib'",
-    "vtysh{} -c 'show thread cpu'",
-    "vtysh{} -c 'show thread poll'",
     "vtysh{} -c 'show debugging hashtable'",
     "vtysh{} -c 'show work-queues'",
     "vtysh{} -c 'show memory'",
@@ -115,10 +113,10 @@ bgp_cmds = [
     "vtysh{} -c 'show bgp ipv4 labeled-unicast'",
     "vtysh{} -c 'show bgp ipv6 labeled-unicast'",
     "vtysh{} -c 'show bgp mac hash'",
-    re.compile(r"vtysh(\s+-Ec 'show bgp ipv4 neighbors .* advertised-routes' "
-               "-Ec 'show bgp ipv4 neighbors .* routes')+"),
-    re.compile(r"vtysh(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes' "
-               "-Ec 'show bgp ipv6 neighbors .* routes')+"),
+    re.compile(r"vtysh(?:\s+-n\s+0)?(\s+-Ec 'show bgp ipv4 neighbors .* advertised-routes'(?:\s+-n\s+0)?\s+-Ec"
+               r" 'show bgp ipv4 neighbors .* routes')+"),
+    re.compile(r"vtysh(?:\s+-n\s+0)?(\s+-Ec 'show bgp ipv6 neighbors .* advertised-routes'(?:\s+-n\s+0)?\s+-Ec"
+               r" 'show bgp ipv6 neighbors .* routes')+"),
 
 ]
 
@@ -210,7 +208,7 @@ misc_show_cmds = [
     "show interface transceiver eeprom --dom",
     "show ip interface",
     "show interface counters",
-    "{}show queue counters",
+    "show queue counters",
     "{}netstat -i",
     "{}ifconfig -a",
 ]

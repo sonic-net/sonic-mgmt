@@ -159,6 +159,19 @@ class SonicAsic(object):
         complex_args['namespace'] = self.namespace
         return self.sonichost.show_ip_interface(*module_args, **complex_args)
 
+    def show_ipv6_interface(self, *module_args, **complex_args):
+        """Wrapper for the ansible module 'show_ipv6_interface'
+
+        Args:
+            module_args: other ansible module args passed from the caller
+            complex_args: other ansible keyword args
+
+        Returns:
+            [dict]: [the output of show ipv6 interfaces command]
+        """
+        complex_args['namespace'] = self.namespace
+        return self.sonichost.show_ipv6_interface(*module_args, **complex_args)
+
     def run_sonic_db_cli_cmd(self, sonic_db_cmd):
         cmd = "{} {}".format(self.sonic_db_cli, sonic_db_cmd)
         return self.sonichost.command(cmd, verbose=False)
@@ -199,14 +212,14 @@ class SonicAsic(object):
 
     def get_service_name(self, service):
         if (not self.sonichost.is_multi_asic or
-                service not in self.sonichost.DEFAULT_ASIC_SERVICES):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_SERVICE_NAME.format(service, self.asic_index)
 
     def get_docker_name(self, service):
         if (not self.sonichost.is_multi_asic or
-                service not in self.sonichost.DEFAULT_ASIC_SERVICES):
+                service not in self.sonichost.DEFAULT_ASIC_SERVICES + ['bmp']):
             return service
 
         return self._MULTI_ASIC_DOCKER_NAME.format(service, self.asic_index)
@@ -308,7 +321,7 @@ class SonicAsic(object):
                 return False
         return True
 
-    def get_active_ip_interfaces(self, tbinfo, intf_num="all"):
+    def get_active_ip_interfaces(self, tbinfo, intf_num="all", ip_type="ipv4"):
         """
         Return a dict of active IP (Ethernet or PortChannel) interfaces, with
         interface and peer IPv4 address.
@@ -316,9 +329,15 @@ class SonicAsic(object):
         Returns:
             Dict of Interfaces and their IPv4 address
         """
-        ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        if ip_type == "ipv4":
+            ip_ifs = self.show_ip_interface()["ansible_facts"]["ip_interfaces"]
+        elif ip_type == "ipv6":
+            ip_ifs = self.show_ipv6_interface()["ansible_facts"]["ipv6_interfaces"]
+        else:
+            raise ValueError("Invalid IP type: {}".format(ip_type))
+
         return self.sonichost.active_ip_interfaces(
-            ip_ifs, tbinfo, self.namespace, intf_num=intf_num
+            ip_ifs, tbinfo, self.namespace, intf_num=intf_num, ip_type=ip_type
         )
 
     def bgp_drop_rule(self, ip_version, state="present"):
@@ -742,3 +761,10 @@ class SonicAsic(object):
 
     def show_and_parse(self, show_cmd, **kwargs):
         return self.sonichost.show_and_parse("{}{}".format(self.ns_arg, show_cmd), **kwargs)
+
+    def get_vtysh_cmd_for_namespace(self, cmd):
+        if not self.sonichost.is_multi_asic:
+            return cmd
+
+        ns_cmd = cmd.replace('vtysh', 'vtysh -n {}'.format(self.asic_index))
+        return ns_cmd

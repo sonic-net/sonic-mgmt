@@ -1,8 +1,12 @@
 import pytest
 import json
+import re
+import logging
 from tests.common import config_reload
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
+
+logger = logging.getLogger(__name__)
 
 CFG_DB_PATH = "/etc/sonic/config_db.json"
 ORIG_CFG_DB = "/etc/sonic/orig_config_db.json"
@@ -10,6 +14,7 @@ UNICAST_CTRS = 4
 MULTICAST_CTRS = 4
 
 pytestmark = [
+    pytest.mark.disable_route_check,
     pytest.mark.topology('any', 't1-multi-asic'),
     pytest.mark.device_type('vs')
 ]
@@ -34,9 +39,9 @@ def get_queuestat_ctrs(duthost, cmd):
     return queue_cnt
 
 
-def check_snmp_cmd_output(duthost, cmd):
+def check_snmp_cmd_output(duthost, cmd, count):
     out_len = len(duthost.shell(cmd)["stdout_lines"])
-    if out_len > 1:
+    if out_len >= count:
         return True
     else:
         return False
@@ -56,16 +61,33 @@ def get_queue_cntrs_oid(interface):
     return queue_cntrs_oid
 
 
-def get_asic_interface(inter_facts):
+def get_dpu_npu_port_list(duthost):
+    dpu_npu_port_list = []
+
+    config_facts = duthost.config_facts(host=duthost.hostname, source="running")['ansible_facts']
+    if config_facts is None:
+        return dpu_npu_port_list
+    if 'PORT' not in config_facts:
+        return dpu_npu_port_list
+    dpu_npu_port_list = [p for p, v in list(config_facts['PORT'].items()) if v.get('role', None) == 'Dpc']
+
+    logger.info(f"dpu npu port list: {dpu_npu_port_list}")
+    return dpu_npu_port_list
+
+
+def get_asic_interface(inter_facts, duthost):
     """
     @summary: Returns interface dynamically based on the asic chosen
               for single/multi-asic sonic host.
     """
     ansible_inter_facts = inter_facts['ansible_interface_facts']
     interface = None
+    internal_port_list = get_dpu_npu_port_list(duthost)
     for key, v in ansible_inter_facts.items():
         # Exclude internal interfaces
         if 'IB' in key or 'Rec' in key or 'BP' in key:
+            continue
+        if key in internal_port_list:
             continue
         if 'Ether' in key and v['active']:
             interface = key
@@ -91,16 +113,20 @@ def test_snmp_queue_counters(duthosts,
     """
 
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
-    if duthost.sonichost.facts['platform_asic'] == 'broadcom':
-        ignore_regex = r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value " \
-            r"\d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*"
-        loganalyzer[duthost.hostname].ignore_regex.extend([ignore_regex])
+    if loganalyzer:
+        ignore_regex_list = [
+            r".* ERR memory_checker: \[memory_checker\] Failed to get container ID of.*",
+            r".* ERR memory_checker: \[memory_checker\] cgroup memory usage file.*"
+            ]
+        if duthost.sonichost.facts['platform_asic'] == 'broadcom':
+            ignore_regex_list.append(r".* ERR swss#orchagent:\s*.*\s*queryAattributeEnumValuesCapability:\s*returned value \d+ is not allowed on SAI_SWITCH_ATTR_(?:ECMP|LAG)_DEFAULT_HASH_ALGORITHM.*")    # noqa: E501
+        loganalyzer[duthost.hostname].ignore_regex.extend(ignore_regex_list)
     global ORIG_CFG_DB, CFG_DB_PATH
     hostip = duthost.host.options['inventory_manager'].get_host(
         duthost.hostname).vars['ansible_host']
     asic = duthost.asic_instance(enum_frontend_asic_index)
     int_facts = asic.interface_facts()['ansible_facts']
-    interface = get_asic_interface(int_facts)
+    interface = get_asic_interface(int_facts, duthost)
     if interface is None:
         pytest.skip("No active interface present on the asic {}".format(asic))
     queue_cntrs_oid = get_queue_cntrs_oid(interface)
@@ -132,6 +158,22 @@ def test_snmp_queue_counters(duthosts,
     else:
         pytest_assert(False, "Buffer Queue list can't be empty if valid interface is selected.")
 
+    if len(iface_buffer_queues) == 1:
+        # We are about to delete the config for all buffer queues
+        # This test has been written with the assumption that only a subset
+        # of the buffer queues will be deleted
+        # Modify the key to avoid deleting all buffer queues on config reload
+        match = re.search(rf"^{interface}\|(?P<low>[0-9]+)-(?P<high>[0-9]+)$", buffer_queue_to_del)
+        pytest_assert(match, "Unknown key format in BUFFER_QUEUE config.")
+        buffer_queue_cfg = data['BUFFER_QUEUE'][buffer_queue_to_del]
+        del data['BUFFER_QUEUE'][buffer_queue_to_del]
+        queue_num_low = match.group("low")
+        queue_num_high = match.group("high")
+        buffer_queue_to_del = "{}|{}-{}".format(interface, queue_num_low, int(queue_num_high) - 1)
+        buffer_queue_to_remain = "{}|{}".format(interface, queue_num_high)
+        data['BUFFER_QUEUE'][buffer_queue_to_del] = buffer_queue_cfg
+        data['BUFFER_QUEUE'][buffer_queue_to_remain] = buffer_queue_cfg
+
     # Add create_only_config_db_buffers entry to device metadata to enable
     # counters optimization and get number of queue counters of Ethernet0 prior
     # to removing buffer queues
@@ -139,7 +181,7 @@ def test_snmp_queue_counters(duthosts,
         = "true"
     load_new_cfg(duthost, data, loganalyzer)
     stat_queue_counters_cnt_pre = get_queuestat_ctrs(duthost, get_queue_stat_cmd) * UNICAST_CTRS
-    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd, stat_queue_counters_cnt_pre)
     queue_counters_cnt_pre = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
 
     # snmpwalk output should get info for same number of buffers as queuestat -p dose
@@ -151,7 +193,7 @@ def test_snmp_queue_counters(duthosts,
     del data['BUFFER_QUEUE'][buffer_queue_to_del]
     load_new_cfg(duthost, data, loganalyzer)
     stat_queue_counters_cnt_post = get_queuestat_ctrs(duthost, get_queue_stat_cmd) * UNICAST_CTRS
-    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd)
+    wait_until(60, 20, 0, check_snmp_cmd_output, duthost, get_bfr_queue_cntrs_cmd, stat_queue_counters_cnt_post)
     queue_counters_cnt_post = get_queue_ctrs(duthost, get_bfr_queue_cntrs_cmd)
     pytest_assert((queue_counters_cnt_post == stat_queue_counters_cnt_post),
                   "Snmpwalk Queue counters actual count {} differs from expected queue stat count values {}".

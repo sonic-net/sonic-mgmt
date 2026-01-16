@@ -3,8 +3,11 @@ Tests related to L2 configuration
 """
 
 import logging
+import os
 import pytest
 import tempfile
+
+from pytest_ansible.errors import AnsibleConnectionFailure
 
 from tests.common import config_reload
 from tests.common.platform.processes_utils import wait_critical_processes
@@ -38,7 +41,7 @@ def generate_backup_filename(prefix):
 
 
 @pytest.fixture(autouse=True)
-def setup_env(duthosts, rand_one_dut_hostname):
+def setup_env(duthosts, rand_one_dut_hostname, tbinfo):
     """
     Setup/teardown fixture for each loopback interface test.
     rollback to check if it goes back to starting config
@@ -50,13 +53,30 @@ def setup_env(duthosts, rand_one_dut_hostname):
     duthost = duthosts[rand_one_dut_hostname]
     CONFIG_DB_BAK = generate_backup_filename("config_db.json")
     duthost.shell("sudo cp {} {}".format(CONFIG_DB, CONFIG_DB_BAK))
+    MINIGRAPH_BAK = generate_backup_filename("minigraph.xml")
+    duthost.shell("sudo cp {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
+    if "dualtor" in tbinfo["topo"]["name"]:
+        # The test tries to load the dut with bare minimum config which
+        # doesn't involve mux config and therefore the mux container
+        # will not start
+        duthost.critical_services.remove("mux")
 
     yield
 
+    if "dualtor" in tbinfo["topo"]["name"]:
+        duthost.critical_services.append("mux")
+
     duthost.shell("sudo cp {} {}".format(CONFIG_DB_BAK, CONFIG_DB))
     duthost.shell("sudo rm -f {}".format(CONFIG_DB_BAK))
+    duthost.shell("sudo cp {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
+    duthost.shell("sudo rm -f {}".format(MINIGRAPH_BAK))
     config_reload(duthost)
     wait_critical_processes(duthost)
+
+    # Clean up pytest cache so l2 testbed does not carry over to other tests
+    folder = "_cache"
+    if os.path.exists(folder):
+        os.system("rm -rf {}".format(folder))
 
 
 def is_table_empty(duthost, table):
@@ -160,19 +180,20 @@ def test_no_hardcoded_tables(duthosts, rand_one_dut_hostname, tbinfo):
     logger.info(
         "Database version before L2 configuration reload: {}".format(db_version_before)
     )
-    # Move minigraph away to avoid config coming from minigraph.
-    MINIGRAPH_BAK = generate_backup_filename("minigraph.xml")
-    duthost.shell("sudo mv {} {}".format(MINIGRAPH, MINIGRAPH_BAK))
+
+    # Remove minigraph to avoid config coming from minigraph.
+    duthost.shell("sudo rm {}".format(MINIGRAPH))
     try:
         config_reload(duthost)
-        wait_critical_processes(duthost)
-        db_version_after = get_db_version(duthost)
-        logger.info(
-            "Database version after L2 configuration reload: {}".format(db_version_after)
-        )
-    finally:
-        # Move minigraph back.
-        duthost.shell("sudo mv {} {}".format(MINIGRAPH_BAK, MINIGRAPH))
+    except AnsibleConnectionFailure as e:
+        # In latest SONiC, config reload command will exit after mgmt interface restart
+        # Then 'duthost' will lost IPV4 connection and throw exception
+        logger.warning(f'Exception after config reload: {e}')
+    wait_critical_processes(duthost)
+    db_version_after = get_db_version(duthost)
+    logger.info(
+        "Database version after L2 configuration reload: {}".format(db_version_after)
+    )
 
     # Verify no minigraph config is present.
     for table in ["TELEMETRY", "RESTAPI"]:

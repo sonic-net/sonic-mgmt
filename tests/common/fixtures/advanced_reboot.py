@@ -21,6 +21,7 @@ from tests.common.dualtor.data_plane_utils import get_peerhost
 from tests.common.dualtor.dual_tor_utils import show_muxcable_status
 from tests.common.fixtures.duthost_utils import check_bgp_router_id
 from tests.common.utilities import wait_until
+from tests.common.helpers.dut_ports import get_vlan_interface_list, get_vlan_interface_info
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ HOST_MAX_COUNT = 126
 TIME_BETWEEN_SUCCESSIVE_TEST_OPER = 420
 PTFRUNNER_QLEN = 1000
 REBOOT_CASE_TIMEOUT = 2100
+PHYSICAL_PORT = "physical_port"
 
 
 class AdvancedReboot:
@@ -40,7 +42,7 @@ class AdvancedReboot:
     Test cases can trigger test start utilizing runRebootTestcase API.
     """
 
-    def __init__(self, request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs):
+    def __init__(self, request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds, **kwargs):
         """
         Class constructor.
         @param request: pytest request object
@@ -85,6 +87,7 @@ class AdvancedReboot:
         self.duthost = duthost
         self.ptfhost = ptfhost
         self.localhost = localhost
+        self.vmhost = vmhost
         self.tbinfo = tbinfo
         self.creds = creds
         self.moduleIgnoreErrors = kwargs["allow_fail"] if "allow_fail" in kwargs else False
@@ -101,6 +104,7 @@ class AdvancedReboot:
         self.lagMemberCnt = 0
         self.vlanMaxCnt = 0
         self.hostMaxCnt = HOST_MAX_COUNT
+        self.packet_capture_location = request.config.getoption("--packet_capture_location")
         if "dualtor" in self.getTestbedType():
             self.dual_tor_mode = True
             peer_duthost = get_peerhost(duthosts, duthost)
@@ -132,6 +136,7 @@ class AdvancedReboot:
         self.bgpV4V6TimeDiff = self.request.config.getoption("--bgp_v4_v6_time_diff")
         self.new_docker_image = self.request.config.getoption("--new_docker_image")
         self.neighborType = self.request.config.getoption("--neighbor_type")
+        self.ceosNeighLacpMultiplier = self.request.config.getoption("--ceos_neighbor_lacp_multiplier")
 
         # Set default reboot limit if it is not given
         if self.rebootLimit is None:
@@ -186,6 +191,15 @@ class AdvancedReboot:
             attr['mgmt_addr'] for dev, attr in list(self.mgFacts['minigraph_devices'].items())
             if attr['hwsku'] == 'Arista-VM'
         ]
+        self.rebootData['packet_capture_location'] = self.packet_capture_location
+
+        if self.packet_capture_location == PHYSICAL_PORT:
+            self.rebootData['vmhost_mgmt_ip'] = self.vmhost.mgmt_ip
+            self.rebootData['vmhost_external_port'] = self.vmhost.external_port
+            self.rebootData['vmhost_username'] = \
+                self.duthost.host.options['variable_manager']._hostvars[self.vmhost.hostname]['vm_host_user']
+            self.rebootData['vmhost_password'] = \
+                self.duthost.host.options['variable_manager']._hostvars[self.vmhost.hostname]['vm_host_password']
 
         self.hostMaxLen = len(self.rebootData['arista_vms']) - 1
         self.lagMemberCnt = len(list(self.mgFacts['minigraph_portchannels'].values())[0]['members'])
@@ -205,9 +219,11 @@ class AdvancedReboot:
                                                   self.mgFacts['minigraph_lo_interfaces'][0]['prefixlen'])
 
         vlan_ip_range = dict()
-        for vlan in self.mgFacts['minigraph_vlan_interfaces']:
-            if type(ipaddress.ip_network(vlan['subnet'])) is ipaddress.IPv4Network:
-                vlan_ip_range[vlan['attachto']] = vlan['subnet']
+        vlan_interfaces = get_vlan_interface_list(self.duthost)
+        for vlan_if_name in vlan_interfaces:
+            vlan_ipv4_entry = get_vlan_interface_info(self.duthost, tbinfo, vlan_if_name, "ipv4")
+            vlan_ip_range[vlan_if_name] = vlan_ipv4_entry['subnet']
+        logger.info('Vlan IP range: {}'.format(vlan_ip_range))
         self.rebootData['vlan_ip_range'] = json.dumps(vlan_ip_range)
 
         self.rebootData['dut_username'] = self.creds['sonicadmin_user']
@@ -218,7 +234,7 @@ class AdvancedReboot:
         testNetwork = ipaddress.ip_address(self.mgFacts['minigraph_vlan_interfaces'][0]['addr']) + \
             (1 << (32 - prefixLen))
         self.rebootData['default_ip_range'] = str(
-            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa F821
+            ipaddress.ip_interface(six.text_type(str(testNetwork) + '/{0}'.format(prefixLen))).network    # noqa: F821
         )
         for intf in self.mgFacts['minigraph_lo_interfaces']:
             if ipaddress.ip_interface(intf['addr']).ip.version == 6:
@@ -364,6 +380,8 @@ class AdvancedReboot:
 
         logger.info('Remove config_db.json so the new image will reload minigraph')
         self.duthost.shell('rm -f /host/old_config/config_db.json')
+        logger.info('Remove golden_config_db.json so the new image will reload minigraph')
+        self.duthost.shell('rm -f /host/old_config/golden_config_db.json')
         logger.info('Remove downloaded tempfile')
         self.duthost.shell('rm -f {}'.format(tempfile))
 
@@ -452,7 +470,7 @@ class AdvancedReboot:
         if rebootOper is None:
             rebootLog = '/tmp/{0}.log'.format(reboot_file_prefix)
             rebootReport = '/tmp/{0}-report.json'.format(reboot_file_prefix)
-            capturePcap = '/tmp/capture.pcap'
+            capturePcap = '/tmp/capture.pcapng'
             filterPcap = '/tmp/capture_filtered.pcap'
             syslogFile = '/tmp/syslog'
             sairedisRec = '/tmp/sairedis.rec'
@@ -909,7 +927,17 @@ class AdvancedReboot:
             "service_data": None if self.rebootType != 'service-warm-restart' else self.service_data,
             "neighbor_type": self.neighborType,
             "kvm_support": True,
+            "ceos_neighbor_lacp_multiplier": self.ceosNeighLacpMultiplier,
+            "packet_capture_location": self.rebootData['packet_capture_location']
         }
+
+        if self.packet_capture_location == PHYSICAL_PORT:
+            params.update({
+                "vmhost_username": self.rebootData['vmhost_username'],
+                "vmhost_password": self.rebootData['vmhost_password'],
+                "vmhost_mgmt_ip": self.rebootData['vmhost_mgmt_ip'],
+                "vmhost_external_port": self.rebootData['vmhost_external_port']
+            })
 
         if self.dual_tor_mode:
             params.update({
@@ -1051,8 +1079,8 @@ class AdvancedReboot:
 
 
 @pytest.fixture
-def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, tbinfo,
-                        creds):
+def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_hostname, ptfhost, localhost, vmhost,
+                        tbinfo, creds):
     """
     Pytest test fixture that provides access to AdvancedReboot test fixture
         @param request: pytest request object
@@ -1060,6 +1088,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         @param ptfhost: PTFHost for interacting with PTF through ansible
         @param localhost: Localhost for interacting with localhost through ansible
         @param tbinfo: fixture provides information about testbed
+        @param vmhost: AnsibleHost instance of the test server
     """
     duthost = duthosts[enum_rand_one_per_hwsku_frontend_hostname]
     instances = []
@@ -1069,7 +1098,7 @@ def get_advanced_reboot(request, duthosts, enum_rand_one_per_hwsku_frontend_host
         API that returns instances of AdvancedReboot class
         """
         assert len(instances) == 0, "Only one instance of reboot data is allowed"
-        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, tbinfo, creds, **kwargs)
+        advancedReboot = AdvancedReboot(request, duthosts, duthost, ptfhost, localhost, vmhost, tbinfo, creds, **kwargs)
         instances.append(advancedReboot)
         return advancedReboot
 

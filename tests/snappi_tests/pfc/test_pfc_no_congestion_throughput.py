@@ -1,22 +1,26 @@
 import pytest
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                           # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut    # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
+    fanout_graph_facts    # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, cleanup_config, get_snappi_ports_for_rdma, snappi_multi_base_config, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters      # noqa: F401
+    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports_single_dut      # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                   # noqa: F401
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
+from tests.snappi_tests.files.helper import adjust_test_flow_rate
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
 
 pytestmark = [pytest.mark.topology('multidut-tgen')]
 
-port_map = [[1, 100, 1, 100]]
+port_map = [[1, 100, 1, 100], [1, 400, 1, 400]]
 
 # Testplan: docs/testplan/PFC_Snappi_Additional_Testcases.md
 # This test-script covers testcase#01-non-congestion(normal).
@@ -112,7 +116,7 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Egress_diff_dist_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Single_Ingress_Egress_diff_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -122,6 +126,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'imix': False,
                 'test_check': test_check,
                 'verify_flows': True}
+
+    adjust_test_flow_rate(duthosts[0], test_def)
 
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
@@ -254,7 +260,7 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Egress_uni_dist_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Single_Ingress_Egress_uni_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -264,6 +270,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'imix': False,
                 'test_check': test_check,
                 'verify_flows': True}
+
+    adjust_test_flow_rate(duthosts[0], test_def)
 
     test_prio_list = lossless_prio_list
     pause_prio_list = test_prio_list
@@ -396,7 +404,7 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Single_Ingress_Egress_1Prio_linerate_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Single_Ingress_Egress_1Prio_linerate_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
                 'enable_pfcwd': True,
@@ -406,6 +414,8 @@ def test_single_lossless_prio(snappi_api,                   # noqa: F811
                 'imix': False,
                 'test_check': test_check,
                 'verify_flows': True}
+
+    adjust_test_flow_rate(duthosts[0], test_def)
 
     # Selecting only one lossless priority for the test.
     test_prio_list = random.sample(lossless_prio_list, 1)

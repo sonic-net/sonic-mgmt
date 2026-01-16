@@ -16,7 +16,7 @@ jobs:
         set -e
 
         echo ${TOKEN} | gh auth login --with-token
-        gh pr list -R sonic-net/sonic-mgmt -A mssonicbld --json url,createdAt,labels,statusCheckRollup > prs.log
+        gh pr list -R sonic-net/sonic-mgmt -A mssonicbld -L 100 --json url,createdAt,labels,statusCheckRollup > prs.log
         cat prs.log | jq
     - name: Main
       run: |

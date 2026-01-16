@@ -22,7 +22,7 @@ LOCAL_LOG_GENERATOR_FILE = os.path.join(BASE_DIR, 'log_generator.py')
 REMOTE_LOG_GENERATOR_FILE = os.path.join('/tmp', 'log_generator.py')
 DOCKER_LOG_GENERATOR_FILE = '/log_generator.py'
 # rsyslogd prints this log when rate-limiting reached
-LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*begin to drop messages due to rate-limiting.*'
+LOG_EXPECT_SYSLOG_RATE_LIMIT_REACHED = '.*rate-limit-test>: begin to drop messages due to rate-limiting.*'
 # Log pattern for tests/syslog/log_generator.py
 LOG_EXPECT_LAST_MESSAGE = '.*{}rate-limit-test: This is a test log:.*'
 
@@ -296,14 +296,24 @@ def wait_rsyslogd_restart(duthost, service_name, old_pid):
     wait_time = 30
     while wait_time > 0:
         wait_time -= 1
-        if get_rsyslogd_pid(duthost, service_name) == old_pid:
+        # Check if new PID obtained (old process replaced)
+        new_pid = get_rsyslogd_pid(duthost, service_name)
+        if not new_pid or new_pid == old_pid:
             time.sleep(1)
             continue
 
         output = duthost.command(cmd, module_ignore_errors=True)['stdout'].strip()
         if 'RUNNING' in output:
-            logger.info('Rsyslogd restarted')
-            return True
+            logger.info('Rsyslogd restarted with new PID: {}'.format(new_pid))
+            # Test if rsyslog is actually ready by sending a test log message
+            test_cmd = "docker exec -i {} bash -c 'echo test | logger -t rate-limit-test'".format(service_name)
+            result = duthost.command(test_cmd, module_ignore_errors=True)
+            if result.get('rc', 1) == 0:
+                logger.info('Rsyslogd restarted and ready')
+                return True
+            else:
+                logger.info('Rsyslog not ready yet, test log failed')
+                continue
 
         time.sleep(1)
 

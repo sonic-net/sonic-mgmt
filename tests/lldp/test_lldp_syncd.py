@@ -7,6 +7,7 @@ import logging
 from tests.common.reboot import reboot, REBOOT_TYPE_COLD
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -37,6 +38,10 @@ def db_instance(duthosts, enum_rand_one_per_hwsku_frontend_hostname):
     appl_db = []
     for asic in duthost.asics:
         appl_db.append(SonicDbCli(asic, APPL_DB))
+    duthost.facts['switch_type'] == "voq"
+    is_chassis = duthost.get_facts().get("modular_chassis")
+    if duthost.facts['switch_type'] == "voq" and not is_chassis:
+        appl_db.append(SonicDbCli(duthost, APPL_DB))
     # Cleanup code here
     return appl_db
 
@@ -82,6 +87,13 @@ def get_lldpctl_output(duthost):
                 resultDict["lldp"]["interface"].extend(
                     json.loads(result)["lldp"]["interface"]
                 )
+        is_chassis = duthost.get_facts().get("modular_chassis")
+        if duthost.facts['switch_type'] == "voq" and not is_chassis:
+            result = duthost.shell(
+                "docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
+            resultDict["lldp"]["interface"].extend([
+                json.loads(result)["lldp"]["interface"]]
+            )
     else:
         result = duthost.shell("docker exec lldp /usr/sbin/lldpctl -f json")["stdout"]
         resultDict = json.loads(result)
@@ -232,9 +244,17 @@ def verify_lldp_table(duthost):
 
 
 def verify_each_interface_lldp_content(db_instance, interface, lldpctl_interfaces):
+    def get_lldp_entry_content_with_retry():
+        nonlocal entry_content
+        entry_content = get_lldp_entry_content(db_instance, interface)
+        return len(entry_content) > 0
 
-    entry_content = get_lldp_entry_content(db_instance, interface)
+    entry_content = ''
+
+    wait_until(30, 1, 0, get_lldp_entry_content_with_retry)
+
     logger.debug("Interface {}, entry_content:{}".format(interface, entry_content))
+    lldpctl_interface = None
     if isinstance(lldpctl_interfaces, dict):
         lldpctl_interface = lldpctl_interfaces.get(interface)
     elif isinstance(lldpctl_interfaces, list):
@@ -296,7 +316,7 @@ def test_lldp_entry_table_after_syncd_orchagent(
         duthost.shell("sudo systemctl restart swss")
     assert wait_until(600, 5, 120, duthost.critical_services_fully_started), \
         "Not all critical services are fully started"
-
+    time.sleep(60)
     # Wait until all interfaces are up and lldp entries are populated
     for interface in lldp_entry_keys:
         result = wait_until(300, 2, 0, verify_lldp_entry, db_instance, interface)

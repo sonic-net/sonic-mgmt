@@ -70,8 +70,8 @@ def get_transceiver_info_firmware_versions(conn, index):
     return sfp_api(conn, index, 'get_transceiver_info_firmware_versions')
 
 
-def get_transceiver_bulk_status(conn, index):
-    return sfp_api(conn, index, 'get_transceiver_bulk_status')
+def get_transceiver_dom_real_value(conn, index):
+    return sfp_api(conn, index, 'get_transceiver_dom_real_value')
 
 
 def get_transceiver_threshold_info(conn, index):
@@ -156,3 +156,7 @@ def get_all_thermals(conn, index):
 
 def get_thermal(conn, index, thermal_index):
     return sfp_api(conn, index, 'get_thermal', [thermal_index])
+
+
+def is_coherent_module(conn, index):
+    return sfp_api(conn, index, 'is_coherent_module')

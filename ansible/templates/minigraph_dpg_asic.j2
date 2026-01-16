@@ -61,9 +61,9 @@
           <Name>V6HostIP</Name>
           <AttachTo>eth0</AttachTo>
           <a:Prefix xmlns:b="Microsoft.Search.Autopilot.Evolution">
-            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
+            <b:IPPrefix>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</b:IPPrefix>
           </a:Prefix>
-          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'FC00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
+          <a:PrefixStr>{{ ansible_hostv6 if ansible_hostv6 is defined else 'fc00:2::32' }}/{{ mgmt_subnet_v6_mask_length if mgmt_subnet_v6_mask_length is defined else '64' }}</a:PrefixStr>
         </a:ManagementIPInterface>
       </ManagementIPInterfaces>
       <ManagementVIPInterfaces xmlns:a="http://schemas.datacontract.org/2004/07/Microsoft.Search.Autopilot.Evolution"/>
@@ -96,7 +96,7 @@
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int]|lower %}
 {% set port_channel_intf=';'.join(vm_asic_ifnames[vms[index]])  %}
         <PortChannel>
-          <Name>PortChannel{{ '10' + ((index+1)|string) }}</Name>
+          <Name>PortChannel{{ (100 + index + 1)|string }}</Name>
           <AttachTo>{{ port_channel_intf }}</AttachTo>
           <SubInterface/>
         </PortChannel>
@@ -144,7 +144,7 @@
         <IPInterface>
           <Name i:nil="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
-          <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
+          <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -153,7 +153,7 @@
         <IPInterface>
           <Name i:Name="true"/>
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][dut_index|int][intf_index]|lower %}
-          <AttachTo>PortChannel{{ '10' + ((index+1)|string) }}</AttachTo>
+          <AttachTo>PortChannel{{ (100 + index + 1)|string }}</AttachTo>
 {% else %}
           <AttachTo>{{ front_panel_asic_ifnames[vm_topo_config['vm'][vms[index]]['interface_indexes'][dut_index|int][0]] }}</AttachTo>
 {% endif %}
@@ -271,7 +271,7 @@
 {%- for index in range(vms_number) %}
 {% if vms[index] in vm_asic_ifnames and vm_asic_ids[vms[index]][0] == asic_name %}
 {% if 'port-channel' in vm_topo_config['vm'][vms[index]]['ip_intf'][0]|lower %}
-{% set a_intf = 'PortChannel' + '10' + ((index+1)|string) %}
+{% set a_intf = 'PortChannel' ~ (100 + index + 1)|string %}
 {{- acl_intfs.append(a_intf) -}}
 {% endif %}
 {% endif %}

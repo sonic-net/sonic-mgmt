@@ -12,6 +12,7 @@ import time
 from tests.common.utilities import InterruptableThread
 import textfsm
 import traceback
+from tests.common.devices.sonic import SonicHost
 
 from natsort import natsorted
 
@@ -28,7 +29,7 @@ cpuSpike = 10
 memSpike = 1.3
 
 pytestmark = [
-    pytest.mark.topology('t1', 't2')
+    pytest.mark.topology('t1', 't2', 'm1', 'lt2', 'ft2')
 ]
 
 
@@ -93,8 +94,15 @@ def setup(tbinfo, nbrhosts, duthosts, enum_frontend_dut_hostname, enum_rand_one_
 
     logger.info("DUT BGP Config: {}".format(duthost.shell("vtysh -n {} -c \"show run bgp\"".format(namespace),
                                                           module_ignore_errors=True)))
-    logger.info("Neighbor BGP Config: {}".format(
-        nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+    # If host it sonic use 'show runningconfig bgp'
+    if isinstance(nbrhosts[tor1]["host"], SonicHost):
+        logger.info("Neighbor BGP Config: {}".format(
+           nbrhosts[tor1]["host"].command("show runningconfig bgp")))
+    else:
+        # Else use industry standard 'show run | sec bgp'
+        logger.info("Neighbor BGP Config: {}".format(
+           nbrhosts[tor1]["host"].eos_command(commands=["show run | section bgp"])))
+
     logger.info('Setup_info: {}'.format(setup_info))
 
     #  get baseline BGP CPU and Memory Utilization
@@ -160,12 +168,13 @@ def test_bgp_single_session_flaps(setup):
         assert stats[index][0] < (stats[0][0] + cpuSpike)
         assert stats[index][1] < (stats[0][1] + cpuSpike)
         assert stats[index][2] < (stats[0][2] + cpuSpike)
-        assert stats[index][3] < (stats[0][3] * memSpike)
-        assert stats[index][4] < (stats[0][4] * memSpike)
-        assert stats[index][5] < (stats[0][5] * memSpike)
-        assert stats[index][6] < (stats[0][6] * memSpike)
-        assert stats[index][7] < (stats[0][7] * memSpike)
-        assert stats[index][8] < (stats[0][8] * memSpike)
+        # Use <= for memory usage comparison because it can be 0 (e.g., No V4 neighbors in V6 topo)
+        assert stats[index][3] <= (stats[0][3] * memSpike)
+        assert stats[index][4] <= (stats[0][4] * memSpike)
+        assert stats[index][5] <= (stats[0][5] * memSpike)
+        assert stats[index][6] <= (stats[0][6] * memSpike)
+        assert stats[index][7] <= (stats[0][7] * memSpike)
+        assert stats[index][8] <= (stats[0][8] * memSpike)
 
         time.sleep(wait_time)
 
@@ -207,12 +216,13 @@ def test_bgp_multiple_session_flaps(setup):
         assert stats[index][0] < (stats[0][0] + cpuSpike)
         assert stats[index][1] < (stats[0][1] + cpuSpike)
         assert stats[index][2] < (stats[0][2] + cpuSpike)
-        assert stats[index][3] < (stats[0][3] * memSpike)
-        assert stats[index][4] < (stats[0][4] * memSpike)
-        assert stats[index][5] < (stats[0][5] * memSpike)
-        assert stats[index][6] < (stats[0][6] * memSpike)
-        assert stats[index][7] < (stats[0][7] * memSpike)
-        assert stats[index][8] < (stats[0][8] * memSpike)
+        # Use <= for memory usage comparison because it can be 0 (e.g., No V4 neighbors in V6 topo)
+        assert stats[index][3] <= (stats[0][3] * memSpike)
+        assert stats[index][4] <= (stats[0][4] * memSpike)
+        assert stats[index][5] <= (stats[0][5] * memSpike)
+        assert stats[index][6] <= (stats[0][6] * memSpike)
+        assert stats[index][7] <= (stats[0][7] * memSpike)
+        assert stats[index][8] <= (stats[0][8] * memSpike)
 
         time.sleep(wait_time)
 

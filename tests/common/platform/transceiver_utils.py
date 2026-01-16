@@ -88,17 +88,29 @@ def check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list):
     else:
         expected_fields = ["type", "vendor_rev", "serial", "manufacturer", "model"]
 
+    cmd_keys = 'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_INFO|Ethernet*"'
+    cmd_hgetall = 'sonic-db-cli STATE_DB HGETALL $key'
+    docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
+    docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
+
+    docker_cmd = f'for key in $({docker_cmd_keys}); do echo "$key : $({docker_cmd_hgetall})" ; done'
+    port_xcvr_info = dut.command(docker_cmd, _uses_shell=True)
+    port_xcvr_info_dict = {}
+    for line in port_xcvr_info["stdout_lines"]:
+        key, value = line.split(":", 1)
+        intf_name = key.split('|')[1].strip()
+        port_xcvr_info_dict[intf_name] = value.strip()
+
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname]:
-            cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_INFO|%s"' % intf
-            docker_cmd = asichost.get_docker_cmd(cmd, "database")
-            port_xcvr_info = dut.command(docker_cmd)
+            port_xcvr_info_value = port_xcvr_info_dict[intf]
             for field in expected_fields:
-                assert port_xcvr_info["stdout"].find(field) >= 0, \
-                    "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info["stdout"], intf)
+                assert port_xcvr_info_value.find(field) >= 0, \
+                    "Expected field %s is not found in %s while checking %s" % (field, port_xcvr_info_value, intf)
 
 
-def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                       lport_to_first_subport_mapping):
     """
     @summary: Check whether all the specified interface are in TRANSCEIVER_DOM_SENSOR redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -112,10 +124,13 @@ def check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_li
     parsed_xcvr_dom_sensor = parse_transceiver_dom_sensor(xcvr_dom_sensor["stdout_lines"])
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
-            assert intf in parsed_xcvr_dom_sensor, "TRANSCEIVER_DOM_SENSOR of %s is not found in DB" % intf
+            assert lport_to_first_subport_mapping[intf] in parsed_xcvr_dom_sensor,\
+                "TRANSCEIVER_DOM_SENSOR of subport %s of %s port is not found in DB" \
+                % (lport_to_first_subport_mapping[intf], intf)
 
 
-def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                         lport_to_first_subport_mapping):
     """
     @summary: Check the detailed TRANSCEIVER_DOM_SENSOR content of all the specified interfaces.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -125,18 +140,33 @@ def check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_
     asichost = dut.asic_instance(asic_index)
     expected_fields = ["temperature", "voltage", "rx1power", "rx2power", "rx3power", "rx4power", "tx1bias",
                        "tx2bias", "tx3bias", "tx4bias", "tx1power", "tx2power", "tx3power", "tx4power"]
+
+    cmd_keys = 'sonic-db-cli STATE_DB KEYS "TRANSCEIVER_DOM_SENSOR|Ethernet*"'
+    cmd_hgetall = 'sonic-db-cli STATE_DB HGETALL $key'
+    docker_cmd_keys = asichost.get_docker_cmd(cmd_keys, "database")
+    docker_cmd_hgetall = asichost.get_docker_cmd(cmd_hgetall, "database")
+
+    docker_cmd = f'for key in $({docker_cmd_keys}); do echo "$key : $({docker_cmd_hgetall})" ; done'
+    port_xcvr_dom_sensor = dut.command(docker_cmd, _uses_shell=True)
+
+    port_xcvr_dom_dict = {}
+    for line in port_xcvr_dom_sensor["stdout_lines"]:
+        key, value = line.split(":", 1)
+        intf_name = key.split('|')[1].strip()
+        port_xcvr_dom_dict[intf_name] = value.strip()
+
     for intf in interfaces:
         if intf not in xcvr_skip_list[dut.hostname] + port_list_with_flat_memory[dut.hostname]:
-            cmd = 'redis-cli -n 6 hgetall "TRANSCEIVER_DOM_SENSOR|%s"' % intf
-            docker_cmd = asichost.get_docker_cmd(cmd, "database")
-            port_xcvr_dom_sensor = dut.command(docker_cmd)
+            first_subport = lport_to_first_subport_mapping[intf]
+            port_xcvr_dom_value = port_xcvr_dom_dict[first_subport]
             for field in expected_fields:
-                assert port_xcvr_dom_sensor["stdout"].find(field) >= 0, \
+                assert port_xcvr_dom_value.find(field) >= 0, \
                     "Expected field %s is not found in %s while checking %s" % (
-                    field, port_xcvr_dom_sensor["stdout"], intf)
+                    field, port_xcvr_dom_value, intf)
 
 
-def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory):
+def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                             lport_to_first_subport_mapping):
     """
     @summary: Check transceiver information of all the specified interfaces in redis DB.
     @param dut: The AnsibleHost object of DUT. For interacting with DUT.
@@ -144,8 +174,10 @@ def check_transceiver_status(dut, asic_index, interfaces, xcvr_skip_list, port_l
     """
     check_transceiver_basic(dut, asic_index, interfaces, xcvr_skip_list)
     check_transceiver_details(dut, asic_index, interfaces, xcvr_skip_list)
-    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
-    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory)
+    check_transceiver_dom_sensor_basic(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                       lport_to_first_subport_mapping)
+    check_transceiver_dom_sensor_details(dut, asic_index, interfaces, xcvr_skip_list, port_list_with_flat_memory,
+                                         lport_to_first_subport_mapping)
 
 
 def get_sfp_eeprom_map_per_port(eeprom_infos):
@@ -389,3 +421,60 @@ def is_passive_cable(sfp_eeprom_info):
                         "CR" in spec_compliance.get("Extended Specification Compliance", " "):
                     return True
     return False
+
+
+def get_passive_cable_port_list(dut):
+    passive_cable_port_list = []
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    for port_name, eeprom_info in eeprom_infos.items():
+        if is_passive_cable(eeprom_info):
+            logging.info(f"{port_name} is passive cable")
+            passive_cable_port_list.append(port_name)
+    logging.info(f"Ports with passive cable are: {passive_cable_port_list}")
+    return passive_cable_port_list
+
+
+def get_cmis_cable_ports_and_ver(dut):
+    cmis_cable_port_to_version_map = {}
+    cmd_show_eeprom = "sudo sfputil show eeprom -d"
+    eeprom_infos = dut.command(cmd_show_eeprom)['stdout']
+    eeprom_infos = parse_sfp_eeprom_infos(eeprom_infos)
+    for port_name, eeprom_info in eeprom_infos.items():
+        if 'CMIS Revision' in eeprom_info:
+            logging.info(f"{port_name} is cmis cable")
+            cmis_cable_port_to_version_map[port_name] = eeprom_info['CMIS Revision']
+    logging.info(f"cmis_cable_port_to_version_map: {cmis_cable_port_to_version_map}")
+    return cmis_cable_port_to_version_map
+
+
+def get_port_expected_error_state_for_mellanox_device_on_sw_control_enabled(
+        intf, passive_cable_ports, cmis_cable_ports_and_ver):
+    expected_state = 'OK'
+    if intf in passive_cable_ports:
+        # for active module, the expected state is OK
+        # for cmis passive module, when cmis ver is 3.0, the expected state is ModuleLowPwr, else it is OK
+        # for non cmis passive module, the expected state is 'Not supported'
+        if intf in cmis_cable_ports_and_ver:
+            expected_state = 'ModuleLowPwr' if cmis_cable_ports_and_ver[intf] == '3.0' else 'OK'
+        else:
+            expected_state = 'Not supported'
+    logging.info(f"port {intf}, expected error state:{expected_state}")
+    return expected_state
+
+
+def is_sw_control_enabled(duthost, port_index):
+    """
+    @summary: This method is for checking if software control SAI attribute set to 1 in sai.profile
+    @param: duthosts: duthosts fixture
+    """
+    sw_control_enabled = False
+    module_path = f'/sys/module/sx_core/asic0/module{int(port_index) - 1}'
+    cmd_check_if_exist_conctrol_file = f'ls {module_path} | grep control'
+    if duthost.shell(cmd_check_if_exist_conctrol_file, module_ignore_errors=True)['stdout']:
+        cmd_get_control_value = f"sudo cat {module_path}/control"
+        if duthost.shell(cmd_get_control_value)['stdout'] == "1":
+            sw_control_enabled = True
+    logging.info(f'The sw control enable of port index {port_index} is {sw_control_enabled}')
+    return sw_control_enabled

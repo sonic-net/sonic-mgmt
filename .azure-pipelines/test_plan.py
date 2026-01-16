@@ -11,17 +11,17 @@ from __future__ import print_function, division
 
 import argparse
 import ast
+import copy
 import json
 import os
-import sys
 import subprocess
-import copy
+import sys
 import time
 from datetime import datetime, timezone
+from enum import Enum
 
 import requests
 import yaml
-from enum import Enum
 
 __metaclass__ = type
 BUILDIMAGE_REPO_FLAG = "buildimage"
@@ -179,6 +179,23 @@ def run_cmd(cmd):
     return stdout, stderr, return_code
 
 
+def get_trigger_type(tp_type: str, build_reason: str):
+    # 1. NIGHTLY type(only nightly test from pipeline)
+    if tp_type.upper() == "NIGHTLY":
+        return "NightlyTest"
+
+    # 2. PR type(pr test or baseline test)
+    # check build reason
+    if build_reason.upper() == "BASELINETEST":
+        return "BaselineTest"
+
+    if build_reason.upper() == "PULLREQUEST":
+        return "PRTest"
+
+    # Else, return None, no impact
+    return None
+
+
 class TestPlanManager(object):
 
     def __init__(self, scheduler_url, frontend_url, client_id, managed_identity_id):
@@ -190,7 +207,8 @@ class TestPlanManager(object):
     def get_token(self):
 
         # 1. Run az login with re-try
-        az_login_cmd = f"az login --identity --username {self.managed_identity_id}"
+        print("az login --identity --client-id")
+        az_login_cmd = f"az login --identity --client-id {self.managed_identity_id}"
         az_login_attempts = 0
         while az_login_attempts < MAX_GET_TOKEN_RETRY_TIMES:
             try:
@@ -251,6 +269,23 @@ class TestPlanManager(object):
         retry_cases_include = parse_list_from_str(kwargs.get("retry_cases_include", None))
         retry_cases_exclude = parse_list_from_str(kwargs.get("retry_cases_exclude", None))
         ptf_image_tag = kwargs.get("ptf_image_tag", None)
+        ptf_modified = kwargs.get("ptf_modified", False)
+        build_reason = kwargs.get("build_reason", "PullRequest")
+        lock_wait_timeout_seconds = kwargs.get("lock_wait_timeout_seconds", 0)
+        # If not set lock tb timeout, set to 2 hours for pr test plans by default
+        if lock_wait_timeout_seconds == 0 and test_plan_type == "PR":
+            lock_wait_timeout_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN_LOCK_TB", 7200))
+        # if not set test plan timeout, set to 6 hours for pr test plans by default
+        max_execute_seconds = kwargs.get("max_execute_seconds", 0)
+        if max_execute_seconds == 0 and test_plan_type == "PR":
+            max_execute_seconds = int(os.environ.get("TIMEOUT_IN_SECONDS_PR_TEST_PLAN", 21600))
+
+        # Check and add GitHub api proxy env to setup-container params
+        setup_container_params = kwargs.get("setup_container_params", "")
+        github_api_proxy = os.getenv("SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL", None)
+        if github_api_proxy:
+            setup_container_params = (f"{setup_container_params} "
+                                      f"-e SONIC_AUTOMATION_PROXY_GITHUB_ISSUES_URL={github_api_proxy}")
 
         print(
             f"Creating test plan, topology: {topology}, name: {test_plan_name}, "
@@ -266,7 +301,7 @@ class TestPlanManager(object):
             # Add topo arg
             if topology in ["t0", "t0-64-32"]:
                 common_extra_params = common_extra_params + " --topology=t0,any"
-            elif topology in ["t1-lag", "t1-8-lag"]:
+            elif topology in ["t1-lag", "t1-8-lag", "t1-vpp", "t1-lag-vpp"]:
                 common_extra_params = common_extra_params + " --topology=t1,any"
             elif topology == "dualtor":
                 common_extra_params = common_extra_params + " --topology=t0,dualtor,any"
@@ -307,10 +342,15 @@ class TestPlanManager(object):
                 "min": min_worker,
                 "max": max_worker,
                 "nbr_type": kwargs["vm_type"],
+                "asic_type": kwargs["asic_type"],
                 "asic_num": kwargs["num_asic"],
-                "lock_wait_timeout_seconds": kwargs.get("lock_wait_timeout_seconds", None),
+                "lock_wait_timeout_seconds": lock_wait_timeout_seconds,
             },
             "test_option": {
+                "setup_container_params": setup_container_params,
+                "skip_remove_add_topo_for_nightly": kwargs.get("skip_remove_add_topo_for_nightly", True),
+                "add_topo_params": kwargs.get("add_topo_params", ""),
+                "skip_restart_ptf": kwargs.get("skip_restart_ptf", False),
                 "stop_on_failure": kwargs.get("stop_on_failure", True),
                 "enable_parallel_run": kwargs.get("enable_parallel_run", False),
                 "parallel_modes_file": kwargs.get("parallel_modes_file", "default.json"),
@@ -324,30 +364,34 @@ class TestPlanManager(object):
                     "scripts_exclude": scripts_exclude
                 },
                 "ptf_image_tag": ptf_image_tag,
+                "ptf_modified": ptf_modified,
                 "image": {
                     "url": image_url,
                     "upgrade_image_param": kwargs.get("upgrade_image_param", None),
                     "release": "",
                     "kvm_image_build_id": kvm_image_build_id,
-                    "kvm_image_branch": kvm_image_branch
+                    "kvm_image_branch": kvm_image_branch,
+                    "kvm_image_build_pipeline_id": kwargs.get("kvm_image_build_pipeline_id", None)
                 },
                 "sonic_mgmt": {
                     "repo_url": sonic_mgmt_repo_url,
                     "branch": kwargs["mgmt_branch"],
-                    "pull_request_id": sonic_mgmt_pull_request_id
+                    "pull_request_id": sonic_mgmt_pull_request_id,
+                    "commit_hash": kwargs.get("mgmt_commit_hash")
                 },
                 "common_param": common_extra_params,
                 "specific_param": kwargs.get("specific_param", []),
                 "affinity": affinity,
                 "deploy_mg_param": deploy_mg_extra_params,
-                "max_execute_seconds": kwargs.get("max_execute_seconds", None),
+                "max_execute_seconds": max_execute_seconds,
             },
             "type": test_plan_type,
             "trigger": {
                 "requester": kwargs.get("requester", "Pull Request"),
                 "source_repo": kwargs.get("source_repo"),
                 "pull_request_id": pr_id,
-                "build_id": build_id
+                "build_id": build_id,
+                "type": get_trigger_type(test_plan_type, build_reason)
             },
             "extra_params": {},
             "priority": 10
@@ -359,7 +403,7 @@ class TestPlanManager(object):
         }
         raw_resp = {}
         try:
-            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=10)
+            raw_resp = requests.post(tp_url, headers=headers, data=json.dumps(payload), timeout=20)
             resp = raw_resp.json()
         except Exception as exception:
             raise Exception(f"HTTP execute failure, url: {tp_url}, raw_resp: {raw_resp}, exception: {str(exception)}")
@@ -574,8 +618,8 @@ if __name__ == "__main__":
         type=int,
         dest="lock_wait_timeout_seconds",
         nargs='?',
-        const=None,
-        default=None,
+        const=0,
+        default=0,
         required=False,
         help="Max lock testbed wait seconds. None or the values <= 0 means endless."
     )
@@ -590,6 +634,37 @@ if __name__ == "__main__":
         help="Test set."
     )
     parser_create.add_argument(
+        "--setup-container-params",
+        type=str,
+        nargs='?',
+        const='',
+        dest="setup_container_params",
+        default="",
+        required=False,
+        help="Setup sonic-mgmt container params"
+    )
+    parser_create.add_argument(
+        "--skip-remove-add-topo-for-nightly",
+        type=ast.literal_eval,
+        dest="skip_remove_add_topo_for_nightly",
+        nargs='?',
+        const=True,
+        default=True,
+        required=False,
+        choices=[True, False],
+        help="Whether skip remove-topo and add-topo for nightly test."
+    )
+    parser_create.add_argument(
+        "--add-topo-params",
+        type=str,
+        nargs='?',
+        const='',
+        dest="add_topo_params",
+        default="",
+        required=False,
+        help="Add topology extra params"
+    )
+    parser_create.add_argument(
         "--deploy-mg-extra-params",
         type=str,
         nargs='?',
@@ -598,6 +673,17 @@ if __name__ == "__main__":
         default="",
         required=False,
         help="Deploy minigraph extra params"
+    )
+    parser_create.add_argument(
+        "--skip-restart-ptf",
+        type=ast.literal_eval,
+        dest="skip_restart_ptf",
+        nargs='?',
+        const=False,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Whether skip restart ptf for nightly test."
     )
     parser_create.add_argument(
         "--kvm-image-branch",
@@ -620,6 +706,16 @@ if __name__ == "__main__":
         help="KVM build id."
     )
     parser_create.add_argument(
+        "--kvm-image-build-pipeline-id",
+        type=str,
+        dest="kvm_image_build_pipeline_id",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="KVM image build pipeline id."
+    )
+    parser_create.add_argument(
         "--mgmt-branch",
         type=str,
         dest="mgmt_branch",
@@ -630,12 +726,32 @@ if __name__ == "__main__":
         help="Branch of sonic-mgmt repo to run the test"
     )
     parser_create.add_argument(
+        "--mgmt-commit-hash",
+        type=str,
+        dest="mgmt_commit_hash",
+        nargs='?',
+        const=None,
+        default=None,
+        required=False,
+        help="Specifies an exact commit hash from the `sonic-mgmt` repository to check out."
+    )
+    parser_create.add_argument(
         "--vm-type",
         type=str,
         dest="vm_type",
         default="ceos",
         required=False,
         help="VM type of neighbors"
+    )
+    parser_create.add_argument(
+        "--asic-type",
+        type=str,
+        dest="asic_type",
+        nargs='?',
+        const="",
+        default="",
+        required=False,
+        help="ASIC type"
     )
     parser_create.add_argument(
         "--specified-params",
@@ -702,6 +818,17 @@ if __name__ == "__main__":
         default=None,
         required=False,
         help="PTF image tag"
+    )
+    parser_create.add_argument(
+        "--ptf-modified",
+        type=ast.literal_eval,
+        dest="ptf_modified",
+        nargs='?',
+        const=False,
+        default=False,
+        required=False,
+        choices=[True, False],
+        help="Whether to use locally modified PTF image"
     )
     parser_create.add_argument(
         "--image_url",
@@ -893,8 +1020,8 @@ if __name__ == "__main__":
         type=int,
         dest="max_execute_seconds",
         nargs='?',
-        const=None,
-        default=None,
+        const=0,
+        default=0,
         required=False,
         help="Max execute seconds of the test plan."
     )
@@ -994,13 +1121,22 @@ if __name__ == "__main__":
         if args.action == "create":
             pr_id = os.environ.get("SYSTEM_PULLREQUEST_PULLREQUESTNUMBER") or os.environ.get(
                 "SYSTEM_PULLREQUEST_PULLREQUESTID")
-            repo = os.environ.get("BUILD_REPOSITORY_PROVIDER")
-            reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
+            build_repo_provider = os.environ.get("BUILD_REPOSITORY_PROVIDER")
+            build_reason = args.build_reason if args.build_reason else os.environ.get("BUILD_REASON")
             build_id = os.environ.get("BUILD_BUILDID")
             job_name = os.environ.get("SYSTEM_JOBDISPLAYNAME")
             repo_name = args.repo_name if args.repo_name else os.environ.get("BUILD_REPOSITORY_NAME")
+            branch_name = os.environ.get("SYSTEM_PULLREQUEST_TARGETBRANCH") if build_reason.upper() == "PULLREQUEST" \
+                else os.environ.get("BUILD_SOURCEBRANCHNAME")
 
-            test_plan_prefix = f"{repo}_{reason}_PR_{pr_id}_BUILD_{build_id}_JOB_{job_name}".replace(' ', '_')
+            # Only pr test show pr id
+            pr_info = f"PR_{pr_id}_" if build_reason.upper() == "PULLREQUEST" else ""
+
+            # Only pr test and baseline test show repo and branch
+            source_repo_info = f"{repo_name}_{branch_name}_" if args.test_plan_type == "PR" else ""
+
+            test_plan_prefix = (f"{build_repo_provider}_{build_reason}_{source_repo_info}{pr_info}"
+                                f"BUILD_{build_id}_JOB_{job_name}").replace(' ', '_')
 
             scripts = args.scripts
             specific_param = json.loads(args.specific_param)
@@ -1023,9 +1159,14 @@ if __name__ == "__main__":
                 tp.create(
                     args.topology,
                     test_plan_name=test_plan_name,
+                    skip_remove_add_topo_for_nightly=args.skip_remove_add_topo_for_nightly,
+                    setup_container_params=args.setup_container_params,
+                    add_topo_params=args.add_topo_params,
                     deploy_mg_extra_params=args.deploy_mg_extra_params,
+                    skip_restart_ptf=args.skip_restart_ptf,
                     kvm_build_id=args.kvm_build_id,
                     kvm_image_branch=args.kvm_image_branch,
+                    kvm_image_build_pipeline_id=args.kvm_image_build_pipeline_id,
                     min_worker=args.min_worker,
                     max_worker=args.max_worker,
                     pr_id=pr_id,
@@ -1036,7 +1177,9 @@ if __name__ == "__main__":
                     output=args.output,
                     source_repo=repo_name,
                     mgmt_branch=args.mgmt_branch,
+                    mgmt_commit_hash=args.mgmt_commit_hash,
                     common_extra_params=args.common_extra_params,
+                    asic_type=args.asic_type,
                     num_asic=args.num_asic,
                     specified_params=args.specified_params,
                     specific_param=specific_param,
@@ -1044,6 +1187,7 @@ if __name__ == "__main__":
                     vm_type=args.vm_type,
                     testbed_name=args.testbed_name,
                     ptf_image_tag=args.ptf_image_tag,
+                    ptf_modified=args.ptf_modified,
                     image_url=args.image_url,
                     upgrade_image_param=args.upgrade_image_param,
                     hwsku=args.hwsku,
@@ -1058,6 +1202,7 @@ if __name__ == "__main__":
                     requester=args.requester,
                     max_execute_seconds=args.max_execute_seconds,
                     lock_wait_timeout_seconds=args.lock_wait_timeout_seconds,
+                    build_reason=build_reason
                 )
         elif args.action == "poll":
             tp.poll(args.test_plan_id, args.interval, args.timeout, args.expected_state, args.expected_result)

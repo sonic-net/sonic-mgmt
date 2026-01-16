@@ -7,6 +7,7 @@ from tests.common.helpers.assertions import pytest_assert as py_assert
 from tests.common.utilities import wait_until
 from tests.telemetry.telemetry_utils import get_list_stdout
 from tests.common.helpers.telemetry_helper import setup_streaming_telemetry_context
+from tests.common.helpers.gnmi_utils import GNMIEnvironment
 
 EVENTS_TESTS_PATH = "./telemetry/events"
 sys.path.append(EVENTS_TESTS_PATH)
@@ -15,6 +16,29 @@ BASE_DIR = "logs/telemetry"
 DATA_DIR = os.path.join(BASE_DIR, "files")
 
 logger = logging.getLogger(__name__)
+
+
+@pytest.fixture
+def skip_non_container_test(request):
+    container_test = request.config.getoption("--container_test", default="")
+    if not container_test:
+        pytest.skip("Testcase skipped for non container test")
+
+
+@pytest.fixture(scope="module", autouse=True)
+def setup_user_auth(duthosts, enum_rand_one_per_hwsku_hostname):
+    """
+    Setup user authentication for telemetry tests
+    """
+    duthost = duthosts[enum_rand_one_per_hwsku_hostname]
+    env = GNMIEnvironment(duthost, GNMIEnvironment.TELEMETRY_MODE)
+    duthost.shell('sonic-db-cli CONFIG_DB hset "%s|gnmi" user_auth none' % (env.gnmi_config_table),
+                  module_ignore_errors=False)
+    duthost.shell('config save -y', module_ignore_errors=False)
+    yield
+    duthost.shell('sonic-db-cli CONFIG_DB hdel "%s|gnmi" user_auth' % (env.gnmi_config_table),
+                  module_ignore_errors=False)
+    duthost.shell('config save -y', module_ignore_errors=False)
 
 
 @pytest.fixture(scope="module", autouse=True)
@@ -41,11 +65,12 @@ def setup_streaming_telemetry(request, duthosts, enum_rand_one_per_hwsku_hostnam
 def do_init(duthost):
     for i in [BASE_DIR, DATA_DIR]:
         try:
-            os.mkdir(i)
+            os.makedirs(i, exist_ok=True)
         except OSError as e:
-            logger.info("Dir/file already exists: {}, skipping mkdir".format(e))
+            logger.error("Unexpected error while creating directory: {}".format(e))
 
-        duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
+    # Copy validate_yang_events.py from sonic-mgmt to DUT
+    duthost.copy(src="telemetry/validate_yang_events.py", dest="~/")
 
 
 @pytest.fixture(scope="module")

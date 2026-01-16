@@ -950,6 +950,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 1
     bgp:
       asn: 64001
       peers:
@@ -970,6 +971,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 2
     bgp:
       asn: 64001
       peers:
@@ -990,6 +992,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 3
     bgp:
       asn: 64001
       peers:
@@ -1010,6 +1013,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 4
     bgp:
       asn: 64001
       peers:
@@ -1030,6 +1034,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 5
     bgp:
       asn: 64001
       peers:
@@ -1050,6 +1055,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 6
     bgp:
       asn: 64001
       peers:
@@ -1070,6 +1076,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 7
     bgp:
       asn: 64001
       peers:
@@ -1090,6 +1097,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 8
     bgp:
       asn: 64001
       peers:
@@ -1110,6 +1118,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 9
     bgp:
       asn: 64002
       peers:
@@ -1130,6 +1139,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 10
     bgp:
       asn: 64002
       peers:
@@ -1150,6 +1160,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 11
     bgp:
       asn: 64002
       peers:
@@ -1170,6 +1181,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 12
     bgp:
       asn: 64002
       peers:
@@ -1190,6 +1202,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 13
     bgp:
       asn: 64002
       peers:
@@ -1210,6 +1223,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 14
     bgp:
       asn: 64002
       peers:
@@ -1230,6 +1244,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 15
     bgp:
       asn: 64002
       peers:
@@ -1250,6 +1265,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 16
     bgp:
       asn: 64002
       peers:
@@ -1270,6 +1286,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 17
     bgp:
       asn: 64003
       peers:
@@ -1290,6 +1307,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 18
     bgp:
       asn: 64003
       peers:
@@ -1310,6 +1328,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 19
     bgp:
       asn: 64003
       peers:
@@ -1330,6 +1349,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 20
     bgp:
       asn: 64003
       peers:
@@ -1350,6 +1370,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 21
     bgp:
       asn: 64003
       peers:
@@ -1370,6 +1391,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 22
     bgp:
       asn: 64003
       peers:
@@ -1390,6 +1412,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 23
     bgp:
       asn: 64003
       peers:
@@ -1410,6 +1433,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 24
     bgp:
       asn: 64003
       peers:
@@ -1430,6 +1454,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 25
     bgp:
       asn: 64004
       peers:
@@ -1450,6 +1475,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 26
     bgp:
       asn: 64004
       peers:
@@ -1470,6 +1496,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 27
     bgp:
       asn: 64004
       peers:
@@ -1490,6 +1517,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 28
     bgp:
       asn: 64004
       peers:
@@ -1510,6 +1538,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 29
     bgp:
       asn: 64004
       peers:
@@ -1530,6 +1559,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 30
     bgp:
       asn: 64004
       peers:
@@ -1550,6 +1580,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 31
     bgp:
       asn: 64004
       peers:
@@ -1570,6 +1601,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 32
     bgp:
       asn: 64004
       peers:
@@ -1590,6 +1622,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 33
     bgp:
       asn: 64005
       peers:
@@ -1610,6 +1643,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 34
     bgp:
       asn: 64005
       peers:
@@ -1630,6 +1664,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 35
     bgp:
       asn: 64005
       peers:
@@ -1650,6 +1685,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 36
     bgp:
       asn: 64005
       peers:
@@ -1670,6 +1706,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 37
     bgp:
       asn: 64005
       peers:
@@ -1690,6 +1727,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 38
     bgp:
       asn: 64005
       peers:
@@ -1710,6 +1748,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 39
     bgp:
       asn: 64005
       peers:
@@ -1730,6 +1769,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 40
     bgp:
       asn: 64005
       peers:
@@ -1750,6 +1790,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 41
     bgp:
       asn: 64006
       peers:
@@ -1770,6 +1811,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 42
     bgp:
       asn: 64006
       peers:
@@ -1790,6 +1832,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 43
     bgp:
       asn: 64006
       peers:
@@ -1810,6 +1853,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 44
     bgp:
       asn: 64006
       peers:
@@ -1830,6 +1874,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 45
     bgp:
       asn: 64006
       peers:
@@ -1850,6 +1895,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 46
     bgp:
       asn: 64006
       peers:
@@ -1870,6 +1916,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 47
     bgp:
       asn: 64006
       peers:
@@ -1890,6 +1937,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 48
     bgp:
       asn: 64006
       peers:
@@ -1950,6 +1998,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 49
     bgp:
       asn: 64007
       peers:
@@ -1970,6 +2019,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 50
     bgp:
       asn: 64007
       peers:
@@ -1990,6 +2040,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 51
     bgp:
       asn: 64007
       peers:
@@ -2010,6 +2061,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 52
     bgp:
       asn: 64007
       peers:
@@ -2030,6 +2082,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 53
     bgp:
       asn: 64007
       peers:
@@ -2050,6 +2103,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 54
     bgp:
       asn: 64007
       peers:
@@ -2070,6 +2124,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 55
     bgp:
       asn: 64007
       peers:
@@ -2090,6 +2145,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 56
     bgp:
       asn: 64007
       peers:
@@ -2150,6 +2206,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 57
     bgp:
       asn: 64008
       peers:
@@ -2170,6 +2227,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 58
     bgp:
       asn: 64008
       peers:
@@ -2190,6 +2248,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 59
     bgp:
       asn: 64008
       peers:
@@ -2210,6 +2269,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 60
     bgp:
       asn: 64008
       peers:
@@ -2230,6 +2290,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 61
     bgp:
       asn: 64008
       peers:
@@ -2250,6 +2311,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 62
     bgp:
       asn: 64008
       peers:
@@ -2270,6 +2332,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 63
     bgp:
       asn: 64008
       peers:
@@ -2290,6 +2353,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 64
     bgp:
       asn: 64008
       peers:
@@ -2310,6 +2374,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 65
     bgp:
       asn: 64009
       peers:
@@ -2330,6 +2395,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 66
     bgp:
       asn: 64009
       peers:
@@ -2350,6 +2416,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 67
     bgp:
       asn: 64009
       peers:
@@ -2370,6 +2437,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 68
     bgp:
       asn: 64009
       peers:
@@ -2390,6 +2458,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 69
     bgp:
       asn: 64009
       peers:
@@ -2410,6 +2479,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 70
     bgp:
       asn: 64009
       peers:
@@ -2430,6 +2500,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 71
     bgp:
       asn: 64009
       peers:
@@ -2450,6 +2521,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 72
     bgp:
       asn: 64009
       peers:
@@ -2470,6 +2542,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 73
     bgp:
       asn: 64010
       peers:
@@ -2490,6 +2563,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 74
     bgp:
       asn: 64010
       peers:
@@ -2510,6 +2584,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 75
     bgp:
       asn: 64010
       peers:
@@ -2530,6 +2605,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 76
     bgp:
       asn: 64010
       peers:
@@ -2550,6 +2626,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 77
     bgp:
       asn: 64010
       peers:
@@ -2570,6 +2647,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 78
     bgp:
       asn: 64010
       peers:
@@ -2590,6 +2668,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 79
     bgp:
       asn: 64010
       peers:
@@ -2610,6 +2689,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 80
     bgp:
       asn: 64010
       peers:
@@ -2630,6 +2710,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 81
     bgp:
       asn: 64011
       peers:
@@ -2650,6 +2731,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 82
     bgp:
       asn: 64011
       peers:
@@ -2670,6 +2752,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 83
     bgp:
       asn: 64011
       peers:
@@ -2690,6 +2773,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 84
     bgp:
       asn: 64011
       peers:
@@ -2710,6 +2794,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 85
     bgp:
       asn: 64011
       peers:
@@ -2730,6 +2815,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 86
     bgp:
       asn: 64011
       peers:
@@ -2750,6 +2836,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 87
     bgp:
       asn: 64011
       peers:
@@ -2770,6 +2857,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 88
     bgp:
       asn: 64011
       peers:
@@ -2790,6 +2878,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 89
     bgp:
       asn: 64012
       peers:
@@ -2810,6 +2899,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 90
     bgp:
       asn: 64012
       peers:
@@ -2830,6 +2920,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 91
     bgp:
       asn: 64012
       peers:
@@ -2850,6 +2941,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 92
     bgp:
       asn: 64012
       peers:
@@ -2870,6 +2962,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 93
     bgp:
       asn: 64012
       peers:
@@ -2890,6 +2983,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 94
     bgp:
       asn: 64012
       peers:
@@ -2910,6 +3004,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 95
     bgp:
       asn: 64012
       peers:
@@ -2930,6 +3025,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 96
     bgp:
       asn: 64012
       peers:
@@ -2950,6 +3046,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 97
     bgp:
       asn: 64013
       peers:
@@ -2970,6 +3067,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 98
     bgp:
       asn: 64013
       peers:
@@ -2990,6 +3088,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 99
     bgp:
       asn: 64013
       peers:
@@ -3010,6 +3109,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 100
     bgp:
       asn: 64013
       peers:
@@ -3030,6 +3130,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 101
     bgp:
       asn: 64013
       peers:
@@ -3050,6 +3151,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 102
     bgp:
       asn: 64013
       peers:
@@ -3070,6 +3172,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 103
     bgp:
       asn: 64013
       peers:
@@ -3090,6 +3193,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 104
     bgp:
       asn: 64013
       peers:
@@ -3110,6 +3214,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 105
     bgp:
       asn: 64014
       peers:
@@ -3130,6 +3235,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 106
     bgp:
       asn: 64014
       peers:
@@ -3150,6 +3256,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 107
     bgp:
       asn: 64014
       peers:
@@ -3170,6 +3277,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 108
     bgp:
       asn: 64014
       peers:
@@ -3190,6 +3298,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 109
     bgp:
       asn: 64014
       peers:
@@ -3210,6 +3319,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 110
     bgp:
       asn: 64014
       peers:
@@ -3230,6 +3340,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 111
     bgp:
       asn: 64014
       peers:
@@ -3250,6 +3361,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 112
     bgp:
       asn: 64014
       peers:
@@ -3270,6 +3382,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 113
     bgp:
       asn: 64015
       peers:
@@ -3290,6 +3403,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 114
     bgp:
       asn: 64015
       peers:
@@ -3310,6 +3424,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 115
     bgp:
       asn: 64015
       peers:
@@ -3330,6 +3445,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 116
     bgp:
       asn: 64015
       peers:
@@ -3350,6 +3466,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 117
     bgp:
       asn: 64015
       peers:
@@ -3370,6 +3487,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 118
     bgp:
       asn: 64015
       peers:
@@ -3390,6 +3508,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 119
     bgp:
       asn: 64015
       peers:
@@ -3410,6 +3529,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 120
     bgp:
       asn: 64015
       peers:
@@ -3430,6 +3550,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 121
     bgp:
       asn: 64016
       peers:
@@ -3450,6 +3571,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 122
     bgp:
       asn: 64016
       peers:
@@ -3470,6 +3592,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 123
     bgp:
       asn: 64016
       peers:
@@ -3490,6 +3613,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 124
     bgp:
       asn: 64016
       peers:
@@ -3510,6 +3634,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 125
     bgp:
       asn: 64016
       peers:
@@ -3530,6 +3655,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 126
     bgp:
       asn: 64016
       peers:
@@ -3550,6 +3676,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 127
     bgp:
       asn: 64016
       peers:
@@ -3570,6 +3697,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 128
     bgp:
       asn: 64016
       peers:
@@ -3590,6 +3718,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 129
     bgp:
       asn: 64017
       peers:
@@ -3610,6 +3739,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 130
     bgp:
       asn: 64017
       peers:
@@ -3630,6 +3760,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 131
     bgp:
       asn: 64017
       peers:
@@ -3650,6 +3781,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 132
     bgp:
       asn: 64017
       peers:
@@ -3670,6 +3802,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 133
     bgp:
       asn: 64017
       peers:
@@ -3690,6 +3823,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 134
     bgp:
       asn: 64017
       peers:
@@ -3710,6 +3844,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 135
     bgp:
       asn: 64017
       peers:
@@ -3730,6 +3865,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 136
     bgp:
       asn: 64017
       peers:
@@ -3750,6 +3886,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 137
     bgp:
       asn: 64018
       peers:
@@ -3770,6 +3907,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 138
     bgp:
       asn: 64018
       peers:
@@ -3790,6 +3928,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 139
     bgp:
       asn: 64018
       peers:
@@ -3810,6 +3949,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 140
     bgp:
       asn: 64018
       peers:
@@ -3830,6 +3970,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 141
     bgp:
       asn: 64018
       peers:
@@ -3850,6 +3991,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 142
     bgp:
       asn: 64018
       peers:
@@ -3870,6 +4012,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 143
     bgp:
       asn: 64018
       peers:
@@ -3890,6 +4033,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 144
     bgp:
       asn: 64018
       peers:
@@ -3910,6 +4054,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 145
     bgp:
       asn: 64019
       peers:
@@ -3930,6 +4075,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 146
     bgp:
       asn: 64019
       peers:
@@ -3950,6 +4096,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 147
     bgp:
       asn: 64019
       peers:
@@ -3970,6 +4117,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 148
     bgp:
       asn: 64019
       peers:
@@ -3990,6 +4138,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 149
     bgp:
       asn: 64019
       peers:
@@ -4010,6 +4159,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 150
     bgp:
       asn: 64019
       peers:
@@ -4030,6 +4180,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 151
     bgp:
       asn: 64019
       peers:
@@ -4050,6 +4201,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 152
     bgp:
       asn: 64019
       peers:
@@ -4070,6 +4222,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 153
     bgp:
       asn: 64020
       peers:
@@ -4090,6 +4243,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 154
     bgp:
       asn: 64020
       peers:
@@ -4110,6 +4264,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 155
     bgp:
       asn: 64020
       peers:
@@ -4130,6 +4285,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 156
     bgp:
       asn: 64020
       peers:
@@ -4150,6 +4306,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 157
     bgp:
       asn: 64020
       peers:
@@ -4170,6 +4327,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 158
     bgp:
       asn: 64020
       peers:
@@ -4190,6 +4348,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 159
     bgp:
       asn: 64020
       peers:
@@ -4210,6 +4369,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 160
     bgp:
       asn: 64020
       peers:
@@ -4270,6 +4430,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 161
     bgp:
       asn: 64021
       peers:
@@ -4290,6 +4451,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 162
     bgp:
       asn: 64021
       peers:
@@ -4310,6 +4472,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 163
     bgp:
       asn: 64021
       peers:
@@ -4330,6 +4493,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 164
     bgp:
       asn: 64021
       peers:
@@ -4350,6 +4514,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 165
     bgp:
       asn: 64021
       peers:
@@ -4370,6 +4535,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 166
     bgp:
       asn: 64021
       peers:
@@ -4390,6 +4556,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 167
     bgp:
       asn: 64021
       peers:
@@ -4410,6 +4577,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 168
     bgp:
       asn: 64021
       peers:
@@ -4470,6 +4638,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 169
     bgp:
       asn: 64022
       peers:
@@ -4490,6 +4659,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 170
     bgp:
       asn: 64022
       peers:
@@ -4510,6 +4680,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 171
     bgp:
       asn: 64022
       peers:
@@ -4530,6 +4701,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 172
     bgp:
       asn: 64022
       peers:
@@ -4550,6 +4722,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 173
     bgp:
       asn: 64022
       peers:
@@ -4570,6 +4743,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 174
     bgp:
       asn: 64022
       peers:
@@ -4590,6 +4764,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 175
     bgp:
       asn: 64022
       peers:
@@ -4610,6 +4785,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 176
     bgp:
       asn: 64022
       peers:
@@ -4630,6 +4806,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 177
     bgp:
       asn: 64023
       peers:
@@ -4650,6 +4827,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 178
     bgp:
       asn: 64023
       peers:
@@ -4670,6 +4848,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 179
     bgp:
       asn: 64023
       peers:
@@ -4690,6 +4869,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 180
     bgp:
       asn: 64023
       peers:
@@ -4710,6 +4890,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 181
     bgp:
       asn: 64023
       peers:
@@ -4730,6 +4911,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 182
     bgp:
       asn: 64023
       peers:
@@ -4750,6 +4932,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 183
     bgp:
       asn: 64023
       peers:
@@ -4770,6 +4953,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 184
     bgp:
       asn: 64023
       peers:
@@ -4790,6 +4974,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 185
     bgp:
       asn: 64024
       peers:
@@ -4810,6 +4995,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 186
     bgp:
       asn: 64024
       peers:
@@ -4830,6 +5016,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 187
     bgp:
       asn: 64024
       peers:
@@ -4850,6 +5037,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 188
     bgp:
       asn: 64024
       peers:
@@ -4870,6 +5058,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 189
     bgp:
       asn: 64024
       peers:
@@ -4890,6 +5079,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 190
     bgp:
       asn: 64024
       peers:
@@ -4910,6 +5100,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 191
     bgp:
       asn: 64024
       peers:
@@ -4930,6 +5121,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 192
     bgp:
       asn: 64024
       peers:
@@ -4950,6 +5142,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 193
     bgp:
       asn: 64025
       peers:
@@ -4970,6 +5163,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 194
     bgp:
       asn: 64025
       peers:
@@ -4990,6 +5184,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 195
     bgp:
       asn: 64025
       peers:
@@ -5010,6 +5205,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 196
     bgp:
       asn: 64025
       peers:
@@ -5030,6 +5226,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 197
     bgp:
       asn: 64025
       peers:
@@ -5050,6 +5247,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 198
     bgp:
       asn: 64025
       peers:
@@ -5070,6 +5268,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 199
     bgp:
       asn: 64025
       peers:
@@ -5090,6 +5289,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 200
     bgp:
       asn: 64025
       peers:
@@ -5110,6 +5310,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 201
     bgp:
       asn: 64026
       peers:
@@ -5130,6 +5331,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 202
     bgp:
       asn: 64026
       peers:
@@ -5150,6 +5352,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 203
     bgp:
       asn: 64026
       peers:
@@ -5170,6 +5373,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 204
     bgp:
       asn: 64026
       peers:
@@ -5190,6 +5394,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 205
     bgp:
       asn: 64026
       peers:
@@ -5210,6 +5415,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 206
     bgp:
       asn: 64026
       peers:
@@ -5230,6 +5436,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 207
     bgp:
       asn: 64026
       peers:
@@ -5250,6 +5457,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 208
     bgp:
       asn: 64026
       peers:
@@ -5270,6 +5478,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 209
     bgp:
       asn: 64027
       peers:
@@ -5290,6 +5499,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 210
     bgp:
       asn: 64027
       peers:
@@ -5310,6 +5520,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 211
     bgp:
       asn: 64027
       peers:
@@ -5330,6 +5541,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 212
     bgp:
       asn: 64027
       peers:
@@ -5350,6 +5562,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 213
     bgp:
       asn: 64027
       peers:
@@ -5370,6 +5583,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 214
     bgp:
       asn: 64027
       peers:
@@ -5390,6 +5604,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 215
     bgp:
       asn: 64027
       peers:
@@ -5410,6 +5625,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 216
     bgp:
       asn: 64027
       peers:
@@ -5430,6 +5646,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 217
     bgp:
       asn: 64028
       peers:
@@ -5450,6 +5667,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 218
     bgp:
       asn: 64028
       peers:
@@ -5470,6 +5688,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 219
     bgp:
       asn: 64028
       peers:
@@ -5490,6 +5709,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 220
     bgp:
       asn: 64028
       peers:
@@ -5510,6 +5730,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 221
     bgp:
       asn: 64028
       peers:
@@ -5530,6 +5751,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 222
     bgp:
       asn: 64028
       peers:
@@ -5550,6 +5772,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 223
     bgp:
       asn: 64028
       peers:
@@ -5570,6 +5793,7 @@ configuration:
     properties:
     - common
     - tor
+    tornum: 224
     bgp:
       asn: 64028
       peers:

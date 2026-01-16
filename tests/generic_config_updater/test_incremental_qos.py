@@ -7,7 +7,7 @@ from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
 from tests.common.helpers.dut_utils import verify_orchagent_running_or_assert
 from tests.common.gu_utils import apply_patch, expect_op_success, \
-    expect_op_failure         # noqa F401
+    expect_op_failure         # noqa:F401
 from tests.common.gu_utils import generate_tmpfile, delete_tmpfile
 from tests.common.gu_utils import format_json_patch_for_multiasic
 from tests.common.gu_utils import create_checkpoint, delete_checkpoint, rollback_or_reload
@@ -129,6 +129,9 @@ def get_neighbor_type_to_pg_headroom_map(duthost):
 
         cable_length = duthost.shell('sonic-db-cli CONFIG_DB hget "CABLE_LENGTH|AZURE" {}'
                                      .format(interface))['stdout']
+        if cable_length == "0m":
+            pytest.skip("skip the test due to no buffer lossless pg")
+
         port_speed = duthost.shell('sonic-db-cli CONFIG_DB hget "PORT|{}" speed'
                                    .format(interface))['stdout']
 

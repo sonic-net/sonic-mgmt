@@ -147,7 +147,7 @@ class SonicDbCli(object):
         else:
             raise AssertionError("sonic-db value error: %s != %s key was: %s" % (result, value, key))
 
-    def get_keys(self, table):
+    def get_keys(self, table, raise_error_when_not_found=True):
         """
         Gets the list of keys in a table.
 
@@ -164,7 +164,9 @@ class SonicDbCli(object):
         cmd = self._cli_prefix() + " keys {}".format(table)
         result = self._run_and_check(cmd)
         if result == {}:
-            raise SonicDbKeyNotFound("No keys for %s found in sonic-db cmd: %s" % (table, cmd))
+            if raise_error_when_not_found:
+                raise SonicDbKeyNotFound("No keys for %s found in sonic-db cmd: %s" % (table, cmd))
+            return []
         else:
             if six.PY2:
                 return result['stdout'].decode('unicode-escape').splitlines()

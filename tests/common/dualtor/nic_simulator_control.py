@@ -2,19 +2,19 @@
 import grpc
 import pytest
 import time
-import collections
 import logging
 
 from tests.common import utilities
-from tests.common.dualtor.dual_tor_common import cable_type                     # noqa F401
-from tests.common.dualtor.dual_tor_common import mux_config                     # noqa F401
-from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # noqa F401
-from tests.common.dualtor.dual_tor_common import active_active_ports            # noqa F401
-from tests.common.dualtor.dual_tor_common import active_active_ports_config     # noqa F401
+from tests.common.dualtor.dual_tor_common import cable_type                     # noqa: F401
+from tests.common.dualtor.dual_tor_common import mux_config                     # noqa: F401
+from tests.common.dualtor.dual_tor_common import ActiveActivePortID             # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_active_ports            # noqa: F401
+from tests.common.dualtor.dual_tor_common import active_active_ports_config     # noqa: F401
 from tests.common.dualtor.dual_tor_common import CableType
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2
 from tests.common.dualtor.nic_simulator import nic_simulator_grpc_mgmt_service_pb2_grpc
+from collections.abc import Iterable
 
 
 __all__ = [
@@ -165,7 +165,7 @@ def nic_simulator_client(nic_simulator_channel):
 
 
 @pytest.fixture(scope="session")
-def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_ports_config, tbinfo):   # noqa F811
+def mux_status_from_nic_simulator(duthost, nic_simulator_client, active_active_ports_config, tbinfo):   # noqa: F811
     """Get mux status from the nic simulator."""
 
     mg_facts = duthost.get_extended_minigraph_facts(tbinfo)
@@ -210,7 +210,7 @@ def nic_simulator_url(nic_simulator_info):
 def toggle_ports(duthosts, intf_name, state):
     """Toggle port from cmd line"""
 
-    if not isinstance(duthosts, collections.Iterable):
+    if not isinstance(duthosts, Iterable):
         duthosts = [duthosts]
 
     toggled_intfs = []
@@ -239,7 +239,7 @@ def _toggle_cmd(dut, intfs, state):
 
 
 @pytest.fixture
-def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):       # noqa F811
+def toggle_active_all_ports_both_tors(duthosts, cable_type, active_active_ports):       # noqa: F811
     """A function level fixture to toggle both ToRs' admin forwarding state to active for all active-active ports."""
 
     if cable_type == CableType.active_active:
@@ -259,7 +259,7 @@ class TrafficDirection(object):
 
 
 @pytest.fixture
-def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
+def set_drop_active_active(mux_config, nic_simulator_client):       # noqa: F811
     """Return a helper function to simulator link drop for active-active ports."""
     _interface_names = []
     _nic_addresses = []
@@ -323,7 +323,7 @@ def set_drop_active_active(mux_config, nic_simulator_client):       # noqa F811
 
 
 @pytest.fixture(scope="function")
-def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulator_client):     # noqa F811
+def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulator_client):     # noqa: F811
     """Toggle nic_simulator forwarding state."""
 
     def _toggle_active_active_simulator_ports(mux_ports, portid, state):
@@ -363,7 +363,7 @@ def toggle_active_active_simulator_ports(active_active_ports_config, nic_simulat
 
 
 @pytest.fixture(scope="function")
-def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator):      # noqa F811
+def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator):      # noqa: F811
     """Return a helper function to simulate grpc failure for active-active ports."""
 
     def _call_set_nic_server_admin_state_nic_simulator(nic_addresses, admin_state):
@@ -394,7 +394,7 @@ def stop_nic_grpc_server(mux_config, nic_simulator_client, restart_nic_simulator
 
 
 @pytest.fixture
-def simulator_server_down_active_active(active_active_ports, set_drop_active_active):       # noqa F811
+def simulator_server_down_active_active(active_active_ports, set_drop_active_active):       # noqa: F811
     """Simulate server down scenario for active-active mux ports."""
 
     def _simulate_server_down(interface_name):
@@ -418,7 +418,7 @@ def simulator_server_down_active_active(active_active_ports, set_drop_active_act
 
 
 @pytest.fixture
-def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa F811
+def nic_simulator_flap_counter(mux_config, nic_simulator_client):   # noqa: F811
     """Return a helper function to retrieve flap counter for active-active ports."""
 
     def _call_query_flap_counter_nic_simulator(nic_addresses):

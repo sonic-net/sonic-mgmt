@@ -1,6 +1,6 @@
 from tests.common.utilities import wait_until
 from tests.common.helpers.assertions import pytest_assert
-from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, setup_ntp_context, NtpDaemon, ntp_daemon_in_use   # noqa F401
+from tests.common.helpers.ntp_helper import check_ntp_status, run_ntp, setup_ntp_context, NtpDaemon, ntp_daemon_in_use  # noqa: F401, E501
 import logging
 import time
 import pytest
@@ -52,9 +52,23 @@ def config_long_jump(duthost, ntp_daemon_in_use, enable=False):  # noqa: F811
 
 @pytest.fixture(scope="module")
 def setup_ntp(ptfhost, duthosts, rand_one_dut_hostname, ptf_use_ipv6):
+    duthost = duthosts[rand_one_dut_hostname]
+
+    # Check if DUT management is IPv6-only
+    dut_facts = duthost.dut_basic_facts()['ansible_facts']['dut_basic_facts']
+    is_mgmt_ipv6_only = dut_facts.get('is_mgmt_ipv6_only', False)
+
+    if not ptf_use_ipv6 and is_mgmt_ipv6_only:
+        pytest.skip("No IPv4 mgmt address on mgmt IPv6 only DUT host")
+
     if ptf_use_ipv6 and not ptfhost.mgmt_ipv6:
         pytest.skip("No IPv6 address on PTF host")
-    with setup_ntp_context(ptfhost, duthosts[rand_one_dut_hostname], ptf_use_ipv6) as result:
+
+    logger.info("Using PTF %s address for NTP sync: %s",
+                "IPv6" if ptf_use_ipv6 else "IPv4",
+                ptfhost.mgmt_ipv6 if ptf_use_ipv6 else ptfhost.mgmt_ip)
+
+    with setup_ntp_context(ptfhost, duthost, ptf_use_ipv6) as result:
         yield result
 
 

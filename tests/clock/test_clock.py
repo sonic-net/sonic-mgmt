@@ -7,6 +7,7 @@ import datetime as dt
 
 from tests.common.errors import RunAnsibleModuleFail
 from tests.common.plugins.allure_wrapper import allure_step_wrapper as allure
+from tests.common.utilities import wait_until
 
 pytestmark = [
     pytest.mark.topology('any'),
@@ -51,7 +52,7 @@ class ClockConsts:
     TIME_ZONE = "Time zone"
 
     MIN_SYSTEM_DATE = "1970-01-01"
-    MAX_SYSTEM_DATE = "2231-12-31"
+    MAX_SYSTEM_DATE = "2106-02-06"
 
     # ntp
     CMD_SHOW_NTP = "show ntp"
@@ -106,20 +107,38 @@ class ClockUtils:
         """
         def find_timezone_str_and_matching_format(show_clock_output):
             """
-            we can have two different date format in different topo
-            t2 Thu Feb 20 07:07:55 AM IST 2025
-            t1, t0 Thu 20 Feb 2025 05:10:25 AM UTC
-            find matching tz string and format pair by checking the year
+            Determine the timezone string and matching datetime format from show_clock_output.
+            Supports multiple formats:
+            - 12-hour: "Thu Feb 20 05:10:25 AM IST 2025" (timezone before year, with AM/PM)
+            - 24-hour: "Thu Feb 20 05:10:25 IST 2025" (timezone before year, no AM/PM)
+            - 24-hour: "Thu 20 Feb 2025 05:10:25 IST" (year before timezone, no AM/PM)
+            - 12-hour: "Thu 20 Feb 2025 05:10:25 AM IST" (year before timezone, with AM/PM)
+            Finds matching tz string and format pair by checking the year and time format.
             """
-            tz_str1 = show_clock_output.split()[-1].strip()
-            tz_str2 = show_clock_output.split()[3].strip()
-            # if given tz_str is a year, then return other tz_str
+            parts = show_clock_output.split()
+            tz_str1 = parts[-1].strip()  # Last part (e.g., "2025" or "IST")
+            tz_str2 = parts[3].strip()   # Fourth part (e.g., "2025" or "Feb")
+
+            # Year is last (e.g., "2025")
             if len(tz_str1) == 4 and tz_str1.isdigit():
-                return show_clock_output.split()[-2].strip(), '%a %b %d %I:%M:%S %p %Y'
+                timezone = parts[-2].strip()  # Timezone is second-to-last (e.g., "IST")
+                # Check for AM/PM to determine 12-hour vs 24-hour
+                if "AM" in show_clock_output or "PM" in show_clock_output:
+                    return timezone, '%a %b %d %I:%M:%S %p %Y'  # 12-hour format
+                else:
+                    return timezone, '%a %b %d %H:%M:%S %Y'     # 24-hour format
+
+            # Year is fourth (e.g., "2025")
             elif len(tz_str2) == 4 and tz_str2.isdigit():
-                return tz_str1, '%a %d %b %Y %I:%M:%S %p'
+                timezone = parts[-1].strip()  # Timezone is last (e.g., "UTC")
+                # Assuming it has AM/PM; adjust if 24-hour is possible
+                if "AM" in show_clock_output or "PM" in show_clock_output:
+                    return timezone, '%a %d %b %Y %I:%M:%S %p'  # 12-hour format
+                else:
+                    return timezone, '%a %d %b %Y %H:%M:%S'     # 24-hour format
+
             else:
-                raise ValueError('Cannot find matching timezone string and format')
+                raise ValueError(f'Cannot find matching timezone string and format for: "{show_clock_output}"')
 
         with allure.step('Verify output of show clock'):
             try:
@@ -218,6 +237,7 @@ class ClockUtils:
             with allure.step(f'Compare timezone name from timedatectl ({timedatectl_tz_name}) '
                              f'to the expected ({expected_tz_name})'):
                 assert timedatectl_tz_name == expected_tz_name, f'Expected: {timedatectl_tz_name} == {expected_tz_name}'
+        return True
 
     @staticmethod
     def select_random_date():
@@ -319,7 +339,15 @@ def test_config_clock_timezone(duthosts, init_timezone):
                 f'Expected: "{output}" == "{ClockConsts.OUTPUT_CMD_SUCCESS}"'
 
     with allure.step(f'Verify timezone changed to "{new_timezone}"'):
-        ClockUtils.verify_timezone_value(duthosts, expected_tz_name=new_timezone)
+        wait_until(
+            timeout=120,
+            interval=5,
+            delay=10,
+            condition=lambda: ClockUtils.verify_timezone_value(
+                duthosts,
+                expected_tz_name=new_timezone
+            )
+        )
 
     with allure.step('Select a random string as invalid timezone'):
         invalid_timezone = ''.join(random.choice(string.ascii_lowercase) for _ in range(random.randint(1, 10)))
@@ -356,9 +384,9 @@ def test_config_clock_date(duthosts, init_timezone, restore_time, tbinfo):
     is_modular_chassis = duthosts[0].get_facts().get("modular_chassis")
     time_margin = ClockConsts.TIME_MARGIN_MODULAR if is_modular_chassis else ClockConsts.TIME_MARGIN
     with allure.step('Select valid date and time to set'):
-        new_date = ClockUtils.select_random_date()
+        new_date = dt.datetime.today() + dt.timedelta(days=1)
         new_time = ClockUtils.select_random_time()
-        new_datetime = new_date + ' ' + new_time
+        new_datetime = new_date.strftime('%Y-%m-%d') + ' ' + new_time
 
     with allure.step(f'Set new date and time "{new_datetime}"'):
         output = ClockUtils.run_cmd(duthosts, ClockConsts.CMD_CONFIG_CLOCK_DATE, new_datetime)

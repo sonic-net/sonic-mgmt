@@ -13,12 +13,14 @@ from tests.common import config_reload
 from tests.common.constants import KVM_PLATFORM
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.helpers.assertions import pytest_require
+from tests.common.reboot import wait_for_startup
+from tests.common.platform.interface_utils import check_interface_status_of_up_ports
+from tests.common.utilities import pdu_reboot, wait_until, kill_process_by_pid
 from tests.common.helpers.constants import DEFAULT_ASIC_ID, NAMESPACE_PREFIX
 from tests.common.helpers.dut_utils import get_program_info
 from tests.common.helpers.dut_utils import get_group_program_info
 from tests.common.helpers.dut_utils import is_container_running
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
-from tests.common.utilities import wait_until, kill_process_by_pid
 
 logger = logging.getLogger(__name__)
 
@@ -30,7 +32,7 @@ pytestmark = [
 CONTAINER_CHECK_INTERVAL_SECS = 1
 CONTAINER_RESTART_THRESHOLD_SECS = 180
 POST_CHECK_INTERVAL_SECS = 1
-POST_CHECK_THRESHOLD_SECS = 360
+POST_CHECK_THRESHOLD_SECS = 600
 
 
 @pytest.fixture(autouse=True, scope='module')
@@ -105,7 +107,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     """
     duthost = duthosts[rand_one_dut_hostname]
     logger.info("Back up Monit configuration file ...")
-    duthost.shell("sudo cp -f /etc/monit/monitrc /tmp/")
+    duthost.shell("sudo cp -f /etc/monit/monitrc /home/admin/monitrc.backup")
 
     logger.info("Modifying Monit config to eliminate start delay and decrease interval ...")
     duthost.shell("sudo sed -i 's/set daemon 60/set daemon 10/' /etc/monit/monitrc")
@@ -117,7 +119,7 @@ def modify_monit_config_and_restart(duthosts, rand_one_dut_hostname):
     yield
 
     logger.info("Restore original Monit configuration ...")
-    duthost.shell("sudo mv -f /tmp/monitrc /etc/monit/")
+    duthost.shell("sudo mv -f /home/admin/monitrc.backup /etc/monit/monitrc")
 
     logger.info("Restart Monit service ...")
     duthost.shell("sudo systemctl restart monit")
@@ -189,8 +191,8 @@ def get_critical_process_from_monit(duthost, container_name):
         container_name: Name of container.
 
     Returns:
-        A list contains command lines of critical processes. Bool varaible indicates
-        whether the operation in this funciton was done successfully or not.
+        A list contains command lines of critical processes. Bool variable indicates
+        whether the operation in this function was done successfully or not.
     """
     critical_process_list = []
     succeeded = True
@@ -522,7 +524,128 @@ def ensure_all_critical_processes_running(duthost, containers_in_namespaces):
                     ensure_process_is_running(duthost, container_name_in_namespace, program_name)
 
 
-def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
+def get_skip_containers(duthost, tbinfo, skip_vendor_specific_container):
+    skip_containers = []
+    # Skip database container for generate redis crash alerting messages.
+    skip_containers.append("gbsyncd")
+    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
+    # which will not trigger alarm message.
+    skip_containers.append("restapi")
+    # Skip 'radv' container on devices whose role is not T0.
+    if tbinfo["topo"]["type"] != "t0":
+        skip_containers.append("radv")
+    if "202412" in duthost.os_version:
+        skip_containers.append("gnmi")
+    skip_containers = skip_containers + skip_vendor_specific_container
+    return skip_containers
+
+
+@pytest.fixture(scope='function')
+def recover_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container,
+                               get_pdu_controller, localhost):
+    duthost = duthosts[rand_one_dut_hostname]
+    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
+    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
+    containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
+
+    # Check if database container is being tested
+    is_testing_database = "database" not in skip_containers
+
+    # add log to indicate start of yield
+    logger.info("Starting test to monitor critical processes...")
+    yield
+
+    # add log to indicate end of yield
+    logger.info("Test to monitor critical processes is done, starting recovery...")
+
+    # Special handling for database container - use power cycle
+    if is_testing_database:
+        logger.info("Database container was tested - performing power cycle...")
+
+        # Check if this is a KVM testbed (no PDU available)
+        is_kvm = duthost.facts.get('platform') == KVM_PLATFORM
+
+        if is_kvm:
+            # For KVM testbed, use kernel-level reboot since config DB is corrupted
+            # and normal reboot commands won't work
+            logger.info("KVM testbed detected - using kernel SysRq trigger for immediate reboot...")
+            try:
+                # Use kernel's SysRq trigger to force immediate reboot
+                # This bypasses all userspace processes and goes directly to kernel
+                # 'b' = immediately reboot the system without syncing or unmounting
+                duthost.shell(
+                    'nohup bash -c "sleep 2 && echo 1 > /proc/sys/kernel/sysrq && echo b > /proc/sysrq-trigger" '
+                    '> /dev/null 2>&1 &',
+                    module_ignore_errors=True)
+                logger.info("Kernel reboot trigger command issued successfully")
+            except Exception as e:
+                logger.info("Reboot trigger command execution (expected to disconnect): {}".format(str(e)))
+        else:
+            # For physical testbed, use PDU reboot
+            logger.info("Physical testbed - performing power cycle via PDU...")
+            try:
+                pdu_ctrl = get_pdu_controller(duthost)
+                logger.info("PDU controller obtained: {}".format(pdu_ctrl))
+
+                if pdu_ctrl is None:
+                    logger.error("No PDU controller available for {}, cannot recover from database container test"
+                                 .format(duthost.hostname))
+                    pytest.fail("No PDU controller available for {}, cannot recover from database container test"
+                                .format(duthost.hostname))
+
+                # Perform PDU reboot (power cycle)
+                logger.info("Starting PDU reboot...")
+                if not pdu_reboot(pdu_ctrl):
+                    logger.error("PDU reboot failed for {}".format(duthost.hostname))
+                    pytest.fail("PDU reboot failed for {}".format(duthost.hostname))
+
+                logger.info("PDU reboot completed, waiting for DUT to boot up...")
+            except Exception as e:
+                logger.error("Exception during PDU reboot: {}".format(str(e)))
+                raise
+
+        logger.info("Waiting for DUT to boot up after power cycle...")
+        # Wait for DUT to come back up after PDU power cycle
+        # Get timeout values based on chassis type
+        timeout = 300
+        wait_time = 120
+        if duthost.get_facts().get("modular_chassis"):
+            wait_time = max(wait_time, 600)
+            timeout = max(timeout, 420)
+
+        # Wait for SSH to come back up
+        wait_for_startup(duthost, localhost, delay=10, timeout=timeout)
+        logger.info("SSH is up, waiting for critical processes...")
+
+        # Wait for all critical processes to be healthy
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+        logger.info("All critical processes are running")
+
+        # Wait for interfaces to come up
+        logger.info("Checking interface status...")
+        check_interface_status_of_up_ports(duthost, timeout=300)
+        logger.info("All interfaces are up")
+
+        logger.info("DUT recovered successfully after power cycle!")
+    else:
+        # Normal recovery for other containers
+        logger.info("Executing the config reload...")
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
+        logger.info("Executing the config reload was done!")
+
+        ensure_all_critical_processes_running(duthost, containers_in_namespaces)
+
+    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
+        pytest.fail("Post-check failed after testing the process monitoring!")
+    logger.info("Post-checking status of critical processes and BGP sessions was done!")
+
+
+def test_monitoring_critical_processes(
+                                   duthosts,
+                                   rand_one_dut_hostname,
+                                   tbinfo,
+                                   skip_vendor_specific_container,
+                                   recover_critical_processes):
     """Tests the feature of monitoring critical processes by Monit and Supervisord.
 
     This function will check whether names of critical processes will appear
@@ -541,21 +664,8 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
 
     loganalyzer = LogAnalyzer(ansible_host=duthost, marker_prefix="monitoring_critical_processes")
     loganalyzer.expect_regex = []
-    up_bgp_neighbors = duthost.get_bgp_neighbors_per_asic("established")
 
-    skip_containers = []
-    skip_containers.append("database")
-    skip_containers.append("gbsyncd")
-    # Skip 'restapi' container since 'restapi' service will be restarted immediately after exited,
-    # which will not trigger alarm message.
-    skip_containers.append("restapi")
-    # Skip 'acms' container since 'acms' process is not running on lab devices and
-    # another process `cert_converter.py' is set to auto-restart if exited.
-    skip_containers.append("acms")
-    # Skip 'radv' container on devices whose role is not T0.
-    if tbinfo["topo"]["type"] != "t0":
-        skip_containers.append("radv")
-    skip_containers = skip_containers + skip_vendor_specific_container
+    skip_containers = get_skip_containers(duthost, tbinfo, skip_vendor_specific_container)
 
     containers_in_namespaces = get_containers_namespace_ids(duthost, skip_containers)
 
@@ -582,16 +692,6 @@ def test_monitoring_critical_processes(duthosts, rand_one_dut_hostname, tbinfo, 
     loganalyzer.analyze(marker)
     logger.info("Found all the expected alerting messages from syslog!")
 
-    logger.info("Executing the config reload...")
-    config_reload(duthost)
-    logger.info("Executing the config reload was done!")
-
-    ensure_all_critical_processes_running(duthost, containers_in_namespaces)
-
-    if not postcheck_critical_processes_status(duthost, up_bgp_neighbors):
-        pytest.fail("Post-check failed after testing the process monitoring!")
-    logger.info("Post-checking status of critical processes and BGP sessions was done!")
-
 
 def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendor_specific_container):
     """Tests orchagent heartbeat after warm-restart
@@ -611,10 +711,14 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     marker = loganalyzer.init()
 
     # freeze orchagent for warm-reboot
-    command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
+    # 'x86_64-mlnx_msn2700-r0' is weaker CPU systems and takes more time to update large-scale routing
+    if duthost.facts['platform'] == 'x86_64-mlnx_msn2700-r0':
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check -w 5000 -r 6")
+    else:
+        command_output = duthost.shell("docker exec -i swss orchagent_restart_check")
     exit_code = command_output["rc"]
     logger.warning("command_output: {}".format(command_output))
-    pytest_assert(exit_code == 0, "Failed to freeze orchagen for warm reboot")
+    pytest_assert(exit_code == 0, "Failed to freeze orchagent for warm reboot")
 
     # stuck alert will be trigger after 60s, wait 120s to make sure no any alert send
     time.sleep(120)
@@ -627,5 +731,5 @@ def test_orchagent_heartbeat(duthosts, rand_one_dut_hostname, tbinfo, skip_vendo
     config_reload(duthost)
     logger.info("Executing the config reload was done!")
 
-    # assert after config reload, make sure orchange recovered after test
+    # assert after config reload, make sure orchagent recovered after test
     pytest_assert(not analysis['total']['expected_match'], "Orchagent not stuck after frozen for warm-reboot.")

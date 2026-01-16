@@ -1,0 +1,198 @@
+# Copyright (c) 2025, Google Inc.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("@io_bazel_rules_go//go:def.bzl", "go_binary", "go_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+go_library(
+    name = "thinkit",
+    testonly = True,
+    srcs = ["thinkit.go"],
+    cgo = True,
+    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/infrastructure/thinkit/thinkit",
+    deps = [
+        "//infrastructure/binding:pinsbind",
+        "@com_github_golang_glog//:glog",
+        "@com_github_openconfig_gnmi//errlist",
+        "@com_github_openconfig_ondatra//binding",
+        "@com_github_openconfig_ondatra//proto:go_default_library",
+        "@com_github_openconfig_ondatra//proxy",
+        "@com_github_openconfig_ondatra//proxy/proto/reservation:go_default_library",
+        "@org_golang_google_grpc//:go_default_library",
+        "@org_golang_google_grpc//credentials/local",
+        "@org_golang_google_protobuf//proto",
+    ],
+)
+
+go_binary(
+    name = "thinkit_cgo",
+    testonly = True,
+    embed = [":thinkit"],
+    linkmode = "c-archive",
+)
+
+cc_library(
+    name = "cthinkit",
+    testonly = True,
+    srcs = ["thinkit.cc"],
+    hdrs = ["thinkit.h"],
+    deps = [
+        ":thinkit_cgo.cc",
+        "@com_github_sonic_net_sonic_pins//gutil:status",
+        "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
+        "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings:string_view",
+        "@com_google_absl//absl/time",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "ondatra_generic_testbed",
+    testonly = True,
+    hdrs = ["ondatra_generic_testbed.h"],
+    deps = [
+        "@com_github_sonic_net_sonic_pins//thinkit:bazel_test_environment",
+        "@com_github_sonic_net_sonic_pins//thinkit:control_device",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed",
+        "@com_github_sonic_net_sonic_pins//thinkit:switch",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
+    name = "ondatra_generic_testbed_fixture",
+    testonly = True,
+    srcs = ["ondatra_generic_testbed_fixture.cc"],
+    hdrs = ["ondatra_generic_testbed_fixture.h"],
+    deps = [
+        ":cthinkit",
+        ":ondatra_generic_testbed",
+        "@com_github_sonic_net_sonic_pins//gutil:status_matchers",
+        "@com_github_sonic_net_sonic_pins//lib:basic_switch",
+        "@com_github_sonic_net_sonic_pins//lib:pins_control_device",
+        "@com_github_sonic_net_sonic_pins//lib/gnmi:gnmi_helper",
+        "@com_github_sonic_net_sonic_pins//p4_pdpi:p4_runtime_session",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed_fixture",
+        "@com_github_sonic_net_sonic_pins//thinkit:switch",
+        "@com_github_sonic_net_sonic_pins//thinkit/proto:generic_testbed_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
+        "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_test(
+    name = "ondatra_generic_testbed_fixture_test",
+    srcs = ["ondatra_generic_testbed_fixture_test.cc"],
+    deps = [
+        ":cthinkit",
+        ":ondatra_generic_testbed_fixture",
+        "@com_github_sonic_net_sonic_pins//gutil:proto_matchers",
+        "@com_github_sonic_net_sonic_pins//gutil:status",
+        "@com_github_sonic_net_sonic_pins//gutil:status_matchers",
+        "@com_github_sonic_net_sonic_pins//gutil:testing",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed",
+        "@com_github_sonic_net_sonic_pins//thinkit/proto:generic_testbed_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
+        "@com_github_grpc_grpc//:grpc++_public_hdrs",
+        "@com_github_grpc_grpc//:grpc_security_base",
+        "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
+        "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+    linkopts = ["-lresolv"],
+)
+
+cc_library(
+    name = "ondatra_mirror_testbed",
+    testonly = True,
+    hdrs = ["ondatra_mirror_testbed.h"],
+    deps = [
+        "@com_github_sonic_net_sonic_pins//thinkit:bazel_test_environment",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed",
+        "@com_github_sonic_net_sonic_pins//thinkit:switch",
+    ],
+)
+
+cc_library(
+    name = "ondatra_mirror_testbed_fixture",
+    testonly = True,
+    srcs = ["ondatra_mirror_testbed_fixture.cc"],
+    hdrs = ["ondatra_mirror_testbed_fixture.h"],
+    deps = [
+        ":cthinkit",
+        ":ondatra_mirror_testbed",
+        "@com_github_sonic_net_sonic_pins//gutil:status_matchers",
+        "@com_github_sonic_net_sonic_pins//lib:basic_switch",
+        "@com_github_sonic_net_sonic_pins//lib/gnmi:gnmi_helper",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
+        "@com_github_sonic_net_sonic_pins//thinkit:switch",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_openconfig_ondatra//proto:ondatra_cc_proto",
+        "@com_github_openconfig_ondatra//proxy/proto:reservation_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
+    ],
+)
+
+cc_library(
+    name = "ondatra_params",
+    testonly = True,
+    srcs = ["ondatra_params.cc"],
+    hdrs = ["ondatra_params.h"],
+    deps = [
+        ":ondatra_generic_testbed_fixture",
+        ":ondatra_mirror_testbed_fixture",
+        "@com_github_sonic_net_sonic_pins//thinkit:generic_testbed_fixture",
+        "@com_github_sonic_net_sonic_pins//thinkit:mirror_testbed_fixture",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+build_test(
+    name = "ondatra_params_test",
+    targets = [":ondatra_params"],
+)

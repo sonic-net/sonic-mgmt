@@ -1,12 +1,21 @@
 import os
 import pytest
 
+from tests.common.helpers.platform_api import psu
 from tests.common.plugins.loganalyzer.loganalyzer import LogAnalyzer
 
 SERVER_FILE = 'platform_api_server.py'
 SERVER_PORT = 8000
 
 IPTABLES_DELETE_RULE_CMD = 'iptables -D INPUT -p tcp -m tcp --dport {} -j ACCEPT'.format(SERVER_PORT)
+
+
+def skip_absent_psu(psu_num, platform_api_conn, psu_skip_list, logger):    # noqa: F811
+    name = psu.get_name(platform_api_conn, psu_num)
+    if name in psu_skip_list:
+        logger.info("Skipping PSU {} since it is part of psu_skip_list".format(name))
+        return True
+    return False
 
 
 @pytest.fixture(scope='module', autouse=True)
@@ -22,8 +31,13 @@ def stop_platform_api_service(duthosts):
             # Check if platform_api_server running in the pmon docker and only then stop it. Else we would fail,
             # and not stop on other DUT's
             out = duthost.shell('docker exec pmon supervisorctl status platform_api_server',
-                                module_ignore_errors=True)['stdout_lines']
-            platform_api_service_state = [line.strip().split()[1] for line in out][0]
+                                module_ignore_errors=True)
+
+            # ensure pmon is still up
+            if out.get('stderr_lines') and "Error response from daemon" in out['stderr_lines']:
+                pytest.fail(f"pmon is not running after tests {out['stderr_lines']}")
+
+            platform_api_service_state = [line.strip().split()[1] for line in out['stdout_lines']][0]
             if platform_api_service_state == 'RUNNING':
                 duthost.command('docker exec -i pmon supervisorctl stop platform_api_server')
                 duthost.command('docker exec -i pmon rm -f {}'.format(pmon_path_supervisor))

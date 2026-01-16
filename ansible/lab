@@ -127,6 +127,9 @@ sonic_s6000:
       ansible_host: 10.250.0.122
       ansible_hostv6: fec0::ffff:afa:12
       card_type: supervisor
+    vlab-vpp-01:
+      ansible_host: 10.250.0.92
+      ansible_hostv6: fec0::ffff:afa:70
 
 sonic_s6100:
   vars:
@@ -160,6 +163,40 @@ sonic_a7260:
         "0x28": "x86_64-arista_7260cx3_64"
         "0x2d": "Arista Networks"
         "0x2e": "Aboot-norcal7-7.2.3-pcie2x4-12345678"
+
+sonic_nokia_multi_asic_lc:
+  vars:
+    hwsku: Nokia-IXR7250E-36x400G
+    iface_speed: 400000
+    num_asics: 2
+    start_topo_service: True
+    frontend_asics: [0,1]
+    card_type: linecard
+  hosts:
+    vlab-t2-03:
+      ansible_host: 10.250.0.123
+      ansible_hostv6: fec0::ffff:afa:13
+      slot_num: slot1
+      loopback4096_ip: [192.0.0.0/32, 192.0.0.1/32]
+      loopback4096_ipv6: [2603:10e2:400::/128, 2603:10e2:400::1/128]
+    vlab-t2-04:
+      ansible_host: 10.250.0.124
+      ansible_hostv6: fec0::ffff:afa:14
+      slot_num: slot2
+      loopback4096_ip: [192.0.0.3/32, 192.0.0.4/32]
+      loopback4096_ipv6: [2603:10e2:400::3/128, 2603:10e2:400::4/128]
+
+sonic_nokia_sup:
+  vars:
+    hwsku: Nokia-IXR7250E-SUP-10
+    iface_speed: 400000
+    start_topo_service: True
+    card_type: supervisor
+  hosts:
+    vlab-t2-sup1:
+      ansible_host: 10.250.0.125
+      ansible_hostv6: fec0::ffff:afa:15
+      slot_num: slot0
 
 sonic_multi_asic:
   vars:

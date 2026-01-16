@@ -19,8 +19,11 @@ from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
 from tests.common.helpers.parallel import reset_ansible_local_tmp
 from tests.common.helpers.parallel import parallel_run
 from tests.common.utilities import wait_until
+from tests.common.utilities import is_ipv6_only_topology
 from tests.bgp.traffic_checker import get_traffic_shift_state
 from tests.bgp.constants import TS_NORMAL
+from tests.common.devices.eos import EosHost
+from tests.common.devices.sonic import SonicHost
 
 BASE_DIR = os.path.dirname(os.path.realpath(__file__))
 DUT_TMP_DIR = os.path.join('tmp', os.path.basename(BASE_DIR))
@@ -104,8 +107,15 @@ def get_no_export_output(vm_host):
     Args:
         vm_host: VM host object
     """
-    out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
-    return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+    if isinstance(vm_host, EosHost):
+        out = vm_host.eos_command(commands=['show ip bgp community no-export'])["stdout"]
+        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out[0])
+    elif isinstance(vm_host, SonicHost):
+        out = vm_host.command("vtysh -c 'show ip bgp community no-export'")["stdout"]
+        # For SonicHost, output is already a string, no need to index
+        return re.findall(r'\d+\.\d+.\d+.\d+\/\d+\s+\d+\.\d+.\d+.\d+.*', out)
+    else:
+        raise TypeError(f"Unsupported host type: {type(vm_host)}. Expected EosHost or SonicHost.")
 
 
 def apply_default_bgp_config(duthost, copy=False):
@@ -222,6 +232,22 @@ def restore_bgp_neighbors(duthost, asic_index, bgp_neighbors):
     pytest_assert(wait_until(100, 10, 0, duthost.is_service_fully_started_per_asic_or_host, "bgp"), "BGP not started.")
 
 
+def is_neighbor_sessions_established(duthost, neighbors):
+    is_established = True
+
+    # handle both multi-asic and single-asic
+    bgp_facts = duthost.bgp_facts(num_npus=duthost.sonichost.num_asics())[
+        "ansible_facts"
+    ]
+    for neighbor in neighbors:
+        is_established &= (
+            neighbor.ip in bgp_facts["bgp_neighbors"]
+            and bgp_facts["bgp_neighbors"][neighbor.ip]["state"] == "established"
+        )
+
+    return is_established
+
+
 @pytest.fixture(scope='module')
 def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
     """
@@ -271,12 +297,15 @@ def bgp_allow_list_setup(tbinfo, nbrhosts, duthosts, rand_one_dut_hostname):
             downstream_namespace = neigh['namespace']
             break
 
+    is_v6_topo = is_ipv6_only_topology(tbinfo)
+
     setup_info = {
         'downstream': downstream,
         'downstream_namespace': downstream_namespace,
         'downstream_exabgp_port': downstream_exabgp_port,
         'downstream_exabgp_port_v6': downstream_exabgp_port_v6,
         'other_neighbors': other_neighbors,
+        'is_v6_topo': is_v6_topo,
     }
     yield setup_info
 
@@ -297,8 +326,8 @@ def update_routes(action, ptfip, port, route):
 
 
 def build_routes(tbinfo, prefix_list, expected_community):
-    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv4']
-    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common']['nhipv6']
+    nhipv4 = tbinfo['topo']['properties']['configuration_properties']['common'].get('nhipv4')
+    nhipv6 = tbinfo['topo']['properties']['configuration_properties']['common'].get('nhipv6')
     routes = []
     for list_name, prefixes in list(prefix_list.items()):
         logging.info('list_name: {}, prefixes: {}'.format(list_name, str(prefixes)))
@@ -306,9 +335,12 @@ def build_routes(tbinfo, prefix_list, expected_community):
             route = {}
             route['prefix'] = prefix
             if ipaddress.IPNetwork(prefix).version == 4:
-                route['nexthop'] = nhipv4
+                nhip = nhipv4
             else:
-                route['nexthop'] = nhipv6
+                nhip = nhipv6
+            if not nhip:
+                continue
+            route['nexthop'] = nhip
             if 'COMMUNITY' in list_name:
                 route['community'] = expected_community
             routes.append(route)
@@ -330,7 +362,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
     for peer_ips in list(downstream_peers.values()):
         for peer_ip in peer_ips:
             cmds.append('neighbor {} send-community'.format(peer_ip))
-    nbrhosts[downstream]['host'].eos_config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
+    nbrhosts[downstream]['host'].config(lines=cmds, parents='router bgp {}'.format(downstream_asn))
 
     for route in routes:
         if ipaddress.IPNetwork(route['prefix']).version == 4:
@@ -348,7 +380,7 @@ def prepare_eos_routes(bgp_allow_list_setup, ptfhost, nbrhosts, tbinfo):
             update_routes('withdraw', ptfhost.mgmt_ip, downstream_exabgp_port_v6, route)
     # Restore EOS config
     no_cmds = ['no {}'.format(cmd) for cmd in cmds]
-    nbrhosts[downstream]['host'].eos_config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
+    nbrhosts[downstream]['host'].config(lines=no_cmds, parents='router bgp {}'.format(downstream_asn))
 
 
 def apply_allow_list(duthost, namespace, allow_list, allow_list_file_path):
@@ -371,7 +403,9 @@ def check_routes_on_from_neighbor(setup_info, nbrhosts):
     Verify if there are routes on neighbor who announce them.
     """
     downstream = setup_info['downstream']
-    for prefixes in list(PREFIX_LISTS.values()):
+    for list_name, prefixes in list(PREFIX_LISTS.items()):
+        if setup_info['is_v6_topo'] and "v6" not in list_name.lower():
+            continue
         for prefix in prefixes:
             downstream_route = nbrhosts[downstream]['host'].get_route(prefix)
             route_entries = downstream_route['vrfs']['default']['bgpRouteEntries']
@@ -400,6 +434,8 @@ def check_routes_on_neighbors_empty_allow_list(nbrhosts, setup, permit=True):
 
         prefix_results = []
         for list_name, prefixes in list(PREFIX_LISTS.items()):
+            if setup['is_v6_topo'] and "v6" not in list_name.lower():
+                continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
                 neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
@@ -453,6 +489,8 @@ def check_routes_on_neighbors(nbrhosts, setup, permit=True):
 
         prefix_results = []
         for list_name, prefixes in list(PREFIX_LISTS.items()):
+            if setup['is_v6_topo'] and "v6" not in list_name.lower():
+                continue
             for prefix in prefixes:
                 prefix_result = {'failed': False, 'prefix': prefix, 'reasons': []}
                 neigh_route = nbrhosts[node]['host'].get_route(prefix)['vrfs']['default']['bgpRouteEntries']
@@ -538,12 +576,21 @@ def get_default_action():
     return DEFAULT_ACTION
 
 
-def restart_bgp_session(duthost):
+def restart_bgp_session(duthost, neighbor=None):
     """
-    Restart bgp session
+    Restart bgp session. If neighbor is specified, only restart that specific neighbor's session.
+    Otherwise restart all BGP sessions.
+
+    Args:
+        duthost: DUT host object
+        neighbor (str, optional): BGP neighbor IP address. If None, restarts all sessions.
     """
-    logging.info("Restart all BGP sessions")
-    duthost.shell('vtysh -c "clear bgp *"')
+    if neighbor:
+        logging.info(f"Restart BGP session with neighbor {neighbor}")
+        duthost.shell(f'vtysh -c "clear bgp {neighbor}"')
+    else:
+        logging.info("Restart all BGP sessions")
+        duthost.shell('vtysh -c "clear bgp *"')
 
 
 def get_ptf_recv_port(duthost, vm_name, tbinfo):
@@ -903,7 +950,7 @@ def initial_tsa_check_before_and_after_test(duthosts):
             lc.shell('TSB')
             lc.shell('sudo config save -y')
             # Ensure that the DUT is not in maintenance already before start of the test
-            pytest_assert(TS_NORMAL == get_traffic_shift_state(lc, cmd='TSC no-stats'),
+            pytest_assert(wait_until(30, 5, 0, lambda: TS_NORMAL == get_traffic_shift_state(lc, 'TSC no-stats')),
                           "DUT is not in normal state")
 
     # Issue TSB on the line card before proceeding further

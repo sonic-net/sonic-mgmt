@@ -303,7 +303,7 @@ class Mux(object):
             in_port="enp59s0f1.3216" actions=output:"muxy-vms17-8-0"
 
         Example result of parsing the output using regex:
-        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)     # noqa W605
+        >>> re.findall(r'in_port="(\S+)"\s+actions=(\S+)', out)     # noqa: W605
         [('muxy-vms17-8-0', 'output:"enp59s0f1.3216",output:"enp59s0f1.3272"'),
          ('enp59s0f1.3216', 'output:"muxy-vms17-8-0"')]
         """
@@ -576,6 +576,18 @@ class Muxes(object):
             mux = Mux(vm_set, port_index)
             if mux.isvalid:
                 self.muxes[bridge] = mux
+
+        self._recover_unhealthy_muxes()
+
+    def _recover_unhealthy_muxes(self):
+        """Recover unhealthy muxes by resetting their flows."""
+        unhealthy_muxes = [mux for mux in self.muxes.values() if not mux.status['healthy']]
+        if len(unhealthy_muxes) == 0:
+            return
+
+        app.logger.info('Recovering unhealthy muxes: {}'.format(
+            [mux.bridge for mux in unhealthy_muxes]))
+        list(self.thread_pool.map(lambda mux: mux.reset_flows(), unhealthy_muxes))
 
     def _mux_bridges(self):
         """Only collect bridges belong to self.vm_set
@@ -964,13 +976,13 @@ if __name__ == '__main__':
     config_logging(http_port)
     MUX_LOGO = '\n'.join([
         '',
-        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa E501
-        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa E501
-        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa E501
-        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa E501
-        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa E501
-        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa E501
-        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa E501
+        '##     ## ##     ## ##     ##     ######  #### ##     ## ##     ## ##          ###    ########  #######  ########  ',      # noqa: E501
+        '###   ### ##     ##  ##   ##     ##    ##  ##  ###   ### ##     ## ##         ## ##      ##    ##     ## ##     ## ',      # noqa: E501
+        '#### #### ##     ##   ## ##      ##        ##  #### #### ##     ## ##        ##   ##     ##    ##     ## ##     ## ',      # noqa: E501
+        '## ### ## ##     ##    ###        ######   ##  ## ### ## ##     ## ##       ##     ##    ##    ##     ## ########  ',      # noqa: E501
+        '##     ## ##     ##   ## ##            ##  ##  ##     ## ##     ## ##       #########    ##    ##     ## ##   ##   ',      # noqa: E501
+        '##     ## ##     ##  ##   ##     ##    ##  ##  ##     ## ##     ## ##       ##     ##    ##    ##     ## ##    ##  ',      # noqa: E501
+        '##     ##  #######  ##     ##     ######  #### ##     ##  #######  ######## ##     ##    ##     #######  ##     ## ',      # noqa: E501
         '',
     ])
     app.logger.info(MUX_LOGO)

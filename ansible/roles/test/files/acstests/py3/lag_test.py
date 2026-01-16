@@ -5,7 +5,6 @@
 import ptf
 from ptf.base_tests import BaseTest
 import ptf.packet as scapy
-import ptf.dataplane as dataplane   # noqa F811
 
 import ptf.testutils as testutils
 from ptf.testutils import simple_icmp_packet
@@ -15,6 +14,7 @@ from ptf.testutils import simple_eth_packet
 from ptf.testutils import send
 from ptf.testutils import verify_packet_any_port
 from ptf.mask import Mask
+import macsec  # noqa F401
 
 from router_utils import RouterUtility
 

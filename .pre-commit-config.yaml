@@ -16,12 +16,54 @@ repos:
     hooks:
     -   id: flake8
         args: ["--max-line-length=120"]
-        exclude: ^spytest/
+        exclude: ^spytest/|^tests/common2/
     -   id: flake8
         files: ^spytest/.*
         args: ["--max-line-length=120", "--ignore=E1,E2,E3,E5,E7,W5"]
+    -   id: flake8
+        name: flake8 (tests/common2)
+        files: ^tests/common2/.*
+        args: ["--max-line-length=120", "--ignore=E1,E2,E3,E5,W1,W2,W3,W5"]
 
 -   repo: https://github.com/sonic-net/sonic-mgmt
-    rev: 1.0.1+pre_commit
+    rev: 1.0.2+pre_commit
     hooks:
     -   id: check-conditional-mark-sort
+
+##
+# The following hooks are specific to the tests/common2 directory
+##
+-   repo: https://github.com/PyCQA/isort
+    rev: 6.0.1
+    hooks:
+    -   id: isort
+        name: isort (python)
+        files: ^tests/common2/
+        args: ["--profile", "black"]
+
+-   repo: https://github.com/psf/black-pre-commit-mirror
+    rev: 24.8.0
+    hooks:
+    # arguments are specified in pyproject.toml
+    -   id: black
+        files: ^tests/common2/
+
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.15.0
+    hooks:
+    # arguments are specified in pyproject.toml
+    -   id: mypy
+        files: ^tests/common2/
+        additional_dependencies: ["types-PyYAML", "types-six", "types-paramiko", "types-requests"]
+
+# it is recommended to run pylint locally unlike other hooks
+-   repo: local
+    hooks:
+    -   id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        require_serial: true
+        args: [--rcfile=pylintrc]
+        files: ^tests/common2/

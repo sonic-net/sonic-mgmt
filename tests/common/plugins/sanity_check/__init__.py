@@ -7,7 +7,8 @@ import pytest
 
 from collections import defaultdict
 
-from tests.common.helpers.parallel_utils import InitialCheckState, InitialCheckStatus
+from tests.common.helpers.multi_thread_utils import SafeThreadPoolExecutor
+from tests.common.helpers.parallel_utils import ParallelCoordinator, ParallelStatus
 from tests.common.plugins.sanity_check import constants
 from tests.common.plugins.sanity_check import checks
 from tests.common.plugins.sanity_check.checks import *      # noqa: F401, F403
@@ -80,24 +81,26 @@ def _update_check_items(old_items, new_items, supported_items):
     return updated_items
 
 
-def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
-    for dut in duthosts:
+def print_logs(duthosts, ptfhost, print_dual_tor_logs=False, check_ptf_mgmt=True):
+
+    def print_cmds_output_from_duthost(dut, is_dual_tor, ptf):
         logger.info("Run commands to print logs")
 
         cmds = list(constants.PRINT_LOGS.values())
 
-        if print_dual_tor_logs is False:
+        if is_dual_tor is False:
             cmds.remove(constants.PRINT_LOGS['mux_status'])
             cmds.remove(constants.PRINT_LOGS['mux_config'])
 
-        # check PTF device reachability
-        if ptfhost.mgmt_ip:
-            cmds.append("ping {} -c 1 -W 3".format(ptfhost.mgmt_ip))
-            cmds.append("traceroute {}".format(ptfhost.mgmt_ip))
+        if check_ptf_mgmt:
+            # check PTF device reachability
+            if ptf.mgmt_ip:
+                cmds.append("ping {} -c 1 -W 3".format(ptf.mgmt_ip))
+                cmds.append("traceroute -n {}".format(ptf.mgmt_ip))
 
-        if ptfhost.mgmt_ipv6:
-            cmds.append("ping6 {} -c 1 -W 3".format(ptfhost.mgmt_ipv6))
-            cmds.append("traceroute6 {}".format(ptfhost.mgmt_ipv6))
+            if ptf.mgmt_ipv6:
+                cmds.append("ping6 {} -c 1 -W 3".format(ptf.mgmt_ipv6))
+                cmds.append("traceroute6 -n {}".format(ptf.mgmt_ipv6))
 
         results = dut.shell_cmds(cmds=cmds, module_ignore_errors=True, verbose=False)['results']
         outputs = []
@@ -106,6 +109,10 @@ def print_logs(duthosts, ptfhost, print_dual_tor_logs=False):
             res.pop('stderr')
             outputs.append(res)
         logger.info("dut={}, cmd_outputs={}".format(dut.hostname, json.dumps(outputs, indent=4)))
+
+    with SafeThreadPoolExecutor(max_workers=8) as executor:
+        for duthost in duthosts:
+            executor.submit(print_cmds_output_from_duthost, duthost, print_dual_tor_logs, ptfhost)
 
 
 def filter_check_items(tbinfo, duthosts, check_items):
@@ -124,7 +131,10 @@ def filter_check_items(tbinfo, duthosts, check_items):
                 return True
         return False
 
-    if 't2' not in tbinfo['topo']['name'] or _is_voq_chassis(duthosts):
+    if 'ft2' in tbinfo['topo']['name'] or \
+        'lt2' in tbinfo['topo']['name'] or \
+            't2' not in tbinfo['topo']['name'] or \
+            _is_voq_chassis(duthosts):
         if 'check_bfd_up_count' in filtered_check_items:
             filtered_check_items.remove('check_bfd_up_count')
         if 'check_mac_entry_count' in filtered_check_items:
@@ -148,30 +158,34 @@ def do_checks(request, check_items, *args, **kwargs):
 
 @pytest.fixture(scope="module")
 def prepare_parallel_run(request, parallel_run_context):
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
+    par_ctx = parallel_run_context
     should_skip_sanity = False
-    if is_par_run:
-        initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
-        if is_par_leader:
-            initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+    if par_ctx.is_par_run:
+        parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+        if par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
             yield should_skip_sanity
 
             if (request.config.cache.get("pre_sanity_check_failed", None) or
                     request.config.cache.get("post_sanity_check_failed", None)):
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.SANITY_CHECK_FAILED,
-                    is_par_leader,
-                    target_hostname,
+                parallel_coordinator.set_failed_status(
+                    ParallelStatus.SANITY_CHECK_FAILED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
             else:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+                parallel_coordinator.set_new_status(
+                    ParallelStatus.TEARDOWN_COMPLETED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
 
-                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
+                parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
         else:
             should_skip_sanity = True
             logger.info(
@@ -186,17 +200,19 @@ def prepare_parallel_run(request, parallel_run_context):
                 "Please refer to the leader node log for check status."
             )
 
-            initial_check_state.wait_and_acknowledge_status(
-                InitialCheckStatus.TEARDOWN_COMPLETED,
-                is_par_leader,
-                target_hostname,
+            parallel_coordinator.wait_and_ack_status_for_followers(
+                ParallelStatus.TEARDOWN_COMPLETED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
             )
+
+            parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
     else:
         yield should_skip_sanity
 
 
 @pytest.fixture(scope="module")
-def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, nbrhosts, tbinfo):
+def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, request, fanouthosts, tbinfo):
     logger.info("Prepare sanity check")
     should_skip_sanity = prepare_parallel_run
     if should_skip_sanity:
@@ -205,10 +221,12 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         return
 
     skip_sanity = False
+    skip_pre_sanity = False
     allow_recover = False
     recover_method = "adaptive"
     pre_check_items = copy.deepcopy(SUPPORTED_CHECKS)  # Default check items
     post_check = False
+    nbr_hosts = None
 
     customized_sanity_check = None
     for m in request.node.iter_markers():
@@ -221,6 +239,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Process marker {} in script. m.args={}, m.kwargs={}"
                     .format(customized_sanity_check.name, customized_sanity_check.args, customized_sanity_check.kwargs))
         skip_sanity = customized_sanity_check.kwargs.get("skip_sanity", False)
+        skip_pre_sanity = customized_sanity_check.kwargs.get("skip_pre_sanity", False)
         allow_recover = customized_sanity_check.kwargs.get("allow_recover", False)
         recover_method = customized_sanity_check.kwargs.get("recover_method", "adaptive")
         if allow_recover and recover_method not in constants.RECOVER_METHODS:
@@ -239,6 +258,9 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         logger.info("Skip sanity check according to configuration of test script.")
         yield
         return
+
+    if request.config.option.skip_pre_sanity:
+        skip_pre_sanity = True
 
     if request.config.option.allow_recover:
         allow_recover = True
@@ -281,9 +303,10 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
     else:
         post_check_items = set()
 
-    logger.info("Sanity check settings: skip_sanity=%s, pre_check_items=%s, allow_recover=%s, recover_method=%s, "
-                "post_check=%s, post_check_items=%s" %
-                (skip_sanity, pre_check_items, allow_recover, recover_method, post_check, post_check_items))
+    logger.info("Sanity check settings: skip_sanity=%s, skip_pre_sanity=%s, pre_check_items=%s, "
+                "allow_recover=%s, recover_method=%s, post_check=%s, post_check_items=%s" %
+                (skip_sanity, skip_pre_sanity, pre_check_items, allow_recover,
+                 recover_method, post_check, post_check_items))
 
     pre_post_check_items = pre_check_items + [item for item in post_check_items if item not in pre_check_items]
     for item in pre_post_check_items:
@@ -293,7 +316,7 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
         # Each possibly used check fixture must be executed in setup phase. Otherwise there could be teardown error.
         request.getfixturevalue(item)
 
-    if pre_check_items:
+    if not skip_pre_sanity and pre_check_items:
         logger.info("Start pre-test sanity checks")
 
         # Dynamically attach selected check fixtures to node
@@ -314,7 +337,8 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!!Pre-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(failed_results, indent=4, default=fallback_serializer)))
             else:
-                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts,
+                nbr_hosts = request.getfixturevalue('nbrhosts')
+                recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbr_hosts,
                                                 pre_check_items, recover_method, request, tbinfo, STAGE_PRE_TEST)
 
         logger.info("Done pre-test sanity check")
@@ -340,13 +364,15 @@ def sanity_check_full(ptfhost, prepare_parallel_run, localhost, duthosts, reques
                 pt_assert(False, "!!!!!!!!!!!!!!!! Post-test sanity check failed: !!!!!!!!!!!!!!!!\n{}"
                           .format(json.dumps(post_failed_results, indent=4, default=fallback_serializer)))
             else:
+                if not nbr_hosts:
+                    nbr_hosts = request.getfixturevalue('nbrhosts')
                 recover_on_sanity_check_failure(ptfhost, duthosts, post_failed_results, fanouthosts, localhost,
-                                                nbrhosts, post_check_items, recover_method, request, tbinfo,
+                                                nbr_hosts, post_check_items, recover_method, request, tbinfo,
                                                 STAGE_POST_TEST)
 
             logger.info("Done post-test sanity check")
         else:
-            logger.info('No post-test sanity check item, skip post-test sanity check.')
+            logger.info('No post-test sanity check item failed, post-test sanity check passed.')
 
 
 def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthosts, localhost, nbrhosts, check_items,
@@ -409,33 +435,41 @@ def recover_on_sanity_check_failure(ptfhost, duthosts, failed_results, fanouthos
 
 def _sanity_check(request, parallel_run_context):
 
-    is_par_run, target_hostname, is_par_leader, par_followers, par_state_file = parallel_run_context
-    initial_check_state = InitialCheckState(par_followers, par_state_file) if is_par_run else None
-    if is_par_run:
-        initial_check_state.mark_and_wait_before_setup(target_hostname, is_par_leader)
+    par_ctx = parallel_run_context
+    parallel_coordinator = ParallelCoordinator(par_ctx) if par_ctx.is_par_run else None
+    if par_ctx.is_par_run:
+        parallel_coordinator.mark_and_wait_for_status(
+            ParallelStatus.SETUP_READY,
+            par_ctx.target_hostname,
+            par_ctx.is_par_leader,
+        )
 
     if request.config.option.skip_sanity:
         logger.info("Skip sanity check according to command line argument")
-        if is_par_run and is_par_leader:
-            initial_check_state.set_new_status(InitialCheckStatus.SETUP_STARTED, is_par_leader, target_hostname)
+        if par_ctx.is_par_run and par_ctx.is_par_leader:
+            parallel_coordinator.set_new_status(
+                ParallelStatus.SETUP_STARTED,
+                par_ctx.is_par_leader,
+                par_ctx.target_hostname,
+            )
 
         yield
 
-        if is_par_run:
-            if is_par_leader:
-                initial_check_state.set_new_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
+        if par_ctx.is_par_run:
+            if par_ctx.is_par_leader:
+                parallel_coordinator.set_new_status(
+                    ParallelStatus.TEARDOWN_COMPLETED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
+                )
+            else:
+                parallel_coordinator.wait_and_ack_status_for_followers(
+                    ParallelStatus.TEARDOWN_COMPLETED,
+                    par_ctx.is_par_leader,
+                    par_ctx.target_hostname,
                 )
 
-                initial_check_state.wait_for_all_acknowledgments(InitialCheckStatus.TEARDOWN_COMPLETED)
-            else:
-                initial_check_state.wait_and_acknowledge_status(
-                    InitialCheckStatus.TEARDOWN_COMPLETED,
-                    is_par_leader,
-                    target_hostname,
-                )
+            parallel_coordinator.wait_for_all_followers_ack(ParallelStatus.TEARDOWN_COMPLETED)
     else:
         yield request.getfixturevalue('sanity_check_full')
 

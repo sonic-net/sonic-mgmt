@@ -3,15 +3,57 @@ This module contains classes for PDU controllers that supports the SNMP manageme
 
 The classes must implement the PduControllerBase interface defined in controller_base.py.
 """
+import asyncio
 import logging
 import jinja2
 
 from .controller_base import PduControllerBase
 
 from pysnmp.proto import rfc1902
-from pysnmp.entity.rfc3413.oneliner import cmdgen
+from pysnmp.hlapi.v3arch.asyncio import (
+    SnmpEngine, CommunityData, UsmUserData, UdpTransportTarget, ContextData,
+    ObjectType, ObjectIdentity, next_cmd, get_cmd, set_cmd, walk_cmd,
+    usmHMACSHAAuthProtocol, usmHMACMD5AuthProtocol, usmAesCfb128Protocol, usmDESPrivProtocol
+)
 
 logger = logging.getLogger(__name__)
+
+
+def sync_next_cmd(engine, auth, target_host_port, context, *object_types, **kwargs):
+    """Synchronous wrapper for next_cmd with async transport target creation"""
+    async def _async_next_cmd():
+        transport_target = await UdpTransportTarget.create(target_host_port)
+        return await next_cmd(engine, auth, transport_target, context, *object_types, **kwargs)
+    return asyncio.run(_async_next_cmd())
+
+
+def sync_get_cmd(engine, auth, target_host_port, context, *object_types, **kwargs):
+    """Synchronous wrapper for get_cmd with async transport target creation"""
+    async def _async_get_cmd():
+        transport_target = await UdpTransportTarget.create(target_host_port)
+        return await get_cmd(engine, auth, transport_target, context, *object_types, **kwargs)
+    return asyncio.run(_async_get_cmd())
+
+
+def sync_set_cmd(engine, auth, target_host_port, context, *object_types, **kwargs):
+    """Synchronous wrapper for set_cmd with async transport target creation"""
+    async def _async_set_cmd():
+        transport_target = await UdpTransportTarget.create(target_host_port)
+        return await set_cmd(engine, auth, transport_target, context, *object_types, **kwargs)
+    return asyncio.run(_async_set_cmd())
+
+
+def sync_walk_cmd(engine, auth, target_host_port, context, *object_types, **kwargs):
+    """Synchronous wrapper for walk_cmd with async transport target creation"""
+    async def _async_walk_cmd():
+        transport_target = await UdpTransportTarget.create(target_host_port)
+        results = []
+        # Set lexicographicMode=False by default for walk operations
+        kwargs.setdefault('lexicographicMode', False)
+        async for result in walk_cmd(engine, auth, transport_target, context, *object_types, **kwargs):
+            results.append(result)
+        return results
+    return asyncio.run(_async_walk_cmd())
 
 
 class snmpPduController(PduControllerBase):
@@ -117,26 +159,36 @@ class snmpPduController(PduControllerBase):
         self.port_oid_dict[port_oid] = {'label': label}
         self.port_label_dict[label] = {'port_oid': port_oid}
 
-    def _probe_lane(self, lane_id, cmdGen, snmp_auth):
+    def _probe_lane(self, lane_id, snmp_auth):
         pdu_port_base = self.PORT_NAME_BASE_OID
         query_oid = '.' + pdu_port_base
         if self.has_lanes:
             query_oid = query_oid + '.' + str(lane_id)
 
-        errorIndication, errorStatus, errorIndex, varTable = cmdGen.nextCmd(
+        results = sync_walk_cmd(
+            SnmpEngine(),
             snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(query_oid)
+            (self.controller, 161),
+            ContextData(),
+            ObjectType(ObjectIdentity(query_oid)),
+            lexicographicMode=False
         )
-        if errorIndication:
-            logger.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
-        else:
-            for varBinds in varTable:
+
+        for errorIndication, errorStatus, errorIndex, varBinds in results:
+            if errorIndication:
+                logger.debug("Failed to get ports controlling PSUs of DUT, exception: " + str(errorIndication))
+                continue
+            elif errorStatus:
+                logger.debug('SNMP error: %s at %s' % (
+                    errorStatus.prettyPrint(),
+                    errorIndex and varBinds[int(errorIndex) - 1][0] or '?')
+                )
+                continue
+            else:
                 for oid, val in varBinds:
-                    oid = oid.getOid() if hasattr(oid, 'getoid') else oid
                     current_oid = str(oid)
                     port_oid = current_oid.replace(pdu_port_base, '')
-                    label = val.prettyPrint().lower()
+                    label = str(val).lower()
                     logger.info("Found port {} with label {}".format(port_oid, label))
                     self._build_outlet_maps(port_oid, label)
 
@@ -150,23 +202,81 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('PDU type is unknown: pdu_ip {}'.format(self.controller))
             return
-
-        cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
+        if not hasattr(self, 'ro_snmp_auth'):
+            logger.error('Does not have readonly snmp_auth')
+            return
 
         for lane_id in range(1, self.max_lanes + 1):
-            self._probe_lane(lane_id, cmdGen, snmp_auth)
+            self._probe_lane(lane_id, self.ro_snmp_auth)
+
+    def _render_value(self, value, context):
+        if '{{' in value and '}}' in value:
+            return jinja2.Template(value).render(context)
+        return value
+
+    def _get_pdu_snmp_creds(self, pdu, perm):
+        context = {}
+        if 'secret_group_vars' in pdu:
+            context = {'secret_group_vars': pdu['secret_group_vars']}
+        if 'pdu_{}_snmp_version'.format(perm) in pdu:
+            version = pdu['pdu_{}_snmp_version'.format(perm)]
+            if version == 'v2c':
+                if 'pdu_snmp_{}community'.format(perm) not in pdu:
+                    logger.error("If pdu_{}_snmp_version is v2c, pdu_snmp_{}community should be provided"
+                                 .format(perm, perm))
+                    return False
+                snmp_auth = CommunityData(self._render_value(pdu['pdu_snmp_{}community'.format(perm)], context))
+            elif version == 'v3':
+                if 'pdu_{}_snmp_user'.format(perm) not in pdu:
+                    logger.error("If pdu_{}_snmp_version is v3, pdu_{}_snmp_user should be provided".format(perm, perm))
+                    return False
+                if 'pdu_{}_snmp_auth_type'.format(perm) not in pdu or 'pdu_{}_snmp_auth_pass'.format(perm) not in pdu:
+                    logger.error("If pdu_{}_snmp_version is v3, pdu_{}_snmp_auth_type/pass should be provided"
+                                 .format(perm, perm))
+                    return False
+                if pdu['pdu_{}_snmp_auth_type'.format(perm)] == "sha":
+                    auth_type = usmHMACSHAAuthProtocol
+                elif pdu['pdu_{}_snmp_auth_type'.format(perm)] == "md5":
+                    auth_type = usmHMACMD5AuthProtocol
+                else:
+                    logger.error("Unknown auth_type {}, only accepts sha, md5"
+                                 .format(pdu['pdu_{}_snmp_auth_type'.format(perm)]))
+                    return False
+                if 'pdu_{}_snmp_priv_type'.format(perm) in pdu and 'pdu_{}_snmp_priv_pass'.format(perm) in pdu:
+                    if pdu['pdu_{}_snmp_priv_type'.format(perm)] == "aes":
+                        priv_type = usmAesCfb128Protocol
+                    elif pdu['pdu_{}_snmp_priv_type'.format(perm)] == "des":
+                        priv_type = usmDESPrivProtocol
+                    else:
+                        logger.error("Unknown priv_type {}, only accepts aes, des"
+                                     .format(pdu['pdu_{}_snmp_priv_type'.format(perm)]))
+                        return False
+                    snmp_auth = UsmUserData(
+                        self._render_value(pdu['pdu_{}_snmp_user'.format(perm)], context),
+                        authProtocol=auth_type,
+                        authKey=self._render_value(pdu['pdu_{}_snmp_auth_pass'.format(perm)], context),
+                        privProtocol=priv_type,
+                        privKey=self._render_value(pdu['pdu_{}_snmp_priv_pass'.format(perm)], context)
+                    )
+                else:
+                    snmp_auth = UsmUserData(
+                        pdu['pdu_{}_snmp_user'.format(perm)],
+                        authProtocol=auth_type,
+                        authKey=self._render_value(pdu['pdu_{}_snmp_auth_pass'.format(perm)], context)
+                    )
+
+        else:
+            snmp_community = pdu['snmp_{}community'.format(perm)]
+            snmp_auth = CommunityData(self._render_value(snmp_community, context))
+        setattr(self, "{}_snmp_auth".format(perm), snmp_auth)
+        return True
 
     def __init__(self, controller, pdu, hwsku, psu_peer_type):
         logger.info("Initializing " + self.__class__.__name__)
         PduControllerBase.__init__(self)
         self.controller = controller
-        self.snmp_rocommunity = pdu['snmp_rocommunity']
-        if 'secret_group_vars' in pdu['snmp_rwcommunity']:
-            context = {'secret_group_vars': pdu['secret_group_vars']}
-            self.snmp_rwcommunity = jinja2.Template(pdu['snmp_rwcommunity']).render(context)
-        else:
-            self.snmp_rwcommunity = pdu['snmp_rwcommunity']
+        self._get_pdu_snmp_creds(pdu, "ro")
+        self._get_pdu_snmp_creds(pdu, "rw")
         self.pduType = 'Sentry4' if hwsku == 'Sentry' and psu_peer_type == 'Pdu' else hwsku
         self.port_oid_dict = {}
         self.port_label_dict = {}
@@ -190,14 +300,18 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('Unable to turn on: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return False
+        if not hasattr(self, 'rw_snmp_auth'):
+            logger.error("Does not have readwrite snmp_auth")
+            return False
 
-        port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
-        errorIndication, errorStatus, _, _ = \
-            cmdgen.CommandGenerator().setCmd(
-                cmdgen.CommunityData(self.snmp_rwcommunity),
-                cmdgen.UdpTransportTarget((self.controller, 161)),
-                (port_oid, rfc1902.Integer(self.CONTROL_ON))
-            )
+        port_oid = self.PORT_CONTROL_BASE_OID + outlet
+        errorIndication, errorStatus, errorIndex, varBinds = sync_set_cmd(
+            SnmpEngine(),
+            self.rw_snmp_auth,
+            (self.controller, 161),
+            ContextData(),
+            ObjectType(ObjectIdentity(port_oid), rfc1902.Integer(self.CONTROL_ON))
+        )
         if errorIndication or errorStatus != 0:
             logger.debug("Failed to turn on outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
@@ -219,20 +333,24 @@ class snmpPduController(PduControllerBase):
         if not self.pduType:
             logger.error('Unable to turn off: PDU type is unknown: pdu_ip {}'.format(self.controller))
             return False
+        if not hasattr(self, 'rw_snmp_auth'):
+            logger.error("Does not have readwrite snmp_auth")
+            return False
 
-        port_oid = '.' + self.PORT_CONTROL_BASE_OID + outlet
-        errorIndication, errorStatus, _, _ = \
-            cmdgen.CommandGenerator().setCmd(
-                cmdgen.CommunityData(self.snmp_rwcommunity),
-                cmdgen.UdpTransportTarget((self.controller, 161)),
-                (port_oid, rfc1902.Integer(self.CONTROL_OFF))
-            )
+        port_oid = self.PORT_CONTROL_BASE_OID + outlet
+        errorIndication, errorStatus, errorIndex, varBinds = sync_set_cmd(
+            SnmpEngine(),
+            self.rw_snmp_auth,
+            (self.controller, 161),
+            ContextData(),
+            ObjectType(ObjectIdentity(port_oid), rfc1902.Integer(self.CONTROL_OFF))
+        )
         if errorIndication or errorStatus != 0:
             logger.debug("Failed to turn off outlet %s, exception: %s" % (str(outlet), str(errorStatus)))
             return False
         return True
 
-    def _get_one_outlet_power(self, cmdGen, snmp_auth, port_id, status):
+    def _get_one_outlet_power(self, snmp_auth, port_id, status):
         if not self.PORT_POWER_BASE_OID:
             return
 
@@ -241,19 +359,22 @@ class snmpPduController(PduControllerBase):
         # a = pduID (almost always "1" unless you are linking the PDUs)
         # b = outletId (the number of the outlet on the PDU)
         # c = sensorID (1=amps, 4=volts, 5=watts)
-        query_id = '.' + self.PORT_POWER_BASE_OID + port_id
+        query_id = self.PORT_POWER_BASE_OID + port_id
         if self.pduType == "Raritan":
             query_id = query_id + ".5"  # 5 = watts for Raritan PDU
-        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+
+        errorIndication, errorStatus, errorIndex, varBinds = sync_get_cmd(
+            SnmpEngine(),
             snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(query_id)
+            (self.controller, 161),
+            ContextData(),
+            ObjectType(ObjectIdentity(query_id))
         )
         if errorIndication:
             logger.debug("Failed to get outlet power level of DUT outlet, exception: " + str(errorIndication))
+            return
 
         for oid, val in varBinds:
-            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = str(oid)
             current_val = str(val)
             port_oid = current_oid.replace(self.PORT_POWER_BASE_OID, '')
@@ -264,24 +385,26 @@ class snmpPduController(PduControllerBase):
                     status['output_watts'] = current_val
                 return
 
-    def _get_one_outlet_status(self, cmdGen, snmp_auth, port_id):
-        query_id = '.' + self.PORT_STATUS_BASE_OID + port_id
-        errorIndication, errorStatus, errorIndex, varBinds = cmdGen.getCmd(
+    def _get_one_outlet_status(self, snmp_auth, port_id):
+        query_id = self.PORT_STATUS_BASE_OID + port_id
+        errorIndication, errorStatus, errorIndex, varBinds = sync_get_cmd(
+            SnmpEngine(),
             snmp_auth,
-            cmdgen.UdpTransportTarget((self.controller, 161)),
-            cmdgen.MibVariable(query_id)
+            (self.controller, 161),
+            ContextData(),
+            ObjectType(ObjectIdentity(query_id))
         )
         if errorIndication:
-            logger.debug("Failed to outlet status of PDU, exception: " + str(errorIndication))
+            logger.debug("Failed to get outlet status of PDU, exception: " + str(errorIndication))
+            return None
 
         for oid, val in varBinds:
-            oid = oid.getOid() if hasattr(oid, 'getoid') else oid
             current_oid = str(oid)
             current_val = str(val)
             port_oid = current_oid.replace(self.PORT_STATUS_BASE_OID, '')
             if port_oid == port_id:
                 status = {"outlet_id": port_oid, "outlet_on": True if current_val == self.STATUS_ON else False}
-                self._get_one_outlet_power(cmdGen, snmp_auth, port_id, status)
+                self._get_one_outlet_power(snmp_auth, port_id, status)
                 return status
 
         return None
@@ -303,8 +426,12 @@ class snmpPduController(PduControllerBase):
                  The outlet in returned result is integer starts from 0.
         """
         results = []
+
         if not self.pduType:
             logger.error('Unable to retrieve status: PDU type is unknown: pdu_ip {}'.format(self.controller))
+            return results
+        if not hasattr(self, 'ro_snmp_auth'):
+            logger.error('Does not have readonly snmp_auth')
             return results
 
         if not outlet and not hostname:
@@ -321,11 +448,8 @@ class snmpPduController(PduControllerBase):
             if not ports:
                 logger.error("{} device is not attached to any outlet of PDU {}".format(hn, self.controller))
 
-        cmdGen = cmdgen.CommandGenerator()
-        snmp_auth = cmdgen.CommunityData(self.snmp_rocommunity)
-
         for port in ports:
-            status = self._get_one_outlet_status(cmdGen, snmp_auth, port)
+            status = self._get_one_outlet_status(self.ro_snmp_auth, port)
             if status:
                 results.append(status)
 

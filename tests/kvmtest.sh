@@ -177,13 +177,15 @@ test_t0() {
       gnmi/test_gnmi_configdb.py \
       gnmi/test_gnmi_appldb.py \
       gnmi/test_gnmi_countersdb.py \
+      gnmi_e2e/test_gnmi_auth.py \
       override_config_table/test_override_config_table.py \
       process_monitoring/test_critical_process_monitoring.py \
       show_techsupport/test_techsupport_no_secret.py \
       system_health/test_system_status.py \
       radv/test_radv_ipv6_ra.py \
       database/test_db_config.py \
-      database/test_db_scripts.py"
+      database/test_db_scripts.py \
+      fips/test_fips.py"
 
       pushd $SONIC_MGMT_DIR/tests
       ./run_tests.sh $RUNTEST_CLI_COMMON_OPTS -c "$tests" -p logs/$tgname

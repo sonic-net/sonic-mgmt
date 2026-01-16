@@ -25,8 +25,8 @@ ansible_path = os.path.realpath(os.path.join(_self_dir, "../ansible"))
 if ansible_path not in sys.path:
     sys.path.append(ansible_path)
 
-from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts  # noqa E402
-from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa E402
+from devutil.devices.factory import init_host, init_localhost, init_testbed_sonichosts  # noqa: E402
+from devutil.devices.ansible_hosts import HostsUnreachable, RunAnsibleModuleFailed  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -170,6 +170,9 @@ class TestbedHealthChecker:
                                                                             "fanout_sonic_password")
                     fanouthost.vm.extra_vars.update(
                         {"ansible_ssh_user": fanout_sonic_user, "ansible_ssh_password": fanout_sonic_password})
+                else:
+                    fanouthost.vm.extra_vars.pop("ansible_ssh_user", None)
+                    fanouthost.vm.extra_vars.pop("ansible_ssh_password", None)
 
                 is_reachable, result = fanouthost.reachable()
 
@@ -386,9 +389,10 @@ class TestbedHealthChecker:
                         host=hostname, source='running', namespace='asic{}'.format(asic_id)
                     )['ansible_facts']
 
+                    ports = list(cfg_facts_of_asic.get('PORT', {}).items())
+
                     up_ports = [
-                        p for p, v in list(cfg_facts_of_asic['PORT'].items())
-                        if v.get('admin_status', None) == 'up'
+                        p for p, v in ports if v.get('admin_status', None) == 'up'
                     ]
 
                     logger.info('up_ports: {}'.format(up_ports))
@@ -414,9 +418,15 @@ class TestbedHealthChecker:
                         # Add errlog to check result errmsg
                         self.check_result.errmsg.append(errlog)
 
+                    if not ports:
+                        failed = True
+                        self.check_result.errmsg.append(f"Device has no ports on asic{asic_id}."
+                                                        f"Please check 'show int status -n asic{asic_id}' ")
             else:
                 cfg_facts = sonichost.config_facts(host=hostname, source='running')['ansible_facts']
-                up_ports = [p for p, v in list(cfg_facts['PORT'].items()) if v.get('admin_status', None) == 'up']
+                ports = list(cfg_facts.get('PORT', {}).items())
+
+                up_ports = [p for p, v in ports if v.get('admin_status', None) == 'up']
                 logger.info('up_ports: {}'.format(up_ports))
                 interface_facts = sonichost.interface_facts(up_ports=up_ports)['ansible_facts']
                 interface_facts_on_hosts[hostname] = interface_facts
@@ -431,6 +441,10 @@ class TestbedHealthChecker:
                     failed = True
                     # Add errlog to check result errmsg
                     self.check_result.errmsg.append(errlog)
+
+                if not ports:
+                    failed = True
+                    self.check_result.errmsg.append("Device has no ports. Please check 'show int status' result")
 
         # Set the check result
         self.check_result.data["interface_facts_on_hosts"] = interface_facts_on_hosts

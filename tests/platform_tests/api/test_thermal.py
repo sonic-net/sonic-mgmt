@@ -2,8 +2,9 @@ import logging
 import pytest
 
 from tests.common.helpers.platform_api import chassis, thermal
+from tests.common.mellanox_data import is_mellanox_device
 from tests.common.utilities import skip_release_for_platform
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 
 from .platform_api_test_base import PlatformApiTestBase
 
@@ -20,7 +21,6 @@ else:
 logger = logging.getLogger(__name__)
 
 pytestmark = [
-    pytest.mark.disable_loganalyzer,  # disable automatic loganalyzer
     pytest.mark.topology('any')
 ]
 
@@ -35,7 +35,7 @@ class TestThermalApi(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn):     # noqa F811
+    def setup(self, platform_api_conn):     # noqa: F811
         if self.num_thermals is None:
             try:
                 self.num_thermals = int(chassis.get_num_thermals(platform_api_conn))
@@ -93,7 +93,7 @@ class TestThermalApi(PlatformApiTestBase):
     # Functions to test methods inherited from DeviceBase class
     #
 
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_thermals):
             name = thermal.get_name(platform_api_conn, i)
@@ -104,7 +104,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in range(self.num_thermals):
             presence = thermal.get_presence(platform_api_conn, i)
 
@@ -114,7 +114,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa F811
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa: F811
         for i in range(self.num_thermals):
             model = thermal.get_model(platform_api_conn, i)
 
@@ -123,7 +123,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in range(self.num_thermals):
             serial = thermal.get_serial(platform_api_conn, i)
 
@@ -132,7 +132,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         for i in range(self.num_thermals):
             status = thermal.get_status(platform_api_conn, i)
 
@@ -141,7 +141,7 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):       # noqa F811
+    def test_get_position_in_parent(self, platform_api_conn):       # noqa: F811
         for i in range(self.num_thermals):
             position = thermal.get_position_in_parent(platform_api_conn, i)
             if self.expect(position is not None, "Failed to perform get_position_in_parent for thermal {}".format(i)):
@@ -149,7 +149,7 @@ class TestThermalApi(PlatformApiTestBase):
                             "Position value must be an integer value for thermal {}".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):       # noqa F811
+    def test_is_replaceable(self, platform_api_conn):       # noqa: F811
         for i in range(self.num_thermals):
             replaceable = thermal.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for thermal {}".format(i)):
@@ -162,7 +162,7 @@ class TestThermalApi(PlatformApiTestBase):
     #
 
     def test_get_temperature(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                             platform_api_conn):   # noqa F811
+                             platform_api_conn):   # noqa: F811
         for i in range(self.num_thermals):
             temperature = thermal.get_temperature(platform_api_conn, i)
 
@@ -171,7 +171,7 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_minimum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                  platform_api_conn):       # noqa F811
+                                  platform_api_conn):       # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
 
@@ -198,7 +198,7 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_maximum_recorded(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                  platform_api_conn):       # noqa F811
+                                  platform_api_conn):       # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
 
@@ -225,7 +225,7 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                               platform_api_conn):      # noqa F811
+                               platform_api_conn):      # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
 
@@ -249,7 +249,7 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn):     # noqa F811
+                                platform_api_conn):     # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
 
@@ -262,10 +262,15 @@ class TestThermalApi(PlatformApiTestBase):
 
             high_threshold = thermal.get_high_threshold(platform_api_conn, i)
 
-            # Ensure the thermal high threshold temperature is sane
-            if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
-                self.expect(isinstance(high_threshold, float),
-                            "Thermal {} high threshold appears incorrect".format(i))
+            # Form mellanox platform, we don't check the value, because the value might be None or int or float
+            # So we just care if calling the API raises exception or not.
+            # When it raises exception, it will print error log as below:
+            # "ERR pmon#platform_api_server.py: Error executing API ..."
+            if not is_mellanox_device(duthost):
+                # Ensure the thermal high threshold temperature is sane
+                if self.expect(high_threshold is not None, "Unable to retrieve Thermal {} high threshold".format(i)):
+                    self.expect(isinstance(high_threshold, float),
+                                "Thermal {} high threshold appears incorrect".format(i))
 
         if thermals_skipped == self.num_thermals:
             pytest.skip("skipped as all chassis thermals' high-threshold is not supported")
@@ -273,7 +278,7 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_low_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                        localhost, platform_api_conn):      # noqa F811
+                                        localhost, platform_api_conn):      # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
 
@@ -297,7 +302,7 @@ class TestThermalApi(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_high_critical_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                         localhost, platform_api_conn):     # noqa F811
+                                         localhost, platform_api_conn):     # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
 
@@ -311,18 +316,24 @@ class TestThermalApi(PlatformApiTestBase):
 
             high_critical_threshold = thermal.get_high_critical_threshold(platform_api_conn, i)
 
-            # Ensure the thermal high threshold temperature is sane
-            if self.expect(high_critical_threshold is not None,
-                           "Unable to retrieve Thermal {} high critical threshold".format(i)):
-                self.expect(isinstance(high_critical_threshold, float),
-                            "Thermal {} high threshold appears incorrect".format(i))
+            # Form mellanox platform, we don't check the value, because the value might be None or int or float
+            # So we just care if calling the API raises exception or not.
+            # When it raises exception, it will print error log as below:
+            # "ERR pmon#platform_api_server.py: Error executing API ..."
+            if not is_mellanox_device(duthost):
+                # Ensure the thermal high threshold temperature is sane
+                if self.expect(high_critical_threshold is not None,
+                               "Unable to retrieve Thermal {} high critical threshold".format(i)):
+                    self.expect(isinstance(high_critical_threshold, float),
+                                "Thermal {} high threshold appears incorrect".format(i))
         if thermals_skipped == self.num_thermals:
             pytest.skip("skipped as all chassis thermals' high-critical-threshold is not supported")
 
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_set_low_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                               platform_api_conn):      # noqa F811
+                               platform_api_conn):      # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])
@@ -355,8 +366,9 @@ class TestThermalApi(PlatformApiTestBase):
 
         self.assert_expectations()
 
+    @pytest.mark.disable_loganalyzer
     def test_set_high_threshold(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost,
-                                platform_api_conn):     # noqa F811
+                                platform_api_conn):     # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         thermals_skipped = 0
         skip_release_for_platform(duthost, ["202012", "201911", "201811"], ["arista"])

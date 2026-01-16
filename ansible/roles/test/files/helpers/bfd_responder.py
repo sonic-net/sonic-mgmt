@@ -1,4 +1,3 @@
-import binascii
 import socket
 import struct
 import select
@@ -16,18 +15,23 @@ IPv4 = '4'
 IPv6 = '6'
 BFD_FLAG_P_BIT = 5
 BFD_FLAG_F_BIT = 4
+UDP_BFD_PKT_LEN = 32
 
 
-def get_if(iff, cmd):
-    s = socket.socket()
-    ifreq = ioctl(s, cmd, struct.pack("16s16x", iff))
-    s.close()
-    return ifreq
-
-
-def get_mac(iff):
-    SIOCGIFHWADDR = 0x8927          # Get hardware address
-    return get_if(iff, SIOCGIFHWADDR)[18:24]
+def get_mac(ifname):
+    """
+    Retrieves the MAC address for a given network interface name on a Linux system.
+    """
+    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)  # Create a socket.
+    # Use fcntl.ioctl to make the SIOCGIFHWADDR request.
+    # '0x8927' is the numerical value of SIOCGIFHWADDR.
+    # struct.pack prepares the interface name string for the request.
+    info = ioctl(s.fileno(), 0x8927, struct.pack('256s', bytes(ifname, 'utf-8')[:15]))
+    # The MAC address is contained in the response data, bytes 18-24.
+    # We format it as a colon-separated hex string.
+    value = ':'.join('%02x' % b for b in info[18:24])
+    print(f"mac = {value}")
+    return value
 
 
 class Interface(object):
@@ -51,9 +55,7 @@ class Interface(object):
     def recv(self):
         sniffed = self.socket.recv()
         pkt = sniffed[0]
-        str_pkt = str(pkt).encode("HEX")
-        binpkt = binascii.unhexlify(str_pkt)
-        return binpkt
+        return pkt
 
     def send(self, data):
         scapy2.sendp(data, iface=self.iface)
@@ -94,6 +96,10 @@ class BFDResponder(object):
             return
         session = self.sessions[ip_dst]
         if bfd_state == 3:
+            # If packet is not initialized yet, ignore the received UP packet per RFC5880 FSM
+            # wait for DUT timeout and DUT will send DOWN BFD packet
+            if len(session["pkt"]) == 0:
+                return
             # Respond with F bit if P bit is set
             if (bfd_flags & (1 << BFD_FLAG_P_BIT)):
                 session["pkt"].payload.payload.payload.load.flags = (1 << BFD_FLAG_F_BIT)
@@ -116,15 +122,18 @@ class BFDResponder(object):
 
     def extract_bfd_info(self, data):
         # remote_mac, remote_ip, request_ip, op_type
-        ether = scapy2.Ether(data)
+        ether = data
         mac_src = ether.src
         mac_dst = ether.dst
         ip_src = ether.payload.src
         ip_dst = ether.payload.dst
+        # ignore the packet not for me or incomplete BFD packet
+        if ip_dst not in self.sessions or len(ether.payload.payload) < UDP_BFD_PKT_LEN:
+            return mac_src, mac_dst, ip_src, ip_dst, None, None, None
         ip_version = str(ether.payload.version)
         ip_priority_field = 'tos' if ip_version == IPv4 else 'tc'
         ip_priority = getattr(ether.payload, ip_priority_field)
-        bfdpkt = BFD(bytes(ether.payload.payload.payload.load))
+        bfdpkt = BFD(str(ether.payload.payload.payload).encode("utf-8"))
         bfd_remote_disc = bfdpkt.my_discriminator
         bfd_state = bfdpkt.sta
         bfd_flags = bfdpkt.flags
@@ -134,8 +143,8 @@ class BFDResponder(object):
         return mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state, bfd_flags
 
     def craft_bfd_packet(self, session, data, mac_src, mac_dst, ip_src, ip_dst, bfd_remote_disc, bfd_state):
-        ethpart = scapy2.Ether(data)
-        bfdpart = BFD(bytes(ethpart.payload.payload.payload.load))
+        ethpart = data
+        bfdpart = BFD(str(ethpart.payload.payload.payload).encode("utf-8"))
         bfdpart.my_discriminator = session["my_disc"]
         bfdpart.your_discriminator = bfd_remote_disc
         bfdpart.sta = bfd_state

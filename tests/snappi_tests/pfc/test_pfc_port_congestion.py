@@ -1,15 +1,18 @@
 import pytest
 import random
 from tests.common.helpers.assertions import pytest_require, pytest_assert                            # noqa: F401
-from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut     # noqa: F401
+from tests.common.fixtures.conn_graph_facts import conn_graph_facts, fanout_graph_facts_multidut, \
+    fanout_graph_facts     # noqa: F401
 from tests.common.snappi_tests.snappi_fixtures import snappi_api_serv_ip, snappi_api_serv_port, \
     snappi_api, snappi_multi_base_config, cleanup_config, get_snappi_ports_for_rdma, \
-    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters       # noqa: F401
+    get_snappi_ports, get_snappi_ports_multi_dut, clear_fabric_counters, check_fabric_counters, \
+    get_snappi_ports_single_dut       # noqa: F401
 from tests.common.snappi_tests.qos_fixtures import prio_dscp_map, lossless_prio_list, \
     lossy_prio_list, all_prio_list, disable_pfcwd                                                     # noqa: F401
 from tests.snappi_tests.variables import MULTIDUT_PORT_INFO, MULTIDUT_TESTBED
 from tests.snappi_tests.pfc.files.pfc_congestion_helper import run_pfc_test
 from tests.common.snappi_tests.snappi_test_params import SnappiTestParams
+from tests.snappi_tests.cisco.helper import disable_voq_watchdog                  # noqa: F401
 
 import logging
 logger = logging.getLogger(__name__)
@@ -70,8 +73,8 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -99,6 +102,9 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -110,10 +116,10 @@ def test_multiple_prio_diff_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Two_Ingress_Single_Egress_diff_dist_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_diff_dist_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -205,8 +211,8 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -234,6 +240,9 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -246,10 +255,10 @@ def test_multiple_prio_uni_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Two_Ingress_Single_Egress_uni_dist_full'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_uni_dist_full'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -343,8 +352,8 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -372,6 +381,9 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -384,10 +396,10 @@ def test_multiple_prio_equal_dist(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Two_Ingress_Single_Egress_equal_dist'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_equal_dist'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,
@@ -482,8 +494,8 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
     pkt_size = 1024
 
     for testbed_subtype, rdma_ports in multidut_port_info.items():
-        tx_port_count = port_map[0]
-        rx_port_count = port_map[2]
+        rx_port_count = port_map[0]
+        tx_port_count = port_map[2]
         tmp_snappi_port_list = get_snappi_ports
         snappi_port_list = []
         for item in tmp_snappi_port_list:
@@ -511,6 +523,9 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
         testbed_config, port_config_list, snappi_ports = snappi_multi_base_config(duthosts,
                                                                                   snappi_ports,
                                                                                   snappi_api)
+    enable_pfcwd = True
+    if duthosts[0].facts["platform_asic"] == 'cisco-8000' and duthosts[0].get_facts().get("modular_chassis"):
+        enable_pfcwd = False
 
     # Percentage drop expected for lossless and lossy traffic.
     # speed_tol is speed tolerance between egress link speed and actual speed.
@@ -523,10 +538,10 @@ def test_multiple_prio_non_cngtn(snappi_api,                   # noqa: F811
                 'DATA_FLOW_DURATION_SEC': 300,
                 'data_flow_delay_sec': 0,
                 'SNAPPI_POLL_DELAY_SEC': 60,
-                'test_type': '/tmp/Two_Ingress_Single_Egress_non_cngstn_'+str(port_map[1])+'Gbps',
+                'test_type': 'logs/snappi_tests/pfc/Two_Ingress_Single_Egress_non_cngstn_'+str(port_map[1])+'Gbps',
                 'line_card_choice': testbed_subtype,
                 'port_map': port_map,
-                'enable_pfcwd': True,
+                'enable_pfcwd': enable_pfcwd,
                 'enable_credit_wd': True,
                 'stats_interval': 60,
                 'background_traffic': True,

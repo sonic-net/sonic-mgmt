@@ -13,11 +13,9 @@ import pytest
 
 from tests.common.helpers.assertions import pytest_assert
 from tests.common.utilities import wait_until
-from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa F401
+from tests.common.fixtures.ptfhost_utils import copy_ptftests_directory     # noqa: F401
 from tests.ptf_runner import ptf_runner
 from tests.common.vxlan_ecmp_utils import Ecmp_Utils
-from tests.common.config_reload import config_system_checks_passed
-from tests.common.fixtures.duthost_utils import backup_and_restore_config_db_on_duts    # noqa F401
 from tests.common.config_reload import config_reload
 Logger = logging.getLogger(__name__)
 ecmp_utils = Ecmp_Utils()
@@ -64,6 +62,31 @@ def _ignore_route_sync_errlogs(rand_one_dut_hostname, loganalyzer):
     return
 
 
+@pytest.fixture(autouse=True, scope="function")
+def cleanup_after_test(setUp, encap_type, request):
+    """
+    Auto cleanup fixture: apply TSB and delete created routes after each test.
+    """
+    test_setup = setUp
+    created_routes = []
+
+    # Set up the test instance with required attributes
+    if request.instance:
+        request.instance.vxlan_test_setup = test_setup
+        request.instance.created_routes_list = created_routes
+
+    yield
+
+    # Apply TSB
+    Logger.info("Applied TSB during cleanup")
+    request.instance.apply_tsb()
+
+    # Delete created routes
+    for dest in created_routes:
+        Logger.info(f"Cleaned up route for destination: {dest}")
+        request.instance.delete_vnet_route(encap_type, dest)
+
+
 @pytest.fixture(name="setUp", scope="module")
 def fixture_setUp(duthosts,
                   ptfhost,
@@ -71,8 +94,7 @@ def fixture_setUp(duthosts,
                   rand_one_dut_hostname,
                   minigraph_facts,
                   tbinfo,
-                  encap_type,
-                  backup_and_restore_config_db_on_duts):        # noqa F811
+                  encap_type):
     '''
         Setup for the entire script.
         The basic steps in VxLAN configs are:
@@ -203,6 +225,13 @@ def fixture_setUp(duthosts,
     outer_layer_version = ecmp_utils.get_outer_layer_version(encap_type)
     payload_version = ecmp_utils.get_payload_version(encap_type)
 
+    # In case any of the tests fail, this method will cleanup the VNET routes.
+    ecmp_utils.set_routes_in_dut(
+        data['duthost'],
+        data[encap_type]['dest_to_nh_map'],
+        payload_version,
+        "DEL")
+
     for intf in data[encap_type]['selected_interfaces']:
         redis_string = "INTERFACE"
         if "PortChannel" in intf:
@@ -224,14 +253,68 @@ def fixture_setUp(duthosts,
         data['duthost'].shell(
             "redis-cli -n 4 del \"VXLAN_TUNNEL|{}\"".format(tunnel))
     time.sleep(1)
+    ecmp_utils.stop_bfd_responder(data['ptfhost'])
 
 
-@pytest.fixture(scope="module", autouse=True)
-def restore_config_by_config_reload(duthosts, rand_one_dut_hostname, localhost):
-    yield
-    duthost = duthosts[rand_one_dut_hostname]
+def is_vnet_route_configured_on_asic(duthost, dest):
+    '''
+        Function to check if a VNET route to dest is configured on ASIC DB.
+        A VNET route to dest must be configured on ASIC DB before running
+        PTF tests.
+    '''
+    result = duthost.shell(f"sonic-db-cli ASIC_DB KEYS \
+                           'ASIC_STATE:SAI_OBJECT_TYPE_ROUTE_ENTRY*{dest}*'")["stdout_lines"]  # noqa: E231
+    return bool(result)
 
-    config_reload(duthost, safe_reload=True)
+
+def is_vnet_route_active(duthost):
+    """
+    Check if all routes in 'show vnet route all' have 'active' status.
+    Returns:
+        True: If all routes have 'active' status.
+        False: If any route has any other status.
+
+    Example:
+    CMD: show vnet route all
+    vnet name    prefix    nexthop    interface
+    -----------  --------  ---------  -----------
+
+    vnet name        prefix        endpoint                                 mac address    vni    status
+    ---------------  ------------  ---------------------------------------  -------------  -----  --------
+    Vnet_v4_in_v4-0  150.0.1.1/32  100.0.2.1,100.0.3.1,100.0.4.1,100.0.5.1                        active
+    """
+    # Use show_and_parse to automatically parse the table output
+    # start_line_index=3 skips the first table and starts from the second table with status column
+    routes = duthost.show_and_parse("show vnet route all", start_line_index=3)
+    Logger.info("Routes: %s", routes)
+
+    # If no routes found, consider it as not active (routes should exist)
+    if not routes:
+        Logger.info("No routes found")
+        return False
+
+    # Filter incomplete entries and check status
+    valid_route_count = 0
+    for route in routes:
+        vnet_name = route.get('vnet name', '').strip()
+        prefix = route.get('prefix', '').strip()
+
+        # Skip incomplete entries caused by line wrapping of long endpoint fields
+        if not vnet_name or not prefix:
+            continue
+
+        valid_route_count += 1
+        status = route.get('status', '').lower()
+
+        if status != 'active':
+            Logger.info("Route %s has status: %s", prefix, status)
+            return False
+
+    if valid_route_count == 0:
+        Logger.info("No valid routes found after filtering")
+        return False
+
+    return True
 
 
 class Test_VxLAN_BFD_TSA():
@@ -253,6 +336,13 @@ class Test_VxLAN_BFD_TSA():
            Just a wrapper for dump_info_to_ptf to avoid entering 30 lines
            everytime.
         '''
+        asic_type = self.vxlan_test_setup['duthost'].facts["asic_type"]
+        if asic_type not in ["vs"]:
+            pytest_assert(
+                wait_until(90, 2, 0, is_vnet_route_active, self.vxlan_test_setup['duthost']),
+                "Route is not active"
+            )
+
         if tolerance is None:
             tolerance = self.vxlan_test_setup['tolerance']
         if ecmp_utils.Constants['DEBUG']:
@@ -366,6 +456,10 @@ class Test_VxLAN_BFD_TSA():
         self.update_monitor_list(
             encap_type,
             end_point_list)
+
+        # Track the created route for cleanup
+        self.created_routes_list.append(dest)
+
         return dest, end_point_list
 
     def delete_vnet_route(self,
@@ -430,8 +524,6 @@ class Test_VxLAN_BFD_TSA():
             8) send packets to the route prefix dst. packets are received at all 4 endpoints.
             9) Delete route.
         '''
-        self.vxlan_test_setup = setUp
-
         dest, ep_list = self.create_vnet_route(encap_type)
 
         self.dump_self_info_and_run_ptf("test1", encap_type, True, [])
@@ -445,8 +537,6 @@ class Test_VxLAN_BFD_TSA():
 
         self.dump_self_info_and_run_ptf("test1b", encap_type, True, [])
 
-        self.delete_vnet_route(encap_type, dest)
-
     def test_tsa_case2(self, setUp, encap_type):
         '''
             tc2: This test checks the basic route application while in TSA.
@@ -459,8 +549,6 @@ class Test_VxLAN_BFD_TSA():
             7) send packets to the route prefix dst. packets are received at all 4 endpoints.
             8) Delete route.
         '''
-        self.vxlan_test_setup = setUp
-
         self.apply_tsa()
         pytest_assert(self.in_maintainence())
         self.verfiy_bfd_down([])
@@ -471,8 +559,6 @@ class Test_VxLAN_BFD_TSA():
         pytest_assert(not self.in_maintainence())
 
         self.dump_self_info_and_run_ptf("test2", encap_type, True, [])
-
-        self.delete_vnet_route(encap_type, dest)
 
     def test_tsa_case3(self, setUp, encap_type):
         '''
@@ -486,8 +572,6 @@ class Test_VxLAN_BFD_TSA():
             7) send packets to the route prefix dst. packets are received at all 4 endpoints.
             8) Delete route.
         '''
-        self.vxlan_test_setup = setUp
-
         self.apply_tsa()
         pytest_assert(self.in_maintainence())
         self.verfiy_bfd_down([])
@@ -498,8 +582,6 @@ class Test_VxLAN_BFD_TSA():
         dest, ep_list = self.create_vnet_route(encap_type)
 
         self.dump_self_info_and_run_ptf("test3", encap_type, True, [])
-
-        self.delete_vnet_route(encap_type, dest)
 
     def test_tsa_case4(self, setUp, encap_type):
         '''
@@ -512,7 +594,6 @@ class Test_VxLAN_BFD_TSA():
             6) send packets to the route prefix dst. packets are received at all 4 endpoints.
             7) Delete route.
         '''
-        self.vxlan_test_setup = setUp
         duthost = self.vxlan_test_setup['duthost']
 
         dest, ep_list = self.create_vnet_route(encap_type)
@@ -522,17 +603,13 @@ class Test_VxLAN_BFD_TSA():
 
         self.dump_self_info_and_run_ptf("test4", encap_type, True, [])
 
-        duthost.shell("sudo config reload -y",
-                      executable="/bin/bash", module_ignore_errors=True)
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost, [])
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
         dest, ep_list = self.create_vnet_route(encap_type)
 
         self.dump_self_info_and_run_ptf("test4b", encap_type, True, [])
-
-        self.delete_vnet_route(encap_type, dest)
 
     def test_tsa_case5(self, setUp, encap_type):
         '''
@@ -550,7 +627,6 @@ class Test_VxLAN_BFD_TSA():
             11) send packets to the route prefix dst. packets are received at all 4 endpoints.
             12) Delete route.
         '''
-        self.vxlan_test_setup = setUp
         duthost = self.vxlan_test_setup['duthost']
 
         dest, ep_list = self.create_vnet_route(encap_type)
@@ -564,9 +640,7 @@ class Test_VxLAN_BFD_TSA():
         pytest_assert(self.in_maintainence())
         self.verfiy_bfd_down(ep_list)
 
-        duthost.shell("sudo config reload -y",
-                      executable="/bin/bash", module_ignore_errors=True)
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost, [])
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
@@ -576,8 +650,6 @@ class Test_VxLAN_BFD_TSA():
         pytest_assert(not self.in_maintainence())
 
         self.dump_self_info_and_run_ptf("test5b", encap_type, True, [])
-
-        self.delete_vnet_route(encap_type, dest)
 
     def test_tsa_case6(self, setUp, encap_type):
         '''
@@ -596,7 +668,6 @@ class Test_VxLAN_BFD_TSA():
             11) send packets to the route prefix dst. packets are received at all 4 endpoints.
             12) Delete route.
         '''
-        self.vxlan_test_setup = setUp
         duthost = self.vxlan_test_setup['duthost']
 
         self.apply_tsa()
@@ -610,9 +681,7 @@ class Test_VxLAN_BFD_TSA():
 
         self.verfiy_bfd_down(ep_list)
 
-        duthost.shell("sudo config reload -y",
-                      executable="/bin/bash", module_ignore_errors=True)
-        assert wait_until(300, 20, 0, config_system_checks_passed, duthost, [])
+        config_reload(duthost, safe_reload=True, check_intf_up_ports=True, wait_for_bgp=True)
 
         # readd routes as they are removed by config reload
         ecmp_utils.configure_vxlan_switch(duthost, vxlan_port=4789, dutmac=self.vxlan_test_setup['dut_mac'])
@@ -622,5 +691,3 @@ class Test_VxLAN_BFD_TSA():
         pytest_assert(not self.in_maintainence())
 
         self.dump_self_info_and_run_ptf("test6", encap_type, True, [])
-
-        self.delete_vnet_route(encap_type, dest)

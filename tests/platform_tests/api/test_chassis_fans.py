@@ -5,7 +5,7 @@ import pytest
 
 from tests.common.helpers.platform_api import chassis, fan
 from .platform_api_test_base import PlatformApiTestBase
-from tests.common.platform.device_utils import platform_api_conn    # noqa F401
+from tests.common.platform.device_utils import platform_api_conn, start_platform_api_service    # noqa: F401
 from tests.common.helpers.thermal_control_test_helper import start_thermal_control_daemon, stop_thermal_control_daemon
 
 ###################################################
@@ -45,7 +45,7 @@ class TestChassisFans(PlatformApiTestBase):
     # level, so we must do the same here to prevent a scope mismatch.
 
     @pytest.fixture(scope="function", autouse=True)
-    def setup(self, platform_api_conn, enum_rand_one_per_hwsku_hostname, duthosts):  # noqa F811
+    def setup(self, platform_api_conn, enum_rand_one_per_hwsku_hostname, duthosts):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         if self.num_fans is None:
             try:
@@ -93,7 +93,7 @@ class TestChassisFans(PlatformApiTestBase):
     #
     # Functions to test methods inherited from DeviceBase class
     #
-    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_name(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         for i in range(self.num_fans):
             name = fan.get_name(platform_api_conn, i)
@@ -104,7 +104,7 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_get_presence(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         for i in range(self.num_fans):
             presence = fan.get_presence(platform_api_conn, i)
 
@@ -114,7 +114,7 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa F811
+    def test_get_model(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):     # noqa: F811
         for i in range(self.num_fans):
             model = fan.get_model(platform_api_conn, i)
 
@@ -123,7 +123,7 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_serial(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         for i in range(self.num_fans):
             serial = fan.get_serial(platform_api_conn, i)
 
@@ -132,7 +132,7 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa F811
+    def test_get_status(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):    # noqa: F811
         for i in range(self.num_fans):
             status = fan.get_status(platform_api_conn, i)
 
@@ -141,14 +141,14 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_position_in_parent(self, platform_api_conn):   # noqa F811
+    def test_get_position_in_parent(self, platform_api_conn):   # noqa: F811
         for i in range(self.num_fans):
             position = fan.get_position_in_parent(platform_api_conn, i)
             if self.expect(position is not None, "Failed to perform get_position_in_parent for fan {}".format(i)):
                 self.expect(isinstance(position, int), "Position value must be an integer value for fan {}".format(i))
         self.assert_expectations()
 
-    def test_is_replaceable(self, platform_api_conn):       # noqa F811
+    def test_is_replaceable(self, platform_api_conn):       # noqa: F811
         for i in range(self.num_fans):
             replaceable = fan.is_replaceable(platform_api_conn, i)
             if self.expect(replaceable is not None, "Failed to perform is_replaceable for fan {}".format(i)):
@@ -160,7 +160,7 @@ class TestChassisFans(PlatformApiTestBase):
     # Functions to test methods defined in FanBase class
     #
 
-    def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_get_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         # Ensure the fan speed is sane
         for i in range(self.num_fans):
             speed = fan.get_speed(platform_api_conn, i)
@@ -171,7 +171,7 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_get_direction(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_get_direction(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa:F811
         # Ensure the fan speed is sane
         FAN_DIRECTION_LIST = [
             "intake",
@@ -187,7 +187,7 @@ class TestChassisFans(PlatformApiTestBase):
         self.assert_expectations()
 
     def test_get_fans_target_speed(self, duthosts, enum_rand_one_per_hwsku_hostname,
-                                   localhost, platform_api_conn):   # noqa F811
+                                   localhost, platform_api_conn):   # noqa: F811
 
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
         fans_skipped = 0
@@ -206,7 +206,7 @@ class TestChassisFans(PlatformApiTestBase):
             if speed_minimum > speed_target_val or speed_maximum < speed_target_val:
                 speed_target_val = random.randint(speed_minimum, speed_maximum)
 
-            speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)       # noqa F841
+            speed_set = fan.set_speed(platform_api_conn, i, speed_target_val)       # noqa: F841
             target_speed = fan.get_target_speed(platform_api_conn, i)
             if self.expect(target_speed is not None, "Unable to retrieve Fan {} target speed".format(i)):
                 if self.expect(isinstance(target_speed, int), "Fan {} target speed appears incorrect".format(i)):
@@ -219,7 +219,13 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_fans_speed(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn): # noqa F811
+    def test_set_fans_speed(
+            self,
+            duthosts,
+            enum_rand_one_per_hwsku_hostname,
+            localhost,
+            platform_api_conn  # noqa:F811
+            ):
 
         fans_skipped = 0
         duthost = duthosts[enum_rand_one_per_hwsku_hostname]
@@ -243,7 +249,7 @@ class TestChassisFans(PlatformApiTestBase):
             speed = fan.get_speed(platform_api_conn, i)
             speed_delta = abs(speed-target_speed)
 
-            speed_set = fan.set_speed(platform_api_conn, i, target_speed)       # noqa F841
+            speed_set = fan.set_speed(platform_api_conn, i, target_speed)       # noqa: F841
             time_wait = 10 if speed_delta > 40 else 5
             time.sleep(self.get_fan_facts(duthost, i, time_wait, "speed", "delay"))
 
@@ -259,7 +265,7 @@ class TestChassisFans(PlatformApiTestBase):
 
         self.assert_expectations()
 
-    def test_set_fans_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa F811
+    def test_set_fans_led(self, duthosts, enum_rand_one_per_hwsku_hostname, localhost, platform_api_conn):  # noqa: F811
         LED_COLOR_LIST = [
             "off",
             "red",

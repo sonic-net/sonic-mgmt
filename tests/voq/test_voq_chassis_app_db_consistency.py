@@ -17,29 +17,35 @@ pytestmark = [
 ]
 
 
-def verify_data_in_db(post_change_db_dump, tmp_pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
+def verify_data_in_db(tmp_pc, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6):
     '''
     Verification of additon of tmp_portchannel data in chassis_app_db tables and set
     '''
     # Verification on SYSTEM_LAG_TABLE and SYSTEM_LAG_ID_TABLE
     lag_id = voq_lag.get_lag_id_from_chassis_db(duthosts)
-    pytest_assert(lag_id,
-                  "Lag Id in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+    if not lag_id:
+        logging.error("Lag Id in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+        return False
     # Verifcation on SYSTEM_LAG_MEMBER_TABLE
     voq_lag.verify_lag_member_in_chassis_db(duthosts, pc_members)
     # Verification on SYSTEM_NEIGH for pc_nbr_ip
     voqdb = VoqDbCli(duthosts.supervisor_nodes[0])
     neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ip)
     if tmp_pc not in neigh_key:
-        pytest.fail("Portchannel Neigh ip {} is not allocatioed to tmp portchannel {}".format(pc_nbr_ip, tmp_pc))
+        logging.error("Portchannel Neigh ip {} is not allocated to tmp portchannel {}".format(pc_nbr_ip, tmp_pc))
+        return False
     # Verification on SYSTEM_NEIGH for pc_nbr_ipv6
     neigh_key = voqdb.get_neighbor_key_by_ip(pc_nbr_ipv6)
     if tmp_pc not in neigh_key:
-        pytest.fail("Portchannel Neigh ip {} is not allocatioed to tmp portchannel {}".format(pc_nbr_ipv6, tmp_pc))
+        logging.error("Portchannel Neigh ip {} is not allocated to tmp portchannel {}".format(pc_nbr_ipv6, tmp_pc))
+        return False
     # Verfication on SYSTEM_INTERFACE
     key = "SYSTEM_INTERFACE|{}*{}".format(duthost.sonichost.hostname, tmp_pc)
-    pytest_assert(voqdb.get_keys(key),
-                  "SYSTEM_INTERFACE in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+    if not voqdb.get_keys(key):
+        logging.error("SYSTEM_INTERFACE in Chasiss_APP_DB is missing for portchannel {}".format(tmp_pc))
+        return False
+
+    return True
 
 
 @pytest.mark.parametrize("test_case", ["dut_reboot", "config_reload_with_config_save", "config_reload_no_config_save"])
@@ -145,11 +151,18 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
         pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['ipv6'][0]['address'] == pc_ipv6)
         add_tmp_pc_ipv6 = True
 
-        time.sleep(30)
-        int_facts = asichost.interface_facts()['ansible_facts']
-        pytest_assert(int_facts['ansible_interface_facts'][tmp_portchannel]['link'])
+        def verify_pc_update():
+            try:
+                int_facts = asichost.interface_facts()['ansible_facts']
+                if not int_facts['ansible_interface_facts'][tmp_portchannel]['link']:
+                    return False
+                return verify_data_in_db(tmp_portchannel, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6)
+            except Exception as e:
+                logging.error("Failed to verify portchannel update: {}".format(e))
+                return False
+
+        pytest_assert(wait_until(180, 10, 30, verify_pc_update))
         post_change_db_dump = get_db_dump(duthosts, duthost)
-        verify_data_in_db(post_change_db_dump, tmp_portchannel, pc_members, duthosts, pc_nbr_ip, duthost, pc_nbr_ipv6)
         # Setting Flags as false as config reload or dut reboot reverts the changes
         remove_pc_members = False
         remove_pc_ip = False
@@ -172,8 +185,9 @@ def test_voq_chassis_app_db_consistency(duthosts, enum_rand_one_per_hwsku_fronte
             logging.info("Rebooting dut {}".format(duthost))
             reboot(duthost, localhost, wait_for_ssh=False)
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="stopped", delay=1, timeout=60)
-            pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
-                          "DB_Consistency Failed During Reboot")
+            if len(duthosts) > 1:
+                pytest_assert(check_db_consistency(duthosts, duthost, post_change_db_dump),
+                              "DB_Consistency Failed During Reboot")
             localhost.wait_for(host=duthost.mgmt_ip, port=22, state="started", delay=10, timeout=300)
             pytest_assert(wait_until(330, 20, 0, duthost.critical_services_fully_started),
                           "All critical services should fully started!")

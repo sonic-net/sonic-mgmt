@@ -1,13 +1,12 @@
 import pytest
 import logging
-import grpc
-import time
-import os
-import sys
 
-from tests.common.helpers.gnmi_utils import GNMIEnvironment
+from tests.gnmi.grpc_utils import get_gnoi_system_stubs, create_grpc_channel
 
-pytestmark = [pytest.mark.topology("any")]
+pytestmark = [
+    pytest.mark.topology("any"),
+    pytest.mark.disable_memory_utilization
+]
 
 
 """
@@ -15,54 +14,24 @@ This module contains tests for the gNOI System Services, using gRPC python API.
 """
 
 
-def _get_gnoi_stubs():
-    PROTO_ROOT = "gnmi/protos"
-    sys.path.append(os.path.abspath(PROTO_ROOT))
-    from gnoi.system import system_pb2_grpc, system_pb2
-    return system_pb2_grpc, system_pb2
-
-
-system_pb2_grpc, system_pb2 = _get_gnoi_stubs()
+system_pb2_grpc, system_pb2 = get_gnoi_system_stubs()
 
 
 def test_gnoi_system_time(duthosts, rand_one_dut_hostname):
     """
-    Verify the gNOI System Time API returns the current system time in valid JSON format.
+    Verify the gNOI System Time API returns the current system time.
     """
     duthost = duthosts[rand_one_dut_hostname]
 
-    # Get DUT gRPC server address and port
-    ip = duthost.mgmt_ip
-    env = GNMIEnvironment(duthost, GNMIEnvironment.GNMI_MODE)
-    port = env.gnmi_port
-    target = f"{ip}:{port}"
+    # Get device time in seconds first (before gRPC operations)
+    device_time_result = duthost.shell("date +%s", module_ignore_errors=True)
+    device_time_s = int(device_time_result["stdout"].strip())
+    device_time_ns = device_time_s * int(1e9)
 
-    # Load the TLS certificates
-    with open("gnmiCA.pem", "rb") as f:
-        root_certificates = f.read()
-    with open("gnmiclient.crt", "rb") as f:
-        client_certificate = f.read()
-    with open("gnmiclient.key", "rb") as f:
-        client_key = f.read()
+    # Create gRPC channel (no longer a fixture to avoid SSL state sharing)
+    channel = create_grpc_channel(duthost)
 
-    # Create SSL credentials
-    credentials = grpc.ssl_channel_credentials(
-        root_certificates=root_certificates,
-        private_key=client_key,
-        certificate_chain=client_certificate,
-    )
-
-    # Create gRPC channel
-    logging.info("Creating gRPC secure channel to %s", target)
-
-    with grpc.secure_channel(target, credentials) as channel:
-        try:
-            grpc.channel_ready_future(channel).result(timeout=10)
-            logging.info("gRPC channel is ready")
-        except grpc.FutureTimeoutError as e:
-            logging.error("Error: gRPC channel not ready: %s", e)
-            pytest.fail("Failed to connect to gRPC server")
-
+    try:
         # Create gRPC stub
         stub = system_pb2_grpc.SystemStub(channel)
 
@@ -72,11 +41,16 @@ def test_gnoi_system_time(duthosts, rand_one_dut_hostname):
 
         # Log the response
         logging.info("Received response: %s", response)
+        logging.info("Device time from shell: %d", device_time_ns)
 
-        # Assert the time falls into a reasonable interval
-        current_time_ns = int(time.time() * 1e9)
+        # Assert the gNOI time is close to device shell time
         reasonable_interval_ns = 60 * 1e9  # 60 seconds in nanoseconds
 
-        assert (
-            abs(response.time - current_time_ns) < reasonable_interval_ns
-        ), f"System time {response.time} is not within the reasonable interval of current time {current_time_ns}"
+        time_diff = abs(response.time - device_time_ns)
+        assert time_diff < reasonable_interval_ns, (
+            f"gNOI time {response.time} differs from device time "
+            f"{device_time_ns} by {time_diff}ns (max: {reasonable_interval_ns}ns)"
+        )
+    finally:
+        # Always close the channel to avoid resource leaks
+        channel.close()

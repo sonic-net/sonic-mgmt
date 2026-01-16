@@ -238,14 +238,22 @@ def gnmi_set(duthost, ptfhost, delete_list, update_list, replace_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
     cmd += '-rcert /root/%s ' % (env.gnmi_ca_cert)
     cmd += '-pkey /root/%s ' % (env.gnmi_client_key)
     cmd += '-cchain /root/%s ' % (env.gnmi_client_cert)
-    cmd += '-m set-update '
+    if len(update_list) > 0:
+        cmd += '-m set-update '
+    elif len(delete_list) > 0:
+        cmd += '-m set-delete '
+    elif len(replace_list) > 0:
+        cmd += '-m set-replace '
+    else:
+        logger.info("PTF GNMI no items to operate on")
+        return
     xpath = ''
     xvalue = ''
     for path in delete_list:
@@ -292,7 +300,7 @@ def gnmi_get(duthost, ptfhost, path_list):
     env = GNMIEnvironment(duthost)
     ip = duthost.mgmt_ip
     port = env.gnmi_port
-    cmd = 'python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
+    cmd = '/root/env-python3/bin/python /root/gnxi/gnmi_cli_py/py_gnmicli.py '
     cmd += '--timeout 30 '
     cmd += '-t %s -p %u ' % (ip, port)
     cmd += '-xo sonic-db '
@@ -341,14 +349,14 @@ def apply_messages(
 
         if set_db:
             if proto_utils.ENABLE_PROTO:
-                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
+                path = f"/DPU_APPL_DB/dpu{dpu_index}/{gnmi_key}:$/root/{filename}"
             else:
-                path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}:@/root/{filename}"
+                path = f"/DPU_APPL_DB/dpu{dpu_index}/{gnmi_key}:@/root/{filename}"
             with open(env.work_dir + filename, "wb") as file:
                 file.write(message.SerializeToString())
             update_list.append(path)
         else:
-            path = f"/APPL_DB/dpu{dpu_index}/{gnmi_key}"
+            path = f"/DPU_APPL_DB/dpu{dpu_index}/{gnmi_key}"
             delete_list.append(path)
 
     write_gnmi_files(localhost, duthost, ptfhost, env, delete_list, update_list, max_updates_in_single_cmd)
@@ -356,7 +364,7 @@ def apply_messages(
 
 
 def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=None,
-                    wait_after_apply=5, max_updates_in_single_cmd=1024):
+                    wait_after_apply=5, max_updates_in_single_cmd=1024, host='localhost'):
     """
     Apply dash configuration with gnmi client
 
@@ -392,9 +400,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 update_cnt += 1
                 filename = "update%u" % update_cnt
                 if proto_utils.ENABLE_PROTO:
-                    message = proto_utils.json_to_proto(k, v)
+                    message = proto_utils.parse_dash_proto(k, v)
                     with open(env.work_dir+filename, "wb") as file:
-                        file.write(message)
+                        file.write(message.SerializeToString())
                 else:
                     text = json.dumps(v)
                     with open(env.work_dir+filename, "w") as file:
@@ -402,9 +410,9 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
                 if proto_utils.ENABLE_PROTO:
-                    path = "/APPL_DB/dpu1/%s:$/root/%s" % (k, filename)
+                    path = "/DPU_APPL_DB/%s/%s:$/root/%s" % (host, k, filename)
                 else:
-                    path = "/APPL_DB/dpu1/%s:@/root/%s" % (k, filename)
+                    path = "/DPU_APPL_DB/%s/%s:@/root/%s" % (host, k, filename)
                 update_list.append(path)
         elif operation["OP"] == "DEL":
             for k, v in operation.items():
@@ -412,7 +420,7 @@ def apply_gnmi_file(localhost, duthost, ptfhost, dest_path=None, config_json=Non
                     continue
                 keys = k.split(":", 1)
                 k = keys[0] + "[key=" + keys[1] + "]"
-                path = "/APPL_DB/dpu1/%s" % (k)
+                path = "/DPU_APPL_DB/%s/%s" % (host, k)
                 delete_list.append(path)
         else:
             logger.info("Invalid operation %s" % operation["OP"])

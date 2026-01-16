@@ -77,3 +77,11 @@
         sonic/fanout_sonic_202405.yml
       when: dry_run is not defined and incremental is not defined
   when: "'2024' in fanout_sonic_version['build_version']"
+
+- name: deploy SONiC fanout with image version 202505
+  block:
+    - name: deploy SONiC fanout not incremental and not dry_run with 202505 images
+      include_tasks:
+        sonic/fanout_sonic_202505.yml
+      when: dry_run is not defined and incremental is not defined
+  when: "'2025' in fanout_sonic_version['build_version']"
