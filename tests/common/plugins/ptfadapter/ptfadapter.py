@@ -155,12 +155,9 @@ class PtfTestAdapter(BaseTest):
             Remove any previously registered Mask counters to avoid cumulative match overhead.
             """
             try:
-                if hasattr(dp, "mask_rx_cnt"):
-                    dp.mask_rx_cnt.clear()
-                if hasattr(dp, "mask_tx_cnt"):
-                    dp.mask_tx_cnt.clear()
-                if hasattr(dp, "masked_packets"):
-                    dp.masked_packets.clear()
+                dp.mask_rx_cnt.clear()
+                dp.mask_tx_cnt.clear()
+                dp.masked_packets.clear()
             except Exception:
                 pass
         dp.drain = drain
