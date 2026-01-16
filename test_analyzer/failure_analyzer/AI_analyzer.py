@@ -1846,19 +1846,19 @@ Provide a brief explanation for your decision.
                             return kusto_data_list, duplicated_df.to_dict(orient='records')
                     else:
                         logger.warning("AI comparison with active ICM list returned no results")
-                        return None, None
+                        return [], []
                 else:
                     logger.warning("AI analysis returned no results")
-                    return None, None
+                    return [], []
             else:
                 logger.warning("No flaky failure cases found for AI analysis")
-                return None, None
+                return [], []
 
         except Exception as e:
             logger.error(f"Error during AI-based flaky case analysis: {str(e)}")
             logger.error(f"Full traceback:\n{traceback.format_exc()}")
             logger.info("Continuing with regular analysis workflow...")
-            return None, None
+            return [], []
 
         finally:
             logger.info("=================AI-based flaky case analysis completed=================")
