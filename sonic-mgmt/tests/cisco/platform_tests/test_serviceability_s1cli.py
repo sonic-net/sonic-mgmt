@@ -21,7 +21,7 @@ s1_cli_dict_general = {
         "eth-port-mix-mode", "object-group-pcl-entries"],
     "switch": ["properties","status", "usage", "ports", "mac-table", "multicast-routes", "copc", "attachment-circuits","mac-table-detailed"],
     "vrf": ["next-hops usage", "for-us", "ports details", "port-detailed", "hosts usage", "router-usage", "lpm-usage", "status", 
-        "route-table", "nat", "multicast-routes", "router-macs usage", "properties", "l3-lpts"],
+        "route-table", "nat", "multicast-routes", "router-macs usage", "properties"],
     "multicast": ["l3-mcg members", "l2-mcg members"],
     "cpu-ports": ["counters"],
     "device": ["management-ports status", "ecc-counters", "properties",
