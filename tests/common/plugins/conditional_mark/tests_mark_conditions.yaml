@@ -2,43 +2,41 @@
 #####        Define Anchors       #####
 #######################################
 
-# yaml files don't let an anchor be defined outside a yaml entry, so this block just
-# creates an entry for pre-test but ensure it will always run, then the other
-# conditions can just be used to define anchors for further use in this file
-
-test_pretest.py:
-  skip:
-    reason: "Dummy entry to allow anchors to be defined at the top of this file"
-    conditions_logical_operator: and
-    conditions:
-      - "False" # Ensure pretest always runs
-      - &lossyTopos |
-          topo_name in [
-            't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
-            't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
-            't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
-            't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
-            't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
-            't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
-            't1-isolated-d224u8', 't1-isolated-v6-d224u8',
-            't1-isolated-d28u1', 't1-isolated-v6-d28u1',
-            't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
-            't1-isolated-d448u16', 't1-isolated-v6-d448u16',
-            't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
-            't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
-      - &noVxlanTopos |
-          topo_name in [
-            't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
-            't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
-            't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
-            't1-isolated-d56u2', 't1-isolated-d56u1-lag',
-            't1-isolated-d448u15-lag', 't1-isolated-d128',
-            't1-isolated-d32', 't1-isolated-v6-d56u2',
-            't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
-            't1-isolated-v6-d128' ]
+# This entry should not match any tests, it is just for defining anchors
+# yaml files don't let an anchor be defined outside a yaml entry, so this entry just
+# creates an entry defining anchors by &anchor_name. The anchors are like variables that can be reused
+# in later conditions by syntax like *anchor_name.
+# The name of this entry can ensure that is is sorted to the top of the file.
+# Because it does not match any tests, so the schema of this entry can be flexible.
+0000aaaa_dummy_entry:
+  anchors:
+    - &lossyTopos |
+        topo_name in [
+          't0-isolated-d128u128s1', 't0-isolated-v6-d128u128s1',
+          't0-isolated-d128u128s2', 't0-isolated-v6-d128u128s2',
+          't0-isolated-d16u16s1', 't0-isolated-v6-d16u16s1',
+          't0-isolated-d16u16s2', 't0-isolated-v6-d16u16s2',
+          't0-isolated-d256u256s2', 't0-isolated-v6-d256u256s2',
+          't0-isolated-d32u32s2', 't0-isolated-v6-d32u32s2',
+          't1-isolated-d224u8', 't1-isolated-v6-d224u8',
+          't1-isolated-d28u1', 't1-isolated-v6-d28u1',
+          't1-isolated-d448u15-lag', 't1-isolated-v6-d448u15-lag',
+          't1-isolated-d448u16', 't1-isolated-v6-d448u16',
+          't1-isolated-d56u1-lag', 't1-isolated-v6-d56u1-lag',
+          't1-isolated-d56u2', 't1-isolated-v6-d56u2' ]
+    - &noVxlanTopos |
+        topo_name in [
+          't0-isolated-d32u32s2', 't0-isolated-d256u256s2',
+          't0-isolated-d96u32s2', 't0-isolated-v6-d32u32s2',
+          't0-isolated-v6-d256u256s2', 't0-isolated-v6-d96u32s2',
+          't1-isolated-d56u2', 't1-isolated-d56u1-lag',
+          't1-isolated-d448u15-lag', 't1-isolated-d128',
+          't1-isolated-d32', 't1-isolated-v6-d56u2',
+          't1-isolated-v6-d56u1-lag', 't1-isolated-v6-d448u15-lag',
+          't1-isolated-v6-d128' ]
 
 #######################################
-#####          cutsom_acl         #####
+#####          custom_acl         #####
 #######################################
 acl:
   skip:
@@ -281,6 +279,12 @@ bfd/test_bfd_traffic.py:
 #######################################
 #####            bgp              #####
 #######################################
+bgp/test_bgp_aggregate_address.py:
+  skip:
+    reason: "Skip for multi-ASIC testbed"
+    conditions:
+      - "is_multi_asic==True"
+
 bgp/test_bgp_allow_list.py:
   skip:
     reason: "Only supported on t1 topo. But Cisco 8111 or 8122 T1(compute ai) platform is not supported."
@@ -315,6 +319,12 @@ bgp/test_bgp_bbr_default_state.py::test_bbr_disabled_constants_yml_default:
     reason: "Skip for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
+
+bgp/test_bgp_bounce.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20753"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20753 and '-v6-' in topo_name"
 
 bgp/test_bgp_dual_asn.py::test_bgp_dual_asn_v4:
   skip:
@@ -432,6 +442,18 @@ bgp/test_bgp_session.py::test_bgp_session_interface_down:
     conditions:
       - "https://github.com/sonic-net/sonic-mgmt/issues/19916 and '-v6-' in topo_name"
 
+bgp/test_bgp_session_flap.py::test_bgp_multiple_session_flaps:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20755"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20755 and '-v6-' in topo_name"
+
+bgp/test_bgp_session_flap.py::test_bgp_single_session_flaps:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20755"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20755 and '-v6-' in topo_name"
+
 bgp/test_bgp_slb.py:
   skip:
     reason: "Skip over topologies which doesn't support slb and this test is not run on this topology currently"
@@ -492,6 +514,16 @@ bgp/test_bgp_suppress_fib.py:
     conditions:
       - "release in ['201811', '201911', '202012', '202205', '202211', '202305', '202311', '202405', 'master']"
       - "asic_type in ['vs'] and https://github.com/sonic-net/sonic-mgmt/issues/14449"
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20756"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20756 and '-v6-' in topo_name"
+
+bgp/test_bgp_suppress_fib.py::test_credit_loop:
+  xfail:
+    reason: "xfail for Mellanox platform due to https://github.com/sonic-net/sonic-buildimage/issues/24679"
+    conditions:
+      - "https://github.com/sonic-net/sonic-buildimage/issues/24679 and asic_type in ['mellanox', 'nvidia']"
 
 bgp/test_bgp_update_replication.py:
   xfail:
@@ -510,6 +542,12 @@ bgp/test_bgpmon.py:
     reason: "Not supported on T2 topology or topology backend"
     conditions:
       - "'backend' in topo_name or topo_type in ['t2']"
+
+bgp/test_bgpmon.py::test_bgpmon:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20754"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20754 and '-v6-' in topo_name"
 
 bgp/test_bgpmon_v6.py::test_bgpmon_no_ipv6_resolve_via_default:
   skip:
@@ -1032,6 +1070,7 @@ dhcp_relay/test_dhcpv6_relay.py::test_interface_binding:
       - "release in ['201911', '202106']"
 
 #######################################
+
 #####         dhcp_server        #####
 #######################################
 dhcp_server:
@@ -1039,6 +1078,14 @@ dhcp_server:
     reason: "It is skipped for '202412' for now"
     conditions:
       - "release in ['202412']"
+
+#####             disk            #####
+#######################################
+disk/test_disk_exhaustion.py:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20759"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20759 and '-v6-' in topo_name"
 
 #######################################
 #####         drop_packets        #####
@@ -1444,9 +1491,10 @@ ecmp/test_fgnhg.py:
 #######################################
 #####         everflow            #####
 #######################################
-everflow/test_everflow_ipv6.py::TestIngressEverflowIPv6::test_any_protocol[erspan_ipv4-cli-default]:
-  skip:
-    reason: "Skip for IPv6-only topologies"
+everflow/test_everflow_ipv6.py::Test(In|E)gressEverflowIPv6::test_[a-zA-Z0-9_]+\[erspan_ipv4-:
+  regex: true
+  xfail:
+    reason: "Xfail for IPv6-only topologies"
     conditions:
       - "'-v6-' in topo_name"
 
@@ -1761,6 +1809,12 @@ everflow/test_everflow_per_interface.py:
       - "'dualtor' in topo_name"
       - "platform in ['x86_64-8800_lc_48h_o-r0', 'x86_64-8800_lc_48h-r0']"
       - "(is_multi_asic==True) and https://github.com/sonic-net/sonic-buildimage/issues/11776"
+
+everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv4-erspan_ipv4-default]:
+  skip:
+    reason: "Skip for IPv6-only topologies"
+    conditions:
+      - "'-v6-' in topo_name"
 
 everflow/test_everflow_per_interface.py::test_everflow_packet_format[ipv4-erspan_ipv6-default]:
   skip:
@@ -2470,6 +2524,14 @@ generic_config_updater/add_cluster/test_add_cluster.py:
     conditions:
       - asic_type in ['vs']
 
+generic_config_updater/add_cluster/test_port_speed_change.py:
+  skip:
+    reason: "This test case right now only supported for Nokia Chassis"
+    conditions_logical_operator: "OR"
+    conditions:
+      - "hwsku not in ['Nokia-IXR7250E-36x400G']"
+      - "asic_type in ['vs']"
+
 generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
   skip:
     reason: "Cisco 8122 backend compute ai platform is not supported. Skip on VS platform due to low success rate."
@@ -2480,9 +2542,9 @@ generic_config_updater/test_bgp_prefix.py::test_bgp_prefix_tc1_suite:
 
 generic_config_updater/test_bgp_speaker.py::test_bgp_speaker_tc1_test_config:
   xfail:
-    reason: "xfail for IPv6-only topologies, still have IPv4 function used"
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20757"
     conditions:
-      - "https://github.com/sonic-net/sonic-mgmt/issues/19638 and '-v6-' in topo_name"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20757 and '-v6-' in topo_name"
 
 generic_config_updater/test_dhcp_relay.py:
   skip:
@@ -3174,8 +3236,7 @@ high_frequency_telemetry:
     reason: "High frequency telemetry isn't supported in this platform"
     conditions_logical_operator: or
     conditions:
-      - "'nvidia_sn5600' not in platform"
-      - "'nvidia_sn5640' not in platform"
+      - "platform not in ['x86_64-nvidia_sn5600-r0', 'x86_64-nvidia_sn5640-r0', 'x86_64-arista_7060x6_64pe_b']"
 
 #####          http              #####
 #######################################
@@ -3419,8 +3480,10 @@ lldp/test_lldp.py::test_lldp_neighbor_post_swss_reboot:
       - "topo_type in ['m0', 'mx', 'm1']"
   xfail:
     reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions_logical_operator: or
     conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20377 and asic_type in ['mellanox', 'nvidia']"
 
 lldp/test_lldp_syncd.py::test_lldp_entry_table_after_lldp_restart:
   xfail:
@@ -3486,17 +3549,9 @@ memory_checker/test_memory_checker.py:
 #######################################
 mpls:
   skip:
-    reason: "Skip running on dualtor testbed and '202412' for now"
-    conditions_logical_operator: "OR"
+    reason: "MPLS feature is not enabled with image version, skipped"
     conditions:
-      - "release in ['202412']"
-      - "'dualtor' in topo_name"
-
-mpls/test_mpls.py:
-  skip:
-    reason: "MPLS TCs are not supported on Barefoot plarforms"
-    conditions:
-      - "asic_type in ['barefoot']"
+      - "'mpls' not in feature_status"
 
 #######################################
 #####           mvrf              #####
@@ -3719,6 +3774,12 @@ pfcwd/test_pfcwd_all_port_storm.py::TestPfcwdAllPortStorm::test_all_port_storm_r
       - "https://github.com/sonic-net/sonic-mgmt/issues/21067 and 't0-56' in topo_type and asic_type in ['mellanox']"
       - "https://github.com/sonic-net/sonic-mgmt/issues/21082 and topo_name in ['t0-88-o8c80', 't1-48-lag', 't1-lag', 't1-32-lag', 't1-64-lag'] and asic_type in ['mellanox']"
 
+pfcwd/test_pfcwd_cli.py:
+  xfail:
+     reason: "Xfail due to https://github.com/sonic-net/sonic-mgmt/issues/21466 on Mellanox platform"
+     conditions:
+        - "https://github.com/sonic-net/sonic-mgmt/issues/21466 and asic_type in ['mellanox']"
+
 pfcwd/test_pfcwd_function.py::TestPfcwdFunc::test_pfcwd_actions:
   xfail:
     reason: "On Dualtor AA setup, test_pfcwd_actions is not stable due to github issue https://github.com/sonic-net/sonic-mgmt/issues/15387"
@@ -3824,6 +3885,7 @@ process_monitoring/test_critical_process_monitoring.py::test_orchagent_heartbeat
     conditions:
       - "'t1' in topo_name"
       - "release in ['202412']"
+      - "is_smartswitch==True" # t0 and t1 should all be skipped on smartswitch
 
 #######################################
 #####     ptftests      #####
@@ -4696,13 +4758,16 @@ srv6/test_srv6_basic_sanity.py::test_traffic_check_normal:
 
 srv6/test_srv6_dataplane.py:
   skip:
-    reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128. Or test case has issue on the t0-isolated-d256u256s2 topo."
+    reason: "Only target mellanox and brcm platform with 202412 image at this time. Skip for non Arista-7060X6-64PE-B-* TH5 SKUs. Skip for t0-isolated-d96u32, t1-isolated-d32/128."
     conditions_logical_operator: or
     conditions:
       - "asic_type not in ['mellanox', 'broadcom', 'vpp']"
       - "release not in ['202412'] and asic_type not in ['vpp']"
       - "'Arista-7060X6-64PE' in hwsku and 'Arista-7060X6-64PE-B' not in hwsku"
       - "topo_name in ['t0-isolated-d96u32s2', 't1-isolated-d128', 't1-isolated-d32']"
+  xfail:
+    reason: "Test case has issue on the t0-isolated-d256u256s2 topo."
+    conditions:
       - "'t0-isolated-d256u256s2' in topo_name and platform in ['x86_64-nvidia_sn5640-r0']"
 
 srv6/test_srv6_static_config.py:
@@ -4888,6 +4953,10 @@ telemetry/test_events.py:
       - https://github.com/sonic-net/sonic-buildimage/issues/19943
 
 telemetry/test_events.py::test_events:
+  xfail:
+    reason: "xfail for IPv6-only topologies, issue https://github.com/sonic-net/sonic-mgmt/issues/20758"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/20758 and '-v6-' in topo_name"
   skip:
     reason: "dut ipv6 mgmt ip not supported"
     conditions_logical_operator: and
@@ -5201,6 +5270,18 @@ vxlan/test_vnet_bgp_route_precedence.py:
     conditions:
       - "https://github.com/sonic-net/sonic-buildimage/issues/23824"
 
+vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv4-outer_ipv4]:
+  xfail:
+    reason: "Test xfail due to issue #21780"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21780 and '-v6-' in topo_name and asic_type in ['mellanox']"
+
+vxlan/test_vnet_decap.py::test_vnet_decap[inner_ipv6-outer_ipv4]:
+  xfail:
+    reason: "Test xfail due to issue #21780"
+    conditions:
+      - "https://github.com/sonic-net/sonic-mgmt/issues/21780 and '-v6-' in topo_name and asic_type in ['mellanox']"
+
 vxlan/test_vnet_route_leak.py:
   skip:
     reason: "Test skipped due to issue #8374"
@@ -5348,6 +5429,12 @@ vxlan/test_vxlan_decap.py:
     conditions:
       - "topo_name in ['t0-isolated-d16u16s1','t0-isolated-d32u32s2'] and https://github.com/sonic-net/sonic-buildimage/issues/22056"
 
+vxlan/test_vxlan_decap_ttl.py:
+  skip:
+    reason: "VxLAN tunnel TTL decap mode test is not supported on multi-ASIC platform. Also this test can only run and currently passes only on some platforms."
+    conditions:
+      - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn2700-r0', 'x86_64-mlnx_msn2700a1-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+
 vxlan/test_vxlan_ecmp.py:
   skip:
     reason: "VxLAN ECMP test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
@@ -5380,9 +5467,11 @@ vxlan/test_vxlan_ecmp_vnet_ping.py:
 
 vxlan/test_vxlan_multi_tunnel.py:
   skip:
-    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms."
+    reason: "VxLAN multi-tunnel test is not yet supported on multi-ASIC platform. Also this test can only run on some platforms. The test is not supported on SPC3 devices due to missing feature"
+    conditions_logical_operator: OR
     conditions:
       - "(is_multi_asic == True) or (platform not in ['x86_64-8102_64h_o-r0', 'x86_64-8101_32fh_o-r0', 'x86_64-mlnx_msn4600c-r0', 'x86_64-kvm_x86_64-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0', 'x86_64-8102_28fh_dpu_o-r0'])"
+      - "platform in ('x86_64-mlnx_msn4600c-r0', 'x86_64-mlnx_msn4700-r0', 'x86_64-nvidia_sn4280-r0')"
 
 vxlan/test_vxlan_route_advertisement.py:
   skip:
