@@ -81,7 +81,7 @@ def eni_counter_setup(dpuhost):
         set_eni_counter_status(dpuhost, "disable")
 
 
-def parse_meter_counters(dpuhost):
+def get_eni_meter_counters(dpuhost):
     _sai_meter_counters_dict = {}
 
     cmd_get_counter_meter_name_map = 'sonic-db-cli COUNTERS_DB KEYS "*"'
@@ -109,10 +109,4 @@ def parse_meter_counters(dpuhost):
                               'rx_bytes': _meter_stats['SAI_METER_BUCKET_ENTRY_STAT_INBOUND_BYTES'],
                               'tx_bytes': _meter_stats['SAI_METER_BUCKET_ENTRY_STAT_OUTBOUND_BYTES']
                               }
-    return _sai_meter_counters_dict
-
-
-def get_eni_meter_counters(dpuhost):
-    _sai_meter_counters_dict = parse_meter_counters(dpuhost)
-    logger.info(f'SAI Meterclass stats: {_sai_meter_counters_dict}')
     return _sai_meter_counters_dict

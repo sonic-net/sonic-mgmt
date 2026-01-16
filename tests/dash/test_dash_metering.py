@@ -207,7 +207,14 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
         # need a lot of packets to check ECMP distribution
         num_packets = 1000
 
+    # For PL Rx packets, in case of PT (6to4), adjust packet length field used
+    # for metering and vnic stats such that the translation is also taken into consideration.
+    # Default PL rx inner packet length is 100 bytes.
+    # Expected Meter Rx Bytes = 100 - 20(IPv6 headerlen 40 bytes - IPv4 header len 20 bytes)
+    # so expected Rx packet meter is 80 bytes.
     exp_rx_bytes = num_packets * 80
+
+    # Default Tx inner packet length is 100 bytes
     exp_tx_bytes = num_packets * 100
 
     # Associate Route-Group2 with ENI
@@ -293,7 +300,7 @@ def test_fnic_dash_metering(localhost, duthost, ptfhost, ptfadapter, dash_pl_con
     logger.info(f'Expecting meterclass stats {exp_meterclass} to be incremented for ENI {eni_oid}')
 
     # Get DPU SAI Meter statistics
-    meter_stats = get_eni_meter_counters(dpuhost, eni_oid)
+    meter_stats = get_eni_meter_counters(dpuhost)
     logger.info(f'Actual DPU Meterclass stats: {meter_stats}')
 
     # verify Meter class stats
