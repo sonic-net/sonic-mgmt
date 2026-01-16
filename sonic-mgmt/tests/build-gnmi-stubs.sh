@@ -34,8 +34,10 @@ echo "Creating directory: $GENERATED_DIR"
 mkdir -p "$GENERATED_DIR"
 
 # Step 1: Clone the repository
+export https_proxy="http://proxy.esl.cisco.com:80"
 echo "Cloning https://github.com/openconfig/gnmi.git into $TARGET_DIR"
 git clone https://github.com/openconfig/gnmi.git "$TARGET_DIR/gnmi"
+unset https_proxy
 
 # Step 2: Generate gRPC stubs
 echo "Generating gRPC stubs..."
