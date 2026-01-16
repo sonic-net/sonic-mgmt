@@ -4934,6 +4934,15 @@ test_pktgen.py:
       - "topo_type in ['m0', 'mx', 'm1']"
 
 #######################################
+#####         pretest             #####
+#######################################
+test_pretest.py::test_disable_rsyslog_rate_limit:
+  skip:
+    reason: "We don't need to disable the rate limit on vs testbed"
+    conditions:
+      - "asic_type in ['vs']"
+
+#######################################
 #####         vs_chassis          #####
 #######################################
 test_vs_chassis_setup.py:
