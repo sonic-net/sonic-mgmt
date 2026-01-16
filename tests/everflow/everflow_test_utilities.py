@@ -1090,7 +1090,7 @@ class BaseEverflowTest(object):
 
                 if isinstance(result, bool):
                     logging.info("Using dummy testutils to skip traffic test, skip following checks")
-                    return
+                    return num_pkts_sent
 
                 _, received_packet = result
                 logging.info("Received packet: %s", packet.Ether(received_packet).summary())
