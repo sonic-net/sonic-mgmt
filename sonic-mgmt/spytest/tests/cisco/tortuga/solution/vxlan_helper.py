@@ -1,3 +1,4 @@
+from collections import defaultdict
 import pytest
 import yaml
 from spytest import st, tgapi, SpyTestDict
@@ -13,6 +14,7 @@ import natsort
 import apis.routing.ip as ip_obj
 import apis.routing.vrf as vrf_obj
 import apis.switching.vlan as vlan_obj
+from spytest.tgen.tg import get_ixnet
 import sys
 import importlib
 import utilities.utils as utils_obj
@@ -183,9 +185,10 @@ def generate_host_ip(l2vni_intf_dict, version):
             ip_list = []
             for item in value:
                 ip_list.append(start_ip)
-                start_ip = str(ipaddress.ip_address(unicode(start_ip)) + 256)
+                start_ip = str(ipaddress.ip_address(str(start_ip)) + 256)
             host_dict[node] =  ip_list   
-            start_ip = str(ipaddress.ip_address(unicode(temp_ip)) + 10)
+            start_ip = str(ipaddress.ip_address(str(temp_ip)) + 10)
+            
     return host_dict
 
 def generate_svi_ip(nodes, version, vni):
@@ -228,7 +231,7 @@ def generate_svi_ip(nodes, version, vni):
             temp_list =[]
             for i in range(count[node]):
                 temp_list.append(ip_start)
-                ip_start = str(ipaddress.ip_address(unicode(ip_start)) + 256)
+                ip_start = str(ipaddress.ip_address(str(ip_start)) + 256)
             ip_start = get_new_ip_range(str(temp_ip))
             temp_ip = ip_start
             svi_dict[node] = temp_list
@@ -1318,7 +1321,7 @@ def generate_sag_hosts(l2vni_intf_dict,svi_dict,version = "ipv4", custom_mac_ena
                     host_dict[node][item][vlan] = {}
                     host_dict[node][item][vlan]['vlan']=vlan
                     host_dict[node][item][vlan]['gateway'] = svi_ip
-                    host_dict[node][item][vlan]['host_ip'] = str(ipaddress.ip_address(unicode(svi_ip)) + temp_inc)
+                    host_dict[node][item][vlan]['host_ip'] = str(ipaddress.ip_address(str(svi_ip)) + temp_inc)
                     new_mac = generate_new_mac(start_mac,vlan)
                     host_dict[node][item][vlan]['src_mac'] = new_mac
                 start_mac = generate_new_mac(start_mac,inc=1)
@@ -1469,12 +1472,12 @@ def start_stop_protocols(tg_handle,action):
         status = 1
     # Check to see if all sessions are up after start, if down then flap individual ones
     if action == "start":
-        st.wait(20)
+        st.wait(40)
         st.log('Checking protocol sessions for DOWN handles after start/stop...')
         res = tg_handle.tg_protocol_info(handle='', mode='aggregate')
 
         # collect handles that report any sessions_down != '0'
-        down_handles = [h for h, v in res.iteritems() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
+        down_handles = [h for h, v in res.items() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
 
         if down_handles:
             st.log('Flapping protocol sessions for DOWN handles.')
@@ -1485,11 +1488,11 @@ def start_stop_protocols(tg_handle,action):
 
                 st.log("Starting handle")
                 tg_handle.tg_test_control(action='start_protocol', handle=hand)
-            st.wait(5)
+            st.wait(15)
 
             # Re-check after flaps
             res2 = tg_handle.tg_protocol_info(handle='', mode='aggregate')
-            still_down = [h for h, v in res2.iteritems()
+            still_down = [h for h, v in res2.items()
                         if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
             if still_down:
                 st.banner("After flap, some sessions are still DOWN")
@@ -1577,7 +1580,7 @@ def find_l3_traffic_endpoints(host_info_dict, vrf_vlan_dict = {"1":[2,3],"2":[4,
                 for vlan in vlan_list:
                     if int_vlan_attr.get(vlan):
                         temp_dict[interface]['vrf'][vrf].append(vlan)
-                if len(temp_dict[interface]['vrf'][vrf]) is 0:
+                if len(temp_dict[interface]['vrf'][vrf]) == 0:
                     temp_dict[interface]['vrf'].pop(vrf)
     l3_endpoint_dict = {}
     def find_pair(src_vlans,dst_vlans):
@@ -1614,7 +1617,8 @@ def find_l3_traffic_endpoints(host_info_dict, vrf_vlan_dict = {"1":[2,3],"2":[4,
 def create_traffic_item(device_handles, endpoints, topo_handles, transmit_mode="single_burst",
                         version = "ipv4", udp_header = False, multi_dst = None, name_prfx='TI', 
                         circuit_type='default', rx_all_ports=False, 
-                        rate_percent=0, pkts_per_burst=0, frame_size=0):
+                        rate_percent=0, rate_bps=0,  pkts_per_burst=0, frame_size=0, bidirectional=1, 
+                        priority_val=None, pfc_queue_val=None):
     '''
     
     Example: endpoints for bum traffic
@@ -1668,6 +1672,7 @@ def create_traffic_item(device_handles, endpoints, topo_handles, transmit_mode="
         if endpoints[traffic_item].get('src_vrf'):
             name += '_vrf{}'.format(endpoints[traffic_item]['src_vrf'])
         name += '_vlan{}--'.format(endpoints[traffic_item]['src_vlan'])
+        
         if circuit_type == 'raw':
             emulation_src_handle = topo_handles[endpoints[traffic_item]['src_node']][endpoints[traffic_item]['src_int']]['port_handle']
         else:
@@ -1727,7 +1732,7 @@ def create_traffic_item(device_handles, endpoints, topo_handles, transmit_mode="
         kwargs = {
             'name' : name,
             'mode': 'create',
-            'bidirectional': 1,
+            'bidirectional': bidirectional,
             'transmit_mode': transmit_mode,
             'pkts_per_burst': ppb,
             'rate_percent': rate,
@@ -1737,6 +1742,7 @@ def create_traffic_item(device_handles, endpoints, topo_handles, transmit_mode="
             'emulation_dst_handle': emulation_dst_handle,
             'track_by':  'traffic_item',
         }
+
 
         if rx_all_ports: 
             kwargs['emulation_dst_handle'] = list()      
@@ -1781,7 +1787,7 @@ def delete_traffic_item(tg_handle, stream_handle):
     else:
         tg_handle.tg_traffic_config(mode = 'remove', stream_id = stream_handle)
     
-def check_traffic(streams_info, regenerate_traffic_items = False, mode='traffic_item', action='default', 
+def check_traffic(streams_info, regenerate_traffic_items=False, mode='traffic_item', action='default', 
                   stop_start_protocols=True, stop_proto_wait=15, start_proto_wait=15, min_perc=99.8, max_perc=100.2 ):
     '''
     Author:Ramsiddarth Ragurajan (rraguraj@cisco.com)
@@ -1792,11 +1798,11 @@ def check_traffic(streams_info, regenerate_traffic_items = False, mode='traffic_
     stream_list = []
     line = '-'*80
     for item , values in streams_info.items():
-        if values.get('verify_enabled', True):
+        if values.get('verify_enabled', True) and values.get('stream_id'):
             stream_list.append(values['stream_id'])
     tg_handle = streams_info[item]['tg_handle']
     ###Enable streams
-    if action != 'check':
+    if not (action == 'check' or action == 'stop'):
         tg_handle.tg_traffic_config(mode = 'enable', stream_id = stream_list)
 
     ###stop/start all protocols###
@@ -1809,7 +1815,7 @@ def check_traffic(streams_info, regenerate_traffic_items = False, mode='traffic_
         else:
             ###
             res2 = tg_handle.tg_protocol_info(handle='', mode='aggregate')
-            protocols_down = [h for h, v in res2.iteritems() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
+            protocols_down = [h for h, v in res2.items() if isinstance(v, dict) and v.get('aggregate', {}).get('sessions_down', '0') != '0']
             if protocols_down:
                 st.banner("Some sessions are DOWN")
             else:
@@ -1830,7 +1836,7 @@ def check_traffic(streams_info, regenerate_traffic_items = False, mode='traffic_
         return flag
 
     ###Stop Traffic###
-    tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list)
+    tg_handle.tg_traffic_control(action='stop', stream_handle=stream_list, max_wait_timer = '30')
     st.wait(10)
 
     if action == 'stop':
@@ -1869,6 +1875,7 @@ def check_traffic(streams_info, regenerate_traffic_items = False, mode='traffic_
     elif mode == 'flow':
         row_format = '|{:19}|{:15}|{:15}|{:15}|{:10}|'
         for item , stream_info in streams_info.items():
+            if not stream_info.get('stream_id'): continue
             stream_id = stream_info['stream_id']
             if not stream_id.startswith('TI'): continue
 
@@ -1912,6 +1919,8 @@ def check_traffic(streams_info, regenerate_traffic_items = False, mode='traffic_
                 st.log("TRAFFIC ITEM {} FAILED".format(stream_id))
                 flag = False
                   
+    #streams_info['traffic_check_result'] = flag
+    #streams_info['traffic_check_stats'] = traffic_stat
     return flag
 
 def create_lag_handle(lag_name, ports):
@@ -1925,9 +1934,15 @@ def create_lag_handle(lag_name, ports):
         lag_vport_list.append(vport_handle)
 
     st.log("Creating Lag with ports {}".format(port_list))
+    random_bytes = os.urandom(3)
+    random_string = ':'.join(['{:02x}'.format(b) for b in random_bytes])
+    system_id = "00:00:00:" + random_string
     _result_ = tg.tg_emulation_lag_config( mode= "create", port_handle=lag_vport_list, active= "1", 
                                           lag_name= """{}""".format(lag_name),
-                                          protocol_type= "lag_port_lacp")
+                                          lacp_actor_system_id= system_id,
+                                          lacp_send_marker_req_on_lag_change= "0",
+                                          protocol_type= "lag_port_lacp"
+                                          )
     _result_['vport_handles'] = lag_vport_list
     return (tg , _result_)
 
@@ -1945,8 +1960,8 @@ def check_hw_or_sim(node):
 
 def clear_counters(nodes):
     for node in nodes:
-        st.config(node, " sonic-clear counters")
-        st.config(node, " sonic-clear tunnelcounters")
+        st.config(node, "sonic-clear counters")
+        st.config(node, "sonic-clear tunnelcounters")
 
 def show_counters(nodes):
     for node in nodes:
@@ -2157,10 +2172,10 @@ def generate_loopback_ip(version = 'v4'):
     for node in node_list:
         if "spine" in node:
             loopback_ip_dict[node] = spine_start_ip
-            spine_start_ip = str(ipaddress.ip_address(unicode(spine_start_ip)) + 1)
+            spine_start_ip = str(ipaddress.ip_address(str(spine_start_ip)) + 1)
         if "leaf" in node:
             loopback_ip_dict[node] = leaf_start_ip
-            leaf_start_ip = str(ipaddress.ip_address(unicode(leaf_start_ip)) + 1)
+            leaf_start_ip = str(ipaddress.ip_address(str(leaf_start_ip)) + 1)
     return loopback_ip_dict
 
 def generate_bgp_underlay_info():
@@ -2188,12 +2203,12 @@ def generate_bgp_underlay_info():
             bgp_info[node]["router_id"] = spine_router_id_start
             bgp_info[node]["as_num"] = spine_as_no_start
             spine_as_no_start+=1
-            spine_router_id_start = str(ipaddress.ip_address(unicode(spine_router_id_start)) + 1)
+            spine_router_id_start = str(ipaddress.ip_address(str(spine_router_id_start)) + 1)
         if "leaf" in node:
             bgp_info[node]["router_id"] = leaf_router_id_start
             bgp_info[node]["as_num"] = leaf_as_no_start
             leaf_as_no_start+=1
-            leaf_router_id_start = str(ipaddress.ip_address(unicode(leaf_router_id_start)) + 1)
+            leaf_router_id_start = str(ipaddress.ip_address(str(leaf_router_id_start)) + 1)
     return bgp_info
 
 def generate_bgp_overlay_info(version = 'v4'):
@@ -2285,11 +2300,11 @@ This function configures a feature on a list of nodes in parallel using threads.
 apply features to a node and logs an error if needed. The inputs needed for this function is the list of nodes and the 
 specific feature. 
 """
-def config_feature_parallel(nodes,feature):
+def config_feature_parallel(nodes, feature, vars=None):
     threads = []
     def thread_helper(node):
         try:
-            config_feature([node], feature)
+            config_feature([node], feature, vars)
         except Exception as e:
             st.log("[Error] config_feature failed for node {} with feature {}: {}".format(node, feature, e))
         
@@ -2300,8 +2315,9 @@ def config_feature_parallel(nodes,feature):
     for thread in threads:
         thread.join()
 
-def config_feature(nodes,feature):
-    vars = st.get_testbed_vars()
+def config_feature(nodes, feature, vars=None):
+    if not vars:
+        vars = st.get_testbed_vars()
     if feature in ['loopback', 'nvo', 'delete_loopback']: 
         loopback_ip = generate_loopback_ip(version = st.getenv("vtep"))
     if feature in ['bgp_underlay', 'bgp_bfd_underlay', 'delete_bgp_config','bgp_l3vni_config','delete_bgp_l3vni_config']:
@@ -2481,7 +2497,7 @@ def compare_exp_actual_data(exp_data, act_data, id_keys):
     st.log(row_format.format('Attribute', 'Expected Value', 'Actual Value', 'Result'))
     st.log(line)
     for exp_row in exp_data:
-        exp_keys = exp_row.keys()
+        exp_keys = list(exp_row.keys())
         # moving id keys to the begining of list
         for id_key in id_keys:
             exp_keys.remove(id_key)
@@ -2800,7 +2816,7 @@ def get_vxlan_vlanvnimap(dut):
     {u'vlan': u'Vlan5', u'vni': u'5005'},
     {u'vlan': u'Vlan6', u'vni': u'5006'}]
     """
-    cmd = 'show vxlan vlanvnimap'
+    cmd = 'sudo show vxlan vlanvnimap'
     cmd_output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
     parsed_output = st.parse_show(dut, cmd, cmd_output, 'show_vxlan_vlanvnimap.tmpl')
 
@@ -2862,7 +2878,7 @@ def get_vxlan_vrfvnimap(dut):
     {u'vni': u'5102', u'vrf': u'Vrf102'},
     {u'vni': u'5103', u'vrf': u'Vrf103'}]
     """
-    cmd = 'show vxlan vrfvnimap'
+    cmd = 'sudo show vxlan vrfvnimap'
     cmd_output = st.show(dut, cmd, skip_tmpl=True, skip_error_check=False)
     parsed_output = st.parse_show(dut, cmd, cmd_output, 'show_vxlan_vrfvnimap.tmpl')
 
@@ -3170,7 +3186,7 @@ class ConfigDB(object):
             #find the dict with the final key in 'keys'
             key_dict = self._find_key_val_dict(keys)
             val = key_dict[keys[-1]]
-            if type(val) is not unicode:
+            if not isinstance(val, str):
                 raise Exception('Leaf value not string : {}'.format(type(val)))
             return val.encode('utf-8')
         except Exception as err:
@@ -3186,8 +3202,8 @@ class ConfigDB(object):
         try:
             #find the dict with the final key in 'keys'
             key_dict = self._find_key_val_dict(keys)
-            key = keys[-1].decode()
-            val = str(value).decode()
+            key = keys[-1].decode() if isinstance(keys[-1], bytes) else keys[-1]
+            val = str(value).decode() if isinstance(str(value), bytes) else str(value)
             key_dict[key] = val
         except Exception as err:
             raise Exception('Invalid key: {}'.format(err))
@@ -3198,6 +3214,9 @@ def get_device_id(device, vars_dict):
         if name == device :
             return id
     else:
+        # check if device is tgen
+        if device in vars_dict.tgen_list:
+            return device
         raise Exception('Device {} not found'.format(device)) 
 
 def get_peer_port_id(port_id, vars_dict, node=None, node_id=None):
@@ -3210,7 +3229,6 @@ def get_peer_port_id(port_id, vars_dict, node=None, node_id=None):
     port_num = match.group(2)
     port_id_1node = '([A-Z]+[0-9]+)'
     port_id_2node = '([A-Z]+[0-9]+)([A-Z]+[0-9]+)'
-
     match_2node =  re.match(port_id_2node, match.group(1))
     match_1node =  re.match(port_id_1node, match.group(1))
     if match_2node:
@@ -3486,8 +3504,9 @@ def start_device_group(port):
     tg_handle.tg_test_control(action="start_protocol", handle=device_group)
     st.wait(10)		##give time to start protocol
 
-def enable_uplink_tracking_configs(nodes, add = True):
-    vars = st.get_testbed_vars()
+def enable_uplink_tracking_configs(nodes, add = True, vars=None):
+    if not vars:
+        vars = st.get_testbed_vars()
     int_config_dict = get_config_interfaces_list(vars)
     for node in nodes:
         for interface in int_config_dict[node]['underlay']:
@@ -3776,12 +3795,13 @@ def get_bgp_summary(dut):
     parsed_output = st.parse_show(dut, cmd, cmd_output, 'show_ip_bgp_summary.tmpl')
     return parsed_output
 
-def get_expected_bgp_summary(dut):
+def get_expected_bgp_summary(dut, vars=None):
     ret_val = list()
     loopback_ip = generate_loopback_ip(st.getenv("vtep"))
     cfg_dict = get_cfg_dict()
     other_dut = []
-    vars = st.get_testbed_vars()
+    if not vars:
+        vars = st.get_testbed_vars()
     int_config_dict = get_config_interfaces_list(vars)
     for intf in int_config_dict[dut]['underlay']:
         ret_val.append({"protocol":"IPv4 Unicast", "neighbor":intf, "state":"Up"})
@@ -3826,9 +3846,10 @@ def get_bfd_summary(dut):
 
     return parsed_output
 
-def get_expected_bfd_summary(dut):
+def get_expected_bfd_summary(dut, vars=None):
     ret_val = list()
-    vars = st.get_testbed_vars()
+    if not vars:
+        vars = st.get_testbed_vars()
     int_config_dict = get_config_interfaces_list(vars)
     for intf in int_config_dict[dut]['underlay']:
         ret_val.append({"interface":intf, "state":"Up"})
@@ -3842,3 +3863,5 @@ def verify_bfd_summary(dut, exp_data, **kwargs):
     """
     act_data = get_bfd_summary(dut)
     compare_exp_actual_data(exp_data, act_data, ['interface', 'state'])
+  
+
